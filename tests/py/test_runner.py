@@ -262,7 +262,8 @@ class TestHostRead:
 
 
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
-CODE = "/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"
+FLUME_17 = pathlib.Path(__file__).parent / "flume-0.17.0"
+CODE ="/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"
 WORDS = ("check-full failed on bolt/crew-runs-its-work-through-flume with change/teams-cross-to-flume-as-their-bolts-land "
          "merged: tests:logic (1 failed: tests/py/test_runner.py::TestStageOf::test_a_crossed_piece_reads_its_stage)")
 
@@ -302,6 +303,40 @@ class TestStageOf:
 
     def test_held_for_its_after_work_it_is_waiting_on_that_work(self):
         assert stage(None, outcome="held") == {"stage": "waiting", "after": ["unit/x", "chore/y"]}
+
+    def test_a_launch_with_no_after_the_runner_holds_is_launching_with_its_words_and_never_held_for_after_work(self):
+        """bolt-plan "A claimed launch is not held for After work": deneb's runner answers launch 88 of
+        every-fleet-mac-joins-the-tailnet-as-a-host, whose launch names no After, held with its claim's words, as Boomdrive
+        claims every launch it takes (crew-control-plane, Decision 18) and holds one its stream has no room for; it reads
+        launching with the runner's words, which its line says, and a held answer without words reads launching too."""
+        claim = "claimed by deneb's runner; launching once no other runner has claimed it"
+        r = runner.host_read("afterthought", "deneb", TIP, branch(answers=answer(88, "held", words=claim)), {})
+        launch = held(rec(88, "launch", "unit/every-fleet-mac-joins-the-tailnet-as-a-host", Base="bolt/a-fleet-hosts-tailnet-key-never-expires"))[0]
+        got = runner.stage_of("unit/every-fleet-mac-joins-the-tailnet-as-a-host", launch, r["answers"][88], None, True)
+        assert got == {"stage": "launching", "words": claim}
+        assert runner.piece_said(got) == ("launching", f"held by the runner: {claim}")
+        bare = runner.host_read("afterthought", "deneb", TIP, branch(answers=answer(88, "held")), {})
+        assert runner.stage_of("unit/a", launch, bare["answers"][88], None, True) == {"stage": "launching"}
+        assert runner.piece_said({"stage": "launching"}) == ("launching", "")
+
+    def test_a_stop_short_whose_agent_flume_0_17_keeps_open_needs_its_answer(self):
+        """bolt-plan "A stop-short whose agent is kept open", on flume 0.17.0's own status (tests/py/flume-0.17.0/): the
+        place's code ended short needing an answer, its agent kept open for it (waiting_on why answer with open_until,
+        the end stage/code/1/ended-short), not stalled; it reads needs at code with the agent's words, and crew answer
+        retries code with the answer's words, which reaches the session kept open as a tell answering it does (flume 42,
+        49, 198)."""
+        status = json.loads((FLUME_17 / "kept-open.json").read_text())
+        p = status["status"]["places"][0]
+        r = runner.host_read("agentplot", "deneb", TIP, branch(answers=answer(323, "launched", p["place"]),
+                                                               places=placed(323, status, p["place"])), {})
+        launch = held(rec(323, "launch", "unit/the-flake-configures-each-tool-by-its-own-module",
+                          Base="bolt/the-boomdrive-flake-configures-the-whole-host"))[0]
+        got = runner.stage_of("unit/the-flake-configures-each-tool-by-its-own-module", launch, r["answers"][323], r["places"][323], True)
+        assert (got["stage"], got["of"], got["found"], got["stalled"], got["place"], got["tasks"]) == ("needs", "code", False, False, p["place"], (0, 15))
+        assert got["words"] == p["stages"][1]["end"]["words"] and got["words"].startswith(
+            "The code stage of the-flake-configures-each-tool-by-its-own-module cannot start:")
+        assert p["waiting_on"]["open_until"] and [e["key"] for e in p["ends"]][-1] == "stage/code/1/ended-short"
+        assert runner.answer_retry("unit/the-flake-configures-each-tool-by-its-own-module", got) == ("stage", "code")
 
     def test_refused_by_the_runner_it_is_refused_with_its_words(self):
         r = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "refused", words="no repository afterthought/crew in this runner's configuration")), {})

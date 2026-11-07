@@ -131,11 +131,15 @@ crew SHALL read a bolt at GitHub's copy of its branch, `origin/bolt/<bolt>`, whe
 - **THEN** the chore reads `verify` and the fix reads merged
 
 ### Requirement: A started bolt's work reads its stage from the runner's records
-For every unit, chore and fix of a bolt marked `Path: flume`, a bolt started by `crew bolt start`, crew SHALL read its stage from its newest launch not dropped, that launch's answer and its place's record on the runner's branch, never from a place in the kit: unknown where its host was not read or it has no launch, launching before an answer, waiting while held for its After work, refused with the runner's words. `crew bolts` and every decision that reads a stage SHALL read the same.
+For every unit, chore and fix of a bolt marked `Path: flume`, crew SHALL read its stage from its newest launch not dropped, its answer and its place's record on the runner's branch, never from the kit: unknown where its host was not read or it has no launch; launching before an answer; waiting while the runner holds it and its `After` names work, else launching with the runner's words; refused with the runner's words. `crew bolts` and every decision SHALL read the same.
 
 #### Scenario: A dependent waits
 - **WHEN** `b`'s launch is answered held, `a`'s place not yet landed
 - **THEN** `crew bolts` shows `b` waiting on `a`
+
+#### Scenario: A claimed launch is not held for After work
+- **WHEN** deneb's runner answers the launch of `a`, which names no `After`, held with the words `claimed by deneb's runner; launching once no other runner has claimed it`
+- **THEN** `a` reads launching, and `crew bolts`, the board and the planner's band show it launching with the runner's words, never waiting on After work
 
 #### Scenario: The runner's host is silent
 - **WHEN** deneb's runner branch can't be read
@@ -151,6 +155,10 @@ Once launched, a unit, chore or fix SHALL read queued while Flume waits for room
 #### Scenario: A construct that asked
 - **WHEN** the runner's record shows `a`'s construct stopped short with "Which partition's rail?"
 - **THEN** `crew bolts` shows `a` as needing an answer, with the question
+
+#### Scenario: A stop-short whose agent is kept open
+- **WHEN** the runner carries Flume 0.17.0's status of `a`'s place, its code ended short needing an answer, its agent kept open for it until `open_until`, its end keyed `stage/code/1/ended-short`
+- **THEN** `a` reads needing an answer at code, with the agent's words, and `crew bolts` shows it so
 
 #### Scenario: Sent back by sluice
 - **WHEN** the runner's record shows `b`'s place back in code after sluice found its submission in conflict on `plugin/lib/plan.py`
