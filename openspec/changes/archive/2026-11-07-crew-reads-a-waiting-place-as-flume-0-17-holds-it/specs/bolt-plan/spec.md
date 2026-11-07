@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: A started bolt's work reads its stage from the runner's records
-For every unit, chore and fix of a bolt marked `Path: flume`, a bolt started by `crew bolt start`, crew SHALL read its stage from its newest launch not dropped, that launch's answer and its place's record on the runner's branch, never from a place in the kit: unknown where its host was not read or it has no launch, launching before an answer, waiting while the runner holds a launch whose `After` names work, refused with the runner's words. A launch the runner holds whose `After` names no work SHALL read launching, with the runner's words, and never waiting on After work, since the runner answers held as well for its claim of a launch and for a stream with no room. `crew bolts` and every decision that reads a stage SHALL read the same.
+For every unit, chore and fix of a bolt marked `Path: flume`, crew SHALL read its stage from its newest launch not dropped, its answer and its place's record on the runner's branch, never from the kit: unknown where its host was not read or it has no launch; launching before an answer; waiting while the runner holds it and its `After` names work, else launching with the runner's words; refused with the runner's words. `crew bolts` and every decision SHALL read the same.
 
 #### Scenario: A dependent waits
 - **WHEN** `b`'s launch is answered held, `a`'s place not yet landed
@@ -16,7 +16,7 @@ For every unit, chore and fix of a bolt marked `Path: flume`, a bolt started by 
 - **THEN** every piece launched on deneb reads unknown, and `crew bolts` names deneb
 
 ### Requirement: A launched place's stage is where Flume's status has it
-Once launched, a unit, chore or fix SHALL read queued while Flume waits for room; construct, code with its ticked tasks of all, or verify while a stage runs; needing an answer with the agent's question when it stopped short asking, whether or not Flume keeps its agent open for the answer; its stage, sent back, with sluice's words when a submission failed or conflicted; submitted with sluice's number; waiting on its caller with Flume's words past its bound; stalled; merged once it has landed on its bolt and landed once its bolt has; or dropped. crew SHALL read each from Flume's status as the Flume the host runs gives it.
+Once launched, a unit, chore or fix SHALL read queued while Flume waits for room; construct, code with its ticked tasks of all, or verify while a stage runs; needing an answer with the agent's question when it stopped short asking; its stage, sent back, with sluice's words when a submission failed or conflicted; submitted with sluice's number; waiting on its caller with Flume's words past its bound; stalled; merged once it has landed on its bolt and landed once its bolt has; or dropped.
 
 #### Scenario: A unit in code
 - **WHEN** deneb's runner record for `a`'s launch carries Flume's status of its place in code with three of seven tasks ticked

@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: A place is answered by a retry
-`crew answer <work> "<words>"`, the planner's, the design agent's or main-level ops's, SHALL append a retry of the stage the work's place stopped short on or waits on, carrying the words, a stop-short whose agent Flume keeps open for its answer among them, whose retry Flume hands that session as a tell answering it does. It SHALL be refused, naming the place's stage, when the place neither stopped short nor waits on its caller. Where crew can't tell whether the place waits on an answer, since no runner has answered its launch, the runner holds its launch, or the runner has carried none of Flume's status of its place yet, it SHALL be refused naming which, and never saying the place has nothing to answer.
+`crew answer <work> "<words>"`, the planner's, the design agent's or main-level ops's, SHALL append a retry of the stage the work's place stopped short on or waits on, carrying the words, its agent kept open for the answer or not. It SHALL be refused naming the place's stage when the place neither stopped short nor waits on its caller, and naming what crew could not read when it can't tell whether the place waits, never saying it has nothing to answer.
 
 #### Scenario: A construct that asked
 - **WHEN** the runner's record shows `a`'s construct stopped short asking "Which partition's rail?", and the planner runs `crew answer a "madswan's"`
