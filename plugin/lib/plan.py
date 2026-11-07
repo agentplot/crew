@@ -1683,6 +1683,44 @@ def name_free(fleet, label, kit, names):
         not why or fail(why)
 
 
+# Which of Flume's branches stand in a repository, read in its folder ($1) as Flume's place profile reads a branch
+# before it makes one (flume 3, 78: `git worktree add -b` refuses a branch that exists): each ref named after it,
+# refs/heads/<branch>, with its commit, and nothing for one that does not stand (runner.refs_standing).
+BRANCHES = r"""cd "$1" || exit 3
+shift
+git for-each-ref --format='%(objectname) %(refname)' "$@"
+"""
+
+
+def branches_in(fleet, host, folder, branches):
+    """{branch: commit} of the branches that stand in the repository at folder on host (BRANCHES,
+    runner.refs_standing); refused naming the folder and host when git there can't be read, or the host did not answer
+    (read.1)."""
+    r = crew.on_machine(fleet, host, ["bash", "-c", BRANCHES, "crew", folder, *[f"refs/heads/{b}" for b in branches]])
+    if r.returncode == 255:
+        fail(f"cannot read whether {', '.join(branches)} stands in {folder}: {host} did not answer")
+    r.returncode == 0 or fail(f"cannot read whether {', '.join(branches)} stands in {folder} on {host}: "
+                              + ((r.stderr or r.stdout).strip() or f"git exited {r.returncode}"))
+    return runner.refs_standing(r.stdout, branches)
+
+
+def branch_free(fleet, label, kit, names, kind):
+    """A unit or chore (kind) is planned under a name only while no launch of it would be refused because Flume's
+    branch for its place stands (runner.branch_refusal; flume 3, 67): Flume keeps a dropped place's branch while it holds
+    work, so a name dropped and added again would pass the plan and fail at its launch. Read in every repository a
+    launch of the kit's work would be made in (runner.launch_repositories), from the partition's requests and runners as
+    this command read them (runner_facts), and in each with git as Flume reads it (branches_in), never from crew's own
+    record of a drop; refused when crew can't tell where (read.1); nothing read while no runner has taken any of the
+    kit's work and none reports keeping it."""
+    requests, reads = runner_facts(fleet, label)
+    repos, why = runner.launch_repositories(reads, runner.kit_launches(requests, kit), kit)
+    not why or fail(f"cannot check whether Flume's branch for {kind} {', '.join(names)} stands: {why}")
+    branches = [runner.place_branch(kind, n) for n in names]
+    found = [dict(r, refs=branches_in(fleet, r["host"], r["dir"], branches)) for r in repos]
+    why = runner.branch_refusal(kit, kind, names, found)
+    not why or fail(why)
+
+
 def name_taken(kit, name, changes, chores):
     """Why a new unit's or chore's name is not free in its kit, or None: not a name crew mints, the name of a change the
     kit's main holds (changes), or of a chore main's history holds (chores, None when the kit was read by a crew that
@@ -5454,8 +5492,11 @@ class Reads:
     def stage(self, label, plan, name):
         return unit_stage(self.fleet, label, plan, name)
 
-    def free(self, label, kit, names):
+    def free(self, label, kit, names, kind="unit"):
+        """Each name is free for a unit or chore (kind) of the kit: no change or chore its main holds by it (name_free),
+        and no branch of Flume's standing where a launch of it would be made (branch_free)."""
         name_free(self.fleet, label, kit, names)
+        branch_free(self.fleet, label, kit, names, kind)
 
     def first_open(self, label, plan, bolt):
         return first_open(self.fleet, label, plan, bolt)
@@ -5533,7 +5574,7 @@ class Drawn(Proposed):
     def stage(self, label, plan, name):
         return dict(self.UNREAD)
 
-    def free(self, label, kit, names):
+    def free(self, label, kit, names, kind="unit"):
         for n in names:
             crew.NAME.match(n) or fail(f"a unit's or chore's name is lowercase words with dashes, not {n}")
 
@@ -5787,7 +5828,7 @@ def op_unit_add(ctx, a):
         label = ctx.kit(a.repo)
         kit, plan = kit_given(ctx, label, a.repo), None
     ahead = unblocking(ctx, plan, label, a, a.bolt) if getattr(a, "unblocks", None) else None
-    ctx.free(label, kit, [a.unit])
+    ctx.free(label, kit, [a.unit], k)
     sources, seen = list(a.source), {}
     if a.signal:
         a.signal = signal_id(ctx.fleet, label, a.signal, ctx.w)  # a short id is routed, and sourced, by its full one
@@ -5994,6 +6035,11 @@ def op_unit_move(ctx, a):
 
 
 def op_unit_drop(ctx, a):
+    """A unit or chore removed from the plan, and from each After naming it. One of a started bolt has its place dropped
+    by the write's own request (reach_places); Flume removes no branch holding work (flume 67), so a drop whose launch
+    stood says, as it prints and on its entry (Note), that Flume keeps the place's branch and the name stays taken while
+    it stands (runner.drop_kept_said), which a later add under the name is refused for (branch_free). crew removes no
+    branch and no unit's place."""
     label, plan = the_work(ctx, a)
     k = a.cmd
     s = ctx.stage(label, plan, a.unit)
@@ -6002,6 +6048,7 @@ def op_unit_drop(ctx, a):
     s["stage"] != "unknown" or s.get("place_unread") or fail(f"cannot tell {k} {a.unit}'s stage: {s.get('why')}")
     u0 = plan.item(a.unit)
     bolt = u0.get("Bolt")
+    fields = {}
 
     def change(w):
         u = w.of(a)
@@ -6009,7 +6056,10 @@ def op_unit_drop(ctx, a):
             if a.unit in o.all("After"):
                 o.fields = [(n, v) for n, v in o.fields if not (n == "After" and v == a.unit)]
         w.plan.remove(u)
+        fields.pop("Note", None)
         if crossed_bolt(w.plan, u.get("Bolt")):  # its place dropped, and each dependent's held launch made again without it
+            if runner.launch_of(requests_of(w).recs("Request"), runner.work_of(u)) is not None:
+                fields["Note"] = runner.drop_kept_said(k, a.unit, f"bolt/{u.get('Bolt')}")
             reach_places(ctx.fleet, w, u.get("Bolt"))
         return [bolt] if bolt else []
 
@@ -6019,8 +6069,10 @@ def op_unit_drop(ctx, a):
             sweep_on(ctx.fleet, t, f"{k} {a.unit}")
         if s["worktree"]:
             print(f"its worktree stays at {s['worktree']}, on {k}/{a.unit}")
+        if fields.get("Note"):
+            print(fields["Note"])
     return Op(label, change, f"plan({bolt or 'queue'}): drop {called(a)}", f"{k}.drop", on=[f"{k}/{a.unit}", group_of(u0)],
-              body=a.reason, after=after)
+              body=a.reason, after=after, fields=fields)
 
 
 def op_kit_rename(ctx, a):
@@ -8341,9 +8393,7 @@ def kit_at(fleet, label, kit, run=None):
     are forecast and read. Refused when no runner has reported taking any of the kit's work, crew can't tell which did,
     or where it keeps the kit (read.1)."""
     requests, reads = run or runner_facts(fleet, label)
-    mine = [r for r in requests if r.get("Act") == "launch" and not (r.get("Work") or "").startswith("role/")
-            and kit_in(kit, [r.get("Repo") or ""])]
-    at, why = runner.where(reads, mine, kit, kit)
+    at, why = runner.where(reads, runner.kit_launches(requests, kit), kit, kit)
     not why or fail(why)
     at or fail(f"no runner has reported taking {kit}'s work yet, so crew can't tell where it runs")
     at["dir"] or fail(f"the runner on {at['host']} took {kit}'s work and has carried no place of it yet, so crew can't tell "

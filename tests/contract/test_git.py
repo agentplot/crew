@@ -1113,3 +1113,33 @@ def test_a_change_is_read_at_its_commit_open_or_archived_and_markdown_alone(repo
     assert r.returncode == 0 and change_files(r.stdout) == [("proposal.md", "# a\n"), ("tasks.md", "- [ ] 1.1 x\n")]
     r = script("CHANGE_AT", str(repo.path), archived, "b")
     assert (r.returncode, r.stdout) == (0, "")
+
+
+def test_a_branch_flume_kept_is_read_standing_in_its_repository_and_a_name_beside_it_is_not(repo, tmp_path):
+    """plan.BRANCHES and runner.refs_standing, which plan.branch_free reads a unit's or chore's place branch with before
+    it is planned (flume 3, 67): in the repository Flume cuts its places in, a bare clone as the runner keeps one or a
+    checkout, a branch a dropped place left, and one a live place's worktree holds, each read standing at its commit;
+    a name beside it (change/a-b) and a ref below another (change/b/old) are not that branch; and git's own
+    `worktree add -b`, Flume's place profile's make, refuses a branch that stands, which is the refusal crew reads ahead
+    of. A folder that is no repository exits non-zero, which branches_in refuses with git's words (read.1)."""
+    import runner
+    repo.commit("chore: start", {"README.md": "r\n"})
+    repo.git("branch", "change/a")
+    repo.git("checkout", "-q", "change/a")
+    kept = repo.commit("feat: work the drop kept", {"a": "a\n"})
+    repo.git("checkout", "-q", "main")
+    repo.git("branch", "change/a-b")
+    repo.git("branch", "change/b/old")
+    repo.git("worktree", "add", "-q", "-b", "chore/live", str(tmp_path / "live"))
+    live = repo.git("rev-parse", "chore/live")
+    subprocess.run(["git", "clone", "-q", "--bare", str(repo.path), str(tmp_path / "clone.git")], check=True)
+    wanted = ["change/a", "change/b", "chore/live", "chore/c"]
+    for folder in (str(repo.path), str(tmp_path / "clone.git")):
+        r = script("BRANCHES", folder, *[f"refs/heads/{b}" for b in wanted])
+        assert r.returncode == 0, r.stderr
+        assert runner.refs_standing(r.stdout, wanted) == {"change/a": kept, "chore/live": live}
+    r = subprocess.run(["git", "-C", str(repo.path), "worktree", "add", "-q", "-b", "change/a", str(tmp_path / "again"), "main"],
+                       capture_output=True, text=True)
+    assert r.returncode != 0 and "already exists" in r.stderr
+    r = script("BRANCHES", str(tmp_path / "nowhere"), "refs/heads/change/a")
+    assert r.returncode != 0

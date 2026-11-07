@@ -411,6 +411,86 @@ def where(reads, launches, what, kit):
                   + "".join(f"; {why}" for _, why in unread)) if unread else None
 
 
+# ------------------------------------------------------------------------------------------- a name's branch
+
+def place_branch(kind, name):
+    """The branch Flume makes for the place of a unit's or chore's launch, `<kind>/<name>` as Flume names a place's
+    branch (flume 78, its place profile's `git worktree add -b`), the kind as reach launches it: change/<u> for a unit,
+    chore/<c> for a chore."""
+    return f"{'chore' if kind == 'chore' else 'change'}/{name}"
+
+
+def kit_launches(requests, kit):
+    """Every launch of a partition's work in a kit's repository, by its name or forge address, dropped or not, a role's
+    left out: what the runners that took them report where the kit's work runs by (where)."""
+    return [r for r in requests if r.get("Act") == "launch" and not (r.get("Work") or "").startswith("role/")
+            and (r.get("Repo") or "").split("/")[-1] == kit.split("/")[-1]]
+
+
+def launch_repositories(reads, launches, kit):
+    """The repositories a launch of a kit's work would be made in, where Flume would cut its place and read whether
+    its branch stands (flume 3), from the partition's runners as crew read them (reads, host_read's by host) and the
+    kit's launches (kit_launches): the kit's folder where its work runs, as where reads it from the runner that took the
+    newest of them, and the folder each runner's repositories.rec reports it keeps the kit in, since a runner whose
+    configuration names the repository may take the launch; as ([{"host", "dir"}], None), each once. ([], None) while no
+    runner has taken any of the kit's work and none reports keeping it: no launch of the partition's has cut a place
+    of the kit, and crew can name no repository to read. ([], why) when crew can't tell (read.1): where's own why, the
+    runner that took the kit's work carrying no place naming its folder, or one keeping two repositories by its name."""
+    at, why = where(reads, launches, kit, kit)
+    if why:
+        return [], why
+    if at and not at["dir"]:
+        return [], (f"the runner on {at['host']} took {kit}'s work and carries no place of it naming the folder it keeps {kit} "
+                    "in, so crew can't tell where a launch of it would be made")
+    out = [{"host": at["host"], "dir": at["dir"]}] if at else []
+    for reading in sorted(reads.values(), key=lambda r: r["host"]):
+        kept = reading.get("repositories") or {}
+        named = [a for a in kept if a.split("/")[-1] == kit.split("/")[-1]]
+        found = [a for a in named if a == kit] or named
+        if len(found) > 1:
+            return [], (f"the runner on {reading['host']} keeps {' and '.join(found)} by the name {kit}, so crew can't tell "
+                        "which a launch of its work would be made in")
+        if found and {"host": reading["host"], "dir": kept[found[0]]} not in out:
+            out.append({"host": reading["host"], "dir": kept[found[0]]})
+    return out, None
+
+
+def refs_standing(out, branches):
+    """{branch: commit} of the branches among branches that stand, from `git for-each-ref --format='%(objectname)
+    %(refname)'` over refs/heads/<branch> (out), which also lists a ref below one; a branch absent from it stands not."""
+    refs = dict(reversed(line.split(" ", 1)) for line in out.splitlines() if " " in line)
+    return {b: refs[f"refs/heads/{b}"] for b in branches if f"refs/heads/{b}" in refs}
+
+
+def branch_refusal(kit, kind, names, found):
+    """Why a unit or chore (kind) named one of names can't be planned in kit, or None (flume 3, 67): found, each
+    repository a launch of it would be made in (launch_repositories) with the branches standing there, [{"host", "dir",
+    "refs": refs_standing's}]. Flume refuses a launch whose place's branch (place_branch) stands, and keeps a dropped
+    place's branch while it holds work, so the first name whose branch stands in any of them is refused, naming the
+    branch, the folder and host it stands in and its commit, and the two ways on: the work proposed under a fresh name,
+    or the branch removed first, which is the planner's or the user's to do, never crew's (read.4)."""
+    for n in names:
+        b = place_branch(kind, n)
+        for r in found:
+            c = r["refs"].get(b)
+            if c:
+                return (f"{kind} {n} can't be planned in {kit}: Flume's branch {b} stands in {r['dir']} on {r['host']}, at "
+                        f"{c[:7]}, where a launch of {n} would make its place, and Flume refuses a launch that would make "
+                        f"it again while it stands; propose the {kind} under a fresh name, or have the planner or the user "
+                        f"remove the branch first, which may hold work and which crew never removes (git -C {r['dir']} "
+                        f"branch -D {b}, on {r['host']})")
+    return None
+
+
+def drop_kept_said(kind, name, base):
+    """What a drop of a unit or chore whose launch stands says, as it prints and on its entry (Note): Flume drops its
+    place and keeps its branch while that holds work its base lacks (flume 67), and the name stays taken while the
+    branch stands, since Flume refuses a launch that would make it again (flume 3; branch_refusal)."""
+    b = place_branch(kind, name)
+    return (f"Flume keeps {b} while it holds work {base} lacks, and the name {name} stays taken while that branch stands: "
+            f"a {kind} added as {name} again is refused until the planner or the user removes it")
+
+
 # ------------------------------------------------------------------------------------------- a crossed piece's stage
 
 def launch_of(requests, work):

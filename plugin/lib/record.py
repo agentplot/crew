@@ -93,7 +93,9 @@ DESCRIPTOR = """\
 # it, with the Settle whose end decided it (plan.13), a team.cross's State (the Flume stream its team's work now runs in), a record.proposed's State (settled in the pane) and Form
 # (alternatives, when its card offered them, none of the file's words), and an operation's (ops.py): a deploy's commit
 # as Head and the one it comes from as Base, its Phase (start, step or end), a step's Step and Outcome, its Log and the
-# suite's Rows, and the words of what the user does about a failure the deployer handed it, Does; a step's Key, State, Doer, Agent, When, Text, Changes and Note.
+# suite's Rows, and the words of what the user does about a failure the deployer handed it, Does; a step's Key, State, Doer, Agent, When, Text, Changes and Note;
+# and a unit.drop's or chore.drop's Note, for work whose launch stood: that Flume keeps its place's branch while it holds
+# work and the name stays taken while that branch stands, crew's words made from names alone (runner.drop_kept_said).
 EXTRA = ("Result", "Tasks", "Head", "Ended", "Delivered", "Observed", "Chars", "Amended", "Took", "Heads", "Paths", "Reached",
          "Forecast", "Batch", "Units", "Count", "Card", "Key", "Unread", "Base", "Phase", "Step", "Outcome", "Log", "Rows", "State", "Doer", "Agent",
          "When", "Text", "Changes", "Note", "Repo", "After", "Lifted", "Settle", "Form", "Answer", "Age", "Split", "Submission", "Does")
@@ -473,6 +475,8 @@ def line(e, zoe=False):
         s += f" ({e['Count']} renamed)"
     elif e.get("Count"):
         s += f" ({e['Count']} due)"
+    if e.get("Note") and e.get("Act") in ("unit.drop", "chore.drop"):
+        s += f" ({e['Note']})"
     if e.get("Key") or e.get("Card"):
         s += " (card " + " ".join(x for x in (e.get("Key"), e.get("Card")) if x) + ")"
     if e.get("Refused"):
