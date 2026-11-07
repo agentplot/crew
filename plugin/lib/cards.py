@@ -204,6 +204,40 @@ def lost_said(key, card, words):
             f"sign-in than this host's, and the user may still see it and answer it, to nobody. {again}")
 
 
+# A name crew raises its own cards in: a partition's planner, main-level ops or design agent (plan.row_owner, the
+# design agent's records), its label read up to the last dash before the role.
+ROLE_NAME = re.compile(r"([a-z0-9][a-z0-9-]*)-(planner|ops|design)")
+
+
+def role_left(owner, labels):
+    """Whether a card's owner is a role that left the fleet: a name crew raises its cards in (ROLE_NAME) whose label no
+    partition of the teams file has now (labels), its partition removed or its label changed, which is a partition
+    removed and another added, since nothing is renamed (record 0055, rejected). Any other name, a conductor's, an
+    asker's of its own or the user's, is no partition's role and is not judged here; nothing maps a former name."""
+    m = ROLE_NAME.fullmatch(owner or "")
+    return bool(m) and m.group(1) not in labels
+
+
+def left_said(owner, key, stands=False):
+    """The words a card whose owner left the fleet (role_left) is withdrawn with: that an answer on it reaches nobody,
+    and how whoever holds the work now raises it again, by the key's kind, naming no partition, since crew takes none
+    as another's successor; a deploy whose word stands (stands, ops.word_stands) goes on, its word read by its
+    environment and not its card."""
+    kind, _, rest = (key or "").partition("/")
+    parts = rest.split("/")
+    again = {
+        "deploy": (f"Your word on {parts[0]}'s deploy stands, and the deploy goes on." if stands else
+                   f"The deploy is offered again in the name of the ops of the partition that holds {parts[0]} now."),
+        "op": f"The step on {parts[0]} is recorded again by the partition that holds it now, its card in its ops's name.",
+        "land": "Its landings are carded by the ops of the partition that holds them now.",
+        "proposal": f"Proposal {parts[0]} is carded by the planner of the partition that holds it now.",
+        "batch": f"Batch {parts[0]} is carded by the planner of the partition that holds it now.",
+        "record": (f"Record {parts[1] if len(parts) > 1 else ''} of {parts[0]} is carded again with crew record by the design "
+                   "agent of the partition that holds it now."),
+    }.get(kind, "Whoever holds its work now asks it again.")
+    return f"{owner} left the fleet, so an answer here reaches nobody. {again}"
+
+
 def version_of(got, card):
     """A card's version, as get_request gives it; refused when it gives none, since a change or an ack needs it."""
     v = got.get("version") if isinstance(got, dict) else None
