@@ -166,6 +166,35 @@ class TestCheck:
         assert said("s-tell", "Leave the open security groups for now.") == "verified user 2 u-5"
         assert said("s-tell", "open security groups move to the queue") == "verified crew 3 u-6"
 
+    def test_a_tell_pasted_into_the_pane_is_its_senders_inside_claude_codes_paste_tags(self, put):
+        """signals.5, as Claude Code 2.1.318 records a pane's send, a paste (agentplot-operator's d828d5ca, deneb,
+        2026-11-06): the mark opens the paste that holds the words, not the record, and a tell's words are its
+        sender's, never the user's, whether a signal or a settle reads them."""
+        def pasted(at, text):
+            return f'\n\n<pasted_content id="{at}">\n{text}\n</pasted_content id="{at}">\n'
+        put("s-pasted", user("u-70", pasted("2e3a", "[crew tell from madswan-planner] (sent to agentplot) The runner is "
+                                                    "boomdrive's: a request written under a kit's former name is never taken.")),
+            user("u-71", pasted("bc1c", "[crew tell from chuck@deneb] Leave the open security groups for now.")),
+            user("u-72", pasted("4fe6", "[crew tell from chuck@board] (on unit a) Batch 14 is fine")),
+            user("u-73", pasted("6f26", "[crew] plan(edge): open security groups move to the queue (chuck@deneb)")),
+            user("u-74", "Look at this: " + pasted("8f22", "[crew tell from wldn-ops] the runner test fails on two hosts")
+                 + " I think the runner test needs an owner."),
+            user("u-75", pasted("7e35", "One minor change: Madswan comes second.")),
+            user("u-76", pasted("FAD0", "[crew tell from wldn-ops] the zone check passes")))
+        for words, grade in (("a request written under a kit's former name is never taken", "verified agent:madswan-planner 1 u-70"),
+                             ("Leave the open security groups for now.", "verified user 2 u-71"),
+                             ("Batch 14 is fine", "verified user 3 u-72"),
+                             ("open security groups move to the queue", "verified crew 4 u-73"),
+                             ("the runner test fails on two hosts", "verified agent:wldn-ops 5 u-74"),
+                             ("the runner test needs an owner", "verified user 5 u-74"),
+                             ("Madswan comes second", "verified user 6 u-75"),
+                             ("the zone check passes", "verified user 7 u-76")):
+            assert said("s-pasted", words) == grade
+            v = transcript.check("s-pasted", words, want="user")
+            assert " ".join(str(x) for x in (v.grade, v.asserted_by, v.n, v.uuid)) == grade
+        assert transcript.check("s-pasted", "Batch 14 is fine", want="user").board
+        assert not transcript.check("s-pasted", "Leave the open security groups for now.", want="user").board
+
     def test_words_only_in_the_agents_own_record_nowhere_or_only_in_a_crew_signal_command_are_refused(self, put):
         put("s-own", user("u-7", "Have a look at the templates."), wrote("a-7", "The templates leave open security groups."), CMD)
         for words in ("The templates leave open security groups.", "the user wants every template locked down", "open security groups"):
