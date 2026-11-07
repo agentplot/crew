@@ -57,6 +57,13 @@ class TestEmit:
         assert (e["Outcome"], e["Submission"], e["Head"], e["Base"]) == ("queued", "412", "a" * 40, "b" * 40)
         assert "Submission" in text.split("%allowed:", 1)[1].splitlines()[0].split()
 
+    def test_a_failed_deploys_words_of_what_the_user_does_are_kept_on_its_entry_and_read_back(self, here):
+        record.emit("wldn", "ops.deploy", ["env/srv"], Head="a" * 40, Phase="end", Outcome="failed", Does="read the log; ask ops to offer it again")
+        text = next(here.glob("*.rec")).read_text()
+        e, = record.parse(text)
+        assert (e["Phase"], e["Outcome"], e["Does"]) == ("end", "failed", "read the log; ask ops to offer it again")
+        assert "Does" in text.split("%allowed:", 1)[1].splitlines()[0].split()
+
     def test_a_teams_crossing_names_its_stream_and_its_trace_reads_it_after_the_landing_that_crossed_it(self, here):
         """team.cross, once crw-4's conductor and ops are ended for its crossing (the change
         teams-cross-to-flume-as-their-bolts-land, Decision 3): on team/crw-4, its State the stream."""
