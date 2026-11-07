@@ -13,6 +13,7 @@ These pages are `teamless/deneb`'s, a branch of main built for deneb alone and n
 | `briefs.md` | `plugin/roles/`, `plugin/skills/`: what each role may and may not do |
 | `tests.md` | `tests/`, `devenv.nix`, `devenv.yaml`, `.prototools`, `.moon/`, `.config/`, `.claude/`, `.envrc` |
 | `docs.md` | `README.md`, `openspec/`, `docs/`, `CLAUDE.md` |
+| `flake.md` | `flake.nix`, `flake.lock`, `nix/`: crew's flake, its package and its `services.crew` module |
 
 ## Rules
 
@@ -46,7 +47,7 @@ Reading
 
 Code
 
-- **[code.1]** crew's Python imports nothing outside the standard library and its own modules; `gather.py` imports only the standard library, since it is piped to hosts whose crew may be older; devenv declares only jq, proto, recutils and git-cliff, with convco for its commit-msg hook; `.prototools` pins moon, Python at the minor the hosts run crew on, and uv; pytest, the tests' one dependency, is locked in `tests/uv.lock` and synced by moon.
+- **[code.1]** crew's Python imports nothing outside the standard library and its own modules; `gather.py` imports only the standard library, since it is piped to hosts whose crew may be older; devenv declares only jq, proto, recutils and git-cliff, with convco for its commit-msg hook, and nix, nixfmt, statix and deadnix for the flake's checks (`flake.3`; amended 2026-11-07 by record 0058, not built: `crew-publishes-a-flake-whose-module-writes-its-host-file` builds it); `.prototools` pins moon, Python at the minor the hosts run crew on, and uv; pytest, the tests' one dependency, is locked in `tests/uv.lock` and synced by moon.
 - **[code.2]** A refusal is a `Refusal` raised through `fail()`, turned into `sys.exit(<message>)` at each entry point, never a traceback.
 - **[code.3]** Every bash command about a main level forwards to the host the teams file names before touching any state, carrying the asker's `CREW_AGENT`, `CREW_LABEL` and `CREW_SESSION`; every ssh crew runs passes `-o BatchMode=yes`.
 - **[code.4]** Every name crew mints or accepts matches `^[a-z0-9][a-z0-9-]*$`.
@@ -106,7 +107,7 @@ Code
 
 **[code.4]** Rules out: a unit named with a slash or a capital. Source: `crew.py` 31, 114, 138; `plan.py` 81, 89.
 
-**[code.5]** Rules out: crew editing the teams file; a file at any version but 5 accepted, 2, 3 and 4 among them, which listed teams; a `teams` key in a version-5 file; a `roles.dispatcher` override, which no definition answers. Source: `the-team-machinery-leaves` design, Decision 2, as `crew-runs-without-teams-on-deneb` built it on `teamless/deneb`; `crew.py` `load` and `role_settings`; swancloud `lib/crew-teams.nix`, which writes the file (swancloud record 0044).
+**[code.5]** Rules out: crew editing the teams file; a file at any version but 5 accepted, 2, 3 and 4 among them, which listed teams; a `teams` key in a version-5 file; a `roles.dispatcher` override, which no definition answers. Source: `the-team-machinery-leaves` design, Decision 2, as `crew-runs-without-teams-on-deneb` built it on `teamless/deneb`; `crew.py` `load` and `role_settings`; swancloud `lib/crew-teams.nix`, which writes the file (swancloud record 0044). Not ruled out: crew's own module, `services.crew`, writing the file at a system's activation as the machine's configuration, with no default for any field (`flake.2`, record 0058, not built: `crew-publishes-a-flake-whose-module-writes-its-host-file` builds it); the `crew` command still writes nothing in it.
 
 **[code.6]** Rules out: `git add -A` in a brief or a script; an agent moving a bolt's branch by `git reset`. Not ruled out: crew moving a branch it made, `UNREBASE`'s undo of its own rebase, which moves a branch and discards nothing; the bolt's move to a carrying fix went with record 0015 (superseded by record 0026). Checked by convco (`.versionrc`): the commit-msg hook entering crew's devenv shell installs refuses a message that is not a Conventional Commit, a merge's own message passing, in every worktree whose crew carries the hook, and CI's `conventional` job checks the commits since the last release (`code.10`). Source: `openspec/config.yaml`; every brief's committing section; `devenv.nix`; `.github/workflows/release.yml`.
 
