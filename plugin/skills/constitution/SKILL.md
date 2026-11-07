@@ -12,6 +12,7 @@ It lives in the kit:
 | Path | What it holds | How it reaches a session |
 |---|---|---|
 | `docs/architecture/core.md` | The rules that bind wherever a change is made, and an index of the area pages | `CLAUDE.md` imports it, so every session in the kit has it |
+| `docs/architecture/core-readings.md` | Once the kit splits `core.md` (§3a): the details of its rules, under each rule's id | A symlink in `.claude/rules/` loads it for `docs/**`, `openspec/**` and `CLAUDE.md`, where rules are written, cited and reviewed |
 | `docs/architecture/<area>.md` | The rules that bind one area, with `paths:` frontmatter | A symlink in `.claude/rules/` loads it when the session reads a file under its paths |
 | `docs/adr/NNNN-<title>.md` | One record (MADR) per decision a rule rests on | Named by the rule's source |
 | `openspec/specs/` | What each capability does | OpenSpec, unchanged |
@@ -36,7 +37,7 @@ Keep `core.md` to rules that bind wherever an agent is working. A rule that only
 
 ## 3. Write the pages
 
-Every page has a `## Rules` section and a `## Details` section.
+Every page has a `## Rules` section and a `## Details` section, but `core.md` once it is split (§3a), whose details are on `core-readings.md`.
 
 - **Rules:** one bullet per rule, `**[<area>.<n>]**` and one sentence, grouped under short plain subheadings.
 - **Details:** per id, `Rules out:` the concrete things it forbids (a pattern, a call, a file), optionally `Not ruled out:`, and `Source:` (ADR, document and section, change, fix shas).
@@ -67,10 +68,32 @@ ADRs use MADR: frontmatter `number`, `title`, `status`, `date`, `decision-makers
 
 Delete `_candidates.md` once every candidate is placed or cut.
 
+## 3a. When what every session loads nears the limit
+
+Every session in the kit loads `CLAUDE.md` and every file it imports by `@`, `core.md` among them, beside the user's own instruction files, and Claude Code warns once those pass 150,000 characters together. Measure the kit's share with `wc -m CLAUDE.md docs/architecture/core.md` (and any other file `CLAUDE.md` imports), and keep it under 100,000, two thirds of the limit, so the user's own files and an agent's brief keep their room. Area pages do not count: they load only with their paths. When the kit's share nears the bound, take this shape; do not shorten the details to fit, since they are the record of why each rule reads as it does.
+
+1. **`CLAUDE.md` keeps what every session needs whatever it touches:** which document wins, the shell, how a change is proven and lands, the commands, the conventions, the pages' index. A part bound to particular files, such as a gotcha about one corner of the tree, moves word for word to the area page whose paths hold those files, as a reading in the details of the rule it illustrates, so it loads when those files are read.
+2. **`core.md` keeps its rules; their details go to `docs/architecture/core-readings.md`.** `core.md` keeps its opening paragraph, the area pages' table and `## Rules`. Every paragraph of its `## Details` moves word for word to the readings page, one per rule under the same `**[<id>]**`. A rule's line keeps the citations it names (a record, another rule's id); *Rules out*, *Not ruled out*, *Source* and the dated readings are the readings page's. A core rule binds everywhere, so its details have no one area: they are read when a rule is cited, amended or disputed, so they load where that happens.
+
+   ```markdown
+   ---
+   paths:
+     - "docs/**"
+     - "openspec/**"
+     - "CLAUDE.md"
+   ---
+
+   # Core rules: details and readings
+   ```
+
+   Link it into `.claude/rules/` like an area page, and name it in `core.md`'s opening paragraph and table.
+3. **Rule ids stay on `core.md`.** A new core rule is numbered and written there, its details then added on the readings page; no id is minted on, moved to or kept only on the readings page.
+4. **The bound is checked.** Add a task to the kit's merge checks that fails when `CLAUDE.md` with its imports passes the bound, printing each file's size, so growth past it is caught at a merge rather than at a session's start.
+
 ## 4. Wire it in
 
 - **`CLAUDE.md`:** a `## Rules` section near the top saying the rules are in `docs/architecture/`, that a design or commit relying on a rule cites its id and one departing from a rule says which and why, and that `docs/architecture/` wins over the narrative docs where they disagree. End it with the line `@docs/architecture/core.md`.
-- **`CLAUDE.md` `## Crew` section** (the one the crew briefs point at): list `docs/architecture/` first in the record, and under where design is written, send a rule to `core.md` or its area page with an id, the next free number in its area, amended in the same commit as the decision that changes it.
+- **`CLAUDE.md` `## Crew` section** (the one the crew briefs point at): list `docs/architecture/` first in the record, and under where design is written, send a rule to `core.md` or its area page with an id, the next free number in its area, amended in the same commit as the decision that changes it; where `core.md` is split, a core rule's details and readings go to `core-readings.md`.
 - **`openspec/config.yaml`:** name `docs/architecture/` in `context`; add under `rules.design`: "Cite by id the rules in docs/architecture/ that this design relies on, and name each page of docs/architecture/ whose area the change touches. Where the design departs from a rule, name the rule and say why." Where `operations.apply.guidance` says which document wins, put `docs/architecture` and `openspec/specs` first.
 
 Commit only the paths you wrote; other agents share the tree.
@@ -85,7 +108,7 @@ claude -p "First use the Read tool on <file under the page's paths>. Then: $Q" -
 claude -p "First use the Read tool on README.md. Then: $Q" --model haiku --allowedTools=Read
 ```
 
-The first must quote the rule and the second must answer `NOT LOADED`. Do this for each page whose globs you are unsure of.
+The first must quote the rule and the second must answer `NOT LOADED`. Do this for each page whose globs you are unsure of. For a split `core.md`, ask for a phrase of one rule's details after reading a file under `docs/` and after reading a file of code: only the first should have it.
 
 ## 6. Prove it on real work
 
