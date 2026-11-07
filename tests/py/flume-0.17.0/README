@@ -1,0 +1,15 @@
+flume 0.17.0's status of one place, `flume status --json <place>`, as a host's runner carries it in places.rec and
+crew reads a crossed piece's stage from it (runner.flume_facts, runner.stage_of; tests/py/test_runner.py,
+tests/py/test_cross.py; the fix crew-reads-a-waiting-place-as-flume-0-17-holds-it).
+
+Recorded on deneb on 2026-11-07 at 22:20:03Z, running flume 0.17.0 for real, and trimmed as flume-0.3.6/ is: each
+readiness step's words emptied, each task's text cut to its first 60 characters, each end's words and last words set
+to null, the agent's last words, instructions and environment emptied, and the host's lists and tables emptied.
+Everything else is as flume printed it.
+
+kept-open.json      flume status --json --repository <boomdrive> change--the-flake-configures-each-tool-by-its-own-module
+                    a change on bolt/the-boomdrive-flake-configures-the-whole-host whose code ended short needing an
+                    answer (end.needs needs_answer), its agent kept open for the answer (agent state waiting,
+                    waiting_on why answer with open_until, the end stage/code/1/ended-short with open_until), not
+                    stalled: the place flume 42, 49 and 198 answer by a retry naming code or by
+                    `flume tell --answers stage/code/1/ended-short`

@@ -19,15 +19,11 @@
 
 # The main level, with the planner stopped on a question as it starts: the others are greeted meanwhile.
 : > "$CREW_TEST_LOG"; : > "$CREW_TEST_CLAUDE_LOG"
-answer() {
-  local i
-  for i in $(seq 6000); do
-    grep -q "agent prompt wldn-design '" "$CREW_TEST_LOG" && grep -q "agent prompt wldn-ops '" "$CREW_TEST_LOG" &&
-      grep -q "^$box wldn-3 agent get wldn-planner\$" "$CREW_TEST_LOG" && break
-    /bin/sleep 0.1
-  done
-  as $box herdr --session wldn-3 stub status wldn-planner idle
+others_greeted() {
+  grep -q "agent prompt wldn-design '" "$CREW_TEST_LOG" && grep -q "agent prompt wldn-ops '" "$CREW_TEST_LOG" &&
+    grep -q "^$box wldn-3 agent get wldn-planner\$" "$CREW_TEST_LOG"
 }
+answer() { until_ok others_greeted || true; as $box herdr --session wldn-3 stub status wldn-planner idle; }
 answer &
 CREW_TEST_BLOCKED=wldn-planner expect_ok crew main up wldn
 wait

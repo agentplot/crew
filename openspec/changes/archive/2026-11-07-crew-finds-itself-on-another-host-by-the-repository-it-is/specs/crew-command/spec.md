@@ -1,0 +1,31 @@
+## ADDED Requirements
+
+### Requirement: crew runs itself on another host from the checkout of the repository it is
+When a crew command runs crew on another host, as a tell, a send, an ops act or a command forwarded to a main level's host does, it SHALL run the crew in the checkout that host keeps of the repository crew is, found as the host's sessions in the hosts file keep it. Where none of the host's sessions keeps that repository, the command SHALL be refused, naming the host and the repository crew looked for, and nothing SHALL be run there. No former address of crew's SHALL be followed.
+
+#### Scenario: A send reaches another host's partition
+- **WHEN** crew is `agentplot/crew`, chuck-herdr-alpha's sessions keep `agentplot/crew` at `/workspace`, and the user runs `crew send wldn "<text>"` on deneb
+- **THEN** crew runs `/workspace/crew/main/plugin/bin/crew` on chuck-herdr-alpha, and wldn-operator receives the text
+
+#### Scenario: A host that keeps no checkout of crew
+- **WHEN** none of chuck-herdr-alpha's sessions keeps `agentplot/crew`, and a command on deneb runs crew there
+- **THEN** it is refused saying none of chuck-herdr-alpha's sessions keeps agentplot/crew, the repository crew is, so crew can't run there, and nothing is run on chuck-herdr-alpha
+
+#### Scenario: A checkout kept under crew's former address
+- **WHEN** chuck-herdr-alpha's sessions keep `afterthought/crew` and nothing by `agentplot/crew`, and a command on deneb runs crew there
+- **THEN** it is refused the same way, naming `agentplot/crew`
+
+### Requirement: crew reads the repository it is from its own manifest
+crew SHALL read the repository it is from the `repository` of its own manifest, `plugin/.claude-plugin/plugin.json`, a GitHub address, and never from a name written in its code. Where the manifest cannot be read or names no GitHub repository, a command that runs crew on another host SHALL be refused naming the file, and nothing SHALL be run there. A command run for this host SHALL read no manifest.
+
+#### Scenario: crew's manifest names its current address
+- **WHEN** crew's manifest is read
+- **THEN** its `repository`, `https://github.com/agentplot/crew`, gives `agentplot/crew`
+
+#### Scenario: A manifest that names no repository
+- **WHEN** crew's manifest has no `repository`, or names one that is no GitHub address, and a command runs crew on another host
+- **THEN** it is refused naming the manifest, and nothing is run on the other host
+
+#### Scenario: crew's code names no address of its own
+- **WHEN** the modules under `plugin/lib/` and the commands under `plugin/bin/` are read
+- **THEN** none names the repository crew's manifest names
