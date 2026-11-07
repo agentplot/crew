@@ -3,9 +3,10 @@ the `check-full` tag) with the moon crew's .prototools pins, crew's own choice (
 proto under crew's own proto home in the git common dir (devenv.nix), never a moon of the user's; and crew's tests run
 on Python 3.13, the minor every host runs crew on (code.1), with pytest synced from tests/pyproject.toml. Each run of
 crew's tools through the shell, `devenv shell -- <command>`, gets the same (tests.7, record 0024). The toolchain crew's
-policy names (.config/sluice.toml) only activates: the script it prints installs nothing. The flake's checks, the moon
-project nix (nix/moon.yml, nix/check.sh), run the nix, nixfmt, statix and deadnix the shell carries, and read the flake's
-inputs where the shell fetched them, by CREW_FLAKE_INPUTS, with no network (flake.3)."""
+policy names (.config/sluice.toml) only activates: the script it prints installs nothing. The flake's checks are the
+moon project nix's four tasks, each tagged check-full, which tests/suite and sluice's #check-full select; they run the
+nix, nixfmt, statix and deadnix the shell carries, and read the flake's inputs where the shell fetched them, by
+CREW_FLAKE_INPUTS, with no network (flake.3, nix/moon.yml, nix/check.sh)."""
 import json
 import os
 import pathlib
@@ -58,3 +59,20 @@ def test_the_shell_carries_the_flakes_tools_and_gives_its_inputs_store_paths():
     assert sorted(paths) == nodes, f"CREW_FLAKE_INPUTS names {sorted(paths)}, and flake.lock locks {nodes}"
     for name, path in paths.items():
         assert path.startswith("/nix/store/") and os.path.isdir(path), f"CREW_FLAKE_INPUTS gives {name} {path}, which is no fetched source"
+
+
+def test_moon_gives_the_project_nix_its_four_checks_each_tagged_check_full():
+    """tests/suite with no name runs `:#check-full`, and sluice's #check-full resolves to every project's check-full
+    tasks, so the flake's checks gate a change only while moon, in crew's checkout, gives the project nix format, lint,
+    typecheck and test, each tagged check-full (flake.3, tests.5)."""
+    root = pathlib.Path(__file__).resolve().parents[2]
+    # moon reads MOON_* as options, and a moon task hands its own to this test: only crew's moon home goes through.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("MOON_") or k == "MOON_HOME"}
+    r = subprocess.run(["moon", "query", "tasks", "--project", "nix"], cwd=root, env=env, capture_output=True,
+                       text=True, stdin=subprocess.DEVNULL, timeout=600)
+    assert r.returncode == 0, f"moon query tasks --project nix exited {r.returncode}: {r.stderr}"
+    tasks = json.loads(r.stdout).get("tasks", {}).get("nix", {})
+    tagged = {name: task.get("tags") or [] for name, task in tasks.items()}
+    assert sorted(tagged) == ["format", "lint", "test", "typecheck"], f"moon gives the project nix {sorted(tagged)}"
+    untagged = [name for name, tags in sorted(tagged.items()) if "check-full" not in tags]
+    assert not untagged, f"the project nix's {untagged} carry no check-full tag"
