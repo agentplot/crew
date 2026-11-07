@@ -6,7 +6,7 @@
 
 ## 2. The flake, its package and its checks
 
-- [ ] 2.1 `flake.nix` and `flake.lock` lock nixpkgs and nix-darwin, and crew's shell carries nix, nixfmt, statix and deadnix and gives `CREW_FLAKE_INPUTS`, each locked input's store path (design, Decisions 1 and 7; Task notes 2.1). Verify `tests/suite contract` ends with "0 failed".
+- [x] 2.1 `flake.nix` and `flake.lock` lock nixpkgs and nix-darwin, and crew's shell carries nix, nixfmt, statix and deadnix and gives `CREW_FLAKE_INPUTS`, each locked input's store path (design, Decisions 1 and 7; Task notes 2.1). Verify `tests/suite contract` ends with "0 failed".
 - [ ] 2.2 The flake gives `packages.<system>.crew` and `default` for aarch64-darwin, aarch64-linux and x86_64-linux, crew's plugin under `plugin/` and `bin/crew`, and the project `nix` has its `typecheck` and `test` tasks, evaluated offline and read-only against no store (design, Decisions 1 and 7; Task notes 2.2). Verify `tests/suite nix:typecheck` ends with "0 failed".
 - [ ] 2.3 The project `nix` has its `format` and `lint` tasks over `flake.nix` and `nix/`, and every file of the flake passes them (design, Decision 7; Task notes 2.3). Verify `tests/suite nix:format nix:lint` ends with "0 failed".
 - [ ] 2.4 moon lists the project `nix`'s `format`, `lint`, `typecheck` and `test`, each tagged `check-full` (design, Decision 7; Task notes 2.4). Verify `tests/suite contract` ends with "0 failed".

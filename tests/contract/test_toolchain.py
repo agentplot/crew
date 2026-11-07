@@ -3,7 +3,10 @@ the `check-full` tag) with the moon crew's .prototools pins, crew's own choice (
 proto under crew's own proto home in the git common dir (devenv.nix), never a moon of the user's; and crew's tests run
 on Python 3.13, the minor every host runs crew on (code.1), with pytest synced from tests/pyproject.toml. Each run of
 crew's tools through the shell, `devenv shell -- <command>`, gets the same (tests.7, record 0024). The toolchain crew's
-policy names (.config/sluice.toml) only activates: the script it prints installs nothing."""
+policy names (.config/sluice.toml) only activates: the script it prints installs nothing. The flake's checks, the moon
+project nix (nix/moon.yml, nix/check.sh), run the nix, nixfmt, statix and deadnix the shell carries, and read the flake's
+inputs where the shell fetched them, by CREW_FLAKE_INPUTS, with no network (flake.3)."""
+import json
 import os
 import pathlib
 import re
@@ -37,3 +40,21 @@ def test_the_toolchain_crews_policy_names_only_activates():
     assert "proto activate" in script, f"`{' '.join(toolchain)}` prints a script that activates no proto pin"
     installs = [line.strip() for line in script.splitlines() if "proto install" in line]
     assert not installs, f"`{' '.join(toolchain)}` prints a script that runs proto install: {installs}"
+
+
+def test_the_shell_carries_the_flakes_tools_and_gives_its_inputs_store_paths():
+    """nix/moon.yml's format, lint, typecheck and test run nixfmt, statix, deadnix and nix from the shell, never the
+    host's; nix/check.sh reads each input of flake.lock from CREW_FLAKE_INPUTS, offline and against no store, so each
+    must name a path the shell fetched (flake.3, nix/inputs.nix)."""
+    for tool in ("nix", "nixfmt", "statix", "deadnix"):
+        found = shutil.which(tool)
+        assert found and found.startswith("/nix/store/"), f"{tool} is {found}, not the shell's from the Nix store"
+    root = pathlib.Path(__file__).resolve().parents[2]
+    lock = json.loads((root / "flake.lock").read_text())
+    nodes = sorted(n for n in lock["nodes"] if n != lock["root"])
+    given = os.environ.get("CREW_FLAKE_INPUTS")
+    assert given, "the shell gives no CREW_FLAKE_INPUTS"
+    paths = json.loads(given)
+    assert sorted(paths) == nodes, f"CREW_FLAKE_INPUTS names {sorted(paths)}, and flake.lock locks {nodes}"
+    for name, path in paths.items():
+        assert path.startswith("/nix/store/") and os.path.isdir(path), f"CREW_FLAKE_INPUTS gives {name} {path}, which is no fetched source"

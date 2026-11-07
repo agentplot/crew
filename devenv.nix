@@ -55,8 +55,14 @@ in
   # inputs already passed (tests/suite, .moon/workspace.yml; record 0008), and Python, at the minor every host runs
   # crew on, with uv. pytest runs the logic and contract tiers (record 0022), synced by moon from tests/pyproject.toml
   # into tests/.venv; crew's own Python imports nothing but the standard library (code.1). git-cliff writes crew's
-  # releases from its conventional commits (cliff.toml, code.10).
-  packages = [ pkgs.jq proto pkgs.recutils pkgs.git-cliff ];
+  # releases from its conventional commits (cliff.toml, code.10). nix, nixfmt, statix and deadnix are the flake's
+  # checks', the moon project nix (nix/moon.yml): the nix its type check and test evaluate with, nixfmt its format
+  # runs, statix and deadnix its lint (flake.3), from this shell's own nixpkgs, pinned by devenv.lock.
+  packages = [ pkgs.jq proto pkgs.recutils pkgs.git-cliff pkgs.nix pkgs.nixfmt pkgs.statix pkgs.deadnix ];
+
+  # The flake's inputs as flake.lock locks them, fetched by this shell and given to the flake's checks by their store
+  # paths, which nix/check.sh reads with no network and no nix daemon (flake.3, nix/inputs.nix).
+  env.CREW_FLAKE_INPUTS = builtins.toJSON (import ./nix/inputs.nix { }).paths;
 
   # What CI would release from here: the next version and its notes (code.10).
   scripts.release-preview = {
