@@ -18,4 +18,4 @@ Each check is a moon task of the `tests` project, run through `tests/suite`. Bui
 
 ## 4. The tests the change affects
 
-- [ ] 4.1 Verify `tests/suite --affected` ends with "0 failed".
+- [x] 4.1 Verify `tests/suite --affected` ends with "0 failed".
