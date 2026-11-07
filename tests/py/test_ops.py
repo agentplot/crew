@@ -42,6 +42,31 @@ class TestState:
         assert offers == {"mac-studio": newer} and words == {}
         assert ops.state([OFFER, newer])[0] == {"mac-studio": newer}
 
+    def test_a_word_for_an_older_deploy_ends_at_the_end_of_a_newer_one_started_after_it_was_given(self):
+        """macbook-pro and mac-studio, 2026-10-26 to 31: the word for 3b12e8f, approved at 01:26, stood with its card
+        open as the agent's turn after the deployer started 8651be6 at 03:06 and ended it at 03:10, and through every
+        deploy since; ops.state ended a word only at the end of a deploy of its own head (signal 2026-10-31-swancloud-ops-edced2f9/01)."""
+        approve = e("ops.approve", minutes=2, Head=S1)
+        newer = [OFFER, approve, e("ops.deploy", minutes=3, Head=S2, Phase="start"), e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="done")]
+        assert ops.state(newer[:3])[1] == {"mac-studio": approve}
+        assert ops.state(newer)[1] == {}
+        assert ops.state(newer[:3] + [e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="failed")])[1] == {}
+
+    def test_a_word_stands_through_the_end_of_a_deploy_running_when_it_was_given_or_one_with_no_start_or_another_environments(self):
+        approve = e("ops.approve", minutes=2, Head=S1)
+        running = [OFFER, e("ops.deploy", minutes=1, Head=S2, Phase="start"), approve, e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="done")]
+        unstarted = [OFFER, approve, e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="done")]
+        elsewhere = [OFFER, approve, e("ops.deploy", env="box", minutes=3, Head=S2, Phase="start"),
+                     e("ops.deploy", env="box", minutes=4, Head=S2, Phase="end", Outcome="done")]
+        for es in (running, unstarted, elsewhere):
+            assert ops.state(es)[1] == {"mac-studio": approve}
+
+    def test_a_deploys_card_outlives_its_row_until_a_deploys_end_spends_its_word(self):
+        word = [OFFER, e("ops.approve", minutes=2, Head=S1)]
+        assert ops.word_stands("deploy/mac-studio", word)
+        assert not ops.word_stands("deploy/mac-studio", word + [e("ops.deploy", minutes=3, Head=S2, Phase="start"),
+                                                                 e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="done")])
+
     def test_a_refused_approval_is_no_word(self):
         assert ops.state([OFFER, e("ops.approve", minutes=2, Head=S2, Refused="the deploy of mac-studio offered is to aaaaaaa, not bbbbbbb")])[1] == {}
 
@@ -160,6 +185,23 @@ class TestEnvironments:
             word = ops.state(es[:n])[1].get("mac-studio", {}).get("Head")
             assert [d["to"] for d in ops.environments(es[:n])["mac-studio"]["deploys"]
                     if d["answer"] == "approved" and not d["ended"]] == ([word] if word else [])
+
+    def test_an_approved_deploy_not_started_is_replaced_naming_the_newer_deploy_whose_end_spent_its_word_as_state_reads_it(self):
+        """macbook-pro, 2026-10-26: 3b12e8f approved at 01:26 and never deployed, the deployer starting 8651be6 at 03:06
+        and ending it at 03:10, and the board kept 3b12e8f approved, not yet deployed (signal 2026-10-31-swancloud-ops-edced2f9/01)."""
+        es = [OFFER, e("ops.approve", minutes=2, Head=S1, By="swancloud-ops"), e("ops.deploy", minutes=3, Head=S2, Base="none", Phase="start"),
+              e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="done")]
+        new, old = ops.environments(es)["mac-studio"]["deploys"]
+        assert (new["to"], new["answer"], new["spent"], new["outcome"]) == (S2, "unasked", None, "done")
+        assert (old["to"], old["answer"], old["spent"], old["word"], old["ended"], old["at"]) == (
+            S1, "replaced", S2, {"at": "2026-10-12T10:02:00Z", "by": "swancloud-ops"}, None, "2026-10-12T10:04:00Z")
+        running = [OFFER, e("ops.deploy", minutes=1, Head=S2, Phase="start"), e("ops.approve", minutes=2, Head=S1),
+                   e("ops.deploy", minutes=4, Head=S2, Phase="end", Outcome="done")]
+        for got in (es, running):
+            for n in range(1, len(got) + 1):  # at every point, the deploy approved and not ended is the word ops.state reads
+                word = ops.state(got[:n])[1].get("mac-studio", {}).get("Head")
+                assert [d["to"] for d in ops.environments(got[:n])["mac-studio"]["deploys"]
+                        if d["answer"] == "approved" and not d["ended"]] == ([word] if word else [])
 
     def test_the_same_commit_offered_again_after_its_deploy_failed_is_a_new_deploy(self):
         es = [OFFER, e("ops.approve", minutes=2, Head=S1), e("ops.deploy", minutes=3, Head=S1, Phase="start"),
@@ -494,6 +536,32 @@ class TestDeployCard:
         assert ops.deploy_outcome(failed, "mac-studio", S1, "failed") == "The deploy of aaaaaaa to mac-studio failed at guests; its log: /var/log/deployer/guests.log."
         assert ops.deploy_outcome([], "srv", S2, "failed", "/tmp/run.log") == "The deploy of bbbbbbb to srv failed; its log: /tmp/run.log."
 
+    def test_a_newer_deploys_end_closes_the_card_naming_that_deploy_and_the_head_the_user_approved(self):
+        ran = [e("ops.deploy", minutes=3, Head=S2, Phase="start"), e("ops.deploy", minutes=4, Head=S2, Phase="step", Step="machine", Outcome="ok")]
+        assert ops.deploy_outcome(ran, "mac-studio", S2, "done", word=S1) == "Deployed bbbbbbb to mac-studio, newer than the aaaaaaa you approved: machine ok."
+        assert ops.deploy_outcome([], "srv", S2, "failed", "/tmp/run.log", word=S1) == (
+            "The deploy of bbbbbbb to srv, newer than the aaaaaaa you approved, failed; its log: /tmp/run.log.")
+        assert ops.deploy_outcome(DEPLOYED, "mac-studio", S1, "ok", word=S1) == "Deployed aaaaaaa to mac-studio: machine ok, suite ok."
+
+    @pytest.mark.parametrize("before,closed", [
+        ([OFFER, e("ops.approve", minutes=2, Head=S1), e("ops.deploy", minutes=3, Head=S2, Phase="start")],
+         [("swancloud-ops", "deploy/mac-studio", "Deployed bbbbbbb to mac-studio, newer than the aaaaaaa you approved.")]),
+        ([OFFER, e("ops.deploy", minutes=1, Head=S2, Phase="start"), e("ops.approve", minutes=2, Head=S1)], []),
+    ])
+    def test_a_deploys_end_closes_the_card_of_the_word_it_spends_and_no_other(self, monkeypatch, before, closed):
+        import argparse
+        import plan
+        es, got = list(before), []
+        monkeypatch.setattr(ops, "entries", lambda label, days=ops.DAYS: es)
+        monkeypatch.setattr(ops, "emit", lambda label, act, env, why, refused=None, **f: es.append(
+            e(act, env=env, minutes=5, **{k: v for k, v in f.items() if v is not None})))
+        monkeypatch.setattr(plan, "row_card_close", lambda fleet, label, owner, key, outcome=None, **k: got.append((owner, key, outcome)))
+        monkeypatch.setattr(ops, "raise_deploy", lambda fleet, row, acts=None, note=None: None)
+        a = argparse.Namespace(label="swancloud", env="mac-studio", to=S2, act="end", step=None, outcome="done", log=None, rows_json=None,
+                               does=None, **{"from": None})
+        ops.record_cmd(FLEET, a)
+        assert got == closed
+
     def test_a_failed_deploys_card_closes_naming_what_the_user_does_after_its_step_and_log_and_with_none_as_before(self):
         """swancloud deploy.6: the deployer's words of what the user does, handed with the end (--does), follow the step
         that failed and its log as it wrote them; handed none, or ending well, the close is as it was."""
@@ -513,9 +581,13 @@ class TestDeployCard:
     def test_a_records_words_of_what_the_user_does_are_kept_on_its_entry_and_close_its_card(self, monkeypatch):
         """crew ops record --does, on a failed end: the words go on the ops.deploy entry as Does and into the close."""
         import plan
-        got, closed = [], []
-        monkeypatch.setattr(ops, "entries", lambda label: [OFFER, e("ops.approve", minutes=2, Head=S1)])
-        monkeypatch.setattr(ops, "emit", lambda label, act, env, why, **f: got.append((act, f)))
+        es, got, closed = [OFFER, e("ops.approve", minutes=2, Head=S1)], [], []
+        monkeypatch.setattr(ops, "entries", lambda label, days=ops.DAYS: es)
+
+        def emit(label, act, env, why, **f):
+            got.append((act, f))
+            es.append(e(act, env=env, minutes=5, **{k: v for k, v in f.items() if v is not None}))
+        monkeypatch.setattr(ops, "emit", emit)
         monkeypatch.setattr(plan, "row_card_close", lambda fleet, label, owner, key, outcome: closed.append((key, outcome)))
         monkeypatch.setattr(ops, "raise_deploy", lambda fleet, row: closed.append(("raised", row["key"])))
         argv = ["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "end", "--outcome", "failed", "--log", "/tmp/run.log",

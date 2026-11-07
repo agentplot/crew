@@ -700,6 +700,15 @@ class TestSweepJudged:
         assert self.judged(cards_=[d], entries=ended)["gone"] == [(d, None, "its deploy no longer waits on your word")]
         assert "deploy/dev (wldn), asked by wldn-ops on mac-studio" in text(rows(), cards=[d], logs={"wldn": ended})
 
+    def test_a_deploys_card_whose_word_a_newer_deploys_end_spent_is_no_longer_left_for_its_deploy(self):
+        """deploy/macbook-pro and deploy/mac-studio, 2026-10-26 to 31, open as the agent's turn after newer deploys of
+        both ended (signal 2026-10-31-swancloud-ops-edced2f9/01)."""
+        d = card("deploy/dev", "req_d1", "wldn-ops")
+        spent = [did("ops.offer", 40, On=["env/dev"], Head="a" * 40, Base="none"), did("ops.approve", 30, On=["env/dev"], Head="a" * 40),
+                 did("ops.deploy", 20, On=["env/dev"], Head="b" * 40, Phase="start"),
+                 did("ops.deploy", 10, On=["env/dev"], Head="b" * 40, Phase="end", Outcome="ok")]
+        assert self.judged(cards_=[d], entries=spent)["gone"] == [(d, None, "its deploy no longer waits on your word")]
+
     def test_only_the_cards_posted_on_this_host_are_judged_and_a_decision_records_only_once_it_is_settled(self):
         there = card("proposal/4", "req_p4", "wldn-planner", host=BOX)
         rec = card("record/atlas-kit/0021", "req_r1", "wldn-design")

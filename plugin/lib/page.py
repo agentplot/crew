@@ -548,6 +548,8 @@ def word_said(x):
     if x["answer"] == "waiting":
         return "waits on your word: hold its card to deploy"
     by = (x["word"] or {}).get("by") or "no one named"
+    if x["answer"] == "replaced" and x.get("spent"):
+        return f"approved by {by}, {(x['word'] or {}).get('at')}, then the deploy of {x['spent'][:7]} ended before it was deployed"
     if x["answer"] == "replaced":
         return (f"approved by {by}, {x['word']['at']}, then the word went to a newer offer before it was deployed" if x["word"]
                 else "not answered, and replaced by a newer offer")

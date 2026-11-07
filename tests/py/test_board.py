@@ -1795,6 +1795,15 @@ class TestViews:
         assert lane(board.board_text(data(entries=moved)), "Operation")[-1].startswith(
             f"  mac-studio  deploy {S1[:7]} from nothing deployed  approved, then the word went to a newer offer  carrying")
 
+    def test_an_approved_deploy_whose_word_a_newer_deploys_end_spent_leaves_main_level_opss_view_and_the_board_names_that_deploy(self):
+        """macbook-pro, 2026-10-26 to 31: 3b12e8f approved and never deployed, 8651be6 started after its word and ended,
+        stood as approved, not yet deployed (signal 2026-10-31-swancloud-ops-edced2f9/01)."""
+        spent = [entry("ops.offer", 30, Head=S1, Base="none"), entry("ops.approve", 25, Head=S1), entry("ops.deploy", 12, Head=S2, Base=S1, Phase="start"),
+                 entry("ops.deploy", 10, Head=S2, Phase="end", Outcome="done")]
+        assert view("wldn-ops", entries=spent) == ["wldn operations  0 deploys wait on the user's word  0 deploys running  0 operations waiting"]
+        assert lane(board.board_text(data(entries=spent)), "Operation")[-1].startswith(
+            f"  mac-studio  deploy {S1[:7]} from nothing deployed  approved, then the deploy of {S2[:7]} ended first  carrying")
+
     def test_the_planner_the_design_agent_main_level_ops_and_the_operator_have_a_view_and_no_other_agent(self):
         """No conductor's, team ops's or dispatcher's view (Decision 11 of the-team-machinery-leaves)."""
         v = board.agent_views(data())
