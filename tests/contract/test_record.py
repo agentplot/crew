@@ -4,8 +4,10 @@ record.unpushed writes that day to the branch under the descriptor that allows t
 (record.emit, record.unpushed, the card hook's entries); and a chain of entries plan.land pushes to a bare repository
 standing for GitHub lands as one commit per entry, each changing its day's file alone, made again on top of another
 clone's push that moved the branch between its fetch and its push (plan.land, record.reach, state.1); and a first-parent
-log's parents and Crew-Entry trailers, root commit and all, read a branch below a plan write whose entry is still in
-flight though another host's entry landed after it, and at its tip once the entry arrives (plan.read_point, read.5)."""
+log's parents, Crew-Entry trailers and subjects, root commit and all, read a branch below a plan write whose entry is
+still in flight though another host's entry landed after it, naming that write and its agent, and at its tip once the
+entry arrives (plan.read_point, plan.fetch, read.5); and a plan write, its commit and then its entry's, is read at the
+tip it leaves once it returns, while one given no act moves nothing (plan.write, plan.2)."""
 import datetime
 import re
 import subprocess
@@ -155,9 +157,39 @@ def test_a_branch_is_read_below_a_write_whose_entry_is_in_flight_and_at_its_tip_
         git(other, "commit", "-q", "-m", f"runs({host}): bolt.land\n\nCrew-Entry: {eid}")
         git(other, "push", "-q", "origin", "wldn/main")
     (other / "plan.rec").write_text(plan.HEADER + "\n")
-    git(other, "commit", "-q", "-am", f"plan: bolt land y\n\nCrew-Entry: {land}")
+    git(other, "commit", "-q", "-am", f"plan(y): land the bolt (wldn-ops)\n\nCrew-Entry: {land}")
     git(other, "push", "-q", "origin", "wldn/main")
+    written = git(other, "rev-parse", "HEAD")
     entry(theirs, "mac-studio")  # another host's entry lands between the write and its own
     assert plan.fetch("WilldanGroup/crew-state", "wldn/main", fresh=True) == seed
+    assert plan.READ.below() == [dict(ref="wldn/main", tip=git(github, "rev-parse", "wldn/main"), at=seed, write=written,
+                                      subject="plan(y): land the bolt (wldn-ops)")]
     entry(land, "deneb")
     assert plan.fetch("WilldanGroup/crew-state", "wldn/main", fresh=True) == git(github, "rev-parse", "wldn/main")
+    assert plan.READ.below() == []
+
+
+def test_a_plan_write_is_read_at_the_tip_it_leaves_once_it_returns_and_one_given_no_act_moves_nothing(github, runs, monkeypatch):
+    """plan.2, read.5 (every-plan-write-is-an-act-with-its-entry): the write's commit names its entry, the write records
+    it, and its own commit follows before the write returns, so no decision after it reads the branch below it; a write
+    given no act, whose commit would name an entry nothing writes, is refused with the branch where it was."""
+    fleet = {"partitions": {}, "teams": {}, "hosts": {}}
+    monkeypatch.setattr(crew, "load", lambda: fleet)
+    monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
+    monkeypatch.setattr(plan, "notify", lambda fleet, seen, subject: None)
+
+    def change(w):
+        w.plan.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "switchboard-kit"), ("Goal", "A goal.")]))
+        return []
+    sha = plan.write(fleet, "wldn", change, "plan(b): new bolt", act="bolt.new", on=["bolt/b"])
+    tip = git(github, "rev-parse", "wldn/main")
+    eid = git(github, "log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha)
+    assert git(github, "rev-parse", f"{tip}~1") == sha and tip != sha
+    assert git(github, "log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", tip) == eid
+    day = git(github, "diff-tree", "--no-commit-id", "--name-only", "-r", tip)
+    entry = [e for e in record.parse(git(github, "show", f"{tip}:{day}") + "\n") if e["Id"] == eid]
+    assert [(e["Act"], e["On"], e["Commit"]) for e in entry] == [("bolt.new", ["bolt/b"], [f"WilldanGroup/crew-state@{sha}"])]
+    assert plan.fetch("WilldanGroup/crew-state", "wldn/main", fresh=True) == tip and plan.READ.below() == []
+    with pytest.raises(crew.Refusal):
+        plan.write(fleet, "wldn", change, "plan(b): new bolt")
+    assert git(github, "rev-parse", "wldn/main") == tip

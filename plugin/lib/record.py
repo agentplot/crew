@@ -71,7 +71,8 @@ DESCRIPTOR = """\
 """
 # Fields beyond the common ones: a stage.end's Result, Tasks, Head, Ended (delivered, short or stopped), Delivered (what
 # it delivered, as an object) and Observed, a tell's or a send's Chars, the Amended of a construct's start that marked
-# its unit amended, the After units' heads a construct's place Took and a dependent's rebase left out (a forecast's Took), a
+# its unit amended, the Head of the unit.mark that marked it (the head construct starts again from) and of the
+# unit.unmark that cleared the mark once that construct delivered (plan.6, plan.2), the After units' heads a construct's place Took and a dependent's rebase left out (a forecast's Took), a
 # forecast's Heads (the later unit's and the other's, <name>@<sha>; a bolt's against main, bolt/<bolt>@<sha> main@<sha>
 # and #<id> for each submission queued on main it meets, or bolt/<bolt>@<sha> alone when sluice gave none), its
 # conflicting Paths and how it Reached the later unit (told, prompt or settle) or the conductor (wait), a slot.free's Paths (the
@@ -709,8 +710,15 @@ def main(argv):
     (events if a.cmd == "events" else trace)(fleet, a)
 
 
+def below(said=None):
+    """A read of the record below its branch's tip said as plan.py says it (plan.below_read): only once plan.py, which
+    reads the branch, was loaded by the command."""
+    return sys.modules["plan"].below_read(said) if "plan" in sys.modules else ("" if said is None else said)
+
+
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(str(e))
+        sys.exit(below(str(e)))
+    below()
