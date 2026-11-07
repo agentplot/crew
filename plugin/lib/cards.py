@@ -935,19 +935,38 @@ def landings_card(f):
     return out
 
 
+def deploy_form(f):
+    """The form of a deploy's card from its facts (record 0058): "boxes" while a step the deploy waits on is open, a
+    box to tick for each and one for the deploy; None, a hold-to-approve, otherwise. Pending You changes no card's
+    kind, so a card that moves from one to the other is followed rather than changed (ops.raise_deploy)."""
+    return "boxes" if any(w.get("state") != "done" for w in f.get("waited") or []) else None
+
+
 def deploy_card(f):
     """A deploy's card (record 0031 §5, plan.14): an approval of risk high naming the environment and the commit; its
     summary counting the landings since the environment's last deploy, or saying it is the first deploy, which carries
     all of main, and naming the environments before and after it; on its face the kit's release notes as the deployer
     hands them, as inline Markdown, crew writing none, or the landings' subjects when it hands none, saying so, and the
-    after-deploy steps with their doers; the landings' subjects in its details. f: env, head, base (what the environment
-    runs) or None, landings ([{pr, subject}], oldest first), landings_why (why they can't be read) or None, notes
-    (Markdown) or None, release (the notes' name) or None, steps ([{n, text, doer, held}]), before ([env]), after ([{env,
-    policy}]), follows."""
+    after-deploy steps with their doers; the landings' subjects in its details. A deploy that waits on steps of the
+    user's (swancloud record 0038, record 0058) says so first, and shows them first on its face, before the notes, each
+    with why or that it is done; while one is open it is boxes to tick carrying highStakes (deploy_form), a box for
+    each open step, `before:<n>`, then one for the deploy, `deploy`, none ticked, its send with every box ticked the
+    word, in one list or, past BOXES, lists of BOXES at most, each a question, each carrying what follows a yes, since
+    Pending You refuses a card's rationale beside questions. f: env, head, base (what the environment runs) or None,
+    landings ([{pr, subject}], oldest first), landings_why (why they can't be read) or None, notes (Markdown) or None,
+    release (the notes' name) or None, steps ([{n, text, doer, held}]), waited ([{n, text, why, state}], ops.waited_on),
+    before ([env]), after ([{env, policy}]), follows. Also handed back: its form, which the run record keeps on the
+    card's post and change."""
     env, head, landings, steps = f["env"], f["head"][:7], list(f.get("landings") or []), list(f.get("steps") or [])
+    waited = list(f.get("waited") or [])
+    left = [w for w in waited if w.get("state") != "done"]
     why, first = f.get("landings_why"), not f.get("base")
     since = f"in the first deploy to {env}" if first else f"since {env}'s last deploy ({f['base'][:7]})"
-    said = [f"Which landings it carries {since} can't be read: {why}." if why else
+    ahead = f"It waits on {plural(len(waited), 'step')} of yours before the deploy" if waited else ""
+    said = ([ahead + (f", {len(waited) - len(left)} done" if len(left) < len(waited) else "")
+             + ": tick each once it is done, and the deploy; your send with every box ticked is the word to deploy, and a "
+               "box left unticked deploys nothing."] if left else [ahead + ", each done."] if waited else [])
+    said += [f"Which landings it carries {since} can't be read: {why}." if why else
             f"The first deploy to {env}, carrying all of main up to {head}." if first else
             f"{plural(len(landings), 'landing')} since {env}'s last deploy ({f['base'][:7]})."]
     if not f.get("notes"):
@@ -973,10 +992,38 @@ def deploy_card(f):
         shown.append(text_list(f"After the deploy: {plural(len(steps), 'step')}, {yours} yours", f"deploy-{env}-steps.txt",
                                [(f"{s['n']}  {s['text']}", "you" if s["doer"] == "user" else
                                  f"{s['doer']}, held for your word" if s.get("held") else s["doer"]) for s in steps]))
+    if waited:
+        shown.insert(0, text_list(f"Before the deploy: {plural(len(waited), 'step')}, yours", f"deploy-{env}-before.txt",
+                                  [(f"{w['n']}  {w['text']}",) + (("done",) if w.get("state") == "done" else
+                                                                  (w["why"],) if w.get("why") else ()) for w in waited]))
     background = f"Landings since {env}'s last deploy:\n" + "\n".join(subjects) if subjects else ""
-    return built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
-                 head=f["head"], kind="approve", intent="approve", approve=high(f"Deploy {head} to {env}"), recommendedIds=["approve"],
-                 rationale=f"{env} deploys only on your word, and a deploy is not undone.")
+    then = f"{env} deploys only on your word, and a deploy is not undone."
+    if not left:
+        return built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
+                     head=f["head"], kind="approve", intent="approve", approve=high(f"Deploy {head} to {env}"),
+                     recommendedIds=["approve"], rationale=then)
+    options = [{"id": f"before:{w['n']}", "label": cut(f"Done: {w['n']}. {' '.join(w['text'].split())}", LABEL),
+                "detail": by_words(w.get("why") or w["text"], DETAIL),
+                "consequence": by_words("Ticked: you have done it, and it is recorded done with your word.", DETAIL)} for w in left]
+    options.append({"id": "deploy", "label": cut(f"Deploy {head} to {env}", LABEL),
+                    "detail": by_words("Your word to deploy, once every step above is ticked.", DETAIL),
+                    "consequence": by_words(f"Sent with every box ticked: {env} is deployed {head} at its deployer's next run. "
+                                            "A box left unticked deploys nothing.", DETAIL)})
+    if len(options) <= BOXES:
+        shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": len(options)}, recommendedIds=[],
+                     rationale=then)
+    else:  # Pending You refuses a card's rationale beside questions, so each list carries what follows a yes
+        g = -(-len(options) // BOXES)
+        sizes = [len(options) // g + (1 if k < len(options) % g else 0) for k in range(g)]
+        groups = [options[sum(sizes[:k]):sum(sizes[:k + 1])] for k in range(g)]
+        shape = dict(intent="decide", about={"kind": "other", "title": cut(f"Deploy {head} to {env}", ABOUT)},
+                     questions=[dict(id=f"before-{k}", kind="multi", title=f"Before the deploy, part {k} of {g}", options=grp,
+                                     multi={"min": 0, "max": len(grp)}, recommendedIds=[], rationale=then)
+                                for k, grp in enumerate(groups, 1)])
+    out = built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
+                head=f["head"], highStakes=True, **shape)
+    out["form"] = deploy_form(f)
+    return out
 
 
 QUIET = {"quiet": ("When the host is quiet", "No stage is cut; it could be hours"),
@@ -1585,6 +1632,16 @@ def revision(got, kind_changed=False, questions=False, anew=False):
     if state:
         return "ended"
     return "follow" if answered or kind_changed or questions else "change"
+
+
+def form_asked(entries, card):
+    """The form a card of crew's took at its last post or change the run record holds done, its Form (a deploy's
+    boxes, deploy_form), or None for a hold-to-approve or one posted before crew recorded forms."""
+    form = None
+    for e in entries:
+        if e.get("Act") in ("card.post", "card.update") and e.get("Card") == card and not e.get("Refused"):
+            form = e.get("Form")
+    return form
 
 
 def head_asked(entries, card):

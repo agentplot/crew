@@ -52,7 +52,7 @@ The command is `${CLAUDE_PLUGIN_ROOT}/bin/crew`. `-h` or `--help` among any comm
 | send something to another partition, named by its label: it reaches its operator, its one door, marked with who sent it and whom it was for | `crew send <partition> "<text>"` |
 | see what runs where, with the URL to open | `crew sites [<label>]` |
 | offer a `manual` environment a deploy, its card raised in main-level ops's name with the kit's changelog and after-deploy steps (the kit's deployer) | `crew ops offer <env> --to <sha> --from <sha\|none> [--notes <file>] [--steps <file>] --label L` |
-| record the user's word for a deploy the rail offers (main-level ops, on the user's yes) | `crew ops approve <env> --to <sha> --label L` |
+| record the user's word for a deploy the rail offers (main-level ops, on the user's yes), with the steps it waits on the user ticked on its card | `crew ops approve <env> --to <sha> [--ticked <n>[,<n>...]] --label L` |
 | record an operation done or declined | `crew ops step <env> [--to <sha>] --key <key> --state done\|declined --label L` |
 | see what crew did lately in a partition, read from its branch, or as it reaches the branch, this host's entries at once and another's within the minute | `crew events [--label L] [--about <object>] [--follow]` |
 | push what of this host's run record a refused push left (each entry is pushed as it is written) | `crew events --push [--label L]` |
