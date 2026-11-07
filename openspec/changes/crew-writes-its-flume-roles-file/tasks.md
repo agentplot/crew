@@ -7,7 +7,7 @@
 
 ## 2. crew keeps the file
 
-- [ ] 2.1 crew's follower writes the roles file whole and renames it over the old one at each read of the teams file, only when it differs, leaves it as it is when the teams file is refused, makes none on a host that is no partition's machine and empties one there, makes the empty kinds folder beside it, runs no `flume` command and changes nothing in the teams file (design, Decisions 2, 5 and 6; Task notes 2.1). Verify `tests/suite t-flume-source` ends with "0 failed".
+- [x] 2.1 crew's follower writes the roles file whole and renames it over the old one at each read of the teams file, only when it differs, leaves it as it is when the teams file is refused, makes none on a host that is no partition's machine and empties one there, makes the empty kinds folder beside it, runs no `flume` command and changes nothing in the teams file (design, Decisions 2, 5 and 6; Task notes 2.1). Verify `tests/suite t-flume-source` ends with "0 failed".
 - [ ] 2.2 Starting a main level's role writes the roles file with that partition's entries (design, Decision 2; Task notes 2.2). Verify `tests/suite t-journey-main` ends with "0 failed".
 
 ## 3. The docs and the change's tests

@@ -1,8 +1,9 @@
 """crew as a source of its host's Flume (record 0057, teams.25; Flume record 0039): the roles file crew writes from the
 teams file, one standing entry at `<label>/<role>` for each role that stands of each partition whose main level runs on
 the host, and the kinds folder the host's `sources/crew.toml` names beside it. The entries and their text are decided
-here on plain facts (code.7), from the fleet crew.load gives; this module imports nothing of crew's (code.1)."""
-import json
+here on plain facts (code.7), from the fleet crew.load gives, and keep is the one act that writes them; this module
+imports nothing of crew's (code.1)."""
+import json, os
 from pathlib import Path
 
 # The file the fleet's `~/.config/flume/sources/crew.toml` names as crew's roles, and the folder it names as crew's
@@ -51,3 +52,32 @@ def text(entries, host):
     for address, entry in entries:
         lines += ["", f"[roles.{quoted(address)}]"] + [f"{k} = {quoted(v)}" for k, v in entry.items()]
     return "\n".join(lines) + "\n"
+
+
+def keep(fleet, host, asks, roles=None, kinds=None):
+    """The roles file kept on host (Decisions 5 and 6): its text written whole to a new file beside it and renamed over
+    it, only when it differs from the file's bytes; with no entry and no file, nothing made, and a file already there
+    written with no entry, so a host whose main levels moved away declares nothing for them. With an entry, the kinds
+    folder made when missing, and nothing put in it. Runs no flume command and writes nothing else. Returns whether it
+    wrote the file; an OSError is the caller's to say."""
+    roles, kinds = roles or ROLES_FILE, kinds or KINDS_DIR
+    found = entries(fleet, host, asks)
+    if found:
+        kinds.mkdir(parents=True, exist_ok=True)
+    try:
+        was = roles.read_bytes()
+    except FileNotFoundError:
+        if not found:
+            return False
+        was = None
+    new = text(found, host).encode()
+    if new == was:
+        return False
+    roles.parent.mkdir(parents=True, exist_ok=True)
+    tmp = roles.with_name(f"{roles.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_bytes(new)
+        os.replace(tmp, roles)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return True

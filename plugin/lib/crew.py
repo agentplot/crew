@@ -31,6 +31,7 @@ import functools, getpass, hashlib, itertools, json, os, pathlib, re, shlex, sub
 # tell to a role that runs as its kind writes its ask through, is the Refusal main catches.
 if __name__ == "__main__":
     sys.modules.setdefault("crew", sys.modules[__name__])
+import source
 
 LIB = pathlib.Path(__file__).resolve().parent
 HOME = LIB.parent.parent
@@ -1331,6 +1332,19 @@ def signal_how(cmd, label, state):
 ASKS = {"design": "the design", "planner": "the plan", "ops": "a live system, a deploy or a landing"}
 
 
+def keep_roles(fleet):
+    """crew's Flume roles file kept on this host from the teams file as crew read it (record 0057, teams.25;
+    source.keep), by the follower at each read and by each start of a main-level role: written whole and renamed over
+    the old one only when it differs. A file crew cannot write is said on standard error, naming it, and stops nothing.
+    Returns whether it wrote."""
+    try:
+        return source.keep(fleet, this_host(), ASKS)
+    except OSError as e:
+        print(f"crew could not keep its Flume roles file, {source.ROLES_FILE}: {e.strerror or e}"
+              + (f" ({e.filename})" if e.filename else ""), file=sys.stderr)
+        return False
+
+
 # How an agent asks the user a question of its own, the same in the brief of each of the three that ask: the planner's,
 # main-level ops's and the design agent's (record 0031, briefs.11; Decision 6 of the-team-machinery-leaves).
 def cards_how(cmd, label, kits):
@@ -2199,6 +2213,8 @@ class Agents:
                 break
         if not (stage == "resume" and session):
             self.fresh.append(role)
+        if self.kind == "main":
+            keep_roles(self.fleet)  # its main level's roles declared to the host's Flume once its agent is up (teams.25)
         print(started_said(name, pane, stage))
         return True
 
