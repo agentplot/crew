@@ -12,7 +12,15 @@ f965a6bb-1725-4522-8d49-576f4bb1fc50, a chore's verify of 2026-10-20, on deneb o
 grade falls; nothing that is not a paraphrase is refused, and no capture is stopped: when the copy's type changes, a
 quote of the agent's own earlier words grades found again.
 
-Who asserted the words is read from the mark crew puts on what it sends; anything unmarked is the user's.
+Who asserted the words is read from the mark crew puts on what it sends; anything unmarked is the user's. The mark
+opens what was sent, and that is not always the record's string: where the account's features turn them on, Claude
+Code wraps pasted text in tags of its own, <pasted_content id="fad0"> before the paste and </pasted_content id="fad0">
+after it, the id four lowercase hex digits, newlines around them, and a pane's send is a paste, so a tell herdr types
+reaches the transcript inside them with its mark at the paste's start. So the mark is read at the start of the paste
+that holds the words, and of the string only for words outside every paste. Read from Claude Code 2.1.318's
+transcripts on deneb of agentplot-operator's session 055802a2 at 2026-11-06T22:55Z and agentplot-planner's fae160b6 at
+2026-11-07T04:49Z, each a tell crew signal had read as the user's; flume's agent profile reads the same tags (its
+PASTE_TAG, flume record 0016). When the tags change, a pasted tell reads as the user's again.
 
 Claude Code writes a tool call's record only once the tool returns, so the running crew signal is never in the
 transcript it reads. What shows crew it is reading the live session is the record before it, the user's message or
@@ -62,6 +70,8 @@ import datetime, json, pathlib, re, sys
 # its line, a backslash-newline running it on, when a word after it starts --excerpt.
 COMMAND = re.compile(r"crew signal(?:\\\n|.)*?(?<!\S)--excerpt(?:\\\n|.)*")
 TELL = re.compile(r"^\[crew tell from ([^\]\s]+)\]")
+# One paste as Claude Code records it, its words the group named words (see the module's opening).
+PASTE = re.compile(r'<pasted_content id="(?P<id>[0-9a-f]{4})">(?P<words>.*?)</pasted_content id="(?P=id)">', re.S)
 # How a tell's sender ends when it carries the user's word from the board, crew tell --board's <user>@board (record
 # 0038 §3): the user's words, which answer nothing.
 BOARD = "@board"
@@ -172,9 +182,20 @@ def lines(path, start=0):
     return out
 
 
+def marked(hit, needle):
+    """The words a received string's excerpt was sent in, whose start carries crew's mark when crew sent them
+    (signals.5): the paste that holds the excerpt, needle being the excerpt with its whitespace collapsed, since each
+    paste was sent on its own and a tell typed into a pane is one; else the string itself, the excerpt being in what was
+    typed around its pastes."""
+    for m in PASTE.finditer(hit):
+        if any(needle in collapse(p) for p in searched(m.group("words"))):
+            return m.group("words")
+    return hit
+
+
 def asserter(value, hit):
-    """Who asserted a received record's excerpt, from the record and the string that holds it: a tool, for a record
-    holding a tool_result block; the agent crew tell names, or the user when that names <user>@<host>; crew, for
+    """Who asserted a received record's excerpt, from the record and the words that hold it (marked): a tool, for a
+    record holding a tool_result block; the agent crew tell names, or the user when that names <user>@<host>; crew, for
     crew's own message; otherwise the user."""
     if holds_tool_result(value):
         return "tool"
@@ -188,7 +209,7 @@ def asserter(value, hit):
 
 
 def from_board(hit):
-    """Whether the string that holds an excerpt is a tell from the board, its sender <user>@board."""
+    """Whether the words that hold an excerpt (marked) are a tell from the board, its sender <user>@board."""
     m = TELL.match(hit.lstrip())
     return bool(m) and m.group(1).endswith(BOARD)
 
@@ -239,9 +260,10 @@ def check(session, excerpt, skip=(), want=None):
         if not hits:
             continue
         if kind(v) == "user":
-            received = (n, raw, v, hits)
-            if asserter(v, hits[-1]) == "user":
-                if from_board(hits[-1]):
+            said = marked(hits[-1], needle)
+            received = (n, raw, v, said)
+            if asserter(v, said) == "user":
+                if from_board(said):
                     received_board = received
                 else:
                     received_user = received
@@ -250,9 +272,9 @@ def check(session, excerpt, skip=(), want=None):
     if want == "user" and (received_user or received_board):
         received = received_user or received_board
     if received:
-        n, raw, v, hits = received
-        by = asserter(v, hits[-1])
-        return Verdict("verified", raw=raw, n=n, value=v, asserted_by=by, board=by == "user" and from_board(hits[-1]))
+        n, raw, v, said = received
+        by = asserter(v, said)
+        return Verdict("verified", raw=raw, n=n, value=v, asserted_by=by, board=by == "user" and from_board(said))
     if other:
         n, raw, v, _ = other
         return Verdict("found", raw=raw, n=n, value=v)
