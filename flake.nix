@@ -49,5 +49,12 @@
     in
     {
       inherit packages;
+
+      # services.crew, which writes crew's teams file (flake.1, flake.2),
+      # its package the flake's own above.
+      darwinModules = rec {
+        crew = import ./nix/modules/darwin.nix { inherit packages; };
+        default = crew;
+      };
     };
 }
