@@ -12,5 +12,5 @@
 
 ## 3. The docs and the change's tests
 
-- [ ] 3.1 README's main-level section says crew writes its Flume roles file and kinds folder from the teams file and keeps them (`docs.2`; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.1 README's main-level section says crew writes its Flume roles file and kinds folder from the teams file and keeps them (`docs.2`; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
 - [ ] 3.2 The tests the change affects pass (Task notes 3.2). Verify `tests/suite --affected` ends with "0 failed".
