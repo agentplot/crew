@@ -42,10 +42,22 @@ remote() { echo "$T/remotes/$1.git"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 # The real sleep, for a test's own waits: the stub's returns at once.
 zzz=$(type -a -P sleep | grep -vxF "$TESTS/stubs/sleep" | head -1)
-# until_ok <cmd...>: wait until the command succeeds, looking every tenth of a second for up to ten minutes, a limit
-# that holds on a host under heavy load (tests.8); the wait ends as soon as it succeeds, and returns non-zero when it
-# never did.
-until_ok() { local end=$((SECONDS + 600)); until "$@"; do (( SECONDS < end )) || return 1; "$zzz" 0.1; done; }
+# nap <seconds>: a pause that starts no process: a read that waits on a fifo nothing writes, $T/.pause, held open on fd 9,
+# which the stubs pause on too. A read on `<> <(:)` is no pause on macOS, which refuses a read-write open of a pipe's
+# /dev/fd and so returns at once.
+mkfifo "$T/.pause"; exec 9<>"$T/.pause"
+nap() { read -rt "$1" -u 9 _ || true; }
+# until_ok <cmd...>: wait until the command succeeds, for up to ten minutes, a limit that holds on a host under heavy
+# load (tests.8). It looks at once, then a tenth of a second later, each pause twice the last up to a second, so a wait
+# that is over at once costs no pause and a long one runs its command about once a second rather than ten times;
+# the wait ends as soon as it succeeds, and returns non-zero when it never did.
+until_ok() {
+  local end=$((SECONDS + 600)) gap=1
+  until "$@"; do
+    (( SECONDS < end )) || return 1
+    nap "$((gap / 10)).$((gap % 10))"; (( gap = gap * 2 > 10 ? 10 : gap * 2 ))
+  done
+}
 ok() { echo "ok: $*"; }
 # expect_ok <cmd...>: it succeeds; its output is in $out
 expect_ok() { out=$("$@" 2>&1) || fail "expected success: $*"$'\n'"$out"; }

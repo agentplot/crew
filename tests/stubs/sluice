@@ -30,7 +30,8 @@
 # which waits on its last submission to the branch, as sluice's does, and prints the submission's record, its state
 # landed, failed or conflict, and exits as sluice 0.36.0 does: 0, 1 or 2; while $CREW_TEST_ROOT/sluice-wait-holds exists,
 # and for as many calls as $CREW_TEST_ROOT/sluice-wait-<id>-fives counts, one fewer each call, it is undecided: the wait
-# prints the record under test and exits 5, as sluice's does at its timeout, after a moment while held, and its status
+# prints the record under test and exits 5, as sluice's does at its timeout, after a moment while held, a second or
+# until the hold is lifted, so a waiter calling it again while it is held calls about once a second, and its status
 # says it is under test; its verdict is in the record alone, as sluice
 # 0.36.4's is under --json, and nothing of it on standard error: a failed record carries `result` "failed" and
 # `failed`, as sluice 0.36.4's records.rs Submission and FailedTask have them, the failed check with a hash, a check
@@ -63,6 +64,8 @@
 # `<host> sluice <args> in <the directory it ran in>`.
 set -uo pipefail
 [[ -n ${CREW_TEST_LOG:-} ]] && printf '%s sluice %s in %s\n' "${CREW_TEST_HOST:-?}" "$*" "$(pwd -P)" >> "$CREW_TEST_LOG"
+# pause <seconds>: a pause that starts no process, a read on the test's fifo, which nothing writes (tests/lib.sh's nap).
+pause() { [[ -p ${CREW_TEST_ROOT:?}/.pause ]] || mkfifo "$CREW_TEST_ROOT/.pause" 2>/dev/null; read -rt "$1" _ <> "$CREW_TEST_ROOT/.pause" || true; }
 if [[ $* == --version ]]; then
   if [[ -e ${CREW_TEST_ROOT:-}/sluice-version ]]; then cat "$CREW_TEST_ROOT/sluice-version"; else echo "sluice 0.36.4"; fi
   exit 0
@@ -197,7 +200,7 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
       fi
       rmdir "$stands.lock"
     fi
-    for _ in $(seq 6000); do [[ -e $f || ! -e $stands.lock ]] && break; read -rt 0.1 _ <> <(:) || true; done  # another wait landing it
+    for _ in $(seq 6000); do [[ -e $f || ! -e $stands.lock ]] && break; pause 0.1; done  # another wait landing it
     if [[ -z $id || ! -e $f ]]; then
       printf '{"error":{"kind":"not_found","message":"no submission %s","next":["sluice overview"]}}\n' "${2:-}"
       exit 1
@@ -205,7 +208,11 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
     fives=${CREW_TEST_ROOT:?}/sluice-wait-${id}-fives
     held=; [[ -e $CREW_TEST_ROOT/sluice-wait-holds ]] && held=yes  # read once, so a hold lifted meanwhile spends no five
     if [[ -n $held ]] || (( $(cat "$fives" 2>/dev/null || echo 0) > 0 )); then
-      if [[ -n $held ]]; then read -rt 0.2 _ <> <(:) || true; else echo $(( $(cat "$fives") - 1 )) > "$fives"; fi
+      if [[ -n $held ]]; then
+        for _ in 1 2 3 4 5 6 7 8 9 10; do [[ -e $CREW_TEST_ROOT/sluice-wait-holds ]] || break; pause 0.1; done
+      else
+        echo $(( $(cat "$fives") - 1 )) > "$fives"
+      fi
       jq -c 'del(.rc) | .state = "testing" | del(.result, .failed, .conflict)' "$f"
       exit 5
     fi
