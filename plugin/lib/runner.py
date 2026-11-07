@@ -563,6 +563,31 @@ def stage_of(work, launch, answer, place, read, after=()):
     return dict(res, stage=f["current"])
 
 
+def place_branch(work):
+    """The branch Flume cuts a unit's or chore's place on, as Flume's status names it (`branch`): <kind>/<name>, the
+    kind and name its launch gives (reach), a unit's kind change; the same whichever partition's launch made the place,
+    since it is the work's own name and carries no partition's (crew record 0055, rejected). None for a fix or a role's
+    work, which the bolt's landings do not build."""
+    kind, _, name = work.partition("/")
+    return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
+
+
+def built_on_bolt(work, s, landings):
+    """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
+    work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
+    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read. Once a landing
+    names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
+    of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
+    whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
+    from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
+    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit)."""
+    landing = (landings or {}).get(place_branch(work) or "")
+    if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
+        return s
+    kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
+    return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
+
+
 def working(reading):
     """The places a host's runner carries Flume's status of whose current stage is working, begun with its phase live
     (flume_facts), from reading, host_read's, read: (each place's folder name, in its launches' order, None), or (None,
@@ -596,7 +621,8 @@ def piece_said(s):
     today's piece's word, with the tasks of a stage that has them and sluice's number of a submission; what goes with
     it, or ""): the work it waits on; the question it stopped short with, or the work it found; sluice's words it was
     sent back with; Flume's words of what it waits on its caller for, its held submission waiting on the user's send;
-    the room it is queued for; the runner's words refusing it; or why crew can't tell its stage."""
+    the room it is queued for; the runner's words refusing it; or why crew can't tell its stage; and, for one read
+    merged from its bolt's landing (built_on_bolt), the branch and commit that landing names."""
     st = s["stage"]
     tasks = f" {s['tasks'][0]}/{s['tasks'][1]}" if s.get("tasks") and s["tasks"][1] and st in ("code", "verify") else ""
     stage = f"submitted #{s['submission']}" if st == "submitted" and s.get("submission") else st + tasks
@@ -609,6 +635,7 @@ def piece_said(s):
         f"waits on its caller at {s.get('of') or 'its submission'}: {first or s.get('why') or 'no words'}" if st in ("waits", "stalled") else
         f"for room at {s['of']}" if st == "queued" and s.get("of") else
         f"refused by the runner: {first or 'no words'}" if st == "refused" else
+        f"{s.get('branch')} landed on its bolt at {(s.get('commit') or '')[:7]}" if st == "merged" and s.get("on") == "bolt" else
         s.get("why") or "" if st == "unknown" else "")
     return stage, detail
 

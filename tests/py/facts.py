@@ -226,12 +226,12 @@ def flume_plan(bolts=(), work=()):
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 
 
-def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main"):
+def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", refused=None):
     """A host's runner as crew reads it from its branch (runner.host_read): each launch in launched, {request's number:
     the flume 0.3.6 status fixture its place stands at (tests/py/flume-0.3.6/<name>.json)}, answered launched and
     carried in places.rec at the fixture's own place, its repository given as repository, the kit's folder on host where
-    crew reads it (runner.where), and its stream the partition's label, as its host's Flume configuration maps it; and each
-    in held answered held."""
+    crew reads it (runner.where), and its stream the partition's label, as its host's Flume configuration maps it; each
+    in held answered held; and each in refused, {request's number: the runner's words}, answered refused."""
     import json
     import plan
     import runner
@@ -244,6 +244,7 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
         answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: 2026-10-31T12:01:00Z\n"
         places += f"\nRequest: {n}\nPlace: {where}\nAt: 2026-10-31T12:02:00Z\nStatus: {json.dumps(status)}\n"
     answers += "".join(f"\nRequest: {n}\nOutcome: held\nAt: 2026-10-31T12:01:00Z\n" for n in held)
+    answers += "".join(f"\nRequest: {n}\nOutcome: refused\nWords: {w}\nAt: 2026-10-31T12:01:00Z\n" for n, w in (refused or {}).items())
     files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n"),
              "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}

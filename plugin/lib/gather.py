@@ -22,7 +22,9 @@ chores its history holds (each `Chore:` trailer's name), and for each local bolt
 read where the bolt lives (bolt_read, at: GitHub's origin/bolt/<bolt> for a bolt on GitHub, else the host's bolt/<bolt>),
 whether it exists, the changes and chores it holds, those it holds archived, its worktree, its head and the head's
 time, and the commits it holds that are another bolt's own, on that bolt's first-parent line beyond main, every bolt
-GitHub holds among them (carries, carried_bolts, bolt_lines), or why that can't be read (carries_error); each place under <dir>/places with its branch, its head and the head's time, its change's tasks and whether
+GitHub holds among them (carries, carried_bolts, bolt_lines), or why that can't be read (carries_error), and the
+branches sluice's landings on it name, each with the newest landing's commit and time (landings, bolt_landings), or
+why they can't be read (landings_error); each place under <dir>/places with its branch, its head and the head's time, its change's tasks and whether
 its planning is complete, read from the change archived there once its merge has archived it; each chore's place,
 <dir>/places/chore-<name> on chore/<name>, with its bolt,
 head, head's time and how many commits of its own it holds beyond the bolt; the kit's
@@ -36,7 +38,7 @@ folder under openspec/explorations/ on main with the first line of its first .md
 system, devurl, portless and sluice and, for a change whose workflow it does not read itself, openspec, and changes
 nothing.
 It needs nothing but python3's standard library, since it is sent to hosts whose crew may be older."""
-import fnmatch, hashlib, json, os, re, subprocess, sys, tomllib
+import datetime, fnmatch, hashlib, json, os, re, subprocess, sys, tomllib
 
 
 def run(args, cwd):
@@ -221,6 +223,61 @@ def bolt_lines(main, now, refs):
             return None, f"git could not list bolt/{b}'s own commits beyond main at {short(ref)}"
         lines[b] = out.split()
     return lines, None
+
+
+# What a landing sluice made says it landed (sluice clause 23; its text.rs): `Sluice-From: <agent> (<worktree>)`, naming
+# the branch submitted as the one or the other, a Flume place's branch as both (change/<u> (change/<u>)), a session's
+# as the agent (fix/<f> (pull/<n>)) or the worktree (<agent> (unit/<u>)).
+FROM = re.compile(r"^(\S+) \((\S+)\)$")
+
+
+def landed_from(log):
+    """The branches a bolt's landings name (crew record 0056 decision 2; read.2), from `git log --first-parent
+    --format=%H%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e` over the bolt's own line (log),
+    newest first: {name: {"commit", "at"}}, each name its Sluice-From gives, the agent and the worktree, at the newest
+    landing naming it, at as UTC ISO 8601 from its committer time; a commit with no Sluice-From names nothing. A
+    decision of facts alone (code.7)."""
+    out = {}
+    for rec in log.split("\x1e"):
+        parts = rec.strip("\n").split("\x1f")
+        if len(parts) != 3 or not parts[0] or not parts[1].isdigit():
+            continue
+        at = datetime.datetime.fromtimestamp(int(parts[1]), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        for v in (x.strip() for x in parts[2].split("\x1d") if x.strip()):
+            m = FROM.match(v)
+            for name in (m.groups() if m else (v,)):
+                out.setdefault(name, {"commit": parts[0], "at": at})
+    return out
+
+
+LANDINGS = "--format=%H%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e"
+
+
+def bolt_landings(main, ref, now):
+    """The landings sluice made on a bolt, by the branches they name (landed_from), read on the bolt's own first-parent
+    line where it is read (ref, bolt_at): beyond the kit's main now (now) while main does not hold the bolt's head, and,
+    once it does, beyond main as it stood when the bolt landed, the first parent of the merge on main's first-parent
+    line whose other parent is the head, so a landed bolt still names what landed on it until its close; a head main
+    holds with no such merge, a bolt with nothing of its own, names none. ({name: {"commit", "at"}}, None), or (None,
+    why) when git could not read it (read.1)."""
+    head = (run(["git", "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], main) or "").strip()
+    if not head:
+        return None, f"git could not read bolt/{ref.rsplit('bolt/', 1)[-1]}'s head at {short(ref)}"
+    code, _, err = ran(["git", "merge-base", "--is-ancestor", head, now], main)
+    if code not in (0, 1):
+        return None, f"git could not tell whether main holds {short(ref)} at {head[:7]}: {(err or '').strip() or f'exit {code}'}"
+    base = now
+    if code == 0:
+        merges = run(["git", "log", "--first-parent", "--format=%H %P", now, f"^{head}"], main)
+        if merges is None:
+            return None, f"git could not find where {short(ref)} landed on main"
+        base = next((ps[1] for ps in (l.split() for l in merges.splitlines()) if head in ps[2:]), None)
+        if base is None:
+            return {}, None
+    log = run(["git", "log", "--first-parent", LANDINGS, ref, f"^{base}", "--"], main)
+    if log is None:
+        return None, f"git could not list the landings on {short(ref)}"
+    return landed_from(log), None
 
 
 def short(ref):
@@ -808,6 +865,10 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
             out["bolts"][b]["carries_error"] = lwhy or f"git could not list what bolt/{b} holds beyond main at {short(ref)}"
         else:
             out["bolts"][b]["carries"] = carried_bolts(holds.split(), lines, b)
+        # The landings sluice made on it, by the branches they name: a unit's or chore's place is built once one names
+        # its branch, whichever partition's launch made it (crew record 0056 decision 2); one git can't list is said.
+        landed, why = bolt_landings(main, ref, now)
+        out["bolts"][b].update({"landings": landed} if why is None else {"landings_error": why})
     places = os.path.join(kdir, "places")
     for path, branch in at.items():
         if os.path.dirname(path) != places or not branch:
