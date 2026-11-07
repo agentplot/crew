@@ -111,6 +111,61 @@ class TestEmit:
         with pytest.raises(crew.Refusal, match="^nothing reached wldn/main: /x/teams.json is missing"):
             record.reach("wldn")
 
+    def test_a_refused_writes_waits_grow_from_half_a_second_and_stay_within_their_bound(self):
+        """plan.replay_wait (state.1, code.9): each replay waits at least as long as the one before, from half a second
+        up to eight, each wait drawn over its upper half so writers refused at one moment replay apart, and the whole
+        wait is 23.5 s at most whatever is drawn."""
+        waits = plan.REPLAY_WAITS
+        assert plan.REPLAYS == len(waits) == 6 and waits[0] == 0.5 and max(waits) == 8
+        assert all(a <= b for a, b in zip(waits, waits[1:])) and waits[0] < waits[-1] and sum(waits) == 23.5
+        assert [plan.replay_wait(n, 0.0) for n in range(plan.REPLAYS)] == [0.25, 0.5, 1.0, 2.0, 4.0, 4.0]
+        highs = [plan.replay_wait(n, 0.999999) for n in range(plan.REPLAYS)]
+        assert all(w * 0.99 < h < w for w, h in zip(waits, highs)) and sum(highs) < 23.5
+
+    def test_a_branch_that_keeps_moving_is_outwaited_then_its_entry_is_kept_for_the_hosts_next_push(self, here, monkeypatch, capsys):
+        """plan.land on madswan/main of 2026-10-27, nineteen commits in two minutes (state.1, record.2): each refused
+        push waits a growing moment before the branch is fetched afresh, the last refusal waiting for nothing, and a
+        branch that moved before every push refuses the write naming the wait; record.reach says so once and keeps the
+        entry, and the next push, once the branch takes it, carries it."""
+        import types
+        monkeypatch.setattr(record, "reach", REACH)
+        monkeypatch.setattr(crew, "load", lambda: FLEET)
+        monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        events, branch, made = [], {"tip": "t0", "busy": True}, []
+
+        def tip_of(repo, ref, fresh=False):
+            events.append("fetch" if fresh else "read")
+            if fresh and branch["busy"]:  # another writer's commit landed while this one waited
+                branch["tip"] = f"t{int(branch['tip'][1:]) + 1}"
+            return branch["tip"]
+
+        def git(repo, *args, input=None, env=None, check=True):
+            if args[0] == "push":
+                events.append("push")
+                return types.SimpleNamespace(returncode=1 if branch["busy"] else 0, stdout="",
+                                             stderr="! [rejected] wldn/main (fetch first)" if branch["busy"] else "")
+            return ""
+        monkeypatch.setattr(plan, "tip_of", tip_of)
+        monkeypatch.setattr(plan, "git", git)
+        monkeypatch.setattr(plan, "show", lambda repo, tip, path: None)
+        monkeypatch.setattr(plan, "checked", lambda files: None)
+        monkeypatch.setattr(plan, "commit", lambda repo, parent, files, message: made.append(files) or f"c-{parent}")
+        monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(s))
+        monkeypatch.setattr(plan.random, "random", lambda: 0.5)
+        eid = record.emit("wldn", "card.close", ["proposal/170"])
+        waits = [w * 0.75 for w in plan.REPLAY_WAITS]
+        assert events == ["read", "read", *[e for w in waits for e in ("push", w, "fetch")], "push", "fetch"]
+        assert capsys.readouterr().err.splitlines() == [
+            f"crew: entry {eid} did not reach wldn/main of WilldanGroup/crew-state: wldn/main of WilldanGroup/crew-state kept moving: "
+            f"the write was applied 7 times, waiting {sum(waits):.1f} s in all between them, and each push was refused; mac-studio keeps "
+            "it and pushes it with its next entry"]
+        assert [e["Id"] for e in record.parse(next(here.glob("*.rec")).read_text())] == [eid]
+        branch["busy"], events[:], made[:] = False, [], []
+        assert record.reach("wldn") == 1 and events == ["read", "read", "push"]
+        (files,) = made
+        assert [e["Id"] for e in record.parse(next(iter(files.values())))] == [eid]
+
     def test_a_fetchs_tip_is_read_from_the_caches_files_with_no_git_after_the_fetch(self, monkeypatch, tmp_path):
         """The host's follower fetches on its clock, and the tip a fetch moved is read from the cache's files
         (plan.tip_here), so the clock's fetch starts nothing beside git's fetch (plan.12's reading of 2026-10-28)."""

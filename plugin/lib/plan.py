@@ -109,7 +109,7 @@ signal's id takes its full id, <capture>/<NN>-<slug>, or its short one, <capture
 
 A command that names no partition reads them all, or the agent's own (CREW_LABEL); --label names one.
 """
-import argparse, base64, bisect, contextlib, datetime, fcntl, io, json, os, pathlib, re, shlex, subprocess, sys, time
+import argparse, base64, bisect, contextlib, datetime, fcntl, io, json, os, pathlib, random, re, shlex, subprocess, sys, time
 # getpass, hashlib, shutil, tempfile and urllib.parse are imported where they are used: every crew command starts this
 # module afresh, and those five (OpenSSL, the compression modules) were a third of its start.
 from signal import SIGTERM
@@ -132,7 +132,11 @@ from cards import joined, new_units  # noqa: E402
 from crew import Refusal, Stopped, fail  # noqa: E402
 from picture import cut  # noqa: E402
 
-REPLAYS = 5
+# The waits, in seconds, before a refused write's replays, one before each replay's fresh fetch: each the double of the
+# one before up to eight, so a branch taking a commit every few seconds is outwaited rather than given up on (state.1),
+# and 23.5 in all at most, so a command whose write and entry are both replayed to the end still answers (code.9).
+REPLAY_WAITS = (0.5, 1.0, 2.0, 4.0, 8.0, 8.0)
+REPLAYS = len(REPLAY_WAITS)
 # How many times a fetch is made again when another command on this host moved crew's cache's ref of the branch while it
 # fetched, which git refuses as a ref that is at another commit than it read: every act pushes its entry (read.5), so
 # commands on one host fetch and push side by side.
@@ -851,15 +855,25 @@ def commit(repo, parent, files, message):
     return git(repo, "commit-tree", tree, *(["-p", parent] if parent else []), "-F", "-", input=message)
 
 
+def replay_wait(n, draw):
+    """How long a refused write waits, in seconds, before its nth replay's fresh fetch (from 0): REPLAY_WAITS' nth,
+    spread over its upper half by draw, a number in [0, 1) drawn afresh for each wait, so commands refused at one moment
+    replay at different moments rather than in step. Never more than the nth, so the whole wait is bounded by their
+    sum (code.7, code.9)."""
+    return REPLAY_WAITS[n] * (1 + draw) / 2
+
+
 def land(repo, ref, path, make):
     """make(tip) gives a file's new text (or, with path None, {path: text}) and the commit message, or refuses; or a
     chain of them, a list, each committed on the one before, as the run record's entries are, one commit each. Every
     file a commit holds is checked first. The first attempt starts from the tip the command holds; the last commit is
-    pushed without force, and when the push is refused because the branch moved, the branch is fetched afresh and make
-    runs again on the new tip, the whole chain made again, up to five times (plan.1, state.1). The command then holds
-    the commit it pushed, so its later steps read its own write once its entry is on the branch (fetch)."""
-    tip = tip_of(repo, ref)
-    for _ in range(1 + REPLAYS):
+    pushed without force, and when the push is refused because the branch moved, the write waits a growing moment
+    (replay_wait), the branch is fetched afresh and make runs again on the new tip, the whole chain made again, up to
+    REPLAYS times, so a busy branch is outwaited (plan.1, state.1); a write still refused is refused, and an entry so
+    refused is kept for the host's next push (record.reach, record.2). The command then holds the commit it pushed, so
+    its later steps read its own write once its entry is on the branch (fetch)."""
+    tip, waited = tip_of(repo, ref), 0.0
+    for n in range(1 + REPLAYS):
         made = make(tip)
         sha = tip
         for text, message in made if isinstance(made, list) else [made]:
@@ -873,11 +887,16 @@ def land(repo, ref, path, make):
             git(repo, "update-ref", f"refs/crew/{ref}", sha, check=False)
             READ.keep_tip(repo, ref, sha)
             return sha
+        if n < REPLAYS:  # the last refusal waits for no replay, and is still fetched to tell a moved branch
+            wait = replay_wait(n, random.random())
+            time.sleep(wait)
+            waited += wait
         moved = tip_of(repo, ref, fresh=True)
         if moved == tip:
             fail(f"the push of {ref} to {repo} failed: {r.stderr.strip()}")
         tip = moved
-    fail(f"{ref} of {repo} kept moving: the write was applied {1 + REPLAYS} times and each push was refused")
+    fail(f"{ref} of {repo} kept moving: the write was applied {1 + REPLAYS} times, waiting {waited:.1f} s in all between "
+         "them, and each push was refused")
 
 
 def agent():
