@@ -25,7 +25,7 @@ A bolt's units SHALL be ordered by the file: a bolt's launches SHALL take their 
 - **THEN** `crew bolts` lists it under the queue of its repo
 
 ### Requirement: Writes go through crew and are never merged
-Agents SHALL write the plan only through `crew bolt …` and `crew unit …`. Each write SHALL fetch the drive's branch of its state repository over https into crew's own bare cache of that repository, with no working tree, and apply the change to its tip. It SHALL then check the result with `recfix --check` and crew's own rules, commit it without touching any working tree, and push without force. A push that is rejected SHALL have its write applied again to the new tip, up to five times.
+Agents SHALL write the plan only through `crew bolt …` and `crew unit …`. Each write SHALL fetch the drive's branch of its state repository over https into crew's own bare cache of that repository, with no working tree, and apply the change to its tip. It SHALL then check the result with `recfix --check` and crew's own rules, commit it without touching any working tree, and push without force. A rejected push SHALL have its write replayed on the new tip after a growing wait.
 
 #### Scenario: Two writes race
 - **WHEN** the planner moves a unit while a conductor narrows the same unit's intent, from different hosts
