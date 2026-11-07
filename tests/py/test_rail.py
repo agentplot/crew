@@ -603,7 +603,7 @@ class TestSweepJudged:
                                  None if proposed is None else set(proposed), NOW, kits=kits, kit_of=kit_of, labels=labels)
 
     # The partition was labelled willdan and is labelled wldn now: a label changed is a partition removed and another
-    # added (record 0055, rejected), so willdan's roles have left the fleet.
+    # added (record 0055, rejected; record 0058's decision 6, proposed), so willdan's roles have left the fleet.
     LEFT = "{} left the fleet, so an answer here reaches nobody. "
 
     @pytest.mark.parametrize("owner, labels, left", [

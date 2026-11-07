@@ -212,8 +212,9 @@ ROLE_NAME = re.compile(r"([a-z0-9][a-z0-9-]*)-(planner|ops|design)")
 def role_left(owner, labels):
     """Whether a card's owner is a role that left the fleet: a name crew raises its cards in (ROLE_NAME) whose label no
     partition of the teams file has now (labels), its partition removed or its label changed, which is a partition
-    removed and another added, since nothing is renamed (record 0055, rejected). Any other name, a conductor's, an
-    asker's of its own or the user's, is no partition's role and is not judged here; nothing maps a former name."""
+    removed and another added, since a partition is never renamed (record 0055, rejected; record 0058's decision 6 and
+    plan.22, proposed). Any other name, a conductor's, an asker's of its own or the user's, is no partition's role and
+    is not judged here; nothing maps a former name."""
     m = ROLE_NAME.fullmatch(owner or "")
     return bool(m) and m.group(1) not in labels
 
