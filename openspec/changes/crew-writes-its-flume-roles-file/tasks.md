@@ -3,7 +3,7 @@
 ## 1. The roles file's entries
 
 - [x] 1.1 The roles file's text from a teams file holds one standing entry at `<label>/<role>` for each role that stands of each partition whose machine is the host, `agent` its agent's name and `session` the session crew opens it in, `answers` from `ASKS` for the design agent, the planner and ops, `answerer = true` for the operator, no other key, and none for another host's partition or a role that runs as its kind (design, Decisions 3 to 5; Task notes 1.1). Passes `tests/py/test_source.py` (`tests/suite logic`).
-- [ ] 1.2 The briefs' sentence on whom to ask is built from `ASKS`, ops's words "a live system, a deploy or a landing" (design, Decision 4; Task notes 1.2). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 1.2 The briefs' sentence on whom to ask is built from `ASKS`, ops's words "a live system, a deploy or a landing" (design, Decision 4; Task notes 1.2). Verify `tests/suite t-briefs` ends with "0 failed".
 
 ## 2. crew keeps the file
 

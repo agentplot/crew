@@ -98,6 +98,14 @@ class TestWhatARoleAnswersIsTheWordsCrewsBriefsGive:
         assert {r: crew.ASKS[r] for r in ("design", "planner", "ops")} == {
             r: roles[f"madswan/{r}"]["answers"] for r in ("design", "planner", "ops")}
 
+    def test_the_briefs_sentence_on_whom_to_ask_gives_the_same_words(self):
+        """The sentence the planner's, ops's and the design agent's briefs share (crew.brief needs the host and the
+        partition's kits, so the whole brief is t-briefs')."""
+        said = crew.cards_how("crew", "madswan", "none yet")
+        assert ("ask the agent whose it is with `crew tell`: `madswan-design` for the design, `madswan-ops` for a live "
+                "system, a deploy or a landing, `madswan-planner` for the plan.") in said
+        assert all(f"`madswan-{r}` for {w}" in said for r, w in crew.ASKS.items())
+
     def test_the_operator_is_the_door_and_the_reviewer_answers_nothing(self, fleet):
         roles = declared(fleet(), DENEB)
         assert roles["madswan/operator"] == {"agent": "madswan-operator", "session": "madswan", "answerer": True}
