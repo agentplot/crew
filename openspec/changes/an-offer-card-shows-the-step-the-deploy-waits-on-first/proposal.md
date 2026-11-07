@@ -33,6 +33,6 @@ None.
 - `plugin/lib/cards.py`: `deploy_card`, `deploy_form` and `form_asked`. `plugin/lib/plan.py`: `built_fields` records a card's `Form`. `plugin/lib/record.py`: the descriptor's comment.
 - `plugin/roles/main-ops.md`, README, `plugin/skills/crew/SKILL.md` and `plugin/bin/crew`'s usage (`docs.2`).
 - `tests/py/test_ops.py`, `tests/t-journey-ops.sh`, `tests/t-briefs.sh` and `tests/t-docs.sh`.
-- Record 0058; `plan.14` amended.
+- Record 0059; `plan.14` amended.
 - No change to the views or crew's mod (`code.8`): no rail row, card key or stage changes shape. A carried step's row is absent, as a done step's is.
 - No swancloud change. Its deployer already hands the mark and records the step. Its hold reads the keys crew now marks done.

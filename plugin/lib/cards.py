@@ -936,7 +936,7 @@ def landings_card(f):
 
 
 def deploy_form(f):
-    """The form of a deploy's card from its facts (record 0058): "boxes" while a step the deploy waits on is open, a
+    """The form of a deploy's card from its facts (record 0059): "boxes" while a step the deploy waits on is open, a
     box to tick for each and one for the deploy; None, a hold-to-approve, otherwise. Pending You changes no card's
     kind, so a card that moves from one to the other is followed rather than changed (ops.raise_deploy)."""
     return "boxes" if any(w.get("state") != "done" for w in f.get("waited") or []) else None
@@ -948,7 +948,7 @@ def deploy_card(f):
     all of main, and naming the environments before and after it; on its face the kit's release notes as the deployer
     hands them, as inline Markdown, crew writing none, or the landings' subjects when it hands none, saying so, and the
     after-deploy steps with their doers; the landings' subjects in its details. A deploy that waits on steps of the
-    user's (swancloud record 0038, record 0058) says so first, and shows them first on its face, before the notes, each
+    user's (swancloud record 0038, record 0059) says so first, and shows them first on its face, before the notes, each
     with why or that it is done; while one is open it is boxes to tick carrying highStakes (deploy_form), a box for
     each open step, `before:<n>`, then one for the deploy, `deploy`, none ticked, its send with every box ticked the
     word, in one list or, past BOXES, lists of BOXES at most, each a question, each carrying what follows a yes, since

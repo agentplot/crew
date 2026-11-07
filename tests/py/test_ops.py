@@ -821,7 +821,7 @@ class TestAskedAgain:
             "The offer is now bbbbbbb, and crew holds no record of the head you answered on."]
 
 
-# ------------------------------------------------------- the steps a deploy waits on (swancloud record 0038, record 0058)
+# ------------------------------------------------------- the steps a deploy waits on (swancloud record 0038, record 0059)
 SRV, MOVE = "swancloud-srv", "Move the Archives disk from mac-studio to deneb."
 WHY = "srv's offsite job points at deneb, which holds no repository until the disk is there."
 WAITS = (f"step\t1\tuser\tbefore\t{SRV}\t{WHY}\t{MOVE}\n"

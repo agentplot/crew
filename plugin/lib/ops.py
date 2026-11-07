@@ -149,7 +149,7 @@ def waits_before(e):
 def own_card(e, offers):
     """Whether a step's latest entry has a row and a card of its own: it waits on the user (waits_on_user), and is no
     step the deploy waits on while its environment has an offer open (offers, state's), whose card asks it ticked
-    (record 0058)."""
+    (record 0059)."""
     return waits_on_user(e) and not (waits_before(e) and env_of(e) in offers)
 
 
@@ -159,7 +159,7 @@ def words_of(text):
 
 
 def waited_on(handed, es, env):
-    """The steps the open offer's deploy of env waits on (swancloud record 0038, record 0058), from the steps it was
+    """The steps the open offer's deploy of env waits on (swancloud record 0038, record 0059), from the steps it was
     handed (handed_steps') and the partition's ops entries (es, oldest first): each handed step marked before, in the
     order handed, with the user's step the record holds on env in the same words (words_of), the one whose latest
     entry is newest when several are: each {n, text, why, to, key, state}, its to, key and state None while its
@@ -180,7 +180,7 @@ def waited_on(handed, es, env):
 
 
 def marked_before(doer, text, handed):
-    """Whether a step recorded now is one the open offer's deploy waits on (record 0058): the user's, in the words of a
+    """Whether a step recorded now is one the open offer's deploy waits on (record 0059): the user's, in the words of a
     step the offer was handed marked before (handed_steps'). The deployer records such a step as it records any
     user's step, with no mark (swancloud's record_waited), so crew carries the offer's mark onto the record by the
     step's words."""
@@ -923,7 +923,7 @@ def ticks_of(text):
 
 def ticked_refusal(env, to, waited, ticked):
     """Why the user's approval of the deploy of env to to is refused for the steps it waits on, or None (swancloud
-    record 0038, record 0058): from those steps (waited_on's) and the numbers ticked on its card; a number that is no
+    record 0038, record 0059): from those steps (waited_on's) and the numbers ticked on its card; a number that is no
     step it waits on; each step it waits on neither ticked nor done, named, since the card's send with a step unticked
     is not the word; a step ticked that its deployer has not recorded yet, whose tick crew can't mark done on it."""
     import cards  # its decisions only

@@ -4,7 +4,7 @@ date: 2026-11-07
 decision-makers: the user (swancloud record 0038, what must be true); the code stage of the fix an-offer-card-shows-the-step-the-deploy-waits-on-first (how crew builds its side)
 ---
 
-# 0058. A step the deploy waits on is a box on its offer card, tied to the deployer's record of it by its words
+# 0059. A step the deploy waits on is a box on its offer card, tied to the deployer's record of it by its words
 
 Status: the decision is the user's, swancloud record 0038, accepted on its card on 2026-10-26 (req_73b52dae13894077a094, "Approved"); its consequences name this crew chore. The choices below are the code stage's, made from record 0038, crew's rules and the deployer as it stands, each cheap to change; none is the user's alone.
 

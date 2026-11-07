@@ -250,7 +250,7 @@ has "$(grep "ssh $box .*ops step" "$CREW_TEST_LOG")" "--text -"; lacks "$(grep "
 eq "$(runs "$box" wldn | grep -c "^Text: Restart crew's teams. - why: It ends a stage mid-unit.$")" "1"
 ok "an ops command run away from the partition's main level is run there, an offer carrying its files' text and a step its text"
 
-# A step the deploy waits on (swancloud record 0038, record 0058), handed marked before by the deployer.
+# A step the deploy waits on (swancloud record 0038, record 0059), handed marked before by the deployer.
 printf "step\t1\tuser\tbefore\tmacbook-pro\tThe job points at deneb, which holds no repository until the disk is there.\tMove the Archives disk from mac-studio to deneb.\nstep\t2\tuser\t\tmacbook-pro\tOnly you hold the vault.\trotate the kanidm admin password\n" > "$T/before.txt"
 : > "$CREW_TEST_LOG"
 expect_ok dep offer macbook-pro --from none --to "$s1" --steps "$T/before.txt"

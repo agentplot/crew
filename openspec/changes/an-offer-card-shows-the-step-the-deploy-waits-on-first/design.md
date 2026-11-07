@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md for why, and the deltas, `rail-cards` and `main-level`, for what becomes true. The reasoning is record 0058; what must be true is swancloud record 0038, the user's.
+See proposal.md for why, and the deltas, `rail-cards` and `main-level`, for what becomes true. The reasoning is record 0059; what must be true is swancloud record 0038, the user's.
 
 The deployer as it stands (swancloud 49469fba, `packages/swancloud-deployer`):
 
@@ -12,7 +12,7 @@ The deployer as it stands (swancloud 49469fba, `packages/swancloud-deployer`):
 
 crew as it stands: `handed_steps` reads `held` from the when words and passes any other word through, so `before` reached the card as an ordinary user's step. `crew ops step --doer user --state waiting` raises the step's own card. `crew ops approve` records the word for the open offer's head and checks nothing else.
 
-Rules relied on: `read.1` (refuse what can't be read; tie no box by guess), `code.7` (each decision a function of facts: `waited_on`, `marked_before`, `own_card`, `ticked_refusal`, `deploy_form`, `form_asked`), `roles.2` (the word is the user's, on the card), `roles.3` (the rule that a step must be ticked is a check in crew, not only the brief's words), `record.3` (the steps file stays beside the offer; nothing typed enters the run record but the step's text, which `ops.step` already carries), `code.8` (no view changes shape), `docs.2`, `tests.4`, `tests.6`, `tests.11`. Pages whose area the change touches: `plan.md` (`plan.14`, amended by record 0058), `briefs.md` (main-ops's brief), `record.md` (the descriptor's comment), `docs.md`, `tests.md`. Departs from no rule.
+Rules relied on: `read.1` (refuse what can't be read; tie no box by guess), `code.7` (each decision a function of facts: `waited_on`, `marked_before`, `own_card`, `ticked_refusal`, `deploy_form`, `form_asked`), `roles.2` (the word is the user's, on the card), `roles.3` (the rule that a step must be ticked is a check in crew, not only the brief's words), `record.3` (the steps file stays beside the offer; nothing typed enters the run record but the step's text, which `ops.step` already carries), `code.8` (no view changes shape), `docs.2`, `tests.4`, `tests.6`, `tests.11`. Pages whose area the change touches: `plan.md` (`plan.14`, amended by record 0059), `briefs.md` (main-ops's brief), `record.md` (the descriptor's comment), `docs.md`, `tests.md`. Departs from no rule.
 
 ## Goals / Non-Goals
 
@@ -26,7 +26,7 @@ Rules relied on: `read.1` (refuse what can't be read; tie no box by guess), `cod
 
 - A failed deploy's close (the sibling fix `a-failed-deploys-card-closes-naming-what-the-user-does`): this change keeps to the offer and the approval.
 - Any change of swancloud's.
-- A mark on the deployer's step record: none is sent, and none is read (record 0058, options).
+- A mark on the deployer's step record: none is sent, and none is read (record 0059, options).
 
 ## Decisions
 
