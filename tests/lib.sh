@@ -122,11 +122,11 @@ import json, sys
 T = sys.argv[1]
 def sess(host, space, partition, repos, account="ia"):
     return {"dir": f"{T}/hosts/{host}/work/{space}", "account": account, "partition": partition, "repos": repos}
-box_repos = ["afterthought/crew", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit",
+box_repos = ["agentplot/crew", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit",
              "WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"]
 mac_willdan = ["WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit",
                "WilldanGroup/willdan-blueprints"]
-mac_madswan = ["afterthought/blueprints", "afterthought/crew", "afterthought/swancloud"]
+mac_madswan = ["afterthought/blueprints", "agentplot/crew", "afterthought/swancloud"]
 mac_agentplot = ["agentplot/blueprints", "agentplot/flywheel-next"]
 box = "chuck-herdr-alpha"
 hosts = {
