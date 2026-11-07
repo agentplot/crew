@@ -56,5 +56,9 @@
         crew = import ./nix/modules/darwin.nix { inherit packages; };
         default = crew;
       };
+      nixosModules = rec {
+        crew = import ./nix/modules/nixos.nix { inherit packages; };
+        default = crew;
+      };
     };
 }

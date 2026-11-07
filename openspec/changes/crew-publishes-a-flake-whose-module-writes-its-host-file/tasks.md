@@ -17,7 +17,7 @@
 - [x] 3.2 crew loads the file the module writes, `nix/tests/files/deneb.json`, as its teams file (design, Decision 7; Task notes 3.2). Passes `tests/py/test_module_file.py` (`tests/suite logic`).
 - [x] 3.3 crew's link makes `~/.config/crew/teams.json` a link to the module's file, replacing a link, moving a file that is no link aside once and refusing when the aside is taken, and says when this host's name is not `services.crew.host` (design, Decisions 4 and 5; Task notes 3.3). Verify `tests/suite nix:test` ends with "0 failed".
 - [x] 3.4 `darwinModules.default` links the file as the primary user with the host, installs the flake's crew or the host's own in the system profile, fails for a primary user with no home, writes nothing else, and evaluates in a nix-darwin system (design, Decisions 4 to 6; Task notes 3.4). Verify `tests/suite nix:typecheck nix:test` ends with "0 failed".
-- [ ] 3.5 `nixosModules.default` links the file as `services.crew.user` alone with the host, installs the flake's crew or the host's own in the system profile, fails for a user the system does not declare, writes nothing else, and evaluates in a NixOS system (design, Decisions 4 to 6; Task notes 3.5). Verify `tests/suite nix:typecheck nix:test` ends with "0 failed".
+- [x] 3.5 `nixosModules.default` links the file as `services.crew.user` alone with the host, installs the flake's crew or the host's own in the system profile, fails for a user the system does not declare, writes nothing else, and evaluates in a NixOS system (design, Decisions 4 to 6; Task notes 3.5). Verify `tests/suite nix:typecheck nix:test` ends with "0 failed".
 
 ## 4. The docs and the change's tests
 
