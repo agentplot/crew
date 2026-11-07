@@ -5,8 +5,8 @@
 # read, writes nothing and ends no card session; the host's follower, crew _follow --once with no tab open, in one fetch
 # and one read of each host's kits for both partitions on the host, writes the rail's frame, which the rail tab draws as
 # crew rail prints it, sweeps a dead card session and writes the board's frame, which the board tab draws, and each
-# agent's view with its open cards; running, a tick of its clock with nothing moved reads nothing but the box's stamps,
-# a plan write on its host is shown at its next look, with nothing fetched or gathered, a reading sent back on its host
+# agent's view with its open cards; running, a tick of its clock with nothing moved starts nothing but its fetch of each
+# repository, a plan write on its host is shown at its next look, with nothing fetched or gathered, a reading sent back on its host
 # has that host's card sessions swept at its next look, with nothing gathered, a write to sluice's folder in the box's
 # kit moves nothing, and a merge queued in sluice is on its unit's row at the next look from the kit's overview watch,
 # with nothing gathered; crew page writes the page whole, with the deploys, a dock for each item with its history as
@@ -141,8 +141,9 @@ shim() {  # shim <command> <bash test of "$@"> <what it logs> [<test> <what>]...
   printf '#!/usr/bin/env bash\n%sfi\nexec %q "$@"\n' "$body" "$(command -v "$cmd")" > "$T/shim/$cmd"
   chmod +x "$T/shim/$cmd"
 }
-shim git '[[ " $* " == *" fetch "*refs/crew/wldn/main* ]]' fetch '[[ " $* " != *" fetch "* ]]' git
+shim git '[[ " $* " == *" fetch "*refs/crew/wldn/main* ]]' fetch '[[ " $* " == *" fetch "* ]]' fetch-other '[[ " $* " != *" fetch "* ]]' git
 shim python3 '[[ ${1:-} == - && ${2:-} == *\"stamp\":\ true* ]]' stamp '[[ ${1:-} == - ]]' gather '[[ " $* " == *" card sweep "* ]]' sweep
+shim portless 'true' portless
 reads() { grep -c "^$1 $2\$" "$T/reads.log" || true; }
 : > "$T/reads.log"
 CREW_TEST_READS=$T/reads.log PATH="$T/shim:$PATH" expect_ok crew _follow --once
@@ -184,8 +185,10 @@ ok "the host's follower, with no tab open, writes each partition's frames there 
 
 # The follower running: its clock set past the test's length, so only a signal ticks it (tests.8), and each kit's queue
 # followed through the stub sluice's overview watch. Its first refresh reads and opens a watch on each kit holding a
-# bolt, the box's over ssh, its gathers running no sluice status; a tick with nothing moved fetches and then starts no git and no gather on mac-studio and
-# asks the box for its stamps alone; a plan write on mac-studio is shown at the next look, with nothing fetched and no
+# bolt, the box's over ssh, its gathers running no sluice status; a tick with nothing moved fetches each repository
+# once and starts nothing else: no other git, no gather, no portless and no python3 on mac-studio, and no ssh, no
+# sluice, no Pending You and no herdr anywhere (Decisions 1 to 3 of a-followers-tick-reads-nothing-while-nothing-moved);
+# a plan write on mac-studio is shown at the next look, with nothing fetched and no
 # kit gathered; a reading's result written on mac-studio, as plannotator writes the one the user sends back, has
 # mac-studio's card sessions swept at the next look, the box's not, and nothing gathered; a write to sluice's folder in
 # the box's kit moves nothing at the next tick; and a merge of unit a queued in sluice, its watch printing a new line,
@@ -194,15 +197,14 @@ ok "the host's follower, with no tab open, writes each partition's frames there 
 # new, so its reads are over before the next are counted: a round goes on past wldn's rail, to swancloud's frames and,
 # at its first write of each partition, a read of crew's version (board.here_read)
 written() { python3 -c 'import os, sys; print(" ".join(str(os.stat(p).st_ino) for p in sys.argv[1:]))' "$(home_of mac-studio)"/.cache/crew/board/{wldn,swancloud}{.rail,,.agents}.json; }
-rewritten() {
+rewrote() {  # every frame of a round written anew since was, its agents' views last: the round reached its end
   local was=($1) now=($(written)) i
   (( ${#was[@]} == 6 && ${#now[@]} == 6 )) || return 1
   for i in "${!was[@]}"; do [[ ${now[i]} != "${was[i]}" ]] || return 1; done
-  grep -q "^$box \(stamp\|gather\)\$" "$T/reads.log"
 }
+rewritten() { rewrote "$1" && grep -q "^$box \(stamp\|gather\)\$" "$T/reads.log"; }
 railtext() { jq -r .text "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json"; }
 unit_of() { jq -c --arg u "$1" '.partitions[0].construction[] | select(.bolt == "tenant-environments") | .units[] | select(.unit == $u)' "$frame"; }
-only_stamps() { eq "$(grep -c "^$box " "$T/reads.log") $(grep -v ' overview --json --watch' "$CREW_TEST_LOG" | grep -c " ssh $box ")" "$(reads $box stamp) $(reads $box stamp)"; }
 at=$(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json"); was=$(written); : > "$T/reads.log"; : > "$CREW_TEST_LOG"
 ( export CREW_TEST_HOST=mac-studio HOME=$(home_of mac-studio) CREW_TEST_PERIOD=3600 CREW_TEST_READS=$T/reads.log PATH="$T/shim:$PATH"
   cd "$HOME" && exec "$CREW/plugin/bin/crew" _follow ) > "$T/follower" 2>&1 &
@@ -213,10 +215,20 @@ watching() { grep -q "^$box sluice overview --json --watch in " "$CREW_TEST_LOG"
 until_ok watching || fail "the follower opened no overview watch on each kit: $(cat "$CREW_TEST_LOG")"
 ! grep -q " sluice status " "$CREW_TEST_LOG" || fail "the follower's read of the kits ran sluice status: $(grep ' sluice status ' "$CREW_TEST_LOG")"
 was=$(written); : > "$T/reads.log"; : > "$CREW_TEST_LOG"
+# a first tick settles what the read left (its watches' first lines, the cards its sweep did not ask after); the one
+# after it, with everything answered and nothing moved, is the quiet tick
+ticked() { grep -q "^mac-studio fetch\$" "$T/reads.log" && rewrote "$1"; }  # a round that began with the clock's fetch
 kill -USR1 "$fol"
-until_ok rewritten "$was" || fail "the follower's tick wrote no frame: $(cat "$T/follower")"
-eq "$(reads mac-studio fetch) $(reads mac-studio git) $(reads mac-studio gather) $(reads $box gather) $(reads $box stamp)" "1 0 0 0 1"
-only_stamps
+until_ok ticked "$was" || fail "the follower's tick wrote no frame: $(cat "$T/follower")"
+was=$(written); : > "$T/reads.log"; : > "$CREW_TEST_LOG"
+kill -USR1 "$fol"
+until_ok ticked "$was" || fail "the follower's quiet tick wrote no frame: $(cat "$T/follower")"
+# one fetch of each repository: wldn's state, here with its partition's branch, and willdan's blueprints, afterthought's
+# blueprints and afterthought's state, fetched once more without madswan's branch, which is not made there; mac-studio's
+# own stamps read in this process; and nothing at all of ssh, sluice, Pending You or herdr
+eq "$(reads mac-studio fetch) $(reads mac-studio fetch-other)" "1 4"
+eq "$(grep -v ' fetch\(-other\)\?$' "$T/reads.log" || true)" "mac-studio stamp"
+eq "$(cat "$CREW_TEST_LOG")" ""
 [[ ! $(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json") < $at ]] || fail "the tick's frame is older than the last"
 printf '%s\n' 'Case: The zones get a second unit.' 'Do: unit add zone-two "Zone two." --bolt apex-zones' > "$T/p2.rec"
 : > "$T/reads.log"
@@ -227,7 +239,7 @@ eq "$(reads mac-studio fetch) $(reads mac-studio gather) $(reads $box gather)" "
 sent=$(home_of mac-studio)/.local/state/crew/cards/wldn/batch/9; mkdir -p "$sent"
 was=$(written); : > "$T/reads.log"
 echo '{"decision": "approved", "feedback": ""}' > "$sent/result.json"
-until_ok rewritten "$was" || fail "the follower did not refresh at the reading sent back: $(cat "$T/follower")"
+until_ok rewrote "$was" || fail "the follower did not refresh at the reading sent back: $(cat "$T/follower")"
 (( $(reads mac-studio sweep) > 0 )) || fail "the reading sent back on mac-studio did not sweep its card sessions: $(cat "$T/reads.log")"
 eq "$(reads $box sweep) $(reads mac-studio gather) $(reads $box gather) $(reads mac-studio fetch)" "0 0 0 0"
 proposed || fail "the rail lost its words at the sweep: $(railtext)"
@@ -235,7 +247,7 @@ records=$(git -C "$k" rev-parse --path-format=absolute --git-common-dir)/sluice;
 echo 2 > "$records/main/version"; echo '{}' > "$records/bolt/tenant-environments/submissions/41.json"
 was=$(written); : > "$T/reads.log"
 kill -USR1 "$fol"
-until_ok rewritten "$was" || fail "the follower's tick after sluice's write wrote no frame: $(cat "$T/follower")"
+until_ok ticked "$was" || fail "the follower's tick after sluice's write wrote no frame: $(cat "$T/follower")"
 eq "$(reads $box gather) $(reads mac-studio gather) $(reads mac-studio git)" "0 0 0"
 proposed || fail "the rail lost its words at sluice's write: $(railtext)"
 eq "$(unit_of a | jq -c .submission)" "null"
@@ -248,7 +260,7 @@ eq "$(reads mac-studio gather) $(reads $box gather) $(reads mac-studio fetch)" "
 eq "$(grep ' sluice ' "$CREW_TEST_LOG" | grep -vc ' overview --json --watch' || true)" "0"
 expect_ok crew _board wldn --once; has "$(line_of "$out" "  a  ")" "#41 under test"
 kill "$fol"; wait "$fol" 2>/dev/null || true
-ok "the running follower's first read runs no sluice status, its tick with nothing moved starts no git and no gather on mac-studio and asks the box for its stamps alone, a plan write on mac-studio is shown at its next look with nothing fetched and no kit gathered, a reading sent back there has mac-studio's card sessions swept and nothing gathered, a write to sluice's folder moves nothing, and a merge queued in sluice is on its row from the kit's overview watch with nothing gathered"
+ok "the running follower's first read runs no sluice status, its tick with nothing moved starts nothing but one fetch of each repository, no ssh, sluice, Pending You, herdr, portless or gather, a plan write on mac-studio is shown at its next look with nothing fetched and no kit gathered, a reading sent back there has mac-studio's card sessions swept and nothing gathered, a write to sluice's folder moves nothing, and a merge queued in sluice is on its row from the kit's overview watch with nothing gathered"
 
 # crew page: the page written whole under the partition's state folder, its path and header printed, nothing
 # appended; a node's history on it, and its dock's, is what crew trace prints.

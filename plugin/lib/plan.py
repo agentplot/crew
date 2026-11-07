@@ -744,6 +744,37 @@ def tip_of(repo, ref, fresh=False):
     return tip
 
 
+def tips_of(repo, refs):
+    """Several branches of the repo fetched now over https in one fetch, each with what it brings beside it (beside),
+    the host's follower's one fetch of a repository at its clock's tick, carrying every branch it reads of it (plan.12;
+    sluice's core.31, the remote's one fetch a tick): {ref: tip}, None for a branch the repo does not have. A fetch
+    git refuses for a branch it cannot find is made again without the branch it names, which reads None, so a branch
+    not yet made costs the rest one fetch more and nothing else; one naming no branch asked for fetches each alone
+    (tip_of); any other failure refuses, naming the repo."""
+    refs, out = list(dict.fromkeys(refs)), {}
+    while refs:
+        specs = [s for ref in refs for s in [f"+refs/heads/{ref}:refs/crew/{ref}", *beside(ref)]]
+        prune = any(beside(ref) for ref in refs)
+        for n in range(LOCK_TRIES):
+            r = git(repo, "fetch", "--quiet", "--no-tags", *(["--prune"] if prune else []), url(repo), *specs, check=False)
+            if not (r.returncode and "cannot lock ref" in r.stderr):
+                break
+            time.sleep(0.1 * (n + 1))
+        if not r.returncode:
+            break
+        if "couldn't find remote ref" not in r.stderr:
+            fail(f"could not fetch {', '.join(refs)} of {repo} over https: {r.stderr.strip()}")
+        gone = next((ref for ref in refs if re.search(rf"couldn't find remote ref (refs/heads/)?{re.escape(ref)}\s*$", r.stderr, re.M)), None)
+        if gone is None:
+            return dict(out, **{ref: tip_of(repo, ref, fresh=True) for ref in refs})
+        out[gone] = None
+        refs.remove(gone)
+    for ref in refs:
+        out[ref] = tip_here(repo, ref) or git(repo, "rev-parse", f"refs/crew/{ref}")  # the cache's files, else git
+        READ.keep_tip(repo, ref, out[ref])
+    return out
+
+
 def beside(ref):
     """What a fetch of a branch brings with it, in the same fetch (plan.12): for a drive's branch, <label>/main, its
     runners' branches, <label>/runner/*, which crew reads and never writes (state.5), pruned of a host's branch gone
