@@ -152,7 +152,7 @@ class TestEmit:
         monkeypatch.setattr(plan, "checked", lambda files: None)
         monkeypatch.setattr(plan, "commit", lambda repo, parent, files, message: made.append(files) or f"c-{parent}")
         monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(s))
-        monkeypatch.setattr(plan.random, "random", lambda: 0.5)
+        monkeypatch.setattr("random.random", lambda: 0.5)
         eid = record.emit("wldn", "card.close", ["proposal/170"])
         waits = [w * 0.75 for w in plan.REPLAY_WAITS]
         assert events == ["read", "read", *[e for w in waits for e in ("push", w, "fetch")], "push", "fetch"]

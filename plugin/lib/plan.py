@@ -109,7 +109,7 @@ signal's id takes its full id, <capture>/<NN>-<slug>, or its short one, <capture
 
 A command that names no partition reads them all, or the agent's own (CREW_LABEL); --label names one.
 """
-import argparse, base64, bisect, contextlib, datetime, fcntl, io, json, os, pathlib, random, re, shlex, subprocess, sys, time
+import argparse, base64, bisect, contextlib, datetime, fcntl, io, json, os, pathlib, re, shlex, subprocess, sys, time
 # getpass, hashlib, shutil, tempfile and urllib.parse are imported where they are used: every crew command starts this
 # module afresh, and those five (OpenSSL, the compression modules) were a third of its start.
 from signal import SIGTERM
@@ -888,6 +888,7 @@ def land(repo, ref, path, make):
             READ.keep_tip(repo, ref, sha)
             return sha
         if n < REPLAYS:  # the last refusal waits for no replay, and is still fetched to tell a moved branch
+            import random  # here, as the module's rarer imports are: only a refused push draws
             wait = replay_wait(n, random.random())
             time.sleep(wait)
             waited += wait

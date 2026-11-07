@@ -153,7 +153,7 @@ def test_a_branch_busy_for_three_pushes_is_outwaited_each_wait_longer_and_made_b
     fetch = plan.tip_of
     monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: events.append("fetch" if fresh else "read") or fetch(repo, ref, fresh))
     monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(s))
-    monkeypatch.setattr(plan.random, "random", lambda: 0.0)
+    monkeypatch.setattr("random.random", lambda: 0.0)
 
     def make(tip):
         if events.count("read") + events.count("fetch") <= 3:  # another host writes between this fetch and this push
