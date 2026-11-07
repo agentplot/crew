@@ -3,6 +3,7 @@ paths:
   - "plugin/bin/crew"
   - "plugin/bin/crew-role"
   - "plugin/lib/crew.py"
+  - "plugin/lib/source.py"
 ---
 
 # Team rules
@@ -24,6 +25,7 @@ Retired 2026-11-03 for deneb alone with `the-team-machinery-leaves` on `teamless
 - **[teams.8]** A pane crew starts answers only Claude's folder-trust question, never the Bypass Permissions warning.
 - **[teams.9]** The panes and layout files change only by writing a new file and moving it over the old; output that bash evals is shell assignments quoted with `shlex.quote`, and everything else such a command says goes to standard error.
 - **[teams.10]** A brief fills every `{{TOKEN}}` from the builder, a token with no builder or no data is a refusal, never blank text, and every brief carries the roster with how to read crew's marks.
+- **[teams.25]** On a host where crew keeps a main level, crew's Flume roles file, `~/.local/state/crew/flume/roles.toml`, says what the teams file says, written whole by crew alone and renamed over the old one, by crew's follower at each read of the teams file and by each start of a main-level role: a standing entry at `<label>/<role>` for each role that stands of each partition whose machine is the host, its agent `<label>-<role>` in the session crew opens it in, its `answers` the words crew's briefs give for whom to ask, from the one text those words are built from, the operator its stream's answerer; and crew's kinds folder, `~/.local/share/flume/kinds/crew`, exists beside it. (Record 0057; not built: `crew-writes-its-flume-roles-file` builds it.)
 
 ## Details
 
@@ -47,3 +49,5 @@ Retired 2026-11-03 for deneb alone with `the-team-machinery-leaves` on `teamless
 **[teams.9]** Rules out: an in-place edit of `slots`; a diagnostic among the assignments bash evals. Source: `crew.py` `Agents.write`; `plan.py` `stages_file`, `sh`, `forwarded`; `plugin/bin/crew` `one`, which evals only what the process says on its descriptor 3.
 
 **[teams.10]** Rules out: `{{OPERATORS}}` rendering empty. Source: `crew.py` 21–23, 427–514; fixes 21d82af, e3d75cb.
+
+**[teams.25]** Rules out: the roles file written by the fleet, from `lib/crew-teams.nix` or any other list of crew's agents (swancloud record 0042 as amended 2026-11-07, `lists.1`); a hand edit, or an edit in place; a `flume` command run to write it; a `kind` or a run's key beside `agent` in a standing entry, which declares nothing; a second copy of the words for whom to ask; an entry for another host's partition before a place here must reach it, then carried, or for a role whose `flume` names a stream before its crossing; a package in the kinds folder before the first crossing; a write while the teams file is refused (`read.1`). Not ruled out: a host with no main level keeping a file with no entry. Source: record 0057; Flume record 0039 as amended 2026-11-06; agentplot/flume v0.17.0 `guides/roles-and-wake.md` and `reference/configuration.md`; `source.py`, `crew.py` `ASKS`, `cards_how`, `keep_roles`, `Agents.start`; `board.py` `Follower.fleet`; `tests/py/test_source.py`, `tests/t-flume-source.sh`, `tests/t-journey-main.sh`.
