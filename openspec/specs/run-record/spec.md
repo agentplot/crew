@@ -20,6 +20,10 @@ Every crew command that changes the plan, a signal or its move, a unit's approva
 - **WHEN** `crew bolts`, `crew status` or `crew sites` runs
 - **THEN** no entry is written
 
+#### Scenario: A construct run again on a committed change
+- **WHEN** construct runs again on a unit whose change is committed, marking the unit amended at its head, and that construct then delivers
+- **THEN** the run record gains a `unit.mark` entry naming the unit, its bolt and the head, which the mark's commit names; the construct's `stage.start` says it marked the unit and names that commit; and clearing the mark is a `unit.unmark` entry naming the unit and the mark, which its own commit names
+
 ### Requirement: An entry names who asked and the session behind it
 An entry's `By` SHALL be the name of the agent crew started that ran the command, else `<user>@<host>`. Its `Session` SHALL be the host and the Claude session id herdr reports for that agent when the command runs, and SHALL be absent for the user at a shell or when herdr reports none. A command crew runs again on another host SHALL carry both there, so the entry names the one who asked and not the host that did the work.
 

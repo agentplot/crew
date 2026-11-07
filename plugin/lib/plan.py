@@ -487,6 +487,19 @@ class Reading:
     def keep_tip(self, repo, ref, sha):
         self.keep(self.tip_name(repo, ref), sha)
 
+    def keep_below(self, repo, ref, tip, at, waits):
+        """This command's latest read of a repo's branch: below its tip at at while waits, (the write it waits on, its
+        subject), is in flight, kept for its answer (below_read); or at its tip, waits None, which takes back what an
+        earlier read of the branch kept, since the command's later steps read past it."""
+        below = self.memory.setdefault("below", {})
+        below.pop((repo, ref), None)
+        if waits and at and tip and at != tip:
+            below[(repo, ref)] = dict(ref=ref, tip=tip, at=at, write=waits[0], subject=waits[1])
+
+    def below(self):
+        """Each branch this command last read below its tip, in the order read: below_said's facts."""
+        return list((self.held("below") or {}).values())
+
     def kits(self, host):
         return {} if self.bypass else self.held(f"kits-{host}.json") or {}
 
@@ -650,8 +663,12 @@ def fetch(repo, ref, fresh=False):
     """A branch of the repo as a decision reads it (tip_of, fresh as there): at its tip, or, while any of its newest
     commits names a run-record entry it does not hold yet, below the oldest such commit (read_point), so no decision
     reads an act whose write has reached the branch and whose entry has not (read.5, plan.2); None when the repo has
-    no such branch."""
-    return read_point(repo, tip_of(repo, ref, fresh))
+    no such branch. A read below the tip is kept for the command's answer (Reading.keep_below, below_read), and a later
+    read of the branch at its tip takes it back."""
+    tip = tip_of(repo, ref, fresh)
+    at = read_point(repo, tip)
+    READ.keep_below(repo, ref, tip, at, READ.held(f"waits-{repo}-{tip}") if at != tip else None)
+    return at
 
 
 # How many of a branch's newest commits a decision's read looks through for one whose entry is still in flight.
@@ -670,6 +687,18 @@ def entry_paths(eid):
     return [f"runs/{m.group(4)}/{d.isoformat()}.rec" for d in (day, day + datetime.timedelta(days=1))]
 
 
+def entry_held(eid, texts):
+    """Whether the run-record files at a tip (texts, {path: text}, None for one the tip lacks) hold the entry eid, in
+    either file its id names (entry_paths)."""
+    return any(re.search(rf"^Id: {re.escape(eid)}$", texts.get(p) or "", re.M) for p in entry_paths(eid))
+
+
+def in_flight(commits, texts):
+    """The commits of a branch whose entry the tip lacks, newest first, as decision_at takes them: each one's write is
+    on the branch and its entry not yet (read.5)."""
+    return [c for c in commits if not all(entry_held(e, texts) for e in c[2])]
+
+
 def decision_at(commits, texts):
     """The commit a decision reads a flywheel's branch at (read.5, plan.2), from facts alone (code.7): commits, the
     branch's newest first, each (sha, its first parent, the entries its Crew-Entry trailer names); texts, {path: text}
@@ -680,12 +709,33 @@ def decision_at(commits, texts):
     commit is in flight has nothing below it and is read at the tip; None when none is given. An entry kept by a
     refused push (record.2) holds the read below its write until the host's next entry carries it, or the write
     passes out of the commits given."""
-    def held(eid):
-        return any(re.search(rf"^Id: {re.escape(eid)}$", texts.get(p) or "", re.M) for p in entry_paths(eid))
     if not commits:
         return None
-    flight = [parent for _, parent, eids in commits if not all(held(e) for e in eids)]
-    return (flight[-1] if flight else None) or commits[0][0]
+    flight = in_flight(commits, texts)
+    return (flight[-1][1] if flight else None) or commits[0][0]
+
+
+def waited_on(commits, texts):
+    """The write a decision's read of the branch waits on, from the same facts as decision_at (code.7): the oldest
+    commit in flight, whose parent the branch is read at; None when the branch is read at its tip."""
+    flight = in_flight(commits, texts)
+    return flight[-1][0] if flight and flight[-1][1] else None
+
+
+def writer_of(subject):
+    """The agent a commit's subject names, its trailing ` (<agent>)` (plan.2); None for a subject that names none."""
+    m = re.search(r"\(([^()]+)\)\s*$", subject or "")
+    return m.group(1) if m else None
+
+
+def below_said(ref, tip, at, write, subject):
+    """What a command says of a decision that read a branch below its tip (plan.2, read.5), from facts alone: the
+    commit it read at, the tip, the write it waits on and that write's agent, from its subject (writer_of), so that
+    what it answered or refused is read as holding at that commit, never as the branch holding nothing newer."""
+    who = writer_of(subject)
+    by = f" by {who}" if who else ", whose subject names no agent,"
+    return (f"{ref} was read at {at[:7]}, below its tip {tip[:7]}: the write {write[:7]}{by} is on the branch without its "
+            f"run-record entry yet, so nothing from {write[:7]} on was read (read.5)")
 
 
 def read_point(repo, tip):
@@ -697,13 +747,17 @@ def read_point(repo, tip):
     name = f"read-point-{repo}-{tip}"
     if READ.held(name):
         return READ.held(name)
-    log = git(repo, "log", "--first-parent", f"-n{ARRIVAL}", "--format=%H%x09%P%x09%(trailers:key=Crew-Entry,valueonly,separator=%x20)", tip)
-    rows = [(l.split("\t") + ["", ""])[:3] for l in log.splitlines() if l.strip()]  # git's output comes stripped
-    commits = [(sha, (parents.split() or [None])[0], eids.split()) for sha, parents, eids in rows]
+    log = git(repo, "log", "--first-parent", f"-n{ARRIVAL}",
+              "--format=%H%x09%P%x09%(trailers:key=Crew-Entry,valueonly,separator=%x20)%x09%s", tip)
+    rows = [(l.split("\t", 3) + ["", "", ""])[:4] for l in log.splitlines() if l.strip()]  # git's output comes stripped
+    commits = [(sha, (parents.split() or [None])[0], eids.split()) for sha, parents, eids, _ in rows]
     paths = sorted({p for _, _, eids in commits for e in eids for p in entry_paths(e)})
     texts = dict(zip(paths, [show(repo, tip, p) for p in paths] if kept_listing(repo, tip) is not None else
                      cat_file(repo, [f"{tip}:{p}" for p in paths])))
     at = decision_at(commits, texts) or tip
+    write = waited_on(commits, texts)
+    if write and at != tip:  # the write the read waits on, and its subject, for the command's answer (below_said)
+        READ.keep(f"waits-{repo}-{tip}", (write, next(r[3] for r in rows if r[0] == write)))
     READ.keep(name, at)
     return at
 
@@ -938,18 +992,32 @@ def message(subject, body, eid):
     return subject + (f"\n\n{body}" if body else "") + ("\n\n" + "\n".join(f"Crew-Entry: {e}" for e in eids) if eids else "") + "\n"
 
 
+def unacted(act, subject):
+    """Why a plan write is refused before it reads or pushes anything, or None (plan.2, read.5): it names no act, so
+    its commit would name a run-record entry that nothing writes, and every decision after it would read the branch
+    below it (decision_at) until it passed out of the commits a read looks through."""
+    if act:
+        return None
+    return (f"crew does not write \"{subject}\": a write names its act, whose run-record entry its commit names and the "
+            "write itself records, and this one names none (plan.2)")
+
+
 def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
     """Apply change(Write) to the tip of the flywheel's branch, its plan's record descriptors first brought in step
     with crew's, commit every file it changed, each checked first, and push, replaying on a refused push. change returns the bolts it touched; each one's conductor is told the subject, unless it wrote it.
-    The commit names its run-record entry; with act, that entry is written once pushed, naming on and frm and whatever
-    the change added to them, with the act's own fields, and reaches the branch as the commit after it (read.5); by, the
+    Every write is an act (plan.2): the commit names its run-record entry, written by the write itself once pushed,
+    naming on and frm and whatever the change added to them, with the act's own fields, and reaching the branch as the
+    commit after it before the write returns (read.5), so no write leaves the branch in flight; one given no act is
+    refused before anything is read or pushed (unacted), since its commit would name an entry nothing writes. by, the
     role an act of crew's own is in the name of, and why, the entry's Why in place of the subject's (record.emit), which
     the change may give instead, with fields of its own, where only the tip it is applied to says them (Write). An ask
     the change wrote in its commit (ask_lines) is named in the commit beside the act's entry, and its own entry written
     after the act's; a key the change found held is said. Returns the commit."""
+    unacts = unacted(act, subject)
+    not unacts or fail(unacts)
     repo, ref = state_of(fleet, label)
     seen = {"eid": record.new_id()}
-    CONTEXT.update(label=label, eid=seen["eid"])
+    CONTEXT.update(label=label)
 
     def make(tip):
         tip or fail(f"{repo} has no {ref} yet: crew state init {label}")
@@ -968,9 +1036,8 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
         return files, message(seen["subject"], body, [seen["eid"]] + [eid for eid, _ in w.asked])
     sha = land(repo, ref, None, make)
     print(f"{ref} {sha[:7]}: {seen['subject']}")
-    if act:
-        record.emit(label, act, seen["on"], seen["frm"], [f"{repo}@{sha}"], why or seen["why"] or record.subject(seen["subject"]),
-                    eid=seen["eid"], by=by, **{**(fields or {}), **seen["fields"]})
+    record.emit(label, act, seen["on"], seen["frm"], [f"{repo}@{sha}"], why or seen["why"] or record.subject(seen["subject"]),
+                eid=seen["eid"], by=by, **{**(fields or {}), **seen["fields"]})
     asked(label, f"{repo}@{sha}", seen["asked"], seen["held"])
     notify(fleet, seen, seen["subject"])
     return sha
@@ -1975,15 +2042,14 @@ def bolt_give(fleet, a):
         return [b.name()]
     seen = {}
     try:
-        sha = write(fleet, label, change, "plan: give a bolt")
+        # The give is the write's own act, its bolt.give entry the one its commit names (plan.2, read.5).
+        write(fleet, label, change, "plan: give a bolt", act="bolt.give", on=[f"bolt/{chosen}", f"team/{t['name']}"])
     except Refusal as e:
         r = crew.on_machine(fleet, host, ["bash", "-c", BOLT_DELETE, "crew", main, chosen, kit.DECLARATION])
         READ.drop_kit(host, main)
         fail(ungiven_said(chosen, str(e), r.stdout, r.returncode))
     b = seen["bolt"]
     print(given_said(t["name"], b, kit_name, remote, made, host, adopted))
-    record.emit(label, "bolt.give", [f"bolt/{b}", f"team/{t['name']}"], commit=[f"{repo}@{sha}"], why=f"plan({b}): give to {t['name']}",
-                eid=CONTEXT["eid"])
     if crossed:
         print(launched_said(t, b, seen["launched"]))
         return
@@ -8859,15 +8925,17 @@ done
 
 def mark_amended(fleet, label, unit, bolt, head):
     """The plan marks a unit amended at the head construct starts again from, so its code, verify and merge wait until
-    what construct writes is committed (plan.6). Returns the write's commit. What the write says goes to standard
-    error, as a write's does inside another command's work."""
+    what construct writes is committed (plan.6): a write whose act is unit.mark, its entry naming the unit and the head
+    (plan.2), on the branch before the construct starts, which names the write's commit on its own start. Returns the
+    write's commit. What the write says goes to standard error, as a write's does inside another command's work."""
     def change(w):
         u = w.unit(unit)
         u.get("Bolt") == bolt or fail(f"unit {unit} moved to {u.get('Bolt') or 'the queue'} meanwhile")
         u.set("Amended", head)
         return [bolt]
     with contextlib.redirect_stdout(sys.stderr):
-        return write(fleet, label, change, f"plan({bolt}): {unit} amended, construct runs again")
+        return write(fleet, label, change, f"plan({bolt}): {unit} amended, construct runs again", act="unit.mark",
+                     on=[f"unit/{unit}", f"bolt/{bolt}"], fields={"Head": head})
 
 
 def local_entries(label, days=30):
@@ -9049,7 +9117,7 @@ def merge_command(bolt):
 
 def run_check(fleet, a):
     """Whether a unit's stage may start, its place (made for construct), and the prompt the stage is sent, as facts for
-    the stage's start (run_unit_stage): PLACE, BOLT, PROMPT, AMENDED, ENTRY, FORECAST and TOOK. Construct
+    the stage's start (run_unit_stage): PLACE, BOLT, PROMPT, AMENDED, FORECAST and TOOK. Construct
     starts once each After unit has finished construct, never waiting on a merge (plan.13), and is run again at any
     stage before merge; on a unit whose change is committed, or one already amended, it first marks the unit amended in
     the plan at its head. Where that write is what marks the unit, only the conductor of the team holding its bolt, or
@@ -9077,7 +9145,7 @@ def run_check(fleet, a):
     st != "unknown" or fail(f"cannot tell unit {a.unit}'s stage: {s.get('why')}")
     why = left_refusal("unit", a.unit, bolt, s.get("left"))
     not why or fail(why)
-    amended_at = entry = ""
+    amended_at = ""
     after = {d: st_all.of(d)["stage"] for d in u.all("After")}
     why = stage_refusal(a.unit, bolt, a.stage, st, mark, after, role(fleet, crew.caller(fleet)), t["name"],
                         s.get("open") or [], a.stage in ("settle", "merge") and st == "verify" and verified(label, a.unit),
@@ -9101,7 +9169,7 @@ def run_check(fleet, a):
         if marking:
             head = s.get("head") or host_run(fleet, t["machine"], HEAD, place)
             if head != mark:
-                amended_at, entry = f"{repo}@{mark_amended(fleet, label, a.unit, bolt, head)}", CONTEXT["eid"]
+                amended_at = f"{repo}@{mark_amended(fleet, label, a.unit, bolt, head)}"
         facts = dict(intent=u.get("Intent"), sources=u.all("Source"), again=again_words(mark, case))
     elif a.stage == "code":
         k, _ = st_all.kit(plan.bolt(bolt))
@@ -9125,8 +9193,8 @@ def run_check(fleet, a):
     # What reached the unit while no stage of it ran: forecasts, carried in this stage's prompt and named on its start.
     ids, said = carried_forecasts(fleet, t, plan, st_all, bolt, a.unit)
     prompt = stage_prompt(a.stage, a.unit, a.words, carried=said, **facts)
-    # A construct that marked the unit amended: the plan's commit, and the entry it names, which the stage's start is.
-    return dict(PLACE=place, BOLT=bolt, PROMPT=prompt, AMENDED=amended_at, ENTRY=entry, FORECAST=" ".join(ids),
+    # A construct that marked the unit amended: the plan's commit, which the stage's start names.
+    return dict(PLACE=place, BOLT=bolt, PROMPT=prompt, AMENDED=amended_at, FORECAST=" ".join(ids),
                 TOOK=took if a.stage == "construct" else "")
 
 
@@ -9371,8 +9439,7 @@ def chore_check(fleet, a, label, plan, c):
         merge_holds(fleet, t, bolt, f"chore {a.unit}'s merge into bolt/{bolt}")
         merge = merge_command(bolt)
     prompt = chore_prompt(a.stage, a.unit, c.get("Intent"), a.words, bolt, merge)
-    return dict(PLACE=place, BOLT=bolt, PROMPT=prompt, AMENDED="", ENTRY="",
-                FORECAST="", TOOK=took)
+    return dict(PLACE=place, BOLT=bolt, PROMPT=prompt, AMENDED="", FORECAST="", TOOK=took)
 
 
 def left_refusal(kind, name, bolt, left):
@@ -10835,8 +10902,11 @@ def unmark(fleet, t, o):
         w.quiet.add(t["name"])  # its conductor learns the end from its wait, not from this write
         return [v.get("Bolt")] if v.get("Bolt") else []
     try:
+        # An act of its own, unit.unmark, whose entry its commit names and the write records (plan.2, read.5).
         with contextlib.redirect_stdout(sys.stderr):
-            write(fleet, t["label"], change, f"plan({u.get('Bolt')}): {o.name} constructed again, its mark cleared")
+            write(fleet, t["label"], change, f"plan({u.get('Bolt')}): {o.name} constructed again, its mark cleared", act="unit.unmark",
+                  on=[f"unit/{o.name}", f"stage/{o.name}/construct"] + ([f"bolt/{u.get('Bolt')}"] if u.get("Bolt") else []),
+                  fields={"Head": mark})
     except Refusal as e:
         print(f"unit {o.name}'s Amended mark is left in the plan, and no longer counts: {e}", file=sys.stderr)
 
@@ -12909,10 +12979,10 @@ def run_unit_stage(fleet, team, unit, stage, words="", kind="unit"):
                     refused=getattr(e, "recorded", None) or str(e))
         raise
     team.slot_pane(slot, facts["PLACE"])
-    # A construct that marked the unit amended says so, and is the entry the plan's commit names; the forecasts its
-    # prompt carries are named on its start, so none is carried twice; and the heads of the units it comes after that a
-    # construct's new place took.
-    extra = dict(Amended="yes", commit=[facts["AMENDED"]], eid=facts["ENTRY"]) if facts["AMENDED"] else {}
+    # A construct that marked the unit amended says so, naming the mark's commit, whose own unit.mark entry the commit
+    # names (plan.2); the forecasts its prompt carries are named on its start, so none is carried twice; and the heads of
+    # the units it comes after that a construct's new place took.
+    extra = dict(Amended="yes", commit=[facts["AMENDED"]]) if facts["AMENDED"] else {}
     extra.update(Forecast=facts["FORECAST"], Took=facts["TOOK"])
     run_stage(fleet, team, slot, stage, facts["PROMPT"], "stage.start", unit, f"{kind}/{unit}", on + [f"agent/{agent}"], **extra)
     print(f"{agent} has " + ("chore " if kind == "chore" else "") + f"{unit}: {stage}, in {facts['PLACE']}")
@@ -20359,10 +20429,26 @@ def main(argv):
         raise
 
 
+def below_read(said=None):
+    """What a command answers or refuses, said with each decision of it that read a branch below its tip (plan.2,
+    read.5): a refusal's words (said) after a line for each such read (below_said), so its last line is still the
+    refusal; with no words, those lines alone, said on standard error once the command has answered, where no caller
+    parses them. "" or the refusal's words alone when every read was at its tip."""
+    lines = [below_said(**f) for f in READ.below()]
+    if said is not None:
+        return "\n".join(lines + [said])
+    if lines:
+        print("\n".join(lines), file=sys.stderr)
+    return ""
+
+
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(str(e))
+        sys.exit(below_read(str(e)))
     except Stopped as e:
+        if e.code:  # a stop at 0 is a command handed to its host (forwarded), which says its own reads there
+            below_read()
         sys.exit(e.code)
+    below_read()
