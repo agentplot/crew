@@ -1,0 +1,7 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# crew's flake: flake.nix and flake.lock at the root, everything else of it under nix/ (record 0058, flake.3). Each
+# check is one task, tagged check-full, so tests/suite and sluice run it beside crew's suite (tests.5), run from the
+# workspace root by the tools crew's devenv shell carries. None builds: the type check and the test evaluate the flake
+# offline and read-only against no store, with the inputs the shell fetched (nix/check.sh).
+language: 'nix'

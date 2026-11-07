@@ -2,7 +2,7 @@
 
 ## 1. The suite runs every project's checks
 
-- [ ] 1.1 `.moon/workspace.yml` lists the project `nix`, and `tests/suite` runs every project's `check-full` tasks when given no name, takes `<project>:<task>` by name, and names another project's task `<project>:<task>` in its lines and failure output (design, Decision 8; Task notes 1.1). Verify `tests/suite t-suite` ends with "0 failed".
+- [x] 1.1 `.moon/workspace.yml` lists the project `nix`, and `tests/suite` runs every project's `check-full` tasks when given no name, takes `<project>:<task>` by name, and names another project's task `<project>:<task>` in its lines and failure output (design, Decision 8; Task notes 1.1). Verify `tests/suite t-suite` ends with "0 failed".
 
 ## 2. The flake, its package and its checks
 

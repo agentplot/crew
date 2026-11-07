@@ -2,20 +2,24 @@
 # Run crew's suite as moon tasks: tests/suite [--affected | --force] [name...]. The logic tier (tests/py) and the
 # contract tier (tests/contract) are a task each, run by pytest; crew's mod's own cases are the task mod, run by
 # tests/mod under Claude Code's test kit; and each tests/t-*.sh but the live one is a task that runs that one
-# end-to-end test through tests/run (tests/moon.yml, written by tests/moon-tasks); the tasks run side by side
-# (tests.5, tests.11). A task whose inputs are identical to a run that passed on this host, in any worktree of crew, is
-# replayed from moon's archives instead of run again; a run that failed is never replayed.
+# end-to-end test through tests/run (tests/moon.yml, written by tests/moon-tasks); beside them run every other
+# project's check-full tasks, the flake's checks of the project nix among them (nix/moon.yml, flake.3), as sluice
+# selects them by #check-full; the tasks run side by side (tests.5, tests.11). A task whose inputs are identical to a
+# run that passed on this host, in any worktree of crew, is replayed from moon's archives instead of run again; a run
+# that failed is never replayed.
 #
-#   tests/suite                 every task
+#   tests/suite                 every project's check-full tasks
 #   tests/suite logic           the logic tier alone, as a coder runs it while iterating (tests.12)
 #   tests/suite mod             crew's mod's own cases alone
 #   tests/suite slot docs       those tasks (slot, t-slot and t-slot.sh all name tests:t-slot)
+#   tests/suite nix:test        another project's task, by <project>:<task>
 #   tests/suite --affected      the tasks whose inputs differ from the merge-base with main, uncommitted edits
 #                               included; the rest are not run
 #   tests/suite --force         every selected task run, none replayed, the tests' dependencies installed as ever
 #
 # Every selected task runs even when one fails. It prints a line per test in tests/run's words, `ok    t-<name>`,
-# with `   (replayed)` on one moon replayed, or `FAIL  t-<name>`; then each failing test's output; then
+# with `   (replayed)` on one moon replayed, or `FAIL  t-<name>`, another project's task named `<project>:<task>`;
+# then each failing test's output; then
 # `<n> passed (<k> replayed), <m> failed`, and exits 0 only when none failed. moon's own output is in
 # .moon/cache/suite.log. It refuses before running anything when the tasks are out of step with the tests.
 # Written for bash 3.2, as tests/run is. It runs inside crew's devenv shell: started outside it, it runs itself again
@@ -50,15 +54,33 @@ done
 
 "$TESTS/moon-tasks" --check || exit 2
 
+# folder <project>: the project's folder as .moon/workspace.yml's projects name it, or nothing.
+folder() {
+  awk -v p="$1" '/^projects:/ { on = 1; next } /^[^ #]/ { on = 0 }
+    on && $1 == p ":" { f = $2; gsub(/["\047]/, "", f); print f; exit }' "$root/.moon/workspace.yml"
+}
+
 targets=()
 if (( ${#names[@]} )); then
   for n in "${names[@]}"; do
-    case $n in logic | contract | mod) ;; *) n=${n#t-}; n=t-${n%.sh} ;; esac
+    case $n in
+      *:*)
+        p=${n%%:*} t=${n#*:}
+        [[ $p =~ ^[a-z0-9][a-z0-9-]*$ && $t =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "tests/suite: $n is no <project>:<task>" >&2; exit 2; }
+        f=$(folder "$p")
+        [[ -n $f ]] || { echo "tests/suite: $p is no project in .moon/workspace.yml" >&2; exit 2; }
+        grep -qx "  $t:" "$root/$f/moon.yml" 2>/dev/null || { echo "tests/suite: $n is no task in $f/moon.yml" >&2; exit 2; }
+        targets+=("$n")
+        continue ;;
+      logic | contract | mod) ;;
+      *) n=${n#t-}; n=t-${n%.sh} ;;
+    esac
     grep -qx "  $n:" "$TESTS/moon.yml" || { echo "tests/suite: $n is no task in tests/moon.yml; tests/run $n runs a test that has none" >&2; exit 2; }
     targets+=("tests:$n")
   done
 else
-  targets=("tests:#check-full")
+  # Every project's check-full tasks, the one target sluice's #check-full resolves to (moon 2.6.1).
+  targets=(":#check-full")
 fi
 args=(--on-failure continue)
 [[ -n $affected ]] && args+=(--affected remote)
@@ -93,8 +115,9 @@ if [[ ! -f $report ]]; then
   exit "$(( rc ? rc : 1 ))"
 fi
 
-# One line per task moon ran: <name> <status>, in name order.
-results=$(jq -r '.actions[] | select(.label | startswith("RunTask(tests:")) | "\(.label | ltrimstr("RunTask(tests:") | rtrimstr(")")) \(.status)"' "$report" | sort) || {
+# One line per task moon ran: <name> <status>, in name order, a task of tests by its name and another project's as
+# <project>:<task>.
+results=$(jq -r '.actions[] | select(.label | startswith("RunTask(")) | "\(.label | ltrimstr("RunTask(") | rtrimstr(")") | ltrimstr("tests:")) \(.status)"' "$report" | sort) || {
   echo "tests/suite: cannot read $report" >&2; exit 2; }
 
 pass=0 replayed=0
@@ -115,7 +138,7 @@ if (( ${#failed[@]} == 0 && pass == 0 )); then echo "no test selected: nothing r
 # A failing test's output is moon's record of its run, tests/run's own lines and its trimmed tail among them;
 # indented, so the only lines starting FAIL are the ones above, one per failing test.
 for name in ${failed[@]+"${failed[@]}"}; do
-  state=$cache/states/tests/$name
+  case $name in *:*) state=$cache/states/${name%%:*}/${name#*:} ;; *) state=$cache/states/tests/$name ;; esac
   echo
   echo "── $name failed:"
   if [[ -s $state/stdout.log || -s $state/stderr.log ]]; then
