@@ -274,7 +274,10 @@ class TestRefusals:
          "--held marks an agent's step held for the user's word: give its --doer, main-ops"),
         (["step", "mac-studio", "--label", "wldn", "--key", "k", "--state", "waiting", "--doer", "main-ops", "--when", "quiet", "--held"], None),
         (["offer", "mac-studio", "--label", "wldn", "--from", "none", "--to", S1, "--notes", "n.md", "--steps", "s.txt"], None),
-        (["offer", "mac-studio", "--label", "wldn", "--from", "none", "--to", S1], None)])
+        (["offer", "mac-studio", "--label", "wldn", "--from", "none", "--to", S1], None),
+        (["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "end", "--outcome", "failed", "--does", "read the log"], None),
+        (["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "step", "--step", "guests", "--outcome", "failed",
+          "--does", "read the log"], None)])
     def test_a_commit_an_environment_a_partition_or_a_key_crew_cant_take_is_refused(self, argv, said):
         assert ops.args_refusal(FLEET, ops.parser().parse_args(argv)) == said
 
@@ -532,7 +535,7 @@ class TestDeployCard:
     def test_a_newer_deploys_end_closes_the_card_naming_that_deploy_and_the_head_the_user_approved(self):
         ran = [e("ops.deploy", minutes=3, Head=S2, Phase="start"), e("ops.deploy", minutes=4, Head=S2, Phase="step", Step="machine", Outcome="ok")]
         assert ops.deploy_outcome(ran, "mac-studio", S2, "done", word=S1) == "Deployed bbbbbbb to mac-studio, newer than the aaaaaaa you approved: machine ok."
-        assert ops.deploy_outcome([], "srv", S2, "failed", "/tmp/run.log", S1) == (
+        assert ops.deploy_outcome([], "srv", S2, "failed", "/tmp/run.log", word=S1) == (
             "The deploy of bbbbbbb to srv, newer than the aaaaaaa you approved, failed; its log: /tmp/run.log.")
         assert ops.deploy_outcome(DEPLOYED, "mac-studio", S1, "ok", word=S1) == "Deployed aaaaaaa to mac-studio: machine ok, suite ok."
 
@@ -551,9 +554,46 @@ class TestDeployCard:
         monkeypatch.setattr(plan, "row_card_close", lambda fleet, label, owner, key, outcome=None, **k: got.append((owner, key, outcome)))
         monkeypatch.setattr(ops, "raise_deploy", lambda fleet, row, acts=None, note=None: None)
         a = argparse.Namespace(label="swancloud", env="mac-studio", to=S2, act="end", step=None, outcome="done", log=None, rows_json=None,
-                               **{"from": None})
+                               does=None, **{"from": None})
         ops.record_cmd(FLEET, a)
         assert got == closed
+
+    def test_a_failed_deploys_card_closes_naming_what_the_user_does_after_its_step_and_log_and_with_none_as_before(self):
+        """swancloud deploy.6: the deployer's words of what the user does, handed with the end (--does), follow the step
+        that failed and its log as it wrote them; handed none, or ending well, the close is as it was."""
+        does = "run `clan vars generate srv`, land `vars/` on main, then ask ops to offer this deploy again"
+        failed = [e("ops.deploy", minutes=11, Head=S1, Phase="start"),
+                  e("ops.deploy", minutes=12, Head=S1, Phase="step", Step="guests", Outcome="failed", Log="/var/log/deployer/guests.log")]
+        said = "The deploy of aaaaaaa to mac-studio failed at guests; its log: /var/log/deployer/guests.log."
+        assert ops.deploy_outcome(failed, "mac-studio", S1, "failed", None, does) == f"{said} What you do: {does}."
+        assert ops.deploy_outcome(failed, "mac-studio", S1, "failed", None, "Read the log.") == f"{said} What you do: Read the log."
+        assert ops.deploy_outcome(failed, "mac-studio", S1, "failed", None, "  read\n the   log ") == f"{said} What you do: read the log."
+        assert ops.deploy_outcome(failed, "mac-studio", S1, "failed") == said
+        assert ops.deploy_outcome(failed, "mac-studio", S1, "failed", None, " \n") == said
+        assert ops.deploy_outcome([], "srv", S2, "failed", "/tmp/run.log", "read the log") == (
+            "The deploy of bbbbbbb to srv failed; its log: /tmp/run.log. What you do: read the log.")
+        assert ops.deploy_outcome(DEPLOYED, "mac-studio", S1, "ok", None, does) == "Deployed aaaaaaa to mac-studio: machine ok, suite ok."
+
+    def test_a_records_words_of_what_the_user_does_are_kept_on_its_entry_and_close_its_card(self, monkeypatch):
+        """crew ops record --does, on a failed end: the words go on the ops.deploy entry as Does and into the close."""
+        import plan
+        es, got, closed = [OFFER, e("ops.approve", minutes=2, Head=S1)], [], []
+        monkeypatch.setattr(ops, "entries", lambda label, days=ops.DAYS: es)
+
+        def emit(label, act, env, why, **f):
+            got.append((act, f))
+            es.append(e(act, env=env, minutes=5, **{k: v for k, v in f.items() if v is not None}))
+        monkeypatch.setattr(ops, "emit", emit)
+        monkeypatch.setattr(plan, "row_card_close", lambda fleet, label, owner, key, outcome: closed.append((key, outcome)))
+        monkeypatch.setattr(ops, "raise_deploy", lambda fleet, row: closed.append(("raised", row["key"])))
+        argv = ["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "end", "--outcome", "failed", "--log", "/tmp/run.log",
+                "--does", "read the log"]
+        a = ops.parser().parse_args(argv)
+        a.rows_json = None
+        ops.record_cmd(FLEET, a)
+        assert got == [("ops.deploy", dict(Head=S1, Base=None, Phase="end", Step=None, Outcome="failed", Log="/tmp/run.log", Rows=None,
+                                            Does="read the log"))]
+        assert closed == [("deploy/mac-studio", "The deploy of aaaaaaa to mac-studio failed; its log: /tmp/run.log. What you do: read the log.")]
 
 
 ROTATE = """rotate the kanidm admin password
