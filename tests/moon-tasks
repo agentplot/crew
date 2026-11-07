@@ -9,7 +9,8 @@ prompt (plugin/flume); a task, mod, for crew's mod's own cases, run by tests/mod
 under Claude Code's test kit, its inputs the mod, the files that load it, its cases and the runner; and one task per end-to-end test, tests/t-*.sh, written
 into tests/moon.yml, the live tests (t-*-live.sh) left out. Each end-to-end task runs its one test through tests/run,
 tagged check-full, and its inputs are everything the test's outcome depends on in crew's tree
-(tests.10): the command core every crew command crosses (CORE: plugin/bin/, the modules plan.py and crew.py import),
+(tests.10): the command core every crew command crosses (CORE: plugin/bin/, the modules plan.py and crew.py import,
+crew's manifest),
 tests/run, tests/slot, tests/lib.sh, tests/stubs/, crew's toolchain files, the test file itself and each path the test
 names on a `# Reads:` line of its opening comment (a directory as everything under it). The rest of plugin/ is a
 test's input only when it names it: plugin/hooks when it starts an agent, since the stub claude runs the
@@ -31,8 +32,9 @@ import sys
 TESTS = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(TESTS)
 MOON_YML = os.path.join(TESTS, "moon.yml")
-# The command core: what every crew command runs, whichever test runs it.
-CORE = ["/plugin/bin/**/*", "/plugin/lib/crew.py", "/plugin/lib/plan.py", "/plugin/lib/asks.py", "/plugin/lib/record.py", "/plugin/lib/gather.py",
+# The command core: what every crew command runs, whichever test runs it, and crew's manifest, which names the repository
+# crew is when a command runs crew on another host (crew.crew_repository).
+CORE = ["/plugin/bin/**/*", "/plugin/.claude-plugin/plugin.json", "/plugin/lib/crew.py", "/plugin/lib/plan.py", "/plugin/lib/asks.py", "/plugin/lib/record.py", "/plugin/lib/gather.py",
         "/plugin/lib/transcript.py", "/plugin/lib/questions.py", "/plugin/lib/ops.py", "/plugin/lib/cards.py",
         "/plugin/lib/picture.py", "/plugin/lib/font.py", "/plugin/lib/kit.py", "/plugin/lib/runner.py",
         "/plugin/lib/source.py"]
@@ -42,9 +44,10 @@ COMMON = CORE + ["/tests/run", "/tests/slot", "/tests/lib.sh", "/tests/stubs/**/
 # The two pytest tiers: name, folder, and what else of crew's its cases read: the contract tier runs the toolchain crew's
 # policy names, and the logic tier reads crew's mod for the
 # keys it takes from the agents' views (code.8), loads the card hook, reads the matcher hooks.json runs it by, and reads
-# the kinds crew's release carries for the roles and their prompt (plugin/flume). Each is one task over its whole folder (tests.5, tests.11), in a
+# the kinds crew's release carries for the roles and their prompt (plugin/flume), and crew's manifest and commands,
+# for the repository crew is and the commands that must not name it (tests/py/test_crew_on.py). Each is one task over its whole folder (tests.5, tests.11), in a
 # checkout that has the folder.
-TIERS = [(n, f, x) for n, f, x in (("contract", "tests/contract", ["/.config/sluice.toml"]), ("logic", "tests/py", ["/plugin/hooks/status.js", "/plugin/hooks/cards", "/plugin/hooks/hooks.json", "/plugin/flume/**/*"]))
+TIERS = [(n, f, x) for n, f, x in (("contract", "tests/contract", ["/.config/sluice.toml"]), ("logic", "tests/py", ["/plugin/hooks/status.js", "/plugin/hooks/cards", "/plugin/hooks/hooks.json", "/plugin/flume/**/*", "/plugin/bin/**/*", "/plugin/.claude-plugin/plugin.json"]))
          if os.path.isdir(os.path.join(ROOT, f))]
 TIER_INPUTS = ["/plugin/lib/**/*", "/plugin/roles/**/*"] + TOOLCHAIN
 # The tiers' environment, tests/.venv, synced from tests/uv.lock by the uv moon's toolchain gives, before every run of a

@@ -36,6 +36,10 @@ import source
 LIB = pathlib.Path(__file__).resolve().parent
 HOME = LIB.parent.parent
 HOSTS = pathlib.Path.home() / ".config/swancloud/herdr-hosts.json"
+# crew's own manifest, Claude Code's plugin.json, whose `repository` names the repository crew is: carried in every
+# install, a checkout's and the release the fleet copies whole, and read for crew's own address wherever crew needs it,
+# never a name written in crew's code (plan.22: no reader maps a former name).
+MANIFEST = LIB.parent / ".claude-plugin/plugin.json"
 TEAMS = pathlib.Path.home() / ".config/crew/teams.json"
 # The version of the teams file crew reads (Decision 2 of the-team-machinery-leaves): 5, its partitions alone, each
 # naming the Flume setting of each of its main-level roles (record 0047 move 6), as version 4 did beside its teams.
@@ -1217,12 +1221,51 @@ def kit_kept(fleet, host, kit):
     return {"name": name, "repo": r, "dir": f"{s['dir']}/{name}", "main": checkout(s, r)}
 
 
-def crew_at(fleet, host):
-    """The crew command on a host: this checkout here, else the crew checkout the host's spaces keep."""
-    if host == this_host():
+# A GitHub repository's address as a manifest's `repository` gives it, its owner and name taken.
+GITHUB = re.compile(r"(?:https://github\.com/|git@github\.com:)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?")
+
+
+def repository_named(manifest, where):
+    """The repository a manifest's text says crew is, owner/name, from its `repository`, a GitHub address. Refused,
+    naming the file, where the text is no JSON object or its `repository` names no GitHub repository, since crew can't
+    tell then where it is kept (read.1)."""
+    try:
+        data = json.loads(manifest)
+    except ValueError:
+        data = None
+    isinstance(data, dict) or fail(f"{where} is no JSON object, so crew can't tell which repository it is")
+    got = data.get("repository")
+    m = GITHUB.fullmatch(got) if isinstance(got, str) else None
+    m or fail(f"{where} names no GitHub repository as its 'repository' ({json.dumps(got)}), so crew can't tell which "
+              "repository it is")
+    return f"{m[1]}/{m[2]}"
+
+
+@functools.lru_cache(maxsize=None)
+def crew_repository():
+    """The repository crew is, owner/name, as its own manifest names it (repository_named). Read once a process."""
+    try:
+        text = MANIFEST.read_text()
+    except OSError as e:
+        fail(f"crew can't read {MANIFEST} ({e.strerror}), so it can't tell which repository it is")
+    return repository_named(text, MANIFEST)
+
+
+def crew_on(fleet, host, here, repo):
+    """The crew command on a host, crew being the repository repo (owner/name): this crew's own where host is here,
+    else the one in the checkout of repo the host's sessions keep, as kept_on finds it. Refused where no session there
+    keeps repo, naming it, since crew can't run there (read.1)."""
+    if host == here:
         return str(HOME / "plugin/bin/crew")
-    c = kept_on(fleet, host, "afterthought/crew") or fail(f"none of {host}'s sessions keeps afterthought/crew, so crew can't run there")
+    c = kept_on(fleet, host, repo) or fail(f"none of {host}'s sessions keeps {repo}, the repository crew is, so crew can't run there")
     return f"{c}/plugin/bin/crew"
+
+
+def crew_at(fleet, host):
+    """The crew command on a host (crew_on): this crew here, else the checkout the host's spaces keep of the repository
+    crew's manifest names (crew_repository), read only for another host."""
+    here = this_host()
+    return crew_on(fleet, host, here, None if host == here else crew_repository())
 
 
 def crew_argv(fleet, host, *args):
