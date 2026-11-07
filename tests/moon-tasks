@@ -6,8 +6,8 @@ inputs plugin/lib, plugin/roles (whose definitions name each stage's effort), th
 for the contract tier crew's policy, .config/sluice.toml, whose toolchain it runs, flake.lock and nix/inputs.nix,
 from which the shell gives the flake's inputs, and nix/moon.yml and .moon/workspace.yml, whose project nix moon lists,
 and for the logic tier the mod it
-reads keys from (code.8), the card hook it loads, the hooks file whose matchers it reads and the roles' kinds and their
-prompt (plugin/flume); a task, mod, for crew's mod's own cases, run by tests/mod
+reads keys from (code.8), the card hook it loads, the hooks file whose matchers it reads, the roles' kinds and their
+prompt (plugin/flume) and the teams file crew's flake's module writes (nix/tests/files); a task, mod, for crew's mod's own cases, run by tests/mod
 under Claude Code's test kit, its inputs the mod, the files that load it, its cases and the runner; and one task per end-to-end test, tests/t-*.sh, written
 into tests/moon.yml, the live tests (t-*-live.sh) left out. Each end-to-end task runs its one test through tests/run,
 tagged check-full, and its inputs are everything the test's outcome depends on in crew's tree
@@ -46,9 +46,10 @@ COMMON = CORE + ["/tests/run", "/tests/slot", "/tests/lib.sh", "/tests/stubs/**/
 # (nix/moon.yml, .moon/workspace.yml), and the logic tier reads
 # crew's mod for the
 # keys it takes from the agents' views (code.8), loads the card hook, reads the matcher hooks.json runs it by, and reads
-# the kinds crew's release carries for the roles and their prompt (plugin/flume). Each is one task over its whole folder (tests.5, tests.11), in a
+# the kinds crew's release carries for the roles and their prompt (plugin/flume) and the teams file crew's flake's module
+# writes, pinned under nix/tests/files (flake.3). Each is one task over its whole folder (tests.5, tests.11), in a
 # checkout that has the folder.
-TIERS = [(n, f, x) for n, f, x in (("contract", "tests/contract", ["/.config/sluice.toml", "/flake.lock", "/nix/inputs.nix", "/nix/moon.yml", "/.moon/workspace.yml"]), ("logic", "tests/py", ["/plugin/hooks/status.js", "/plugin/hooks/cards", "/plugin/hooks/hooks.json", "/plugin/flume/**/*"]))
+TIERS = [(n, f, x) for n, f, x in (("contract", "tests/contract", ["/.config/sluice.toml", "/flake.lock", "/nix/inputs.nix", "/nix/moon.yml", "/.moon/workspace.yml"]), ("logic", "tests/py", ["/plugin/hooks/status.js", "/plugin/hooks/cards", "/plugin/hooks/hooks.json", "/plugin/flume/**/*", "/nix/tests/files/**/*"]))
          if os.path.isdir(os.path.join(ROOT, f))]
 TIER_INPUTS = ["/plugin/lib/**/*", "/plugin/roles/**/*"] + TOOLCHAIN
 # The tiers' environment, tests/.venv, synced from tests/uv.lock by the uv moon's toolchain gives, before every run of a
