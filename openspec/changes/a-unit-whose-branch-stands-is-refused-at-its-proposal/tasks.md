@@ -16,4 +16,4 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 
 - [x] 3.1 Through the crew command on the stubs, a dropped unit added again is refused, read in the kit's repository on its host over ssh, and a fresh name is added (Task notes 3.1). Verify `tests/suite t-journey-cross` ends with "0 failed".
 - [x] 3.2 README's plan section, the crew skill and `crew`'s usage header say so (Task notes 3.2). Verify `tests/suite t-docs` ends with "0 failed".
-- [ ] 3.3 Verify `tests/suite --affected` ends with "0 failed".
+- [x] 3.3 Verify `tests/suite --affected` ends with "0 failed".
