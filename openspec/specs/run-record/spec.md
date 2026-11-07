@@ -161,6 +161,10 @@ When an entry cannot be pushed, crew SHALL say so once on standard error, naming
 - **WHEN** a conductor on the box starts a stage while github.com cannot be reached
 - **THEN** the stage starts, the command says once that its entry did not reach `wldn/main` and why, and the entry is in the box's file
 
+#### Scenario: A branch too busy to take the entry
+- **WHEN** the branch moves before every push of an entry, through its last replay
+- **THEN** the command says once that the entry did not reach the branch because it kept moving, the entry stays in the host's file, and the host's next push, once the branch takes it, pushes it
+
 #### Scenario: The next entry
 - **WHEN** the box's next entry of wldn is pushed once github.com answers again
 - **THEN** `wldn/main` gains the missed entry's commit, then the new entry's, and nothing is pushed twice
