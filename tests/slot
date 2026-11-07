@@ -6,9 +6,9 @@ until the test ends, so the tests running at once on the host never outnumber it
 by side. A slot is a lock file, slot-<n>, in ~/.cache/crew/test-slots (CREW_TEST_SLOTS_DIR names another), held with
 flock by this process alone: the command runs as its child, and the file is open in no process the command starts, so
 the slot is let go as soon as the command has ended, whatever it left running, and by the system when this process is
-killed. The host has CREW_TEST_SLOTS slots, else its cores less two and at least two: each test keeps at most about a
-core busy starting processes, and two are left for the agents and the user beside them. A command waits, polling,
-until a slot is free.
+killed. The host has CREW_TEST_SLOTS slots, else as many as its cores less two hold at what one test costs the host
+beside others, TEST_CORES, and at least one: two cores are left for the agents and the user beside them, and the tests
+running at once keep the rest busy and no more (tests.9). A command waits, polling, until a slot is free.
 
 The command runs in a process group of its own, under a keeper, this file run again with --keeper: the group's leader
 and the command's parent, which kills the whole group should this process end without ending it, killed by a signal no
@@ -33,15 +33,24 @@ import threading
 import time
 
 GRACE = 5  # seconds what a test left running has, once sent SIGTERM, before it is sent SIGKILL
+# What one crew test costs the host beside others, in cores, from what it starts. Read on deneb (18 cores) on
+# 2026-11-07: a test alone keeps 0.8 to 1.0 cores busy with its crew, git and python processes, half of it the kernel's
+# starting them; beside others the same run's processes take more CPU, 30% more with eight side by side and 45% more
+# with sixteen, and the host spends a sixth again outside them, so a run costs the host 1.4 to 1.6 cores for each second
+# it takes alone. Sixteen side by side, its cores less two, held 17.9 of its 18 cores busy with the host's other work
+# and ran each test twice as long as alone.
+TEST_CORES = 1.5
 
 
-def count():
+def count(cores=None):
+    """The host's slots: CREW_TEST_SLOTS, else as many tests as its cores, this host's unless given, less two hold at
+    TEST_CORES each, and at least one."""
     want = os.environ.get("CREW_TEST_SLOTS", "")
     if want:
         if not want.isdigit() or int(want) < 1:
             sys.exit(f"tests/slot: CREW_TEST_SLOTS is '{want}', not a number of slots")
         return int(want)
-    return max(2, (os.cpu_count() or 4) - 2)
+    return max(1, int(((cores or os.cpu_count() or 4) - 2) / TEST_CORES))
 
 
 def take(d, n):

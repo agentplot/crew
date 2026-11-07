@@ -4,8 +4,8 @@
 # it, sent SIGKILL when it ignores SIGTERM, and the test's exit is the slot's; a signal sent to the slot ends its test
 # and what that left; a slot whose holder was killed is free again, and its test and what that left end with it; a
 # card's plannotator session, which crew starts in a session of its own, ends once its test's shell has; the slot
-# count is CREW_TEST_SLOTS, and a count that is not one is refused; with none given, it is the host's cores less two,
-# at least two.
+# count is CREW_TEST_SLOTS, and a count that is not one is refused; with none given, it is as many tests as the host's
+# cores less two hold at what one test costs the host beside others, a core and a half, at least one.
 # Reads: tests/slot tests/stubs/plannotator
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 # The stubs' sleep returns at once; the holders here wait with the real one.
@@ -120,8 +120,12 @@ ok "a card's plannotator session, started in a session of its own, ends once its
 expect_fail "CREW_TEST_SLOTS is 'none', not a number of slots" env CREW_TEST_SLOTS=none python3 "$TESTS/slot" true
 ok "a slot count that is not a number is refused"
 
-# With no count given, a host's slots are its cores less two, at least two (tests.9, record 0021 as amended 2026-10-12).
+# With no count given, a host's slots are as many tests as its cores less two hold at what one test costs the host
+# beside others, a core and a half, and at least one (tests.9): ten on deneb's eighteen cores, nine on the box's
+# sixteen, five on ten, one on four or two; and this host's from its own cores.
 count() { env -u CREW_TEST_SLOTS python3 -c 'import importlib.machinery, sys
-print(importlib.machinery.SourceFileLoader("slot", sys.argv[1]).load_module().count())' "$TESTS/slot"; }
-eq "$(count)" "$(python3 -c 'import os; print(max(2, (os.cpu_count() or 4) - 2))')"
-ok "with no count given, a host's slots are its cores less two, at least two"
+slot = importlib.machinery.SourceFileLoader("slot", sys.argv[1]).load_module()
+print(" ".join(str(slot.count(int(c))) for c in sys.argv[2:]) if sys.argv[2:] else slot.count())' "$TESTS/slot" "$@"; }
+eq "$(count 18 16 10 4 2)" "10 9 5 1 1"
+eq "$(count)" "$(count "$(python3 -c 'import os; print(os.cpu_count())')")"
+ok "with no count given, a host's slots are as many tests as its cores less two hold at a core and a half each, at least one"
