@@ -1,6 +1,6 @@
 # A partition's main level and its console through the crew command on the stubs (tests.11, record 0022), in the
 # journeys' world (tests/journeys.sh): crew main up starts the main level, its operator among it, and nothing else,
-# no dispatcher on any host, each greeted once, one waiting on a question holding back no other; main status lists
+# no dispatcher on any host, each greeted once, its roles declared in crew's Flume roles file on its host (teams.25), one waiting on a question holding back no other; main status lists
 # them; a tell records its length and never its text; crew send reaches the partition named by its label's operator,
 # marked with whom it was for, and records its length, and a team's name from before teams left is refused; a word from the board, piped to crew tell --board as the board's
 # listener pipes it, reaches the agent its item's kind goes to marked as the user's from the board and naming the item,
@@ -44,10 +44,13 @@ answered=$(at "stub status wldn-planner idle")
 (( $(at "agent prompt wldn-design '") < answered && answered < $(at "agent prompt wldn-planner '") )) ||
   fail "the planner's question held back the design agent, or the planner was greeted before it was answered"
 eq "$(field $box main.up On agent/wldn-design)" "agent/wldn-design agent/wldn-planner agent/wldn-ops agent/wldn-operator"
+eq "$(as $box python3 -c 'import os, tomllib
+print(" ".join(tomllib.load(open(os.path.expanduser("~/.local/state/crew/flume/roles.toml"), "rb"))["roles"]))')" \
+  "wldn/design wldn/planner wldn/reviewer wldn/ops wldn/operator"
 expect_ok crew main up wldn
 has "$out" "wldn-design is already up"; lacks "$out" "greeted"
 eq "$(count $box main.up)" "1"
-ok "crew main up starts the main level, its operator among it, on its host and no dispatcher on any host, greeting each once, one waiting on a question once it is answered and holding back no other; a second starts and records nothing"
+ok "crew main up starts the main level, its operator among it, on its host and no dispatcher on any host, its roles in crew's Flume roles file there, greeting each once, one waiting on a question once it is answered and holding back no other; a second starts and records nothing"
 
 expect_ok crew main status wldn
 for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "idle"; done

@@ -53,7 +53,7 @@ asks_say() {
     "Three ask the user: the planner, main-level ops and the design agent." \
     "A Flume place that stops short asks the one of you it names, who gets the answer and gives it to the place with \`$CREW/plugin/bin/crew answer\`" \
     "the operator and the reviewer ask nothing; and crew refuses a card from any other agent" \
-    "\`$CREW/plugin/bin/crew tell\`: \`wldn-design\` for the design, \`wldn-ops\` for a live system or a deploy, \`wldn-planner\` for the plan" \
+    "\`$CREW/plugin/bin/crew tell\`: \`wldn-design\` for the design, \`wldn-ops\` for a live system, a deploy or a landing, \`wldn-planner\` for the plan" \
     "in their name, their money, their plans, public or hard to undo" "when its choices lead to noticeably different products" \
     "decide what a careful product designer would, and say so" "its options, with the one you recommend" \
     "\`blocking\` false and the fallback you take meanwhile" "what you tried, in its \`tried\`" \

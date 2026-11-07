@@ -1550,12 +1550,14 @@ class Follower:
         self.notice = None
 
     def fleet(self):
-        """The teams file and the hosts file read afresh, not as this process first read them, and the partitions
-        followed with them."""
+        """The teams file and the hosts file read afresh, not as this process first read them, the partitions followed
+        with them, and crew's Flume roles file kept from them (crew.keep_roles, teams.25); a teams file crew refuses
+        leaves both as they were, said (read.1)."""
         crew.load.cache_clear()
         try:
             self.fleet_ = crew.load()
             self.labels = labels_here(self.fleet_, crew.this_host())
+            crew.keep_roles(self.fleet_)
         except Refusal as e:
             print(f"crew's follower keeps the partitions it had ({', '.join(self.labels) or 'none'}): {e}", file=sys.stderr)
         return self.fleet_
