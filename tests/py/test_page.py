@@ -67,6 +67,15 @@ class TestDeploys:
                            entry("ops.deploy", ["env/mac-studio"], minutes=9, Host="mac-studio", Head=S1, Phase="end", Outcome="done"),
                            entry("ops.offer", ["env/mac-studio"], minutes=10, Host="box", Head=S2, Base=S1)]
 
+    def test_an_approved_deploy_whose_word_a_newer_deploys_end_spent_names_that_deploy_in_its_word_and_stamp(self):
+        """macbook-pro, 2026-10-26 to 31: 3b12e8f approved, 8651be6 started after its word and ended first (signal
+        2026-10-31-swancloud-ops-edced2f9/01)."""
+        x = {"to": self.S1, "answer": "replaced", "spent": self.S2, "word": {"at": "2026-10-26T01:26:41Z", "by": "swancloud-ops"},
+             "started": None, "ended": None, "outcome": None}
+        assert page.word_said(x) == "approved by swancloud-ops, 2026-10-26T01:26:41Z, then the deploy of bbbbbbb ended before it was deployed"
+        assert page.deploy_said(x) == "replaced, never deployed"
+        assert page.word_said(dict(x, spent=None)).endswith("then the word went to a newer offer before it was deployed")
+
     def test_each_environments_deploys_carry_their_bolts_with_their_changes_proposals_as_release_notes(self):
         d = page.data(self.es())
         page.labelled(d, plan.Plan(""), None, {"3": {"Case": "Zones get a bolt.\nWhy: x"}}, {}, {}, lambda name: None)

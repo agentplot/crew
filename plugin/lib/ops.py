@@ -22,11 +22,13 @@ when it names one.
       leaves the rail
   crew ops word <env> --label L
       the commit the user's word was given for, exit 0; exit 1 when there is none. A word is for one deploy: once that
-      deploy's end is recorded there is none until the user approves a new offer
+      deploy's end is recorded, or the end of a newer deploy of the environment, one started after the word was given,
+      there is none until the user approves a new offer
   crew ops record <env> --label L --to <sha> --act start|step|end [--from <sha|none>] [--step machine|guests|suite]
                   [--outcome ok|failed|done] [--log <path>] [--rows <json file>]
-      a deploy's start, one of its steps, or its end, in the run record as it runs; its end closes the deploy's card
-      with each step's outcome, or the step that failed and its log
+      a deploy's start, one of its steps, or its end, in the run record as it runs; its end, when it ends the word,
+      closes the deploy's card with each step's outcome, or the step that failed and its log, naming the deploy when
+      it is a newer one than the word's
   crew ops step <env> --label L --key <key> --state waiting|handed|done|failed|declined [--to <sha>]
                 [--doer main-ops|user] [--agent <name>] [--when deployed|quiet] [--held] [--text <file>]
                 [--changes <a,b>] [--note <text>]
@@ -80,11 +82,19 @@ def env_of(e):
     return next((o[4:] for o in e.get("On", []) if o.startswith("env/")), None)
 
 
+def spends(word, to, started):
+    """Whether a deploy's end of to spends the word, the user's approve entry or None (plan.14): the end of a deploy of
+    the word's own head, or of a newer one, a deploy whose start is recorded after the word was given (started, the
+    heads whose deploys started since). A deploy that was running when the word was given, or whose start the record
+    lacks, is no newer one, and the word stands (read.1)."""
+    return bool(word) and (word.get("Head") == to or to in started)
+
+
 def state(es):
     """Each environment's operations as the record holds them: its deploy offer still open (unanswered, no deploy of
-    it ended), {env: entry}; the word the user gave and no deploy has ended since, {env: entry}; and each step's
-    latest entry, {(env, to or "", key): entry}, in the order of each step's first entry."""
-    offers, words, steps = {}, {}, {}
+    it ended), {env: entry}; the word the user gave that no deploy's end has spent since (spends), {env: entry}; and
+    each step's latest entry, {(env, to or "", key): entry}, in the order of each step's first entry."""
+    offers, words, steps, started = {}, {}, {}, {}
     for e in es:
         env, act, to = env_of(e), e["Act"], e.get("Head")
         if not env:
@@ -92,11 +102,13 @@ def state(es):
         if act == "ops.offer":
             offers[env] = e
         elif act == "ops.approve" and not e.get("Refused"):
-            words[env] = e
+            words[env], started[env] = e, set()
             if offers.get(env, {}).get("Head") == to:
                 offers.pop(env)
+        elif act == "ops.deploy" and e.get("Phase") == "start":
+            started.setdefault(env, set()).add(to)
         elif act == "ops.deploy" and e.get("Phase") == "end":
-            if words.get(env, {}).get("Head") == to:
+            if spends(words.get(env), to, started.get(env, ())):
                 words.pop(env)
             if offers.get(env, {}).get("Head") == to:
                 offers.pop(env)
@@ -268,8 +280,9 @@ def environments(es, since=None):
 
     A deploy is one commit offered or deployed until its deploy ends: its to and from, when it was offered, the user's
     word (who held its card, and when), its answer (approved; waiting on the word; replaced, an unanswered offer a newer
-    one replaced, or an approved one not started when the user's word went to another commit, as state reads the word;
-    or unasked, a deploy started with no offer in the record, an auto environment's), when it started
+    one replaced, or an approved one not started when the user's word went to another commit or a newer deploy's end
+    spent it, as state reads the word, spent naming that newer deploy's commit; or unasked, a deploy started with no
+    offer in the record, an auto environment's), when it started
     and ended and its outcome, each of its steps with its outcome, the suite's checks (the rows of its last step that
     has them), the bolts it carried or why the record can't tell, every after-deploy step recorded against its commit
     with its doer and latest state, its rail row while it waits on the word, and when it last moved; newest first,
@@ -283,11 +296,11 @@ def environments(es, since=None):
         env, act, to = env_of(e), e.get("Act") or "", e.get("Head")
         if not env or not act.startswith("ops.") or act == "ops.step" or not to:
             continue
-        E = envs.setdefault(env, {"deploys": [], "open": {}})
+        E = envs.setdefault(env, {"deploys": [], "open": {}, "word": None, "started": set()})
 
         def new(frm, offered, answer):
-            d = {"to": to, "from": frm, "offered": offered, "word": None, "answer": answer, "started": None, "ended": None, "outcome": None,
-                 "steps": [], "checks": None, "at": e["At"]}
+            d = {"to": to, "from": frm, "offered": offered, "word": None, "answer": answer, "spent": None, "started": None, "ended": None,
+                 "outcome": None, "steps": [], "checks": None, "at": e["At"]}
             E["deploys"].append(d)
             E["open"][to] = d
             return d
@@ -297,7 +310,10 @@ def environments(es, since=None):
                 o.update(answer="replaced", at=e["At"])
                 del E["open"][o["to"]]
             d or new(e.get("Base"), e["At"], "waiting")
-        elif act == "ops.approve" and d and not e.get("Refused"):
+        elif act == "ops.approve" and not e.get("Refused"):
+            E["word"], E["started"] = e, set()
+            if not d:
+                continue
             for o in [o for o in E["open"].values() if o["to"] != to and o["answer"] == "approved" and not o["started"]]:
                 o.update(answer="replaced", at=e["At"])
                 del E["open"][o["to"]]
@@ -307,6 +323,7 @@ def environments(es, since=None):
             if phase == "start":
                 d = d or new(e.get("Base"), None, "unasked")
                 d.update({"started": e["At"], "from": e.get("Base") or d["from"], "at": e["At"]})
+                E["started"].add(to)
             elif d and phase == "step":
                 d["steps"].append({"step": e.get("Step"), "outcome": e.get("Outcome"), "at": e["At"]})
                 try:
@@ -317,6 +334,11 @@ def environments(es, since=None):
             elif d and phase == "end":
                 d.update(ended=e["At"], outcome=e.get("Outcome"), at=e["At"])
                 del E["open"][to]
+                if spends(E["word"], to, E["started"]):
+                    for o in [o for o in E["open"].values() if o["answer"] == "approved" and not o["started"]]:
+                        o.update(answer="replaced", spent=to, at=e["At"])
+                        del E["open"][o["to"]]
+                    E["word"] = None
     out = {}
     for env in sorted(set(envs) | {k[0] for k in steps}):
         E = envs.get(env, {"deploys": [], "open": {}})
@@ -397,8 +419,8 @@ def deploy_move(es, env, held_card):
     """What the deploy's card of env does now (record 0031 §3), from the partition's ops entries and whether main-level
     ops holds a card under deploy/<env>: ("post", None) when it holds none; ("change", the change note) when the card
     asks for an older offer still unanswered, the note naming the head offered now and the one it replaces; (None,
-    why) when nothing is offered, or when the card asks for a deploy the user approved, which closes at that deploy's
-    end, the open offer's card raised then."""
+    why) when nothing is offered, or when the card asks for a deploy the user approved, which closes at the end of that
+    deploy or of a newer one (spends), the open offer's card raised then."""
     offers, words, _ = state(es)
     offer = offers.get(env)
     if not offer:
@@ -413,18 +435,21 @@ def deploy_move(es, env, held_card):
     return "change", f"Now offering {offer['Head'][:7]}" + (f", which includes {was[-1][:7]}" if was else "")
 
 
-def deploy_outcome(es, env, to, outcome, log=None):
+def deploy_outcome(es, env, to, outcome, log=None, word=None):
     """What the deploy's card closes with at the deploy's end (record 0031 §1): each step of its run with its outcome,
-    or the step that failed and its log, from the partition's ops entries since its start."""
+    or the step that failed and its log, from the partition's ops entries since its start; and, when the card asked for
+    another commit, word, the head the user approved, that this newer deploy ended before it (plan.14)."""
     mine = [e for e in es if e.get("Act") == "ops.deploy" and env_of(e) == env and e.get("Head") == to]
     starts = [i for i, e in enumerate(mine) if e.get("Phase") == "start"]
     ran = [e for e in mine[starts[-1] if starts else 0:] if e.get("Phase") == "step" and e.get("Step")]
     failed = next((e for e in ran if e.get("Outcome") == "failed"), None)
+    newer = f", newer than the {word[:7]} you approved," if word and word != to else ""
     if failed or outcome == "failed":
         at = f" at {failed['Step']}" if failed else ""
         where = (failed or {}).get("Log") or log
-        return f"The deploy of {to[:7]} to {env} failed{at}" + (f"; its log: {where}" if where else "") + "."
-    return f"Deployed {to[:7]} to {env}" + (": " + ", ".join(f"{e['Step']} {e.get('Outcome') or 'done'}" for e in ran) if ran else "") + "."
+        return f"The deploy of {to[:7]} to {env}{newer} failed{at}" + (f"; its log: {where}" if where else "") + "."
+    return (f"Deployed {to[:7]} to {env}{newer[:-1]}" + (": " + ", ".join(f"{e['Step']} {e.get('Outcome') or 'done'}" for e in ran) if ran else "")
+            + ".")
 
 
 def step_words(text):
@@ -542,8 +567,8 @@ def step_again(es, entries, k, label):
 
 def word_stands(key, es):
     """Whether a row's card under key outlives its row: a deploy's, deploy/<env>, once the user's word for it is given
-    and its deploy's end not yet recorded, which closes it with the outcome (record 0031 §1), from the partition's
-    entries; the rail's sweep leaves it, and lists it as no stray."""
+    and no deploy's end has spent it yet (spends), the end that spends it closing it with the outcome (record 0031 §1),
+    from the partition's entries; the rail's sweep leaves it, and lists it as no stray."""
     kind, _, env = (key or "").partition("/")
     return kind == "deploy" and env in state(es)[1]
 
@@ -848,8 +873,10 @@ def record_cmd(fleet, a):
         return
     import plan
     es = entries(a.label)
-    if words.get(a.env, {}).get("Head") == a.to:
-        plan.row_card_close(fleet, a.label, f"{a.label}-ops", f"deploy/{a.env}", outcome=deploy_outcome(es, a.env, a.to, a.outcome, a.log))
+    was = words.get(a.env)
+    if was and a.env not in state(es)[1]:
+        plan.row_card_close(fleet, a.label, f"{a.label}-ops", f"deploy/{a.env}",
+                            outcome=deploy_outcome(es, a.env, a.to, a.outcome, a.log, was["Head"]))
     if state(es)[0].get(a.env):
         raise_deploy(fleet, {"label": a.label, "key": f"deploy/{a.env}"})
 

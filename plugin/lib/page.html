@@ -674,6 +674,7 @@ body.selecting #lines line:not(.marked) { opacity: .2; }
     $("dp-empty").hidden = DP.some(function (e) { return e.deploys.length || e.waiting.length; });
     function word(d) {
       if (d.answer === "waiting") return ["waits on your word: hold its card to deploy", "wait"];
+      if (d.answer === "replaced" && d.spent) return ["approved by " + ((d.word || {}).by || "no one named") + ", " + local((d.word || {}).at) + ", then the deploy of " + d.spent.slice(0, 7) + " ended before it was deployed", ""];
       if (d.answer === "replaced") return [d.word ? "approved by " + (d.word.by || "no one named") + ", " + local(d.word.at) + ", then the word went to a newer offer before it was deployed"
                                                   : "not answered, and replaced by a newer offer", ""];
       if (d.answer === "unasked") return ["deployed with no word asked in the record (an auto environment's, or offered before its window)", ""];
