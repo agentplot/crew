@@ -21,5 +21,5 @@
 
 ## 4. The docs and the change's tests
 
-- [ ] 4.1 README and `openspec/config.yaml`'s context say the machine's configuration writes the teams file, crew's module `services.crew` or swancloud's `lib/crew-teams.nix`, and README says what the flake gives (Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.1 README and `openspec/config.yaml`'s context say the machine's configuration writes the teams file, crew's module `services.crew` or swancloud's `lib/crew-teams.nix`, and README says what the flake gives (Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
 - [ ] 4.2 The tests the change affects pass (Task notes 4.2). Verify `tests/suite --affected` ends with "0 failed".
