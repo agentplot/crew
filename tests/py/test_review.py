@@ -100,6 +100,42 @@ def test_an_agent_crew_starts_none_by_that_name_is_refused():
         crew.place_of_agent(fleet, "somebody")
 
 
+class TestAReviewerUp:
+    """What crew review does with a standing reviewer herdr reads up (teams.2, teams.15; review-batches "The planner
+    starts the partition's reviewer"): plan.reviewer_up_said on herdr's status, a question open, whether its session
+    received a batch and whether a summary was written since its last start. madswan's batch 28, 2026-10-26: a reviewer
+    idle with an empty input box and crew review refusing it twice as still reviewing. That the command ends it, starts
+    the batch's reviewer afresh and records the end, and that --wait refuses, is t-journey-review's."""
+    STILL = "wldn-reviewer is still reviewing a batch: crew review wldn --wait waits for its summary"
+    QUESTION = "wldn-reviewer is waiting on a question in its pane: answer it there; crew ends no reviewer at a question"
+
+    @pytest.mark.parametrize("status", ["idle", "done"])
+    def test_an_idle_reviewer_that_took_no_batch_and_wrote_no_summary_is_ended_and_started_afresh(self, status):
+        assert plan.reviewer_up_said("wldn", "wldn-reviewer", status, False, False, False) == (
+            "afresh", f"wldn-reviewer sat {status} having taken no batch and written no summary: crew ends it and starts the "
+                      "batch's reviewer afresh")
+
+    @pytest.mark.parametrize("status, took, written", [
+        ("working", False, False),  # at work with no batch received: ended only with --force, which crew review takes none of
+        ("working", True, False), ("idle", True, False),  # it took its batch: --wait ends it at its summary
+        ("idle", False, True), ("idle", "the transcript can't be read", True)])  # a summary is written: --wait records it
+    def test_a_reviewer_at_work_or_that_took_its_batch_or_wrote_its_summary_is_still_reviewing(self, status, took, written):
+        assert plan.reviewer_up_said("wldn", "wldn-reviewer", status, False, took, written) == ("refuse", self.STILL)
+
+    @pytest.mark.parametrize("status, asking", [("blocked", False), ("blocked", True), ("idle", True), ("done", True)])
+    def test_a_reviewer_at_a_question_is_left_for_the_user(self, status, asking):
+        assert plan.reviewer_up_said("wldn", "wldn-reviewer", status, asking, False, False) == ("refuse", self.QUESTION)
+
+    def test_a_reviewer_crew_cannot_read_the_taking_of_is_left_as_it_is(self):
+        """read.1: whether it took a batch unread is never taken as not."""
+        assert plan.reviewer_up_said("wldn", "wldn-reviewer", "idle", False, "crew found no session for it", False) == (
+            "refuse", "crew can't tell whether wldn-reviewer took a batch: crew found no session for it; it is left as it is")
+
+    def test_what_the_reviewer_is_sent_opens_with_the_words_its_transcript_is_read_for(self, monkeypatch):
+        monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: AT[bolt])
+        assert plan.review_prompt(FLEET, "wldn", 7, "/f.md", [("x1", "b1", "abc1234", None)]).startswith(f"{plan.REVIEW_OPENS} 7 of wldn, ")
+
+
 class TestAReviewerThatRunsAsItsKind:
     """A partition that runs its reviewer as its kind is asked a batch by crew review and handed it back by crew review
     delivered (design Decision 11; review-batches "The planner starts the partition's reviewer" and "A reviewer's run

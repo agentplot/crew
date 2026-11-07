@@ -142,6 +142,17 @@ shim() {  # shim <command> <bash test of "$@"> <what it logs> [<test> <what>]...
   chmod +x "$T/shim/$cmd"
 }
 shim git '[[ " $* " == *" fetch "*refs/crew/wldn/main* ]]' fetch '[[ " $* " == *" fetch "* ]]' fetch-other '[[ " $* " != *" fetch "* ]]' git
+# written: each partition's rail, board and agents' frames on mac-studio by their files. The clock's fetch of wldn's
+# state branch is the first read of each of the follower's ticks: there the git shim keeps each frame's file as the
+# tick found it, in tick-began, and marks the calls log, so the tick's own frames and reads are known (ticked,
+# tick_reads), whatever an earlier round read late on a loaded host
+printf '#!/usr/bin/env bash\nexec python3 -c %q %s\n' 'import os, sys; print(" ".join(str(os.stat(p).st_ino) for p in sys.argv[1:]))' \
+  "$(printf '%q ' "$(home_of mac-studio)"/.cache/crew/board/{wldn,swancloud}{.rail,,.agents}.json)" > "$T/written"
+chmod +x "$T/written"
+{ head -1 "$T/shim/git"
+  printf '[[ " $* " == *" fetch "*refs/crew/wldn/main* ]] && { %q > %q 2>/dev/null; echo "${CREW_TEST_HOST:-?} tick" >> %q; }\n' \
+    "$T/written" "$T/tick-began" "$CREW_TEST_LOG"
+  tail -n +2 "$T/shim/git"; } > "$T/shim/git.new" && mv "$T/shim/git.new" "$T/shim/git" && chmod +x "$T/shim/git"
 shim python3 '[[ ${1:-} == - && ${2:-} == *\"stamp\":\ true* ]]' stamp '[[ ${1:-} == - ]]' gather '[[ " $* " == *" card sweep "* ]]' sweep
 shim portless 'true' portless
 reads() { grep -c "^$1 $2\$" "$T/reads.log" || true; }
@@ -193,42 +204,45 @@ ok "the host's follower, with no tab open, writes each partition's frames there 
 # mac-studio's card sessions swept at the next look, the box's not, and nothing gathered; a write to sluice's folder in
 # the box's kit moves nothing at the next tick; and a merge of unit a queued in sluice, its watch printing a new line,
 # puts the submission's number on a's row at the next look, with nothing gathered and no sluice run but the watches.
-# written: each partition's rail, board and agents' frames by their files, and rewritten, a round whose every frame is
-# new, so its reads are over before the next are counted: a round goes on past wldn's rail, to swancloud's frames and,
-# at its first write of each partition, a read of crew's version (board.here_read)
-written() { python3 -c 'import os, sys; print(" ".join(str(os.stat(p).st_ino) for p in sys.argv[1:]))' "$(home_of mac-studio)"/.cache/crew/board/{wldn,swancloud}{.rail,,.agents}.json; }
-rewrote() {  # every frame of a round written anew since was, its agents' views last: the round reached its end
+# rewrote: a round whose every frame is new since the files given, its agents' views last, so the round reached its
+# end: a round goes on past wldn's rail, to swancloud's frames and, at its first write of each partition, a read of
+# crew's version (board.here_read); ticked, the tick's own round, every frame new since the tick's fetch found them;
+# tick: the follower's clock ticked by a signal and waited for until its round is written; tick_reads <host> <what>:
+# what the follower read from the tick's fetch on
+written() { "$T/written"; }
+rewrote() {
   local was=($1) now=($(written)) i
   (( ${#was[@]} == 6 && ${#now[@]} == 6 )) || return 1
   for i in "${!was[@]}"; do [[ ${now[i]} != "${was[i]}" ]] || return 1; done
 }
-rewritten() { rewrote "$1" && grep -q "^$box \(stamp\|gather\)\$" "$T/reads.log"; }
+ticked() { [[ -s $T/tick-began ]] && rewrote "$(cat "$T/tick-began")"; }
+tick() {
+  rm -f "$T/tick-began"; : > "$T/reads.log"; : > "$CREW_TEST_LOG"
+  kill -USR1 "$fol"
+  until_ok ticked || fail "$1: $(cat "$T/follower")"
+}
+tick_reads() { sed -n '/^mac-studio fetch$/,$p' "$T/reads.log" | grep -c "^$1 $2\$" || true; }
 railtext() { jq -r .text "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json"; }
 unit_of() { jq -c --arg u "$1" '.partitions[0].construction[] | select(.bolt == "tenant-environments") | .units[] | select(.unit == $u)' "$frame"; }
-at=$(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json"); was=$(written); : > "$T/reads.log"; : > "$CREW_TEST_LOG"
+at=$(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json"); rm -f "$T/tick-began"; : > "$T/reads.log"; : > "$CREW_TEST_LOG"
 ( export CREW_TEST_HOST=mac-studio HOME=$(home_of mac-studio) CREW_TEST_PERIOD=3600 CREW_TEST_READS=$T/reads.log PATH="$T/shim:$PATH"
   cd "$HOME" && exec "$CREW/plugin/bin/crew" _follow ) > "$T/follower" 2>&1 &
 fol=$!
-until_ok rewritten "$was" || fail "the running follower never refreshed: $(cat "$T/follower")"
-eq "$(reads $box gather)" "1"
+until_ok ticked || fail "the running follower never refreshed: $(cat "$T/follower")"
+eq "$(tick_reads $box gather)" "1"
 watching() { grep -q "^$box sluice overview --json --watch in " "$CREW_TEST_LOG" && grep -q "^mac-studio sluice overview --json --watch in " "$CREW_TEST_LOG"; }
 until_ok watching || fail "the follower opened no overview watch on each kit: $(cat "$CREW_TEST_LOG")"
 ! grep -q " sluice status " "$CREW_TEST_LOG" || fail "the follower's read of the kits ran sluice status: $(grep ' sluice status ' "$CREW_TEST_LOG")"
-was=$(written); : > "$T/reads.log"; : > "$CREW_TEST_LOG"
 # a first tick settles what the read left (its watches' first lines, the cards its sweep did not ask after); the one
 # after it, with everything answered and nothing moved, is the quiet tick
-ticked() { grep -q "^mac-studio fetch\$" "$T/reads.log" && rewrote "$1"; }  # a round that began with the clock's fetch
-kill -USR1 "$fol"
-until_ok ticked "$was" || fail "the follower's tick wrote no frame: $(cat "$T/follower")"
-was=$(written); : > "$T/reads.log"; : > "$CREW_TEST_LOG"
-kill -USR1 "$fol"
-until_ok ticked "$was" || fail "the follower's quiet tick wrote no frame: $(cat "$T/follower")"
+tick "the follower's tick wrote no frame"
+tick "the follower's quiet tick wrote no frame"
 # one fetch of each repository: wldn's state, here with its partition's branch, and willdan's blueprints, afterthought's
 # blueprints and afterthought's state, fetched once more without madswan's branch, which is not made there; mac-studio's
-# own stamps read in this process; and nothing at all of ssh, sluice, Pending You or herdr
-eq "$(reads mac-studio fetch) $(reads mac-studio fetch-other)" "1 4"
-eq "$(grep -v ' fetch\(-other\)\?$' "$T/reads.log" || true)" "mac-studio stamp"
-eq "$(cat "$CREW_TEST_LOG")" ""
+# own stamps read in this process; and nothing at all of ssh, sluice, Pending You or herdr from the tick's fetch on
+eq "$(tick_reads mac-studio fetch) $(tick_reads mac-studio fetch-other)" "1 4"
+eq "$(sed -n '/^mac-studio fetch$/,$p' "$T/reads.log" | grep -v ' fetch\(-other\)\?$' || true)" "mac-studio stamp"
+eq "$(sed -n '/^mac-studio tick$/,$p' "$CREW_TEST_LOG" | tail -n +2)" ""
 [[ ! $(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json") < $at ]] || fail "the tick's frame is older than the last"
 printf '%s\n' 'Case: The zones get a second unit.' 'Do: unit add zone-two "Zone two." --bolt apex-zones' > "$T/p2.rec"
 : > "$T/reads.log"
@@ -245,10 +259,8 @@ eq "$(reads $box sweep) $(reads mac-studio gather) $(reads $box gather) $(reads 
 proposed || fail "the rail lost its words at the sweep: $(railtext)"
 records=$(git -C "$k" rev-parse --path-format=absolute --git-common-dir)/sluice; mkdir -p "$records/main/submissions" "$records/bolt/tenant-environments/submissions"
 echo 2 > "$records/main/version"; echo '{}' > "$records/bolt/tenant-environments/submissions/41.json"
-was=$(written); : > "$T/reads.log"
-kill -USR1 "$fol"
-until_ok ticked "$was" || fail "the follower's tick after sluice's write wrote no frame: $(cat "$T/follower")"
-eq "$(reads $box gather) $(reads mac-studio gather) $(reads mac-studio git)" "0 0 0"
+tick "the follower's tick after sluice's write wrote no frame"
+eq "$(tick_reads $box gather) $(tick_reads mac-studio gather) $(tick_reads mac-studio git)" "0 0 0"
 proposed || fail "the rail lost its words at sluice's write: $(railtext)"
 eq "$(unit_of a | jq -c .submission)" "null"
 : > "$T/reads.log"; : > "$CREW_TEST_LOG"

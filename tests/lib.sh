@@ -11,6 +11,10 @@
 set -euo pipefail
 CREW=$(cd "$TESTS/.." && pwd -P)
 export CREW_TEST_ROOT=$T CREW_TEST_LOG=$T/calls.log CREW_TEST_CLAUDE_LOG=$T/claude.log
+# What a test leaves running ends with it, passed or failed: tests/slot ends whatever is left in the test's process
+# group once the test has ended, and a card's plannotator session, which crew starts in a session of its own, ends once
+# the test's own shell, CREW_TEST_PID, has (tests/stubs/plannotator).
+export CREW_TEST_PID=$$
 export PATH="$TESTS/stubs:$PATH" GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
 unset CREW_AGENT CREW_LABEL FLUME_PLACE FLUME_AGENT FLUME_STAGE HERDR_PANE_ID HERDR_WORKSPACE_ID HERDR_TAB_ID HERDR_ENV HERDR_BIN_PATH HERDR_SOCKET_PATH HERDR_SESSION SLUICE_BRANCH GIT_DIR GIT_WORK_TREE
 # A suite an agent starts carries its Claude session's process id, which crew's waits end with (teams.24): a test's

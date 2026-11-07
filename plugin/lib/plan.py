@@ -132,7 +132,11 @@ from cards import joined, new_units  # noqa: E402
 from crew import Refusal, Stopped, fail  # noqa: E402
 from picture import cut  # noqa: E402
 
-REPLAYS = 5
+# The waits, in seconds, before a refused write's replays, one before each replay's fresh fetch: each the double of the
+# one before up to eight, so a branch taking a commit every few seconds is outwaited rather than given up on (state.1),
+# and 23.5 in all at most, so a command whose write and entry are both replayed to the end still answers (code.9).
+REPLAY_WAITS = (0.5, 1.0, 2.0, 4.0, 8.0, 8.0)
+REPLAYS = len(REPLAY_WAITS)
 # How many times a fetch is made again when another command on this host moved crew's cache's ref of the branch while it
 # fetched, which git refuses as a ref that is at another commit than it read: every act pushes its entry (read.5), so
 # commands on one host fetch and push side by side.
@@ -882,15 +886,25 @@ def commit(repo, parent, files, message):
     return git(repo, "commit-tree", tree, *(["-p", parent] if parent else []), "-F", "-", input=message)
 
 
+def replay_wait(n, draw):
+    """How long a refused write waits, in seconds, before its nth replay's fresh fetch (from 0): REPLAY_WAITS' nth,
+    spread over its upper half by draw, a number in [0, 1) drawn afresh for each wait, so commands refused at one moment
+    replay at different moments rather than in step. Never more than the nth, so the whole wait is bounded by their
+    sum (code.7, code.9)."""
+    return REPLAY_WAITS[n] * (1 + draw) / 2
+
+
 def land(repo, ref, path, make):
     """make(tip) gives a file's new text (or, with path None, {path: text}) and the commit message, or refuses; or a
     chain of them, a list, each committed on the one before, as the run record's entries are, one commit each. Every
     file a commit holds is checked first. The first attempt starts from the tip the command holds; the last commit is
-    pushed without force, and when the push is refused because the branch moved, the branch is fetched afresh and make
-    runs again on the new tip, the whole chain made again, up to five times (plan.1, state.1). The command then holds
-    the commit it pushed, so its later steps read its own write once its entry is on the branch (fetch)."""
-    tip = tip_of(repo, ref)
-    for _ in range(1 + REPLAYS):
+    pushed without force, and when the push is refused because the branch moved, the write waits a growing moment
+    (replay_wait), the branch is fetched afresh and make runs again on the new tip, the whole chain made again, up to
+    REPLAYS times, so a busy branch is outwaited (plan.1, state.1); a write still refused is refused, and an entry so
+    refused is kept for the host's next push (record.reach, record.2). The command then holds the commit it pushed, so
+    its later steps read its own write once its entry is on the branch (fetch)."""
+    tip, waited = tip_of(repo, ref), 0.0
+    for n in range(1 + REPLAYS):
         made = make(tip)
         sha = tip
         for text, message in made if isinstance(made, list) else [made]:
@@ -904,11 +918,17 @@ def land(repo, ref, path, make):
             git(repo, "update-ref", f"refs/crew/{ref}", sha, check=False)
             READ.keep_tip(repo, ref, sha)
             return sha
+        if n < REPLAYS:  # the last refusal waits for no replay, and is still fetched to tell a moved branch
+            import random  # here, as the module's rarer imports are: only a refused push draws
+            wait = replay_wait(n, random.random())
+            time.sleep(wait)
+            waited += wait
         moved = tip_of(repo, ref, fresh=True)
         if moved == tip:
             fail(f"the push of {ref} to {repo} failed: {r.stderr.strip()}")
         tip = moved
-    fail(f"{ref} of {repo} kept moving: the write was applied {1 + REPLAYS} times and each push was refused")
+    fail(f"{ref} of {repo} kept moving: the write was applied {1 + REPLAYS} times, waiting {waited:.1f} s in all between "
+         "them, and each push was refused")
 
 
 def agent():
@@ -9380,7 +9400,14 @@ def review_cmd(fleet, a):
     for the batch of changes due, in a review tab of the main level's workspace beside the planner, and sent its batch as
     its prompt, the start recorded; with --wait, the wait for its summary, which records the batch, and then its agent
     ended and its tab closed. Refused while a reviewer still reviews, or the main level is not up. A partition that
-    runs its reviewer as its kind is asked the batch instead (review_asked)."""
+    runs its reviewer as its kind is asked the batch instead (review_asked).
+
+    The batch is sent taken or sent again (teams.15, crew.send_taken): one the reviewer did not take at the second
+    sending leaves nothing typed, its start recorded refused and the command refused; one crew can't tell it took is
+    recorded started, saying so. A reviewer up but idle that took no batch, with no summary written since its last
+    start, is ended, the end recorded (review.end) and said, and the batch's reviewer started afresh; one at work, at a
+    question or that took its batch is refused, since crew review takes no --force and a working agent is ended only
+    with one (teams.2); and --wait on a reviewer that took no batch refuses, naming crew review (reviewer_up_said)."""
     p = crew.partition_of(fleet, a.label)
     arrived(fleet, p["machine"])
     if crew.role_stream(fleet, p["label"], "reviewer") is not False:
@@ -9389,6 +9416,10 @@ def review_cmd(fleet, a):
     m.ensure()
     label, agent = p["label"], m.agent_of("reviewer")
     if a.wait:
+        up = reviewer_up(fleet, label, m)
+        if up and up[0] == "afresh":
+            fail(f"{agent} took no batch, so no summary is coming: crew review {label} ends it and starts the batch's "
+                 "reviewer afresh")
         summary = review_wait(fleet, argparse.Namespace(label=label, timeout=a.timeout))
         why = m.stop("reviewer")
         if why:
@@ -9401,18 +9432,77 @@ def review_cmd(fleet, a):
         print(f"batch summary: {summary}")
         return
     not_held()
-    not m.status("reviewer") or fail(f"{agent} is still reviewing a batch: crew review {label} --wait waits for its summary")
+    up = reviewer_up(fleet, label, m)
+    not up or up[0] == "afresh" or fail(up[1])
     m.get("layout", crew.ws_key(label)) or fail(f"{label}'s main level is not up in session {m.session}: crew main up {label}")
     b = review_start(fleet, argparse.Namespace(label=label))
+    if up:
+        why = m.stop("reviewer")
+        not why or fail(f"{why}: crew starts no reviewer over it")
+        m.record("review.end", f"review({label}): end {agent}, which took no batch", ["reviewer"])
+        print(up[1])
     if not m.herdr.live(m.pane("reviewer")):  # the tab is kept in the layout, so the batch's end closes it
         made = m.tab(label, "review", m.cwd, "reviewer")
         m.put("layout", "tab:review", made["tab"]["tab_id"])
     if not m.start("reviewer"):
         raise Stopped(1)
-    m.herdr.run("agent", "prompt", m.pane("reviewer"), b["PROMPT"])
-    record.emit(label, "review.start", [f"batch/{b['N']}", f"agent/{agent}"] + [f"unit/{u}" for u in b["NAMES"].split()],
-                why=f"batch({b['N']}): start review", Batch=b["N"], Units=b["UNITS"])
-    print(f"{agent} is reviewing batch {b['N']} of {label}, into {b['FILE']}: crew review {label} --wait waits for it")
+    n, on = b["N"], [f"batch/{b['N']}", f"agent/{agent}"] + [f"unit/{u}" for u in b["NAMES"].split()]
+    how, why = crew.send_taken(fleet, agent, b["PROMPT"])
+    afresh = f"crew review {label} ends it and starts the batch's reviewer afresh"
+    if how == "never":
+        said = crew.untaken_said(agent, f"batch {n}", how, why)
+        record.emit(label, "review.start", on, why=f"batch({n}): start review", refused=said, Batch=n, Units=b["UNITS"])
+        fail(f"{said}; once it is idle, {afresh}")
+    record.emit(label, "review.start", on, why=f"batch({n}): start review", Batch=n, Units=b["UNITS"])
+    if how == "unread":
+        print(f"{crew.untaken_said(agent, f'batch {n}', how, why)}; crew review {label} --wait waits for its summary, and "
+              f"should {agent} sit idle having taken none, {afresh}", file=sys.stderr)
+        print(f"batch {n} of {label} is recorded started, into {b['FILE']}: crew review {label} --wait waits for it")
+        return
+    print(f"{agent} is reviewing batch {n} of {label}, into {b['FILE']}: crew review {label} --wait waits for it")
+
+
+def reviewer_up_said(label, agent, status, asking, took, written):
+    """What crew review does with its partition's reviewer when herdr reads it up (teams.2, teams.15), from facts alone
+    (code.7): herdr's status of it, whether it waits on a question in its pane, whether its session received a batch
+    (True, False, or what crew could not read of that) and whether a summary was written since its last start.
+    ("afresh", words): it sits idle or done, at no question, having received no batch and written no summary, so
+    nothing of a batch is lost by ending it, and crew ends it and starts the batch's reviewer afresh. ("refuse",
+    words) otherwise: one at work, or that took its batch or wrote a summary, is still reviewing, ended by the wait at
+    its summary; one at a question waits on the user; and one crew can't read is never ended on a guess (read.1)."""
+    still = f"{agent} is still reviewing a batch: crew review {label} --wait waits for its summary"
+    if status == "blocked" or (asking and status in ("idle", "done")):
+        return "refuse", f"{agent} is waiting on a question in its pane: answer it there; crew ends no reviewer at a question"
+    if status not in ("idle", "done") or took is True or written:
+        return "refuse", still
+    if took is not False:
+        return "refuse", f"crew can't tell whether {agent} took a batch: {took}; it is left as it is"
+    return "afresh", f"{agent} sat {status} having taken no batch and written no summary: crew ends it and starts the batch's reviewer afresh"
+
+
+# How every batch a standing reviewer is sent opens (review_prompt), which its transcript holds once it took one.
+REVIEW_OPENS = "Review batch"
+
+
+def reviewer_up(fleet, label, m):
+    """reviewer_up_said's (how, words) for the partition's reviewer, m's, when herdr reads it up, else None: read from
+    herdr's reading of it and its session's transcript, where it took a batch once it holds REVIEW_OPENS (crew.Pane, as
+    send_taken reads it), and whether a summary was written since its last start on this host, taken or not."""
+    if not m.status("reviewer"):
+        return None
+    agent = m.agent_of("reviewer")
+    pane = crew.Pane(fleet, agent)
+    status, asking, sid, unread = pane.reading()
+    got = unread or (pane.received(sid, 0, REVIEW_OPENS) if sid else "crew found no session for it")
+    took = got if isinstance(got, str) else got.get("received") if isinstance(got.get("received"), bool) else (
+        f"crew's reading of its transcript on {pane.host} gave no answer crew reads")
+    start = next((e for e in reversed(local_entries(label, BATCH_DAYS))
+                  if e.get("Act") == "review.start" and (e.get("Batch") or "").isdigit()), None)
+    try:
+        mtime = batch_file(label, start["Batch"]).stat().st_mtime if start else None
+    except OSError:
+        mtime = None
+    return reviewer_up_said(label, agent, status, asking, took, batch_written(start, mtime))
 
 
 CONSOLE_TABS = ("shell", "flow", "rail", "board")
@@ -10415,7 +10505,9 @@ def review_start(fleet, a):
     crossed = crossed_changes(plan, stages_for(fleet, label, plan, crossing, fetch=True)) if crossing else {}
     due = due_changes(plan, entries, crossed)
     due or fail(f"no change of {label} is due for a batch: every unit's latest change has been in one")
-    n = 1 + max([int(e["Batch"]) for e in entries if e.get("Act") in ("review.start", "review.batch") and (e.get("Batch") or "").isdigit()] or [0])
+    # A start refused for its batch not taken is no batch (review_cmd), so the next start takes its number.
+    n = 1 + max([int(e["Batch"]) for e in entries if e.get("Act") in ("review.start", "review.batch") and not e.get("Refused")
+                 and (e.get("Batch") or "").isdigit()] or [0])
     f = batch_file(label, n)
     prompt = review_prompt(fleet, label, n, f, due, crossed)
     return dict(N=n, FILE=f, UNITS=" ".join(f"{u}:{bolt}@{sha}" for u, bolt, sha, _ in due), NAMES=" ".join(u for u, *_ in due),
@@ -10426,7 +10518,7 @@ def review_prompt(fleet, label, n, f, due, crossed=()):
     """What batch n's reviewer is sent: the changes due, each with its bolt, kit, host and commit and how to read it
     there, a started unit's archived at that commit (crossed, by name), and the file its summary goes to."""
     at = {u: batch_unit_at(fleet, label, bolt, u) for u, bolt, *_ in due}
-    return (f"Review batch {n} of {label}, {len(due)} change{'' if len(due) == 1 else 's'}, and write its summary to {f}. "
+    return (f"{REVIEW_OPENS} {n} of {label}, {len(due)} change{'' if len(due) == 1 else 's'}, and write its summary to {f}. "
             + " ".join(f"{u} ({bolt}, {at[u]['kit']['name']} on {at[u]['machine']}, at {sha}): "
                        f"{reading_command(fleet, label, bolt, sha, u, u in crossed)}." for u, bolt, sha, _ in due))
 
@@ -10442,9 +10534,10 @@ def review_wait(fleet, a):
     label = crew.partition_of(fleet, a.label)["label"]
     CONTEXT["label"] = label
     entries = local_entries(label, BATCH_DAYS)
-    starts = [e for e in entries if e.get("Act") == "review.start" and not e.get("Refused") and (e.get("Batch") or "").isdigit()]
-    starts or fail(f"no batch of {label} has been started: crew review {label} starts one")
-    s = starts[-1]
+    tried = [e for e in entries if e.get("Act") == "review.start" and (e.get("Batch") or "").isdigit()]
+    tried or fail(f"no batch of {label} has been started: crew review {label} starts one")
+    s = tried[-1]
+    not s.get("Refused") or fail(f"batch {s['Batch']} of {label} was not started: {s['Refused']}; crew review {label} starts it again")
     n, f = int(s["Batch"]), batch_file(label, s["Batch"])
     if any(e.get("Act") == "review.batch" and e.get("Batch") == s["Batch"] for e in entries):
         if not cards.card_under(cards.host_entries(record, label, crew.this_host()), f"batch/{n}", f"{label}-planner"):
