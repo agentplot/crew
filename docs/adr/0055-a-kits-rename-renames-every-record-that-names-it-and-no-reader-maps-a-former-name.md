@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: rejected
 date: 2026-11-06
 decision-makers: the user (a rename renames the data that names the kit, and no reader is taught a former name); the design agent (which records that is, and how crew carries it)
 ---
 
 # 0055. A kit's rename renames every record that names it, and no reader maps a former name
 
-Status: proposed to the user on 2026-11-06, as `briefs.15` has it; accepted only on their yes.
+Status: rejected by the user on 2026-11-07, on agentplot-design's card: "Reject 0055: crew is removed from swancloud and added to agentplot". The same day they had said, on Boomdrive's record 0021: "We are not going to build special functionality to handle repositories being renamed in flight. Big picture with boomdrive, you add repositories and, when you remove repositories, I don't think there's a rename. I think you would drain the work from it, remove it, do the rename separately, and then add it back"; and on Flume's record 0053: "Once this is a final product, I think you either add a repo or remove a repo. There's no renaming". So crew renames no kit. A kit that moves between partitions is removed from one and added to the other, as crew moves from swancloud to agentplot, and a repository renamed on its forge is drained, removed and added back under its new name. The rules drawn from this record, `plan.22` and `record.4`'s rewrite for a rename, are taken out with it, and the run record and `requests.rec` stay append-only without exception. What the change `a-kit-renamed-on-its-host-is-renamed-across-the-plan` built, `crew kit rename` and the readers that map a kit through `kit.rename` entries, goes with a crew change of its own (agentplot-design, on the user's words above), and the fix `a-kit-rename-renames-every-record-naming-it`, held for this record, is dropped.
 
 Deciders: the user, 2026-11-06 23:35Z, on agentplot's card proposing that Boomdrive's runner read a launch's repository through crew's renames: "This seems like a terrible thing to hardcode into a fucking system. Wouldn't the root cause be that the original rename didn't rename the parts of the data that were necessary? If anything shouldn't the tools expose some sort of rename functionality? I don't want you to be building fucking custom workaround shit". That a rename renames the data, and that no reader learns a former name, is theirs. Which records that is, and how crew carries it, is the design agent's, on the rules as written.
 
