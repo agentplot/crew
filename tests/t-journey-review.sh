@@ -3,7 +3,9 @@
 # box, archived, make a batch due at the partition's setting, told to the planner once on the rail's read, and crew
 # review starts the reviewer, while mac-studio, a host of the partition holding none of the batch's work, does not
 # answer, since both read the run record from the partition's branch (read.5); the reviewer is sent each change archived
-# at the commit its bolt holds it and how to read it on its team's host, over ssh for another host's; its summary ends
+# at the commit its bolt holds it and how to read it on its team's host, over ssh for another host's, taken or sent
+# again, a batch it takes at neither sending refused with nothing left typed and --wait refused on it, and the next
+# crew review ending the reviewer idle with no batch and starting it afresh (teams.15, teams.2); its summary ends
 # the batch, raising its card with its reading session in the planner's name, tried twice when its first start fails,
 # and raised without it, naming crew card session, when both fail, the planner's crew card session then starting it and
 # changing the card to carry its link; crew rail lists what waits, with each row's card; crew's card hook refuses an
@@ -107,7 +109,8 @@ rpane=$(herdr_state $box wldn-3 '.agents | to_entries[] | select(.value.name == 
 grep -q "agent prompt \($rpane\|wldn-reviewer\) '\[crew\]" "$CREW_TEST_LOG" && fail "the reviewer was greeted"
 CREW_AGENT=wldn-planner expect_fail "wldn-reviewer is still reviewing a batch" crew review wldn
 CREW_AGENT=wldn-planner expect_fail "batch 1's review is still running after the wait's 0 ms" crew review wldn --wait --timeout 0
-has "$(grep "agent prompt $rpane " "$CREW_TEST_LOG" | tail -1)" "y1 (d1, breadboard-kit on $box, at $y1at): its change is archived at that commit: find its folder with \`git -C $bk ls-tree -d --name-only $y1at openspec/changes/archive/\`"
+eq "$(grep -c "agent prompt wldn-reviewer 'Review batch 1 " "$CREW_TEST_LOG")" "1"
+has "$(grep "agent prompt wldn-reviewer 'Review batch 1 " "$CREW_TEST_LOG")" "y1 (d1, breadboard-kit on $box, at $y1at): its change is archived at that commit: find its folder with \`git -C $bk ls-tree -d --name-only $y1at openspec/changes/archive/\`"
 mkdir -p "$(dirname "$summary")"; printf '# Batch 1\n' > "$summary"
 refusals=$(home_of $box)/.stub-plannotator/refuse-starts
 mkdir -p "${refusals%/*}"; echo 1 > "$refusals"  # the reading's first start fails, and its second opens
@@ -122,7 +125,7 @@ CREW_AGENT=wldn-planner expect_ok crew review wldn --wait
 eq "$out" "batch summary: $summary"
 eq "$(entries $box card.post | jq -r .Card)" "req_stub-1"
 eq "$(herdr_state $box wldn-3 '[.tabs[] | select(.workspace == "w1") | .label] | join(",")')" "design,planner,ops,operator"
-ok "the planner starts the reviewer fresh in a review tab, not greeted, sent each change archived at its bolt's commit and how to read it on its team's host, while a host of the partition holding none of them does not answer, and no second while it reviews; its summary ends the batch, recorded at those commits, raises its card in the planner's name once, its reading tried twice, and closes its tab"
+ok "the planner starts the reviewer fresh in a review tab, not greeted, sent once each change archived at its bolt's commit and how to read it on its team's host, while a host of the partition holding none of them does not answer, and no second while it reviews; its summary ends the batch, recorded at those commits, raises its card in the planner's name once, its reading tried twice, and closes its tab"
 
 records() { cat "$(home_of mac-studio)"/.local/state/crew/wldn/runs/*/*.rec "$(home_of $box)"/.local/state/crew/wldn/runs/*/*.rec 2>/dev/null | wc -l || true; }
 tip=$(git --git-dir "$ws" rev-parse wldn/main) n=$(records)
@@ -200,12 +203,34 @@ ok "an old batch card's session of a unit is started on that unit's team's host,
 # A later batch, of z1 alone, whose reading will not open at either start: its card is raised without it, saying so and
 # naming crew card session, with why in the run record; the planner's crew card session then starts the reading, from
 # mac-studio, and changes the card to carry its link, and the user's approval with no words is recorded read at the
-# next refresh.
+# next refresh. Its reviewer first takes its batch at neither sending (the stub leaves both typed, as madswan's batches
+# 17 and 19 sat on 2026-10-26): crew clears what was left typed, records the start refused and refuses; the reviewer,
+# up and idle holding no batch, is refused by --wait naming crew review, which ends it and starts the batch's reviewer
+# afresh, its batch taken at the second sending.
+export CREW_TAKEN_WITHIN=1  # how long crew reads a sending's transcript: the stub writes a taken prompt at once (tests.8)
+: > "$CREW_TEST_LOG"
+as $box herdr --session wldn-3 stub leave wldn-reviewer 2
+untaken="wldn-reviewer did not take batch 3, sent twice; nothing is left typed"
+CREW_AGENT=wldn-planner expect_fail "$untaken; once it is idle, crew review wldn ends it and starts the batch's reviewer afresh" crew review wldn
+eq "$(entries $box review.start | jq -r 'select(.Batch == "3") | .Refused // "taken"')" "$untaken"
+eq "$(grep -c "agent prompt wldn-reviewer 'Review batch 3 " "$CREW_TEST_LOG") $(grep -c "agent send-keys wldn-reviewer ctrl+c" "$CREW_TEST_LOG")" "2 2"
+eq "$(herdr_state $box wldn-3 '.agents[] | select(.name == "wldn-reviewer") | [.status, .typed // "nothing typed"] | join(" ")')" "idle nothing typed"
+CREW_AGENT=wldn-planner expect_fail "wldn-reviewer took no batch, so no summary is coming: crew review wldn ends it and starts the batch's reviewer afresh" crew review wldn --wait
+[[ -z $(entries $box review.end) ]] || fail "crew review --wait ended a reviewer that took no batch"
+ok "a reviewer that takes its batch at neither sending is left nothing typed, its start recorded refused and the command refused, and --wait on it refuses, naming crew review"
+
+as $box herdr --session wldn-3 stub leave wldn-reviewer 1
+rpane=$(herdr_state $box wldn-3 '.agents | to_entries[] | select(.value.name == "wldn-reviewer") | .key')
 : > "$CREW_TEST_LOG"
 CREW_AGENT=wldn-planner expect_ok crew review wldn
+has "$out" "wldn-reviewer sat idle having taken no batch and written no summary: crew ends it and starts the batch's reviewer afresh"
 has "$out" "wldn-reviewer is reviewing batch 3 of wldn"
-rpane=$(herdr_state $box wldn-3 '.agents | to_entries[] | select(.value.name == "wldn-reviewer") | .key')
-has "$(grep "agent prompt $rpane " "$CREW_TEST_LOG" | tail -1)" "z1 (m1, atlas-kit on mac-studio, at $z1at): its change is archived at that commit: find its folder with \`ssh -o BatchMode=yes mac-studio git -C $ak ls-tree -d --name-only $z1at openspec/changes/archive/\`"
+eq "$(entries $box review.end | jq -r '[(.On | join(" ")), .Why] | join(" ")')" "agent/wldn-reviewer review(wldn): end wldn-reviewer, which took no batch"
+eq "$(grep -c "agent prompt $rpane /exit\$" "$CREW_TEST_LOG") $(grep -c "agent prompt wldn-reviewer 'Review batch 3 " "$CREW_TEST_LOG")" "1 2"
+eq "$(entries $box review.start | jq -r 'select(.Batch == "3") | .Refused // "taken"' | tr '\n' '|')" "$untaken|taken|"
+unset CREW_TAKEN_WITHIN
+ok "crew review ends a reviewer up and idle that took no batch, recording the end and saying so, and starts the batch's reviewer afresh, its batch left typed once and sent once more"
+has "$(grep "agent prompt wldn-reviewer 'Review batch 3 " "$CREW_TEST_LOG" | tail -1)" "z1 (m1, atlas-kit on mac-studio, at $z1at): its change is archived at that commit: find its folder with \`ssh -o BatchMode=yes mac-studio git -C $ak ls-tree -d --name-only $z1at openspec/changes/archive/\`"
 printf '# Batch 3\n\n## z1 (atl-1)\n\nz1 gives each tenant its own zone.\n' > "$(dirname "$summary")/batch-wldn-3.md"
 echo 2 > "$refusals"
 : > "$CREW_TEST_LOG"

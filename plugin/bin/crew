@@ -244,7 +244,10 @@
 #                                      drop a fix of main not wanted: its launch dropped; a landed one is refused
 #   crew review   <label> [--wait [--timeout <ms>]]
 #                                      the partition's reviewer, started fresh for the batch of changes due, in a
-#                                      review tab beside the planner; --wait waits for its summary, records the batch,
+#                                      review tab beside the planner, and sent the batch taken or sent again, the start
+#                                      refused, nothing left typed, when it takes it at neither sending; a reviewer up
+#                                      but idle that took no batch is ended and started afresh, and --wait on one is
+#                                      refused, while one at work is left; --wait waits for its summary, records the batch,
 #                                      raises its card with its reading session in the planner's name, and closes the
 #                                      tab; it ends sooner, recording nothing, when the Claude session that started it
 #                                      ends. A reviewer that runs as its kind is asked the batch instead, a batch ask
