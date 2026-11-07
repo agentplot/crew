@@ -308,9 +308,11 @@
 #                                      its pane a shell, and one the user closed stays closed unless named; down closes
 #                                      them
 #   crew _follow  [--once]             the host's follower with no tab, the command swancloud's job runs on each host:
-#                                      one read for every partition with an operator session here, fetching once a
-#                                      minute and showing this host's writes within seconds, reading only what moved
-#                                      and following each kit's queue through sluice's overview watch; due restarts
+#                                      one read for every partition with an operator session here, fetching each
+#                                      repository once a minute and showing this host's writes within seconds, reading
+#                                      only what moved, asking another host, Pending You or herdr only when something
+#                                      there could have moved, and following each repository's queue through one
+#                                      sluice overview watch; due restarts
 #                                      handed out once crew's checkout or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition

@@ -1071,6 +1071,28 @@ def test_the_runners_branches_come_with_the_drives_branch_in_one_fetch_and_each_
     assert plan.runner_tips(state.REPO, state.LABEL) == {"deneb": deneb}
 
 
+def test_the_followers_fetch_brings_every_branch_of_a_repository_in_one_and_a_branch_not_made_costs_the_rest_nothing(state, monkeypatch):
+    """plan.tips_of, the host's follower's one fetch of a repository at its clock's tick (Decision 3 of
+    a-followers-tick-reads-nothing-while-nothing-moved; sluice core.31, the remote's one fetch a tick): madswan/main and
+    swancloud/main, each with its runners' branches, in one git fetch, read from the cache's files after; with a
+    partition's branch not made yet, the fetch that cannot find it is made again without it, the one there read and the
+    other None."""
+    import plan
+    swan = state.push("swancloud/main", {"plan.rec": plan.HEADER}, "plan: start (chuck@deneb)")
+    ran = state.push("swancloud/runner/deneb", {"runner.rec": "%rec: Runner\n"})
+    mad = state.git("rev-parse", "refs/heads/madswan/main")
+    fetches = []
+    git = plan.git
+    monkeypatch.setattr(plan, "git", lambda repo, *args, **k: (fetches.append(args) if args[0] == "fetch" else None, git(repo, *args, **k))[1])
+
+    assert plan.tips_of(state.REPO, ["madswan/main", "swancloud/main"]) == {"madswan/main": mad, "swancloud/main": swan}
+    assert len(fetches) == 1 and "+refs/heads/swancloud/runner/*:refs/crew/swancloud/runner/*" in fetches[0]
+    assert plan.tip_here(state.REPO, "swancloud/main") == swan and plan.runner_tips(state.REPO, "swancloud", fetch=False) == {"deneb": ran}
+    fetches.clear()
+    assert plan.tips_of(state.REPO, ["madswan/main", "wldn/main"]) == {"madswan/main": mad, "wldn/main": None}
+    assert len(fetches) == 2 and "+refs/heads/wldn/main:refs/crew/wldn/main" not in fetches[1], "a branch not made yet was asked again"
+
+
 def test_main_holds_reads_gits_exit_for_each_commit_a_crossed_bolts_places_landed_at(repo):
     """plan.MAIN_HOLDS, which a crossed bolt's close reads (plan.main_holds, runner.unlanded; Decision 12 of
     teams-cross-to-flume-as-their-bolts-land): git merge-base --is-ancestor exits 0 for a commit main holds, the bolt's
