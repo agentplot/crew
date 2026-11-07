@@ -137,11 +137,13 @@ class FactsWrite:
         return w
 
 
-def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None):
+def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standing=()):
     """A plan command's reads as a logic case gives them (plan.Reads): each unit's or chore's stage as given, else ready;
-    a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it; work a held bolt needs
-    ahead of its first unit or chore not merged."""
+    a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it, or Flume's branch for it
+    stands in a repository a launch of it would be made in (standing, as runner.branch_refusal takes them: [{"host",
+    "dir", "refs": {branch: commit}}]); work a held bolt needs ahead of its first unit or chore not merged."""
     import plan
+    import runner
 
     class Known(plan.Proposed):
         direct = n is None
@@ -157,10 +159,12 @@ def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None):
         def stage(self, label, p, name):
             return self.of(name)
 
-        def free(self, label, kit, names):
+        def free(self, label, kit, names, kind="unit"):
             for x in names:  # by the decision name_free makes, on the changes and chores the kit's main is given to hold
                 why = plan.name_taken(kit, x, taken, chores_taken)
                 not why or plan.fail(why)
+            why = runner.branch_refusal(kit, kind, names, list(standing))  # and branch_free's, on the branches given
+            not why or plan.fail(why)
 
         def first_open(self, label, p, bolt):
             return next((u.name() for u in p.work_of(bolt) if self.of(u.name())["stage"] not in ("merged", "landed")), None)

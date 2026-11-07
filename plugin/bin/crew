@@ -116,7 +116,11 @@
 #                                      planned maintenance that changes nothing a spec says, written as a unit is, by the
 #                                      same hands, and built in its bolt as a Flume place of the chore kind; a unit or
 #                                      chore added to or moved into a bolt whose landing is queued, or landing again,
-#                                      is refused naming the landing
+#                                      is refused naming the landing; an add or split under a name whose Flume branch,
+#                                      change/<unit> or chore/<chore>, stands where a launch of it would be made is
+#                                      refused naming the branch and the ways on, a fresh name or the branch removed by
+#                                      the planner or the user, and a drop of launched work says the name stays taken
+#                                      while Flume keeps its branch
 #   crew kit   rename <old> <new> [--label L]
 #                                      a kit renamed on its host renamed across the plan, the user's at a shell or a
 #                                      proposal's, the planner's own run refused naming crew plan propose and any other

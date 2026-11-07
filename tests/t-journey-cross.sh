@@ -6,9 +6,10 @@
 # state branch holds a launch of each of its units and chores in its repository, naming no host or stream, for the
 # runner whose configuration names it to take (the user's ruling of 2026-11-01), and no agent starts; a second start of it is refused. Once the runner's record shows a's place stopped short asking, crew
 # answer a appends the retry of that stage with the answer's words, and crew fix of the bolt appends a launch of a fix
-# on it. Two bolts more of the kit are started beside it (Decision 14 of the-team-machinery-leaves). The launches,
-# what an answer retries, a fix's launch and drop and the refusals' words are logic cases (tests/py/test_cross.py,
-# tests/py/test_fix.py).
+# on it. Two bolts more of the kit are started beside it (Decision 14 of the-team-machinery-leaves). Once a is dropped
+# and Flume keeps change/a in the kit's repository on the box, an add of a again is refused, read there over ssh, and
+# a fresh name is added. The launches, what an answer retries, a fix's launch and drop, where a branch is read and the
+# refusals' words are logic cases (tests/py/test_cross.py, tests/py/test_fix.py, tests/py/test_branch_stands.py).
 # Reads: plugin/hooks/ plugin/roles/ tests/journeys.sh
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 . "$TESTS/journeys.sh"
@@ -89,3 +90,34 @@ expect_ok crew bolt start last
 eq "$(git --git-dir "$ws" show wldn/main:plan.rec | recsel -t Bolt -e "Path = 'flume'" -P Bolt | grep . | paste -sd ' ' -)" "next more last"
 eq "$(launches)" ""
 ok "bolts of a kit whose started bolt's work has not merged are started beside it all the same, starting no agent"
+
+# a is dropped, its place had work, and Flume keeps change/a in the kit's repository on the box while it holds it: the
+# runner's record now names that repository, where Flume cuts the kit's places. An add under a again is refused before
+# anything is written, read in that repository over the host's ssh, and the same work under a fresh name is added and
+# launched (bolt-plan "A name whose Flume branch stands is refused when it is planned").
+expect_ok crew unit drop a "Replaced by a-again."
+has "$out" "Flume keeps change/a while it holds work bolt/next lacks, and the name a stays taken while that branch stands"
+has "$(field "$HOST" unit.drop Note unit/a)" "Flume keeps change/a while it holds work bolt/next lacks"
+kept=$(git -C "$k" commit-tree "$(git -C "$k" rev-parse 'HEAD^{tree}')" -p HEAD -m "feat: a's work, kept by Flume")
+git -C "$k" branch change/a "$kept"
+nb=$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'launch' && Work = 'unit/b'" -P Request | grep . | tail -1)
+status_b='{"status":{"places":[{"place":"/flume/places/change--b","repository":"'"$k"'","phase":"live","current":"code","stages":[{"name":"code","state":"started"}],"stalled":false}]}}'
+places_rec=$(printf '%s\n\nRequest: %s\nPlace: /flume/places/change--b\nAt: 2026-10-31T12:05:00Z\nStatus: %s\n' "$places_rec" "$nb" "$status_b")
+answers_rec=$(printf '%s\n\nRequest: %s\nOutcome: launched\nPlace: /flume/places/change--b\nAt: 2026-10-31T12:04:00Z\n' "$answers_rec" "$nb")
+tree=$(for f in runner answers places; do
+  v=${f}_rec; printf '100644 blob %s\t%s.rec\n' "$(printf '%s\n' "${!v}" | git --git-dir "$ws" hash-object -w --stdin)" "$f"
+done | git --git-dir "$ws" mktree)
+git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$box" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \
+  commit-tree "$tree" -p "refs/heads/wldn/runner/$box" -m "runner: b's place in the kit's repository")"
+plan_at=$(act_tip)
+: > "$CREW_TEST_LOG"
+expect_fail "unit a can't be planned in switchboard-kit: Flume's branch change/a stands in $k on $box, at ${kept:0:7}" \
+  crew unit add a "Build a again." --bolt next
+has "$out" "propose the unit under a fresh name, or have the planner or the user remove the branch first"
+eq "$(act_tip)" "$plan_at"
+grep -q "^' crew $k refs/heads/change/a\$" "$CREW_TEST_LOG" || fail "the add did not read change/a in the kit's repository on $box"
+git -C "$k" rev-parse -q --verify change/a >/dev/null || fail "crew removed Flume's branch change/a"
+expect_ok crew unit add a-again "Build a again." --bolt next
+eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Work = 'unit/a-again'" -P Act,Kind,Name | grep . | paste -sd ' ' -)" \
+  "launch change a-again"
+ok "a unit dropped with its branch kept is refused when added again under its name, naming the branch and the ways on, and a fresh name is added"
