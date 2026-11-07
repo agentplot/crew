@@ -36,9 +36,11 @@ let
       t.expect (
         packages.default.drvPath == packages.crew.drvPath
       ) "packages.${system}.default is not packages.${system}.crew"
-      ++ t.expect (
-        (packages.crew.meta.mainProgram or null) == "crew"
-      ) "packages.${system}.crew's main program is ${toString (packages.crew.meta.mainProgram or null)}, not crew"
+      ++
+        t.expect ((packages.crew.meta.mainProgram or null) == "crew")
+          "packages.${system}.crew's main program is ${
+            toString (packages.crew.meta.mainProgram or null)
+          }, not crew"
     );
 in
 {

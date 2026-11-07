@@ -7,6 +7,18 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 language: 'nix'
 
 tasks:
+  # nixfmt over the flake's own files.
+  format:
+    script: 'nixfmt --check flake.nix $(find nix -name "*.nix" | sort)'
+    inputs: ['/flake.nix', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock']
+    tags: [check-full]
+    options: {runFromWorkspaceRoot: true}
+  # statix and deadnix over the flake's own files.
+  lint:
+    script: 'statix check flake.nix && statix check nix && deadnix --fail flake.nix nix'
+    inputs: ['/flake.nix', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock']
+    tags: [check-full]
+    options: {runFromWorkspaceRoot: true}
   # Every package of every system evaluates, and each module in a system of its platform. crew.py is among its inputs
   # since the module reads its version from it; the package's other files move its path but no case's outcome.
   typecheck:
