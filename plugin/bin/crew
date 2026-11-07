@@ -4,7 +4,8 @@
 # any other version, version 2, 3 or 4 among them, or one that lists teams, naming swancloud's lib/crew-teams.nix.
 # crew runs no team's conductor, ops or slot: a started bolt's work runs in Flume places on the host whose runner's
 # configuration names its kit's repository, which crew bolts shows. crew starts no stage and waits on none: a stage's
-# start and end are Flume's, and crew bolts reads them from the runner's records. Each partition names its flume, an
+# start and end are Flume's, and crew bolts reads them from the runner's records, a unit or chore merged once a
+# landing sluice made on its bolt names its place's branch, whatever the runner reports. Each partition names its flume, an
 # object of its five main-level roles, design, planner, reviewer, ops and operator, each false while it stands or the
 # Flume stream its runs run in on the main level's host: a role that runs as its kind, whose runs are launched by the
 # host's runner while something is pending for it (crew role below); with flume false throughout, every role stands.
@@ -30,8 +31,9 @@
 #                                      waits on its caller: the retry of that stage carrying the words, appended to
 #                                      requests.rec for the runner that took it, or of its submission where that waits
 #                                      unheld; refused, naming the place's stage, when it neither stopped short nor
-#                                      waits on its caller. <work> is the unit's or chore's name, or the fix's place
-#                                      (<bolt>--<name>)
+#                                      waits on its caller, or what crew could not read when it can't tell, as while
+#                                      the runner holds the launch or has carried no status of the place. <work> is
+#                                      the unit's or chore's name, or the fix's place (<bolt>--<name>)
 #
 # The plan, the moves and the signals crew records, on the drive's branch <label>/main of the partition's state
 # repository, with requests.rec, crew's requests of the partition's runners for a started bolt's work, appended in the
@@ -114,7 +116,11 @@
 #                                      planned maintenance that changes nothing a spec says, written as a unit is, by the
 #                                      same hands, and built in its bolt as a Flume place of the chore kind; a unit or
 #                                      chore added to or moved into a bolt whose landing is queued, or landing again,
-#                                      is refused naming the landing
+#                                      is refused naming the landing; an add or split under a name whose Flume branch,
+#                                      change/<unit> or chore/<chore>, stands where a launch of it would be made is
+#                                      refused naming the branch and the ways on, a fresh name or the branch removed by
+#                                      the planner or the user, and a drop of launched work says the name stays taken
+#                                      while Flume keeps its branch
 #   crew kit   rename <old> <new> [--label L]
 #                                      a kit renamed on its host renamed across the plan, the user's at a shell or a
 #                                      proposal's, the planner's own run refused naming crew plan propose and any other
@@ -244,7 +250,10 @@
 #                                      drop a fix of main not wanted: its launch dropped; a landed one is refused
 #   crew review   <label> [--wait [--timeout <ms>]]
 #                                      the partition's reviewer, started fresh for the batch of changes due, in a
-#                                      review tab beside the planner; --wait waits for its summary, records the batch,
+#                                      review tab beside the planner, and sent the batch taken or sent again, the start
+#                                      refused, nothing left typed, when it takes it at neither sending; a reviewer up
+#                                      but idle that took no batch is ended and started afresh, and --wait on one is
+#                                      refused, while one at work is left; --wait waits for its summary, records the batch,
 #                                      raises its card with its reading session in the planner's name, and closes the
 #                                      tab; it ends sooner, recording nothing, when the Claude session that started it
 #                                      ends. A reviewer that runs as its kind is asked the batch instead, a batch ask
@@ -303,9 +312,11 @@
 #                                      its pane a shell, and one the user closed stays closed unless named; down closes
 #                                      them
 #   crew _follow  [--once]             the host's follower with no tab, the command swancloud's job runs on each host:
-#                                      one read for every partition with an operator session here, fetching once a
-#                                      minute and showing this host's writes within seconds, reading only what moved
-#                                      and following each kit's queue through sluice's overview watch; due restarts
+#                                      one read for every partition with an operator session here, fetching each
+#                                      repository once a minute and showing this host's writes within seconds, reading
+#                                      only what moved, asking another host, Pending You or herdr only when something
+#                                      there could have moved, and following each repository's queue through one
+#                                      sluice overview watch; due restarts
 #                                      handed out once crew's checkout or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition
@@ -355,8 +366,8 @@
 #   crew ops offer <env> --label L --to <sha> --from <sha|none> [--notes <file>] [--steps <file>]
 #                                      a manual environment's deploy offered as a rail row, its card raised in
 #                                      main-level ops's name with the kit's changelog and after-deploy steps
-#   crew ops approve <env> --label L --to <sha>
-#                                      the user's word for it
+#   crew ops approve <env> --label L --to <sha> [--ticked <n>[,<n>...]]
+#                                      the user's word for it, the steps it waits on ticked on its card
 #   crew ops word|quiet <env> --label L
 #                                      the commit the user's word is for; whether the environment's host is quiet
 #   crew ops record <env> --label L --to <sha> --act start|step|end [...]

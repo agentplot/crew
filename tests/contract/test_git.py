@@ -1071,6 +1071,28 @@ def test_the_runners_branches_come_with_the_drives_branch_in_one_fetch_and_each_
     assert plan.runner_tips(state.REPO, state.LABEL) == {"deneb": deneb}
 
 
+def test_the_followers_fetch_brings_every_branch_of_a_repository_in_one_and_a_branch_not_made_costs_the_rest_nothing(state, monkeypatch):
+    """plan.tips_of, the host's follower's one fetch of a repository at its clock's tick (Decision 3 of
+    a-followers-tick-reads-nothing-while-nothing-moved; sluice core.31, the remote's one fetch a tick): madswan/main and
+    swancloud/main, each with its runners' branches, in one git fetch, read from the cache's files after; with a
+    partition's branch not made yet, the fetch that cannot find it is made again without it, the one there read and the
+    other None."""
+    import plan
+    swan = state.push("swancloud/main", {"plan.rec": plan.HEADER}, "plan: start (chuck@deneb)")
+    ran = state.push("swancloud/runner/deneb", {"runner.rec": "%rec: Runner\n"})
+    mad = state.git("rev-parse", "refs/heads/madswan/main")
+    fetches = []
+    git = plan.git
+    monkeypatch.setattr(plan, "git", lambda repo, *args, **k: (fetches.append(args) if args[0] == "fetch" else None, git(repo, *args, **k))[1])
+
+    assert plan.tips_of(state.REPO, ["madswan/main", "swancloud/main"]) == {"madswan/main": mad, "swancloud/main": swan}
+    assert len(fetches) == 1 and "+refs/heads/swancloud/runner/*:refs/crew/swancloud/runner/*" in fetches[0]
+    assert plan.tip_here(state.REPO, "swancloud/main") == swan and plan.runner_tips(state.REPO, "swancloud", fetch=False) == {"deneb": ran}
+    fetches.clear()
+    assert plan.tips_of(state.REPO, ["madswan/main", "wldn/main"]) == {"madswan/main": mad, "wldn/main": None}
+    assert len(fetches) == 2 and "+refs/heads/wldn/main:refs/crew/wldn/main" not in fetches[1], "a branch not made yet was asked again"
+
+
 def test_main_holds_reads_gits_exit_for_each_commit_a_crossed_bolts_places_landed_at(repo):
     """plan.MAIN_HOLDS, which a crossed bolt's close reads (plan.main_holds, runner.unlanded; Decision 12 of
     teams-cross-to-flume-as-their-bolts-land): git merge-base --is-ancestor exits 0 for a commit main holds, the bolt's
@@ -1113,3 +1135,33 @@ def test_a_change_is_read_at_its_commit_open_or_archived_and_markdown_alone(repo
     assert r.returncode == 0 and change_files(r.stdout) == [("proposal.md", "# a\n"), ("tasks.md", "- [ ] 1.1 x\n")]
     r = script("CHANGE_AT", str(repo.path), archived, "b")
     assert (r.returncode, r.stdout) == (0, "")
+
+
+def test_a_branch_flume_kept_is_read_standing_in_its_repository_and_a_name_beside_it_is_not(repo, tmp_path):
+    """plan.BRANCHES and runner.refs_standing, which plan.branch_free reads a unit's or chore's place branch with before
+    it is planned (flume 3, 67): in the repository Flume cuts its places in, a bare clone as the runner keeps one or a
+    checkout, a branch a dropped place left, and one a live place's worktree holds, each read standing at its commit;
+    a name beside it (change/a-b) and a ref below another (change/b/old) are not that branch; and git's own
+    `worktree add -b`, Flume's place profile's make, refuses a branch that stands, which is the refusal crew reads ahead
+    of. A folder that is no repository exits non-zero, which branches_in refuses with git's words (read.1)."""
+    import runner
+    repo.commit("chore: start", {"README.md": "r\n"})
+    repo.git("branch", "change/a")
+    repo.git("checkout", "-q", "change/a")
+    kept = repo.commit("feat: work the drop kept", {"a": "a\n"})
+    repo.git("checkout", "-q", "main")
+    repo.git("branch", "change/a-b")
+    repo.git("branch", "change/b/old")
+    repo.git("worktree", "add", "-q", "-b", "chore/live", str(tmp_path / "live"))
+    live = repo.git("rev-parse", "chore/live")
+    subprocess.run(["git", "clone", "-q", "--bare", str(repo.path), str(tmp_path / "clone.git")], check=True)
+    wanted = ["change/a", "change/b", "chore/live", "chore/c"]
+    for folder in (str(repo.path), str(tmp_path / "clone.git")):
+        r = script("BRANCHES", folder, *[f"refs/heads/{b}" for b in wanted])
+        assert r.returncode == 0, r.stderr
+        assert runner.refs_standing(r.stdout, wanted) == {"change/a": kept, "chore/live": live}
+    r = subprocess.run(["git", "-C", str(repo.path), "worktree", "add", "-q", "-b", "change/a", str(tmp_path / "again"), "main"],
+                       capture_output=True, text=True)
+    assert r.returncode != 0 and "already exists" in r.stderr
+    r = script("BRANCHES", str(tmp_path / "nowhere"), "refs/heads/change/a")
+    assert r.returncode != 0

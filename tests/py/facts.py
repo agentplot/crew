@@ -137,11 +137,13 @@ class FactsWrite:
         return w
 
 
-def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None):
+def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standing=()):
     """A plan command's reads as a logic case gives them (plan.Reads): each unit's or chore's stage as given, else ready;
-    a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it; work a held bolt needs
-    ahead of its first unit or chore not merged."""
+    a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it, or Flume's branch for it
+    stands in a repository a launch of it would be made in (standing, as runner.branch_refusal takes them: [{"host",
+    "dir", "refs": {branch: commit}}]); work a held bolt needs ahead of its first unit or chore not merged."""
     import plan
+    import runner
 
     class Known(plan.Proposed):
         direct = n is None
@@ -157,10 +159,12 @@ def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None):
         def stage(self, label, p, name):
             return self.of(name)
 
-        def free(self, label, kit, names):
+        def free(self, label, kit, names, kind="unit"):
             for x in names:  # by the decision name_free makes, on the changes and chores the kit's main is given to hold
                 why = plan.name_taken(kit, x, taken, chores_taken)
                 not why or plan.fail(why)
+            why = runner.branch_refusal(kit, kind, names, list(standing))  # and branch_free's, on the branches given
+            not why or plan.fail(why)
 
         def first_open(self, label, p, bolt):
             return next((u.name() for u in p.work_of(bolt) if self.of(u.name())["stage"] not in ("merged", "landed")), None)
@@ -226,24 +230,36 @@ def flume_plan(bolts=(), work=()):
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 
 
-def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main"):
+def flume_fixture(name):
+    """A Flume status fixture's path: tests/py/flume-0.3.6/<name>.json, or one named with its folder, as
+    "flume-0.17.0/kept-open", under tests/py."""
+    return (FLUME.parent if "/" in name else FLUME) / f"{name}.json"
+
+
+def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", unplaced=None, refused=None):
     """A host's runner as crew reads it from its branch (runner.host_read): each launch in launched, {request's number:
-    the flume 0.3.6 status fixture its place stands at (tests/py/flume-0.3.6/<name>.json)}, answered launched and
-    carried in places.rec at the fixture's own place, its repository given as repository, the kit's folder on host where
-    crew reads it (runner.where), and its stream the partition's label, as its host's Flume configuration maps it; and each
-    in held answered held."""
+    the Flume status fixture its place stands at (flume_fixture: tests/py/flume-0.3.6/<name>.json, or another version's
+    named with its folder)}, answered launched and carried in places.rec at the fixture's own place, its repository given
+    as repository, the kit's folder on host where crew reads it (runner.where), and its stream the partition's label, as
+    its host's Flume configuration maps it; each in unplaced, {request's number: its place}, answered launched at that
+    place with no status of it carried yet; each in held answered held, with the runner's words where held is
+    {request's number: words}; and each in refused, {request's number: the runner's words}, answered refused."""
     import json
     import plan
     import runner
     answers, places = "", ""
     for n, name in (launched or {}).items():
-        status = json.loads((FLUME / f"{name}.json").read_text())
+        status = json.loads(flume_fixture(name).read_text())
         for p in status["status"]["places"]:
             p.update(repository=repository, stream={"name": label, "from": "intent"})
         where = status["status"]["places"][0]["place"].split("@")[0]
         answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: 2026-10-31T12:01:00Z\n"
         places += f"\nRequest: {n}\nPlace: {where}\nAt: 2026-10-31T12:02:00Z\nStatus: {json.dumps(status)}\n"
-    answers += "".join(f"\nRequest: {n}\nOutcome: held\nAt: 2026-10-31T12:01:00Z\n" for n in held)
+    answers += "".join(f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: 2026-10-31T12:01:00Z\n" for n, where in (unplaced or {}).items())
+    words = held if isinstance(held, dict) else dict.fromkeys(held)
+    answers += "".join(f"\nRequest: {n}\nOutcome: held\n" + (f"Words: {w}\n" if w else "") + "At: 2026-10-31T12:01:00Z\n"
+                       for n, w in words.items())
+    answers += "".join(f"\nRequest: {n}\nOutcome: refused\nWords: {w}\nAt: 2026-10-31T12:01:00Z\n" for n, w in (refused or {}).items())
     files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n"),
              "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}

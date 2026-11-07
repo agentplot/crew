@@ -17,11 +17,23 @@ Each partition SHALL name one state repository in the teams file, as `state`. Th
 - **THEN** each has its own branch, `madswan/main` and `swancloud/main`, and neither branch holds a commit of the other's
 
 ### Requirement: The state is written only through crew, one commit a write
-Every write to a drive's branch SHALL be made by a crew command. It SHALL fetch the branch over https into crew's own bare cache, apply itself to the tip, check each file it changed, commit without touching any working tree, and push without force. A rejected push SHALL have the write applied again to the new tip, up to five times. A write that changes several files SHALL be one commit.
+Every write to a drive's branch SHALL be made by a crew command. It SHALL fetch the branch over https into crew's own bare cache, apply itself to the tip, check each file it changed, commit without touching any working tree, and push without force. A push rejected because the branch moved SHALL have the write applied again to the new tip, up to six times, after a growing wait before each replay's fetch, 23.5 seconds in all at most. A write that changes several files SHALL be one commit.
 
 #### Scenario: Two hosts write at once
 - **WHEN** a write from the box and a write from mac-studio reach the same drive's branch together
 - **THEN** both land, one after the other, and nothing is merged
+
+#### Scenario: Each replay waits longer
+- **WHEN** a write's push is refused for the nth time and a replay follows
+- **THEN** it waits between half and all of the nth of 0.5, 1, 2, 4, 8 and 8 seconds, drawn afresh, before it fetches the branch again, so writers refused at one moment replay apart
+
+#### Scenario: A busy branch is outwaited
+- **WHEN** another writer moves the branch before each of a write's first three pushes
+- **THEN** the write waits before each fresh fetch, each wait longer than the one before, and lands on its fourth push on top of the other writer's last commit
+
+#### Scenario: A branch that will not take the write
+- **WHEN** the branch moves before every one of a write's pushes
+- **THEN** the write is applied seven times, waits before each fresh fetch but the last, no more than 23.5 seconds in all, and is refused saying the branch kept moving, how many times the write was applied and how long it waited
 
 #### Scenario: A write of two files
 - **WHEN** a command changes the plan and appends a move
@@ -140,7 +152,7 @@ crew SHALL read a launched piece's stage from the runner whose answers hold its 
 
 Where crew must act on or say where a bolt's work runs, it SHALL read what the runner reported for the work it took. This covers the bolt's landing, its reads of the bolt and its kit, its reading and preview, the sweep after a landing or a drop, its site row, and its ledger's host and stream.
 - The host is the one whose runner took the newest of the bolt's launches taken. While no runner has taken any of the bolt's own work, it is the host whose runner took its kit's newest work taken.
-- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. Where that runner reports no repositories, it is the folder Flume's status of its newest place names.
+- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. Where that runner reports no repositories, it is the folder Flume's status of its newest place names. Where that runner has carried no place of the bolt's, every launch of it refused, it is the folder that runner's places of the kit's other work name, on that host alone.
 - The stream is the one Flume's status of that runner's place names.
 
 The kit SHALL be named as unread, nothing of it landed and every other bolt read as it stands, in each of these cases:
@@ -156,6 +168,10 @@ The kit SHALL be named as unread, nothing of it landed and every other bolt read
 #### Scenario: A bolt none of whose own work is taken
 - **WHEN** `x` is started and no runner has taken its launches, and deneb's runner took crew's work on another bolt, its place naming `/w/crew`
 - **THEN** `x` is read and landed on deneb in `/w/crew`
+
+#### Scenario: A bolt whose every launch was refused
+- **WHEN** deneb's runner refused launch 1 of `x`'s unit `a`, the base bolt already holding its change, reports no repositories, and carries Flume's status of a place of crew's work on bolt `y`, naming `/w/crew`
+- **THEN** `x` is read and landed on deneb in `/w/crew`, and `crew bolts` says where it runs; were that place on chuck-herdr-alpha's runner instead, crew could not tell where `x` runs
 
 #### Scenario: Taken by two runners
 - **WHEN** deneb's and chuck-herdr-alpha's runners both answer launch 1
@@ -203,3 +219,10 @@ That work SHALL be done in the checkout the partition's main-level host keeps of
 #### Scenario: The main level's kit folders
 - **WHEN** madswan's plan names crew and sluice, deneb keeps both and a role of madswan's main level starts there
 - **THEN** it may reach deneb's checkouts of crew and sluice, and a kit its plan names that deneb keeps none of is left out
+
+### Requirement: A started bolt's host is named before its place is carried
+`crew bolts`, the board's ledger and the page SHALL name a started bolt's host as the one whose runner took its newest launch taken, while the runner has carried no place of its work, and never say where it runs can't be told for work a runner has taken. Whatever acts in the bolt's kit SHALL still wait until the kit's folder there is read.
+
+#### Scenario: A place not carried yet
+- **WHEN** deneb's runner answers `a`'s launch on `bolt/x` held with its claim, or launched at its place, and carries no status of the place, and reports no repositories
+- **THEN** `crew bolts` names `x` at deneb and the board's ledger says on deneb, neither saying where it runs can't be told, and nothing of `x`'s kit is read or landed

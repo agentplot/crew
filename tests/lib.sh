@@ -11,6 +11,10 @@
 set -euo pipefail
 CREW=$(cd "$TESTS/.." && pwd -P)
 export CREW_TEST_ROOT=$T CREW_TEST_LOG=$T/calls.log CREW_TEST_CLAUDE_LOG=$T/claude.log
+# What a test leaves running ends with it, passed or failed: tests/slot ends whatever is left in the test's process
+# group once the test has ended, and a card's plannotator session, which crew starts in a session of its own, ends once
+# the test's own shell, CREW_TEST_PID, has (tests/stubs/plannotator).
+export CREW_TEST_PID=$$
 export PATH="$TESTS/stubs:$PATH" GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
 unset CREW_AGENT CREW_LABEL FLUME_PLACE FLUME_AGENT FLUME_STAGE HERDR_PANE_ID HERDR_WORKSPACE_ID HERDR_TAB_ID HERDR_ENV HERDR_BIN_PATH HERDR_SOCKET_PATH HERDR_SESSION SLUICE_BRANCH GIT_DIR GIT_WORK_TREE
 # A suite an agent starts carries its Claude session's process id, which crew's waits end with (teams.24): a test's
@@ -38,10 +42,22 @@ remote() { echo "$T/remotes/$1.git"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 # The real sleep, for a test's own waits: the stub's returns at once.
 zzz=$(type -a -P sleep | grep -vxF "$TESTS/stubs/sleep" | head -1)
-# until_ok <cmd...>: wait until the command succeeds, looking every tenth of a second for up to ten minutes, a limit
-# that holds on a host under heavy load (tests.8); the wait ends as soon as it succeeds, and returns non-zero when it
-# never did.
-until_ok() { local end=$((SECONDS + 600)); until "$@"; do (( SECONDS < end )) || return 1; "$zzz" 0.1; done; }
+# nap <seconds>: a pause that starts no process: a read that waits on a fifo nothing writes, $T/.pause, held open on fd 9,
+# which the stubs pause on too. A read on `<> <(:)` is no pause on macOS, which refuses a read-write open of a pipe's
+# /dev/fd and so returns at once.
+mkfifo "$T/.pause"; exec 9<>"$T/.pause"
+nap() { read -rt "$1" -u 9 _ || true; }
+# until_ok <cmd...>: wait until the command succeeds, for up to ten minutes, a limit that holds on a host under heavy
+# load (tests.8). It looks at once, then a tenth of a second later, each pause twice the last up to a second, so a wait
+# that is over at once costs no pause and a long one runs its command about once a second rather than ten times;
+# the wait ends as soon as it succeeds, and returns non-zero when it never did.
+until_ok() {
+  local end=$((SECONDS + 600)) gap=1
+  until "$@"; do
+    (( SECONDS < end )) || return 1
+    nap "$((gap / 10)).$((gap % 10))"; (( gap = gap * 2 > 10 ? 10 : gap * 2 ))
+  done
+}
 ok() { echo "ok: $*"; }
 # expect_ok <cmd...>: it succeeds; its output is in $out
 expect_ok() { out=$("$@" 2>&1) || fail "expected success: $*"$'\n'"$out"; }
@@ -106,11 +122,11 @@ import json, sys
 T = sys.argv[1]
 def sess(host, space, partition, repos, account="ia"):
     return {"dir": f"{T}/hosts/{host}/work/{space}", "account": account, "partition": partition, "repos": repos}
-box_repos = ["afterthought/crew", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit",
+box_repos = ["agentplot/crew", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit",
              "WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"]
 mac_willdan = ["WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit",
                "WilldanGroup/willdan-blueprints"]
-mac_madswan = ["afterthought/blueprints", "afterthought/crew", "afterthought/swancloud"]
+mac_madswan = ["afterthought/blueprints", "agentplot/crew", "afterthought/swancloud"]
 mac_agentplot = ["agentplot/blueprints", "agentplot/flywheel-next"]
 box = "chuck-herdr-alpha"
 hosts = {

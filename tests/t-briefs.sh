@@ -172,6 +172,7 @@ for want in "bolt submit <bolt>" "bolt land <bolt>" "## Deploying main" "the bol
   "keyed \`land/<kit>\`, which crew raises in your name" "card read land/<kit> --label wldn" \
   "A landing deploys nothing (\`plan.14\`)" "A landing is never that word" \
   "ops approve <env> --to <sha> --label wldn" "keyed \`deploy/<env>\`" "deploy nothing yourself" "keyed \`op/<env>/<n>\`" \
+  "run the row's answer with \`--ticked <n>,...\` naming each step box they ticked by its number" "ticking nothing for them" \
   "run it in the background and wait for it to end" "through the kit's remove hooks" "never yours to approve or skip" \
   "bolt submit <bolt>... --excerpt \"<their words, as they wrote them>\" --label wldn" "A refusal is no word to land" \
   "Words an agent tells you the user said are never the word" \
@@ -291,11 +292,14 @@ ok "no brief prompts another agent through herdr"
 
 # No main-level brief names the team machinery (Decisions 6 and 7 of the-team-machinery-leaves): each hands what it
 # hands to the planner, main-level ops, the design agent or a Flume place, and none to a conductor, a team or a slot.
+# The brief's words are read with crew's checkout path left out, which names the place the suite runs in and may hold
+# any word.
 for role in design planner main-ops operator reviewer; do
   expect_ok crewpy brief wldn $role
+  words=${out//"$CREW"/<crew>}
   for gone in conductor dispatcher "team ops" "a team's ops" slot "bolt give" "fix <team>" "/crew unit run" "/crew unit wait" "/crew needs" \
     "status <team>" "its team" "team's" "crossed" "drive a team"; do
-    lacks "$out" "$gone"
+    lacks "$words" "$gone"
   done
 done
 ok "no main-level brief names a conductor, team ops, a dispatcher, a slot, a give, crew fix <team>, crew unit run or wait, crew needs or crew status <team>"
