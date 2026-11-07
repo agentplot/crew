@@ -2,7 +2,7 @@
 
 ## Why
 
-On deneb, on 2026-11-07, running crew 0.41.0-unstable-2026-11-07, `crew send wldn ...` answered: "Could not tell wldn-operator on chuck-herdr-alpha: none of chuck-herdr-alpha's sessions keeps afterthought/crew, so crew can't run there, so crew can't tell whether it is waiting on a question; nothing was sent" (signal `2026-11-07-agentplot-design-*/01-crew-finds-itself-on-another-host-by-its-old-name` on agentplot/main of afterthought/crew-state).
+On deneb, on 2026-11-07, running crew 0.41.0-unstable-2026-11-07, `crew send wldn ...` answered: "Could not tell wldn-operator on chuck-herdr-alpha: none of chuck-herdr-alpha's sessions keeps afterthought/crew, so crew can't run there, so crew can't tell whether it is waiting on a question; nothing was sent" (signal `signals/2026-11-07-agentplot-planner-19c0453f/01` on agentplot/main of afterthought/crew-state).
 
 `crew_at` (`plugin/lib/crew.py`) looked for `afterthought/crew` on the other host, a name written in crew's code. crew moved to agentplot/crew that day, by removal and addition (record 0055, rejected), and the box's spaces keep `agentplot/crew`. So every command crew runs on another host was refused: a tell, a send, an ops act, a card or a landing's read. crew follows no former name (record 0058, `plan.22`), so the fix is not to map the old name to the new one. crew reads its own address.
 
