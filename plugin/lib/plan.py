@@ -1423,6 +1423,20 @@ class Stages:
         except Refusal as e:
             return None, str(e)
 
+    def host(self, bolt):
+        """The host a started bolt's work runs on, as its head line says it: where it runs (at), or, while the kit's
+        folder there can't be told, the runner that took the newest of its launches has carried no place of it yet,
+        the host of that runner (runner.where), which took the work and whose place of it Flume holds on the bolt's
+        branch; None where no runner has taken it or crew can't tell which did (read.1)."""
+        t, _ = self.at(bolt)
+        if t:
+            return t["machine"]
+        run = self.runner(self.label)
+        if isinstance(run, str) or not started(bolt):
+            return None
+        took, _ = runner.where(run[1], bolt_launches(run[0], bolt.name()), f"bolt {bolt.name()}", bolt.get("Repo") or "")
+        return took["host"] if took else None
+
     def kit(self, b):
         """The bolt's kit as read where its work runs (at), with that place (at) and its host, or why it can't be."""
         t, why = self.at(b)
@@ -2103,8 +2117,10 @@ def answer(fleet, a):
     (Decision 9 of teams-cross-to-flume-as-their-bolts-land, runner.answer_retry); its submission again where that is
     what waits, unheld. Appended to requests.rec in one plan write, the work's stage read again from the runner's
     records at the tip it is applied to (plan.1), and recorded as stage.answer, which holds none of the words
-    (record.3). Refused, naming the place's stage, when the place neither stopped short nor waits on its caller, and
-    when no launch of the work stands."""
+    (record.3). Refused, naming the place's stage, when the place neither stopped short nor waits on its caller; naming
+    what crew could not read when it can't tell, as while the runner holds the launch or has carried no status of the
+    place (read.1); and when no launch of the work stands. A stop-short whose agent Flume keeps open is answered as any
+    other, the retry naming its stage reaching that session (flume 49)."""
     label = launch_label(fleet, a.work, default_label(fleet, a))
     CONTEXT["label"], seen = label, {}
 
@@ -9739,7 +9755,7 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                 for x in units + fixes:
                     x["submission"] = rows.get(x.get("unit") or x.get("fix"))
                 bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"),
-                                  host=t["machine"] if t else None, state=st.bolt_state(b), verification=verified, units=units, fixes=fixes,
+                                  host=st.host(b) if crossed else None, state=st.bolt_state(b), verification=verified, units=units, fixes=fixes,
                                   landing=landing, submissions_error=unread, given=b.get("Path"), stream=t["stream"] if t else None,
                                   head=bk.get("head"), landing_record=landing_phase(log, b.name()) if crossed and isinstance(log, list) else None,
                                   carries=bk.get("carries") or {}, carries_error=bk.get("carries_error")))

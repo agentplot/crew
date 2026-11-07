@@ -276,10 +276,10 @@ class TestALandingQueuedHoldsTheBoltsWork:
 
 
 def path_at(name):
-    """The place a flume 0.3.6 status fixture stands at (facts.ran), without a tidied place's @<when>."""
+    """The place a Flume status fixture stands at (facts.ran, facts.flume_fixture), without a tidied place's @<when>."""
     import json
-    from facts import FLUME
-    return json.loads((FLUME / f"{name}.json").read_text())["status"]["places"][0]["place"].split("@")[0]
+    from facts import flume_fixture
+    return json.loads(flume_fixture(name).read_text())["status"]["places"][0]["place"].split("@")[0]
 
 
 class TestAnswer:
@@ -341,6 +341,35 @@ class TestAnswer:
         w = launched("x", work=[unit("a"), unit("b", after=["a"])], runners=ran({1: "code"}, held=[2]))
         with pytest.raises(plan.Refusal, match=r"^unit/b's place is held for its After work, with no question"):
             plan.answer_place(w, "b", "yes")
+
+    def test_a_stop_short_whose_agent_flume_0_17_keeps_open_takes_the_answer(self):
+        """bolt-teams "A stop-short whose agent is kept open": the runner carries flume 0.17.0's status of a's place, its
+        code ended short needing an answer and its agent kept open for it (tests/py/flume-0.17.0/kept-open.json), and the
+        planner runs crew answer a: the retry of code with the answer's words is appended, refused for nothing, which
+        Flume hands the session kept open as `flume tell --answers` does (flume 42, 49, 198)."""
+        w, got = self.answered("flume-0.17.0/kept-open", words="Wait for the releases; retry once they land.")
+        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "unit/a", "Of": "1", "Stage": "code",
+                                  "Words": "Wait for the releases; retry once they land."}
+        assert got == dict(n=2, work="unit/a", host="deneb", place=path_at("flume-0.17.0/kept-open"), what="code")
+
+    def test_a_launch_the_runner_holds_with_no_after_is_not_held_for_after_work_and_crew_cant_tell_its_question(self):
+        """bolt-teams "A place the runner has not carried": a, with no After, is answered held with the runner's claim
+        (the signal of 2026-11-07, request 88 of afterthought), or launched at a place whose status the runner has not
+        carried yet; crew answer is refused saying crew can't tell whether the place waits on an answer and why, never
+        that it is held for its After work (read.1)."""
+        from facts import ran
+        claim = "claimed by deneb's runner; launching once no other runner has claimed it"
+        w = launched("x", work=[unit("a")], runners=ran(held={1: claim}))
+        with pytest.raises(plan.Refusal) as e:
+            plan.answer_place(w, "a", "yes")
+        assert str(e.value) == f"can't tell whether unit/a's place waits on an answer: the runner holds its launch, in its words: {claim}"
+        w = launched("x", work=[unit("a")], runners=ran(unplaced={1: "/places/change--a"}))
+        with pytest.raises(plan.Refusal, match=r"^can't tell whether unit/a's place /places/change--a waits on an answer: the runner "
+                                               r"that took it has carried none of Flume's status of it yet$"):
+            plan.answer_place(w, "a", "yes")
+        w = launched("x", work=[unit("a")], runners=ran())
+        with pytest.raises(plan.Refusal, match=r"^can't tell whether unit/a's place waits on an answer: no runner has answered its launch yet$"):
+            plan.answer_place(w, "a", "yes")
 
     def test_a_submission_waiting_on_its_caller_is_sent_again_and_one_held_is_the_users_send(self):
         assert runner.answer_retry("fix/x/rail-word", {"stage": "waits", "of": None, "held": False, "place": "/p"}) == ("submission", None)

@@ -1871,6 +1871,21 @@ class TestStarted:
         assert x["url"] is None and {u["url"] for u in x["units"]} == {None}
         assert "server" not in "\n".join(lane(board.board_text(d), "Construction")[:3])
 
+    def test_a_launch_the_runner_holds_with_no_after_is_on_its_runners_host_with_its_words(self):
+        """drive-state "A place not carried yet" and bolt-plan "A claimed launch is not held for After work", in the
+        board and the planner's band (code.8): deneb's runner holds a's launch, which names no After, with its claim's
+        words, and has carried no place of x's work; the ledger names deneb, a's line says it is launching with the
+        runner's words, and b, after a, waits on a."""
+        from facts import ran
+        claim = "claimed by deneb's runner; launching once no other runner has claimed it"
+        d = self.data(ran(held={1: claim, 2: None}))
+        x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
+        assert (x["host"], x["stream"]) == ("deneb", None)
+        assert lane(board.board_text(d), "Construction")[1:] == [f"    a  launching  held by the runner: {claim}", "    b  waiting  on a"]
+        assert lane(board.board_text(d), "Construction")[0].startswith("  crew x  on deneb  ")
+        v = self.views(ran(held={1: claim, 2: None}))["madswan-planner"]
+        assert any(f"a  launching  held by the runner: {claim}" in l for l in v) and not any("After work" in l for l in v)
+
     def test_a_question_in_the_planners_band(self):
         """crew-board "A question in the planner's band": a's construct stopped short asking."""
         from facts import ran

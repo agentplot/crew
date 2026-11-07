@@ -525,6 +525,33 @@ class TestCrewBoltsCrossed:
         none = "no runner answers for madswan: its state repository holds no madswan/runner/<host>"
         assert self.data({})["runners_unread"] == {"madswan's runners": none}
 
+    def test_a_bolt_whose_place_the_runner_has_carried_no_status_of_runs_on_that_runners_host(self):
+        """drive-state "A place not carried yet": deneb's runner took a's launch, held it with its claim's words, a naming
+        no After, and then launched it at its place with no status of it carried yet; x's head line names deneb, never
+        that where it runs can't be told, and a reads launching, with the runner's words while it holds the launch,
+        never held for its After work (the signal of 2026-11-07, request 88 of afterthought)."""
+        from facts import ran
+        claim = "claimed by deneb's runner; launching once no other runner has claimed it"
+        d = self.data(ran(held={1: claim, 2: None}))
+        x = self.bolts(d)["x"]
+        assert (x["host"], x["stream"]) == ("deneb", None)
+        assert x["units"][0]["flume"] == {"stage": "launching", "words": claim}
+        out = plan.bolts_text(d).splitlines()
+        assert any(line.startswith("x  crew  @ deneb  ") for line in out) and "where it runs can't be told" not in "\n".join(out)
+        assert f"  {'a':<40} {'launching':<12}   held by the runner: {claim}" in out
+        assert f"  {'b':<40} {'waiting':<12}   on a" in out
+        d = self.data(ran(unplaced={1: "/places/change--a"}, held=[2]))
+        assert self.bolts(d)["x"]["host"] == "deneb" and "where it runs can't be told" not in plan.bolts_text(d)
+
+    def test_a_stop_short_whose_agent_flume_0_17_keeps_open_is_on_its_line_and_its_bolt_runs_on_its_host(self):
+        """bolt-plan "A stop-short whose agent is kept open": the runner carries flume 0.17.0's status of a's place,
+        its code ended short needing an answer with its agent kept open (tests/py/flume-0.17.0/kept-open.json)."""
+        from facts import ran
+        d = self.data(ran({1: "flume-0.17.0/kept-open"}, held=[2]))
+        assert (self.bolts(d)["x"]["host"], self.bolts(d)["x"]["stream"]) == ("deneb", "madswan")
+        assert (f"  {'a':<40} {'needs':<12} flume/change--the-flake-configures-each-tool-by-its-own-module  asks at code: The code "
+                "stage of the-flake-configures-each-tool-by-its-own-module cannot start:") in plan.bolts_text(d)
+
     def test_a_question_and_sluices_words_are_on_the_pieces_line(self):
         """bolt-plan "A construct that asked" and "Sent back by sluice"."""
         from facts import ran
