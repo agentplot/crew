@@ -18,7 +18,7 @@ None.
 
 ### Modified Capabilities
 
-- `rail-cards`: a failed deploy's card closes naming, after the step that failed and its log, the words of what the user does that the deployer handed its end.
+- `rail-cards`: a new requirement, a failed deploy's card closes naming, after the step that failed and its log, the words of what the user does that the deployer handed its end.
 
 ## Impact
 
