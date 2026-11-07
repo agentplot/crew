@@ -1,31 +1,31 @@
 # Verify: crew-publishes-a-flake-whose-module-writes-its-host-file
 
-Verified 2026-11-07 on `change/crew-publishes-a-flake-whose-module-writes-its-host-file` at `cbcb4dd7`, cut from `teamless/deneb`.
+Verified 2026-11-07 on `change/crew-publishes-a-flake-whose-module-writes-its-host-file` at `bb27ddb4`, which carries teamless/deneb `7bac42c6` merged in (`2f7a147f`).
 
 **Verdict: the whole checks pass and the work holds. The change is ready to archive.**
 
 ## The whole checks
 
-`tests/suite` with no name, once, on the branch as it stood (clean tree). That is every project's `check-full` task, the target sluice's `#check-full` resolves to (`.config/sluice.toml`, `tests.5`).
+`tests/suite` with no name, run once on the branch as it stood (clean tree). That runs every project's `check-full` task, which is what sluice's `#check-full` resolves to (`.config/sluice.toml`, `tests.5`).
 
 ```
 ok    contract   (replayed)
 ok    logic   (replayed)
-ok    mod   (replayed)
+ok    mod
 ok    nix:format   (replayed)
 ok    nix:lint   (replayed)
-ok    nix:test   (replayed)
-ok    nix:typecheck   (replayed)
-ok    t-briefs … t-teams   (25 end-to-end tasks, each replayed)
-32 passed (32 replayed), 0 failed
+ok    nix:test
+ok    nix:typecheck
+ok    t-briefs … t-waits   (26 end-to-end tasks, t-docs replayed, the rest run)
+33 passed (5 replayed), 0 failed
 exit 0
 ```
 
-Every task was replayed, so each one's inputs were identical to a run that had already passed on this host (`tests.10`). The project `nix`'s four tasks ran beside the suite's. `tests/moon-tasks --check` passed before the run, so `tests/moon.yml` matches the tests. `openspec validate crew-publishes-a-flake-whose-module-writes-its-host-file --strict` says the change is valid.
+`nix:test`, `nix:typecheck`, `mod` and every end-to-end task but `t-docs` ran on this tree. The 5 replayed tasks had inputs identical to a run that had already passed on this host (`tests.10`). `tests/moon-tasks --check` passes, so `tests/moon.yml` matches the tests. `openspec validate crew-publishes-a-flake-whose-module-writes-its-host-file --strict` reports the change valid.
 
 ## Tasks
 
-All 13 tasks in `tasks.md` are ticked, and each one's check is among the passing tasks above:
+All 13 tasks in `tasks.md` are ticked, none open, and each one's check is among the passing tasks above:
 
 | Task | Its check | Where it is proved |
 |---|---|---|
@@ -37,6 +37,14 @@ All 13 tasks in `tasks.md` are ticked, and each one's check is among the passing
 | 3.2 | `logic` | `tests/py/test_module_file.py` |
 | 4.1 | `t-docs` | README's "The flake", `openspec/config.yaml` |
 | 4.2 | the run above | |
+| 4.3 | `openspec validate --strict`, `t-docs`, `logic`, `contract` | the merge `2f7a147f` and `bb27ddb4`; see below |
+
+## teamless/deneb 7bac42c6 taken in (task 4.3)
+
+- README's suite paragraph says `tests/suite` runs every other project's `check-full` tasks, the project `nix`'s among them, named `<project>:<task>`. It also says a test holds its slot only while it runs, and that whatever it leaves running is ended with it.
+- In `tests/moon-tasks`, the command core takes crew's manifest (`plugin/.claude-plugin/plugin.json`). The logic tier's inputs take the manifest and `plugin/bin/` beside `nix/tests/files/**/*`, and the contract tier's keep `flake.lock`, `nix/inputs.nix`, `nix/moon.yml` and `.moon/workspace.yml`. `tests/moon.yml` is as `tests/moon-tasks` writes it.
+- `openspec/specs/test-suite/spec.md` keeps sluice's slot and follower requirements. The change's three test-suite requirements, and the whole `crew-flake` spec, are absent from `openspec/specs`, so the archive adds them.
+- The merge changed none of the flake's own files (`flake.nix`, `flake.lock`, `nix/`, `devenv.nix`, `.moon/`), and `plugin/lib/crew.py`'s `VERSION` is still 5. The spec tables below therefore hold as they are, and `nix:test` and `nix:typecheck` ran afresh on this tree.
 
 ## crew-flake spec
 
