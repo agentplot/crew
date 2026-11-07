@@ -360,8 +360,8 @@
 #   crew ops offer <env> --label L --to <sha> --from <sha|none> [--notes <file>] [--steps <file>]
 #                                      a manual environment's deploy offered as a rail row, its card raised in
 #                                      main-level ops's name with the kit's changelog and after-deploy steps
-#   crew ops approve <env> --label L --to <sha>
-#                                      the user's word for it
+#   crew ops approve <env> --label L --to <sha> [--ticked <n>[,<n>...]]
+#                                      the user's word for it, the steps it waits on ticked on its card
 #   crew ops word|quiet <env> --label L
 #                                      the commit the user's word is for; whether the environment's host is quiet
 #   crew ops record <env> --label L --to <sha> --act start|step|end [...]

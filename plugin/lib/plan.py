@@ -14208,8 +14208,9 @@ def built_fields(b):
     """A built card's post or change entry's own fields: Unread, why its reading could not open (unopened), crew's own
     message (record.3), left out when it opened or the card links none; and Heads, a kit's landings card's rows as
     <bolt>@<head>, :left after one the user cleared on their last send (cards.landings_card), which its next raise reads
-    (landings_step)."""
-    return ({"Unread": b["unread"]} if b.get("unread") else {}) | ({"Heads": " ".join(b["heads"])} if b.get("heads") else {})
+    (landings_step); and Form, a deploy card's boxes (cards.deploy_form), which its next raise reads (cards.form_asked)."""
+    return (({"Unread": b["unread"]} if b.get("unread") else {}) | ({"Heads": " ".join(b["heads"])} if b.get("heads") else {})
+            | ({"Form": b["form"]} if b.get("form") else {}))
 
 
 def asked_of(b):

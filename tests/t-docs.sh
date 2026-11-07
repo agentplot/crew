@@ -55,7 +55,7 @@ for gone in "unit run a code" "unit wait a" "chore free c"; do expect_fail "inva
 expect_fail "crew: each partition's plan of bolts, its main level of agents in herdr" crew needs "what it needs"
 ok "none of the removed commands or roles is in the README, the skill or the usage, a team command among them, crew drives no stage and waits on none, crew send names a partition alone, and each names crew review"
 
-for doc in usage readme skill; do has "${!doc}" "crew ops offer <env>"; has "${!doc}" "[--notes <file>] [--steps <file>]"; done
+for doc in usage readme skill; do has "${!doc}" "crew ops offer <env>"; has "${!doc}" "[--notes <file>] [--steps <file>]"; has "${!doc}" "[--ticked <n>[,<n>...]]"; done
 for doc in usage readme skill; do
   for gone in "crew plan card" "crew card post" "crew card change" "crew card close" "post|change" "propose|proposed|agree|card"; do
     lacks "${!doc}" "$gone"
@@ -74,7 +74,7 @@ for doc in usage readme skill; do has "${!doc}" "preview <key> <thing> [--done]"
 has "$skill" "crew card preview <key> <thing> [--done]"
 expect_fail "invalid choice: 'post'" crew card post land/x
 expect_fail "invalid choice: 'card'" crew plan card 1
-ok "the README, the skill and the usage give crew ops offer's notes and steps, crew record and crew card read, session, end and preview, crew card wait refused naming the read, crew card read land/<kit> with no card open, each submission standing in sluice on its row, and no crew plan card or crew card post, change or close, which crew no longer has"
+ok "the README, the skill and the usage give crew ops offer's notes and steps and crew ops approve's ticked steps, crew record and crew card read, session, end and preview, crew card wait refused naming the read, crew card read land/<kit> with no card open, each submission standing in sluice on its row, and no crew plan card or crew card post, change or close, which crew no longer has"
 
 for doc in usage readme skill; do
   has "${!doc}" "pushes nothing and levels no host"; has "${!doc}" "origin/main"; lacks "${!doc}" "behind GitHub's"
