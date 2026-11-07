@@ -14,6 +14,7 @@ Each check is a moon task of the `tests` project, run through `tests/suite`. Bui
 ## 3. What a slot holds, said
 
 - [x] 3.1 `tests/run` and README say a test holds its slot only while it runs and that what it leaves running is ended with it (Task notes 1.4). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.2 `t-briefs` judges a main-level brief's words with crew's checkout path left out, so a place whose folder names a gone word fails nothing (design Decision 5; Task notes 1.5). Verify `tests/suite t-briefs` ends with "0 failed".
 
 ## 4. The tests the change affects
 

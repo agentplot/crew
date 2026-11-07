@@ -14,6 +14,7 @@ The same day `t-journey-board` failed under host load with "expected 1 0 0 0 1, 
 - **What a test leaves running ends with it.** The test runs in a process group of its own. When it ends, passed or failed, what is left of the group is sent SIGTERM, then SIGKILL after five seconds. A signal sent to `tests/slot` is passed to the group. A keeper leads the group and kills it should `tests/slot` itself be killed.
 - **A card's session ends with its test's shell.** crew starts a card's plannotator in a session of its own, out of the group's reach. The stub plannotator ends once the test's shell, `CREW_TEST_PID`, has ended.
 - **`t-journey-board` counts a tick's reads from the tick's own fetch.** The tick's first read is the clock's fetch of wldn's state branch, and the git shim marks it there. The tick is waited for until every frame is new since that fetch, so nothing an earlier round read is counted as the tick's.
+- **`t-briefs` judges a brief's words, not crew's path.** A printed brief names crew's checkout path. In a place whose folder holds `slot`, as this one does, the check that no brief names a slot failed on the path alone.
 - `tests/run`'s header and README say a test holds its slot only while it runs and what it leaves is ended with it.
 
 ## Capabilities
@@ -33,5 +34,6 @@ None.
 - `tests/stubs/plannotator`: ends once `CREW_TEST_PID` has ended.
 - `tests/t-slot.sh`: the cases; `tests/moon.yml`, t-slot's task naming the stub.
 - `tests/t-journey-board.sh`: the tick's count.
+- `tests/t-briefs.sh`: the gone words looked for with crew's path left out.
 - `tests/run`, `README.md`: what a slot holds.
 - No change to `plugin/`: `crew ops quiet` and the hold read a held slot as a running test, which it now always is.

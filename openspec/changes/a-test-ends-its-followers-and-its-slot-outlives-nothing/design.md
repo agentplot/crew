@@ -25,6 +25,8 @@ The stub plannotator waits up to five minutes for a decision, and ends early onl
 - In a traced run, the first refresh's last git read was `git describe` for swancloud's agents' view (`board.here_read`), written before swancloud's board and agents' frames.
 - The three runs the signal names (sluice candidates 8b7a788, a4d314f4, 276430e0) all held the version of the test before f481fbff, which waited on wldn's rail frame alone.
 
+**A brief's words and crew's path.** `t-briefs` holds each main-level brief free of the team machinery's words, `slot` among them, and judged the brief as printed. A printed brief names crew's checkout path in every command it gives. Run in this place, whose folder is `fix--a-test-ends-its-followers-and-its-slot-outlives-nothing`, the design agent's brief failed on `slot` in that path alone.
+
 **The family.** sluice ends what a worktree's runs left running when it releases the worktree (`plan.9`). That works at a worktree's scale, when the worktree goes. A test's slot is crew's own: record 0021 and `tests.9` built it, and no tool of the family runs or bounds crew's tests. So the two owners are not one mechanism to reconcile. Each ends what was started within its own scope.
 
 **Area pages this change touches:** `tests.md` (`tests.1`, `tests.4`, `tests.8`, `tests.9`, `tests.10`, `tests.11`) and `docs.md` (the spec, `docs.4`, `docs.6`). From `core.md`: `code.7`, since no decision of crew's changes. No rule changes, so no page is edited (`docs.7`).
@@ -87,6 +89,12 @@ This is the one test process left out of the group that waits on something only 
 - Waiting for the follower to be quiet for a while. That is the clock deciding an outcome (`tests.8`).
 - Timestamps on each read compared with the frames' times. crew's own count of a gather has no timestamp, and a file's time on Linux is taken from a coarse clock.
 
+### Decision 5: A brief is judged by its words, crew's checkout path left out
+
+`t-briefs` takes crew's checkout path out of a printed brief before it looks for a word the brief must not hold. The path names wherever the suite runs, and may hold any word. A brief that says the word in its own text still fails.
+
+*Not taken:* renaming this place. The next place or checkout whose name holds one of those words would fail the same way.
+
 ## Risks / Trade-offs
 
 - **A second process per test.** Each test now has a keeper, one more Python start, about a twentieth of a second.
@@ -115,3 +123,5 @@ None. This changes crew's test harness alone, which sluice runs on every submiss
 - The running follower's first round, its quiet tick and the tick after sluice's write use them.
 
 **1.4** `tests/run`'s header and its slot comment, and README's sentence on the test slots, say a test holds its slot only while it runs and that what it leaves running is ended with it.
+
+**1.5** `tests/t-briefs.sh`, the check that no main-level brief names the team machinery: `words=${out//"$CREW"/<crew>}`, and each gone word is looked for in `words`.
