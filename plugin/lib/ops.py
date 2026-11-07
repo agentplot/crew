@@ -28,9 +28,10 @@ when it names one.
       the commit the user's word was given for, exit 0; exit 1 when there is none. A word is for one deploy: once that
       deploy's end is recorded there is none until the user approves a new offer
   crew ops record <env> --label L --to <sha> --act start|step|end [--from <sha|none>] [--step machine|guests|suite]
-                  [--outcome ok|failed|done] [--log <path>] [--rows <json file>]
+                  [--outcome ok|failed|done] [--log <path>] [--rows <json file>] [--does <words>]
       a deploy's start, one of its steps, or its end, in the run record as it runs; its end closes the deploy's card
-      with each step's outcome, or the step that failed and its log
+      with each step's outcome, or the step that failed and its log, then, where the end was handed --does, the
+      deployer's words of what the user does
   crew ops step <env> --label L --key <key> --state waiting|handed|done|failed|declined [--to <sha>]
                 [--doer main-ops|user] [--agent <name>] [--when deployed|quiet] [--held] [--text <file>]
                 [--changes <a,b>] [--note <text>]
@@ -484,9 +485,10 @@ def deploy_move(es, env, held_card):
     return "change", f"Now offering {offer['Head'][:7]}" + (f", which includes {was[-1][:7]}" if was else "")
 
 
-def deploy_outcome(es, env, to, outcome, log=None):
+def deploy_outcome(es, env, to, outcome, log=None, does=None):
     """What the deploy's card closes with at the deploy's end (record 0031 §1): each step of its run with its outcome,
-    or the step that failed and its log, from the partition's ops entries since its start."""
+    or the step that failed and its log, from the partition's ops entries since its start, and after them, when the
+    end was handed them, the deployer's words of what the user does, as it wrote them (swancloud deploy.6)."""
     mine = [e for e in es if e.get("Act") == "ops.deploy" and env_of(e) == env and e.get("Head") == to]
     starts = [i for i, e in enumerate(mine) if e.get("Phase") == "start"]
     ran = [e for e in mine[starts[-1] if starts else 0:] if e.get("Phase") == "step" and e.get("Step")]
@@ -494,7 +496,11 @@ def deploy_outcome(es, env, to, outcome, log=None):
     if failed or outcome == "failed":
         at = f" at {failed['Step']}" if failed else ""
         where = (failed or {}).get("Log") or log
-        return f"The deploy of {to[:7]} to {env} failed{at}" + (f"; its log: {where}" if where else "") + "."
+        said = f"The deploy of {to[:7]} to {env} failed{at}" + (f"; its log: {where}" if where else "") + "."
+        does = " ".join((does or "").split())
+        if not does:
+            return said
+        return f"{said} What you do: {does}" + ("" if does.endswith((".", "!", "?")) else ".")
     return f"Deployed {to[:7]} to {env}" + (": " + ", ".join(f"{e['Step']} {e.get('Outcome') or 'done'}" for e in ran) if ran else "") + "."
 
 
@@ -975,13 +981,13 @@ def record_cmd(fleet, a):
     rows_ = a.rows_json
     _, words, _ = state(entries(a.label))
     emit(a.label, "ops.deploy", a.env, f"deploy {a.to[:7]}: {a.act}" + (f" {a.step}" if a.step else ""), Head=a.to,
-         Base=getattr(a, "from"), Phase=a.act, Step=a.step, Outcome=a.outcome, Log=a.log, Rows=rows_)
+         Base=getattr(a, "from"), Phase=a.act, Step=a.step, Outcome=a.outcome, Log=a.log, Rows=rows_, Does=a.does)
     if a.act != "end":
         return
     import plan
     es = entries(a.label)
     if words.get(a.env, {}).get("Head") == a.to:
-        plan.row_card_close(fleet, a.label, f"{a.label}-ops", f"deploy/{a.env}", outcome=deploy_outcome(es, a.env, a.to, a.outcome, a.log))
+        plan.row_card_close(fleet, a.label, f"{a.label}-ops", f"deploy/{a.env}", outcome=deploy_outcome(es, a.env, a.to, a.outcome, a.log, a.does))
     if state(es)[0].get(a.env):
         raise_deploy(fleet, {"label": a.label, "key": f"deploy/{a.env}"})
 
@@ -1100,6 +1106,7 @@ def parser():
     p.add_argument("--outcome", choices=("ok", "failed", "done"))
     p.add_argument("--log")
     p.add_argument("--rows")
+    p.add_argument("--does")  # the deployer's words of what the user does about a failure, taken on every act
     p = cmd("step", to=False)
     p.add_argument("--key", required=True)
     p.add_argument("--state", required=True, choices=STATES)
