@@ -18,5 +18,36 @@
     };
   };
 
-  outputs = _: { };
+  outputs =
+    { self, nixpkgs, ... }:
+    let
+      inherit (nixpkgs) lib;
+      # Boomdrive's systems: nixpkgs refuses x86_64-darwin.
+      systems = [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
+      # nixpkgs' form for an untagged commit: crew keeps its version in no
+      # file (code.10), and reports its own from git.
+      date = self.lastModifiedDate or "19700101";
+      version = "0-unstable-${builtins.substring 0 4 date}-${builtins.substring 4 2 date}-${builtins.substring 6 2 date}";
+
+      packages = lib.genAttrs systems (
+        system:
+        let
+          crew = nixpkgs.legacyPackages.${system}.callPackage ./nix/packages/crew.nix {
+            inherit version;
+            platforms = systems;
+          };
+        in
+        {
+          inherit crew;
+          default = crew;
+        }
+      );
+    in
+    {
+      inherit packages;
+    };
 }

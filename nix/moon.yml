@@ -5,3 +5,19 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 # workspace root by the tools crew's devenv shell carries. None builds: the type check and the test evaluate the flake
 # offline and read-only against no store, with the inputs the shell fetched (nix/check.sh).
 language: 'nix'
+
+tasks:
+  # Every package of every system evaluates, and each module in a system of its platform. crew.py is among its inputs
+  # since the module reads its version from it; the package's other files move its path but no case's outcome.
+  typecheck:
+    command: 'sh nix/check.sh typecheck'
+    inputs: ['/flake.nix', '/flake.lock', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/plugin/lib/crew.py']
+    tags: [check-full]
+    options: {runFromWorkspaceRoot: true}
+  # The cases of the crew-flake spec under nix/tests: the file pinned byte for byte, each module's activation and
+  # assertions, and the activation script's own cases.
+  test:
+    command: 'sh nix/check.sh test'
+    inputs: ['/flake.nix', '/flake.lock', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/plugin/lib/crew.py']
+    tags: [check-full]
+    options: {runFromWorkspaceRoot: true}
