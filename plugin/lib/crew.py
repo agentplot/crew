@@ -1325,6 +1325,12 @@ def signal_how(cmd, label, state):
             f"`signals/` on `{label}/main` of {state}.")
 
 
+# Whom to ask about what, by the role that answers: the one text the briefs' sentence (cards_how) and the `answers` of
+# crew's Flume roles file (source.entries) are built from (record 0057, teams.25). The operator and the reviewer are
+# asked nothing (briefs.11).
+ASKS = {"design": "the design", "planner": "the plan", "ops": "a live system, a deploy or a landing"}
+
+
 # How an agent asks the user a question of its own, the same in the brief of each of the three that ask: the planner's,
 # main-level ops's and the design agent's (record 0031, briefs.11; Decision 6 of the-team-machinery-leaves).
 def cards_how(cmd, label, kits):
