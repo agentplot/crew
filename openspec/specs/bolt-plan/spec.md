@@ -131,11 +131,15 @@ crew SHALL read a bolt at GitHub's copy of its branch, `origin/bolt/<bolt>`, whe
 - **THEN** the chore reads `verify` and the fix reads merged
 
 ### Requirement: A started bolt's work reads its stage from the runner's records
-For every unit, chore and fix of a bolt marked `Path: flume`, a bolt started by `crew bolt start`, crew SHALL read its stage from its newest launch not dropped, that launch's answer and its place's record on the runner's branch, never from a place in the kit: unknown where its host was not read or it has no launch, launching before an answer, waiting while held for its After work, refused with the runner's words. `crew bolts` and every decision that reads a stage SHALL read the same.
+For every unit, chore and fix of a bolt marked `Path: flume`, crew SHALL read its stage from its newest launch not dropped, its answer and its place's record on the runner's branch, never from the kit: unknown where its host was not read or it has no launch; launching before an answer; waiting while the runner holds it and its `After` names work, else launching with the runner's words; refused with the runner's words. `crew bolts` and every decision SHALL read the same.
 
 #### Scenario: A dependent waits
 - **WHEN** `b`'s launch is answered held, `a`'s place not yet landed
 - **THEN** `crew bolts` shows `b` waiting on `a`
+
+#### Scenario: A claimed launch is not held for After work
+- **WHEN** deneb's runner answers the launch of `a`, which names no `After`, held with the words `claimed by deneb's runner; launching once no other runner has claimed it`
+- **THEN** `a` reads launching, and `crew bolts`, the board and the planner's band show it launching with the runner's words, never waiting on After work
 
 #### Scenario: The runner's host is silent
 - **WHEN** deneb's runner branch can't be read
@@ -151,6 +155,10 @@ Once launched, a unit, chore or fix SHALL read queued while Flume waits for room
 #### Scenario: A construct that asked
 - **WHEN** the runner's record shows `a`'s construct stopped short with "Which partition's rail?"
 - **THEN** `crew bolts` shows `a` as needing an answer, with the question
+
+#### Scenario: A stop-short whose agent is kept open
+- **WHEN** the runner carries Flume 0.17.0's status of `a`'s place, its code ended short needing an answer, its agent kept open for it until `open_until`, its end keyed `stage/code/1/ended-short`
+- **THEN** `a` reads needing an answer at code, with the agent's words, and `crew bolts` shows it so
 
 #### Scenario: Sent back by sluice
 - **WHEN** the runner's record shows `b`'s place back in code after sluice found its submission in conflict on `plugin/lib/plan.py`
@@ -271,7 +279,7 @@ As main is read (plan.18), crew SHALL read a bolt on GitHub as the host last fet
 - **THEN** it is refused, naming no bolt `swb-1`, and nothing is requested
 
 ### Requirement: A unit's stage is read from the runner, or from the plan before its bolt starts
-crew SHALL read each unit's and chore's stage from the plan and the runner's records alone, never from a place in the kit: `queued` while it has no bolt; for a bolt not started, `ready`, or `waiting` while it names `After` work, which builds only once the bolt starts; for a started bolt, as "A started bolt's work reads its stage from the runner's records" and "A launched place's stage is where Flume's status has it" give it, `landed` once main holds its change, open or archived, or a chore's trailer; and `unknown`, naming why, where crew cannot read what it rests on. Nothing SHALL be kept by hand to say how far work has got.
+crew SHALL read each unit's and chore's stage from the plan, the runner's records and its bolt's landings alone, never from a place in the kit: `queued` while it has no bolt; for a bolt not started, `ready`, or `waiting` while it names `After` work, which builds only once the bolt starts; for a started bolt, as "A started bolt's work reads its stage from the runner's records", "A launched place's stage is where Flume's status has it" and "A unit whose work its bolt's branch holds is built" give it, `landed` once main holds its change, open or archived, or a chore's trailer; and `unknown`, naming why, where crew cannot read what it rests on. Nothing SHALL be kept by hand to say how far work has got.
 
 #### Scenario: Queued work
 - **WHEN** a unit has no bolt
@@ -387,3 +395,30 @@ A plan command that names a kit by `--repo`, `bolt new`, `unit add` and `chore a
 #### Scenario: A former name kept again
 - **WHEN** `tailrace` was renamed `timber` and deneb's spaces now also keep a new `agentplot/tailrace`
 - **THEN** `crew bolt new y "…" --repo tailrace` is refused naming the rename, and the plan is unchanged
+
+### Requirement: A unit whose work its bolt's branch holds is built
+crew SHALL read a started bolt's unit or chore as `merged`, at the landing's commit and time, once a landing sluice made on the bolt's first-parent line names its place's branch, `change/<unit>` or `chore/<chore>`, in its `Sluice-From`. This holds whatever the runner reports of the place and whichever partition's launch made it, mapping no partition onto another. Where crew can't read the bolt's landings, the runner's reading SHALL stand.
+
+#### Scenario: A place landed and tidied
+- **WHEN** `a`'s place was never carried by the runner and `b`'s was last carried at submitted, Flume having tidied both after they landed, and `bolt/x` holds sluice's landings of `change/a` and `change/b`
+- **THEN** `a` and `b` read `merged` at their landings, a batch reads each at its landing, and `a` reads `landed` once main holds its change
+
+#### Scenario: A launch refused for a change the bolt holds
+- **WHEN** `a`'s place ran as another partition's launch and landed on `bolt/x`, and the runner refused this partition's launch of `a` because the base bolt already holds a change named `a`
+- **THEN** `a` reads `merged` at its landing, nothing waits on it, and `crew bolts` shows `a` merged, naming `change/a` and the landing's commit
+
+#### Scenario: Read once main holds the bolt
+- **WHEN** `x` has landed on main and main has moved on since
+- **THEN** `bolt/x`'s landings of `change/a` and `chore/c` still read, at the same commits, so its close finds main holding each
+
+#### Scenario: Built with no launch here
+- **WHEN** this partition holds no launch of `a`, and `bolt/x` holds a landing naming `change/a`
+- **THEN** `a` reads `merged`, and a landing naming any other branch builds nothing
+
+#### Scenario: Proven from its landings
+- **WHEN** every piece of `x` reads merged from its landings and sluice passed the landing at `x`'s head
+- **THEN** `x` waits to land
+
+#### Scenario: Landings crew can't read
+- **WHEN** git can't list the landings on `bolt/x`
+- **THEN** each piece of `x` reads as the runner's records give it

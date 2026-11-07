@@ -598,9 +598,70 @@ OWNERS = {"proposal/4": ("wldn-planner", "mac-studio"), "deploy/dev": ("wldn-ops
 
 
 class TestSweepJudged:
-    def judged(self, rows=(), cards_=(), entries=(), blind=(), proposed=(4,), kits=(), kit_of=None):
+    def judged(self, rows=(), cards_=(), entries=(), blind=(), proposed=(4,), kits=(), kit_of=None, labels=None):
         return plan.sweep_judged("mac-studio", list(rows), list(cards_), list(entries), OWNERS, set(blind),
-                                 None if proposed is None else set(proposed), NOW, kits=kits, kit_of=kit_of)
+                                 None if proposed is None else set(proposed), NOW, kits=kits, kit_of=kit_of, labels=labels)
+
+    # The partition was labelled willdan and is labelled wldn now: a label changed is a partition removed and another
+    # added (record 0055, rejected; record 0058's decision 6, proposed), so willdan's roles have left the fleet.
+    LEFT = "{} left the fleet, so an answer here reaches nobody. "
+
+    @pytest.mark.parametrize("owner, labels, left", [
+        ("willdan-ops", {"wldn"}, True), ("willdan-planner", {"wldn"}, True), ("willdan-design", {"wldn"}, True),
+        ("wldn-ops", {"wldn"}, False), ("wldn-design", {"wldn"}, False), ("foo-bar-ops", {"foo-bar"}, False), ("foo-bar-ops", {"foo"}, True),
+        ("swb-1-conductor", {"wldn"}, False), ("willdan-operator", {"wldn"}, False), ("chuck@mac-studio", {"wldn"}, False), (None, {"wldn"}, False)])
+    def test_a_role_left_the_fleet_when_it_is_a_partition_roles_name_whose_label_the_teams_file_no_longer_has(self, owner, labels, left):
+        assert cards.role_left(owner, labels) is left
+
+    @pytest.mark.parametrize("key, stands, then", [
+        ("deploy/dev", False, "The deploy is offered again in the name of the ops of the partition that holds dev now."),
+        ("deploy/dev", True, "Your word on dev's deploy stands, and the deploy goes on."),
+        ("op/dev/2", False, "The step on dev is recorded again by the partition that holds it now, its card in its ops's name."),
+        (f"land/{KIT}", False, "Its landings are carded by the ops of the partition that holds them now."),
+        ("proposal/508", False, "Proposal 508 is carded by the planner of the partition that holds it now."),
+        ("batch/62", False, "Batch 62 is carded by the planner of the partition that holds it now."),
+        ("record/atlas-kit/0021", False, "Record 0021 of atlas-kit is carded again with crew record by the design agent of the partition that holds it now.")])
+    def test_a_card_whose_role_left_is_withdrawn_saying_how_whoever_holds_its_work_now_raises_it(self, key, stands, then):
+        said = cards.left_said("willdan-ops", key, stands)
+        assert said == self.LEFT.format("willdan-ops") + then
+        assert "wldn" not in said  # no partition is named as another's successor
+
+    def test_a_card_of_crews_whose_role_left_the_fleet_is_judged_to_withdraw_and_cards_no_row(self):
+        """rail-cards "A card whose role left the fleet is withdrawn": deploy/dev's card in willdan-ops's name, and a
+        record's in willdan-design's, open on this host while the teams file labels the partition wldn."""
+        d, rec = card("deploy/dev", "req_d1", "willdan-ops"), card("record/atlas-kit/0021", "req_r1", "willdan-design")
+        rows_ = [row("deploy/dev", "operations")]
+        j = self.judged(rows=rows_, cards_=[d, rec], labels={"wldn"})
+        assert j["left_fleet"] == [(d, cards.left_said("willdan-ops", "deploy/dev")), (rec, cards.left_said("willdan-design", "record/atlas-kit/0021"))]
+        assert (j["held"], j["gone"]) == ([], [])
+        assert j["none"] == rows_  # a card in a name that left cards no row, so its row is posted in its owner's name
+
+    def test_a_card_of_a_standing_role_is_judged_as_it_was(self):
+        """rail-cards "The partition stays"."""
+        d = card("deploy/dev", "req_d1", "wldn-ops")
+        rows_ = [row("deploy/dev", "operations")]
+        j = self.judged(rows=rows_, cards_=[d], labels={"wldn"})
+        assert (j["left_fleet"], j["held"], j["none"]) == ([], [(d, rows_[0])], [])
+
+    def test_a_question_and_a_conductors_card_are_no_partition_roles_and_with_no_labels_nothing_is_judged_left(self):
+        """rail-cards "A question and a conductor's card are no partition role's"."""
+        q, y = card("ask/willdan-planner/hold", "req_q1", "willdan-planner"), card("land/y", "req_l1", "swb-1-conductor")
+        j = self.judged(cards_=[q, y], entries=[did("bolt.drop", On=["bolt/y"])], labels={"wldn"})
+        assert (j["left_fleet"], j["questions"], j["gone"]) == ([], [q], [(y, None, "its bolt was dropped")])
+        d = card("deploy/dev", "req_d1", "willdan-ops")
+        assert self.judged(rows=[row("deploy/dev", "operations")], cards_=[d])["left_fleet"] == []
+
+    def test_a_card_whose_role_left_and_whose_word_stands_says_its_deploy_goes_on(self):
+        """rail-cards "A deploy whose word stands"."""
+        d = card("deploy/dev", "req_d1", "willdan-ops")
+        word = [did("ops.offer", On=["env/dev"], Head="a" * 40, Base="none"), did("ops.approve", On=["env/dev"], Head="a" * 40)]
+        j = self.judged(cards_=[d], entries=word, labels={"wldn"})
+        assert j["left_fleet"] == [(d, self.LEFT.format("willdan-ops") + "Your word on dev's deploy stands, and the deploy goes on.")]
+
+    def test_a_card_whose_role_left_and_whose_withdrawal_was_refused_lately_is_left_for_a_later_read(self):
+        d = card("deploy/dev", "req_d1", "willdan-ops")
+        recent = [did("card.close", 5, Card="req_d1", Refused="Pending You refused the close: Too many requests.")]
+        assert self.judged(cards_=[d], entries=recent, labels={"wldn"})["left_fleet"] == []
 
     def test_a_rows_card_whose_row_is_gone_is_closed_with_its_events_outcome_or_withdrawn_with_why(self):
         p4, y = card("proposal/4", "req_p4", "wldn-planner"), card("land/y", "req_l1", "swb-1-conductor")
@@ -652,7 +713,7 @@ class TestSweepJudged:
         there = card("proposal/4", "req_p4", "wldn-planner", host=BOX)
         rec = card("record/atlas-kit/0021", "req_r1", "wldn-design")
         assert self.judged(cards_=[there, rec]) == {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [],
-                                                    "unread": []}
+                                                    "unread": [], "left_fleet": []}
         proposed = [did("record.proposed", On=["record/atlas-kit/0021"], Commit=["WilldanGroup/atlas-kit@" + "a" * 40], By="wldn-design")]
         assert self.judged(cards_=[rec], entries=proposed)["gone"] == []
 
@@ -709,7 +770,7 @@ class TestSweepJudged:
         recent = [did("card.close", 5, Card="req_p4", Refused="Pending You refused the close: Too many requests."),
                   did("card.post", 5, Key="deploy/dev", Refused="Pending You refused post_request: x")]
         assert self.judged(rows=[row("deploy/dev", "operations")], cards_=[p4], entries=recent) == {"gone": [], "questions": [], "held": [], "none": [],
-                                                                                                "again": [], "settled": [], "unread": []}
+                                                                                                "again": [], "settled": [], "unread": [], "left_fleet": []}
         old = [dict(e, At=iso(plan.CARD_RETRY // 60 + 1)) for e in recent]
         j = self.judged(rows=[row("deploy/dev", "operations")], cards_=[p4], entries=old)
         assert ([c for c, *_ in j["gone"]], j["none"]) == ([p4], [row("deploy/dev", "operations")])
@@ -767,7 +828,7 @@ class TestSweepJudged:
         its proposal open; a read that holds proposal 5 with no row for it withdraws it."""
         p5 = card("proposal/5", "req_p5", "wldn-planner")
         assert self.judged(cards_=[p5], proposed={1, 2, 3, 4}) == {"gone": [], "questions": [], "held": [], "none": [], "again": [],
-                                                                    "settled": [], "unread": []}
+                                                                    "settled": [], "unread": [], "left_fleet": []}
         assert self.judged(cards_=[p5], proposed=None)["gone"] == []
         assert self.judged(cards_=[p5], proposed={4, 5})["gone"] == [(p5, None, "its proposal is closed")]
         assert self.judged(rows=[row("proposal/5")], cards_=[p5], proposed={4, 5})["held"] == [(p5, row("proposal/5"))]
@@ -1071,6 +1132,44 @@ class TestSweep:
         assert acts.calls[-1][1:] == ("cancel_request", {"requestId": "req_l1", "name": "swb-1-conductor", "reason": "its bolt was dropped"})
         assert [(d["did"], d["words"]) for d in out["done"]] == [("withdrawn", "its bolt was dropped")]
 
+    def test_a_card_whose_partitions_label_changed_is_withdrawn_in_its_owners_name_and_its_row_raised_in_the_name_now(self):
+        """rail-cards "A partition's label changed under an open deploy card" and "The deploy row is carded in the
+        standing ops's name": the partition was labelled willdan and the teams file labels it wldn, as swancloud's is
+        afterthought on deneb since 2026-11-07 (signal 2026-11-07-agentplot-planner-2909addd/01 on agentplot/main of
+        afterthought/crew-state); deploy/dev's card stands in willdan-ops's name while the offer waits."""
+        seen = []
+
+        def raise_deploy(fleet, r, acts=None):
+            seen.append((r["key"], plan.row_owner(fleet, None, r)[0]))
+            return "req_d2"
+        d = card("deploy/dev", "req_d1", "willdan-ops")
+        out, acts = swept(rows_=[row("deploy/dev", "operations")], cards_=[d], raises={"deploy": raise_deploy},
+                          answers={"get_request": ({"status": "pending", "version": 2}, None)})
+        words = "willdan-ops left the fleet, so an answer here reaches nobody. The deploy is offered again in the name of the ops of the partition that holds dev now."
+        assert acts.calls == [("crew", "get_request", {"requestId": "req_d1", "name": "crew"}),
+                              ("willdan-ops", "get_request", {"requestId": "req_d1", "name": "willdan-ops"}),
+                              ("willdan-ops", "cancel_request", {"requestId": "req_d1", "name": "willdan-ops", "reason": words})]
+        assert acts.emitted == [dict(Act="card.close", On=["env/dev"], by="willdan-ops", Card="req_d1", Key="deploy/dev", State="withdrawn", Outcome=words)]
+        assert seen == [("deploy/dev", "wldn-ops")]
+        assert out["done"] == [dict(label="wldn", key="deploy/dev", card="req_d1", by="willdan-ops", did="withdrawn", words=words, new=None),
+                               dict(label="wldn", key="deploy/dev", card=None, by="wldn-ops", did="posted", words="its row had none open", new="req_d2")]
+        assert plan.swept_cards([d], out, "mac-studio", NOW) == [dict(label="wldn", card="req_d2", key="deploy/dev", on="env/dev", by="wldn-ops",
+                                                                      host="mac-studio", at=NOW)]
+
+    def test_a_card_whose_partition_stays_is_kept(self):
+        """rail-cards "The partition stays": deploy/dev's card in wldn-ops's name while the offer waits."""
+        d = card("deploy/dev", "req_d1", "wldn-ops")
+        out, acts = swept(rows_=[row("deploy/dev", "operations")], cards_=[d], raises={"deploy": lambda *a, **k: pytest.fail("raised")},
+                          answers={"get_request": ({"status": "pending", "version": 2}, None)})
+        assert out == {"done": [], "unswept": []} and acts.emitted == []
+        assert [n for n, *_ in acts.calls] == ["crew"]
+
+    def test_a_card_whose_role_left_that_pending_you_no_longer_finds_is_recorded_lost(self):
+        d = card("proposal/4", "req_p4", "willdan-planner")
+        out, acts = swept(cards_=[d], answers={"get_request": NOT_FOUND})
+        assert [(e["Act"], e["State"], e["Card"]) for e in acts.emitted] == [("card.close", "lost", "req_p4")]
+        assert [(x["did"], x["words"]) for x in out["done"]] == [("lost", "willdan-planner left the fleet, so nobody posts it again in that name")]
+
     def test_a_question_whose_asker_herdr_no_longer_lists_is_withdrawn_naming_the_asker(self):
         """The rail-cards scenario: crw-3-conductor's question card is open and crw-3's team is closed."""
         q = card("ask/crw-3-conductor/hold", "req_q1", "crw-3-conductor")
@@ -1335,6 +1434,8 @@ class TestSweep:
                     logs={"wldn": [did("plan.approve", On=["proposal/4"])]}, proposed={"wldn": {4, 5}})
         assert plan.cards_asked(fleet, read, "mac-studio", NOW) == ["req_p4", "req_q1"]
         assert plan.cards_asked(fleet, dict(read, cards=[]), "mac-studio", NOW) == []
+        left = card("deploy/dev", "req_d1", "willdan-ops")  # a card whose role left the fleet
+        assert plan.cards_asked(fleet, dict(read, cards=[p4, left]), "mac-studio", NOW) == ["req_p4", "req_d1"]
 
     def test_a_host_not_signed_in_changes_nothing_and_says_so(self):
         said = "this host can't ask through Pending You: it is not signed in. The user signs it in with pendingyou-signin. " + plan.SWEEP_LATER

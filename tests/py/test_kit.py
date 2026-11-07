@@ -5,6 +5,7 @@ import pathlib
 
 import pytest
 
+import gather
 import kit
 from crew import Refusal
 
@@ -454,3 +455,25 @@ def test_carries_of_says_gits_words_or_what_it_could_not_read():
     """read.1, read.2: a failed fetch or listing is said in git's words; output that is not CARRIES's is named."""
     assert kit.carries_of("READ=fatal: no remote\n", "b") == (None, None, "fatal: no remote")
     assert kit.carries_of("HOLDS=x\n", "b")[2] == "crew can't read what bolt/b carries from: HOLDS=x"
+
+
+class TestLandedFrom:
+    """What a bolt's landings name (gather.landed_from; crew record 0056 decision 2): sluice's landing commit says what it
+    landed in `Sluice-From: <agent> (<worktree>)`, naming the branch submitted as the one or the other (sluice clause 23),
+    so each name is read with the newest landing that gives it, at its committer time in UTC; a commit with no
+    Sluice-From, a person's or a merge of main, names nothing (read.2)."""
+
+    def test_each_landing_names_its_agent_and_worktree_and_the_newest_landing_of_a_name_is_kept(self):
+        log = ("c3\x1f1794070200\x1fchange/a (change/a)\x1e\n"
+               "c2\x1f1794069000\x1ffix/f (pull/243)\x1e\n"
+               "c1\x1f1794068000\x1fcrw-1-unit-1 (unit/u)\x1e\n"
+               "c0\x1f1794067000\x1fchange/a (change/a)\x1e\n"
+               "m\x1f1794066000\x1f\x1e\n")
+        got = gather.landed_from(log)
+        assert got["change/a"] == {"commit": "c3", "at": "2026-11-07T16:50:00Z"}
+        assert (got["fix/f"]["commit"], got["pull/243"]["commit"], got["unit/u"]["commit"]) == ("c2", "c2", "c1")
+        assert set(got) == {"change/a", "fix/f", "pull/243", "crw-1-unit-1", "unit/u"}
+
+    def test_a_value_not_of_sluices_shape_is_one_name_and_nothing_is_read_from_a_line_it_cannot_parse(self):
+        assert gather.landed_from("c1\x1f1794070200\x1fchange/a\x1e\nbroken\x1e\nc2\x1fnot-a-time\x1fchange/b (change/b)\x1e") == {
+            "change/a": {"commit": "c1", "at": "2026-11-07T16:50:00Z"}}

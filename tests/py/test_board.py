@@ -459,15 +459,19 @@ class TestRefresh:
         self.readings, self.asked = {BOX: "r1", "mac-studio": "r2"}, []
         monkeypatch.setattr(board, "look", lambda fleet, labels: {k: dict(v) if isinstance(v, dict) else v for k, v in self.looks.items()})
 
-        self.overviews, self.overviews_asked, self.routes = {}, [], {}
+        self.overviews, self.overviews_asked, self.routes, self.routes_asked = {}, [], {}, []
 
-        def stamps_now(fleet, kits, readings, overviews=None, routes=False):
-            self.asked.append(readings)
+        def stamps_now(fleet, kits, readings, overviews=None, routes=(), hosts=None):
+            asked = {h: ls for h, ls in readings.items() if hosts is None or h in hosts}
+            self.asked.append(asked)
+            self.routes_asked.append(sorted(routes))
             self.overviews_asked += [(h, m) for h, ms in (overviews or {}).items() for m in ms]
-            return {"kits": {k: v for k, v in self.stamps.items() if k[1] in kits.get(k[0], {})}, "readings": {h: self.readings[h] for h in readings},
+            return {"kits": {k: v for k, v in self.stamps.items() if k[1] in kits.get(k[0], {}) and (hosts is None or k[0] in hosts)},
+                    "readings": {h: self.readings[h] for h in asked},
                     "overviews": {(h, m): self.overviews[(h, m)] for h, ms in (overviews or {}).items() for m in ms},
-                    "routes": {h: r for h, r in self.routes.items() if h in kits} if routes else {}}
+                    "routes": {h: r for h, r in self.routes.items() if h in kits and h in routes}}
         monkeypatch.setattr(board, "stamps_now", stamps_now)
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
 
         self.req, self.handed, self.found = {"main": "/kit/main"}, [], []
 
@@ -490,8 +494,10 @@ class TestRefresh:
         monkeypatch.setattr(board, "agent_views", lambda data: {"read_at": data["read_at"], "views": {}})
         monkeypatch.setattr(plan, "sweep_sessions", lambda fleet, found, sv, rows, cards, unread, batched, only=None, runs=None:
                             self.swept.append(only) or ([], []))
-        # wldn's runner answers on the box, its branch in crew's cache (plan.runner_tips, read with no fetch)
-        monkeypatch.setattr(plan, "runner_tips", lambda repo, label, fetch=True: {BOX: "r" * 40} if label == "wldn" else {})
+        # wldn's runner answers on the box, its branch in crew's cache (plan.runner_tips, read with no fetch), at a tip a
+        # case moves when the box's runner reports a move of the places it runs
+        self.runner = {BOX: "r" * 40}
+        monkeypatch.setattr(plan, "runner_tips", lambda repo, label, fetch=True: dict(self.runner) if label == "wldn" else {})
         test = self
 
         class Here(board.Follower):
@@ -559,6 +565,7 @@ class TestRefresh:
     def test_a_refresh_after_a_kit_moved_reads_again_with_the_rest_served(self, follower):
         follower.refresh()
         self.stamps[(BOX, "/kit/main")] = "s2"
+        self.runner[BOX] = "q" * 40  # the box's runner reports a move of the place it runs
         follower.refresh()
         assert len(self.reads) == 2 and self.frame("wldn")["text"].startswith("rail of wldn\n")
         follower.refresh()
@@ -569,10 +576,11 @@ class TestRefresh:
 
     def test_its_check_stamps_the_readings_of_each_partitions_hosts_with_its_kits(self, follower):
         """The card-sessions spec, A reading sent on one host: every host where a partition's card sessions are swept,
-        its main machine and its teams', has its readings stamped, from its first refresh on."""
+        its main machine and its runners', has its readings stamped at its first refresh; then this host's at each, in
+        this process, and another's when something there could have moved (hosts_due)."""
         follower.refresh()
         follower.refresh()
-        assert self.asked == [{"mac-studio": ["wldn", "swancloud"], BOX: ["wldn"]}] * 2
+        assert self.asked == [{"mac-studio": ["wldn", "swancloud"], BOX: ["wldn"]}, {"mac-studio": ["wldn", "swancloud"]}]
 
     def test_a_refresh_after_crew_moved_hands_out_the_restarts_and_starts_again(self, follower):
         follower.refresh()
@@ -580,9 +588,10 @@ class TestRefresh:
         follower.refresh()
         assert self.again == [["wldn", "swancloud"]]
 
-    def test_the_clock_asks_pending_you_after_the_kept_reads_cards_once_a_tick_and_never_between(self, follower, monkeypatch):
-        """The crew-board spec, The follower asks Pending You about cards on its clock: one bridge a tick for the cards the
-        kept read's sweep would act on, none on a tick when it names none, and none at a refresh between ticks."""
+    def test_the_clock_asks_pending_you_after_the_kept_reads_cards_when_they_could_have_moved_and_never_between(self, follower, monkeypatch):
+        """The crew-board spec, The follower asks Pending You about cards when they could have moved: one bridge at a
+        tick for the cards the kept read's sweep would act on that it has not answered, none on a tick when it names
+        none or has answered them all, again ten minutes on, and none at a refresh between ticks."""
         bridges, test = [], self
         self.to_ask = []
 
@@ -616,11 +625,115 @@ class TestRefresh:
         follower.refresh()
         follower.refresh()
         assert bridges == ["crew"], "a refresh between ticks asked Pending You"
+        follower.tick()
+        assert bridges == ["crew"], "a tick asked Pending You after a card it had answered, with nothing to say it moved"
+        aged(follower)
+        follower.tick()
+        assert bridges == ["crew", "crew"], "ten minutes on, the tick did not ask Pending You again"
+
+    def test_a_tick_after_nothing_moved_starts_nothing_but_its_fetch_of_each_repository(self, follower, monkeypatch):
+        """The crew-board spec, An idle host (Decisions 1 to 3 of a-followers-tick-reads-nothing-while-nothing-moved):
+        with every card answered, the box's kit watched and nothing moved, a tick fetches each repository once and asks
+        nothing else: no host, no route, no overview, no Pending You and no herdr; reads nothing and opens no watch."""
+        fetched, bridges, listed = [], [], []
+        monkeypatch.setattr(plan, "tips_of", lambda repo, refs: fetched.append((repo, list(refs))) or {r: "x" * 40 for r in refs})
+        monkeypatch.setattr(plan, "cards_asked", lambda fleet, read, here, now: ["req_p4"])
+        monkeypatch.setattr(plan, "askers_asked", lambda fleet, read, here, now: ["crw-3-conductor"])
+        monkeypatch.setattr(plan, "cards_fetched", lambda fleet, cards: bridges.append(list(cards)) or ({c: ({"status": "pending"}, None) for c in cards}, None))
+        monkeypatch.setattr(plan, "askers_listed", lambda fleet, names: listed.append(list(names)) or {n: (True, None) for n in names})
+        monkeypatch.setattr(plan, "sweep_cards", lambda fleet, read, acts=None, answers=None, listed=None: {"done": [], "unswept": []})
+        self.req = {"main": "/kit/main", "bolts": ["te"]}
+        self.routes = {BOX: []}
+        follower.watches = w = self.Watching()
+        follower.tick()
+        follower.tick()  # the first tick's read had no listing of the askers, so this one asks
+        assert bridges == [["req_p4"]] and listed == [["crw-3-conductor"]]
+        fetched.clear(), bridges.clear(), listed.clear()
+        asked, overviews, routes, opened, reads = len(self.asked), len(self.overviews_asked), len(self.routes_asked), list(w.opened), len(self.reads)
+        follower.tick()
+        assert fetched == [("o/state", ["wldn/main", "swancloud/main"]), ("o/bp", ["main"])]
+        assert self.asked[asked:] == [{"mac-studio": ["wldn", "swancloud"]}], "a host but this one was asked"
+        assert self.routes_asked[routes:] == [[]] and self.overviews_asked[overviews:] == [] and bridges == listed == []
+        assert w.opened == opened and len(self.reads) == reads
+
+    def test_another_host_is_asked_only_when_something_there_could_have_moved(self, follower):
+        """Decision 1: the box, which holds wldn's kit and runs wldn's runner, is asked when its runner reports, when
+        wldn's branch moves, when the last ask of it went unanswered, and ten minutes on; a move of swancloud, which has
+        nothing on the box, asks it nothing."""
+        follower.refresh()
+
+        def box_asked():
+            follower.refresh()
+            return BOX in self.asked[-1]
+        assert not box_asked()
+        self.runner[BOX] = "q" * 40
+        assert box_asked() and not box_asked()
+        self.looks["state"] = {"wldn": "d" * 40, "swancloud": ""}
+        assert box_asked() and not box_asked()
+        self.looks["state"] = {"wldn": "d" * 40, "swancloud": "e" * 40}
+        assert not box_asked(), "a move of a partition with nothing on the box asked it"
+        self.readings[BOX], self.runner[BOX] = None, "p" * 40  # the box asked, and its readings can't be stamped
+        assert box_asked() and box_asked(), "a host whose last answer could not be read was not asked again"
+        self.readings[BOX] = "r1"
+        assert box_asked() and not box_asked()
+        aged(follower)
+        assert box_asked() and not box_asked()
+
+    def test_a_runners_report_with_no_move_of_its_partitions_branch_reads_it_again(self, follower):
+        """The crew-board spec, A runner's report: the look stamps the runners' branches, and one moved reads wldn again
+        with its unmoved kit served."""
+        self.looks["runners"] = {"wldn": {BOX: "r" * 40}, "swancloud": {}}
+        follower.refresh()
+        follower.refresh()
+        assert len(self.reads) == 1
+        self.looks["runners"] = {"wldn": {BOX: "q" * 40}, "swancloud": {}}
+        follower.refresh()
+        assert len(self.reads) == 2 and self.frame("wldn")["text"].startswith("rail of wldn, served")
+
+    def test_a_card_the_sweep_left_is_tried_again_at_the_next_ask_and_not_at_each_tick(self, follower, monkeypatch):
+        """The crew-board spec, A card the sweep left: Pending You refused the close of a gone row's card; the cards move
+        again at the next ask, ten minutes on, and no tick before it sweeps them."""
+        swept = []
+        monkeypatch.setattr(type(follower), "fetch", lambda self, fleet: None)
+        monkeypatch.setattr(plan, "cards_asked", lambda fleet, read, here, now: ["req_b17"])
+        monkeypatch.setattr(plan, "askers_asked", lambda fleet, read, here, now: [])
+        monkeypatch.setattr(plan, "cards_fetched", lambda fleet, cards: ({c: ({"status": "pending"}, None) for c in cards}, None))
+        monkeypatch.setattr(plan, "askers_listed", lambda fleet, names: {})
+        monkeypatch.setattr(plan, "sweep_cards", lambda fleet, read, acts=None, answers=None, listed=None: swept.append(answers) or {
+            "done": [dict(label="wldn", key="batch/17", card="req_b17", by="wldn-planner", did="left", words="its close did not go through")],
+            "unswept": []})
+        follower.tick()
+        follower.tick()  # the read's ask answered no card; this one asks after req_b17 and the sweep leaves it
+        assert len(swept) == 1 and follower.left
+        follower.tick()
+        follower.tick()
+        assert len(swept) == 1, "a card the sweep left was tried again at a tick that asked nothing"
+        aged(follower)
+        follower.tick()
+        assert len(swept) == 2
+
+    def test_a_new_line_from_the_boxs_kits_watch_asks_the_box(self, follower):
+        """Decision 1: a merge or a landing moves the box's kit's queue, which its watch prints; the next refresh asks
+        the box whether the kit moved too, as its refs do at a landing."""
+        self.req = {"main": "/kit/main", "bolts": ["te"]}
+        follower.watches = w = self.Watching()
+        follower.refresh()
+        follower.refresh()
+        assert BOX not in self.asked[-1]
+        w.states[(BOX, "/kit/main")] = {"doc": self.QUEUED}
+        follower.refresh()
+        assert BOX in self.asked[-1]
+        follower.refresh()
+        assert BOX not in self.asked[-1]
 
     def test_a_refresh_after_only_a_hosts_readings_moved_sweeps_its_card_sessions_and_reads_nothing(self, follower):
-        """The crew-board spec, A reading sent back: plannotator wrote the result in the box's readings folder."""
+        """The crew-board spec, A reading sent back: plannotator wrote the result in the box's readings folder, which
+        the next refresh that asks the box finds, here once ten minutes have passed with nothing else moved."""
         follower.refresh()
         self.readings[BOX] = "r9"
+        follower.refresh()
+        assert self.swept == [], "the box was asked with nothing there moved"
+        aged(follower)
         follower.refresh()
         assert len(self.reads) == 1 and self.swept == [{"wldn": {BOX}}]
         follower.refresh()
@@ -658,10 +771,10 @@ class TestRefresh:
             super().__init__()
             self.opened, self.closed = [], []
 
-        def open(self, fleet, host, main):
-            self.ended.discard((host, main))
+        def open(self, fleet, key, host, main):
+            self.ended.discard(key)
             self.opened.append((host, main))
-            self.running[(host, main)] = None
+            self.running[key] = None
 
         def close(self, key):
             if self.running.pop(key, "none") != "none":
@@ -693,6 +806,7 @@ class TestRefresh:
         w.states[(BOX, "/kit/main")] = {"doc": dict(self.QUEUED, at="2026-10-28T16:30:00Z")}
         assert not board.moved(follower.last["stamps"], dict(follower.last["stamps"], queues=w.stamp()))["any"]
         self.stamps[(BOX, "/kit/main")] = "s2"
+        self.runner[BOX] = "q" * 40
         follower.refresh()
         assert len(self.reads) == 2 and self.handed[-1] == {(BOX, "/kit/main"): [answer["submissions"], None]}
         assert w.opened == [(BOX, "/kit/main")] and w.closed == [], "a watch was opened twice"
@@ -719,6 +833,7 @@ class TestRefresh:
                   "started": "2026-10-28T16:05:00Z", "decided": "2026-10-28T16:17:00Z", "event": "landed"}
         assert len(self.reads) == 1 and answer["submissions"] == [] and answer["decided"] == [landed], "the queue's move gathered the kit"
         self.stamps[(BOX, "/kit/main")] = "s2"
+        self.runner[BOX] = "q" * 40
         follower.refresh()
         assert len(self.reads) == 2 and plan.READ.follower is None
         assert follower.kept.kits[BOX]["/kit/main"][1]["decided"] == [landed], "a gather threw away what the follower kept"
@@ -732,6 +847,7 @@ class TestRefresh:
         w.states[(BOX, "/kit/main")] = {"doc": dict(self.QUEUED, at="2026-10-28T16:30:00Z", branches=[])}
         follower.refresh()
         self.stamps[(BOX, "/kit/main")] = "s2"
+        self.runner[BOX] = "q" * 40
         decided = []
         gathered = board.flow_read
 
@@ -824,12 +940,18 @@ class TestRefresh:
         assert len(self.reads) == 1 and reckoned == [set(), {"wldn"}, set()]
 
     def test_a_dev_server_started_by_hand_is_drawn_after_the_next_tick_with_nothing_gathered(self, follower, monkeypatch):
-        """The crew-board spec, A dev server started by hand: the tick reads the box's portless routes again."""
+        """The crew-board spec, A dev server started by hand: a tick that asks the box reads its portless routes again,
+        here the first once ten minutes have passed with nothing there moved; no refresh between ticks reads them."""
         monkeypatch.setattr(type(follower), "fetch", lambda self, fleet: None)
         monkeypatch.setattr(type(follower), "ask", lambda self, fleet: None)
         follower.refresh()
         route = [{"url": "https://unit-a--switchboard-kit.local", "name": "unit-a--switchboard-kit"}]
         self.routes = {BOX: route}
+        follower.refresh()
+        assert follower.kept.kits[BOX]["/kit/main"][1]["routes"] == [], "routes were read between ticks"
+        follower.tick()
+        assert follower.kept.kits[BOX]["/kit/main"][1]["routes"] == [], "a tick with nothing moved on the box read its routes"
+        aged(follower)
         follower.refresh()
         assert follower.kept.kits[BOX]["/kit/main"][1]["routes"] == [], "routes were read between ticks"
         follower.tick()
@@ -853,9 +975,19 @@ class TestRefresh:
         assert swept == [] and follower.kept.listed == {"crw-3-conductor": (True, None)}, "the same listing moved the cards"
         listing["crw-3-conductor"] = (False, None)
         follower.refresh()
-        assert swept == [], "herdr was read between ticks"
+        follower.tick()
+        assert swept == [], "herdr was read between ticks, or at a tick with nothing to say it could have moved"
+        aged(follower)
         follower.tick()
         assert swept == [{"crw-3-conductor": (False, None)}] and len(self.reads) == 1
+
+
+def aged(follower):
+    """The follower as it stands DISCOVERY seconds on: every host and Pending You last asked that long ago."""
+    for memo in (follower.asked, follower.asked_at_tick):
+        memo.update({h: (b, at - board.DISCOVERY) for h, (b, at) in memo.items()})
+    if follower.cards_at is not None:
+        follower.cards_at -= board.DISCOVERY
 
 
 def test_the_session_sweep_after_nothing_moved_asks_the_host_the_last_could_not_check_and_no_other(monkeypatch):
@@ -943,8 +1075,9 @@ class TestMoved:
         m = board.moved(kept, dict(kept, cards=board.cards_stamp(dict(self.FOUND, req_p4=(None, "Not found: request:req_p4.")), None, False, 2)))
         assert m["cards"] and m["any"] and not m["read"] and m["readings"] == m["kits"] == set()
 
-    def test_a_failed_bridge_or_a_card_the_last_sweep_left_moves_the_cards_at_each_tick_and_only_then(self):
-        """A card left because its act did not go through is tried again once a minute, not at every refresh."""
+    def test_a_failed_bridge_or_a_card_the_last_sweep_left_moves_the_cards_at_each_ask_and_only_then(self):
+        """A card left because its act did not go through is tried again at the clock's next ask of Pending You
+        (cards_due), not at every refresh, nor at a tick that asks nothing."""
         for why, left in (("Pending You did not answer whoami within 30 seconds.", False), (None, True)):
             at_tick = board.cards_stamp(self.FOUND, why, left, 2)
             assert board.moved(dict(self.KEPT, cards=board.cards_stamp(self.FOUND, None, False, 1)), dict(self.KEPT, cards=at_tick))["cards"]
@@ -958,6 +1091,16 @@ class TestMoved:
         assert not board.moved(kept, dict(kept, cards=board.cards_stamp(self.FOUND, None, False, 2, {"crw-3-conductor": (True, None)})))["any"]
         m = board.moved(kept, dict(kept, cards=board.cards_stamp(self.FOUND, None, False, 2, {"crw-3-conductor": (False, None)})))
         assert m["cards"] and not m["read"]
+
+    def test_a_runners_branch_moved_reads_its_partition_again(self):
+        """A runner's report of the places it runs arrives on its own branch, with no move of the partition's: the read
+        rests on it as on the partition's branch, so it moves that partition's state, and its runner gone does too."""
+        kept = dict(self.KEPT, runners={"wldn": {BOX: "r" * 40}, "swancloud": {}})
+        assert not board.moved(kept, dict(kept))["any"]
+        m = board.moved(kept, dict(kept, runners={"wldn": {BOX: "q" * 40}, "swancloud": {}}))
+        assert m["state"] == {"wldn"} and m["read"]
+        assert board.moved(kept, dict(kept, runners={"wldn": {}, "swancloud": {}}))["state"] == {"wldn"}
+        assert not board.moved(self.KEPT, dict(self.KEPT))["any"], "a check from before runners were stamped took them as moved"
 
     def test_crews_head_or_the_teams_file_moved_or_unreadable_says_crew_moved(self):
         assert board.moved(self.KEPT, self.now(crew=("e" * 40, b"{teams}")))["crew"]
@@ -1006,6 +1149,84 @@ def test_no_card_to_ask_after_starts_no_bridge_and_the_cards_asked_are_asked_in_
             return Py()
     assert plan.cards_fetched(FLEET, ["req_1", "req_2"], Acts()) == ({"req_1": ({"status": "pending"}, None), "req_2": ({"status": "pending"}, None)}, None)
     assert opened == ["crew", ("get_request", "req_1", "crew"), ("get_request", "req_2", "crew")]
+
+
+class TestAsking:
+    """What the follower asks of another host, of Pending You and herdr, and of GitHub (the crew-board spec, A refresh
+    after nothing moved reads nothing, The follower fetches on a one-minute clock, The follower asks Pending You about
+    cards when they could have moved): only what something it reads with no process says could have moved, and each
+    repository once a tick (Decisions 1 to 3 of a-followers-tick-reads-nothing-while-nothing-moved)."""
+
+    def basis(self, tip="a" * 40, runner="r" * 40, queues=None):
+        return board.host_basis(BOX, ["wldn"], {"wldn": tip, "swancloud": "s" * 40}, {"wldn": {BOX: runner, "mac-studio": "m" * 40}},
+                                queues or {})
+
+    def test_a_hosts_basis_is_its_partitions_branches_its_runners_and_its_kits_queues(self):
+        b = self.basis()
+        assert b == self.basis(), "a basis read twice with nothing moved differs"
+        assert b != self.basis(tip="d" * 40) and b != self.basis(runner="q" * 40)
+        assert b != self.basis(queues={"/kit/main": ["read", "{}"]})
+        assert b == board.host_basis(BOX, ["wldn"], {"wldn": "a" * 40, "swancloud": "e" * 40}, {"wldn": {BOX: "r" * 40, "mac-studio": "n" * 40}}, {}), (
+            "a move of a partition the host does not serve, or of another host's runner, moved the host's basis")
+
+    def test_a_host_is_asked_never_asked_moved_unanswered_or_ten_minutes_on_and_else_not(self):
+        b, now = self.basis(), 1000.0
+        assert board.hosts_due({BOX: b}, {}, now) == [BOX]
+        assert board.hosts_due({BOX: b}, {BOX: (b, now - 1)}, now) == []
+        assert board.hosts_due({BOX: self.basis(runner="q" * 40)}, {BOX: (b, now - 1)}, now) == [BOX]
+        assert board.hosts_due({BOX: b}, {BOX: (b, now - board.DISCOVERY)}, now) == [BOX]
+        assert board.DISCOVERY == plan.CARD_RETRY == 600
+
+    def test_pending_you_is_asked_after_a_card_it_has_not_answered_a_failed_bridge_or_ten_minutes_and_never_with_none(self):
+        found, now = ({"req_p4": ({"status": "pending"}, None)}, None), 1000.0
+        listed = {"crw-3-conductor": (True, None)}
+        assert not board.cards_due([], [], None, None, None, now), "nothing to ask after asked Pending You"
+        assert board.cards_due(["req_p4"], [], None, None, None, now)
+        assert not board.cards_due(["req_p4"], ["crw-3-conductor"], found, listed, now - 1, now)
+        assert board.cards_due(["req_p4", "req_p5"], [], found, listed, now - 1, now)
+        assert board.cards_due(["req_p4"], ["wldn-planner"], found, listed, now - 1, now)
+        assert board.cards_due(["req_p4"], ["crw-3-conductor"], found, {"crw-3-conductor": (None, "herdr did not answer")}, now - 1, now)
+        assert board.cards_due(["req_p4"], [], ({}, "Pending You did not answer whoami within 30 seconds."), listed, now - 1, now)
+        assert board.cards_due(["req_p4"], [], found, listed, now - board.DISCOVERY, now)
+        assert not board.cards_due(["req_p4"], [], found, listed, now - board.DISCOVERY + 1, now)
+
+    def test_each_repository_is_fetched_once_with_every_branch_read_of_it(self):
+        fleet = {"partitions": {"wldn": {"label": "wldn", "state": "o/state", "blueprints": ["o/bp", "o/other"]},
+                                "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["s/bp"]},
+                                "madswan": {"label": "madswan", "state": "m/state", "blueprints": ["o/bp"]}}}
+        assert board.fetches(fleet, ["wldn", "swancloud", "madswan"]) == {
+            "o/state": ["wldn/main", "swancloud/main"], "o/bp": ["main"], "s/bp": ["main"], "m/state": ["madswan/main"]}
+
+    def test_two_checkouts_of_one_repository_on_this_host_share_its_watch_and_another_hosts_kit_is_keyed_by_its_checkout(self, tmp_path):
+        """sluice's core.25: one reader of a repository's records on a host, every other watch following it; so the
+        follower keeps one watch for each repository, read from the checkouts' files with no process."""
+        main, live = tmp_path / "kit" / "main", tmp_path / "kit" / "live"
+        (main / ".git" / "worktrees" / "live").mkdir(parents=True)
+        (main / ".git" / "worktrees" / "live" / "commondir").write_text("../..\n")
+        live.mkdir()
+        (live / ".git").write_text(f"gitdir: {main / '.git' / 'worktrees' / 'live'}\n")
+        here = "mac-studio"
+        assert board.watch_key(here, str(main), here) == board.watch_key(here, str(live), here) == (here, str(main / ".git"))
+        assert board.watch_key(BOX, str(main), here) == (BOX, str(main)), "another host's kit was keyed from this host's files"
+        assert board.watch_key(here, str(tmp_path / "gone"), here) == (here, str(tmp_path / "gone")), "a checkout with no git folder"
+
+    def test_one_watch_follows_every_kit_of_its_repository_and_its_end_is_each_ones(self, tmp_path, monkeypatch):
+        main, live = tmp_path / "kit" / "main", tmp_path / "kit" / "live"
+        (main / ".git" / "worktrees" / "live").mkdir(parents=True)
+        (main / ".git" / "worktrees" / "live" / "commondir").write_text("../..\n")
+        live.mkdir()
+        (live / ".git").write_text(f"gitdir: {main / '.git' / 'worktrees' / 'live'}\n")
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+        w = TestRefresh.Watching()
+        kits = {("mac-studio", str(main)), ("mac-studio", str(live)), (BOX, "/kit/main")}
+        assert w.sync({}, kits, tick=False) == {}
+        assert sorted(w.opened) == sorted([("mac-studio", str(live)), (BOX, "/kit/main")]) or sorted(w.opened) == sorted(
+            [("mac-studio", str(main)), (BOX, "/kit/main")]), "a repository was watched twice"
+        assert len(w.running) == 2
+        w.end(("mac-studio", str(main / ".git")), "sluice overview --watch exited 1")
+        assert {k for k, s in w.states.items() if "why" in s} == {("mac-studio", str(main)), ("mac-studio", str(live))}
+        w.sync({}, {(BOX, "/kit/main")}, tick=False)
+        assert list(w.running) == [(BOX, "/kit/main")] and set(w.states) == set()
 
 
 class TestWatches:
@@ -1879,6 +2100,21 @@ class TestStarted:
         x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
         assert x["url"] is None and {u["url"] for u in x["units"]} == {None}
         assert "server" not in "\n".join(lane(board.board_text(d), "Construction")[:3])
+
+    def test_a_launch_the_runner_holds_with_no_after_is_on_its_runners_host_with_its_words(self):
+        """drive-state "A place not carried yet" and bolt-plan "A claimed launch is not held for After work", in the
+        board and the planner's band (code.8): deneb's runner holds a's launch, which names no After, with its claim's
+        words, and has carried no place of x's work; the ledger names deneb, a's line says it is launching with the
+        runner's words, and b, after a, waits on a."""
+        from facts import ran
+        claim = "claimed by deneb's runner; launching once no other runner has claimed it"
+        d = self.data(ran(held={1: claim, 2: None}))
+        x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
+        assert (x["host"], x["stream"]) == ("deneb", None)
+        assert lane(board.board_text(d), "Construction")[1:] == [f"    a  launching  held by the runner: {claim}", "    b  waiting  on a"]
+        assert lane(board.board_text(d), "Construction")[0].startswith("  crew x  on deneb  ")
+        v = self.views(ran(held={1: claim, 2: None}))["madswan-planner"]
+        assert any(f"a  launching  held by the runner: {claim}" in l for l in v) and not any("After work" in l for l in v)
 
     def test_a_question_in_the_planners_band(self):
         """crew-board "A question in the planner's band": a's construct stopped short asking."""

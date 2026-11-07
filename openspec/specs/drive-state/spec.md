@@ -152,7 +152,7 @@ crew SHALL read a launched piece's stage from the runner whose answers hold its 
 
 Where crew must act on or say where a bolt's work runs, it SHALL read what the runner reported for the work it took. This covers the bolt's landing, its reads of the bolt and its kit, its reading and preview, the sweep after a landing or a drop, its site row, and its ledger's host and stream.
 - The host is the one whose runner took the newest of the bolt's launches taken. While no runner has taken any of the bolt's own work, it is the host whose runner took its kit's newest work taken.
-- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. Where that runner reports no repositories, it is the folder Flume's status of its newest place names.
+- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. Where that runner reports no repositories, it is the folder Flume's status of its newest place names. Where that runner has carried no place of the bolt's, every launch of it refused, it is the folder that runner's places of the kit's other work name, on that host alone.
 - The stream is the one Flume's status of that runner's place names.
 
 The kit SHALL be named as unread, nothing of it landed and every other bolt read as it stands, in each of these cases:
@@ -168,6 +168,10 @@ The kit SHALL be named as unread, nothing of it landed and every other bolt read
 #### Scenario: A bolt none of whose own work is taken
 - **WHEN** `x` is started and no runner has taken its launches, and deneb's runner took crew's work on another bolt, its place naming `/w/crew`
 - **THEN** `x` is read and landed on deneb in `/w/crew`
+
+#### Scenario: A bolt whose every launch was refused
+- **WHEN** deneb's runner refused launch 1 of `x`'s unit `a`, the base bolt already holding its change, reports no repositories, and carries Flume's status of a place of crew's work on bolt `y`, naming `/w/crew`
+- **THEN** `x` is read and landed on deneb in `/w/crew`, and `crew bolts` says where it runs; were that place on chuck-herdr-alpha's runner instead, crew could not tell where `x` runs
 
 #### Scenario: Taken by two runners
 - **WHEN** deneb's and chuck-herdr-alpha's runners both answer launch 1
@@ -215,3 +219,10 @@ That work SHALL be done in the checkout the partition's main-level host keeps of
 #### Scenario: The main level's kit folders
 - **WHEN** madswan's plan names crew and sluice, deneb keeps both and a role of madswan's main level starts there
 - **THEN** it may reach deneb's checkouts of crew and sluice, and a kit its plan names that deneb keeps none of is left out
+
+### Requirement: A started bolt's host is named before its place is carried
+`crew bolts`, the board's ledger and the page SHALL name a started bolt's host as the one whose runner took its newest launch taken, while the runner has carried no place of its work, and never say where it runs can't be told for work a runner has taken. Whatever acts in the bolt's kit SHALL still wait until the kit's folder there is read.
+
+#### Scenario: A place not carried yet
+- **WHEN** deneb's runner answers `a`'s launch on `bolt/x` held with its claim, or launched at its place, and carries no status of the place, and reports no repositories
+- **THEN** `crew bolts` names `x` at deneb and the board's ledger says on deneb, neither saying where it runs can't be told, and nothing of `x`'s kit is read or landed

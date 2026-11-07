@@ -503,8 +503,11 @@ def stage_of(work, launch, answer, place, read, after=()):
     answer, the runner's answer to that launch, None while it has none; place, the runner's record of the place it
     launched (host_read's), None while it has none; read, True when its host's runner branch was read, else why not;
     after, the work its launch's After names (after_work). Returns {"stage", and what goes with it}: unknown, with why,
-    for an unread host, no launch, or a fact crew can't read; launching while unanswered or unplaced; waiting, on the
-    work after names, while the runner holds it; refused, with the runner's words; then from Flume's status: merged on
+    for an unread host, no launch, or a fact crew can't read; launching while unanswered or unplaced, and while the
+    runner holds a launch whose After names no work, with the runner's words, since the runner answers held for its
+    claim of a launch (boomdrive's crew-control-plane, Decision 18) and for a stream with no room as well as for After
+    work, so a launch with no After is never read as held for After work; waiting, on the work after names, while the
+    runner holds a launch that names some; refused, with the runner's words; then from Flume's status: merged on
     a bolt and landed on main once its place landed, with the commit; dropped; queued for room; needs, with the agent's
     words, once its stage stopped short asking or found work; stalled, or else waits, with Flume's words and why, while
     it waits on its caller, the submission held among them; submitted, with sluice's number; its stage, with sluice's
@@ -517,6 +520,8 @@ def stage_of(work, launch, answer, place, read, after=()):
     n, outcome = launch.get("Request"), answer.get("Outcome") if answer is not None else None
     if answer is None:
         return {"stage": "launching"}
+    if outcome == "held" and not launch.all("After"):
+        return dict({"stage": "launching"}, **({"words": answer.get("Words")} if answer.get("Words") else {}))
     if outcome == "held":
         return {"stage": "waiting", "after": list(after)}
     if outcome == "refused":
@@ -563,6 +568,31 @@ def stage_of(work, launch, answer, place, read, after=()):
     return dict(res, stage=f["current"])
 
 
+def place_branch(work):
+    """The branch Flume cuts a unit's or chore's place on, as Flume's status names it (`branch`): <kind>/<name>, the
+    kind and name its launch gives (reach), a unit's kind change; the same whichever partition's launch made the place,
+    since it is the work's own name and carries no partition's (crew record 0055, rejected). None for a fix or a role's
+    work, which the bolt's landings do not build."""
+    kind, _, name = work.partition("/")
+    return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
+
+
+def built_on_bolt(work, s, landings):
+    """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
+    work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
+    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read. Once a landing
+    names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
+    of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
+    whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
+    from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
+    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit)."""
+    landing = (landings or {}).get(place_branch(work) or "")
+    if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
+        return s
+    kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
+    return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
+
+
 def working(reading):
     """The places a host's runner carries Flume's status of whose current stage is working, begun with its phase live
     (flume_facts), from reading, host_read's, read: (each place's folder name, in its launches' order, None), or (None,
@@ -596,7 +626,9 @@ def piece_said(s):
     today's piece's word, with the tasks of a stage that has them and sluice's number of a submission; what goes with
     it, or ""): the work it waits on; the question it stopped short with, or the work it found; sluice's words it was
     sent back with; Flume's words of what it waits on its caller for, its held submission waiting on the user's send;
-    the room it is queued for; the runner's words refusing it; or why crew can't tell its stage."""
+    the room it is queued for; the runner's words refusing it, or holding a launch with no After work; or why crew
+    can't tell its stage; and, for one read merged from its bolt's landing (built_on_bolt), the branch and commit
+    that landing names."""
     st = s["stage"]
     tasks = f" {s['tasks'][0]}/{s['tasks'][1]}" if s.get("tasks") and s["tasks"][1] and st in ("code", "verify") else ""
     stage = f"submitted #{s['submission']}" if st == "submitted" and s.get("submission") else st + tasks
@@ -609,6 +641,8 @@ def piece_said(s):
         f"waits on its caller at {s.get('of') or 'its submission'}: {first or s.get('why') or 'no words'}" if st in ("waits", "stalled") else
         f"for room at {s['of']}" if st == "queued" and s.get("of") else
         f"refused by the runner: {first or 'no words'}" if st == "refused" else
+        f"held by the runner: {first}" if st == "launching" and first else
+        f"{s.get('branch')} landed on its bolt at {(s.get('commit') or '')[:7]}" if st == "merged" and s.get("on") == "bolt" else
         s.get("why") or "" if st == "unknown" else "")
     return stage, detail
 
@@ -787,11 +821,20 @@ def answer_retry(work, s):
     """What crew answer asks of a crossed piece's place (Decision 9), from its stage as stage_of gives it: ("stage", the
     stage) to start again with the words, for a place whose stage stopped short asking or that waits on its caller to
     retry a stage, stalled or not; ("submission", None) to submit again with them, for one whose submission waits on its
-    caller and is not held; else (None, why), naming its stage: crew can't tell it (read.1), its submission waits held
-    for the user's send, which no answer gives (state.3), or it neither stopped short nor waits on its caller."""
+    caller and is not held; else (None, why), naming its stage: crew can't tell it (read.1), since its stage is unknown
+    or it is launching, the runner having carried no status of its place in Flume, holding its launch or not having
+    answered it, so no reading says it waits on nothing; its submission waits held for the user's send, which no answer
+    gives (state.3); or it neither stopped short nor waits on its caller. A stop-short whose agent Flume keeps open for
+    its answer reads needs like any other, and its retry naming the stage is that answer, reaching the session kept
+    open as a tell answering it does (flume 42, 49, 198)."""
     st, place = s["stage"], f"{work}'s place" + (f" {s['place']}" if s.get("place") else "")
     if st == "unknown":
         return None, f"can't tell whether {work}'s place waits on an answer: {s['why']}"
+    if st == "launching":
+        return None, f"can't tell whether {place} waits on an answer: " + (
+            "the runner that took it has carried none of Flume's status of it yet" if s.get("place") else
+            f"the runner holds its launch, in its words: {s['words']}" if s.get("words") else
+            "no runner has answered its launch yet")
     if st == "needs" or (st in ("waits", "stalled") and s.get("of")):
         return "stage", s["of"]
     if st in ("waits", "stalled") and s.get("held"):

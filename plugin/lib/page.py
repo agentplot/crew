@@ -157,7 +157,7 @@ def labelled(d, pl, st, proposals, items, moves, assertion_of):
             b = pl.bolt(name)
             state = st.bolt_state(b)
             state = None if state == "unknown" else state
-            host = (st.at(b)[0] or {}).get("machine") if plan.started(b) else None  # where its work runs (plan.bolt_at)
+            host = st.host(b) if plan.started(b) else None  # where its work runs (plan.Stages.host)
             n.update(label=b.get("Goal"), status=BOLT.get(state), facts=[x for x in (host, state) if x])
         else:
             from_entries(n, entries)

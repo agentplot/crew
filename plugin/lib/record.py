@@ -91,9 +91,11 @@ DESCRIPTOR = """\
 # order of two units a forecast found in conflict, a turn.begin's Took (how many asks and waiting places a role's run
 # took at its start), the unit.after that puts one After the other or the one that Lifted
 # it, with the Settle whose end decided it (plan.13), a team.cross's State (the Flume stream its team's work now runs in), a record.proposed's State (settled in the pane) and Form
-# (alternatives, when its card offered them, none of the file's words), and an operation's (ops.py): a deploy's commit
+# (alternatives, when its card offered them, none of the file's words), a deploy card's post or change's Form (boxes,
+# while a step the deploy waits on is open, cards.deploy_form), and an operation's (ops.py): a deploy's commit
 # as Head and the one it comes from as Base, its Phase (start, step or end), a step's Step and Outcome, its Log and the
-# suite's Rows, and the words of what the user does about a failure the deployer handed it, Does; a step's Key, State, Doer, Agent, When, Text, Changes and Note.
+# suite's Rows, and the words of what the user does about a failure the deployer handed it, Does; a step's Key, State,
+# Doer, Agent, When (before among its words for a step the deploy waits on), Text, Changes and Note.
 EXTRA = ("Result", "Tasks", "Head", "Ended", "Delivered", "Observed", "Chars", "Amended", "Took", "Heads", "Paths", "Reached",
          "Forecast", "Batch", "Units", "Count", "Card", "Key", "Unread", "Base", "Phase", "Step", "Outcome", "Log", "Rows", "State", "Doer", "Agent",
          "When", "Text", "Changes", "Note", "Repo", "After", "Lifted", "Settle", "Form", "Answer", "Age", "Split", "Submission", "Does")

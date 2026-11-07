@@ -128,8 +128,8 @@ class TestLabels:
             def of(self, name):
                 return {"stage": "code"}
 
-            def at(self, b):  # where a started bolt's work runs, as the runner that took it reported (plan.bolt_at)
-                return {"machine": "chuck-herdr-alpha"}, None
+            def host(self, b):  # the host a started bolt's work runs on, as the runner that took it reported (plan.Stages.host)
+                return "chuck-herdr-alpha"
 
             def bolt_state(self, b):
                 return "active"
@@ -297,8 +297,8 @@ class TestMore:
             def of(self, name):
                 return {"stage": "unknown"}
 
-            def at(self, b):  # no runner has reported taking tenant-environments' work
-                return None, "no runner has reported taking bolt tenant-environments' work yet"
+            def host(self, b):  # no runner has reported taking tenant-environments' work
+                return None
 
             def bolt_state(self, b):
                 return "unknown"
@@ -617,8 +617,8 @@ def test_a_chore_stands_in_the_units_column_its_move_drawn_as_a_units_and_labell
         def of(self, name):
             return {"stage": "verify"}
 
-        def at(self, b):
-            return {"machine": "chuck-herdr-alpha"}, None
+        def host(self, b):
+            return "chuck-herdr-alpha"
 
         def bolt_state(self, b):
             return "active"
