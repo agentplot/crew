@@ -24,7 +24,7 @@ None.
 
 ## Impact
 
-- `plugin/lib/runner.py`: `place_branch`, `kit_launches`, `launch_repositories`, `refs_standing`, `branch_refusal`, `drop_kept_said`.
+- `plugin/lib/runner.py`: `kit_launches`, `launch_repositories`, `refs_standing`, `branch_refusal`, `drop_kept_said`, each branch read by the existing `place_branch`.
 - `plugin/lib/plan.py`: `BRANCHES`, `branches_in`, `branch_free`, `Reads.free`, `Drawn.free`, `op_unit_add`, `op_unit_drop`, `kit_at`.
 - `plugin/lib/record.py`: a drop's `Note` on its entry's line.
 - `tests/py/test_branch_stands.py`, `tests/py/facts.py`, `tests/contract/test_git.py`, `tests/t-journey-cross.sh`.

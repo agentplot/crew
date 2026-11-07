@@ -55,8 +55,8 @@ def keeping(host="deneb", **repos):
 
 class TestTheBranch:
     def test_a_units_launch_makes_change_and_a_chores_makes_chore(self):
-        assert runner.place_branch("unit", "a") == "change/a"
-        assert runner.place_branch("chore", "c") == "chore/c"
+        assert runner.place_branch("unit/a") == "change/a"
+        assert runner.place_branch("chore/c") == "chore/c"
 
     def test_what_stands_is_each_branch_named_exactly_and_not_one_below_it(self):
         out = f"{SHA} refs/heads/change/a\n{'d' * 40} refs/heads/change/b/old\n"

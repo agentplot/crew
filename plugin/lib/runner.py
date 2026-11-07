@@ -413,13 +413,6 @@ def where(reads, launches, what, kit):
 
 # ------------------------------------------------------------------------------------------- a name's branch
 
-def place_branch(kind, name):
-    """The branch Flume makes for the place of a unit's or chore's launch, `<kind>/<name>` as Flume names a place's
-    branch (flume 78, its place profile's `git worktree add -b`), the kind as reach launches it: change/<u> for a unit,
-    chore/<c> for a chore."""
-    return f"{'chore' if kind == 'chore' else 'change'}/{name}"
-
-
 def kit_launches(requests, kit):
     """Every launch of a partition's work in a kit's repository, by its name or forge address, dropped or not, a role's
     left out: what the runners that took them report where the kit's work runs by (where)."""
@@ -470,7 +463,7 @@ def branch_refusal(kit, kind, names, found):
     branch, the folder and host it stands in and its commit, and the two ways on: the work proposed under a fresh name,
     or the branch removed first, which is the planner's or the user's to do, never crew's (read.4)."""
     for n in names:
-        b = place_branch(kind, n)
+        b = place_branch(f"{kind}/{n}")
         for r in found:
             c = r["refs"].get(b)
             if c:
@@ -486,7 +479,7 @@ def drop_kept_said(kind, name, base):
     """What a drop of a unit or chore whose launch stands says, as it prints and on its entry (Note): Flume drops its
     place and keeps its branch while that holds work its base lacks (flume 67), and the name stays taken while the
     branch stands, since Flume refuses a launch that would make it again (flume 3; branch_refusal)."""
-    b = place_branch(kind, name)
+    b = place_branch(f"{kind}/{name}")
     return (f"Flume keeps {b} while it holds work {base} lacks, and the name {name} stays taken while that branch stands: "
             f"a {kind} added as {name} again is refused until the planner or the user removes it")
 

@@ -1735,7 +1735,7 @@ def branch_free(fleet, label, kit, names, kind):
     requests, reads = runner_facts(fleet, label)
     repos, why = runner.launch_repositories(reads, runner.kit_launches(requests, kit), kit)
     not why or fail(f"cannot check whether Flume's branch for {kind} {', '.join(names)} stands: {why}")
-    branches = [runner.place_branch(kind, n) for n in names]
+    branches = [runner.place_branch(f"{kind}/{n}") for n in names]
     found = [dict(r, refs=branches_in(fleet, r["host"], r["dir"], branches)) for r in repos]
     why = runner.branch_refusal(kit, kind, names, found)
     not why or fail(why)

@@ -88,8 +88,7 @@ None: the check and the drop's words run in the commands themselves, and the log
 
 ## Task notes
 
-**1.1** `plugin/lib/runner.py`, under *a name's branch*:
-- `place_branch(kind, name)`;
+**1.1** `plugin/lib/runner.py`, under *a name's branch*, reading each branch with `place_branch(work)`, the one reading of a place's branch from its work's name that `built_on_bolt` already uses:
 - `kit_launches(requests, kit)`;
 - `launch_repositories(reads, launches, kit)`;
 - `refs_standing(out, branches)`;
