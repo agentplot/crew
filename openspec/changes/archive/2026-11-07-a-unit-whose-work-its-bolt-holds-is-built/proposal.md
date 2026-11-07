@@ -24,7 +24,7 @@ None.
 
 ### Modified Capabilities
 
-- `bolt-plan`: "A unit whose work its bolt's branch holds is built", added. "A started bolt's work reads its stage from the runner's records" and "A unit's stage is read from the runner, or from the plan before its bolt starts" each name it.
+- `bolt-plan`: "A unit whose work its bolt's branch holds is built", added. "A unit's stage is read from the runner, or from the plan before its bolt starts" names it.
 - `drive-state`: "A kit's work is taken by a runner whose configuration names its repository" reads a bolt whose launches were all refused where its runner keeps the kit.
 
 ## Impact

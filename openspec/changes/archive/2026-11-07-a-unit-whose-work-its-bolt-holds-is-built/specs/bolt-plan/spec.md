@@ -29,17 +29,6 @@ crew SHALL read a started bolt's unit or chore as `merged`, at the landing's com
 
 ## MODIFIED Requirements
 
-### Requirement: A started bolt's work reads its stage from the runner's records
-For every unit, chore and fix of a bolt marked `Path: flume`, a bolt started by `crew bolt start`, crew SHALL read its stage from its newest launch not dropped, that launch's answer and its place's record on the runner's branch, never from a place in the kit: unknown where its host was not read or it has no launch, launching before an answer, waiting while held for its After work, refused with the runner's words. A unit or chore whose place's landing its bolt's branch holds SHALL read as "A unit whose work its bolt's branch holds is built" gives it. `crew bolts` and every decision that reads a stage SHALL read the same.
-
-#### Scenario: A dependent waits
-- **WHEN** `b`'s launch is answered held, `a`'s place not yet landed
-- **THEN** `crew bolts` shows `b` waiting on `a`
-
-#### Scenario: The runner's host is silent
-- **WHEN** deneb's runner branch can't be read
-- **THEN** every piece launched on deneb reads unknown, and `crew bolts` names deneb
-
 ### Requirement: A unit's stage is read from the runner, or from the plan before its bolt starts
 crew SHALL read each unit's and chore's stage from the plan, the runner's records and its bolt's landings alone, never from a place in the kit: `queued` while it has no bolt; for a bolt not started, `ready`, or `waiting` while it names `After` work, which builds only once the bolt starts; for a started bolt, as "A started bolt's work reads its stage from the runner's records", "A launched place's stage is where Flume's status has it" and "A unit whose work its bolt's branch holds is built" give it, `landed` once main holds its change, open or archived, or a chore's trailer; and `unknown`, naming why, where crew cannot read what it rests on. Nothing SHALL be kept by hand to say how far work has got.
 
