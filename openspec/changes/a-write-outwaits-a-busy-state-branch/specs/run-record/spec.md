@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: An entry that did not reach the branch goes with the host's next
-When an entry cannot be pushed, crew SHALL say so once on standard error, naming the entry, the branch and why, and the command SHALL do its work and exit as it would have. An entry whose every replay is refused because the branch kept moving SHALL be treated so too. The entry SHALL stay in the host's file. The host's next push of the partition's record, by its next entry or by `crew events --push`, SHALL first push each of the host's entries the branch lacks, each as its own commit, oldest first. `crew events --push` SHALL say when the branch already holds every entry the host has.
+When an entry cannot be pushed, crew SHALL say so once on standard error, naming the entry, the branch and why, and the command SHALL do its work and exit as it would have. The entry SHALL stay in the host's file. The host's next push of the partition's record, by its next entry or by `crew events --push`, SHALL first push each of the host's entries the branch lacks, each as its own commit, oldest first. `crew events --push` SHALL say when the branch already holds every entry the host has.
 
 #### Scenario: GitHub out of reach
 - **WHEN** a conductor on the box starts a stage while github.com cannot be reached
