@@ -1349,7 +1349,10 @@ class Stages:
         or it has no launch, as stage_of says; merged once its place has landed on its bolt, and landed once main holds
         it, a unit's change archived there or a chore's trailer, as today's do. It has no worktree in the kit, flume
         holds the whole of stage_of's answer, which the views show (runner.piece_said), and carried when the runner
-        carried its place's status, which a batch reads it at (crossed_changes)."""
+        carried its place's status, which a batch reads it at (crossed_changes). A piece whose place's branch a landing
+        on its bolt names is merged at that landing, read from the bolt's branch as the kit was read, whatever the
+        runner reports of its place and whichever partition's launch made it, carried then when it landed
+        (runner.built_on_bolt; crew record 0056 decision 2)."""
         run, work = self.runner(self.label), runner.work_of(u)
         if isinstance(run, str):
             s = runner.stage_of(work, None, None, None, f"crew can't read {self.label}'s requests or runners: {run}")
@@ -1361,8 +1364,11 @@ class Stages:
             reading = runner.taken(reads, n)[0] if launch is not None else None
             place = reading["places"].get(n) if reading else None
             res["carried"] = place["at"] if place else None  # when the runner carried its place's status
+        k, _ = self.kit(bolt) if not isinstance(run, str) else (None, None)
+        built = runner.built_on_bolt(work, s, ((k or {}).get("bolts", {}).get(bolt.name()) or {}).get("landings"))
+        if built is not s:
+            s, res["carried"] = built, built["landed"]
         if s["stage"] == "merged":
-            k, _ = self.kit(bolt)
             if k and name in (k.get("chores", []) if is_chore(u) else k["main"]):
                 s = dict(s, stage="landed")
         res.update(stage=s["stage"], tasks=s.get("tasks"), flume=s, **({"why": s["why"]} if s.get("why") else {}))
@@ -8280,12 +8286,21 @@ def launched_at(fleet, label, bolt, repo, run=None):
     """Where a bolt's work ran, as bolt_at gives it, from its launches, which requests.rec keeps once the bolt has left
     the plan, its kit (repo) as the plan or its landing named it (a landing read after the bolt's close, landing_at); and,
     while no runner has taken any of the bolt's own work, where the runner that took its kit's work reported the kit
-    (kit_at), since the bolt is read and landed in the kit's folder there."""
+    (kit_at), since the bolt is read and landed in the kit's folder there; and where the runner that took the bolt's
+    work has carried no place of it, every launch refused, as one for a change the bolt already holds is, the kit's folder
+    on that runner's host as its places of the kit's other work name it (kit_at), never another host's."""
     requests, reads = run or runner_facts(fleet, label)
     at, why = runner.where(reads, bolt_launches(requests, bolt), f"bolt {bolt}", repo)
     not why or fail(why)
     if at is None:
         return kit_at(fleet, label, repo, (requests, reads))
+    if not at["dir"]:
+        try:
+            k = kit_at(fleet, label, repo, (requests, reads))
+        except Refusal:
+            k = None
+        if k and k["machine"] == at["host"]:
+            return dict(k, stream=at["stream"] or k["stream"])
     at["dir"] or fail(f"the runner on {at['host']} took bolt {bolt}'s work and has carried no place of it yet, so crew can't "
                       f"tell where it keeps {repo} there")
     return {"label": label, "machine": at["host"], "stream": at["stream"], "kit": kit_of(repo, at["dir"])}

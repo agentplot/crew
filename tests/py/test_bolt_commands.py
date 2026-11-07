@@ -525,6 +525,27 @@ class TestCrewBoltsCrossed:
         none = "no runner answers for madswan: its state repository holds no madswan/runner/<host>"
         assert self.data({})["runners_unread"] == {"madswan's runners": none}
 
+    def test_a_bolt_whose_units_its_branch_holds_reads_where_it_runs_and_each_unit_merged(self):
+        """bolt-plan "A unit whose work its bolt's branch holds is built" (signal 2026-11-07-agentplot-planner-cbc41169/02):
+        x's a and b ran as another partition's places and landed on x, sluice passing its last landing; crew launched
+        them again here and the runner refused each, the bolt already holding the change, so no place of x's names the
+        kit's folder; y, started, runs on deneb. crew bolts reads x at deneb, never "where it runs can't be told", each
+        of a and b merged at its landing, and x waiting to land."""
+        from facts import crew_read, launched, madswan_fleet, ran
+        fleet = madswan_fleet()
+        p, requests = launched(["x", "y"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("y1", "y", [], "unit", [])],
+                               fleet=fleet)
+        runners = ran({3: "code"}, refused={n: f"the base bolt/x already holds a change named {u}" for n, u in ((1, "a"), (2, "b"))})
+        landings = {"change/a": {"commit": "1" * 40, "at": "2026-11-07T19:10:00Z"}, "change/b": {"commit": "2" * 40, "at": "2026-11-07T19:20:00Z"}}
+        d = plan.bolts_data(fleet, ["madswan"], [("madswan", "afterthought/crew-state", "abcdef1" + "0" * 33, p)],
+                            crew_read(bolts={"x": {"landings": landings, "verdict": "passed (9 run, 0 replayed)"}, "y": {}}), {},
+                            runs={"madswan": (requests, runners)})
+        out = plan.bolts_text(d).splitlines()
+        assert "x  crew  @ deneb, in Flume stream madswan  waits" in out
+        assert f"  {'a':<40} {'merged':<12}   change/a landed on its bolt at 1111111" in out
+        assert f"  {'b':<40} {'merged':<12}   change/b landed on its bolt at 2222222" in out
+        assert not any("can't be told" in line for line in out)
+
     def test_a_question_and_sluices_words_are_on_the_pieces_line(self):
         """bolt-plan "A construct that asked" and "Sent back by sluice"."""
         from facts import ran

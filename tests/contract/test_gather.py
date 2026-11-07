@@ -1,6 +1,7 @@
 """What crew assumes of git when gather.py reads a kit, each case naming what assumes it: Stages reads a unit's
 stage from the changes main and its bolt's branch hold, its place, and its fix (state.2, plan.12; crew bolts, crew
 board and crew sites read every host's kits through gather.kit, once per host)."""
+import datetime
 import json
 import os
 import re
@@ -554,3 +555,46 @@ class TestReadingsStamp:
         for name in ("run", "Popen", "call", "check_call", "check_output"):
             monkeypatch.setattr(subprocess, name, refuse)
         assert gather.readings_stamp(["wldn"])
+
+
+def landing(repo, path, branch, n):
+    """A landing sluice makes on a bolt, in the bolt's worktree at path: branch's place merged as a merge commit, its
+    message sluice's (its text.rs), Sluice-From naming the place's branch as Flume submits it; its commit."""
+    repo.git("-C", str(path), "merge", "-q", "--no-ff", "-m", f"chore(land): #{n} {branch}\n\nSluice-Submission: {n}\n"
+             f"Sluice-From: {branch} ({branch})\nSluice-Tested: {'0' * 40}\nSluice-Result: passed (1 run, 0 replayed)", branch)
+    return repo.git("-C", str(path), "rev-parse", "HEAD")
+
+
+def utc_of(repo, commit):
+    """A commit's committer time in UTC, as gather.landed_from gives a landing's."""
+    t = int(repo.git("log", "-1", "--format=%ct", commit))
+    return datetime.datetime.fromtimestamp(t, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_a_bolts_landings_name_each_place_landed_on_it_before_and_after_the_bolt_lands_on_main(repo, tmp_path):
+    """Stages, crew bolts, the batches and the landing's close (bolt-plan "A unit whose work its bolt's branch holds is
+    built"; crew record 0056 decision 2): bolt/te holds sluice's landings of change/a and chore/c, each merge's
+    Sluice-From naming the place's branch, and a's place's own commit carries a Sluice-From of its own on the second
+    parent, which is not the bolt's landing. gather reads each landing by its branch on the bolt's first-parent line,
+    beyond main while main has moved on and still once main holds the bolt, read then beyond main as it stood when the
+    bolt landed; a bolt with nothing of its own names none."""
+    k = Kit(repo, tmp_path)
+    bolt = k.dir / "bolts" / "te"
+    for branch, f in (("change/a", "a"), ("chore/c", "c")):
+        repo.git("-C", str(bolt), "branch", branch)
+        place = tmp_path / branch.replace("/", "--")
+        repo.git("worktree", "add", "-q", str(place), branch)
+        repo.commit("x", None)  # main moves on beside the bolt
+        (place / f).write_text(f"{f}\n")
+        k.commit(place, f"feat: {f}\n\nSluice-From: someone (unit/{f}-earlier)")
+    a, c = landing(repo, bolt, "change/a", 1), landing(repo, bolt, "chore/c", 2)
+    want = {"change/a": {"commit": a, "at": utc_of(repo, a)}, "chore/c": {"commit": c, "at": utc_of(repo, c)}}
+    got = k.read()["bolts"]["te"]
+    assert (got["landings"], "landings_error" in got) == (want, False)
+    repo.git("merge", "-q", "--no-ff", "-m", "chore(land): #3 bolt/te\n\nSluice-From: ops (pull/1)", "bolt/te")
+    repo.commit("chore: main moves on after the landing", None)
+    assert k.read()["bolts"]["te"]["landings"] == want
+    repo.git("branch", "bolt/empty", "main")
+    assert gather.bolt_landings(str(repo.path), "refs/heads/bolt/empty", "refs/heads/main") == ({}, None)
+    assert gather.bolt_landings(str(repo.path), "refs/heads/bolt/gone", "refs/heads/main") == (
+        None, "git could not read bolt/gone's head at bolt/gone")
