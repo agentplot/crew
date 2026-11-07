@@ -14,4 +14,4 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 ## 3. README and the tests the change affects
 
 - [x] 3.1 README's State section says a refused push is applied again after a growing wait, up to six times (Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
-- [ ] 3.2 Verify `tests/suite --affected` ends with "0 failed".
+- [x] 3.2 Verify `tests/suite --affected` ends with "0 failed".
