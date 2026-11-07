@@ -8,4 +8,4 @@
 ## 2. The docs and the change's tests
 
 - [x] 2.1 README, the crew skill and `crew`'s usage header say the batch is taken or sent again and an idle reviewer that took no batch is started afresh (`docs.2`; Task notes 1.3). Verify `tests/suite t-docs` ends with "0 failed".
-- [ ] 2.2 The tests the change affects pass. Verify `tests/suite --affected` ends with "0 failed".
+- [x] 2.2 The tests the change affects pass. Verify `tests/suite --affected` ends with "0 failed".
