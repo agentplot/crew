@@ -1698,23 +1698,6 @@ def kit_name(text):
     return text
 
 
-def former_said(given, now):
-    """What a command given a kit's former name says of the name it wrote (Decision 4 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan), or None for a name no rename renamed."""
-    return None if now == given else f"{given} is {now} since its rename; written as {now}"
-
-
-def former_kept_said(given, now, host, kept):
-    """Why a command given a kit's former name is refused, or None (Decision 4 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan): the partition's main-level host keeps a repository by that
-    name again (kept, crew.kit_kept's, or None), made after the rename, whose records crew could not tell from the
-    renamed kit's (read.1)."""
-    if now == given or kept is None:
-        return None
-    return (f"{given} is {now} since its rename, and {host}'s spaces keep {kept['repo']} again: crew can't tell its "
-            f"records from {now}'s, so that repository needs another name in crew")
-
-
 def rename_refusal(label, old, new, kits, renames, bolts, host, spaces):
     """Why crew kit rename <old> <new> is refused, or None (Decision 2 of
     a-kit-renamed-on-its-host-is-renamed-across-the-plan), from plain facts (code.7): the partition's kits by their names
@@ -5845,10 +5828,6 @@ class Direct(Reads):
         """The partition's kits (partition_kits) as its branch holds them now."""
         return kits_read(self.fleet, label)
 
-    def renames(self, label):
-        """The partition's renames of its kits (renames_read) as its branch holds them now."""
-        return renames_read(self.fleet, label)
-
 
 class Proposed(Reads):
     """What a command inside a proposal sees: the proposal's partition and number, in the plan as the commands before
@@ -5869,10 +5848,6 @@ class Proposed(Reads):
         """The partition's kits (partition_kits) in the plan as the commands before this one leave it, with the landings
         its branch holds at the write's tip."""
         return kits_at(self.w.repo, self.w.tip, self.w.plan)
-
-    def renames(self, label):
-        """The partition's renames of its kits as the run record holds them at the write's tip (Write.renames)."""
-        return self.w.renames()
 
 
 class Drawn(Proposed):
@@ -5949,40 +5924,18 @@ def called(a):
     return f"chore {a.unit}" if a.cmd == "chore" else a.unit
 
 
-def kit_given(ctx, label, kit):
-    """The kit a plan command names by --repo as it writes it (Decision 4 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan): by its name now through the partition's renames (kit_now),
-    a proposal approved after a rename among them, its Do unchanged (plan.4); refused where the partition's main-level
-    host keeps a repository by the former name again (former_kept_said). Its change writes the name now at the tip it
-    is applied to (Write.renames)."""
-    now = kit_now(kit, ctx.renames(label))
-    if now != kit:
-        host = crew.partition_of(ctx.fleet, label)["machine"]
-        why = former_kept_said(kit, now, host, crew.kit_kept(ctx.fleet, host, kit))
-        not why or fail(why)
-    return now
-
-
 def op_bolt_new(ctx, a):
     label = ctx.kit(a.repo)
     crew.NAME.match(a.bolt) or fail(f"a bolt's name is lowercase words with dashes, not {a.bolt}")
-    kit_given(ctx, label, a.repo)
     why = kit_named(a.bolt, ctx.kits(label), label)
     not why or fail(why)
-    seen = {}
 
     def change(w):
         w.plan.bolt(a.bolt) is None or fail(f"{label}/main already has bolt {a.bolt}")
-        seen["repo"] = kit_now(a.repo, w.renames())
-        r = Rec("Bolt", [("Bolt", a.bolt), ("Repo", seen["repo"]), ("Goal", a.goal)] + [("Source", x) for x in a.source])
+        r = Rec("Bolt", [("Bolt", a.bolt), ("Repo", a.repo), ("Goal", a.goal)] + [("Source", x) for x in a.source])
         w.plan.insert(r, before=w.bolt(a.before) if a.before else None)
         return [a.bolt]
-
-    def after(repo, sha):
-        said = former_said(a.repo, seen.get("repo", a.repo))
-        if said:
-            print(said)
-    return Op(label, change, f"plan({a.bolt}): add the bolt", "bolt.new", on=[f"bolt/{a.bolt}"], after=after)
+    return Op(label, change, f"plan({a.bolt}): add the bolt", "bolt.new", on=[f"bolt/{a.bolt}"])
 
 
 # The commit sluice made each started bolt's branch at in this process, and whether crew took it as it found it
@@ -6139,14 +6092,14 @@ def op_unit_add(ctx, a):
     if a.bolt:
         label, plan = ctx.locate("Bolt", a.bolt)
         kit = plan.bolt(a.bolt).get("Repo")
-        a.repo in (None, kit) or kit_given(ctx, label, a.repo) == kit or fail(f"bolt {a.bolt} is in {kit}, not {a.repo}")
+        a.repo in (None, kit) or fail(f"bolt {a.bolt} is in {kit}, not {a.repo}")
     else:
         a.repo or fail(f"a {k} goes in a bolt (--bolt) or in a repo's queue (--repo)")
         label = ctx.kit(a.repo)
-        kit, plan = kit_given(ctx, label, a.repo), None
+        kit, plan = a.repo, None
     ahead = unblocking(ctx, plan, label, a, a.bolt) if getattr(a, "unblocks", None) else None
     ctx.free(label, kit, [a.unit], k)
-    sources, seen = list(a.source), {}
+    sources = list(a.source)
     if a.signal:
         a.signal = signal_id(ctx.fleet, label, a.signal, ctx.w)  # a short id is routed, and sourced, by its full one
         sources.insert(0, f"signals/{a.signal}")
@@ -6160,7 +6113,7 @@ def op_unit_add(ctx, a):
             not why or fail(why)
         if a.signal:  # its one move, route, in the same commit, checked again on each replay
             move(ctx.fleet, label, w, a.signal, route_move(a.signal, f"{k}/{a.unit}"))
-        repo = seen["repo"] = w.bolt(a.bolt).get("Repo") if a.bolt else kit_now(a.repo, w.renames())
+        repo = w.bolt(a.bolt).get("Repo") if a.bolt else a.repo
         r = Rec("Unit", [("Unit", a.unit), ("Repo", repo)] + ([("Bolt", a.bolt)] if a.bolt else []) + ([("Kind", "chore")] if k == "chore" else [])
                 + [("Intent", a.intent)] + [("After", x) for x in a.after] + [("Source", x) for x in sources])
         before = a.before or ahead
@@ -6177,9 +6130,6 @@ def op_unit_add(ctx, a):
         return [a.bolt] if a.bolt else []
 
     def after(repo, sha):
-        said = former_said(a.repo, seen.get("repo", a.repo)) if a.repo else None
-        if said:
-            print(said)
         if a.signal:
             print(f"signal {a.signal} routed to {k}/{a.unit}, in the same commit")
             record.emit(label, "signal.move", [f"signals/{a.signal}", f"{k}/{a.unit}"], commit=[f"{repo}@{sha}"],
