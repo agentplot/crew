@@ -4,12 +4,13 @@
   python3 gather.py '<request>'      or, sent over ssh:  python3 - '<request>' < gather.py
 
 The request is JSON: {"kits": [{"main": <kit's main checkout>, "dir": <the kit's folder>, "bolts": [<bolt>, ...],
+"fetch": <true to fetch the kit's GitHub, its origin, before reading it, never given for the runner's clone, which crew
+fetches nothing in>,
 "queued": <the host's follower's [submissions, why] of the kit's queue,
 read from its overview watch, in place of running sluice>, "decided": <with queued, the follower's [submissions, why]
 of those it kept of the asked bolts and saw decided>}],
 "sites": <true to also read each worktree's dev server names with devurl, and the host's running portless routes>,
 "board": <true to also read the explorations on the kit's main>,
-"fetch": <true to fetch each kit's GitHub, its origin, before reading it>,
 "stamped": <true to also give each kit's stamp, taken before it is read>,
 "stamp": <true to give each kit's stamp alone and read nothing else: the host's follower's check that nothing moved,
 answered {"kits": {<main>: <stamp>}, "readings": <the stamp of the card readings folders of the partitions named>}>,
@@ -1033,7 +1034,7 @@ def read(request, running=None):
     out = {}
     for k in request["kits"]:
         s = stamp(k) if request.get("stamped") else None
-        out[k["main"]] = dict(kit(k, request.get("sites"), running, request.get("board"), request.get("fetch"), request.get("stamped")),
+        out[k["main"]] = dict(kit(k, request.get("sites"), running, request.get("board"), k.get("fetch"), request.get("stamped")),
                               **({"stamp": s} if request.get("stamped") else {}))
     return out
 

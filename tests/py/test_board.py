@@ -439,6 +439,91 @@ class TestFollower:
         assert board.wake(100.0, f.tick_at, "a", "a") == "tick"
 
 
+class TestInstalledCrew:
+    """The follower watches the crew the host has installed (host-holds-and-updates "An install moves while an agent sits
+    idle"): on a build its stamp is the installed command's real path, which an install moves, so the next refresh is an
+    update, handed out and started again through the installed crew; on a checkout its commit, as before."""
+
+    @pytest.fixture
+    def build(self, tmp_path, monkeypatch):
+        """crew run from a build in the store, no git, and a profile folder on its path whose crew links to a build."""
+        store = tmp_path / "store"
+        home = store / "abc-crew"
+        (home / "bin").mkdir(parents=True)
+        monkeypatch.setattr(crew, "HOME", home)
+        monkeypatch.setattr(crew, "STORE", f"{store}/")
+        profile = tmp_path / "profile/bin"
+        profile.mkdir(parents=True)
+        monkeypatch.setenv("PATH", str(profile))
+        return store, home, profile
+
+    def built(self, store, name):
+        """A build's bin/crew in the store, made where it is missing."""
+        (store / name / "bin").mkdir(parents=True, exist_ok=True)
+        (store / name / "bin/crew").write_text("#!/bin/sh\n")
+        (store / name / "bin/crew").chmod(0o755)
+        return store / name / "bin/crew"
+
+    def test_on_a_build_the_stamp_is_the_installed_commands_real_path_and_an_install_moves_it(self, build):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "abc-crew"))
+        was = board.crew_stamp()
+        assert was == os.path.realpath(home / "bin/crew")
+        (profile / "crew").unlink()
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        assert board.crew_stamp() == os.path.realpath(store / "def-crew/bin/crew") != was
+        assert board.moved_at()[0] == board.crew_stamp()
+
+    def test_on_a_checkout_the_stamp_is_its_commit(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").write_text("gitdir: /elsewhere\n")
+        monkeypatch.setattr(crew, "HOME", tmp_path)
+        monkeypatch.setattr(crew, "head_here", lambda root=None: "c" * 40)
+        assert board.crew_stamp() == "c" * 40
+
+    def test_with_no_installed_crew_the_stamp_is_unread_and_a_refresh_reads_and_hands_out_nothing(self, build):
+        assert board.crew_stamp() is None
+        kept = {"crew": ("c" * 40, b"{teams}"), "state": {}, "blueprints": {}, "kits": {}}
+        now = dict(kept, crew=(board.crew_stamp(), b"{teams}"))
+        m = board.moved(kept, now)
+        assert m["crew"] and board.refresh_plan(m, True, None not in now["crew"]) == "read"
+
+    def test_the_notice_runs_the_installed_crew(self, build):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        assert board.notice_argv() == ["pendingyou", "watch", "--", "bash", str(profile / "crew"), "_answered"]
+
+    def test_an_install_hands_out_the_restarts_and_starts_the_follower_again_through_the_installed_crew(self, build, tmp_path, monkeypatch):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        ran, started = [], []
+        monkeypatch.setattr(board.subprocess, "run", lambda argv, **kw: ran.append(argv) or
+                            board.subprocess.CompletedProcess(argv, 0, "wldn-ops is due", ""))
+        monkeypatch.setattr(board.os, "execvpe", lambda file, argv, env: started.append((file, argv, env["CREW_FOLLOWER_LOCK"])))
+        monkeypatch.setattr(board.os, "execve", lambda file, argv, env: started.append((file, argv, env["CREW_FOLLOWER_LOCK"])))
+        monkeypatch.setattr(board.sys, "argv", ["board.py", "_follow"])
+        lock = open(tmp_path / "lock", "w")
+        f = board.Follower(lock, watch=False)
+        f.labels = ["wldn"]
+        f.again({})
+        assert ran == [["bash", str(profile / "crew"), "_update", "--label", "wldn"]]
+        assert started == [("bash", ["bash", str(profile / "crew"), "_follow"], str(lock.fileno()))]
+
+    def test_on_a_checkout_the_follower_starts_again_as_its_own_board(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").write_text("gitdir: /elsewhere\n")
+        monkeypatch.setattr(crew, "HOME", tmp_path)
+        ran, started = [], []
+        monkeypatch.setattr(board.subprocess, "run", lambda argv, **kw: ran.append(argv) or
+                            board.subprocess.CompletedProcess(argv, 0, "", ""))
+        monkeypatch.setattr(board.os, "execvpe", lambda file, argv, env: started.append(argv))
+        monkeypatch.setattr(board.os, "execve", lambda file, argv, env: started.append(argv))
+        monkeypatch.setattr(board.sys, "argv", ["board.py", "_follow"])
+        f = board.Follower(open(tmp_path / "lock", "w"), watch=False)
+        f.labels = ["wldn"]
+        f.again({})
+        assert ran == [["bash", str(tmp_path / "plugin/bin/crew"), "_update", "--label", "wldn"]]
+        assert started == [[sys.executable, str(board.LIB / "board.py"), "_follow"]]
+
+
 class TestRefresh:
     """The host's follower's refresh (the crew-board spec, The rail and the board come from one read, A refresh after
     nothing moved reads nothing, A refresh after a change reads only what moved): one read for every partition with an
@@ -1641,6 +1726,29 @@ class TestViews:
         assert ledger("wldn-planner", "doctor-rows", sv=sv, cards=[card])[0].endswith(
             f"doctor-rows  in Flume stream wldn  waits to land  1 of 1 merged  {NO_START}  card open, asked by wldn-ops")
 
+    def test_ops_answered_landings_card_says_the_landing_is_ops_own(self, monkeypatch):
+        """crew-board "Ops's answered landings card": land/switchboard-kit's card, wldn-ops's, the user's answer on it
+        recorded; ops's band shows the card answered and its land line says the landing is ops's, and the planner's
+        ledger says the card waits on ops, as the rail's card line does (design Decision 3)."""
+        two = plan.Plan(plan_text(bolts=[("doctor-rows", "switchboard-kit", True)], units=[("rows-one", "switchboard-kit", "doctor-rows", [])]))
+        monkeypatch.setitem(globals(), "the_plan", lambda: two)
+        monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None)})
+        sv = kits()
+        sv[BOX]["kits"]["/kit/main"]["bolts"].update({
+            "doctor-rows": {"head": "f" * 40, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"], "verdict": "passed (2 run)"}})
+        card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW - datetime.timedelta(hours=1),
+                    answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="ticked doctor-rows", heads="doctor-rows@fffffff"))
+        d = data(sv=sv, cards=[card])
+        (m,) = d["partitions"][0]["construction"][0]["markers"]
+        assert m["card"]["answered"] == board.iso(NOW - datetime.timedelta(minutes=5))
+        assert ("✓ land/switchboard-kit  doctor-rows  waits to land  answered: the landing is yours  card answered, waits on wldn-ops"
+                in view("wldn-ops", sv=sv, cards=[card]))
+        assert ["".join(t for t, _ in l) for l in board.agent_views(d)["cards"]["wldn-ops"]] == [
+            "  your card  land/switchboard-kit  req_k1  answered 5m ago, yours to act on"]
+        assert ledger("wldn-planner", "doctor-rows", sv=sv, cards=[card])[0].endswith("card answered, waits on wldn-ops")
+        waiting = dict(card, answered=None)
+        assert "✓ land/switchboard-kit  doctor-rows  waits to land  card open, asked by wldn-ops" in view("wldn-ops", sv=sv, cards=[waiting])
+
     def test_a_unit_waits_on_no_answer_so_it_has_no_marker_even_with_an_old_verify_card_open(self):
         card = dict(label="wldn", card="req_2", key="verify/a/20261012-1200", by="swb-1-conductor", host="mac-studio", at=NOW)
         assert ledger("wldn-planner", "tenant-environments", cards=[card])[1] == "    ◑  a  code 1/2"
@@ -1839,8 +1947,11 @@ class TestViews:
         assert "home + '/.cache/crew/board/' + label + '.agents.json'" in mod and board.agents_path("wldn").parts[-4:] == (".cache", "crew", "board", "wldn.agents.json")
         assert re.findall(r"style === '(\w+)'", mod) == ["bold"] and "dimColor: true" in mod
         assert v["cards"] == {} and json.loads(json.dumps(board.agent_views(data(cards=[QUESTION]))))["cards"]["wldn-ops"]
+        answered = dict(QUESTION, answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="picked a", heads=None))  # an answered card's line
+        lines = [l for lines in json.loads(json.dumps(board.agent_views(data(cards=[answered]))))["cards"].values() for l in lines]
+        assert any("answered 5m ago, yours to act on" in t for l in lines for t, _ in l)
         standing = board.agent_views(data(sv=queued(STANDING_SUBS)))["views"]  # a merge and a landing standing in sluice, drawn as plain segments
-        lines = [v["stale"]] + [l for lines in v["views"].values() for l in lines] + [l for lines in board.agent_views(data(cards=[QUESTION]))["cards"].values() for l in lines]
+        lines += [v["stale"]] + [l for lines in v["views"].values() for l in lines] + [l for lines in board.agent_views(data(cards=[QUESTION]))["cards"].values() for l in lines]
         lines += [l for lines in standing.values() for l in lines]
         assert any("#41 under test" in t for l in standing["wldn-planner"] for t, _ in l)
         # a role's run's view, under its run's name, its lines of the same form (Decision 15 of roles-run-as-flume-kinds)
@@ -2007,6 +2118,18 @@ class TestCards:
         drawn = {a: ["".join(t for t, _ in l) for l in lines] for a, lines in v["cards"].items()}
         assert drawn == {"wldn-planner": ["  your card  proposal/2  req_p2  open 2h 05m"], "wldn-ops": ["  your question  req_q1  open 14m"]}
         assert ("req_q1", "dim") in v["cards"]["wldn-ops"][0]
+
+    def test_the_planners_answered_proposal_card_says_it_was_answered_and_is_the_planners_to_act_on(self):
+        """crew-board "The planner's answered proposal card": proposal/57's card, wldn-planner's, answered five minutes
+        ago; the board's card carries when and what (design Decision 3)."""
+        p57 = dict(label="wldn", card="req_57", key="proposal/57", by="wldn-planner", host="mac-studio", at=NOW - datetime.timedelta(hours=1),
+                   answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="approved", heads=None))
+        v = board.agent_views(data(cards=[p57]))
+        assert ["".join(t for t, _ in l) for l in v["cards"]["wldn-planner"]] == ["  your card  proposal/57  req_57  answered 5m ago, yours to act on"]
+        (c,) = data(cards=[p57])["partitions"][0]["cards"]
+        assert (c["answered"], c["answer"]) == (board.iso(NOW - datetime.timedelta(minutes=5)), "approved")
+        (c,) = data(cards=[dict(p57, answered=None)])["partitions"][0]["cards"]
+        assert (c["answered"], c["answer"]) == (None, None)
 
     def test_the_board_lists_each_open_card_with_what_it_is(self):
         rec = dict(QUESTION, card="req_r1", key="record/atlas-kit/0021", by="wldn-design")
@@ -2317,26 +2440,25 @@ def crew_standing():
     return {r: False for r in crew.KIND_ROLES}
 
 
-class TestRenamedKit:
-    """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: a partition whose landings were recorded under
-    tailrace, renamed timber since, names timber alone, its kits read as the rail's read reads them (plan.kits_at, from
-    the landings and the renames of one read of runs/); and the agents' views keep the keys crew's mod reads (code.8), so
-    plugin/hooks/status.js is untouched."""
+class TestLandingsUnderAnotherName:
+    """bolt-plan "Landings under another name", on the board: a partition whose run record holds a landing under
+    agentplot/tailrace and, after it, a kit.rename of tailrace to timber names agentplot/tailrace as written, its kits
+    read as the rail's read reads them (plan.kits_at; the landings a tip holding both entries gives, which test_kits'
+    TestRunsRead proves); and the agents' views keep the keys crew's mod reads (code.8), so plugin/hooks/status.js is
+    untouched."""
     LANDED = {"Id": "20261104T100000Z-1-deneb-1-1", "At": "2026-11-04T10:00:00Z", "Act": "bolt.land", "On": ["bolt/ledger"],
               "From": [], "Commit": [], "Repo": "agentplot/tailrace", "Head": "a" * 40}
-    RENAMED = {"Id": "20261105T100000Z-1-deneb-1-1", "At": "2026-11-05T10:00:00Z", "Act": "kit.rename", "On": ["kit/timber"],
-               "From": ["kit/tailrace"], "Commit": [], "Repo": "timber", "Count": "21"}
 
-    def board(self, monkeypatch, renames):
-        monkeypatch.setattr(plan, "runs_at", lambda repo, tip: {"landings": [self.LANDED], "renames": renames})
+    def board(self, monkeypatch, landings):
+        monkeypatch.setattr(plan, "landings_at", lambda repo, tip: landings)
         r = read()
         r["kits"] = {l: plan.kits_at(repo, tip, p) for l, repo, tip, p in r["found"]}
         return board.board_data(FLEET, ["wldn"], r, NOW)
 
-    def test_the_board_names_the_kit_by_its_name_now_and_the_views_keep_their_keys(self, monkeypatch):
-        renamed, before = self.board(monkeypatch, [self.RENAMED]), self.board(monkeypatch, [])
-        assert renamed["partitions"][0]["kits"] == ["breadboard-kit", "switchboard-kit", "timber"]
-        assert before["partitions"][0]["kits"] == ["agentplot/tailrace", "breadboard-kit", "switchboard-kit"]
-        v, was = json.loads(json.dumps(board.agent_views(renamed))), json.loads(json.dumps(board.agent_views(before)))
+    def test_the_board_names_the_kit_as_its_landing_wrote_it_and_the_views_keep_their_keys(self, monkeypatch):
+        landed, before = self.board(monkeypatch, [self.LANDED]), self.board(monkeypatch, [])
+        assert landed["partitions"][0]["kits"] == ["agentplot/tailrace", "breadboard-kit", "switchboard-kit"]
+        assert before["partitions"][0]["kits"] == ["breadboard-kit", "switchboard-kit"]
+        v, was = json.loads(json.dumps(board.agent_views(landed))), json.loads(json.dumps(board.agent_views(before)))
         assert set(v) == set(was) == {"read_at", "stale_after_ms", "stale", "views", "cards"}
-        assert set(v["views"]) == set(was["views"]) and not any("tailrace" in t for lines in v["views"].values() for l in lines for t, _ in l)
+        assert set(v["views"]) == set(was["views"])

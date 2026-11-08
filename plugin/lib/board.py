@@ -18,8 +18,8 @@
                                      repository once a minute on its clock and showing this host's writes within
                                      seconds, checking first what moved and reading only that, asking another host,
                                      Pending You or herdr only when something there could have moved, each
-                                     repository's queue followed through one sluice overview watch; the due restarts handed out once crew's checkout or the teams file
-                                     moved (crew _update), and each partition's rail, board and agents' views written as
+                                     repository's queue followed through one sluice overview watch; the due restarts handed out once crew's checkout, the crew
+                                     the host has installed or the teams file moved (crew _update), and each partition's rail, board and agents' views written as
                                      frames, stale after three minutes; it waits for the host's follower lock while a
                                      rail tab holds it. --once makes one tick, with no watch, and ends
   crew _rail <label> [--once]        the rail tab: the latest rail the host's follower wrote, drawn whenever it
@@ -162,12 +162,15 @@ def roles_read(fleet, found):
 # ------------------------------------------------------------------------------------------------- the data
 
 def marker(r, cards, label, logs):
-    """A rail row as a marker: its group, its card key, its glyph, when it began to wait, its card, open or None, and,
-    when none is open, the words of Pending You's refusal of the last post under its key, as the rail's card line gives
-    them (plan.last_refusal), or None; logs are the label's run-record entries the rail read."""
-    card = [c for c in cards if (c["label"], c["key"]) == (label, r["key"])]
+    """A rail row as a marker: its group, its card key, its glyph, when it began to wait, its card, the one open in the
+    row owner's name as the rail's card line names it (plan.row_cards), with when the user answered it, or None, and,
+    when none is open, the words of
+    Pending You's refusal of the last post under its key, as the rail's card line gives them (plan.last_refusal), or
+    None; logs are the label's run-record entries the rail read."""
+    card, _ = plan.row_cards(cards, dict(r, label=label))
     return {"group": r["group"], "key": r["key"], "glyph": GLYPH[r["group"]], "at": r.get("date") or iso(r["at"]),
-            "card": {"by": card[-1]["by"], "host": card[-1]["host"], "at": iso(card[-1]["at"])} if card else None,
+            "card": {"by": card["by"], "host": card["host"], "at": iso(card["at"]),
+                     "answered": iso(card["answered"]["at"]) if card.get("answered") else None} if card else None,
             "refused": None if card else plan.last_refusal(logs, r["key"])}
 
 
@@ -309,7 +312,8 @@ def board_data(fleet, labels, read, now):
         mine = sorted((c for c in cards if c["label"] == l), key=lambda c: (c["at"], c["card"]))
         parts.append({"label": l, "plan": tip, "hosts": hosts, "kits": list(read["kits"].get(l, [])),
                       "cards": [{"key": c["key"], "card": c["card"], "by": c["by"], "host": c["host"], "at": iso(c["at"]),
-                                 "kind": plan.card_kind(c["key"])} for c in mine],
+                                 "kind": plan.card_kind(c["key"]), "answered": iso(c["answered"]["at"]) if c.get("answered") else None,
+                                 "answer": c["answered"]["answer"] if c.get("answered") else None} for c in mine],
                       "records": records_proposed(logs, mine),
                       "inception": {"signals": sorted(sigs,
                                                       key=lambda s: (when(s["at"]) is None, when(s["at"]) or now, s["signal"])),
@@ -402,9 +406,11 @@ def named(repo, name):
 
 
 def card_of(ms):
-    """What each marker of a line says of its card at the line's end: open and who asked it, none open, or none open
+    """What each marker of a line says of its card at the line's end: open and who asked it, answered and whose act it
+    waits on (design Decision 3 of a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), none open, or none open
     because Pending You refused its row's last post, which the row then owes."""
-    return [(f"card open, asked by {m['card']['by']}" if m["card"] else
+    return [(f"card answered, waits on {m['card']['by']}" if m["card"] and m["card"].get("answered") else
+             f"card open, asked by {m['card']['by']}" if m["card"] else
              "no card open, its post refused" if m.get("refused") else "no card open", None) for m in ms]
 
 
@@ -805,7 +811,8 @@ def ops_view(p):
     """Main-level ops's: the partition's operations in brief; each fix of a kit's main and each take-main fix in flight,
     with its stage (fixing; crew-board "A fix of main in ops's band"); each kit's landing row, its landings card ops's, naming
     the bolts that wait on its main in the plan's order, each with its landing standing in sluice when one stands
-    (landing_said), with its card, and each started bolt whose landing stands on no such row; then, environment by
+    (landing_said), with its card, saying the landing is ops's once the user has answered it, and each started bolt
+    whose landing stands on no such row; then, environment by
     environment, each deploy
     waiting on the user's word with its card, each approved and not yet deployed, each running, and each operation step
     waiting, handed or failed, with the deploy it comes after, or whose gate it is, and its doer; the head line of each
@@ -826,8 +833,9 @@ def ops_view(p):
             if m["group"] == "land":
                 lands.setdefault(m["key"], (m, []))[1].append(b["bolt"])
     landing = {b["bolt"]: f"{b['bolt']} {landing_said(b)}" for b in p.get("construction", []) if b.get("landing")}
-    for key, (m, bolts) in lands.items():
-        out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land"),
+    for key, (m, bolts) in lands.items():  # a card the user answered leaves the landing to ops (Decision 3)
+        out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
+                              "answered: the landing is yours" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
     out += [row(fields(b["repo"] or "", b["bolt"], landing_said(b)), " ") for b in p.get("construction", [])
@@ -862,9 +870,12 @@ def run_rows(r, now):
 
 def card_line(c, now):
     """An open card of an agent's own, as its band shows it above its view: its question or the row's card, its key,
-    its id, dim, and how long it has been open."""
+    its id, dim, and how long it has been open, or, once the user has answered it, how long ago and that it is the
+    agent's to act on (crew-board "An agent's band says which of its cards the user answered")."""
     what = {"question": "your question", "record": "your record's card"}.get(c["kind"], "your card")
-    return row(fields(what, c["key"] or "", (c["card"], "dim"), f"open {plan.age(when(c['at']), now)}"), " ")
+    since = (f"answered {plan.age(when(c['answered']), now)} ago, yours to act on" if c.get("answered") else
+             f"open {plan.age(when(c['at']), now)}")
+    return row(fields(what, c["key"] or "", (c["card"], "dim"), since), " ")
 
 
 def agent_views(data):
@@ -921,14 +932,16 @@ def held_row(host, h):
 
 
 def here_read(fleet, label):
-    """What this host's agents of a partition run of crew, for their bands (agent_views): this host, its crew's
-    version, its hold, and each main-level role of the partition here with a recorded start, by name (crew.agents_here): the version it
-    started on, and whether an update has made it due a restart (crew.due_of)."""
-    commit, version = crew.crew_version()
+    """What this host's agents of a partition run of crew, for their bands (agent_views): this host, the version of the
+    crew it has installed (crew.installed), which a due agent takes at its next stop, its hold, and each main-level role
+    of the partition here with a recorded start, by name (crew.agents_here): the version it started on, and whether an
+    update has made it due a restart (crew.due_of), judged against the installed crew."""
+    now = crew.installed()
+    version = now["version"]
     started, agents = crew.starts(), {}
     for name in crew.agents_here(fleet, label):
         if name in started:
-            due, _, _ = crew.due_of(fleet, name, started[name], commit)
+            due, _, _ = crew.due_of(fleet, name, started[name], now)
             agents[name] = {"version": started[name]["version"], "due": due}
     return {"host": crew.this_host(), "version": version, "held": crew.held(), "agents": agents}
 
@@ -1123,10 +1136,13 @@ def moved(kept, now):
     return dict(out, read=read, any=read or bool(out["readings"]) or out["cards"] or bool(out["queues"]))
 
 
-def cards_stamp(found, why, left, asks, listed=None):
+def cards_stamp(found, why, left, asks, listed=None, owned=None):
     """What the follower's check compares of the cards (Decisions 3 and 8 of a-rail-refresh-after-no-change-reads-nothing):
     of each card Pending You was asked after at the clock's last ask (plan.cards_fetched, found {card: (got, words)}),
-    whether it answered it lost, the fact the card sweep acts on, [[card, lost]], and of each asker herdr was asked
+    whether it answered it lost, the fact the card sweep acts on, [[card, lost]], of each card read in its owner's name
+    at that ask (plan.owners_read, owned {card: (got, words)}), its status or that it was refused, [["owned", card,
+    state]], since an answer or an end the sweep records is read there (Decision 2 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), and of each asker herdr was asked
     about with it (plan.askers_listed, listed {name: (listed, why)}), whether its pane holds an agent, [["asker",
     name, listed]]; but the ask itself, ["again", asks], the count of asks made, when its bridge failed (why) or the
     last card sweep left a card, its act not gone through (left), so the cards count as moved at each ask until the
@@ -1135,13 +1151,23 @@ def cards_stamp(found, why, left, asks, listed=None):
     if why is not None or left:
         return ["again", asks]
     return sorted([card, plan.cards.lost(words)] for card, (_, words) in found.items()) + sorted(
+        ["owned", card, "refused" if words is not None else str((got or {}).get("status"))] for card, (got, words) in (owned or {}).items()) + sorted(
         ["asker", name, here] for name, (here, _) in (listed or {}).items())
+
+
+def kept_stamp(kept, left, asks, listed):
+    """cards_stamp of the follower's kept answers (kept, plan.cards_fetched's (found, why) or (found, why, owned))."""
+    found, why, *owned = kept
+    return cards_stamp(found, why, left, asks, listed, owned[0] if owned else None)
 
 
 def card_left(swept):
     """Whether a card sweep (plan.sweep_cards) left a card or a partition unswept, its act not gone through: what the
-    clock's next tick tries again (cards_stamp)."""
-    return bool(swept) and (any(d["did"] == "left" for d in swept["done"]) or bool(swept["unswept"]))
+    clock's next tick tries again (cards_stamp). A landings card left as the user answered it, waiting on its owner to
+    land what they ticked (plan.WAITS_ON_OWNER), is no act that did not go through: the landing's own entry moves the
+    record, and the read after it sweeps the card."""
+    return bool(swept) and (any(d["did"] == "left" and not (d["words"] or "").startswith(plan.WAITS_ON_OWNER) for d in swept["done"])
+                            or bool(swept["unswept"]))
 
 
 def queue_key(doc):
@@ -1329,14 +1355,25 @@ def fetches(fleet, labels):
     return out
 
 
+def crew_stamp():
+    """What says the crew this host runs has moved, read with no process: where crew runs from a checkout, its commit,
+    read from its files (crew.head_here); else the real path of the command of the crew the host has installed
+    (crew.installed_here), a read of links each install moves; else None, which a refresh reads as unread and acts on
+    with no update (read.1)."""
+    if (crew.HOME / ".git").exists():
+        return crew.head_here()
+    cmd = crew.installed_here()
+    return os.path.realpath(cmd) if cmd else None
+
+
 def moved_at():
-    """What says crew's code or the teams file has moved since a refresh: the checkout's commit, read from its files
-    (crew.head_here), and the teams file's bytes, each None when it can't be read."""
+    """What says crew or the teams file has moved since a refresh: crew's stamp (crew_stamp) and the teams file's bytes,
+    each None when it can't be read."""
     try:
         teams = crew.TEAMS.read_bytes()
     except OSError:
         teams = None
-    return (crew.head_here(), teams)
+    return (crew_stamp(), teams)
 
 
 PERIOD = record.PERIOD  # seconds: the follower's clock, on which it fetches the state and blueprints caches (plan.12)
@@ -1366,9 +1403,10 @@ def wake(now, tick_at, seen, looked):
 
 
 def refresh_plan(m, kept, crew_read=True):
-    """What a refresh does, from what moved since its last read (moved), whether it kept one, and whether crew's checkout
-    and the teams file could be read then and now (crew_read): "read" with none kept, its first, or when a tip or a kit
-    moved, reading only what moved and running every sweep; "update" once crew's checkout or the teams file moved, the
+    """What a refresh does, from what moved since its last read (moved), whether it kept one, and whether crew's stamp
+    (crew_stamp) and the teams file could be read then and now (crew_read): "read" with none kept, its first, or when a
+    tip or a kit moved, reading only what moved and running every sweep; "update" once crew's checkout, the crew the
+    host has installed or the teams file moved, the
     due restarts handed out and the follower started again as the new crew, but a read when either can't be read, which
     hands out nothing on a guess (read.1); "sweep" when only a host's card readings folder, the cards, a kit's queue or a
     host's routes moved, reading nothing, taking the queue or the routes into the kept read and running against it only
@@ -1479,7 +1517,7 @@ def answers_watched(fleet, host):
 def notice_argv():
     """The notice the follower runs: Pending You's watch, running crew _answered for each change on a card, which asks
     a role whose run the card's asker is and reads nothing else of the card (plan.card_answered)."""
-    return ["pendingyou", "watch", "--", "bash", str(crew.HOME / "plugin/bin/crew"), "_answered"]
+    return ["pendingyou", "watch", "--", "bash", crew.crew_command(), "_answered"]
 
 
 class Watches:
@@ -1695,14 +1733,16 @@ class Follower:
             return
         now, at = datetime.datetime.now(datetime.timezone.utc), time.monotonic()
         cards, askers = plan.cards_asked(fleet, read, crew.this_host(), now), plan.askers_asked(fleet, read, crew.this_host(), now)
+        owned = plan.owners_asked(fleet, read, crew.this_host(), now)  # each owner's cards, read in its name (plan.owners_read)
         if not cards and not askers:  # nothing to ask after: no bridge and no listing
             self.kept.cards, self.kept.listed = ({}, None), {}
         elif cards_due(cards, askers, self.kept.cards, self.kept.listed, self.cards_at, at):
             self.asks, self.cards_at = self.asks + 1, at
-            self.kept.cards, self.kept.listed = plan.cards_fetched(fleet, cards), plan.askers_listed(fleet, askers)
+            self.kept.cards = plan.cards_fetched(fleet, cards, owned=owned) if owned else plan.cards_fetched(fleet, cards)
+            self.kept.listed = plan.askers_listed(fleet, askers)
         else:
             return
-        self.cards = cards_stamp(*self.kept.cards, self.left, self.asks, self.kept.listed)
+        self.cards = kept_stamp(self.kept.cards, self.left, self.asks, self.kept.listed)
 
     def tick(self):
         """The clock's tick: the caches fetched, the cards asked after, and a refresh, which asks the overviews no watch
@@ -1912,7 +1952,7 @@ class Follower:
             self.kept.settle()
         if asked and self.kept.cards is not None:  # the read's sweep made the tick's ask
             self.asks, self.cards_at = self.asks + 1, time.monotonic()
-            self.cards = cards_stamp(*self.kept.cards, False, self.asks, self.kept.listed)
+            self.cards = kept_stamp(self.kept.cards, False, self.asks, self.kept.listed)
         if read is not None:
             self.left = card_left(read.get("swept"))
             self.told = {l: (tip, read["told"][l]) for l, _, tip, _ in read["found"] if l in (read.get("told") or {})}
@@ -1947,10 +1987,13 @@ class Follower:
                          stamps=dict(self.last["stamps"], readings=stamps["readings"], cards=self.cards, queues=stamps.get("queues", {})))
 
     def again(self, fleet):
-        """crew's checkout or the teams file moved: each partition's agents here that it made due a restart are handed
-        theirs (crew _update, teams.19), and the follower starts again as the new crew, its lock handed on and what the
-        update said with it; the kept read goes with this process. When it can't start again it reads afresh here."""
-        cmd = ["bash", str(crew.HOME / "plugin/bin/crew")]
+        """crew's checkout, the crew the host has installed or the teams file moved: each partition's agents here that
+        it made due a restart are handed theirs by the installed crew (crew _update, teams.19), and the follower starts
+        again as the new crew, its lock handed on and what the update said with it: through the installed command where
+        it is not crew's own, as after an install of a build, else as this crew's board.py; the kept read goes with this
+        process. When it can't start again it reads afresh here."""
+        installed = crew.installed_here()
+        cmd = ["bash", installed or crew.crew_command()]
         updated = {l: subprocess.run(cmd + ["_update", "--label", l], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True).stdout.strip() or None
                    for l in self.labels}
         if self.watches is not None:
@@ -1959,8 +2002,11 @@ class Follower:
         try:
             os.set_inheritable(self.lock.fileno(), True)
             sys.stdout.flush()
-            os.execve(sys.executable, [sys.executable, str(LIB / "board.py"), *sys.argv[1:]],
-                      dict(os.environ, CREW_FOLLOWER_LOCK=str(self.lock.fileno()), CREW_FOLLOWER_UPDATED=json.dumps(updated)))
+            env = dict(os.environ, CREW_FOLLOWER_LOCK=str(self.lock.fileno()), CREW_FOLLOWER_UPDATED=json.dumps(updated))
+            if installed and not crew.own_command(installed):
+                os.execvpe("bash", ["bash", installed, *sys.argv[1:]], env)
+            else:
+                os.execve(sys.executable, [sys.executable, str(LIB / "board.py"), *sys.argv[1:]], env)
         except OSError as e:
             print(f"crew's follower could not start again as the new crew ({e.strerror or e}); it reads afresh as it is", file=sys.stderr)
             self.updated, self.last = updated, None

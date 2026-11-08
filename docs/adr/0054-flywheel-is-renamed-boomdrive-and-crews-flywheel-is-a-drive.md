@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-04
 decision-makers: the user (the rename and its names); the chore flywheel-is-renamed-boomdrive (the record, and how crew carries it)
 ---
 
 # 0054. Flywheel is renamed Boomdrive, and crew's flywheel is a drive
 
-Status: proposed. The rename and its names are the user's decision, in their words below; how crew carries them is the chore's choice, made on the written rules. The record is accepted on the user's yes once they have seen it as a record (`briefs.15`).
+Status: accepted by the user on 2026-11-08, on their card. The rename and its names are the user's decision, in their words below; how crew carries them is the chore's choice, made on the written rules.
 
 Deciders: the user, 2026-11-04, in the brief of the chore `flywheel-is-renamed-boomdrive`, run in every repository at once: "the ecosystem, the org, the branding, the cloud and the opensource runner tool are all boomdrive. There is also a "boom" open source tool that does the claim reconciliation." They approved **drive** for a customer's unit of work, "a Flywheel", as ubiquitous language, the interface's words and the code's the same, and ruled that crew's word for a partition's state branch follows it. They asked that the same pass spell the word enroll, enrolls, enrolled, enrolling and enrollment.
 

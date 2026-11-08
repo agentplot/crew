@@ -147,34 +147,34 @@ class TestCommand:
             plan.may_write(fleet, ("main", "fix"), a)
 
 
-class TestRenamed:
-    """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: a fix of main launched under its kit's former
-    name, fix/main/tailrace/x, read once madswan has renamed tailrace timber, is timber's: on timber's landings row, and
-    reached by that row's send, crew main fix timber x --send."""
+class TestReadAsWritten:
+    """bolt-plan "A fix of main read as written": a fix of main launched as fix/main/tailrace/x, read at a tip whose run
+    record holds a kit.rename of tailrace to timber, is tailrace's: on tailrace's landings row, reached by that row's send,
+    crew main fix tailrace x --send, and crew main fix timber x --send is refused as no launch of fix/main/timber/x."""
     RENAME = {"Id": "20261105T100000Z-1-deneb-1-1", "At": "2026-11-05T10:00:00Z", "Act": "kit.rename", "On": ["kit/timber"],
               "From": ["kit/tailrace"], "Commit": [], "Repo": "timber", "Count": "21"}
 
-    def launched(self, entries=()):
-        """madswan's write with fix x launched on tailrace's main before the rename, its code delivered and its submission
-        held (tests/py/flume-0.3.6/held.json), then read at a tip whose run record holds entries."""
+    def launched(self):
+        """madswan's write with fix x launched on tailrace's main, its code delivered and its submission held
+        (tests/py/flume-0.3.6/held.json), then read at a tip whose run record holds the rename's entry."""
         w = write(runners=ran({1: "held"}))
         plan.main_fix_change(madswan_fleet(), w, "agentplot/tailrace", "x", "start", WORDS)
-        return FactsWrite(w.plan.text(), files=w.files, runners=ran({1: "held"}), label="madswan", entries=entries)
+        return FactsWrite(w.plan.text(), files=w.files, runners=ran({1: "held"}), label="madswan", entries=[self.RENAME])
 
-    def test_it_is_shown_on_the_renamed_kits_row(self, monkeypatch):
+    def test_it_is_shown_on_its_kits_row_as_launched(self, monkeypatch):
         import crew
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         w = self.launched()
-        now = plan.launches_now(plan.Plan(w.files["requests.rec"]).recs("Request"), plan.renames_in([self.RENAME]))
-        assert [f["kit"] for f in runner.main_fixes_waiting(now, w.runners())] == ["timber"]
+        written = plan.Plan(w.files["requests.rec"]).recs("Request")
+        assert [f["kit"] for f in runner.main_fixes_waiting(written, w.runners())] == ["tailrace"]
         land, = [r for r in plan.rail_rows(madswan_fleet(), [("madswan", "o/state", "tip", w.plan)], {}, [], {}, None,
-                                            {"madswan": (now, w.runners())}) if r["group"] == "land"]
-        assert land["key"] == "land/timber"
-        assert land["what"][1].endswith("can land: madswan-ops sends it with crew main fix timber x --send")
+                                            {"madswan": (written, w.runners())}) if r["group"] == "land"]
+        assert land["key"] == "land/tailrace"
+        assert land["what"][1].endswith("can land: madswan-ops sends it with crew main fix tailrace x --send")
 
-    def test_the_rows_send_reaches_it_and_its_work_stays_as_launched(self):
-        w = self.launched([self.RENAME])
-        assert plan.main_fix_change(madswan_fleet(), w, "timber", "x", "send", None) == dict(n=2, host="deneb")
-        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "fix/main/tailrace/x", "Of": "1", "Submission": "yes"}
+    def test_its_kits_send_reaches_it_and_another_name_is_refused(self):
         with pytest.raises(plan.Refusal, match="^no launch of fix/main/timber/x stands in requests.rec"):
             plan.main_fix_change(madswan_fleet(), self.launched(), "timber", "x", "send", None)
+        w = self.launched()
+        assert plan.main_fix_change(madswan_fleet(), w, "tailrace", "x", "send", None) == dict(n=2, host="deneb")
+        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "fix/main/tailrace/x", "Of": "1", "Submission": "yes"}

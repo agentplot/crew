@@ -12,7 +12,11 @@ posts (card.post), updates (card.update), or withdraws or closes (card.close): e
 the card's id in Card and the row's key in Key, and nothing written on the card. crew appends the same three for the
 cards it raises itself, with why a card's reading could not be opened in Unread, and a fourth, card.reading, for each
 try of a batch's or a long proposal's reading made after its card was raised, by crew card session, the batch's wait or
-the rail's read: done when it started the reading, refused with crew's own message when it could not.
+the rail's read: done when it started the reading, refused with crew's own message when it could not. A fifth,
+card.answer, is the user's answer on one of crew's own cards, recorded once per card by the first act of crew's that
+reads it answered (the rail's sweep, a landings card's raise, crew card read), in the card owner's name on the row's
+object or agent/<asker>: its Card and Key, its Answer in crew's words made from names alone (cards.answer_said), and
+for a kit's landings card the bolts ticked in Heads, each <bolt>@<the head the card showed>.
 
 A team's crossing to Flume (record 0050 part 3), which an older crew recorded as team.cross on team/<team>, its State
 the Flume stream the team's work then ran in, is read by crew trace team/<team> as written; crew writes it no more
@@ -77,11 +81,12 @@ DESCRIPTOR = """\
 # conflicting Paths and how it Reached the later unit (told, prompt or settle) or the conductor (wait), a slot.free's Paths (the
 # place of its slot's work the tidy in its command removed, plan.9), a stage start's Forecast (the forecast entries its prompt carries), a review batch's
 # Batch (its number) and Units (each unit as <unit>:<team>@<the commit its change was read at>), a batch due's Count, a
-# kit.rename's Repo (the kit's new name, its On kit/<name> and its From the kit/<old> it had) and Count (the plan's
-# records it renamed), a
+# kit.rename's Repo (the repository's new name, its On kit/<name> and its From the kit/<old> it had) and Count (every
+# record it renamed, the plan's sources, requests.rec's and the run record's together), a
 # card act's Card (the Pending You card's id), Key (the rail row's card key) and Unread (why its reading could not open,
-# crew's own message, on a card's post or change raised without it), a card's close's Answer (what the user answered
-# on it, in crew's words made from names alone, cards.answer_said), a landing's Repo (the kit it landed on),
+# crew's own message, on a card's post or change raised without it), a card's close's and a card.answer's Answer (what the
+# user answered on it, in crew's words made from names alone, cards.answer_said), a card.answer's Heads (the bolts the
+# user ticked on a kit's landings card, <bolt>@<the head it showed>), a landing's Repo (the kit it landed on),
 # Head (the commit that kit's main holds afterwards, plan.14), and, for a bolt a team held, its Age (whole minutes from
 # its newest give to its landing) and Split (those minutes by holder, `team 200, kit 12, team-or-kit 13, user 125,
 # hold 0, nobody 20`, team-or-kit a submission's stay in sluice crew can't split between queued and under test,

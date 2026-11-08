@@ -5,7 +5,8 @@
 # crew's teams file, each key named as the file names it, free-form JSON
 # with what crew.load requires declared for its type and with no default
 # (code.5), so a key the module does not declare passes to the file and
-# crew judges it (RFC 42). `version` is crew's own, read from
+# crew judges it (RFC 42); `repositories`, the host's kept repositories
+# (record 0061), each exactly an absolute `dir` and `checkout`. `version` is crew's own, read from
 # plugin/lib/crew.py, and no host sets it.
 { packages }:
 {
@@ -150,6 +151,29 @@ let
     };
   };
 
+  # A kept repository of this host (record 0061): exactly the folder crew
+  # names as the kit's, where worktrees are cut, and the working tree it
+  # names as the kit's checkout, each an absolute path with no default, and
+  # no other key, since the submodule declares no free-form type.
+  absolute = types.strMatching "/.*";
+  kept = types.submodule {
+    options = {
+      dir = mkOption {
+        type = absolute;
+        description = "The repository's folder, an absolute path, which crew names as the kit's and where worktrees are cut: the runner's container on a runner host.";
+      };
+      checkout = mkOption {
+        type = absolute;
+        description = "The repository's checkout, an absolute path, the working tree crew names as the kit's main checkout: the runner's view on a runner host.";
+      };
+    };
+  };
+
+  # Each kept repository's key is its address, `owner/name`.
+  addresses =
+    if cfg.settings.repositories == null then [ ] else builtins.attrNames cfg.settings.repositories;
+  unaddressed = lib.filter (r: builtins.match "[^/[:space:]]+/[^/[:space:]]+" r == null) addresses;
+
   labels = map (p: p.label) cfg.settings.partitions;
   twice = lib.unique (lib.filter (label: lib.count (l: l == label) labels > 1) labels);
 in
@@ -184,6 +208,7 @@ in
             type = types.nonEmptyListOf partition;
             description = "Every partition, listed once, with its `machine`.";
           };
+          repositories = unset (types.attrsOf kept) "The repositories this host keeps, each by its address, `owner/name`, with its `dir` and its `checkout`, which crew names on this host as the kit's folder and checkout; none where unset, and the file then names none.";
         };
       };
       description = "crew's teams file, `~/.config/crew/teams.json`, each key named as the file names it, rendered at evaluation.";
@@ -195,6 +220,10 @@ in
       {
         assertion = twice == [ ];
         message = "services.crew.settings.partitions lists ${lib.concatStringsSep ", " twice} twice: each partition is listed once, by its label.";
+      }
+      {
+        assertion = unaddressed == [ ];
+        message = "services.crew.settings.repositories names ${lib.concatStringsSep ", " unaddressed}, which is no owner/name: each kept repository is named by its address.";
       }
       {
         assertion = !(cfg.settings ? teams);
