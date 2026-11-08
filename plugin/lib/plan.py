@@ -2126,43 +2126,6 @@ echo "AT_GITHUB=$(at refs/remotes/origin/main)"
 echo "AT_OWN=$(at refs/heads/main)"
 """
 
-# What a give reads on the team's host before sluice makes the bolt's branch (plan.19): the kit's policy at its main now
-# (POLICY), and SLUICE, what the host's `sluice --version` said, on one line, for kit.sluice_refusal.
-GIVE_READ = POLICY + r"""echo "SLUICE=$(sluice --version 2>&1 | tr '\n' ' ')"
-"""
-
-# A bolt's branch made by sluice from main, where the policy at main keeps it, on GitHub for a kit whose policy names
-# origin for its bolts (plan.19), run in the kit's main checkout on the team's host, with no worktree (record 0026):
-# sluice's document on standard output and its exit (kit.branch_said). Once sluice made it, which sets the host's own
-# branch too, crew marks that branch in the kit's git config, branch.bolt/<bolt>.crew, so the tidy knows it as crew's
-# (read.4), and fetches GitHub's copy, origin/bolt/<bolt>, where the bolt is read from then (gather.bolt_read), before
-# the give's plan write; a mark git refused, or a fetch that failed, is said on standard error, and the give goes on,
-# since the branch is made and crew's next read of the bolt fetches it again. In the runner's clone crew fetches
-# nothing (FETCH): the runner's next fetch brings GitHub's copy.
-BOLT_CREATE = FETCH + r"""cd "$1" || exit 3
-sluice branch create "bolt/$2" --from main --json; rc=$?
-if [ "$rc" = 0 ]; then
-  git config "branch.bolt/$2.crew" given || echo "git could not mark bolt/$2 as crew's" >&2
-  origin_fetch "+refs/heads/bolt/$2:refs/remotes/origin/bolt/$2" >&2 \
-    || echo "git could not fetch bolt/$2 from GitHub; crew's next read of the bolt fetches it again" >&2
-fi
-exit $rc
-"""
-
-# What a give reads of a bolt's branch sluice refused to make (plan.19, made_said), in the kit's main checkout on the
-# team's host: OWN, the commit of the host's own bolt/<bolt>, or -; then THERE and MAIN, the commits of bolt/<bolt> and
-# of main on the bolt's remote, by one ls-remote, each - when the remote lacks it, or READ, git's words on one line,
-# when the remote could not be asked (kit.bolt_found).
-BOLT_FOUND = r"""cd "$1" || exit 1
-bolt=$2 remote=$3
-echo "OWN=$(git rev-parse --verify -q "refs/heads/bolt/$bolt^{commit}" || echo -)"
-if ! heads=$(git ls-remote "$remote" "refs/heads/bolt/$bolt" refs/heads/main 2>&1); then
-  echo "READ=$(printf '%s' "$heads" | tr '\n' ' ')"; exit 0
-fi
-at() { printf '%s\n' "$heads" | awk -v r="$1" '$2 == r {s = $1} END {print (s != "" ? s : "-")}'; }
-echo "THERE=$(at "refs/heads/bolt/$bolt")"; echo "MAIN=$(at refs/heads/main)"
-"""
-
 # A bolt's branch deleted by sluice wherever the policy at its tip keeps it (plan.19), once its tip is in main, run in
 # the kit's main checkout: where it lives first (BOLT_AT), then RC, sluice's exit, and SAID, its document, base64.
 BOLT_DELETE = r"""main=$1 bolt=$2 file=$3
@@ -2250,71 +2213,6 @@ def sweep_on(fleet, t, what, landed=None, dropped=None, units=()):
 
 # --------------------------------------------------------------------------------------------------- bolts
 
-def give_check(kit_name, where, ref, text, bolt, version, host):
-    """What a start checks before sluice makes the bolt's branch, so that any refusal leaves the plan as it was and no
-    branch made (plan.19, teams.5, read.1): the kit's policy at its main now (text, read at ref) names checks for the
-    bolt's branch and a remote to make it on, and the kit's host runs a sluice with `branch create` (version, what its
-    `sluice --version` said). The remote, else refused naming the file and what it lacks, or the version needed and
-    the host's words."""
-    kit.bolt_checks(text, kit_name, where, f"bolt/{bolt}", ref=ref)
-    remote = kit.give_remote(text, kit_name, where, f"bolt/{bolt}", ref=ref)
-    why = kit.sluice_refusal(version, host)
-    not why or fail(why)
-    return remote
-
-
-def made_said(bolt, kit_name, host, out, code, found=None, remote="origin"):
-    """The commit a give's bolt/<bolt> stands at, and whether crew took it as it found it rather than sluice made it
-    (plan.19), from what BOLT_CREATE printed (out, code; kit.branch_said) and, when sluice refused, what BOLT_FOUND read
-    of the branch (found, kit.bolt_found; None when crew read nothing): (the commit sluice made it at, False); or (the
-    commit, True) for a branch on its remote at its main's tip with no commit of its own, the host's own copy at that
-    commit or none, as a give that failed after sluice made the branch leaves it, so the give run again goes on: such
-    a branch is what sluice's create would make now and holds nothing for crew to take over (read.4). Else refused in
-    sluice's words, the plan unchanged, naming the branch and where it stands when it is not such a branch."""
-    made, why = kit.branch_said(out, code)
-    if made:
-        return made, False
-    said = f"sluice did not make bolt/{bolt} for {kit_name} on {host}: {why}"
-    f = found or {}
-    not f.get("read") or fail(f"{said}; and crew could not read bolt/{bolt} on {remote}: {f['read']}")
-    there, main, own = f.get("there"), f.get("main"), f.get("own")
-    if there and there == main and own in (None, there):
-        return there, True
-    if there and there != main:
-        fail(f"{said}; bolt/{bolt} on {remote} is at {there[:7]} and {remote}'s main at {main[:7] if main else 'nothing'}, "
-             "so it is no branch a start left empty at main, and crew starts no bolt onto it")
-    if there:
-        fail(f"{said}; {host}'s own bolt/{bolt} is at {own[:7]}, not at {remote}'s {there[:7]}, and crew starts no bolt "
-             "onto it")
-    if own:
-        fail(f"{said}; {host}'s own bolt/{bolt} is at {own[:7]} and {remote} has none, and crew starts no bolt onto it")
-    fail(said)
-
-
-def started_said(bolt, kit_name, remote, made, host, adopted=False):
-    """What a start says once the plan marks the bolt started (plan.19): where sluice made its branch, on GitHub by the
-    kit's remote, from main at the commit it made it at, or that crew took the branch an earlier start left there at
-    main (adopted, made_said), and the kit's host its work runs on."""
-    how = (f"crew took bolt/{bolt}, which sluice made on GitHub ({remote}) for a start that did not finish, at "
-           f"{kit_name}'s main {made[:7]}" if adopted else
-           f"sluice made bolt/{bolt} on GitHub ({remote}) from {kit_name}'s main at {made[:7]}")
-    return f"{bolt} is started: {how}, built on {host} and merged into only through sluice"
-
-
-def unstarted_said(bolt, out, code):
-    """What a start refused at its plan write says once crew had sluice delete the bolt's branch it made just before
-    (plan.19): that the branch is deleted again, or why it stands, in sluice's words, so nobody starts the bolt again
-    onto a branch left behind. out and code are what BOLT_DELETE printed and its exit."""
-    try:
-        code == 0 or fail(f"its delete exited {code}: {(out or '').strip()[-200:] or 'nothing was said'}")
-        gone, words = kit.branch_said(*kit.delete_ran(out))
-    except Refusal as e:
-        gone, words = None, str(e)
-    if gone:
-        return f"sluice deleted bolt/{bolt} again, so nothing of the start is left"
-    return f"bolt/{bolt}, which sluice made for the start, still stands, since sluice did not delete it: {words}"
-
-
 def deleted_said(bolt, host, code, out, err, held=None):
     """What a land says of sluice's delete of the bolt's branch (plan.19), from what BOLT_DELETE printed on the team's
     host (out, err, its exit code): deleted, from GitHub for a bolt its tip's policy keeps there, else from the host,
@@ -2393,23 +2291,16 @@ def delete_heard(bolt, host, out):
     return dict(where=where, tip=tip, gone=gone, rc=rc, words=words)
 
 
-def kit_policy(fleet, t):
-    """The team's kit's policy as its main holds it now and what its host's sluice says of its version, read on the
-    team's host in one go, origin/main after a fetch for a kit with an origin (GIVE_READ, kit.main_now, plan.18): (the
-    policy's text, or None; the ref and the commit it was read at; sluice's words)."""
-    said = host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], t["kit"]["main"], GIVE_READ), t["kit"]["main"],
-                    kit.DECLARATION)
-    text, ref, sha = kit.policy_said(said, t["kit"]["name"], t["machine"])
-    return text, ref, sha, kit.said_of(said).get("SLUICE", "")
-
-
-def launched_said(repo, bolt, launched):
-    """What a start says once the plan starts the bolt (Decision 5): each piece of work launched by its request, for the
-    runner whose configuration names the bolt's repository to take in the stream its host maps it to (the user's ruling of
-    2026-11-01), and that no agent starts, crew bolts showing the places."""
+def launched_said(repo, bolt, launched, base=None):
+    """What a start says once the plan starts the bolt (Decision 5; crew-lands-each-bolt-through-flumes-base-place,
+    Decision 3): its base place asked of the runner by its request (base), each piece of work launched by its request,
+    for the runner whose configuration names the bolt's repository to take in the stream its host maps it to (the user's
+    ruling of 2026-11-01), and that no agent starts and no branch is made, crew bolts showing the places."""
     work = ", ".join(f"{w} (request {n})" for n, w in launched) or "nothing, the bolt holding no unit or chore yet"
-    return (f"no agent starts: {work} is launched in {repo}, for a runner whose configuration names it to take, in the "
-            "stream its host maps it to, and crew bolts shows their places")
+    place = (f"{bolt}'s base place, bolt/{bolt}, is asked of the runner (request {base}), which has sluice make its branch "
+             "from main; " if base else "")
+    return (f"{place}no agent starts: {work} is launched in {repo}, for a runner whose configuration names it to take, in "
+            "the stream its host maps it to, and crew bolts shows their places")
 
 
 def crossed_bolt(plan, bolt):
@@ -6059,9 +5950,6 @@ class Reads:
     def first_open(self, label, plan, bolt):
         return first_open(self.fleet, label, plan, bolt)
 
-    def start_checked(self, label, t, bolt):
-        return start_check(self.fleet, label, t, bolt)
-
     def landing(self, w, bolt):
         """The bolt's landing as the run record holds it at the tip the write is applied to (landing_phase), which work
         joining it is checked against (landing_hold)."""
@@ -6131,9 +6019,6 @@ class Drawn(Proposed):
     def first_open(self, label, plan, bolt):
         return next((u.name() for u in plan.work_of(bolt)), None)
 
-    def start_checked(self, label, t, bolt):
-        return None
-
     def landing(self, w, bolt):
         return None
 
@@ -6196,82 +6081,39 @@ def op_bolt_new(ctx, a):
     return Op(label, change, f"plan({a.bolt}): add the bolt", "bolt.new", on=[f"bolt/{a.bolt}"])
 
 
-# The commit sluice made each started bolt's branch at in this process, and whether crew took it as it found it
-# (made_said), for what the start says after its write: an approval builds its ops again inside its write.
-MADE_BRANCH = {}
-
-
-def start_check(fleet, label, t, bolt):
-    """What a start checks on the host it makes the bolt's branch on (t, main_kit) before sluice makes it, every
-    refusal leaving the plan unchanged and no branch made: the host held (teams.19); no runner answering for the
-    partition, no <label>/runner/<host> branch (runner.runnerless), since nothing would take the bolt's work; and the
-    kit's policy at its main now and the host's sluice (give_check). The remote the branch is made on."""
-    h = crew.held_on(fleet, t["machine"])
-    not h or fail(crew.held_said(t["machine"], h))
-    repo, _ = state_of(fleet, label)
-    why = runner.runnerless(label, runner_tips(repo, label))
-    not why or fail(why)
-    text, ref, _, version = kit_policy(fleet, t)
-    return give_check(t["kit"]["name"], f"{t['kit']['main']}/{kit.DECLARATION}", ref, text, bolt, version, t["machine"])
-
-
 def op_bolt_start(ctx, a):
-    """crew bolt start <bolt>: the bolt's work started through Flume as a crossed team's give started it, with no team
-    (Decision 14 of the-team-machinery-leaves; plan.19, record 0026): bolt/<bolt> made by sluice on GitHub from the
-    kit's main, in the checkout the partition's main-level host keeps of the kit (main_kit), since no runner has taken
-    any of the bolt's work yet (the user's ruling of 2026-11-01), refused where it keeps none, with no worktree; then,
-    in one plan write, the bolt marked Path: flume and a launch of each of its units and chores appended in its
-    repository for the runner whose configuration names it to take (reach_places), starting no agent. A proposal may
-    hold it, and the user runs it directly (roles.1, may_write). Refused, with the plan unchanged and no branch made, for a bolt
-    started already and by start_check; in sluice's words when it makes no branch, but for a branch already on its
-    remote at main's tip with no commit of its own, as a start that failed after sluice made it leaves it, which the
-    start takes and goes on with (made_said). A plan write refused after sluice made the branch has sluice delete it
-    again (unstarted_said). A proposal's card reads no host (Drawn)."""
+    """crew bolt start <bolt>: the bolt's work started through Flume with no team (Decision 14 of
+    the-team-machinery-leaves; crew-lands-each-bolt-through-flumes-base-place, Decision 3): in one plan write, the bolt
+    marked Path: flume, the launch of its base place, of crew's kind crew/bolt on main (runner.bolt_launch), and then a
+    launch of each of its units and chores on bolt/<bolt> (reach_places), each in its repository for the runner whose
+    configuration names it to take, starting no agent, making no branch and reading no host (record 0056 point 2). A
+    proposal may hold it, and the user runs it directly (roles.1, may_write). Refused, with the plan unchanged and
+    nothing requested, while no runner answers for the partition (runner.runnerless), and for a bolt started already,
+    but one whose own launch the runner refused, which it launches anew (runner.restart)."""
     label, plan = ctx.locate("Bolt", a.bolt)
     fleet, b = ctx.fleet, plan.bolt(a.bolt)
-    not started(b) or fail(f"bolt {a.bolt} is started already")
-    t = main_kit(fleet, label, b.get("Repo")) or fail(main_kit_said(fleet, label, b.get("Repo"), f"make bolt/{a.bolt}"))
-    remote = ctx.start_checked(label, t, a.bolt)
-    kit_name, main, host = t["kit"]["name"], t["kit"]["main"], t["machine"]
     seen = {}
-
-    def prepare():
-        r = crew.on_machine(fleet, host, ["bash", "-c", fetch_told(fleet, host, main, BOLT_CREATE), "crew", main,
-                                          a.bolt])
-        READ.drop_kit(host, main)
-        if r.stderr.strip():
-            print(r.stderr.strip(), file=sys.stderr)
-        found = None
-        if r.returncode == 2:  # sluice refused: a branch a start that did not finish left at main is taken as it stands
-            try:
-                found = kit.bolt_found(host_run(fleet, host, BOLT_FOUND, main, a.bolt, remote), a.bolt)
-            except Refusal as e:
-                found = {"read": str(e)}
-        made, adopted = made_said(a.bolt, kit_name, host, r.stdout, r.returncode, found, remote)
-        if adopted and found["own"]:
-            m = crew.on_machine(fleet, host, ["git", "-C", main, "config", f"branch.bolt/{a.bolt}.crew", "given"])
-            m.returncode == 0 or print(f"git could not mark bolt/{a.bolt} as crew's", file=sys.stderr)
-        MADE_BRANCH[a.bolt] = (made, adopted)
-
-        def undo():
-            d = crew.on_machine(fleet, host, ["bash", "-c", BOLT_DELETE, "crew", main, a.bolt, kit.DECLARATION])
-            READ.drop_kit(host, main)
-            print(unstarted_said(a.bolt, d.stdout, d.returncode), file=sys.stderr)
-        return undo
 
     def change(w):
         s = w.bolt(a.bolt)
-        not started(s) or fail(f"bolt {a.bolt} is started already")
-        s.set("Path", "flume")
+        why = runner.runnerless(w.label, list(w.runners()))
+        not why or fail(why)
+        if started(s):
+            asked, why = runner.restart(w.plan, requests_of(w).recs("Request"), w.runners(), a.bolt, w.label)
+            not why or fail(why)
+        else:
+            s.set("Path", "flume")
+            asked = [runner.bolt_launch(w.plan, a.bolt, w.label)]
+        for act, work, given in asked:
+            n = request(w, act, work, **given)
+            if act == "launch":
+                seen["bolt"] = n
         seen["launched"] = reach_places(fleet, w, a.bolt)
         return [a.bolt]
 
     def after(repo, sha):
-        made, adopted = MADE_BRANCH.get(a.bolt, (None, False))
-        if made:
-            print(started_said(a.bolt, kit_name, remote, made, host, adopted))
-        print(launched_said(b.get("Repo"), a.bolt, seen.get("launched") or []))
-    return Op(label, change, f"plan({a.bolt}): start the bolt", "bolt.start", on=[f"bolt/{a.bolt}"], prepare=prepare, after=after)
+        print(launched_said(b.get("Repo"), a.bolt, seen.get("launched") or [], seen.get("bolt")))
+    return Op(label, change, f"plan({a.bolt}): start the bolt", "bolt.start", on=[f"bolt/{a.bolt}"], after=after)
 
 
 def op_bolt_order(ctx, a):

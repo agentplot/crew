@@ -101,18 +101,6 @@ class TestBoltRemote:
         with pytest.raises(Refusal, match=r"^\.config/sluice\.toml at bolt/b is not TOML"):
             kit.bolt_remote("[branches\n", "bolt/b", ".config/sluice.toml at bolt/b")
 
-    def test_a_start_takes_the_remote_the_policy_at_main_now_names(self):
-        assert kit.give_remote(ON_GITHUB, "switchboard-kit", "/k/main/.config/sluice.toml", "bolt/b") == "origin"
-
-    def test_a_start_in_a_kit_whose_bolts_have_no_remote_is_refused_naming_the_file_and_the_key(self):
-        """bolt-plan "A kit whose bolts have no remote"."""
-        with pytest.raises(Refusal) as e:
-            kit.give_remote(POLICY, "switchboard-kit", "/k/main/.config/sluice.toml", "bolt/b", ref="origin/main")
-        assert str(e.value) == (
-            "switchboard-kit starts bolts only on GitHub, and its /k/main/.config/sluice.toml on origin/main names no remote "
-            "for its bolt branches: its [branches.\"bolt/*\"] needs `remote = \"origin\"`, which is the kit's own change "
-            "(plan.17), then start the bolt again")
-
 
 def b64(text):
     return base64.b64encode(text.encode()).decode()
@@ -271,30 +259,6 @@ def recorded(name):
     """A document sluice 0.36.4 printed, and the exit it printed it with, as its README lists them."""
     codes = dict(l.split("\t")[:2] for l in (RECORDED / "README").read_text().splitlines() if "\texit " in l)
     return (RECORDED / name).read_text(), int(codes[name].split()[1])
-
-
-class TestSluiceVersion:
-    """A start needs sluice's `branch create`, first in sluice 0.20.0 (plan.19, sluice ADR 0026)."""
-
-    def test_the_version_sluice_prints(self):
-        assert kit.sluice_version(recorded("version.txt")[0]) == (0, 36, 4)
-
-    @pytest.mark.parametrize("out", ["sluice 0.36.4\n", "sluice 0.20.0", "sluice 1.0.0\n"])
-    def test_a_sluice_with_branch_create_starts(self, out):
-        assert kit.sluice_refusal(out, "chuck-herdr-alpha") is None
-
-    @pytest.mark.parametrize("out, said", [
-        ("sluice 0.19.9\n", "sluice 0.19.9"),
-        ("sluice 0.3.1", "sluice 0.3.1"),
-        ("bash: line 1: sluice: command not found\n", "bash: line 1: sluice: command not found"),
-        ("", "nothing"),
-        ("sluice version unknown", "sluice version unknown"),
-    ])
-    def test_an_older_sluice_or_one_crew_cannot_read_is_refused_naming_the_version_needed_and_the_hosts_words(self, out, said):
-        """bolt-plan "A host whose sluice cannot make a branch" (read.1)."""
-        assert kit.sluice_refusal(out, "chuck-herdr-alpha") == (
-            "a bolt is started through sluice 0.20.0 or later, which has `branch create`, and sluice --version on "
-            f"chuck-herdr-alpha said: {said}")
 
 
 class TestBranchSaid:

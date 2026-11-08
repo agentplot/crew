@@ -131,38 +131,6 @@ def pull_marked(code, out, err):
     return (code or 1), (said[-1].strip() if said else f"exit {code}")
 
 
-def give_remote(text, kit, where=DECLARATION, branch="bolt/a-bolt", ref="origin/main"):
-    """The remote a start has sluice make a bolt's branch on (plan.19): the one the kit's policy at its main now names
-    for its bolt branches (bolt_remote). Refused, naming the file and the key, when it names none, since crew gives
-    bolts only on GitHub and writing the key is the kit's own change (plan.17)."""
-    return bolt_remote(text, branch, where) or crew.fail(
-        f"{kit} starts bolts only on GitHub, and its {where} on {ref} names no remote for its bolt branches: its "
-        f"[branches.\"bolt/*\"] needs `remote = \"origin\"`, which is the kit's own change (plan.17), then start the bolt again")
-
-
-# The first sluice with `branch create` and `branch delete` (sluice ADR 0026, v0.20.0), which a start and a land need.
-SLUICE_BRANCHES = (0, 20, 0)
-
-
-def sluice_version(out):
-    """The version `sluice --version` printed, as (major, minor, patch), or None when it printed nothing crew can read as
-    `sluice X.Y.Z` (sluice 0.36.4 prints `sluice 0.36.4`, tests/py/sluice-0.36.4/version.txt)."""
-    m = re.fullmatch(r"sluice (\d+)\.(\d+)\.(\d+)", (out or "").strip())
-    return tuple(int(n) for n in m.groups()) if m else None
-
-
-def sluice_refusal(out, host):
-    """Why a start can't go through the host's sluice, or None (plan.19, read.1): its version is below SLUICE_BRANCHES,
-    which has no `branch create`, or `sluice --version` printed nothing crew can read; naming the version needed and
-    the host's own words."""
-    v = sluice_version(out)
-    if v is not None and v >= SLUICE_BRANCHES:
-        return None
-    said = " ".join((out or "").split())[:120] or "nothing"
-    return (f"a bolt is started through sluice 0.20.0 or later, which has `branch create`, and sluice --version on {host} "
-            f"said: {said}")
-
-
 def branch_said(out, code):
     """What sluice's `branch create` or `branch delete` said with --json (read.2, as sluice 0.36.4 says it,
     tests/py/sluice-0.36.4/): (the commit it made the branch at or removed it from, None) for its document of a branch
@@ -248,21 +216,6 @@ def land_copies(said, bolt):
     return dict(own=own, there=f["THERE"], remote=bolt_remote(text, f"bolt/{bolt}", f"{DECLARATION} at origin/bolt/{bolt}"),
                 held=f["HELD"], ahead=f["AHEAD"] if mine else None, lacks=int(f["LACKS"]) if mine else None,
                 beyond=int(f["BEYOND"]) if mine else None, read=None)
-
-
-def bolt_found(said, bolt):
-    """What BOLT_FOUND printed of a bolt's branch sluice refused to make (plan.19), as {"own", "there", "main", "read"}:
-    read, git's words when the remote could not be asked, the rest None; else own, the host's own bolt/<bolt>, and
-    there and main, the remote's bolt/<bolt> and main, each a commit or None where there is no such branch. Refused,
-    naming what was printed, on anything else (read.2)."""
-    f = said_of(said)
-    if "READ" in f:
-        return dict(own=None, there=None, main=None, read=f["READ"].strip() or "git said nothing")
-    sha = re.compile(r"[0-9a-f]{40,64}")
-    keys = ("OWN", "THERE", "MAIN")
-    if not all(f.get(k) == "-" or sha.fullmatch(f.get(k) or "") for k in keys):
-        crew.fail(f"crew can't read bolt/{bolt} as sluice found it from: {(said or '').strip()[:200] or 'nothing'}")
-    return dict(read=None, **{k.lower(): None if f[k] == "-" else f[k] for k in keys})
 
 
 def delete_ran(said):

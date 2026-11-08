@@ -826,6 +826,40 @@ def bolt_launch(plan, bolt, label):
         "Priority": priority_of(plan, bolt), "Intent": f"{label}/{bolt}", "Recipient": f"{label}/ops"})
 
 
+def restart(plan, requests, reads, bolt, label):
+    """What crew bolt start appends for a started bolt whose own launch the runner refused, as Flume refuses it while
+    its host has not locked crew/bolt@1 (crew-lands-each-bolt-through-flumes-base-place, Decision 3; bolt-teams "A
+    start run again launches a bolt whose launch the runner refused"), from facts: plan, as the write leaves it;
+    requests, requests.rec's records before it; reads, the partition's runners as crew read them (host_read's, by
+    host). Returns (the requests to append, each (act, work, its fields), None): a drop of each of its pieces' launches
+    standing that the runner has not answered launched, then a launch anew of its base place (bolt_launch), its pieces
+    following by reach; or (None, why) for any other started bolt: one with no launch of its own, started before bolts
+    were base places (Decision 9), one whose launch is unanswered, held or launched, and one whose launch, or a piece's,
+    crew can't tell the runner's answer to (read.1)."""
+    started = f"bolt {bolt} is started already"
+    own = launch_of(requests, f"bolt/{bolt}")
+    if own is None:
+        return None, f"{started}, before bolts were base places, and lands under the crew that started it"
+    n = number(own.get("Request"))
+    reading, why = taken(reads, n)
+    if why:
+        return None, f"{started}, and crew can't tell whether the runner refused its launch: {why}"
+    answer = reading["answers"].get(n) if reading else None
+    if answer is None or answer.get("Outcome") != "refused":
+        return None, started
+    drops = []
+    for l in standing(requests):
+        if l.get("Base") != f"bolt/{bolt}":
+            continue
+        m = number(l.get("Request"))
+        r, why = taken(reads, m)
+        if why:
+            return None, f"{started}, and crew can't tell whether {l.get('Work')}'s launch was launched: {why}"
+        if r is None or (r["answers"].get(m) or {}).get("Outcome") != "launched":
+            drops.append(("drop", l.get("Work"), {"Of": l.get("Request")}))
+    return drops + [bolt_launch(plan, bolt, label)], None
+
+
 def reach(plan, requests, bolt, label, again=()):
     """What a plan write asks of the runners for a started bolt (Decisions 5 and 7), as the requests to append in order,
     each (act, work, its fields as plan.request takes them), from facts: plan, as the write leaves it; requests,

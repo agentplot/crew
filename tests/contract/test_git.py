@@ -27,49 +27,6 @@ def test_merge_tree_names_the_conflicting_paths_and_writes_no_ref(repo):
     assert repo.git("for-each-ref") == refs
 
 
-def found_of(repo, remote="origin"):
-    """plan.BOLT_FOUND in the kit's main checkout, as crew bolt start runs it once sluice refused to make bolt/b, and
-    kit.bolt_found's reading of it."""
-    import kit
-    r = script("BOLT_FOUND", str(repo.path), "b", remote)
-    assert r.returncode == 0, r.stderr
-    return r.stdout, kit.bolt_found(r.stdout, "b")
-
-
-def test_a_bolt_a_start_left_at_main_on_github_is_found_there_at_mains_commit(repo, tmp_path):
-    """plan.made_said through BOLT_FOUND (plan.19): bolt/b on a bare GitHub stand-in at its main's commit, and the
-    host's own at the same, as sluice's create leaves them when the start fails after it, read by one ls-remote for the
-    bolt and main beside the host's own ref; the host's own gone reads as None."""
-    head = repo.commit("chore: start", {"README.md": "r\n"})
-    repo.git("branch", "bolt/b")
-    subprocess.run(["git", "clone", "-q", "--bare", str(repo.path), str(tmp_path / "github.git")], check=True)
-    repo.git("remote", "add", "origin", str(tmp_path / "github.git"))
-    repo.commit("feat: the host's main moves on", {"x": "x\n"})
-    _, f = found_of(repo)
-    assert f == dict(own=head, there=head, main=head, read=None)
-    repo.git("branch", "-q", "-D", "bolt/b")
-    assert found_of(repo)[1]["own"] is None
-
-
-def test_a_bolt_github_has_no_copy_of_is_found_nowhere_there(repo, tmp_path):
-    """plan.made_said through BOLT_FOUND: a remote that lacks bolt/b gives THERE=-, read as None beside its main."""
-    head = repo.commit("chore: start", {"README.md": "r\n"})
-    subprocess.run(["git", "clone", "-q", "--bare", str(repo.path), str(tmp_path / "github.git")], check=True)
-    repo.git("remote", "add", "origin", str(tmp_path / "github.git"))
-    out, f = found_of(repo)
-    assert "THERE=-" in out and f == dict(own=None, there=None, main=head, read=None)
-
-
-def test_a_bolt_whose_remote_cannot_be_asked_is_found_with_gits_words(repo, tmp_path):
-    """plan.made_said through BOLT_FOUND (read.1): a remote whose URL does not resolve gives git's words on one line as
-    READ, after the host's own ref."""
-    repo.commit("chore: start", {"README.md": "r\n"})
-    repo.git("remote", "add", "origin", str(tmp_path / "gone.git"))
-    out, f = found_of(repo)
-    assert out.splitlines()[1].startswith("READ=") and len(out.strip().splitlines()) == 2
-    assert "gone.git" in f["read"] and f["there"] is None
-
-
 def onto(place, bolt, *heads):
     """plan.ONTO as rebase_dependents runs it in a dependent's place: <place> <the bolt's ref> [<head left out>...]."""
     import plan
@@ -260,7 +217,7 @@ def test_a_branch_removed_by_ref_edits_leaves_crews_mark_behind(repo):
 
 
 def test_a_kits_policy_is_read_from_mains_commit(repo):
-    """plan.kit_policy (teams.5): the policy is what main's commit holds, as sluice reads a branch's policy, not the
+    """plan.POLICY (teams.5): the policy is what main's commit holds, as sluice reads a branch's policy, not the
     main checkout's files; a main without one says so."""
     import kit
     repo.commit("main", {"README": "r\n"})
@@ -272,7 +229,7 @@ def test_a_kits_policy_is_read_from_mains_commit(repo):
 
 
 def test_a_kits_policy_is_read_from_githubs_main_ahead_of_the_hosts_own(repo, tmp_path):
-    """plan.kit_policy through POLICY (plan.18): a kit on GitHub has its policy read from origin/main after a fetch,
+    """plan.POLICY (plan.18): a kit on GitHub has its policy read from origin/main after a fetch,
     where it was written, not from the host's own main, which lags it."""
     import kit
     pushed = kit_with_github(repo, tmp_path)

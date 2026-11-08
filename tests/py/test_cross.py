@@ -61,8 +61,9 @@ def given(*bolts, work=(), files=None, runners=None):
 
 
 def start(w, bolt):
-    """What a start's change function does once sluice made the branch (plan.op_bolt_start): Path: flume set, no Team,
-    and the bolt's work launched in its repository (plan.reach_places)."""
+    """What a start's change function does for the bolt's pieces after its base place's launch (plan.op_bolt_start;
+    runner.bolt_launch, test_runner.py's TestBoltLaunch): Path: flume set, no Team, and the bolt's work launched in its
+    repository (plan.reach_places)."""
     w.plan.bolt(bolt).set("Path", "flume")
     return plan.reach_places(FLEET, w, bolt)
 

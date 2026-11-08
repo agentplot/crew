@@ -20,7 +20,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 3. A start launches the base place
 
-- [ ] 3.1 `crew bolt start` appends the bolt's base-place launch and then its pieces' launches in one plan write, reads no host and makes no branch, and run again on a bolt whose own launch the runner refused launches it anew with its unlaunched pieces (design Decision 3; Task notes 3.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py tests/py/test_made.py tests/py/test_bolt_commands.py'` exits 0.
+- [x] 3.1 `crew bolt start` appends the bolt's base-place launch and then its pieces' launches in one plan write, reads no host and makes no branch, and run again on a bolt whose own launch the runner refused launches it anew with its unlaunched pieces (design Decision 3; Task notes 3.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py tests/py/test_made.py tests/py/test_bolt_commands.py'` exits 0.
 - [ ] 3.2 A started bolt's row reads its base place's launch as the runner answers it, unlaunched with the runner's words while it is not launched, and a started bolt with no base-place launch reads as started before bolts were base places, landing under the crew that started it (design Decisions 3 and 9; Task notes 3.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_stages.py'` exits 0.
 
 ## 4. The user's send posts a land

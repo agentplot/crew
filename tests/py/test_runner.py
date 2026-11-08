@@ -11,7 +11,7 @@ import pathlib
 import pytest
 
 from crew import Refusal
-from facts import FactsWrite, flume_plan, madswan_fleet
+from facts import FactsWrite, flume_plan, madswan_fleet, ran
 import plan
 import runner
 
@@ -770,3 +770,75 @@ class TestPriorities:
                   rec(6, "priority", "unit/c", Of=5, Priority=1))
         assert runner.priorities(p, rs) == []
         assert [(r.get("Request"), n) for r, n in runner.priorities(p, rs[:5])] == [("5", 1)]
+
+
+class TestBoltLaunch:
+    """A start launches the bolt's base place, then its pieces (bolt-teams "A start launches the bolt's base place before
+    its pieces", "A start run again launches a bolt whose launch the runner refused"; Decision 3): runner.bolt_launch's
+    fields, reach's pieces after it naming no After on it, its priority, and runner.restart for a bolt whose own launch
+    the runner refused, and for none other."""
+    FLEET = madswan_fleet()
+
+    def write(self, *bolts):
+        return FactsWrite(flume_plan([(b, None, None) for b in bolts], [("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []),
+                                                                         ("c", "y", [], "unit", [])]), label="madswan")
+
+    def start(self, w, bolt):
+        w.plan.bolt(bolt).set("Path", "flume")
+        act, work, given = runner.bolt_launch(w.plan, bolt, w.label)
+        n = plan.request(w, act, work, **given)
+        return n, plan.reach_places(self.FLEET, w, bolt)
+
+    def test_the_launch_is_crews_kind_on_main_with_ops_its_recipient_and_no_brief_or_after(self):
+        w = self.write("x")
+        w.plan.bolt("x").set("Path", "flume")
+        assert runner.bolt_launch(w.plan, "x", "madswan") == ("launch", "bolt/x", {
+            "Repo": "crew", "Kind": "crew/bolt", "Name": "x", "Base": "main", "Priority": 1, "Intent": "madswan/x",
+            "Recipient": "madswan/ops"})
+
+    def test_its_pieces_follow_it_on_its_branch_naming_no_after_on_it(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", BY)
+        w = self.write("x")
+        n, launched = self.start(w, "x")
+        rs = plan.Plan(w.files["requests.rec"]).recs("Request")
+        assert (n, launched) == (1, [(2, "unit/a"), (3, "unit/b")])
+        assert [(r.get("Work"), r.get("Base"), r.all("After")) for r in rs] == [
+            ("bolt/x", "main", []), ("unit/a", "bolt/x", []), ("unit/b", "bolt/x", ["2"])]
+
+    def test_its_priority_is_its_bolts_place_in_the_plan(self):
+        w = self.write("x", "y")
+        for b in ("x", "y"):
+            w.plan.bolt(b).set("Path", "flume")
+        assert [runner.bolt_launch(w.plan, b, "madswan")[2]["Priority"] for b in ("x", "y")] == [2, 1]
+
+    def requests(self, *answers):
+        """requests.rec after x's start, its base place request 1 and its units 2 and 3, and the runner answering as
+        given (facts.ran's keywords)."""
+        reqs = held(rec(1, "launch", "bolt/x", **dict(BOLT, Name="x")), rec(2, "launch", "unit/a", Base="bolt/x"),
+                    rec(3, "launch", "unit/b", Base="bolt/x", After=[2]))
+        return reqs
+
+    def test_restarted_after_a_refusal_its_unlaunched_pieces_are_dropped_and_it_is_launched_anew(self):
+        w = self.write("x")
+        w.plan.bolt("x").set("Path", "flume")
+        reads = ran(refused={1: "crew/bolt@1 is not locked on deneb"}, launched={3: "code"})
+        asked, why = runner.restart(w.plan, self.requests(), reads, "x", "madswan")
+        assert why is None
+        assert [(act, work, given.get("Of"), given.get("Kind")) for act, work, given in asked] == [
+            ("drop", "unit/a", "2", None), ("launch", "bolt/x", None, "crew/bolt")]
+
+    @pytest.mark.parametrize("reads", [ran(), ran(held={1: None}), ran(launched={1: "flume-0.17.0/bolt-submitted"})])
+    def test_no_restart_for_a_launch_unanswered_held_or_launched(self, reads):
+        w = self.write("x")
+        w.plan.bolt("x").set("Path", "flume")
+        assert runner.restart(w.plan, self.requests(), reads, "x", "madswan") == (None, "bolt x is started already")
+
+    def test_no_restart_for_a_bolt_with_no_launch_of_its_own_or_whose_runner_crew_cant_read(self):
+        w = self.write("x")
+        w.plan.bolt("x").set("Path", "flume")
+        legacy = held(rec(1, "launch", "unit/a", Base="bolt/x"))
+        assert runner.restart(w.plan, legacy, ran(), "x", "madswan") == (
+            None, "bolt x is started already, before bolts were base places, and lands under the crew that started it")
+        unread = {"deneb": runner.host_read("madswan", "deneb", TIP, {}, {})}
+        asked, why = runner.restart(w.plan, self.requests(), unread, "x", "madswan")
+        assert asked is None and why.startswith("bolt x is started already, and crew can't tell whether the runner refused its launch")
