@@ -1,8 +1,9 @@
 """A fix of a started bolt (bolt-teams "A fix is a fix place on its bolt", Decision 15 of the-team-machinery-leaves,
 teams.3): crew fix <bolt> <name> "<words>" a launch of Flume's fix kind on the bolt's branch (plan.fix_flume,
 runner.fix_launch), dropped by --drop (runner.fix_drop_refusal), merged and waited on by Flume alone, holding the
-bolt's landing while it is in flight (runner.fixes_in_flight). That the command writes the launch and starts no
-agent is the crossed path's journey's (t-journey-cross)."""
+bolt's landing while it is in flight (runner.fixes_in_flight), and merged once a landing on its bolt names its place's
+branch (runner.built_on_bolt). That the command writes the launch and starts no agent is the crossed path's journey's
+(t-journey-cross)."""
 import pytest
 
 from facts import FactsWrite, flume_plan, madswan_fleet, ran
@@ -114,3 +115,58 @@ class TestAFixOfAStartedBolt:
         assert plan.landing_unready([("a", "unit", "merged")], "h" * 40, "passed", ["fix/x/rail-word"]) == "fix/x/rail-word is in flight on it"
         row = plan.landing_rows(["x"], {"x": {"head": "h" * 40, "fixes": {"fix/x/rail-word": "Fix rail-word."}}}, {})[0]
         assert (row["box"], row["why"]) == (False, "held for a fix: Fix rail-word. (fix/x/rail-word)")
+
+
+# The landing sluice made on x of fix tidy's place, by the branch it names (gather.bolt_landings), and tidy's launch.
+TIDY_LANDED = {"fix/x--tidy": {"commit": "1" * 40, "at": "2026-11-08T04:18:32Z"}}
+LAUNCHED = "2026-11-08T04:00:00Z"
+
+
+class TestAFixItsBoltHolds:
+    """bolt-plan "A fix whose place's landing its bolt's branch holds is merged" (crew record 0056 decision 2; read.1,
+    read.2): a fix on a bolt is Flume's fix kind named <bolt>--<name>, so its place's branch is fix/<bolt>--<name>, and
+    a landing sluice made on the bolt naming it, at or after the fix's launch, makes it merged whatever the runner last
+    carried of its place (runner.place_branch, runner.built_on_bolt). The reading of 2026-11-08: boomdrive's
+    a-dropped-launch-is-never-offered--its-tests-take-the-neutral-names landed on its bolt at 0a3c8843 while the runner
+    last carried its place at submitted, and the bolt's landing waited until the planner dropped it by hand."""
+
+    @pytest.fixture(autouse=True)
+    def planner(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "madswan-planner")
+        self.FLEET = madswan_fleet()
+
+    bolt = TestAFixOfAStartedBolt.bolt
+    fix = TestAFixOfAStartedBolt.fix
+
+    def tidy(self):
+        """x started, its fix tidy launched at LAUNCHED as request 2, its place last carried at submitted: (its launch,
+        its stage as the runner's records give it)."""
+        reads = ran({2: "submitted"})
+        w = self.bolt(runners=reads)
+        self.fix(w, "start", "tidy", "Fix tidy.")
+        requests = plan.Plan(w.files["requests.rec"]).recs("Request")
+        [(launch, s)] = runner.fixes_on(requests, reads, "bolt/x")
+        launch.set("Date", LAUNCHED)
+        return launch, s
+
+    def test_a_fix_on_a_bolt_names_its_places_branch_and_a_fix_of_main_none(self):
+        assert runner.place_branch("fix/x/tidy") == "fix/x--tidy"
+        assert [runner.place_branch(w) for w in ("fix/main/crew/red", "role/planner/read")] == [None, None]
+
+    def test_a_landed_fix_the_runner_last_carried_at_submitted_reads_merged(self):
+        """bolt-plan "A landed fix whose place the runner last carried at submitted"."""
+        launch, s = self.tidy()
+        assert s["stage"] == "submitted" and s["place"]
+        built = runner.built_on_bolt("fix/x/tidy", s, TIDY_LANDED, launch.get("Date"))
+        assert built == dict(place=s["place"], tasks=s["tasks"], stage="merged", commit="1" * 40, landed="2026-11-08T04:18:32Z",
+                             on="bolt", branch="fix/x--tidy")
+        assert runner.piece_said(built) == ("merged", "fix/x--tidy landed on its bolt at 1111111")
+
+    def test_a_landing_before_the_fixs_launch_builds_nothing(self):
+        """bolt-plan "A fix launched again under a landed fix's name": the landing was a dropped launch's of tidy."""
+        launch, s = self.tidy()
+        assert runner.built_on_bolt("fix/x/tidy", s, TIDY_LANDED, "2026-11-08T05:00:00Z") is s
+
+    def test_a_fix_of_main_is_never_read_from_a_bolts_landings(self):
+        s = {"stage": "code"}
+        assert runner.built_on_bolt("fix/main/crew/red", s, {"fix/main--red": TIDY_LANDED["fix/x--tidy"]}, LAUNCHED) is s

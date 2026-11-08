@@ -203,7 +203,8 @@ class TestBuiltOnItsBolt:
     def test_a_unit_another_partitions_place_built_with_no_launch_here_is_merged_by_its_branch_alone(self):
         """Whichever partition's launch made a's place, its branch is change/a, the unit's own name: this partition
         holds no launch of a at all, so the runner's records give it none, and x's landing of change/a makes it merged;
-        a landing naming another branch builds nothing, and a fix's work is never read from the landings."""
+        a landing naming another branch builds nothing, and a fix's work is read from the landing naming its own place's
+        branch alone."""
         from facts import ran
         st = self.stages(ran({2: "code"}), bolt={"landings": LANDED})
         requests, reads = st.runs["madswan"]
@@ -211,7 +212,8 @@ class TestBuiltOnItsBolt:
         assert (st.of("a")["stage"], st.of("a")["flume"]["commit"]) == ("merged", "1" * 40)
         other = self.stages(ran({2: "code"}), bolt={"landings": {"change/ab": LANDED["change/a"], "unit/a": LANDED["change/a"]}})
         assert other.of("a")["stage"] == "launching"
-        assert runner.built_on_bolt("fix/x/tidy", {"stage": "code"}, {"fix/x--tidy": LANDED["change/a"]}) == {"stage": "code"}
+        assert runner.built_on_bolt("fix/x/tidy", {"stage": "code"}, {"fix/x--tidy": LANDED["change/a"]})["stage"] == "merged"
+        assert runner.built_on_bolt("fix/x/tidy", {"stage": "code"}, {"fix/x--gap": LANDED["change/a"]}) == {"stage": "code"}
 
     def test_landings_crew_could_not_read_leave_the_runners_reading(self):
         """read.1: x's landings unread (landings_error, no landings) build nothing; the runner's stage stands."""

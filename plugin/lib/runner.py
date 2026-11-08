@@ -642,25 +642,36 @@ def stage_of(work, launch, answer, place, read, after=()):
 
 
 def place_branch(work):
-    """The branch Flume cuts a unit's or chore's place on, as Flume's status names it (`branch`): <kind>/<name>, the
-    kind and name its launch gives (reach), a unit's kind change; the same whichever partition's launch made the place,
-    since it is the work's own name and carries no partition's (crew record 0055, rejected). None for a fix or a role's
-    work, which the bolt's landings do not build."""
+    """The branch Flume cuts a piece's place on, as Flume's status names it (`branch`) and sluice's landing on the bolt
+    names it (sluice clause 23): <kind>/<name>, the kind and name its launch gives (reach), a unit's kind change; the
+    same whichever partition's launch made the place, since it is the work's own name and carries no partition's (crew
+    record 0055, rejected). A fix on a bolt, fix/<bolt>/<name>, is Flume's fix kind named <bolt>--<name> (fix_launch),
+    so fix/<bolt>--<name>. None for a fix of a kit's main, fix/main/<kit>/<name>, which lands on main and never on a
+    bolt, and for a role's work, which the bolt's landings do not build."""
     kind, _, name = work.partition("/")
+    if kind == "fix":
+        parts = name.split("/")
+        return f"fix/{parts[0]}--{parts[1]}" if len(parts) == 2 and all(parts) else None
     return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
 
 
-def built_on_bolt(work, s, landings):
+def built_on_bolt(work, s, landings, launched=None):
     """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
     work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
-    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read. Once a landing
+    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read; launched, a fix's
+    launch's Date, UTC ISO 8601 to the second as requests.rec writes it, None for a unit or chore. Once a landing
     names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
     of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
     whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
     from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
-    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit)."""
+    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit). A
+    landing made before launched builds nothing: a fix's name is free on its bolt again once its launch is dropped, so
+    such a landing is a dropped launch's of the same name, which a fix launched again under it must not inherit (design
+    of a-bolts-landed-fix-reads-merged, Decision 2); both times compare as text."""
     landing = (landings or {}).get(place_branch(work) or "")
     if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
+        return s
+    if launched and landing["at"] < launched:
         return s
     kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
     return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
