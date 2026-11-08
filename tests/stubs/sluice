@@ -3,7 +3,10 @@
 # 0.29.3 does. `sluice overview --json` prints $CREW_TEST_ROOT/sluice-overview.json while it exists, else the document
 # sluice prints for a repository whose branches have no records yet; `sluice overview --json --watch` prints that
 # document as one line at once and again whenever it changes but for its time, as sluice 0.51.3 does, until it is
-# ended, reading no git, so a test's shims on git see the follower's own calls alone; `sluice status <id> --json` prints
+# ended, reading no git, so a test's shims on git see the follower's own calls alone, and a file a test is still
+# writing, which is no whole document yet, is looked at again rather than printed or ended on, since sluice never
+# prints half a document, the watch's host noted once in $CREW_TEST_ROOT/sluice-overview-half-read when it finds one;
+# `sluice status <id> --json` prints
 # $CREW_TEST_ROOT/sluice-status-<id>.json while it exists, else the record of a submission it made, as its wait prints
 # it, else sluice's not-found error on standard output, exiting 1.
 # `sluice preview <branch> <revision> [--wait] --json` refuses, as sluice does, a revision whose .config/sluice.toml has
@@ -75,13 +78,20 @@ if [[ $* == "overview --json --watch" ]]; then
   exec python3 -c '
 import json, os, sys, time
 path, host, here = sys.argv[1:]
-last = None
+last, half = None, False
 while True:
     try:
         with open(path) as f:
             doc = json.load(f)
     except FileNotFoundError:
         doc = {"branches": [], "host": host, "previews": [], "repository": here, "schema": "sluice/overview@1", "sessions": []}
+    except ValueError:  # the test is still writing the file: no whole document yet
+        if not half:
+            half = True
+            with open(os.path.join(os.path.dirname(path), "sluice-overview-half-read"), "a") as f:
+                f.write(host + "\n")
+        time.sleep(0.2)
+        continue
     doc["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     same = {k: v for k, v in doc.items() if k != "at"}
     if same != last:
