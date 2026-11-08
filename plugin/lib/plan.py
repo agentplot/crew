@@ -6000,10 +6000,12 @@ def may_write(fleet, key, a):
 
 # The commands that write a request for a runner beyond the plan writes the role table already lets their callers run
 # (Decision 16 of teams-cross-to-flume-as-their-bolts-land, roles.1), each with the roles besides the user who may run
-# it, the first the one to tell: crew answer, crew fix of a bolt given through Flume, and crew main fix, its --send
-# among it, which ops runs only on the user's word (roles.2). crew role land is a role's run's alone, told by its place
+# it, the first the one to tell: crew answer, crew fix of a bolt given through Flume, crew main fix, its --send
+# among it, which ops runs only on the user's word (roles.2), and crew card preview, a card's owner's on the user's
+# words on the card (Decision 6 of a-cards-preview-is-asked-of-the-runner). crew role land is a role's run's alone, told by its place
 # and never by a name a standing agent carries too (role_land, run_named; Decision 10 of roles-run-as-flume-kinds).
-REQUESTERS = {"answer": ("planner", "design", "main-ops"), "fix": ("planner", "main-ops"), "main fix": ("main-ops",)}
+REQUESTERS = {"answer": ("planner", "design", "main-ops"), "fix": ("planner", "main-ops"), "main fix": ("main-ops",),
+              "card preview": ("main-ops", "planner")}
 ROLE_SAID = {"planner": "the planner", "design": "the design agent", "main-ops": "main-level ops"}
 
 
@@ -14149,15 +14151,19 @@ def asked_step(recorded, revision, listed, alive):
     return "keep" if listed or alive else "ask"
 
 
+# What a card's change note says of a preview, by its word (runner.preview_word; Decision 4 of
+# a-cards-preview-is-asked-of-the-runner): "<thing>: Its preview of <h> " and one of these.
+PREVIEW_NOTES = {"asked": "is asked of the runner on {host}", "held": "waits for room on {host}", "coming": "is coming up",
+                 "up": "is up", "failed": "did not come up", "refused": "could not be brought up",
+                 "unread": "could not be brought up", "unlisted": "is gone", "ask": "is put away"}
+
+
 def asked_note(thing, p):
-    """The change note of a card a preview was asked from (rail-cards "Brought up"): that the thing's preview is up,
-    coming up, or could not be brought up, as sluice lists it or why (p, as preview_ask gives it)."""
-    h = p["head"][:7]
-    if p.get("state") == "up":
-        return f"{thing}: Its preview of {h} is up"
-    if p.get("state") in ("waiting", "starting"):
-        return f"{thing}: Its preview of {h} is coming up"
-    return f"{thing}: Its preview of {h} could not be brought up"
+    """The change note of a card that carries a preview (rail-cards "Brought up", "A card is changed in place when the
+    runner reports its preview anew"), from what the card now says of it (p, as cards.preview_said takes it): that the
+    thing's preview is asked of the runner on its host, waits for room there, is coming up, is up, did not come up,
+    could not be brought up, is gone, or, the card offering it again, is put away."""
+    return f"{thing}: Its preview of {p['head'][:7]} " + PREVIEW_NOTES[runner.preview_word(p)].format(host=p.get("host"))
 
 
 def preview_row(label, key, bolt, head, declared, why):
@@ -14554,12 +14560,16 @@ def preview_caller(caller, owner, key):
 def card_preview(fleet, a, acts=None):
     """crew card preview <key> <thing> [--done] [--label L]: run by a card's owner on the user's words on the card
     (rail-cards "The user asks for a preview by writing on the card", record 0043), main-level ops's for land/<kit>
-    and the planner's for batch/<n> (preview_owner, preview_caller): on the partition's main machine, where the card is,
-    the thing read from what the card carries (preview_target), a landings row's bolt as its last post or change
-    recorded its rows, one whose kit's policy at that head declares a preview (rows_previewed) or, with --done, any, a
-    batch line's <unit>/<name> of a unit of the batch; then on the host the thing's work runs on (preview_at, code.3),
-    through acts.preview_up, its preview brought up through sluice, or with --done released, and the card changed in
-    place (card_preview_here). Refused for any other key, caller or thing, asking sluice nothing."""
+    and the planner's for batch/<n> (preview_owner, preview_caller), on the partition's main machine, where the card
+    is (code.3), asking the runner on the host where the thing's work runs and nothing of that host itself (Decision 6
+    of a-cards-preview-is-asked-of-the-runner): the thing read from what the card carries (preview_thing); then one
+    plan write of one request (state.1, plan.1), a bring-up where crew's ask of that revision on that host does not
+    stand as the runner reports it (runner.ask_step), or, with --done, the done of each standing ask of it, its entry
+    card.preview on the work with the card's key and asked or done (record.1); and the card changed in place with the
+    note (preview_changed). An ask that stands is given back as the runner reports it, nothing written; a done with
+    none standing is said, nothing written. It answers once the write is made, naming the request and what the card
+    now says (code.9): the runner answers at its next pass, and the rail's read follows it (rail_read). Refused for any
+    other key, caller or thing, writing nothing."""
     acts = acts or CardActs(fleet)
     label = default_label(fleet, a) or fail("crew card runs as the card's partition: run it as a crew agent, or add --label")
     owner = preview_owner(a.key, label, acts.kits(label))
@@ -14568,36 +14578,117 @@ def card_preview(fleet, a, acts=None):
     main = crew.partition_of(fleet, label)["machine"]
     if acts.host() != main:
         return acts.forward(main, ["card", "preview", a.key, a.thing, *(["--done"] if a.done else []), "--label", label])
+    requests, reads = acts.runner(label)
+    target = preview_thing(fleet, label, a.key, a.thing, owner, a.done, acts)
+    CONTEXT.update(label=label, work=target["work"])  # a refusal's entry names it (named)
+    standing = runner.previews_standing(requests, reads)
+    if a.done:
+        asks = [r for k, r in sorted(standing.items(), key=lambda kr: runner.number(kr[1].get("Request")) or 0)
+                if (k == target["at"] if target.get("at") else r.get("Work") == target["work"] and r.get("Repo") == target["repo"])]
+        if not asks:
+            print(f"crew asked for no preview of {a.thing} that stands, from {a.key} or another card, so nothing is put away")
+            return
+        made = []
+        preview_written(fleet, label, a.key, a.thing, asks, done=True, made=made)
+        shown = {"branch": asks[-1].get("Branch"), "head": asks[-1].get("Revision"), "state": "ask", "released": asks[-1].get("Revision")}
+        note = asked_note(a.thing, shown)
+        print(f"request {', '.join(str(n) for n in made)}: {note}")
+        preview_changed(fleet, label, a.key, note)
+        return
+    k = target["at"]
+    ask = standing.get(k)
+    report = runner.preview_report(reads, ask) if ask is not None else None
+    if runner.ask_step(ask, report) == "keep":
+        print(f"crew's ask of {a.thing}'s preview of {k[2][:7]} stands, as request {ask.get('Request')}, so none is written: "
+              + preview_shown_said(a.thing, report))
+        return
+    made = []
+    preview_written(fleet, label, a.key, a.thing, [dict(Work=target["work"], Host=k[0], Repo=k[1], Branch=target["branch"], Revision=k[2])],
+                    done=False, made=made)
+    note = asked_note(a.thing, {"head": k[2], "host": k[0], "state": "asked"})
+    print(f"request {made[0]}: {note}")
+    preview_changed(fleet, label, a.key, note)
+
+
+def preview_shown_said(thing, p):
+    """What a card says of a thing's preview, in a line: its change note, with the addresses listed or why it is not
+    there."""
+    return asked_note(thing, p) + (": " + ", ".join(f"{k} {v}" for k, v in p["addresses"].items()) if p.get("addresses") else
+                                   f": {p['words']}" if p.get("state") == "refused" and p.get("words") else
+                                   f": {p['why']}" if p.get("why") else "")
+
+
+def preview_written(fleet, label, key, thing, asks, done, made):
+    """One plan write of a card's preview requests (Decision 6 of a-cards-preview-is-asked-of-the-runner; state.1,
+    plan.1): for each of asks, a bring-up, or with done its done, naming its host, work, repository, branch and
+    revision (runner.preview_fields); the facts read again at the tip it is applied to, so a bring-up whose ask now
+    stands there, or a done whose ask stands no more, is refused, writing nothing. Its entry is card.preview on each
+    work, the card's key and asked or done (record.1), holding no words (record.3). Each request's number appended to
+    made."""
+    state = "done" if done else "asked"
+
+    def change(w):
+        have = requests_of(w).recs("Request")
+        standing = runner.previews_standing(have, w.runners())
+        for r in asks:
+            k, h = (r.get("Host"), r.get("Repo"), r.get("Revision")), (r.get("Revision") or "")[:7]
+            ask = standing.get(k)
+            if done and (ask is None or ask.get("Request") != r.get("Request")):
+                fail(f"crew's ask of {thing}'s preview of {h} on {k[0]} stands no more at {label}/main's tip, so its done is not written")
+            if not done and runner.ask_step(ask, runner.preview_report(w.runners(), ask) if ask is not None else None) == "keep":
+                fail(f"crew's ask of {thing}'s preview of {h} on {k[0]} stands at {label}/main's tip, as request "
+                     f"{ask.get('Request')}, so none is written")
+            made.append(request(w, "preview", r.get("Work"), **runner.preview_fields(k[0], k[1], r.get("Branch"), k[2], done)))
+        return []
+    how = "put away" if done else "asked"
+    write(fleet, label, change, f"plan(card): preview of {thing} {how} from {key}", act="card.preview",
+          on=sorted({r.get("Work") for r in asks}), fields={"Key": key, "State": state})
+
+
+def preview_thing(fleet, label, key, thing, owner, done, acts):
+    """What a card's thing names for its preview (Decision 6 of a-cards-preview-is-asked-of-the-runner), read on the
+    partition's main machine, nothing run on the work's host: {work, repo, branch, at: (host, repo, revision)}. A
+    landings row's bolt among the card's last recorded rows (card_heads), bolt/<bolt> on the host whose runner took its
+    work (land_held, bolt_at), its repository as the plan names it, at its row's full head read afresh as the raise
+    reads it (CardActs.land_row), refused while the row can't land, naming why; with done, the row is not read, its
+    work and repository naming its standing asks. A batch line's <unit>/<name> of a unit of the batch, unit/<unit> on
+    the host its unit was built on (batch_unit_at), its repository its bolt's newest launch's, at the branch and
+    revision its made lines hold (CardActs.made). Refused for a thing the card does not carry (preview_target), or
+    whose host or row crew can't read (read.1)."""
     entries = acts.entries(label)
-    if a.key.startswith("land/"):
-        card = cards.card_under(entries, a.key, owner)
+    if key.startswith("land/"):
+        card = cards.card_under(entries, key, owner)
         rows = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and e.get("Heads")
                                 and not e.get("Refused")), None)) if card else []
-        carried, unread = ({b: None for b, _, _ in rows}, {}) if a.done else rows_previewed(fleet, label, rows)
-        preview_target(a.key, a.thing, carried, unread)
-    else:
-        n = int(a.key.split("/")[1])
-        units = next((us for m, _, us in batches(entries) if m == n), None)
-        units is not None or fail(f"{label}'s run record on this host holds no batch {n}")
-        unit, _, name = a.thing.partition("/")
-        name or fail(f"a batch's line is named <unit>/<name>, as its card names it, not {a.thing}")
-        preview_target(a.key, unit, {u: None for u, _, _ in units})
-    return acts.preview_up(preview_at(fleet, label, a.key, a.thing, entries)["machine"], label, a.key, a.thing, a.done)
-
-
-def preview_at(fleet, label, key, thing, entries=None):
-    """Where a card's thing is brought up (card_preview, card_preview_here): a landings row's bolt where its work runs
-    (land_held, bolt_at), a batch line's <unit>/<name> where its unit was built (batch_unit_at), the batch read from the
-    run record (entries, the partition's when not given). Refused when crew can't tell (read.1)."""
-    if key.startswith("land/"):
+        preview_target(key, thing, {b: None for b, _, _ in rows})
+        kit = key.split("/", 1)[1]
+        if done:
+            return {"work": f"bolt/{thing}", "repo": kit}
         _, b, t = land_held(fleet, label, thing)
-        b or fail(f"{label}'s plan holds no bolt {thing}, so nothing of {label}'s brings its preview up")
-        return t or fail(f"bolt {thing} is not started, so nothing of {label}'s brings its preview up")
-    n, unit = int(key.split("/")[1]), thing.split("/", 1)[0]
-    units = next((us for m, _, us in batches(entries if entries is not None else partition_entries(fleet, label)) if m == n), None)
-    units is not None or fail(f"{label}'s run record holds no batch {n}")
-    between = next((m for u, m, _ in units if u == unit), None) or fail(f"batch {n} holds no unit {unit}")
-    return batch_unit_at(fleet, label, between, unit)
+        b or fail(f"{label}'s plan holds no bolt {thing}, so its preview is not asked")
+        t or fail(f"bolt {thing} is not started, so its preview is not asked")
+        row, why = acts.land_row(label, thing, t["machine"])
+        row is not None or fail(f"{key}'s row {thing} can't be read, so its preview is not asked: {why}")
+        row.get("box") or fail(f"{key}'s row {thing} can't land now, so its preview is not asked: {row.get('why')}")
+        head = row["facts"]["head"]
+        return {"work": f"bolt/{thing}", "repo": b.get("Repo"), "branch": f"bolt/{thing}", "at": (t["machine"], b.get("Repo"), head)}
+    n = int(key.split("/")[1])
+    units = next((us for m, _, us in batches(entries) if m == n), None)
+    units is not None or fail(f"{label}'s run record on this host holds no batch {n}")
+    unit, _, name = thing.partition("/")
+    name or fail(f"a batch's line is named <unit>/<name>, as its card names it, not {thing}")
+    preview_target(key, unit, {u: None for u, _, _ in units})
+    between = next(m for u, m, _ in units if u == unit)
+    host = batch_unit_at(fleet, label, between, unit)["machine"]
+    lines = (acts.made(label, host, [unit], key).get("made") or {}).get(unit) or []
+    carried = {f"{unit}/{m['name']}": (m["branch"], m["revision"]) for _, ls in lines for m in map(cards.made_line, ls)
+               if not m.get("unread") and "address" not in m and "branch" in m and "revision" in m}
+    branch, revision = preview_target(key, thing, carried)
+    requests, _ = acts.runner(label)
+    launches = [r for r in requests if r.get("Act") == "launch" and r.get("Base") == f"bolt/{between}"]
+    launches or fail(f"no launch of bolt {between}'s work is in requests.rec, so {unit}'s repository can't be told")
+    repo = launches[-1].get("Repo")
+    return {"work": f"unit/{unit}", "repo": repo, "branch": branch, "at": (host, repo, revision)}
 
 
 def card_preview_here(fleet, label, key, thing, done):
@@ -14871,12 +14962,9 @@ class CardActs:
         if r.returncode:
             sys.exit(r.returncode)
 
-    def preview_up(self, host, label, key, thing, done):
-        """A card's thing brought up or put away on the host its work runs on (card_preview_here): here when this is the
-        host, else by crew _card-preview there (forward)."""
-        if host == crew.this_host():
-            return card_preview_here(self.fleet, label, key, thing, done)
-        return self.forward(host, ["_card-preview", label, key, thing, *(["--done"] if done else [])])
+    def runner(self, label):
+        """The partition's requests and its runners as this command read them (runner_facts)."""
+        return runner_facts(self.fleet, label)
 
     def made(self, label, host, units, key):
         """What the units recorded as made, kept on host, and the previews brought up there from the card under key,
@@ -16794,7 +16882,7 @@ ACTS = {
     ("chore", "drop"): "chore.drop", ("kit", "rename"): "kit.rename",
     ("signal", None): "capture", ("signal-move", None): "signal.move", ("signal-land", None): "capture",
     ("plan", "propose"): "plan.propose", ("plan", "approve"): "plan.approve",
-    ("plan", "drop"): "plan.drop", ("answer", None): "stage.answer",
+    ("plan", "drop"): "plan.drop", ("answer", None): "stage.answer", ("card", "preview"): "card.preview",
 }
 
 
@@ -16816,7 +16904,7 @@ def named(a):
         out.append(f"kit/{a.old}")
     if a.cmd == "plan" and getattr(a, "n", None) is not None:
         out.append(f"proposal/{a.n}")
-    if a.cmd == "answer" and CONTEXT.get("work"):  # the work as requests name it, once its launch was found
+    if a.cmd in ("answer", "card") and CONTEXT.get("work"):  # the work as requests name it, once its launch or thing was found
         out.append(CONTEXT["work"])
     return out
 
