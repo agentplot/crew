@@ -79,14 +79,20 @@ class TestWhereALaunchWouldBeMade:
         assert runner.launch_repositories(ran({}, keeps=None), [], "crew") == ([], None)
         assert runner.launch_repositories(ran({}, keeps=("agentplot/flume",)), [], "crew") == ([], None)
 
-    def test_crew_cant_tell_where_when_the_runner_that_took_it_reports_no_repositories(self):
-        """Its place's status names /r/crew, and its branch holds no repositories.rec: the place is no report of where
-        the runner keeps crew (Decision 1 of a-bolts-landing-on-main-reads-landed)."""
+    def test_where_the_runner_that_took_it_reports_no_repositories_its_place_names_the_folder(self):
+        """Its branch holds no repositories.rec and its place's status names /r/crew: a runner that reports no
+        repositories is not refused for that alone (drive-state "A runner that reports no repositories")."""
         _, requests = launched(["x"], work=[unit("a")])
         reads = ran({1: "code"}, repository="/r/crew", keeps=None)
+        assert runner.launch_repositories(reads, runner.kit_launches(requests, "crew"), "crew") == (
+            [{"host": "deneb", "dir": "/r/crew"}], None)
+
+    def test_crew_cant_tell_where_when_the_runner_that_took_it_reports_no_repositories_and_no_place_names_one(self):
+        _, requests = launched(["x"], work=[unit("a")])
+        reads = ran({1: "code"}, repository=None)
         assert runner.launch_repositories(reads, runner.kit_launches(requests, "crew"), "crew") == ([], (
-            "the runner on deneb took crew's work and reports no repositories it keeps, so crew can't tell where it keeps "
-            "crew there"))
+            "the runner on deneb took crew's work, reports no repositories it keeps and carries no place of it naming its "
+            "folder, so crew can't tell where a launch of it would be made"))
 
     def test_crew_cant_tell_where_when_a_runner_keeps_two_repositories_by_the_kits_name(self):
         reads = keeping(**{"afterthought/crew": "/r/a/crew", "madswan/crew": "/r/m/crew"})
@@ -115,11 +121,11 @@ class TestTheRefusal:
 class TestAtItsProposal:
     """The add as a proposal checks it (plan.check_ops, plan.apply_all): plan.Proposed's reads, the runners and git given."""
 
-    def given(self, monkeypatch, refs, keeps=("afterthought/crew",)):
+    def given(self, monkeypatch, refs, repository="/r/crew"):
         w, requests = started(unit("a"))
         asked = []
         monkeypatch.setattr(plan, "name_free", lambda *a: None)  # main's changes and chores: test_unit_commands.py
-        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, ran({1: "code"}, repository="/r/crew", keeps=keeps)))
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, ran({1: "code"}, repository=repository)))
 
         def branches_in(fleet, host, folder, branches):
             asked.append((host, folder, branches))
@@ -157,11 +163,12 @@ class TestAtItsProposal:
         assert asked == [("deneb", "/r/crew", ["change/a-rest"])]
 
     def test_where_crew_cant_tell_the_repository_the_add_is_refused_saying_why(self, monkeypatch):
-        w, asked = self.given(monkeypatch, {}, keeps=None)
+        w, asked = self.given(monkeypatch, {}, repository=None)
         with pytest.raises(plan.Refusal) as e:
             apply(w, 'unit add b "Build b." --bolt x', ctx=Reads(FLEET, "madswan", w, 49))
-        assert str(e.value) == ("cannot check whether Flume's branch for unit b stands: the runner on deneb took crew's work "
-                                "and reports no repositories it keeps, so crew can't tell where it keeps crew there")
+        assert str(e.value) == ("cannot check whether Flume's branch for unit b stands: the runner on deneb took crew's work, "
+                                "reports no repositories it keeps and carries no place of it naming its folder, so crew "
+                                "can't tell where a launch of it would be made")
         assert asked == []
 
     def test_a_card_drawn_reads_no_repository(self, monkeypatch):

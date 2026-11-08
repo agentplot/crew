@@ -254,9 +254,7 @@ class TestWhereABoltRuns:
     def test_a_bolt_whose_places_the_runner_no_longer_carries_is_read_in_the_folder_it_reports(self):
         """drive-state "A bolt whose places the runner no longer carries" and "A bolt whose every launch was refused":
         deneb's runner answered x's launches, launched or refused, carries no place of them nor of crew's other work, and
-        its repositories.rec names crew at /w/crew: x is read and landed on deneb in /w/crew, its stream none; with no
-        repositories.rec on its branch, crew can't tell where it keeps crew there, naming deneb (Decision 1 of
-        a-bolts-landing-on-main-reads-landed; read.1)."""
+        its repositories.rec names crew at /w/crew: x is read and landed on deneb in /w/crew, its stream none."""
         read = took("deneb", 1, 2, 3)
         read["places"] = {}
         at = plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": read}))
@@ -266,12 +264,34 @@ class TestWhereABoltRuns:
         refused["answers"] = {n: plan.Rec("Answer", [("Request", str(n)), ("Outcome", "refused"), ("Words", "bolt/x holds it")])
                               for n in (1, 2)}
         assert plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": refused}))["kit"]["main"] == "/w/crew"
+
+    def test_a_runner_that_reports_no_repositories_is_read_by_its_newest_place_of_the_kit(self):
+        """drive-state "A runner that reports no repositories": deneb's branch holds no repositories.rec. Its place of x's
+        work names /w/crew: x is read and landed there. With no place of x carried, its place of crew's work on bolt z
+        names it: x is read and landed there, in that place's stream, as crew main reads it."""
+        read = took("deneb", 1, 2, 3, kept=None)
+        at = plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": read}))
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", "madswan", "/w/crew")
+        other = took("deneb", 1, 2, 3, kept=None)
+        other["places"] = {3: other["places"][3]}
+        at = plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": other}))
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", "madswan", "/w/crew")
+
+    def test_a_runner_that_reports_no_repositories_and_carries_no_place_of_the_kit_leaves_it_unread(self):
+        """drive-state "A runner that reports no repositories and carries no place of the kit", as on 2026-11-08: deneb's
+        runner answered every launch of x launched, carries no place of crew's work and its branch holds no
+        repositories.rec: crew can't tell where it keeps crew there, naming deneb, and kit_at says the same of crew
+        (read.1)."""
         bare = took("deneb", 1, 2, 3, kept=None)
         bare["places"] = {}
         with pytest.raises(plan.Refusal) as e:
             plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": bare}))
-        assert str(e.value) == ("the runner on deneb took bolt x's work and reports no repositories it keeps, so crew can't "
-                                "tell where it keeps crew there")
+        assert str(e.value) == ("the runner on deneb took bolt x's work, reports no repositories it keeps and carries no "
+                                "place of crew's work naming its folder, so crew can't tell where it keeps crew there")
+        with pytest.raises(plan.Refusal) as e:
+            plan.kit_at(FLEET, "madswan", "crew", (self.LAUNCHES, {"deneb": bare}))
+        assert str(e.value) == ("the runner on deneb took crew's work, reports no repositories it keeps and carries no "
+                                "place of it naming its folder, so crew can't tell where it keeps crew there")
 
     def test_the_folder_the_runner_reports_wins_over_a_places_stale_status(self):
         """drive-state "A kit renamed under its place" (Decision 6 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
