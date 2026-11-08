@@ -254,13 +254,20 @@ def landed_from(log):
 LANDINGS = "--format=%H%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e"
 
 
-def bolt_landings(main, ref, now):
+def bolt_landings(main, ref, now, landing=None):
     """The landings sluice made on a bolt, by the branches they name (landed_from), read on the bolt's own first-parent
-    line where it is read (ref, bolt_at): beyond the kit's main now (now) while main does not hold the bolt's head, and,
-    once it does, beyond main as it stood when the bolt landed, the first parent of the merge on main's first-parent
-    line whose other parent is the head, so a landed bolt still names what landed on it until its close; a head main
-    holds with no such merge, a bolt with nothing of its own, names none. ({name: {"commit", "at"}}, None), or (None,
-    why) when git could not read it (read.1)."""
+    line. Given the bolt's landing on main (landing, main_landing's), on that landing's line, its head back to its base,
+    the bolt's own line as main holds it, whether or not its branch stands (ref None) (Decision 3 of
+    a-bolts-landing-on-main-reads-landed). Given none, where the bolt is read (ref, bolt_at): beyond the kit's main now
+    (now) while main does not hold the bolt's head, and, once it does, beyond main as it stood when the bolt landed, the
+    first parent of the merge on main's first-parent line whose other parent is the head, so a landed bolt still names
+    what landed on it until its close; a head main holds with no such merge, a bolt with nothing of its own, names none.
+    ({name: {"commit", "at"}}, None), or (None, why) when git could not read it (read.1)."""
+    if landing:
+        log = run(["git", "log", "--first-parent", LANDINGS, landing["head"], f"^{landing['base']}", "--"], main)
+        if log is None:
+            return None, f"git could not list the landings on main's landing {landing['commit'][:7]}, {landing['head'][:7]} beyond {landing['base'][:7]}"
+        return landed_from(log), None
     head = (run(["git", "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], main) or "").strip()
     if not head:
         return None, f"git could not read bolt/{ref.rsplit('bolt/', 1)[-1]}'s head at {short(ref)}"
@@ -938,6 +945,27 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
     # (plan.8). A line git can't list is said on each bolt (carries_error), never read as none (read.1).
     lines, lwhy = bolt_lines(main, now, {b: reads.get(b) or (f"refs/remotes/origin/bolt/{b}" if b in github else f"refs/heads/bolt/{b}")
                                          for b in sorted(github | set(have) | {b for b, r in reads.items() if r})})
+    # Each bolt the request seeks the landing of on main (seek, {bolt: {"since", "heads"}}, plan.landing_sought): main's
+    # first-parent line read once, from the oldest since asked, and each sought bolt's landing on it (main_landing), by
+    # the heads crew submitted and its branch's head where read, its branch standing or not; a line git can't list is
+    # said on each bolt sought (landed_error), never read as no landing (read.1; Decision 2 of
+    # a-bolts-landing-on-main-reads-landed).
+    sought = {b: s for b, s in (req.get("seek") or {}).items() if s and s.get("since")}
+    if sought:
+        since = min(s["since"] for s in sought.values())
+        code, log, err = ran(["git", "log", "--first-parent", f"--since={since}", LANDED, now, "--"], main)
+        for b, s in sorted(sought.items()):
+            facts = out["bolts"].setdefault(b, {"exists": False})
+            if code != 0:
+                facts["landed_error"] = (f"git could not list main's first-parent line at {short(now)} since {since}: "
+                                         + ((err or "").strip() or f"exit {code}"))
+                continue
+            facts["landed"] = main_landing(log, b, list(s.get("heads") or []) + ([facts["head"]] if facts.get("head") else []), s["since"])
+    for b in sorted(sought):
+        landing = out["bolts"][b].get("landed")
+        if landing and not reads.get(b):
+            landed, why = bolt_landings(main, None, now, landing)
+            out["bolts"][b].update({"landings": landed} if why is None else {"landings_error": why})
     for b, ref in reads.items():
         if not ref:
             continue
@@ -948,7 +976,7 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
             out["bolts"][b]["carries"] = carried_bolts(holds.split(), lines, b)
         # The landings sluice made on it, by the branches they name: a unit's or chore's place is built once one names
         # its branch, whichever partition's launch made it (crew record 0056 decision 2); one git can't list is said.
-        landed, why = bolt_landings(main, ref, now)
+        landed, why = bolt_landings(main, ref, now, out["bolts"][b].get("landed"))
         out["bolts"][b].update({"landings": landed} if why is None else {"landings_error": why})
     places = os.path.join(kdir, "places")
     for path, branch in at.items():
