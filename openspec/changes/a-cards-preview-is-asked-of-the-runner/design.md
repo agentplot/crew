@@ -274,7 +274,7 @@ None.
 - `ACTS["preview"] = (("Host", "Repo", "Branch", "Revision"), ("Done",))`.
 - `WORK`: a pattern `PREVIEW_WORK` of `bolt/N` and `unit/N`. `request_refusal` takes a preview's work from `PREVIEW_WORK` alone and any other act's from `WORK` alone, so `bolt/<b>` on a launch is refused saying it is a preview's work alone.
 - A preview naming no `Host` is refused: "a preview names the host whose runner brings it up". `Done` other than `yes` is refused.
-- `preview_fields(host, work, repo, branch, revision, done)` gives the `given` that `plan.request` takes for it.
+- `preview_fields(host, repo, branch, revision, done=False)` gives the `given` that `plan.request` takes beside the act and the work.
 
 Cases in `tests/py/test_runner.py`, class `TestPreviewRequest`:
 - a preview's fields in the file's order, and `Done: yes` for a done;
@@ -310,7 +310,8 @@ Cases in class `TestHostReadPreviews`:
 - `previews.rec` refused by recfix (given in `refused`) unreadable.
 
 **1.3** `plugin/lib/runner.py`:
-- `previews_standing(requests, reads)`: `{(host, repo, revision): request}` for each whose newest preview request is a bring-up its host's runner has not refused (`preview_report`).
+- `previews_asked(requests)`: `{(host, repo, revision): request}` for each whose newest preview request is a bring-up, whatever the runner answered. A row or a line carries this ask's report, so a refusal is said on the card until the user asks again.
+- `previews_standing(requests, reads)`: those of `previews_asked` whose host's runner has not refused them (`preview_report`). Only a standing ask is kept, given back or put away.
 - `preview_report(reads, request)`: Decision 3, returning `{state, host, head, name?, addresses?, words?, at?, why?}`. `head` is the request's `Revision`. Its states are `asked`, `held`, `waiting`, `starting`, `up`, `failed`, `refused`, `unlisted` and `unread`.
 - `ask_step(ask, report)`: `keep` or `ask`, Decision 6.
 - `preview_word(shown)`: Decision 4's words, from a card's shape.
@@ -374,9 +375,8 @@ Cases in `tests/py/test_card_commands.py`, replacing those of `card_preview_here
 
 **3.2** `plugin/lib/plan.py`:
 - `land_row` reads no preview and releases none: `landing_preview`, `land_end`'s release and `acts.release_preview` go.
-- `landings_raised` gives each row that can land its preview, from `runner_facts`, `previews_standing` and `preview_report`: the standing ask of `(host, kit, head)` as reported, else `{branch: "bolt/<b>", head, state: "ask"}`, with `released` where Decision 7's write put an ask of that bolt at another head away.
-- Decision 7's write is made before `landings_step` builds the card.
-- After a post or change, what each row was told is kept (Decision 8). `told_read(label)` and `told_keep(label, key, {request: word})` read and write `CARDS/<label>/previews.json` atomically, as `landing_word_keep` writes; unreadable, it reads as `{}`. 3.3 and 3.4 use them too.
+- `landings_previews`, called by `landings_raised` before `landings_step` builds the card, makes Decision 7's write in main-level ops's name, then gives each row that can land its preview, from `runner_facts`, `previews_asked` and `preview_report`: the ask of `(host, kit, head)` as reported, else `{branch: "bolt/<b>", head, state: "ask"}`, with `released` where that write put an ask of that bolt at another head away.
+- After a post or change, what each row was told is kept (Decision 8, `told_kept`). `told_read(label)` and `told_keep(label, key, {request: word})` read and write `CARDS/<label>/previews.json` atomically, as `landing_word_keep` writes, and only when it changes; unreadable, it reads as `{}`. 3.3 and 3.4 use them too.
 - `CardActs.preview` and `release_preview` go; `LandActs` in the tests follow.
 
 Cases in `tests/py/test_landings.py`:
@@ -388,9 +388,9 @@ Cases in `tests/py/test_landings.py`:
 - a refused ask writing none.
 
 **3.3** `plugin/lib/plan.py`:
-- `batch_made` gives each unit's `up`, `{name: shown}`, from the runner's reports of the standing asks of `unit/<u>` at each line's revision on the unit's host, not from `acts.made`'s `previews`.
-- `made_cmd` prints `{"made": ...}` alone and takes no `--card`.
-- `row_card_close` for `batch/<n>` writes Decision 7's dones in place of `acts.release_previews`.
+- `batch_made` gives each unit's `up`, `{name: shown}`, from the runner's reports of the asks (`previews_asked`) at each line's revision on the unit's host, in its repository as its bolt's newest launch names it (`unit_repo`), not from `acts.made`'s `previews`; it returns what each line was told.
+- `made_cmd` prints `{"made": ...}` alone and takes no `--card`; `made_listed` reads an older crew's `previews` beside it as nothing.
+- `row_card_close` for `batch/<n>` writes Decision 7's dones in the planner's name (`batch_previews_put_away`) in place of `acts.release_previews`.
 - `CardActs.release_previews` and the `_preview-release` command go.
 - `raise_batch` keeps what each line was told (`told_keep`).
 
@@ -404,9 +404,9 @@ Cases in `tests/py/test_batches.py`:
 **3.4** `plugin/lib/plan.py`:
 - **`sweep_previews(fleet, read, acts)`**, called in `rail_read` after `sweep_moved` and only for partitions whose main machine is this host, as `sweep_moved` is.
   - It takes `sweep_judgment`'s live keys and blind prefixes for each partition, as `sweep_sessions` builds them.
-  - It writes Decision 7's dones with a grace of 120 seconds by each ask's `Date`.
+  - It writes Decision 7's dones with a grace of 120 seconds by each ask's `Date`, one write for each card the asks came from (`ask_card`: `land/<repo>` for a bolt's, the newest batch holding a unit for a unit's), in that card's owner's name.
   - It returns `[{label, work, revision, said}]` in `read["previews"]`, which `rail_text` lists beside the sessions it ended.
-- **`previews_changed(fleet, read, acts)`**, after it: Decision 8, through `told_read` and `told_keep` (Task notes 3.2), `land_hand` and `batch_hand`.
+- **`previews_changed(fleet, read, acts)`**, after it: Decision 8, through `told_read` and `told_keep` (Task notes 3.2), and `SweepActs.preview_note`, which hands the note to `preview_changed` (`land_hand` or `batch_hand`). A card answered is one the run record holds a `card.answer` for. It returns `[{label, key, note, said}]` in `read["previewed"]`, which `rail_text` lists too.
 - **`card_sweep`** releases no previews, and its docstring and the judgment it reads say so. `preview_files`, `preview_row_key` and `preview_dead` go.
 
 Cases in `tests/py/test_rail.py`, its `release_preview` and `release_previews` fakes removed:
