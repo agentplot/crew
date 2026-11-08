@@ -11,4 +11,4 @@ Build the tasks in order; each names the one check that proves it. Submit nothin
 ## 2. What a wait reads and what a refusal names, said
 
 - [x] 2.1 README, `plugin/skills/crew/SKILL.md` and `plugin/bin/crew`'s usage say that `waits` covers a place past its bound at the stage it waits to retry, and that `stalled` is Flume's stalled. They also say what `crew answer`'s refusal of a live place names (design Decision 4; Task notes 1.4). Verify `tests/suite t-docs` ends with "0 failed".
-- [ ] 2.2 The planner's brief says the refusal names the stage as the runner carried it, and that a wait Flume told of since is answered again once `crew bolts` shows the place waiting, with the added phrase pinned in `tests/t-briefs.sh` (design Decision 4; Task notes 1.5). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 2.2 The planner's brief says the refusal names the stage as the runner carried it, and that a wait Flume told of since is answered again once `crew bolts` shows the place waiting, with the added phrase pinned in `tests/t-briefs.sh` (design Decision 4; Task notes 1.5). Verify `tests/suite t-briefs` ends with "0 failed".
