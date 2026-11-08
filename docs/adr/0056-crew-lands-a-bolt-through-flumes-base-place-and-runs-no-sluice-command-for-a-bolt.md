@@ -34,19 +34,30 @@ crew makes a bolt's branch with sluice's `branch create`, lands it with `crew bo
 - One crew unit, on the user's yes and after the Flume release: `crew bolt submit` and its land path, and main-level ops's landing steps, ask Flume and read Flume, with no sluice command for a bolt (swancloud-planner names it `crew-lands-a-bolt-through-flumes-base-place`).
 - Boomdrive's runner carries a bolt as a launch (agentplot/boomdrive's unit `a-bolt-is-a-launch`), so crew's launch of a bolt reaches Flume as any work does.
 
-## Amendment of 2026-11-08: the user's send is the landing, and no role runs one
+## Amendment of 2026-11-08: crew is the control plane, and a bolt lands by the runner alone
 
-The user's send on a bolt's landings row is itself the landing, a retry of its base place's submission that Flume and sluice carry out, and no role runs a landing. Status: proposed to the user on 2026-11-08, as `briefs.15` has it; accepted only on their yes.
+crew reaches Flume and sluice for a bolt only as the control plane, through the Boomdrive runner: it offers the bolt as a launch and the user's send as an act on it, it reads the runner's report, and no role runs a landing. Status: proposed to the user on 2026-11-08, as `briefs.15` has it; accepted only on their yes.
 
-Deciders: the user, 2026-11-08, declining proposal 62 (`crew-lands-each-bolt-by-name`) with this note, relayed by agentplot-planner (signal 2026-11-08-agentplot-planner-9cdb51ff/01-crew-lands-nothing): "It's not crew's job to land anymore. That's the whole point of the runner in Flume and sluice. Crew no longer is responsible for landing itself. I guess I'm thinking about how the control plane would work. It is going to be a decision in the user's rail to land, so that's a message for a Flume place, theoretically." agentplot-design for writing it here, and for the choices marked as its own.
+Deciders: the user, 2026-11-08, first declining proposal 62 (`crew-lands-each-bolt-by-name`), as agentplot-planner relayed it (signal 2026-11-08-agentplot-planner-9cdb51ff/01-crew-lands-nothing): "It's not crew's job to land anymore. That's the whole point of the runner in Flume and sluice. Crew no longer is responsible for landing itself. I guess I'm thinking about how the control plane would work. It is going to be a decision in the user's rail to land, so that's a message for a Flume place, theoretically." Then, sending an earlier draft of this amendment back on its card: "But crew is like the control plane. It doesn't talk to Flume. Remember, the Boom Drive runner is pulling from the control plane. Everything has to happen from the Boom Drive runner. There can be messages back and forth with the control plane but crew doesn't know about Flume directly except for whatever the control plane contract allows." agentplot-design for writing it here, and for the choices marked as its own.
 
-Decision 3 above is replaced by these:
+Decisions 2 and 3 above are replaced by these:
 
-1. **The user's send is the landing.** A bolt lands on the user's send on its row of the kit's landings card, and that send is itself the control plane's message to the bolt's base place: a retry of its submission, given once for each row the send ticked. The runner carries it to Flume as it carries any retry (agentplot/boomdrive's work-into-flume, "A bolt's send is a retry of its submission"), and Flume and sluice land the bolt. This is how crew already carries the user's send of a red main's fix.
-2. **No role runs a landing.** Main-level ops asks for nothing at a landing, and crew runs no landing command. Its landing path, `crew bolt submit` and `crew bolt land`, leaves the landing's way, and so does the short-lived worktree on the bolt's branch. crew raises the landings card, writes the send's retries, reads what Flume delivers through the runner's report, and closes each row on it, landed, failed or conflicting.
-3. **A conflict or a failure is Flume's.** Flume launches the kind's landing fix on the bolt (flume record 0056), and the bolt's row comes back to the card once the fix has delivered.
-4. **agentplot-design's choices.**
-   - The send's retries are written in the plan's order, each refused or taken on its own. A row Flume refuses keeps its box with Flume's words, and the rest go. The "all or none" of `plan.16` goes with the act that needed it.
-   - A drive's own control plane, once it replaces crew's (`roles.9`), gives the same retry from the same send.
+1. **crew is the control plane, and only that.** crew reaches Flume and sluice only through the Boomdrive runner, by the control-plane contract. It offers launches and acts, which the runner pulls, and it reads the runner's report: its answers and the statuses it carries. crew calls neither Flume nor sluice, reads neither one's records or files, and names neither in what it decides (`roles.9`; agentplot/boomdrive's control-plane interface).
+2. **A bolt is a launch, and the user's send is an act on it.** crew offers a bolt as a launch of a kind that lands with no stages, as any work is offered (agentplot/boomdrive's work-into-flume, "A bolt is a launch"). The user's send on the bolt's row of the kit's landings card is the act crew offers on that launch: a retry of its submission, once for each row the send ticked (the same spec, "A bolt's send is a retry of its submission"). The runner pulls the act and carries it out, and the bolt lands by what the runner runs. This is how crew already offers the user's send of a red main's fix.
+3. **No role runs a landing.** Main-level ops asks for nothing at a landing, crew runs no landing command, and crew makes no worktree on a bolt's branch. `crew bolt submit` and `crew bolt land` leave the landing's way.
+4. **What crew knows of a bolt is the runner's report.** A bolt's head, its pieces, its submission's outcome, a failure, a conflict and a landing fix are whatever the runner's report carries, and crew closes each row on that report. What the report does not carry, crew does not read from another tool: either the contract carries it, or crew does without.
+5. **agentplot-design's choices.**
+   - The send's acts are offered in the plan's order and answered one by one. A row whose act the runner refuses keeps its box with the answer's words, and the rest go. The "all or none" of `plan.16` goes.
+   - A drive's own control plane, once it replaces crew's (`roles.9`), offers the same act from the same send.
 
-Consequences: rules `plan.8` and `plan.16` are amended to match, each marked proposed. The unit `crew-lands-each-bolt-through-flumes-base-place` builds this in crew, and no Boomdrive or Flume unit is owed, since the runner already carries a bolt's send as a retry and Flume's 203 submits a base place on its caller's retry. Until the release that carries it, crew lands as it does today (decision 4 above).
+Consequences:
+
+- Rules `plan.8`, `plan.16` and `plan.19` are amended to match, each marked proposed.
+- The unit `crew-lands-each-bolt-through-flumes-base-place` builds points 2 to 4.
+- crew still calls sluice in three other places, each a departure from point 1:
+  - its plan's reads of a landing, a `sluice ... --json` run in a kit's main (`plan.py`);
+  - its gather of a kit (`gather.py`);
+  - the board's watch of `sluice overview`.
+
+  Each moves onto the runner's report by a unit of its own, queued on the user's yes, with a Boomdrive unit first wherever the contract must carry what crew needs.
+- Until the release that carries them, crew lands as it does today (decision 4 above).
