@@ -9,4 +9,4 @@
 
 ## 2. The docs
 
-- [ ] 2.1 README, the crew skill and `crew`'s usage header say a unit, chore or fix is merged once a landing on its bolt names its place's branch, a fix's only from a landing at or after its launch (`docs.2`; Task notes 2.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 2.1 README, the crew skill and `crew`'s usage header say a unit, chore or fix is merged once a landing on its bolt names its place's branch, a fix's only from a landing at or after its launch (`docs.2`; Task notes 2.1). Verify `tests/suite t-docs` ends with "0 failed".
