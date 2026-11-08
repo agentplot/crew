@@ -2065,34 +2065,46 @@ def start_of(name):
     return starts().get(name)
 
 
-# What the update check says of a start that recorded its launch but no crew commit, as one on a host that loads crew
-# from its release, where there is no git to read the commit from (record 0050 as amended 2026-10-30).
-NO_COMMIT_SAID = ("crew can't tell whether its plugin changed since it started, its start having recorded no crew commit: "
-                  "a bump of crew's pin restarts it only by crew main down and crew main up, until crew reads its release "
-                  "where it runs")
+# What the update check says of each reading (update_due, teams.19).
+UNKEPT_SAID = "it started before crew kept what an agent loads"
+LAUNCH_SAID = "its brief, model, effort or folders changed"
+# A start that recorded its launch but no crew commit, as one from a build that carries no release, or from before crew
+# read its release where it runs (record 0050 as amended 2026-10-30 and 2026-11-08).
+NO_COMMIT_SAID = ("crew can't tell whether its plugin changed since it started, its start having recorded no release of "
+                  "crew's: crew main down and crew main up restart it on the crew this host has installed")
+UNREAD_SAID = "crew can't read the crew this host has installed: {}"
+UNTOLD_SAID = "crew can't tell whether its plugin changed since {}"
+PLUGIN_SAID = "crew's plugin changed"
+RELEASE_SAID = "crew's release changed"
 
 
-def update_due(started, commit, launch, loaded):
+def update_due(started, installed, launch, loaded):
     """Whether a standing agent is due a restart for crew's update (teams.19), and why, from facts: what its last start
-    recorded (start_of), this checkout's commit, the digest of the launch it would be started with now, and whether
-    what a session loads of crew's plugin changed between its start's commit and this one (loaded_changed, None when
-    git can't tell). Returns (due, why): due when it started before crew kept what it loaded, when its brief, model,
-    effort or folders changed, or when what it loaded of crew's plugin did; never for a change to crew's code alone,
-    which is live at once; and not when crew can't tell, which it says (read.1). A start that recorded its launch and no
-    crew commit is read by its launch alone, since the digest covers no part of crew's plugin (NO_COMMIT_SAID)."""
+    recorded (start_of), the crew the host has installed now (installed), whose commands it runs, the digest of the
+    launch it would be started with now, and, for an installed checkout, whether what a session loads of crew's plugin
+    changed between its start's commit and the checkout's (loaded_changed, None when git can't tell). Returns (due,
+    why), in order: no start, not due; a start before crew kept what it loaded, due; its brief, model, effort or
+    folders changed, due; a start with no commit, not due (NO_COMMIT_SAID); the installed crew unread, not due, saying
+    why (read.1); the same commit, not due; an installed checkout, due when what a session loads changed, never for a
+    change to crew's code alone, which every command runs live, and saying it can't tell when git can't; an installed
+    build of another release, due, since the session loaded its build's plugin folder whole and its hooks run from it."""
     if started is None:
         return False, None
     if not started["launch"]:
-        return True, "it started before crew kept what an agent loads"
+        return True, UNKEPT_SAID
     if started["launch"] != launch:
-        return True, "its brief, model, effort or folders changed"
+        return True, LAUNCH_SAID
     if not started["commit"]:
         return False, NO_COMMIT_SAID
-    if started["commit"] == commit:
+    if installed["unread"] or not installed["commit"]:
+        return False, UNREAD_SAID.format(installed["unread"] or "it names no commit")
+    if started["commit"] == installed["commit"]:
         return False, None
+    if installed["from"] == "release":
+        return True, RELEASE_SAID
     if loaded is None:
-        return False, f"crew can't tell whether its plugin changed since {started['commit'][:7]}"
-    return (True, "crew's plugin changed") if loaded else (False, None)
+        return False, UNTOLD_SAID.format(started["commit"][:7])
+    return (True, PLUGIN_SAID) if loaded else (False, None)
 
 
 # Why a main level's standing agent is due an end and never a restart once its partition runs its role as its kind
@@ -2108,10 +2120,11 @@ def end_due(fleet, name):
     return KIND_SAID if kind and kind[1] in MAIN_STANDING else None
 
 
-def due_of(fleet, name, started=None, commit=None):
+def due_of(fleet, name, started=None, now=None):
     """Whether a standing agent of this host is due a restart for crew's update, read: (due, why, what its start
-    recorded). A name that is no standing agent's is never due. A main level's agent whose role now runs as its kind
-    is due an end, its why KIND_SAID (end_due)."""
+    recorded), judged against now, the crew the host has installed, read (installed) where it is not given. A name that
+    is no standing agent's is never due. A main level's agent whose role now runs as its kind is due an end, its why
+    KIND_SAID (end_due). What a session loads is compared by git only in an installed checkout, in its own root."""
     started = started or start_of(name)
     role = standing_role(fleet, name)
     if started is None or role is None:
@@ -2119,13 +2132,14 @@ def due_of(fleet, name, started=None, commit=None):
     ends = end_due(fleet, name)
     if ends:
         return True, ends, started
-    commit = commit or crew_version()[0]
+    now = installed() if now is None else now
     try:
-        now = launch_now(fleet, *role)
+        launch = launch_now(fleet, *role)
     except Refusal as e:
         return False, f"crew can't build its brief: {e}", started
-    loaded = loaded_changed(started["commit"], commit) if started["commit"] and commit and started["commit"] != commit else None
-    return (*update_due(started, commit, now, loaded), started)
+    was, commit = started["commit"], now["commit"]
+    loaded = loaded_changed(was, commit, now["root"]) if now["from"] == "checkout" and was and commit and was != commit else None
+    return (*update_due(started, now, launch, loaded), started)
 
 
 def resolve(fleet, scope, role, extra, fetch=False):

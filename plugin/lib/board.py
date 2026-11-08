@@ -932,14 +932,16 @@ def held_row(host, h):
 
 
 def here_read(fleet, label):
-    """What this host's agents of a partition run of crew, for their bands (agent_views): this host, its crew's
-    version, its hold, and each main-level role of the partition here with a recorded start, by name (crew.agents_here): the version it
-    started on, and whether an update has made it due a restart (crew.due_of)."""
-    commit, version = crew.crew_version()
+    """What this host's agents of a partition run of crew, for their bands (agent_views): this host, the version of the
+    crew it has installed (crew.installed), which a due agent takes at its next stop, its hold, and each main-level role
+    of the partition here with a recorded start, by name (crew.agents_here): the version it started on, and whether an
+    update has made it due a restart (crew.due_of), judged against the installed crew."""
+    now = crew.installed()
+    version = now["version"]
     started, agents = crew.starts(), {}
     for name in crew.agents_here(fleet, label):
         if name in started:
-            due, _, _ = crew.due_of(fleet, name, started[name], commit)
+            due, _, _ = crew.due_of(fleet, name, started[name], now)
             agents[name] = {"version": started[name]["version"], "due": due}
     return {"host": crew.this_host(), "version": version, "held": crew.held(), "agents": agents}
 

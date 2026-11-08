@@ -18,7 +18,7 @@
 
 ## 3. Updates read against the installed crew
 
-- [ ] 3.1 A standing agent is due when its launch changed, when an installed checkout's loaded plugin changed since its start's commit, or when an installed build is another release than its start recorded, and none is due for crew's plugin where its start recorded no release or the installed crew is unread, each said (design, Decision 7; Task notes 3.1). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_hold.py'` exits 0.
+- [x] 3.1 A standing agent is due when its launch changed, when an installed checkout's loaded plugin changed since its start's commit, or when an installed build is another release than its start recorded, and none is due for crew's plugin where its start recorded no release or the installed crew is unread, each said (design, Decision 7; Task notes 3.1). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_hold.py'` exits 0.
 - [ ] 3.2 A band shows, once its agent is due, the version of the crew the host has installed (design, Decision 9; Task notes 3.2). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_hold.py'` exits 0.
 - [ ] 3.3 The follower reads a build host's crew by the installed command's real path, hands out the due restarts through the installed crew when an install moves it, and starts again as it, its notice naming it too (design, Decision 8; Task notes 3.3). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py'` exits 0.
 

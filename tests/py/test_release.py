@@ -265,4 +265,5 @@ class TestDigest:
         now = crew.launch_digest(self.L, f"run `{INSTALLED} bolts`")
         assert was != now
         started = {"session": "sid-1", "commit": COMMIT, "version": "v0.44.1", "launch": was}
-        assert crew.update_due(started, COMMIT, now, None) == (True, "its brief, model, effort or folders changed")
+        installed = {"root": "/nix/store/abc-crew-0.44.1", "commit": COMMIT, "version": "v0.44.1", "from": "release", "unread": None}
+        assert crew.update_due(started, installed, now, None) == (True, "its brief, model, effort or folders changed")

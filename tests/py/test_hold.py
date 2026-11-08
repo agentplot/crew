@@ -26,39 +26,79 @@ def on_mac_studio(monkeypatch):
 STARTED = {"session": "sid-1", "commit": C1, "version": "v0.12.1", "launch": "abc"}
 
 
+def checkout(commit, version="v0.12.1"):
+    """The crew a host has installed, a checkout at commit, as crew.installed reads it."""
+    return {"root": "/workspace/crew/main", "commit": commit, "version": version, "from": "checkout", "unread": None}
+
+
+def build(commit, version="v0.44.1"):
+    """The crew a host has installed, a build whose release names commit, as crew.installed reads it."""
+    return {"root": "/nix/store/abc-crew", "commit": commit, "version": version, "from": "release", "unread": None}
+
+
+UNREAD = crew.unread_crew("/etc/profiles/per-user/chuck/bin/crew did not answer crew _release within 5 seconds")
+
+
 class TestDue:
     def test_an_agent_whose_brief_model_effort_or_folders_changed_is_due(self):
-        assert crew.update_due(STARTED, C1, "def", None) == (True, "its brief, model, effort or folders changed")
+        assert crew.update_due(STARTED, checkout(C1), "def", None) == (True, "its brief, model, effort or folders changed")
+        assert crew.update_due(STARTED, UNREAD, "def", None) == (True, "its brief, model, effort or folders changed")
 
     def test_an_agent_whose_loaded_plugin_changed_is_due_and_one_whose_crew_code_alone_changed_is_not(self):
-        assert crew.update_due(STARTED, C2, "abc", True) == (True, "crew's plugin changed")
-        assert crew.update_due(STARTED, C2, "abc", False) == (False, None)
+        assert crew.update_due(STARTED, checkout(C2), "abc", True) == (True, "crew's plugin changed")
+        assert crew.update_due(STARTED, checkout(C2), "abc", False) == (False, None)
 
     def test_an_agent_on_crew_as_it_is_is_not_due(self):
-        assert crew.update_due(STARTED, C1, "abc", None) == (False, None)
+        assert crew.update_due(STARTED, checkout(C1), "abc", None) == (False, None)
 
     def test_one_started_before_crew_kept_what_it_loaded_is_due(self):
-        assert crew.update_due(dict(STARTED, commit=None, version=None, launch=None), C1, "abc", None) == (True, "it started before crew kept what an agent loads")
-        assert crew.update_due(dict(STARTED, launch=None), C1, "abc", None)[0]
+        assert crew.update_due(dict(STARTED, commit=None, version=None, launch=None), checkout(C1), "abc", None) == (True, "it started before crew kept what an agent loads")
+        assert crew.update_due(dict(STARTED, launch=None), checkout(C1), "abc", None)[0]
 
     def test_one_that_recorded_its_launch_and_no_commit_is_due_when_its_launch_changed(self):
         released = dict(STARTED, commit=None, version=None)
-        assert crew.update_due(released, None, "def", None) == (True, "its brief, model, effort or folders changed")
-        assert crew.update_due(released, C1, "def", None) == (True, "its brief, model, effort or folders changed")
+        assert crew.update_due(released, UNREAD, "def", None) == (True, "its brief, model, effort or folders changed")
+        assert crew.update_due(released, checkout(C1), "def", None) == (True, "its brief, model, effort or folders changed")
 
-    def test_one_that_recorded_its_launch_and_no_commit_is_not_due_and_says_a_pin_bump_needs_its_main_level_brought_up_again(self):
+    def test_one_that_recorded_its_launch_and_no_release_is_not_due_and_says_its_main_level_brought_up_again_restarts_it(self):
         released = dict(STARTED, commit=None, version=None)
-        for commit in (None, C1):
-            due, why = crew.update_due(released, commit, "abc", None)
+        for now in (UNREAD, checkout(C1), build(C2)):
+            due, why = crew.update_due(released, now, "abc", None)
             assert not due and why == crew.NO_COMMIT_SAID
-        assert "can't tell whether its plugin changed since it started" in why and "crew main down and crew main up" in why
-        assert "until crew reads its release where it runs" in why
+        assert "can't tell whether its plugin changed since it started" in why and "recorded no release of crew's" in why
+        assert "crew main down and crew main up restart it on the crew this host has installed" in why
 
     def test_crew_that_cannot_tell_whether_the_plugin_changed_restarts_nothing_and_says_so(self):
-        assert crew.update_due(STARTED, C2, "abc", None) == (False, f"crew can't tell whether its plugin changed since {C1[:7]}")
+        assert crew.update_due(STARTED, checkout(C2), "abc", None) == (False, f"crew can't tell whether its plugin changed since {C1[:7]}")
+
+    def test_an_installed_build_of_another_release_makes_its_agent_due(self):
+        assert crew.update_due(STARTED, build(C2), "abc", None) == (True, "crew's release changed")
+
+    def test_an_installed_build_of_the_release_it_started_on_does_not(self):
+        assert crew.update_due(STARTED, build(C1), "abc", None) == (False, None)
+
+    def test_an_installed_crew_crew_cannot_read_makes_none_due_and_says_why(self):
+        assert crew.update_due(STARTED, UNREAD, "abc", None) == (False, "crew can't read the crew this host has installed: "
+                                                                        "/etc/profiles/per-user/chuck/bin/crew did not answer crew _release within 5 seconds")
+        none = crew.unread_crew(crew.NONE_INSTALLED)
+        assert crew.update_due(STARTED, none, "abc", None) == (False, "crew can't read the crew this host has installed: "
+                                                                      "no folder of crew's path outside the Nix store has a crew")
 
     def test_an_agent_with_no_recorded_start_is_never_due(self):
-        assert crew.update_due(None, C1, "abc", True) == (False, None)
+        assert crew.update_due(None, checkout(C1), "abc", True) == (False, None)
+
+    def test_due_of_compares_what_a_session_loads_only_in_an_installed_checkout_in_its_own_root(self, monkeypatch):
+        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}}}
+        compared = []
+        monkeypatch.setattr(crew, "launch_now", lambda fleet, label, role: "abc")
+        monkeypatch.setattr(crew, "loaded_changed", lambda was, now, root=None: compared.append((was, now, root)) or True)
+        assert crew.due_of(fleet, "wldn-ops", STARTED, checkout(C2)) == (True, "crew's plugin changed", STARTED)
+        assert compared == [(C1, C2, "/workspace/crew/main")]
+        assert crew.due_of(fleet, "wldn-ops", STARTED, build(C2)) == (True, "crew's release changed", STARTED)
+        assert crew.due_of(fleet, "wldn-ops", STARTED, checkout(C1)) == (False, None, STARTED)
+        assert len(compared) == 1
+        monkeypatch.setattr(crew, "installed", lambda: build(C2, "v0.44.2"))
+        assert crew.due_of(fleet, "wldn-ops", STARTED) == (True, "crew's release changed", STARTED)
 
     def test_the_launch_digest_follows_the_model_effort_folders_and_brief_and_not_the_folders_order(self):
         l = {"model": "opus", "effort": "high", "dirs": ["/a", "/b"]}
@@ -117,16 +157,16 @@ class TestKindEnd:
 
     def test_a_main_level_agent_whose_role_runs_as_its_kind_is_due_an_end_and_one_that_stands_is_not(self):
         assert crew.end_due(self.FLEET, "madswan-planner") == crew.KIND_SAID
-        assert crew.due_of(self.FLEET, "madswan-planner", STARTED, C1) == (True, crew.KIND_SAID, STARTED)
+        assert crew.due_of(self.FLEET, "madswan-planner", STARTED, checkout(C1)) == (True, crew.KIND_SAID, STARTED)
         assert crew.end_due(self.FLEET, "madswan-design") is None
-        assert crew.due_of(self.FLEET, "madswan-reviewer", STARTED, C1) == (False, None, STARTED)
+        assert crew.due_of(self.FLEET, "madswan-reviewer", STARTED, checkout(C1)) == (False, None, STARTED)
 
     def test_crew_update_passes_it_over_and_hands_any_other_due_agent_its_restart(self, monkeypatch, capsys):
         handed = []
         monkeypatch.setattr(crew, "held", lambda: None)
-        monkeypatch.setattr(crew, "crew_version", lambda: (C2, "v0.40.0"))
+        monkeypatch.setattr(crew, "installed", lambda: checkout(C2, "v0.40.0"))
         monkeypatch.setattr(crew, "agents_here", lambda fleet, label=None: ["madswan-design", "madswan-planner"])
-        monkeypatch.setattr(crew, "due_of", lambda fleet, name, commit=None: (
+        monkeypatch.setattr(crew, "due_of", lambda fleet, name, now=None: (
             (True, crew.KIND_SAID, STARTED) if name == "madswan-planner" else (True, "crew's plugin changed", STARTED)))
         monkeypatch.setattr(hold, "hand", handed.append)
         hold.update_here(self.FLEET, types.SimpleNamespace(label=None))
