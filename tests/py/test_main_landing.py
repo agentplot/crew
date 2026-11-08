@@ -51,3 +51,50 @@ class TestMainLanding:
 
     def test_a_since_it_cannot_read_finds_none(self):
         assert gather.main_landing(line(LANDING, [BASE, HEAD], AT, "bolt/x (bolt/x)"), "x", [HEAD], None) is None
+
+
+def launch(n, base, date):
+    return plan.Rec("Request", [("Request", str(n)), ("Act", "launch"), ("Work", f"unit/u{n}"), ("Repo", "swancloud"),
+                                ("Base", base), ("Date", date), ("By", "madswan-planner")])
+
+
+# The run record's bolt.submit entries as crew bolt submit writes them: x's queued (submission 73, its head 900527e9),
+# a refusal of x's that read no head, x's landed at the same head, and another bolt's.
+SUBMITS = f"""Id: 1
+At: 2026-11-08T15:40:00Z
+Act: bolt.submit
+On: bolt/x
+Submission: 73
+Outcome: queued
+Head: {HEAD}
+
+Id: 2
+At: 2026-11-08T15:41:00Z
+Act: bolt.submit
+On: bolt/x
+Refused: sluice refused it
+
+Id: 3
+At: 2026-11-08T16:03:00Z
+Act: bolt.submit
+On: bolt/x
+Outcome: landed
+Head: {HEAD}
+
+Id: 4
+At: 2026-11-08T16:10:00Z
+Act: bolt.submit
+On: bolt/xy
+Head: {"a" * 40}
+"""
+
+
+class TestLandingSought:
+    def test_since_is_the_oldest_launch_and_the_heads_each_head_crew_submitted_of_the_bolt_once(self):
+        import record
+        requests = [launch(1, "bolt/y", "2026-11-08T09:00:00Z"), launch(2, "bolt/x", SINCE), launch(3, "bolt/x", "2026-11-08T12:00:00Z")]
+        assert plan.landing_sought(requests, record.acts_in(SUBMITS, "bolt.submit"), "x") == {"since": SINCE, "heads": [HEAD]}
+
+    def test_a_bolt_with_no_launch_seeks_none(self):
+        import record
+        assert plan.landing_sought([launch(1, "bolt/y", SINCE)], record.acts_in(SUBMITS, "bolt.submit"), "x") is None

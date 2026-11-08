@@ -2349,8 +2349,9 @@ def partition_kits(plan, landings, renames=()):
 
 def runs_at(repo, tip):
     """What crew reads of the run record by its acts at a tip of a drive's branch, in one pass over its files under
-    runs/, read once for the command by the tip (plan.12): every bolt.land entry and every kit.rename entry, found by
-    their act (record.acts_in), {"landings", "renames"}."""
+    runs/, read once for the command by the tip (plan.12): every bolt.land, kit.rename and bolt.submit entry, found by
+    their act (record.acts_in), {"landings", "renames", "submits"}, the submits the heads crew submitted of each bolt
+    that its landing on main is sought by (landing_sought; Decision 2 of a-bolts-landing-on-main-reads-landed)."""
     name = f"runs-{tip}"
     held = READ.held(name)
     if held is not None:
@@ -2358,7 +2359,8 @@ def runs_at(repo, tip):
     paths = [p for p in paths_at(repo, tip, "runs/") if p.endswith(".rec")]
     texts = [show(repo, tip, p) for p in paths] if kept_listing(repo, tip) is not None else cat_file(repo, [f"{tip}:{p}" for p in paths])
     out = {"landings": [e for t in texts for e in record.acts_in(t or "", "bolt.land")],
-           "renames": [e for t in texts for e in record.acts_in(t or "", "kit.rename")]}
+           "renames": [e for t in texts for e in record.acts_in(t or "", "kit.rename")],
+           "submits": [e for t in texts for e in record.acts_in(t or "", "bolt.submit")]}
     READ.keep(name, out)
     return out
 
@@ -2366,6 +2368,31 @@ def runs_at(repo, tip):
 def landings_at(repo, tip):
     """Every bolt.land entry the run record holds at a tip of a drive's branch (runs_at)."""
     return runs_at(repo, tip)["landings"]
+
+
+def submits_at(repo, tip):
+    """Every bolt.submit entry the run record holds at a tip of a drive's branch (runs_at); none for a branch not
+    started (tip None)."""
+    return runs_at(repo, tip)["submits"] if tip else []
+
+
+def landing_sought(requests, submits, bolt):
+    """What a kit's read seeks of a started bolt's landing on its main (gather.main_landing; Decision 2 of
+    a-bolts-landing-on-main-reads-landed), from facts: the partition's requests (requests.rec's records, as runner_facts
+    reads them) and the run record's bolt.submit entries (submits_at). {"since": the oldest Date among the bolt's
+    launches (bolt_launches), its start, before which a landing naming bolt/<bolt> is another bolt's of the same name;
+    "heads": each Head of a bolt.submit naming bolt/<bolt>, once each, in the record's order, what sluice lands as its
+    landing's second parent (sluice clause 23)}; None for a bolt with no launch, which never ran work and has no
+    landing to seek. A decision of facts alone (code.7)."""
+    dates = sorted(r.get("Date") for r in bolt_launches(requests, bolt) if r.get("Date"))
+    if not dates:
+        return None
+    heads = []
+    for e in submits:
+        h = e.get("Head")
+        if e.get("Act") == "bolt.submit" and f"bolt/{bolt}" in (e.get("On") or []) and h and h not in heads:
+            heads.append(h)
+    return {"since": dates[0], "heads": heads}
 
 
 def renames_at(repo, tip):
