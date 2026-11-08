@@ -160,26 +160,35 @@ crew SHALL read a launched piece's stage from the runner whose answers hold its 
 
 Where crew must act on or say where a bolt's work runs, it SHALL read what the runner reported for the work it took. This covers the bolt's landing, its reads of the bolt and its kit, its reading and preview, the sweep after a landing or a drop, its site row, and its ledger's host and stream.
 - The host is the one whose runner took the newest of the bolt's launches taken. While no runner has taken any of the bolt's own work, it is the host whose runner took its kit's newest work taken.
-- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. Where that runner reports no repositories, it is the folder Flume's status of its newest place names. Where that runner has carried no place of the bolt's, every launch of it refused, it is the folder that runner's places of the kit's other work name, on that host alone.
-- The stream is the one Flume's status of that runner's place names.
+- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. crew SHALL never read the folder from Flume's status of a place that runner carried, whether of the bolt's work or of the kit's other work.
+- The stream is the one Flume's status of that runner's newest place of the work names, and none while it carries no such place.
 
 The kit SHALL be named as unread, nothing of it landed and every other bolt read as it stands, in each of these cases:
+- the runner reports no repositories. The refusal names the host and says its runner reports no repositories it keeps;
 - a runner that reports its repositories names none for the kit's name now. The refusal names the host, the repositories it keeps and `crew kit rename`;
 - no runner has reported the bolt or the kit;
 - the runner that took it reports two repositories by the kit's name, and the plan names the kit by its name alone;
 - two runners took the bolt's newest launch.
 
 #### Scenario: The runner that took the work
-- **WHEN** deneb's runner answers launch 1 of crew's unit `a` on `bolt/x` and carries Flume's status of its place, naming its repository `/w/crew` and its stream `madswan`, and reports no repositories
+- **WHEN** deneb's runner answers launch 1 of crew's unit `a` on `bolt/x` and carries Flume's status of its place, naming its stream `madswan`, and its `repositories.rec` names `afterthought/crew` at `/w/crew`
 - **THEN** `a`'s stage is read from deneb's records, and `x` is read and landed on deneb in `/w/crew`, its ledger saying deneb and `madswan`
 
+#### Scenario: A runner that reports no repositories
+- **WHEN** deneb's runner answers launch 1 of `x`'s unit `a` and carries Flume's status of its place, naming its repository `/w/crew`, and its branch holds no `repositories.rec`
+- **THEN** crew can't tell where `x`'s kit is kept on deneb, saying deneb's runner reports no repositories it keeps, and nothing of `x` is read in `/w/crew` or landed
+
 #### Scenario: A bolt none of whose own work is taken
-- **WHEN** `x` is started and no runner has taken its launches, and deneb's runner took crew's work on another bolt, its place naming `/w/crew`
+- **WHEN** `x` is started and no runner has taken its launches, and deneb's runner took crew's work on another bolt and its `repositories.rec` names `afterthought/crew` at `/w/crew`
 - **THEN** `x` is read and landed on deneb in `/w/crew`
 
 #### Scenario: A bolt whose every launch was refused
-- **WHEN** deneb's runner refused launch 1 of `x`'s unit `a`, the base bolt already holding its change, reports no repositories, and carries Flume's status of a place of crew's work on bolt `y`, naming `/w/crew`
-- **THEN** `x` is read and landed on deneb in `/w/crew`, and `crew bolts` says where it runs; were that place on chuck-herdr-alpha's runner instead, crew could not tell where `x` runs
+- **WHEN** deneb's runner refused launch 1 of `x`'s unit `a`, the base bolt already holding its change, carries no place of crew's work, and its `repositories.rec` names `afterthought/crew` at `/w/crew`
+- **THEN** `x` is read and landed on deneb in `/w/crew`, and `crew bolts` says where it runs; with no `repositories.rec` on deneb's branch, crew could not tell where `x`'s kit is kept there, whatever another place of crew's work names
+
+#### Scenario: A bolt whose places the runner no longer carries
+- **WHEN** deneb's runner answered every launch of `x` launched, carries no place of any of them nor of crew's other work, and its `repositories.rec` names `afterthought/crew` at `/w/crew`
+- **THEN** `x` is read and landed on deneb in `/w/crew`, and `crew bolts` says where it runs
 
 #### Scenario: Taken by two runners
 - **WHEN** deneb's and chuck-herdr-alpha's runners both answer launch 1
