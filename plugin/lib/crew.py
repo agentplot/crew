@@ -1254,11 +1254,11 @@ def crew_repository():
 
 
 def crew_on(fleet, host, here, repo):
-    """The crew command on a host, crew being the repository repo (owner/name): this crew's own where host is here,
-    else the one in the checkout of repo the host's sessions keep, as kept_on finds it. Refused where no session there
-    keeps repo, naming it, since crew can't run there (read.1)."""
+    """The crew command on a host, crew being the repository repo (owner/name): the crew this host has installed where
+    host is here (crew_command), else the one in the checkout of repo the host's sessions keep, as kept_on finds it.
+    Refused where no session there keeps repo, naming it, since crew can't run there (read.1)."""
     if host == here:
-        return str(HOME / "plugin/bin/crew")
+        return crew_command()
     c = kept_on(fleet, host, repo) or fail(f"none of {host}'s sessions keeps {repo}, the repository crew is, so crew can't run there")
     return f"{c}/plugin/bin/crew"
 
@@ -1441,8 +1441,10 @@ SENDERS = ("A message in your pane that begins `[crew tell from <name>]` was sen
 
 # How anything for another partition is sent, beside every brief's roster (briefs.10): to that partition's operator,
 # its one door, and to nobody else.
-SENDS = (f"`{HOME}/plugin/bin/crew send <partition> \"<text>\"`, which reaches that partition's operator, its one door, "
-         "and to nobody else")
+def sends(cmd):
+    """How a brief says anything for another partition is sent, by crew's command cmd."""
+    return (f"`{cmd} send <partition> \"<text>\"`, which reaches that partition's operator, its one door, "
+            "and to nobody else")
 
 # How an agent reports results, the same in every brief that reports them.
 RESULTS = ("## Test, check and proof results\n\n"
@@ -1500,7 +1502,7 @@ def turn_said(p, defn):
 
 def main_tokens(fleet, p, role, self_name):
     import plan  # plan imports this module
-    label, host, cmd = p["label"], this_host(), f"{HOME}/plugin/bin/crew"
+    label, host, cmd = p["label"], this_host(), crew_command()
     # The partition's kits, the repositories its plan and its landings name, as crew's cache holds its branch (plan.12),
     # and those its main level's host keeps a checkout of (Decision 3 of the-team-machinery-leaves).
     named = plan.kits_read(fleet, label, False)
@@ -1536,7 +1538,7 @@ def main_tokens(fleet, p, role, self_name):
         f"bolts and posts its review batches; `{label}-reviewer`, started fresh for each batch, summarizes its changes; `{label}-ops` lands "
         f"proven bolts on the user's send on each kit's landings card; and `{label}-operator`, the partition's door, works for the user. "
         f"Any of these is reached with `{cmd} tell <agent> \"<text>\"`, wherever it runs; "
-        f"anything for another partition is sent with {SENDS}. {SENDERS}")
+        f"anything for another partition is sent with {sends(cmd)}. {SENDERS}")
     return tok
 
 
@@ -1998,12 +2000,18 @@ def loaded_changed(old, new, root=None):
     return {0: False, 1: True}.get(r.returncode)
 
 
-def launch_digest(l, text):
+def launch_digest(l, text, names=None):
     """What an agent's start is made of besides crew's plugin, as one short digest: its model, effort, folders and
-    brief (teams.6), so that a change to any of them reads as due (update_due). The brief names crew's own command by
-    the path of the crew that builds it, a host's checkout or its release, so that path is read as one word: two crews of
-    one host, the follower's release and a checkout another host's command ran (crew_at), digest the same start alike."""
-    text = text.replace(str(HOME), "<crew>")
+    brief (teams.6), so that a change to any of them reads as due (update_due). A brief names crew's command by the
+    crew the host has installed (crew_command), or by the root's own plugin/bin/crew where crew finds none, so every
+    path in names, those two by default, is read as the one word <crew>, longest first, and any other mention of crew's
+    root as <crew-home>: two crews of one host, a build naming the installed command and a checkout naming its own,
+    digest the same start alike. A start digested before crew read its command so, its brief's path read as
+    <crew>/plugin/bin/crew, digests otherwise, and so reads as due once (update_due)."""
+    names = [str(HOME / "plugin/bin/crew"), crew_command()] if names is None else names
+    for n in sorted(set(names), key=len, reverse=True):
+        text = text.replace(n, "<crew>")
+    text = text.replace(str(HOME), "<crew-home>")
     return hashlib.sha256(json.dumps([l["model"], l["effort"], sorted(l["dirs"]), text]).encode()).hexdigest()[:16]
 
 

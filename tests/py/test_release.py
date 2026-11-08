@@ -5,6 +5,7 @@ build's release file read field by field, its version shown, a root read as a ch
 checkout reads itself through git, and that a start from a build records its release, is the session-start journey's
 (t-session-hook)."""
 import json
+import pathlib
 import subprocess
 
 import pytest
@@ -192,3 +193,76 @@ class TestInstalled:
     def test_no_installed_command_is_unread_saying_no_folder_outside_the_store_has_a_crew(self, host, tmp_path, monkeypatch):
         monkeypatch.setenv("PATH", str(crew_in(tmp_path / "store/def-claude-code/bin")))
         assert crew.installed() == crew.unread_crew("no folder of crew's path outside the Nix store has a crew")
+
+
+INSTALLED = "/etc/profiles/per-user/chuck/bin/crew"
+
+
+def deneb(tmp_path, monkeypatch):
+    """crew.load over a teams file of one standing partition, swancloud, on deneb, written in tmp_path."""
+    bp = ["afterthought/blueprints", "afterthought/crew"]
+    hosts = {"deneb": {"ssh": "deneb", "kind": "darwin", "sessions": {
+        "swancloud-1": {"dir": f"{tmp_path}/deneb/madswan", "partition": "personal", "repos": bp}}}}
+    teams = {"version": 5, "partitions": [{"label": "swancloud", "partition": "personal", "blueprints": ["afterthought/blueprints"],
+                                           "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+                                           "machine": "deneb", "session": "swancloud-1",
+                                           "flume": {r: False for r in crew.KIND_ROLES}}]}
+    (tmp_path / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts}))
+    (tmp_path / "teams.json").write_text(json.dumps(teams))
+    monkeypatch.setattr(crew, "HOSTS", tmp_path / "herdr-hosts.json")
+    monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+    monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+    crew.load.cache_clear()
+    try:
+        return crew.load()
+    finally:
+        crew.load.cache_clear()
+
+
+class TestBriefs:
+    def test_a_brief_built_by_a_build_names_the_installed_crew_at_every_crew_command(self, tmp_path, monkeypatch):
+        import plan
+        fleet = deneb(tmp_path, monkeypatch)
+        monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: [])
+        monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
+        text = crew.brief(fleet, "swancloud", "planner")
+        assert f"`{INSTALLED} send <partition> \"<text>\"`" in text and f"`{INSTALLED} tell <agent>" in text
+        assert text.count(INSTALLED) > 10
+        assert str(crew.HOME) not in text and "plugin/bin/crew" not in text
+
+    def test_a_command_forwarded_to_this_host_runs_the_installed_crew(self, monkeypatch):
+        monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
+        assert crew.crew_on({}, "deneb", "deneb", None) == INSTALLED
+
+
+class TestDigest:
+    L = {"model": "opus", "effort": "high", "dirs": ["/a"]}
+
+    def test_a_brief_naming_the_installed_crew_and_one_naming_a_checkouts_own_digest_alike(self, monkeypatch):
+        monkeypatch.setattr(crew, "HOME", pathlib.Path("/nix/store/abc-crew-0.44.1"))
+        monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
+        build = crew.launch_digest(self.L, f"run `{INSTALLED} bolts`; your brief is in /nix/store/abc-crew-0.44.1/plugin/roles")
+        monkeypatch.setattr(crew, "HOME", pathlib.Path("/workspace/crew/main"))
+        monkeypatch.setattr(crew, "crew_command", lambda: "/workspace/crew/main/plugin/bin/crew")
+        checkout = crew.launch_digest(self.L, "run `/workspace/crew/main/plugin/bin/crew bolts`; your brief is in "
+                                              "/workspace/crew/main/plugin/roles")
+        assert build == checkout
+        assert checkout != crew.launch_digest(self.L, "run `/workspace/crew/main/plugin/bin/crew status`; your brief is in "
+                                                      "/workspace/crew/main/plugin/roles")
+
+    def test_a_brief_naming_the_builds_own_command_digests_as_one_naming_the_installed_crew(self, monkeypatch):
+        monkeypatch.setattr(crew, "HOME", pathlib.Path("/nix/store/abc-crew-0.44.1"))
+        monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
+        assert crew.launch_digest(self.L, f"run `{INSTALLED} bolts`") == \
+            crew.launch_digest(self.L, "run `/nix/store/abc-crew-0.44.1/plugin/bin/crew bolts`")
+
+    def test_a_start_digested_the_older_way_reads_as_its_brief_changed(self, monkeypatch):
+        import hashlib
+        monkeypatch.setattr(crew, "HOME", pathlib.Path("/nix/store/abc-crew-0.44.1"))
+        monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
+        older = "run `<crew>/plugin/bin/crew bolts`"
+        was = hashlib.sha256(json.dumps([self.L["model"], self.L["effort"], sorted(self.L["dirs"]), older]).encode()).hexdigest()[:16]
+        now = crew.launch_digest(self.L, f"run `{INSTALLED} bolts`")
+        assert was != now
+        started = {"session": "sid-1", "commit": COMMIT, "version": "v0.44.1", "launch": was}
+        assert crew.update_due(started, COMMIT, now, None) == (True, "its brief, model, effort or folders changed")

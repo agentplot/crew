@@ -69,14 +69,18 @@ class TestDue:
 
     def test_the_launch_digest_reads_crews_own_path_in_the_brief_as_one_word(self, monkeypatch):
         # chuck-herdr-alpha, 2026-10-31: a start by the box's checkout named /workspace/crew/main/plugin/bin/crew in its
-        # brief, the follower's release /nix/store/…-crew-0.38.7/plugin/bin/crew, and each read the other's start as due
+        # brief, the follower's release /nix/store/…-crew-0.38.7/plugin/bin/crew, and each read the other's start as due;
+        # a brief now names the installed crew (crew_command), and every path a brief may name it by reads as <crew>
         l = {"model": "opus", "effort": "high", "dirs": ["/a"]}
+        monkeypatch.setattr(crew, "crew_command", lambda: str(crew.HOME / "plugin/bin/crew"))
         monkeypatch.setattr(crew, "HOME", pathlib.Path("/workspace/crew/main"))
         checkout = crew.launch_digest(l, "run `/workspace/crew/main/plugin/bin/crew bolts`")
         monkeypatch.setattr(crew, "HOME", pathlib.Path("/nix/store/abc-crew-0.38.7"))
         release = crew.launch_digest(l, "run `/nix/store/abc-crew-0.38.7/plugin/bin/crew bolts`")
         assert checkout == release
         assert release != crew.launch_digest(l, "run `/nix/store/abc-crew-0.38.7/plugin/bin/crew status`")
+        monkeypatch.setattr(crew, "crew_command", lambda: "/etc/profiles/per-user/chuck/bin/crew")
+        assert release == crew.launch_digest(l, "run `/etc/profiles/per-user/chuck/bin/crew bolts`")
 
 
 class Main:
