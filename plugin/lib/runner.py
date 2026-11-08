@@ -220,7 +220,11 @@ def runner_branch(label, host):
 # (boomdrive's the-runner-carries-crews-work-into-flume, Decision 14); and repositories.rec each repository its
 # configuration keeps on the host, by its forge address with the folder of its clone, where Flume cuts its places
 # (roles.9; the drive-state spec, "A kit's work is taken by a runner whose configuration names its repository"), a
-# branch with none reporting no repositories.
+# branch with none reporting no repositories; and previews.rec what it answered of each preview request, by its
+# number: held, done or refused, sluice's answer (Text) and listing (Status) of the preview as the runner carried
+# them, each JSON on one line, whether sluice's last listing held it, the runner's words and when, under the
+# descriptor Boomdrive's runner writes (crates/boomdrive-crew/src/write.rs PREVIEWS at v0.6.0), held here byte for
+# byte (Decision 3 of a-cards-preview-is-asked-of-the-runner), a branch with none having answered no preview.
 RUNNER = """\
 %rec: Runner
 %key: Host
@@ -259,7 +263,18 @@ REPOSITORIES = """\
 %mandatory: Repository Folder
 %allowed: Repository Folder
 """
-FILES = {"runner.rec": "Runner", "answers.rec": "Answer", "places.rec": "Place", "repositories.rec": "Repository"}
+PREVIEWS = """\
+%rec: Preview
+%key: Request
+%type: Request int
+%type: Outcome enum held done refused
+%type: Listed enum yes no
+%type: At date
+%mandatory: Request Outcome At
+%allowed: Request Outcome Text Status Listed Words At
+"""
+FILES = {"runner.rec": "Runner", "answers.rec": "Answer", "places.rec": "Place", "repositories.rec": "Repository",
+         "previews.rec": "Preview"}
 
 
 def host_read(label, host, tip, files, refused):
@@ -271,7 +286,10 @@ def host_read(label, host, tip, files, refused):
     place's path, when the runner carried it, and its Status parsed, or with why it could not be; each role's run
     by its address, likewise, with the runner's words where it could launch none; and the repositories it keeps, each
     one's folder by its forge address, None where the tip holds no repositories.rec, a runner that reports none
-    (roles.9)."""
+    (roles.9); and its answer to each preview request by its number, {outcome, text, status, listed, words, at,
+    why}: sluice's answer (text) and listing (status) parsed, None where it carried none, listed True, False or
+    None, and why, naming the file, where either is no JSON, which marks that preview alone (Decision 3 of
+    a-cards-preview-is-asked-of-the-runner); none where the tip holds no previews.rec."""
     branch = runner_branch(label, host)
     out = {"host": host, "branch": branch, "tip": tip, "why": None}
     if tip is None:
@@ -320,8 +338,24 @@ def host_read(label, host, tip, files, refused):
             return dict(out, why=f"{host}'s runner can't be read: {at}: repositories.rec holds " + (
                 "a record with no repository's address" if not a else f"{a} twice" if a in kept else f"{a} with no folder"))
         kept[a] = r.get("Folder")
+    previews = {}
+    for r in files["previews.rec"].recs("Preview") if files.get("previews.rec") is not None else []:
+        n = number(r.get("Request"))
+        if n is None or n in previews:
+            return dict(out, why=f"{host}'s runner can't be read: {at}: previews.rec holds "
+                        + ("a record with no request's number" if n is None else f"request {n} twice"))
+        parsed, why = {}, None
+        for field in ("Text", "Status"):
+            try:
+                parsed[field] = json.loads(r.get(field)) if r.get(field) is not None else None
+            except ValueError as e:
+                parsed[field] = None
+                why = why or f"{at}: previews.rec's {field} of the preview of request {n} is no JSON ({e})"
+        previews[n] = {"outcome": r.get("Outcome"), "text": parsed["Text"], "status": parsed["Status"],
+                       "listed": {"yes": True, "no": False}.get(r.get("Listed")), "words": r.get("Words"), "at": r.get("At"),
+                       "why": why}
     return dict(out, runner=run[0], answers=answers, places=places, runs=runs,
-                repositories=kept if files.get("repositories.rec") is not None else None)
+                repositories=kept if files.get("repositories.rec") is not None else None, previews=previews)
 
 
 def role_run(reading, address):

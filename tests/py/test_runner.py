@@ -238,12 +238,23 @@ TIP = "5e1f0c2a" + "0" * 32
 STATUS = {"status": {"places": [{"place": "/crew/places/change--a", "phase": "live"}], "host": {}}}
 
 
-def branch(host="deneb", runner_rec=None, answers="", places="", repositories=None):
+def branch(host="deneb", runner_rec=None, answers="", places="", repositories=None, previews=None):
     """A runner's branch's files parsed as plan.runners parses them, each given as the records after its descriptor;
-    repositories.rec only where repositories are given, a branch without it reporting none."""
+    repositories.rec and previews.rec only where given, a branch without them reporting no repositories and having
+    answered no preview."""
     run = runner.RUNNER + (f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n" if runner_rec is None else runner_rec)
     return dict({"runner.rec": plan.Plan(run), "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)},
-                **({"repositories.rec": plan.Plan(runner.REPOSITORIES + repositories)} if repositories is not None else {}))
+                **({"repositories.rec": plan.Plan(runner.REPOSITORIES + repositories)} if repositories is not None else {}),
+                **({"previews.rec": plan.Plan(runner.PREVIEWS + previews)} if previews is not None else {}))
+
+
+def previewed(n, outcome, text=None, status=None, listed=None, words=None, at="2026-11-08T12:03:00Z"):
+    """previews.rec's record of the runner's answer to preview request n, as Boomdrive's write.rs writes it: sluice's
+    answer and listing each JSON on one line, given as a value or as the text itself."""
+    j = lambda v: v if isinstance(v, str) else json.dumps(v)
+    return (f"\nRequest: {n}\nOutcome: {outcome}\n" + (f"Text: {j(text)}\n" if text is not None else "")
+            + (f"Status: {j(status)}\n" if status is not None else "") + (f"Listed: {listed}\n" if listed else "")
+            + (f"Words: {words}\n" if words else "") + f"At: {at}\n")
 
 
 def kept(*repos):
@@ -324,6 +335,68 @@ class TestHostRead:
         assert r["why"] is None and r["places"][4]["status"] == STATUS
         assert r["places"][3]["status"] is None
         assert r["places"][3]["why"].startswith("madswan/runner/deneb at 5e1f0c2: places.rec's status of the place of request 3 is no JSON (")
+
+
+UP = {"name": "crew-y", "branch": "bolt/y", "revision": "abc1234", "state": "up", "made": "2026-11-08T12:02:00Z",
+      "addresses": {"web": "http://deneb:4310", "api": "http://deneb:4311"}}
+
+
+class TestHostReadPreviews:
+    """A runner's previews.rec is read by request number under the descriptor crew holds byte for byte; one crew can't
+    read hides that runner, and a preview's JSON crew can't read marks that preview alone (drive-state "crew reads
+    each host's runner from that runner's own branch"; Decision 3)."""
+
+    def test_the_descriptor_is_boomdrives_byte_for_byte(self):
+        assert runner.PREVIEWS == (
+            "%rec: Preview\n%key: Request\n%type: Request int\n%type: Outcome enum held done refused\n%type: Listed enum yes no\n"
+            "%type: At date\n%mandatory: Request Outcome At\n%allowed: Request Outcome Text Status Listed Words At\n")
+        assert runner.FILES["previews.rec"] == "Preview"
+
+    def test_a_runners_previews_are_read_by_their_requests_numbers(self):
+        """drive-state "A preview the runner answered"."""
+        r = runner.host_read("madswan", "deneb", TIP, branch(previews=previewed(12, "done", text=UP, status=UP, listed="yes")
+                                                            + previewed(13, "held", words="sluice is at its bound")
+                                                            + previewed(14, "refused", words="no [preview] at abc1234")), {})
+        assert r["why"] is None
+        assert r["previews"][12] == {"outcome": "done", "text": UP, "status": UP, "listed": True, "words": None,
+                                     "at": "2026-11-08T12:03:00Z", "why": None}
+        assert (r["previews"][13]["outcome"], r["previews"][13]["listed"], r["previews"][13]["words"]) == ("held", None, "sluice is at its bound")
+        assert (r["previews"][14]["outcome"], r["previews"][14]["text"]) == ("refused", None)
+        assert runner.host_read("madswan", "deneb", TIP, branch(previews=previewed(12, "done", text=UP, listed="no")), {})["previews"][12]["listed"] is False
+
+    def test_a_runner_with_no_previews_file_has_answered_none(self):
+        """drive-state "A runner that has answered no preview"."""
+        r = runner.host_read("madswan", "deneb", TIP, branch(), {})
+        assert (r["why"], r["previews"]) == (None, {})
+
+    @pytest.mark.parametrize("previews, why", [
+        (previewed(12, "held") + previewed(12, "done", text=UP), "previews.rec holds request 12 twice"),
+        ("\nOutcome: held\nAt: 2026-11-08T12:03:00Z\n", "previews.rec holds a record with no request's number")])
+    def test_a_request_twice_or_missing_hides_the_runner_naming_the_file(self, previews, why):
+        """drive-state "A previews file crew can't read"."""
+        assert runner.host_read("madswan", "deneb", TIP, branch(previews=previews), {})["why"] == (
+            f"deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: {why}")
+
+    def test_a_record_before_its_rec_hides_the_runner(self):
+        files = dict(branch(), **{"previews.rec": plan.Plan("Request: 12\nOutcome: held\nAt: 2026-11-08T12:03:00Z\n")})
+        assert runner.host_read("madswan", "deneb", TIP, files, {})["why"] == (
+            "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec holds a record before its %rec: Preview")
+
+    def test_a_status_that_is_no_json_marks_that_preview_alone(self):
+        """drive-state "A preview's listing that is no JSON"."""
+        r = runner.host_read("madswan", "deneb", TIP, branch(previews=previewed(12, "done", text=UP, status="{not json", listed="yes")
+                                                            + previewed(13, "done", text=UP, status=UP, listed="yes")), {})
+        assert r["why"] is None and r["previews"][13]["why"] is None
+        assert (r["previews"][12]["status"], r["previews"][12]["text"]) == (None, UP)
+        assert r["previews"][12]["why"].startswith(
+            "madswan/runner/deneb at 5e1f0c2: previews.rec's Status of the preview of request 12 is no JSON (")
+
+    def test_a_previews_file_recfix_refused_hides_the_runner_naming_the_file(self):
+        r = runner.host_read("madswan", "deneb", TIP, dict(branch(), **{"previews.rec": None}),
+                             {"previews.rec": "previews.rec fails recfix --check: previews.rec: 12: error: invalid enum value in field 'Outcome'"})
+        assert r["why"] == ("deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec fails recfix --check: "
+                            "previews.rec: 12: error: invalid enum value in field 'Outcome'")
+        assert "previews" not in r
 
 
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
