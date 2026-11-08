@@ -424,6 +424,10 @@
 # -h or --help among any command's arguments prints that command's usage and does nothing else, exiting 0: its own lines
 # here, or its parser's for a command crew hands to one (crew bolt start --help). Any other word is a word, so
 # crew tell <agent> "--help with the tenant table" tells it as any tell does.
+#
+# A command that read a drive's branch below its tip, while a write there waits for its run-record entry, says so:
+# the commit it read at, the tip, the write it waits on and that write's agent, on the line before a refusal and on
+# standard error after an answer, since what it found missing may be in that write or after it.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)

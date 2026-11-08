@@ -736,8 +736,15 @@ def main(argv):
     (events if a.cmd == "events" else trace)(fleet, a)
 
 
+def below(said=None):
+    """A read of the record below its branch's tip said as plan.py says it (plan.below_read): only once plan.py, which
+    reads the branch, was loaded by the command."""
+    return sys.modules["plan"].below_read(said) if "plan" in sys.modules else ("" if said is None else said)
+
+
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(str(e))
+        sys.exit(below(str(e)))
+    below()
