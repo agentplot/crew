@@ -17,7 +17,7 @@ Build the groups in order. Each check runs from the worktree's root as written. 
 ## 3. The flake writes the key
 
 - [x] 3.1 `services.crew.settings.repositories` is declared, keyed by `<owner>/<name>`, each entry exactly an absolute `dir` and `checkout` with no default, left out of the file where unset (design, Decision 9; Task notes 3.1). Verify `devenv shell -- moon run nix:format nix:lint nix:typecheck` exits 0.
-- [ ] 3.2 deneb's partitions with crew's and swancloud's kept repositories render `nix/tests/files/runner.json` byte for byte, `deneb.json` still has no `repositories`, and an entry with no `checkout`, a relative `dir`, a key with no owner or a `view` key fails evaluation (design, Decision 9; Task notes 3.2). Verify `devenv shell -- moon run nix:test` prints "nix: test: every case holds".
+- [x] 3.2 deneb's partitions with crew's and swancloud's kept repositories render `nix/tests/files/runner.json` byte for byte, `deneb.json` still has no `repositories`, and an entry with no `checkout`, a relative `dir`, a key with no owner or a `view` key fails evaluation (design, Decision 9; Task notes 3.2). Verify `devenv shell -- moon run nix:test` prints "nix: test: every case holds".
 - [ ] 3.3 crew loads `nix/tests/files/runner.json` on deneb as its teams file and names crew's folder and checkout as the file gives them (design, Decision 9; `flake.3`; Task notes 3.3). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_module_file.py'` ends with "passed" and no "failed".
 
 ## 4. The docs

@@ -1,13 +1,14 @@
 # The crew-flake spec's file (record 0058, flake.2), over options.nix
 # evaluated alone beside a system's `assertions`: deneb's partitions
-# render nix/tests/files/deneb.json byte for byte, the version is crew's,
+# render nix/tests/files/deneb.json byte for byte, with its kept
+# repositories nix/tests/files/runner.json (record 0061), the version is crew's,
 # and what crew refuses fails evaluation, by tryEval where the module
 # system refuses it and by the assertions' messages where the module does.
 t:
 let
   inherit (t) lib;
   render = import ../modules/json.nix { inherit lib; };
-  inherit (import ./settings.nix) deneb;
+  inherit (import ./settings.nix) deneb runner;
   pkgs = t.inputs.nixpkgs.legacyPackages.x86_64-linux;
 
   # options.nix enabled with `given` as its settings.
@@ -64,6 +65,25 @@ let
   teams = deneb // {
     teams = [ ];
   };
+
+  # runner's settings with crew's kept repository changed by `change`, and
+  # with a kept repository named `crew`, with no owner.
+  crew =
+    change:
+    runner
+    // {
+      repositories = runner.repositories // {
+        "agentplot/crew" = change runner.repositories."agentplot/crew";
+      };
+    };
+  noCheckout = crew (e: removeAttrs e [ "checkout" ]);
+  relative = crew (e: e // { dir = "repositories/agentplot/crew"; });
+  view = crew (e: e // { view = "/Users/chuck/Code/boomdrive/agentplot/crew"; });
+  ownerless = runner // {
+    repositories = {
+      crew = runner.repositories."agentplot/crew";
+    };
+  };
 in
 {
   "deneb's partitions" =
@@ -77,6 +97,43 @@ in
         !(lib.head rendered.partitions) ? roles
       ) "afterthought's partition, which gives no roles, renders a roles key"
     );
+
+  "A runner host's kept repositories" =
+    t.expect (renders runner) "runner's settings do not evaluate"
+    ++ lib.optionals (renders runner) (
+      t.expect (
+        text runner == builtins.readFile ./files/runner.json
+      ) "runner's settings render ${text runner}, not nix/tests/files/runner.json"
+      ++ t.expect (failures runner == [ ]) "runner's settings fail: ${toString (failures runner)}"
+    )
+    ++ t.expect (
+      renders deneb && !(rendered ? repositories) && !(lib.hasInfix "repositories" pinned)
+    ) "deneb's file, which gives no repositories, has a repositories key";
+
+  "An entry with no checkout" = t.expect (
+    !renders noCheckout
+  ) "a kept repository with no checkout evaluates";
+
+  "A relative folder" = t.expect (
+    !renders relative
+  ) "a kept repository whose dir is relative evaluates";
+
+  "A repository named with no owner" =
+    t.expect (
+      failures ownerless != [ ]
+    ) "services.crew.settings.repositories names crew, and no assertion fails"
+    ++
+      lib.concatMap
+        (
+          words:
+          t.expect (says ownerless words) "the failure names no ${words}: ${toString (failures ownerless)}"
+        )
+        [
+          "services.crew.settings.repositories"
+          "crew, which is no owner/name"
+        ];
+
+  "A key crew has no place for" = t.expect (!renders view) "a kept repository giving view evaluates";
 
   "The version is crew's" =
     t.expect (renders deneb && rendered.version == crewVersion)
