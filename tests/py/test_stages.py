@@ -252,10 +252,11 @@ class TestBuiltOnItsBolt:
 
 
 class TestABoltWhoseLaunchesWereAllRefused:
-    """bolt-plan "A unit whose work its bolt's branch holds is built": a bolt whose every launch the runner refused, as
-    for changes the bolt already holds, has no place of its own naming the kit's folder; crew reads it where the same
-    runner keeps the kit, as its places of the kit's other work name it (plan.launched_at, kit_at), never another
-    host's, so crew bolts never says where it runs can't be told for it."""
+    """bolt-plan "A unit whose work its bolt's branch holds is built" and drive-state "A bolt whose every launch was
+    refused": a bolt whose every launch the runner refused, as for changes the bolt already holds, has no place of its
+    own; crew reads it where that runner reports keeping the kit (plan.launched_at; Decision 1 of
+    a-bolts-landing-on-main-reads-landed), its stream none while the runner carries no place of it, never in a folder
+    another place names, so crew bolts never says where it runs can't be told for it while the runner reports the kit."""
     FLEET = madswan_fleet()
 
     @pytest.fixture(autouse=True)
@@ -271,7 +272,7 @@ class TestABoltWhoseLaunchesWereAllRefused:
         p, requests = self.launched()
         runners = ran({2: "code"}, refused={1: "the base bolt/x already holds a change named a"})
         at = plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
-        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", "madswan", "/crew/main")
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", None, "/crew/main")
         st = plan.Stages(self.FLEET, p, crew_read(bolts={"x": {"landings": LANDED}, "y": {}}), runs={"madswan": (requests, runners)},
                          label="madswan")
         assert (st.unread(p.bolt("x")), st.of("a")["stage"]) == (None, "merged")
@@ -279,6 +280,7 @@ class TestABoltWhoseLaunchesWereAllRefused:
     def test_the_kits_folder_on_another_runners_host_is_not_taken(self):
         from facts import ran
         p, requests = self.launched()
-        runners = {**ran(refused={1: "the base bolt/x already holds a change named a"}), **ran({2: "code"}, host="alpha")}
-        with pytest.raises(plan.Refusal, match="the runner on deneb took bolt x's work and has carried no place of it yet"):
+        runners = {**ran(refused={1: "the base bolt/x already holds a change named a"}, keeps=None), **ran({2: "code"}, host="alpha")}
+        with pytest.raises(plan.Refusal, match="^the runner on deneb took bolt x's work and reports no repositories it keeps, so "
+                                               "crew can't tell where it keeps crew there$"):
             plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
