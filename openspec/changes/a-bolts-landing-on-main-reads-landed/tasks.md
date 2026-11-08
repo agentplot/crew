@@ -6,6 +6,7 @@
 - [x] 1.2 `launched_at`, `kit_at` and `launch_repositories` read no folder from a place the runner carried, of the bolt's work or the kit's other work (design, Decision 1; Task notes 1.2). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_kits.py tests/py/test_branch_stands.py'` ends with "passed" and no "failed".
 - [x] 1.3 Every logic case whose runner reads a kit's folder gives that runner a `repositories.rec` naming it, with no outcome changed beyond the folder's source and the reason's words (design, Decision 1; Task notes 1.3). Verify `tests/suite logic` ends with "0 failed".
 - [x] 1.4 The stub runner of `tests/lib.sh` reports the repositories each host keeps in `repositories.rec` (design, Decision 4; Task notes 1.4). Verify `tests/suite t-journey-land` ends with "0 failed".
+- [x] 1.5 `tests/t-journey-cross.sh`'s hand-built runner branch reports the kit's folder in `repositories.rec`, so the add of `a` again is refused as before, naming Flume's branch, its assertion unchanged (design, Decision 1). Verify `tests/suite t-journey-cross` ends with "0 failed".
 
 ## 2. A bolt's landing on main
 
@@ -18,6 +19,7 @@
 
 - [x] 3.1 The stub sluice lands a pull request's submission with `Sluice-From: <agent> (pull/<n>)`, as sluice does (design, Decision 4; Task notes 3.1). Verify `tests/suite t-journey-land` ends with "0 failed".
 - [x] 3.2 `crew bolt land` closes a bolt landed on main whose branch GitHub deleted and whose places the runner no longer carries (design, Decision 3; Task notes 3.2). Verify `tests/suite t-journey-land` ends with "0 failed".
+- [x] 3.3 The stub sluice's overview watch looks again at a file the test is still writing, as sluice never prints half a document, rather than ending on it, and `t-journey-board` leaves a half-written overview in place until each kit's watch has looked at it (`tests.8`). Verify `tests/suite t-journey-board` ends with "0 failed".
 
 ## 4. The docs
 
