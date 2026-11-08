@@ -320,8 +320,9 @@ flume_world() {
   runner_writes chuck-herdr-alpha; runner_writes mac-studio
 }
 # keeps <host> <kit> <folder> [<stream>]: the runner on <host> keeps <kit> in <folder>, as its configuration names them,
-# and the host's Flume configuration maps the kit to <stream> (wldn by default): the repository and stream Flume's status
-# of each place it takes of the kit names, which runner_writes gives a status naming none
+# and the host's Flume configuration maps the kit to <stream> (wldn by default): the repository its repositories.rec
+# names (runner_writes), and the repository and stream Flume's status of each place it takes of the kit names, which
+# runner_writes gives a status naming none
 keeps() {
   local d=$T/runner/$1; mkdir -p "$d"
   python3 -c 'import json, os, sys
@@ -332,16 +333,19 @@ kept[sys.argv[2]] = [sys.argv[3], sys.argv[4]]; json.dump(kept, open(f, "w"))' "
 # runner writes it, and crew never does: its runner.rec, and each request named answered launched at its place with
 # Flume's status of the place as the runner carried it, beside those an earlier call named, a status naming no
 # repository or stream given the folder the runner keeps the request's kit in and the stream its host maps it to
-# (keeps), as Flume's status names them
+# (keeps), as Flume's status names them; and its repositories.rec, as Boomdrive's runner reports what it keeps, each kit
+# kept on the host (keeps) by its forge address, <owner>/<kit>, the owner of the kit's stub remote where the test made
+# one and any owner else, since crew matches a kit by its name, with its folder (runner.REPOSITORIES; Decision 1 of
+# a-bolts-landing-on-main-reads-landed)
 runner_writes() {
   local h=$1 d=$T/runner/$1 tree parent f; shift
   mkdir -p "$d"
   git --git-dir "$ws" show wldn/main:requests.rec > "$d/requests.rec" 2>/dev/null || : > "$d/requests.rec"
-  python3 - "$CREW/plugin/lib" "$d" "$h" "$@" <<'EOF'
-import json, os, sys
+  python3 - "$CREW/plugin/lib" "$d" "$h" "$T/remotes" "$@" <<'EOF'
+import glob, json, os, sys
 sys.path.insert(0, sys.argv[1])
 import runner
-d, h, args = sys.argv[2], sys.argv[3], sys.argv[4:]
+d, h, remotes, args = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:]
 f = os.path.join(d, "kept.json")
 kept = json.load(open(f)) if os.path.exists(f) else {}
 keeps = json.load(open(os.path.join(d, "keeps.json"))) if os.path.exists(os.path.join(d, "keeps.json")) else {}
@@ -360,11 +364,15 @@ json.dump(kept, open(f, "w"))
 at = "2026-10-31T12:01:00Z"
 files = {"runner": runner.RUNNER + f"\nHost: {h}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n",
          "answers": runner.ANSWERS + "".join(f"\nRequest: {n}\nOutcome: launched\nPlace: {p}\nAt: {at}\n" for n, (p, _) in sorted(kept.items(), key=lambda x: int(x[0]))),
-         "places": runner.PLACES + "".join(f"\nRequest: {n}\nPlace: {p}\nAt: {at}\nStatus: {json.dumps(s)}\n" for n, (p, s) in sorted(kept.items(), key=lambda x: int(x[0])))}
+         "places": runner.PLACES + "".join(f"\nRequest: {n}\nPlace: {p}\nAt: {at}\nStatus: {json.dumps(s)}\n" for n, (p, s) in sorted(kept.items(), key=lambda x: int(x[0]))),
+         "repositories": runner.REPOSITORIES}
+for kit, (folder, _) in sorted(keeps.items()):
+    owners = sorted(os.path.basename(os.path.dirname(r)) for r in glob.glob(os.path.join(remotes, "*", f"{kit}.git")))
+    files["repositories"] += f"\nRepository: {(owners or ['WilldanGroup'])[0]}/{kit}\nFolder: {folder}\n"
 for name, text in files.items():
     open(os.path.join(d, f"{name}.rec"), "w").write(text)
 EOF
-  tree=$(for f in runner answers places; do printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"; done |
+  tree=$(for f in runner answers places repositories; do printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"; done |
     git --git-dir "$ws" mktree)
   parent=$(git --git-dir "$ws" rev-parse -q --verify "refs/heads/wldn/runner/$h") || parent=
   git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$h" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \
