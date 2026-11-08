@@ -4,12 +4,14 @@ plan's decision-record sources, requests.rec and the run record's entries on the
 kit.rename entry (plan.rename_branch, rename_rec), refused while the repository's work stands (rename_standing) or a host
 still keeps the old name (rename_kept), naming what stands (rename_refusal). The rename's one commit under a real recfix
 is the contract tier's (tests/contract/test_recfix.py)."""
+import json
+
 import pytest
 
 import plan
 import runner
 
-from facts import FactsWrite, plan_text
+from facts import FactsWrite, flume_fixture, plan_text
 
 KIT_RENAME = """\
 Id: 20261105T120000Z-1-deneb-1-1
@@ -193,3 +195,126 @@ class TestAppendOnly:
         now = self.renamed() + "\n" + "\n".join(plan.Rec("Request", runner.request_fields(
             4, "drop", "fix/main/boomdrive-cloud/x", dict(Of=3), "2026-11-07T12:00:00Z", "chuck@deneb")).lines()) + "\n"
         assert plan.appended_refusal(SEAM_REQUESTS, now, [("flywheel-cloud", "boomdrive-cloud")]) is None
+
+
+def reading(host="deneb", launched=None, refused=None, bad=()):
+    """host's runner of madswan as crew reads it (runner.host_read): each launch in launched, {request's number: a Flume
+    status fixture of tests/py/flume-0.3.6}, answered launched and its place carried at the fixture's own place; each in
+    refused, {number: words}, answered refused; and each in bad answered launched with a status that is no JSON."""
+    answers, places = "", ""
+    for n, name in (launched or {}).items():
+        status = json.loads(flume_fixture(name).read_text())
+        where = status["status"]["places"][0]["place"].split("@")[0]
+        answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: 2026-11-07T10:01:00Z\n"
+        places += f"\nRequest: {n}\nPlace: {where}\nAt: 2026-11-07T10:02:00Z\nStatus: {json.dumps(status)}\n"
+    for n in bad:
+        answers += f"\nRequest: {n}\nOutcome: launched\nPlace: /p/{n}\nAt: 2026-11-07T10:01:00Z\n"
+        places += f"\nRequest: {n}\nPlace: /p/{n}\nAt: 2026-11-07T10:02:00Z\nStatus: not json\n"
+    answers += "".join(f"\nRequest: {n}\nOutcome: refused\nWords: {w}\nAt: 2026-11-07T10:01:00Z\n" for n, w in (refused or {}).items())
+    files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-11-07T09:00:00Z\n"),
+             "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
+    return {host: runner.host_read("madswan", host, "5e1f0c2a" + "0" * 32, files, {})}
+
+
+def unit_launch(n, unit, repo="tailrace", bolt="trc-1"):
+    """A launch of a unit's place in repo, as a start writes it (runner.reach)."""
+    return (n, f"unit/{unit}", dict(Repo=repo, Kind="change", Name=unit, Base=f"bolt/{bolt}", Priority=1, Intent=f"madswan/{bolt}",
+                                    Recipient="madswan/planner", Brief=f"Build {unit}."))
+
+
+def role_launch(n, repo, name):
+    """A launch of the design agent's work in repo, as crew writes a role's (runner.request_refusal: its host and stream)."""
+    return (n, f"role/design/{name}", dict(Host="deneb", Repo=repo, Kind="change", Name=name, Base="main", Stream="madswan",
+                                           Priority=1, Intent=f"madswan/{name}", Recipient="madswan/design", Brief=f"Record {name}."))
+
+
+def recs(text, kind="Request"):
+    return plan.Plan(text).recs(kind)
+
+
+def card(n, act, key, by="madswan-ops", state=None):
+    """A card.post or card.close entry under key, as record.parse gives it, card req_<n>."""
+    e = {"Id": f"20261107T1000{n:02d}Z-deneb-1-{n}", "At": f"2026-11-07T10:00:{n:02d}Z", "Act": act, "On": [key], "From": [],
+         "Card": f"req_{n // 10}", "Key": key, "By": by}
+    return dict(e, State=state) if state else e
+
+
+def proposal(n, *dos, state="open"):
+    return plan.Rec("Proposal", [("Proposal", str(n)), ("Case", "A case."), *[("Do", d) for d in dos], ("State", state)])
+
+
+def standing(old="tailrace", text=None, requests_=(), reads=None, entries=(), proposals=(), own=None):
+    return plan.rename_standing(old, plan.Plan(text or plan_text()), recs(requests(*requests_)), reads or {}, list(entries),
+                                list(proposals), own)
+
+
+class TestWhatStands:
+    """Decision 2: each piece of the old name's work that stands, and apart what crew could not read."""
+
+    def test_a_bolt_named_as_not_landed(self):
+        text = plan_text(bolts=[("trc-1", "tailrace", False), ("crew-bolt", "crew", False)],
+                         units=[("trc-u", "tailrace", "trc-1", [])])
+        assert standing(text=text) == (["bolt trc-1 has not landed"], [])
+
+    def test_a_queued_chore(self):
+        text = plan_text(units=[("trc-queued", "agentplot/tailrace", None, [], "chore"), ("crew-queued", "crew", None, [])])
+        assert standing(text=text) == (["chore trc-queued waits in tailrace's queue"], [])
+
+    def test_a_fix_of_main_not_landed_named_with_its_stage(self):
+        fixes = [fix_of_main(n, "tailrace", x) for n, x in ((1, "x"), (2, "landed"), (3, "dropped"), (4, "refused"))]
+        reads = reading(launched={1: "code", 2: "landed", 3: "dropped"}, refused={4: "no stream maps tailrace"})
+        assert standing(requests_=fixes, reads=reads) == (["fix/main/tailrace/x (request 1) is at code"], [])
+
+    def test_a_roles_work_not_landed(self):
+        assert standing(requests_=[role_launch(1, "agentplot/tailrace", "record-0061")], reads=reading()) == (
+            ["role/design/record-0061 (request 1) is launching"], [])
+
+    def test_a_live_place_and_none_over(self):
+        reads = reading(launched={4: "code", 5: "landed"})
+        found = standing(requests_=[unit_launch(1, "a", "crew", "crew-bolt"), unit_launch(2, "b", "crew", "crew-bolt"),
+                                    unit_launch(3, "c", "crew", "crew-bolt"), unit_launch(4, "trc-live"), unit_launch(5, "trc-over")],
+                         reads=reads)
+        place = json.loads(flume_fixture("code").read_text())["status"]["places"][0]["place"]
+        assert found == ([f"place {place} of request 4 (unit/trc-live) is live on deneb"], [])
+
+    def test_a_status_that_is_no_json_and_an_unread_runner_are_unread(self):
+        reads = dict(reading(bad=[1]), **{"vega": {"host": "vega", "why": "vega's runner can't be read: madswan/runner/vega at 1234567: x"}})
+        stands, unread = standing(requests_=[unit_launch(1, "trc-a")], reads=reads)
+        assert stands == [] and len(unread) == 2
+        assert unread[0].startswith("madswan/runner/deneb at 5e1f0c2: places.rec's status of the place of request 1 is no JSON")
+        assert unread[1] == "vega's runner can't be read: madswan/runner/vega at 1234567: x"
+
+    def test_open_and_lost_cards_and_none_closed(self):
+        entries = [card(10, "card.post", "land/tailrace"), card(20, "card.post", "record/tailrace/17", by="madswan-design"),
+                   card(30, "card.post", "record/agentplot/tailrace", by="madswan-design"),
+                   card(40, "card.post", "record/tailrace/18/abc1234", by="madswan-design"), card(41, "card.close", "record/tailrace/18/abc1234",
+                                                                                               state="lost"),
+                   card(50, "card.post", "land/tailrace-web"), card(60, "card.post", "land/crew")]
+        assert standing(entries=entries) == ([
+            "madswan-ops's card land/tailrace is open", "madswan-design's card record/tailrace/17 is open",
+            "madswan-design's card record/tailrace/18/abc1234 was lost to its owner, and the rail raises it again"], [])
+
+    def test_a_closed_card_names_nothing(self):
+        entries = [card(10, "card.post", "land/tailrace"), card(11, "card.close", "land/tailrace", state="closed")]
+        assert standing(entries=entries) == ([], [])
+
+    def test_an_unanswered_unsettled_batch_holding_a_landed_unit_and_none_settled(self):
+        land = {"Id": "1", "At": "2026-11-07T09:00:00Z", "Act": "bolt.land", "On": ["bolt/trc-1", "unit/trc-u"], "From": [],
+                "Repo": "tailrace"}
+        batch = lambda n, units: {"Id": str(n), "At": f"2026-11-07T09:{n:02d}:00Z", "Act": "review.batch", "Batch": str(n),
+                                  "Units": units, "On": [f"batch/{n}"], "From": []}
+        entries = [batch(12, "trc-u:trc-1@abc1234 other-u:other@def5678"), batch(13, "trc-u:trc-1@abc1234"), land]
+        assert standing(entries=entries) == (["batch 12 is unanswered and holds trc-u"], [])
+
+    def test_open_proposals_naming_it_and_none_else(self):
+        props = [proposal(170, 'unit add x "X is built." --repo tailrace'), proposal(171, "unit add y \"Y.\" --repo crew "
+                                                                                          "--source agentplot/tailrace:docs/adr/0017"),
+                 proposal(172, 'bolt new z "tailrace is fast, as the user asked." --repo crew'), proposal(173, "kit rename tailrace timber"),
+                 proposal(174, 'unit add w "W." --repo tailrace', state="approved"), proposal(175, "kit rename tailrace timber")]
+        assert standing(proposals=props, own="173") == (["proposal 170 is open and names tailrace", "proposal 171 is open and names tailrace",
+                                                         "proposal 175 is open and names tailrace"], [])
+
+    def test_nothing_standing(self):
+        text = plan_text(bolts=[("crew-bolt", "crew", False)], units=[("crew-unit", "crew", "crew-bolt", [])])
+        assert standing(text=text, requests_=[fix_of_main(1, "tailrace", "x")], reads=reading(launched={1: "landed"}),
+                        entries=[card(10, "card.post", "land/tailrace"), card(11, "card.close", "land/tailrace", state="closed")]) == ([], [])

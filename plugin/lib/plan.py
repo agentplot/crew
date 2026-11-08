@@ -1821,6 +1821,92 @@ def rename_branch(w, old, new):
     return n
 
 
+def proposal_names(do, old):
+    """Whether a proposal's Do line names a repository, old (Decision 2 of a-repository-is-renamed-by-one-explicit-command):
+    any of its words, after the command's own, that holds the repository's name or forge address (kit_in), an object
+    built on it (renamed_object) or a decision record's source in its repository (renamed_source), as a rename would find
+    it in a record; a quoted goal or intent is one word, so a name inside its prose names nothing. Read by its words, so
+    a line crew's parser would refuse still counts, and a rename of old held by another open proposal names it too."""
+    try:
+        words = shlex.split(do or "")
+    except ValueError:
+        words = (do or "").split()
+    words = words[1:] if words[:1] == ["crew"] else words
+    return any(kit_in(w, [old]) or renamed_object(w, old, "-") != w or renamed_source(w, old, "-") != w for w in words[2:])
+
+
+def rename_standing(old, plan, requests, reads, entries, proposals, own):
+    """What of a repository's work stands, so crew kit rename <old> <new> waits for it (Decision 2 of
+    a-repository-is-renamed-by-one-explicit-command; plan.22), from plain facts (code.7): the plan as the write holds it;
+    requests.rec's records; the partition's runners as the write read them ({host: runner.host_read's reading}); the
+    run record's entries at the tip, each once, oldest first; proposals.rec's records; and own, the number of the
+    proposal applying the rename, None for a direct run. old matches by name or forge address (kit_in) throughout. What
+    stands: each bolt of old, which has not landed, since a landed or dropped bolt has left the plan (state.2), and each
+    unit or chore of its queue; a fix of its main or a role's work in it, launched and standing (runner.standing), whose
+    stage (runner.piece_stage) is not landed, dropped or refused; a place a runner carries of a launch in old whose
+    phase in Flume's status is live or making, a unit's place still live after its unit's drop among them; the newest
+    card under land/<old> or record/<old>/<n>[/<commit>] while it is open, or lost to its owner, which the rail raises
+    again (cards.posted_cards); a batch neither closed (batch_closed) nor settled (batch_settled) that holds a unit of
+    old, by the plan's unit or by a landing of old naming it; and an open proposal, but own, a Do of which names old
+    (proposal_names). Returns (what stands, what crew could not read), each as words: a stage crew can't tell, a
+    runner it can't read, and a place whose status it can't read (read.1)."""
+    of = lambda r: bool(r.get("Repo")) and kit_in(r.get("Repo"), [old])
+    stands, unread = [], []
+    stands += [f"bolt {b.name()} has not landed" for b in plan.bolts() if of(b)]
+    stands += [f"{kind_of(u)} {u.name()} waits in {old}'s queue" for u in plan.queue() if of(u)]
+    for l in runner.standing(requests):
+        work = l.get("Work") or ""
+        if not work.startswith(("fix/main/", "role/")) or not of(l):
+            continue
+        st = runner.piece_stage(requests, reads, l)
+        if st["stage"] == "unknown":
+            unread.append(f"crew can't tell how far {work} (request {l.get('Request')}) has got: {st['why']}")
+        elif st["stage"] not in ("landed", "dropped", "refused"):
+            stands.append(f"{work} (request {l.get('Request')}) is {runner.stage_said(st)}")
+    launches = {runner.number(r.get("Request")): r for r in requests if r.get("Act") == "launch"}
+    for host in sorted(reads):
+        reading = reads[host]
+        if reading.get("why"):
+            unread.append(reading["why"])
+            continue
+        for n, p in sorted((reading.get("places") or {}).items()):
+            l = launches.get(n)
+            if l is None or not of(l) or (l.get("Work") or "").startswith(("fix/main/", "role/")):
+                continue
+            if p.get("why"):
+                unread.append(p["why"])
+                continue
+            f = runner.flume_facts(p.get("status"), p.get("place"))
+            if f is None:
+                unread.append(f"Flume's status of the place of request {n}, as {host}'s runner carried it, holds no place {p.get('place')}")
+            elif f["phase"] in ("live", "making"):
+                stands.append(f"place {p.get('place')} of request {n} ({l.get('Work')}) is {f['phase']} on {host}")
+    newest = {}
+    for c in cards.posted_cards(entries):
+        newest[c["key"]] = c
+    for key, c in newest.items():
+        parts = key.split("/")
+        mine = len(parts) >= 2 and kit_in(parts[1], [old]) and (
+            (parts[0] == "land" and len(parts) == 2) or (parts[0] == "record" and len(parts) in (3, 4) and parts[2].isdigit()))
+        if mine and c["state"] is None:
+            stands.append(f"{c['by']}'s card {key} is open")
+        elif mine and c["state"] == "lost":
+            stands.append(f"{c['by']}'s card {key} was lost to its owner, and the rail raises it again")
+    olds = {u.name() for u in plan.work() if of(u)} | {o[5:] for e in entries if e.get("Act") == "bolt.land" and not e.get("Refused")
+                                                       and of(e) for o in e.get("On") or [] if o.startswith("unit/")}
+    closed, settled, posts, held = batch_closed(entries), batch_settled(entries), batch_posts(entries), []
+    for n, _, units in batches(entries):
+        for key, part in batch_cards(n, units, posts):
+            mine = [u for u, *_ in part if u in olds]
+            if mine and key not in closed and key not in settled and n not in held:
+                held.append(n)
+                stands.append(f"batch {n} is unanswered and holds {cards.joined(list(dict.fromkeys(mine)))}")
+    for p in proposals:
+        if p.get("State") == "open" and p.get("Proposal") != own and any(proposal_names(d, old) for d in p.all("Do")):
+            stands.append(f"proposal {p.get('Proposal')} is open and names {old}")
+    return stands, list(dict.fromkeys(unread))
+
+
 # A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
 # the hosts file lists it, the owner as GitHub has it.
 KIT = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]*/)?[a-z0-9][a-z0-9-]*$")
