@@ -202,7 +202,7 @@ This change owns the rename's own functions:
 - the rename's words in README, the skill, the usage and the planner's brief;
 - the requirements its delta names.
 
-It drops the rename's own use of `kit_now`, `w.renames()` and `w.renamed`. It no longer appends to `w.renamed`, since the records themselves now carry the new name.
+It drops the rename's own use of `kit_now`, `w.renames()` and `w.renamed`, since the records themselves now carry the new name; the other unit takes each of them out of crew.
 
 The other unit owns every reader through the renames, and their requirements:
 
@@ -210,7 +210,7 @@ The other unit owns every reader through the renames, and their requirements:
 - rail-cards' "A kit's landings card follows its rename";
 - drive-state's name-now clauses.
 
-So this delta leaves those requirements alone. The first sentence of bolt-plan's "read under its name now" says `requests.rec` and the run record are never rewritten for a rename. That contradicts this change until the other unit's delta removes it. Where the two units edit the same lines (`rename_refusal`'s signature, `test_kit_rename.py`, README's rename paragraph), whichever lands second on the bolt takes the other's edit in. sluice refuses a conflicting merge, and a fix on the bolt takes it in (`plan.8`).
+So this delta leaves those requirements alone. The other unit's delta also adds bolt-plan's "requests.rec and the run record are only appended to", whose rename appends only its entry; this change's rewrite contradicts it, so this delta removes it, the rule and its one exception standing in drive-state's and run-record's requirements as this delta modifies them. Both units change run-record's "A kit's rename is one entry naming both its names": this delta's block holds the other unit's sentences and its scenario "A rename's entry renames nothing" beside its own. Where the two units edit the same code and words (`rename_refusal`'s signature, `Write`, `test_kit_rename.py`, `test_recfix.py`'s rename case, README's rename paragraph, the skill, the usage and the planner's brief), this change takes the other's edit in: the rename's command and refusals are this change's, every read is as written, and nothing says a former name is read under the name now. The two meet on the bolt by a merge of it into this change's branch, never a rebase (`plan.8`).
 
 ### Departures
 
@@ -221,8 +221,7 @@ So this delta leaves those requirements alone. The first sentence of bolt-plan's
 
 - **A rename rewrites every run-record file naming the repository in one commit.** Accepted: it is a rare act on the user's word, and only files holding a renamed entry are written.
 - **An entry another host pushes under `<old>` after the rename.** It stays under `<old>` until the rename runs again. Accepted: record 0060's order removes the repository first, so little writes under it after.
-- **The other unit's intent says the run record and `requests.rec` stay append-only "without exception".** That was written from record 0055's rejection. `record.4` as amended by record 0060, accepted, keeps the rename's one rewrite. Where the two meet, `docs/architecture/` wins (CLAUDE.md), and this change's append check allows the rename alone.
-- **Until the other unit lands, readers still map through `kit.rename` entries.** That is harmless here, since every record they map already names `<new>`.
+- **The other unit's intent says the run record and `requests.rec` stay append-only "without exception".** That was written from record 0055's rejection. `record.4` as amended by record 0060, accepted, keeps the rename's one rewrite. Where the two meet, `docs/architecture/` wins (CLAUDE.md): this delta removes bolt-plan's requirement saying so, and this change's append check allows the rename alone.
 
 ## Migration Plan
 

@@ -37,7 +37,7 @@ None.
 
 ### Modified Capabilities
 
-- `bolt-plan`: the rename of a kit renamed on its host goes. In its place, a repository is renamed by one explicit command once its work is finished, and the rename renames every record a reader matches the repository by.
+- `bolt-plan`: the rename of a kit renamed on its host goes, and so does "requests.rec and the run record are only appended to". In their place, a repository is renamed by one explicit command once its work is finished, and the rename renames every record a reader matches the repository by.
 - `run-record`: the rename's entry counts every record it renamed and is left as written by a later rename. The branch's copy of an entry is rewritten only by the rename.
 - `drive-state`: `requests.rec` is changed only by appending, or by a rename. A partition is never renamed.
 - `plan-proposals`: the rename's block on a proposal's card names both names and no bolt or unit.

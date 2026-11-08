@@ -120,3 +120,7 @@ In its one commit, `crew kit rename <old> <new>` SHALL rename `<old>` to `<new>`
 ### Requirement: A kit renamed on its host is renamed across the plan in one act
 **Reason**: Record 0060, accepted by the user on 2026-11-07, together with `plan.22`. A repository is renamed by one explicit command once its work is finished, and never while it stands. Its records are renamed wherever a reader matches it, not in the plan alone. The command no longer waits for the host to keep `<new>`, since the repository is added back under `<new>` after the rename.
 **Migration**: The requirements added here replace it, from "A repository is renamed by one explicit command" to "A rename run again renames what an earlier one left". A started bolt's repository is renamed once the bolt has landed or been dropped.
+
+### Requirement: requests.rec and the run record are only appended to
+**Reason**: Record 0060 and `record.4` as it amends it, accepted by the user on 2026-11-07: `crew kit rename` renames a repository's name in `requests.rec` and in the run record's entries on the branch, in its one commit, so neither is only appended to. The rule with its one exception is drive-state's "crew asks a host's runner for work by requests on the drive's branch" and run-record's "The run record is files on the host, appended and never rewritten", as this change modifies them.
+**Migration**: None. Every other write still only appends to either file, and the rename's commit holds what each record said before.
