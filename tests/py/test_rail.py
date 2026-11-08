@@ -12,7 +12,7 @@ import types
 
 import pytest
 
-from facts import START, kits_of, plan_text
+from facts import LANDED as BOLT_HEAD, START, kits_of, plan_text
 
 import cards
 import crew
@@ -49,9 +49,8 @@ def place(unit, tasks, ago, planning=True):
 def survey(ok=True, merged=True):
     kit = {"ok": True, "main": [], "fixes": [],
            "places": {"early": place("early", (0, 2), 180), "checked": place("checked", (2, 2), 120), "stale": place("stale", (2, 2), 50)},
-           "bolts": {"apex-zones": {"exists": True, "head": "abc1234" + "0" * 33, "head_at": iso(30), "changes": ["zone-one"] if merged else [],
-                                    "archived": ["zone-one"] if merged else [],
-                                    "verdict": "passed (3 run, 1 replayed)"},
+           "bolts": {"apex-zones": {"exists": True, "head": BOLT_HEAD, "head_at": iso(30), "changes": ["zone-one"] if merged else [],
+                                    "archived": ["zone-one"] if merged else []},
                      "tenant-environments": {"head": "d" * 40, "head_at": iso(200), "changes": []}}}
     return {BOX: {"ok": True, "kits": {"/kit/main": kit}}} if ok else {BOX: {"ok": False, "error": "ssh: connect to host timed out"}}
 
@@ -121,7 +120,7 @@ class TestRows:
         p = plan.Plan(plan_text(bolts=[("tenant-environments", KIT, "swb-1"), ("apex-zones", KIT, "swb-2"), ("beta", KIT, "swb-2")],
                                 units=[("zone-one", KIT, "apex-zones", []), ("b-one", KIT, "beta", [])]))
         sv = survey()
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["beta"] = {"head": "bbb1234" + "0" * 33, "head_at": iso(20), "verdict": "passed (2 run)",
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["beta"] = {"head": BOLT_HEAD, "head_at": iso(20),
                                                          "changes": ["b-one"] if merged else [], "archived": ["b-one"] if merged else []}
         rs = plan.rail_rows(FLEET, [("wldn", "WilldanGroup/crew-state", "tip", p)], sv, [], {}, None,
                             runs(p, at={"b-one": "landed" if merged else "code"}))
@@ -144,9 +143,9 @@ class TestRows:
     def test_a_landing_sluice_refused_at_the_bolts_head_is_held_in_its_words(self):
         """crew-rail "A refused landing"."""
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {},
-                         "refused": {"apex-zones": ("abc1234" + "0" * 33, "bolt/apex-zones did not land: sluice found a conflict")}}}
+                         "refused": {"apex-zones": (BOLT_HEAD, "bolt/apex-zones did not land: sluice found a conflict")}}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: landing rejected at abc1234, open for work: it lands again "
+        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: landing rejected at d185a87, open for work: it lands again "
                                    "once a fix moves its head: bolt/apex-zones did not land: sluice found a conflict")
         assert land["cmds"] == []
         held["wldn"]["refused"] = {"apex-zones": ("c" * 40, "an older head's")}
@@ -155,7 +154,7 @@ class TestRows:
 
     def test_a_landing_queued_or_landing_again_says_so_holds_the_bolts_work_and_is_no_bolt_that_can_land(self):
         """crew-rail "A landing queued" and "Landing again": submitted and not yet decided, so the tell leaves it out."""
-        queued = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Outcome="queued", Submission="412", Head="abc1234" + "0" * 33)]
+        queued = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Outcome="queued", Submission="412", Head=BOLT_HEAD)]
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "refused": {},
                          "phases": plan.landing_phases(queued)}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
@@ -174,9 +173,9 @@ class TestRows:
         that wldn-ops submits it again once that is cleared; the row's tell names it; at another head it says nothing."""
         stop = "sluice itself failed (sluice: could not release try/1a2b3c4, whose worktree no longer exists)"
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "refused": {},
-                         "stopped": {"apex-zones": ("abc1234" + "0" * 33, stop)}}}
+                         "stopped": {"apex-zones": (BOLT_HEAD, stop)}}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: can land; its last landing at abc1234 was stopped, nothing of the "
+        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: can land; its last landing at d185a87 was stopped, nothing of the "
                                    f"bolt's: {stop}; wldn-ops submits it again once that is cleared; follows: the next card under land/{KIT} carries it")
         assert land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')] and land["bolts"][0]["can"] is True
         held["wldn"]["stopped"] = {"apex-zones": ("c" * 40, "an older head's")}
@@ -201,7 +200,7 @@ class TestRows:
 
     def test_a_bolt_forecast_at_its_head_to_conflict_with_main_takes_main_first_and_is_left_out_of_the_tell(self):
         """crew-rail "A bolt taking main first" and "A conflict forecast at an older head"."""
-        conflict = dict(Act="forecast", On=["bolt/apex-zones"], Heads="bolt/apex-zones@abc1234 main@e4f5a6b", Paths="README.md",
+        conflict = dict(Act="forecast", On=["bolt/apex-zones"], Heads="bolt/apex-zones@d185a87 main@e4f5a6b", Paths="README.md",
                         Reached="wait")
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "forecasts": [conflict]}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
@@ -214,9 +213,9 @@ class TestRows:
 
     def test_a_left_bolt_forecast_to_conflict_with_main_takes_main_first_once_ticked_and_is_left_out_of_the_tell(self):
         """crew-rail "Left and forecast to conflict" and "Ticked"."""
-        conflict = dict(Act="forecast", On=["bolt/apex-zones"], Heads="bolt/apex-zones@abc1234 main@e4f5a6b", Paths="README.md",
+        conflict = dict(Act="forecast", On=["bolt/apex-zones"], Heads="bolt/apex-zones@d185a87 main@e4f5a6b", Paths="README.md",
                         Reached="left")
-        left = dict(Act="landing.left", On=[f"kit/{KIT}"], Key=f"land/{KIT}", Heads="apex-zones@abc1234")
+        left = dict(Act="landing.left", On=[f"kit/{KIT}"], Key=f"land/{KIT}", Heads="apex-zones@d185a87")
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "forecasts": [conflict],
                          "left": [left]}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
@@ -235,7 +234,7 @@ class TestRows:
 
     # How the kit's card stands for each bolt of its land row (crew-rail "Each bolt's land line says whether its card
     # carries, holds or follows it", design Decision 8).
-    H = "abc1234" + "0" * 33
+    H = BOLT_HEAD
 
     @staticmethod
     def kit_card(heads, answered=None):
@@ -243,19 +242,19 @@ class TestRows:
                     answered=None if answered is None else dict(at=NOW, answer="ticked", heads=answered))
 
     @pytest.mark.parametrize("bolt, head, can, card, sends, stand", [
-        ("b", H, True, "waiting b@abc1234", {}, ("carries", None)),  # A bolt the open card carries
+        ("b", H, True, "waiting b@d185a87", {}, ("carries", None)),  # A bolt the open card carries
         ("b", "2222222" + "0" * 33, True, "waiting b@1111111", {}, ("carries", "1111111")),  # A bolt the card shows at an older head
-        ("b", H, True, "answered b@abc1234", {}, ("holds",)),  # A bolt the user's send holds
-        ("b", H, True, None, {"b": "abc1234"}, ("holds",)),  # A send kept on a closed card
-        ("b", H, False, None, {"b": "abc1234"}, ("holds",)),  # held taking main in, on that send
-        ("c", H, True, "answered b@abc1234", {}, ("follows", True)),  # A bolt proven since the send
+        ("b", H, True, "answered b@d185a87", {}, ("holds",)),  # A bolt the user's send holds
+        ("b", H, True, None, {"b": "d185a87"}, ("holds",)),  # A send kept on a closed card
+        ("b", H, False, None, {"b": "d185a87"}, ("holds",)),  # held taking main in, on that send
+        ("c", H, True, "answered b@d185a87", {}, ("follows", True)),  # A bolt proven since the send
         ("b", H, True, None, {}, ("follows", False)),  # A bolt no card carries yet
         ("b", H, False, None, {}, None),  # A bolt waiting on its verification
         ("b", H, True, "answered left", {}, ("follows", True)),  # left on the send, carried by the card after it
     ])
     def test_a_bolts_card_stand(self, bolt, head, can, card, sends, stand):
         kind, _, heads = (card or "").partition(" ")
-        c = (self.kit_card(heads) if kind == "waiting" else self.kit_card("b@abc1234 x@abc1234", answered=heads if heads != "left" else "x@abc1234")
+        c = (self.kit_card(heads) if kind == "waiting" else self.kit_card("b@d185a87 x@d185a87", answered=heads if heads != "left" else "x@d185a87")
              if kind == "answered" else None)
         assert plan.card_stand(bolt, head, can, c, sends) == stand
 
@@ -268,19 +267,19 @@ class TestRows:
     def test_each_bolt_line_ends_with_how_its_kits_card_stands_for_it(self):
         line = f"apex-zones, on {BOX}, in Flume stream wldn: can land; "
         key = f"land/{KIT}"
-        assert self.land_line({key: self.kit_card("apex-zones@abc1234")}) == line + f"carried by {key}, waiting on you"
-        assert self.land_line({key: self.kit_card("apex-zones@1111111")}) == line + f"carried by {key} at 1111111, its head now abc1234, waiting on you"
-        assert self.land_line({key: self.kit_card("apex-zones@abc1234", answered="apex-zones@abc1234")}) == line + f"held by your send on {key}: wldn-ops lands it"
-        assert self.land_line(sends={key: {"apex-zones": "abc1234"}}) == line + f"held by your send on {key}: wldn-ops lands it"
-        assert self.land_line({key: self.kit_card("other@abc1234", answered="other@abc1234")}) == line + f"follows: the card after {key}'s answered one carries it"
+        assert self.land_line({key: self.kit_card("apex-zones@d185a87")}) == line + f"carried by {key}, waiting on you"
+        assert self.land_line({key: self.kit_card("apex-zones@1111111")}) == line + f"carried by {key} at 1111111, its head now d185a87, waiting on you"
+        assert self.land_line({key: self.kit_card("apex-zones@d185a87", answered="apex-zones@d185a87")}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line(sends={key: {"apex-zones": "d185a87"}}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line({key: self.kit_card("other@d185a87", answered="other@d185a87")}) == line + f"follows: the card after {key}'s answered one carries it"
         assert self.land_line() == line + f"follows: the next card under {key} carries it"
 
     def test_a_bolt_that_cant_land_and_is_no_row_of_the_card_says_nothing_of_it(self):
         sv = survey()
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["verdict"] = ""
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["head"] = "e" * 40
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "land_cards": {}, "sends": {}}}
         land, = [r for r in rows(held=held, sv=sv) if r["group"] == "land"]
-        assert land["what"][1].endswith("so it has no verdict")
+        assert land["what"][1].endswith("is no landing of its work that the runner reports")
 
     def test_the_record_reading_keeps_each_landings_cards_rows_answer_and_the_sends_kept(self):
         k = f"land/{KIT}"
@@ -295,48 +294,42 @@ class TestRows:
         assert held["sends"] == {k: {"y": "1111111"}}
 
     def test_the_record_reading_keeps_what_says_which_bolts_the_user_left(self):
-        left = [dict(Act="landing.left", On=["kit/k"], Key="land/k", Heads="b@abc1234"), dict(Act="bolt.leave", On=["bolt/b"], Head="a" * 40),
+        left = [dict(Act="landing.left", On=["kit/k"], Key="land/k", Heads="b@d185a87"), dict(Act="bolt.leave", On=["bolt/b"], Head="a" * 40),
                 dict(Act="bolt.submit", On=["bolt/b"], Head="a" * 40)]
         assert plan.record_reading("wldn", left + [dict(Act="tell", On=["agent/x"])], the_plan(), NOW)["held"]["left"] == left
 
     def test_the_record_reading_keeps_the_forecasts_the_land_row_reads(self):
-        e = dict(Act="forecast", On=["bolt/b"], Heads="bolt/b@abc1234 main@e4f5a6b", Paths="README.md")
+        e = dict(Act="forecast", On=["bolt/b"], Heads="bolt/b@d185a87 main@e4f5a6b", Paths="README.md")
         assert plan.record_reading("wldn", [e, dict(Act="tell", On=["agent/x"])], the_plan(), NOW)["held"]["forecasts"] == [e]
 
     def test_a_bolt_lands_only_once_its_verification_is_green(self, monkeypatch):
+        """merge-gate "A head that is no landing of the bolt's work": zone-one merged at the commit its place landed, and
+        apex-zones' head another commit, so the row says why it can't land and offers nothing."""
         sv = survey()
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["verdict"] = ""
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["head"] = "e" * 40
         land, = [r for r in rows(sv=sv) if r["group"] == "land"]
-        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: lands once its verification is green; now its head abc1234 is no "
-                                   "landing of sluice's, so it has no verdict")
+        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: lands once its verification is green; now its head eeeeeee is no "
+                                   "landing of its work that the runner reports")
         assert land["cmds"] == []
 
-    def beside(self, version):
-        """apex-zones' head the box's b01e966, landed beside sluice's queue with nothing run (#1319), its record as sluice
-        <version> prints it."""
-        from facts import BESIDE_HEAD, BESIDE_NEW, BESIDE_OLD, landed_beside
+    def test_a_bolt_whose_head_is_its_take_main_fix_landed_beside_the_queue_can_land(self):
+        """merge-gate "A take-main fix landed beside the queue": zone-one merged at 1111111, read from the bolt's own
+        landing, and the runner carries apex-zones' take-main fix landed at the bolt's head, which sluice landed beside
+        its queue with nothing run: the bolt is green, naming the fix, and a row of its kit's landings card that can
+        land, as any landing of its work."""
+        import runner
+        fix = (runner.REQUESTS + f"\nRequest: 1\nAct: launch\nHost: {BOX}\nWork: fix/apex-zones/take-main\nRepo: WilldanGroup/{KIT}\n"
+               "Kind: fix\nName: apex-zones--take-main\nBase: bolt/apex-zones\nStream: wldn\nPriority: 1\nIntent: wldn/apex-zones\n"
+               "Recipient: wldn/ops\nBrief: Take main in.\nDate: 2026-10-31T12:00:00Z\nBy: wldn-ops\n")
         sv = survey()
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"].update(
-            head=BESIDE_HEAD, verdict=BESIDE_NEW if version == "0.69.0" else BESIDE_OLD, beside=landed_beside(version))
-        land, = [r for r in rows(sv=sv) if r["group"] == "land"]
-        return land
-
-    def test_a_bolt_whose_head_landed_beside_the_queue_lands_on_the_verdict_that_covers_it(self):
-        """merge-gate "A landing beside reads as the verdict that covers it": sluice 0.69.0's record of #1319 names the
-        verdict that covers it, #1316's at e25fea4, which passed, so apex-zones reads proven and is a row of its kit's
-        landings card that can land."""
-        land = self.beside("0.69.0")
-        assert (land["key"], land["what"][1]) == (f"land/{KIT}", f"apex-zones, on {BOX}, in Flume stream wldn: can land")
-        assert land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')] and land["bolts"][0]["can"] is True
-
-    def test_a_landing_beside_whose_record_names_no_covering_verdict_does_not_land_and_says_why(self):
-        """The box's case, sluice 0.68.1, whose record of #1319 names no covering verdict: the row says so."""
-        land = self.beside("0.68.1")
-        assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: lands once its verification is green; now its head b01e966 "
-                                   "landed beside sluice's queue with nothing run (#1319), and sluice's record of it names "
-                                   "no verdict that covers it, as sluice records none before 0.69.0: the bolt reads proven "
-                                   "once a landing on it carries a verdict of its own or names the one that covers it")
-        assert land["cmds"] == []
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["landings"] = {"change/zone-one": {"commit": "1" * 40, "at": iso(40)}}
+        runs_ = runs(before=fix, at={"zone-one": None}, numbered={1: "landed"})
+        st = plan.Stages(FLEET, the_plan(), sv, runs_, "wldn")
+        assert st.verification(the_plan().bolt("apex-zones"), BOLT_HEAD) == (
+            "green", "its head d185a87 is apex-zones--take-main's landing, as the runner reports it")
+        found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
+        land, = [r for r in plan.rail_rows(FLEET, found, sv, [], {}, None, runs_) if r["group"] == "land"]
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land" and land["bolts"][0]["can"] is True
 
     def test_a_bolt_lands_only_once_every_units_latest_change_has_been_in_a_batch(self):
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": {"zone-one"}}}
@@ -2032,20 +2025,19 @@ class TestBolts:
         assert "  checked                                  code 6/26    flume/change--teams-cross-to-flume-as-their-bolts-land" in out
 
     def test_a_held_bolt_shows_its_verification(self):
+        """merge-gate "A bolt after its last unit's landing": zone-one's place landed at apex-zones' head, as the runner
+        carries it."""
         b = {x["bolt"]: x for x in self.data()["partitions"][0]["plans"][0]["bolts"]}
-        assert b["apex-zones"]["verification"] == {"state": "green", "said": "sluice's verdict on its last landing, abc1234: passed (3 run, 1 replayed)"}
-        assert "  verification: green, sluice's verdict on its last landing, abc1234: passed (3 run, 1 replayed)" in plan.bolts_text(self.data())
+        assert b["apex-zones"]["verification"] == {"state": "green", "said": "its head d185a87 is zone-one's landing, as the runner reports it"}
+        assert "  verification: green, its head d185a87 is zone-one's landing, as the runner reports it" in plan.bolts_text(self.data())
 
-    def test_a_held_bolt_whose_head_landed_beside_the_queue_shows_the_verdict_that_covers_it(self, monkeypatch):
-        """crew bolts shows a landing beside's verification as the verdict that covers it, with that verdict's counts."""
-        from facts import BESIDE_HEAD, BESIDE_NEW, landed_beside
+    def test_a_held_bolt_whose_head_is_no_landing_of_its_work_shows_none_and_is_not_offered(self):
+        """merge-gate "A head that is no landing of the bolt's work": apex-zones' head is a commit zone-one did not land at."""
         sv = survey()
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"].update(head=BESIDE_HEAD, verdict=BESIDE_NEW, beside=landed_beside("0.69.0"))
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["head"] = "e" * 40
         b = {x["bolt"]: x for x in self.data(sv=sv)["partitions"][0]["plans"][0]["bolts"]}
-        said = ("sluice's verdict covering its last landing, b01e966, which landed beside the queue with nothing run "
-                "(#1319): passed (141 run, 0 replayed), at e25fea4")
-        assert b["apex-zones"]["verification"] == {"state": "green", "said": said}
-        assert b["apex-zones"]["state"] == "waits"
+        assert b["apex-zones"]["verification"] == {"state": "none", "said": "its head eeeeeee is no landing of its work that the runner reports"}
+        assert b["apex-zones"]["state"] == "active"
 
     def test_an_unreachable_hosts_bolts_read_unknown_and_the_host_is_named(self):
         d = self.data(sv=survey(ok=False))

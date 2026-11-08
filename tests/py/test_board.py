@@ -11,7 +11,7 @@ import sys
 
 import pytest
 
-from facts import FLUME, kits_of, plan_text
+from facts import FLUME, LANDED, kits_of, plan_text
 
 import board
 import crew
@@ -1605,8 +1605,7 @@ class TestViews:
         monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None), "ssh-one": ("code", (1, 2))})
         sv = kits()
         swb = sv[BOX]["kits"]["/kit/main"]
-        swb["bolts"].update({"doctor-rows": {"head": "f" * 40, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"],
-                                             "verdict": "passed (2 run)"},
+        swb["bolts"].update({"doctor-rows": {"head": LANDED, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"]},
                              "ssh-fix": {"head": "c" * 40, "head_at": ago(20), "changes": []}})
         mine = view("wldn-planner", sv=sv)
         assert mine[1:5] == [f"✓ switchboard-kit  ●  doctor-rows  in Flume stream wldn  waits to land  1 of 1 merged  {NO_START}  no card open", "    ●  rows-one  merged",
@@ -1625,8 +1624,8 @@ class TestViews:
         monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None), "ssh-one": ("landed", None)})
         sv = kits()
         sv[BOX]["kits"]["/kit/main"]["bolts"].update({
-            "doctor-rows": {"head": "f" * 40, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"], "verdict": "passed (2 run)"},
-            "ssh-fix": {"head": "c" * 40, "head_at": ago(20), "changes": ["ssh-one"], "archived": ["ssh-one"], "verdict": "passed (1 run)"}})
+            "doctor-rows": {"head": LANDED, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"]},
+            "ssh-fix": {"head": LANDED, "head_at": ago(20), "changes": ["ssh-one"], "archived": ["ssh-one"]}})
         card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW)
         d = data(sv=sv, cards=[card])
         ledgers = {b["bolt"]: b["markers"] for b in d["partitions"][0]["construction"]}
@@ -1648,9 +1647,9 @@ class TestViews:
         monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None)})
         sv = kits()
         sv[BOX]["kits"]["/kit/main"]["bolts"].update({
-            "doctor-rows": {"head": "f" * 40, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"], "verdict": "passed (2 run)"}})
+            "doctor-rows": {"head": LANDED, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"]}})
         card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW - datetime.timedelta(hours=1),
-                    answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="ticked doctor-rows", heads="doctor-rows@fffffff"))
+                    answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="ticked doctor-rows", heads="doctor-rows@d185a87"))
         d = data(sv=sv, cards=[card])
         (m,) = d["partitions"][0]["construction"][0]["markers"]
         assert m["card"]["answered"] == board.iso(NOW - datetime.timedelta(minutes=5))
@@ -1923,8 +1922,8 @@ class TestSubmissions:
         monkeypatch.setitem(globals(), "the_plan", lambda: two)
         monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None)})
         sv = queued([dict(STANDING_SUBS[2], pull_head="bolt/doctor-rows")])
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["doctor-rows"] = {"head": "f" * 40, "head_at": ago(30), "changes": ["rows-one"],
-                                                                "archived": ["rows-one"], "verdict": "passed (2 run)"}
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["doctor-rows"] = {"head": LANDED, "head_at": ago(30), "changes": ["rows-one"],
+                                                                "archived": ["rows-one"]}
         card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW)
         assert ("✓ land/switchboard-kit  doctor-rows landing #355 queued  waits to land  card open, asked by wldn-ops"
                 in view("wldn-ops", sv=sv, cards=[card]))
