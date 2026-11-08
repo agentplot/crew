@@ -11,7 +11,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 ## 1. crew's bolt kind
 
 - [x] 1.1 crew ships `plugin/flume/kinds/bolt@1/kind.toml`, a kind that lands with no stages and branches `bolt/<bolt>`, and `source.keep` writes it into crew's kinds folder whole, only when its bytes differ, wherever it makes the folder (design Decision 2; Task notes 1.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_source.py'` exits 0.
-- [ ] 1.2 A main-level start on the stubs leaves the bolt kind's package in the scratch HOME's kinds folder (design Decision 2; Task notes 1.1). Verify `tests/suite t-flume-source` ends with "0 failed".
+- [x] 1.2 A main-level start on the stubs leaves the bolt kind's package in the scratch HOME's kinds folder (design Decision 2; Task notes 1.1). Verify `tests/suite t-flume-source` ends with "0 failed".
 
 ## 2. The requests a bolt takes
 
