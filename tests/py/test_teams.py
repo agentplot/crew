@@ -314,16 +314,25 @@ class TestRoleSessions:
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/weir"])
         tok = crew.main_tokens(fleet, crew.partition_of(fleet, "swancloud"), "design", "")
         assert (tok["CHECKOUT"], tok["FOLDER"]) == (f"{v}/afterthought/blueprints", f"{r}/afterthought/blueprints")
-        assert tok["KIT_CHECKOUTS"] == (f"`{v}/afterthought/crew` (its folder `{r}/afterthought/crew`), "
+        assert tok["KIT_CHECKOUTS"] == (f"`{v}/afterthought/crew` (its folder `{r}/afterthought/crew`; the runner's clone, which "
+                                        "only the runner fetches), "
                                         f"`{tmp_path}/deneb/agentplot/weir/main` (its folder `{tmp_path}/deneb/agentplot/weir`)")
         assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == (f"{v}/afterthought/swancloud", f"{r}/afterthought/swancloud")
         assert tok["TEAMS_DOORS"] == "`swancloud`"
+        # drive-state "crew fetches nothing in the runner's clone": the runner's repositories named, no fetch or pull there
+        assert tok["FETCHING"].startswith("On deneb the runner keeps afterthought/blueprints and afterthought/crew: each is "
+                                          "the runner's clone, which the runner alone fetches")
+        assert tok["BLUEPRINTS_COMMIT"].startswith("Until then, its checkout on this host is the runner's view")
+        assert tok["SWANCLOUD_FETCH"].startswith("as the runner last fetched it, with no fetch of your own")
         # main-level, A box's operator: the box keeps no swancloud, and its tokens say so in words (teams.10)
         tok = crew.main_tokens(fleet, crew.partition_of(fleet, "wldn"), "operator", "")
         assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == (f"swancloud's checkout, which {BOX} does not keep",
                                                                        f"its folder, which {BOX} does not keep")
         assert tok["KIT_CHECKOUTS"] == "none on this host"
         assert (tok["CHECKOUT"], tok["FOLDER"]) == (f"{tmp_path}/box/willdan/willdan-blueprints/main", f"{tmp_path}/box/willdan/willdan-blueprints")
+        assert tok["FETCHING"] == f"No checkout on {BOX} is a runner's clone, so you fetch from GitHub where this brief says."
+        assert "git pull --rebase" in tok["BLUEPRINTS_COMMIT"]
+        assert tok["SWANCLOUD_FETCH"] == "`git -C {{SWANCLOUD_CHECKOUT}} fetch -q origin`, then "
 
     @pytest.mark.parametrize("role", ["dispatcher", "conductor", "coder"])
     def test_a_role_with_no_definition_is_refused_a_dispatcher_among_them(self, tmp_path, monkeypatch, role):
