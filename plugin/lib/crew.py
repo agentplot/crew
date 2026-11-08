@@ -1880,6 +1880,116 @@ def crew_version(root=None):
     return got["commit"], got["version"]
 
 
+# The Nix store: a folder in it names one build forever, so a crew there is never the one a host has installed.
+STORE = "/nix/store/"
+
+
+def installed_command(home, checkout, found):
+    """The command of the crew the host has installed, from facts (code.7): where crew runs from a checkout, its own
+    plugin/bin/crew, the checkout being what this host runs and moves; otherwise the crew in the first of found, the
+    folders of crew's path in their order that hold an executable crew, that lies outside the Nix store, a profile's
+    link each install moves or a host's own link to a checkout; otherwise None."""
+    if checkout:
+        return str(pathlib.Path(home) / "plugin/bin/crew")
+    out = next((d for d in found if not (d.rstrip("/") + "/").startswith(STORE)), None)
+    return os.path.join(out, "crew") if out else None
+
+
+def path_crews(path=None):
+    """The folders of a search path, crew's own by default, in their order, that hold a crew it may run: an absolute
+    folder whose crew is a file crew may execute."""
+    out = []
+    for d in (os.environ.get("PATH", "") if path is None else path).split(os.pathsep):
+        f = os.path.join(d, "crew")
+        if os.path.isabs(d) and os.path.isfile(f) and os.access(f, os.X_OK):
+            out.append(d)
+    return out
+
+
+def installed_here():
+    """The command of the crew this host has installed (installed_command), read from crew's root and path, or None."""
+    return installed_command(HOME, (HOME / ".git").exists(), path_crews())
+
+
+def crew_command():
+    """crew's own command for a later run, wherever crew names it (a brief, a forwarded command, a hand, a notice, a
+    tab): the crew the host has installed, or this build's own plugin/bin/crew where crew finds none."""
+    return installed_here() or str(HOME / "plugin/bin/crew")
+
+
+def own_command(cmd):
+    """Whether a command is this crew's own: its root's plugin/bin/crew or bin/crew, by their real paths."""
+    real = os.path.realpath(cmd)
+    return real in (os.path.realpath(HOME / "plugin/bin/crew"), os.path.realpath(HOME / "bin/crew"))
+
+
+# How long crew waits on another crew's `crew _release` (code.9), inside the Stop hook's ten seconds.
+RELEASE_ASKED = 5
+# What a process read of each installed command it asked, by the command's real path: asked once each, so a long-lived
+# follower asks again only once an install moves the path.
+ASKED = {}
+NONE_INSTALLED = "no folder of crew's path outside the Nix store has a crew"
+
+
+def release_said(text):
+    """Another crew's `crew _release` line checked field by field (read.2): (its facts in crew_read's shape, None), or
+    (None, why) when it is not a JSON object naming a root, a full commit, a version or null, and where they came from."""
+    try:
+        got = json.loads(text)
+    except ValueError:
+        return None, "its answer is not JSON"
+    if not isinstance(got, dict):
+        return None, "its answer is not a JSON object"
+    if isinstance(got.get("unread"), str) and got["unread"]:
+        return None, f"it reads nothing of itself: {got['unread']}"
+    if not isinstance(got.get("root"), str) or not got["root"]:
+        return None, "its answer names no root"
+    if not isinstance(got.get("commit"), str) or not COMMIT.fullmatch(got["commit"]):
+        return None, "its answer names no commit"
+    if "version" not in got or not (got["version"] is None or isinstance(got["version"], str) and got["version"]):
+        return None, "its answer names no version"
+    if got.get("from") not in ("checkout", "release"):
+        return None, "its answer names no checkout or release it was read from"
+    return {k: got[k] for k in ("root", "commit", "version", "from")} | {"unread": None}, None
+
+
+def unread_crew(why, root=None):
+    """An installed crew crew could not read, in crew_read's shape, saying why (read.1)."""
+    return {"root": root, "commit": None, "version": None, "from": None, "unread": why}
+
+
+def installed():
+    """The crew this host has installed, as facts of crew_read's shape: crew_read of its own root with no process where
+    the installed command is crew's own; unread where there is none; otherwise its answer to `crew _release`, asked
+    within RELEASE_ASKED seconds, once for each real path of the command (ASKED), an answer late, failed or missing a
+    field unread with its why."""
+    cmd = installed_here()
+    if cmd is None:
+        return unread_crew(NONE_INSTALLED)
+    if own_command(cmd):
+        return crew_read()
+    real = os.path.realpath(cmd)
+    if real not in ASKED:
+        ASKED[real] = ask_release(cmd)
+    return ASKED[real]
+
+
+def ask_release(cmd):
+    """Another crew's answer to `crew _release`, read (release_said), or unread saying why."""
+    try:
+        r = subprocess.run(["bash", cmd, "_release"], capture_output=True, text=True, timeout=RELEASE_ASKED,
+                           stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return unread_crew(f"{cmd} did not answer crew _release within {RELEASE_ASKED} seconds")
+    except OSError as e:
+        return unread_crew(f"crew can't run {cmd}: {e.strerror or e}")
+    if r.returncode != 0:
+        said = (r.stderr or "").strip().splitlines()
+        return unread_crew(f"{cmd} _release exited {r.returncode}" + (f": {said[-1]}" if said else ""))
+    got, why = release_said((r.stdout or "").strip())
+    return got if got else unread_crew(f"{cmd}: {why}")
+
+
 def loaded_changed(old, new, root=None):
     """Whether what a session loads of crew's plugin at its start (LOADED) differs between two commits of crew: True,
     False, or None when git can't tell, as when the older commit is not in this checkout."""
