@@ -132,6 +132,17 @@ done
 for doc in usage readme; do has "${!doc}" "turns/<role>.md"; done
 ok "the README, the skill and the usage say a partition's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
 
+# The teams file may name its host's kept repositories (record 0061): README and the skill say what crew names there, and
+# the spaces' folders where it names none.
+for doc in readme skill; do
+  for want in "the file may name the kept repositories of the host it is written on, \`repositories\`" \
+    "with exactly its \`dir\` and its \`checkout\`, each an absolute path" "the runner's container and view on a runner host" \
+    "Where the file names none, a kit's folder and checkout are those the spaces in the hosts file keep, \`<session dir>/<name>\` and \`<session dir>/<name>/main\`"; do
+    has "${!doc}" "$want"
+  done
+done
+ok "the README and the skill say the teams file may name its host's kept repositories, whose folders and checkouts crew names there, and the spaces' where it names none"
+
 has "$(cat "$CREW/CLAUDE.md")" "devenv shell -- "
 wrapped=$(grep -rlF -- 'devenv shell --' "$CREW/plugin/roles" "$CREW/plugin/skills" || true)
 [[ -z $wrapped ]] || fail "these briefs or skills name the shell's wrap, which is CLAUDE.md's to say:"$'\n'"$wrapped"

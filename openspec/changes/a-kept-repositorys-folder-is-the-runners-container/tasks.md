@@ -22,4 +22,4 @@ Build the groups in order. Each check runs from the worktree's root as written. 
 
 ## 4. The docs
 
-- [ ] 4.1 README and the crew skill say the teams file may name the host's kept repositories, whose folders and checkouts crew names on that host, and today's folders where it names none (design, Decision 10; `docs.2`; Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.1 README and the crew skill say the teams file may name the host's kept repositories, whose folders and checkouts crew names on that host, and today's folders where it names none (design, Decision 10; `docs.2`; Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
