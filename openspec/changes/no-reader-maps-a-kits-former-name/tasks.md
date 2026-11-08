@@ -14,7 +14,7 @@ Each check runs as written from the place's root. `tests:logic` and `tests:contr
 
 - [x] 2.1 `kit_now` and the partition's renames are gone. `landings_at` alone reads `runs/`, once per tip, and a partition's kits are its plan's and its landings' names as written, each once, on the board too. `crew kit rename` judges a name an earlier rename renamed as written (design, Decisions 1, 3 and 6; Task notes 2.1). Passes `tests/py/test_kits.py`, `tests/py/test_board.py`, `tests/py/test_asks.py`, `tests/py/test_proposal_life.py`, `tests/py/test_proposal_card.py` and `tests/py/test_kit_rename.py`: `devenv shell -- moon run tests:logic -- -k "test_kits or test_board or test_asks or test_proposal_life or test_proposal_card or test_kit_rename"`.
 - [x] 2.2 A rename's commit holds `plan.rec` alone, and the day file holding its `kit.rename` entry passes a real `recfix --check`, with no read through renames (design, Decision 6; Task notes 2.2). Passes `tests/contract/test_recfix.py`: `devenv shell -- moon run tests:contract -- -k test_recfix`.
-- [ ] 2.3 `runner.py`'s docstrings and descriptor comment cite `roles.9` for where a runner keeps a kit, matched by the kit as the plan gives it, and name no kit's name now (design, Decision 5; Task notes 2.3). Passes `tests/py/test_runner.py`: `devenv shell -- moon run tests:logic -- -k test_runner`.
+- [x] 2.3 `runner.py`'s docstrings and descriptor comment cite `roles.9` for where a runner keeps a kit, matched by the kit as the plan gives it, and name no kit's name now (design, Decision 5; Task notes 2.3). Passes `tests/py/test_runner.py`: `devenv shell -- moon run tests:logic -- -k test_runner`.
 
 ## 3. The docs and the brief
 
