@@ -367,6 +367,76 @@ class TestText:
         assert "    card:   proposal/508, none open\n    also:   req_69, swancloud-planner's, open under proposal/508, not the row's card" in alone
         assert plan.row_cards([ours, theirs], rs[0]) == (ours, [theirs])
 
+    # A card the user answered (crew-rail "A row whose card the user answered says whose act it waits on", design
+    # Decision 3), its answer read from the run record as record_reading gives it.
+    @staticmethod
+    def answered(key, cid, by, answer, heads=None, minutes=5):
+        at = NOW - datetime.timedelta(minutes=minutes)
+        return dict(label="wldn", card=cid, key=key, by=by, host="mac-studio", at=NOW - datetime.timedelta(minutes=60),
+                    answered=dict(at=at, answer=answer, heads=heads)), f"{at.astimezone():%H:%M}"
+
+    def test_a_landings_card_the_user_sent_says_when_what_and_that_it_waits_on_ops_to_land_them(self):
+        """crew-rail "A landings card the user sent"."""
+        k, hm = self.answered(f"land/{KIT}", "req_e9", "wldn-ops", "ticked a and b", heads="a@1111111 b@2222222")
+        out = text(rows(), cards=[k])
+        assert f"    card:   land/{KIT}, answered {hm} (5m ago): ticked a and b; waits on wldn-ops to land a and b (req_e9)" in out
+        assert "open, asked by" not in out
+        none, hm = self.answered(f"land/{KIT}", "req_e9", "wldn-ops", "ticked none, left a")
+        assert f"answered {hm} (5m ago): ticked none, left a; sent with no bolt ticked: waits on wldn-ops to close it (req_e9)" in text(rows(), cards=[none])
+
+    @pytest.mark.parametrize("answer, waits", [("approved", "waits on wldn-planner to apply it"),
+                                                ("ticked u1, left u2", "waits on wldn-planner to apply it"),
+                                                ("declined, with a note", "waits on wldn-planner to act on it")])
+    def test_a_proposals_card_answered_waits_on_the_planner(self, answer, waits):
+        """crew-rail "A proposal's card approved on the phone"."""
+        p57, hm = self.answered("proposal/57", "req_57", "wldn-planner", answer)
+        assert f"    card:   proposal/57, answered {hm} (5m ago): {answer}; {waits} (req_57)" in text(rows([proposal(57)]), cards=[p57])
+
+    def test_a_batch_a_deploy_and_a_steps_card_answered_each_say_whose_act_they_wait_on(self, monkeypatch):
+        """crew-rail "A batch's card tapped" and "A deploy whose word stands"."""
+        b12, hm = self.answered("batch/12", "req_b12", "wldn-planner", "answered with a note")
+        d, _ = self.answered("deploy/srv", "req_d1", "wldn-ops", "approved")
+        s, _ = self.answered("op/srv/1", "req_s1", "wldn-ops", "done")
+        rs = [row("batch/12", "batches"), row("deploy/srv", "operations"), row("op/srv/1", "operations")]
+        import ops
+        monkeypatch.setattr(ops, "word_stands", lambda key, es: False)
+        out = text(rs, cards=[b12, d, s])
+        assert f"    card:   batch/12, answered {hm} (5m ago): answered with a note; waits on wldn-planner to hand on its notes (req_b12)" in out
+        assert f"    card:   deploy/srv, answered {hm} (5m ago): approved; waits on wldn-ops to record your word (req_d1)" in out
+        assert f"    card:   op/srv/1, answered {hm} (5m ago): done; waits on wldn-ops to record it (req_s1)" in out
+        monkeypatch.setattr(ops, "word_stands", lambda key, es: key == "deploy/srv")
+        assert f"approved; your word stands: the deploy's end closes it (req_d1)" in text(rs, cards=[b12, d, s])
+
+    def test_an_answered_question_and_record_card_wait_on_their_askers_and_not_on_the_user(self):
+        """crew-rail "A question answered" and "A record card answered"."""
+        q, hm = self.answered("ask/wldn-design/sluice-who-claims", "req_q2", "wldn-design", "picked a")
+        rec, _ = self.answered("record/weir/0004", "req_r4", "wldn-design", "approved")
+        waiting = dict(label="wldn", card="req_q3", key="ask/wldn-ops/hold", by="wldn-ops", host="mac-studio", at=NOW)
+        out = text([], cards=[q, rec, waiting])
+        asked = out.split("questions waiting on you:\n")[1].split("\n\n")[0]
+        assert "req_q3" in asked and "req_q2" not in asked and "decision records waiting on you" not in out
+        answered = out.split("answered, waiting on their askers:\n")[1].split("\n\n")[0].splitlines()
+        assert [l[29:] for l in answered] == [
+            f"ask/wldn-design/sluice-who-claims (wldn), asked by wldn-design on mac-studio, answered {hm}: picked a; waits on wldn-design to act on it",
+            f"record/weir/0004 (wldn), asked by wldn-design on mac-studio, answered {hm}: approved; waits on wldn-design to act on it"]
+
+    def test_a_landings_card_left_as_the_user_answered_it_with_its_row_gone_waits_with_the_answered(self):
+        k, hm = self.answered(f"land/{KIT}", "req_5f", "wldn-ops", "approved", heads="a@1111111")
+        logs = {"wldn": [{"Act": "card.answer", "Card": "req_5f", "Heads": "a@1111111", "At": iso(5)}]}
+        out = text([], cards=[k], logs=logs)
+        assert out.split("answered, waiting on their askers:\n")[1].splitlines()[0][29:] == (
+            f"land/{KIT} (wldn), asked by wldn-ops on mac-studio, answered {hm}: approved; waits on wldn-ops to land a")
+        assert "open cards whose row is gone" not in out
+
+    def test_the_record_reading_gives_an_open_card_its_first_answer(self):
+        entries = [post("req_57", "proposal/57", minutes=60), post("req_58", "proposal/58", minutes=60),
+                   dict(Act="card.answer", Card="req_57", Key="proposal/57", Answer="approved", At=iso(5)),
+                   dict(Act="card.answer", Card="req_57", Key="proposal/57", Answer="declined", At=iso(4)),
+                   dict(Act="card.answer", Card="req_58", Key="proposal/58", Answer="approved", At=iso(3), Refused="x")]
+        cards_ = {c["card"]: c for c in plan.record_reading("wldn", entries, the_plan(), NOW - datetime.timedelta(days=14))["cards"]}
+        assert cards_["req_57"]["answered"] == dict(at=NOW - datetime.timedelta(minutes=5), answer="approved", heads=None)
+        assert "answered" not in cards_["req_58"]
+
     def test_a_stray_card_whose_close_was_refused_is_listed_with_the_refusals_words(self):
         """rail-cards "A card whose close was refused"."""
         b40 = dict(label="wldn", card="req_b40", key="batch/40", by="wldn-planner", host="mac-studio", at=NOW)

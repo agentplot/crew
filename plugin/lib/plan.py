@@ -11282,7 +11282,9 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
     answer to its batch's card (awaiting_answer). A close refused leaves its card open; a card's close as lost to its
     owner ends that card but not its row, whose card is posted again under its key; and a batch's key is closed while
     its last card act is a close (batch_closed), so a batch card posted again after a close keeps its row, or once its
-    batch waits on nothing (batch_settled), whose words are held as settled. crossed, as due_changes takes it."""
+    batch waits on nothing (batch_settled), whose words are held as settled. crossed, as due_changes takes it. An open
+    card the user answered carries answered, {at, answer, heads}, from its first card.answer (design Decision 3 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); one not answered carries none."""
     times, posted, closed, landings = {}, {}, set(), []
     for e in entries:
         act = e.get("Act")
@@ -11300,6 +11302,8 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
             posted.pop(e["Card"], None)
             if e.get("Key") and e.get("State") != "lost":  # a lost card's row still waits, for its card posted again
                 closed.add(e["Key"])
+        elif act == "card.answer" and e.get("Card") in posted and not e.get("Refused") and "answered" not in posted[e["Card"]]:
+            posted[e["Card"]]["answered"] = dict(at=utc(e["At"]), answer=e.get("Answer"), heads=e.get("Heads"))
         elif act == "bolt.land" and not e.get("Refused"):
             bolt = next((o[5:] for o in e["On"] if o.startswith("bolt/")), None)
             if bolt:
@@ -11481,16 +11485,64 @@ def unjudged(unread, c):
 
 
 def record_cards(cards, unread):
-    """The open cards under a decision record's key, oldest first: no row's, so never among the cards with no row. A
-    card is left out while its partition's record could not be read, as stray_cards leaves one out, since its close may
-    not have been read."""
-    return sorted((c for c in cards if card_kind(c["key"]) == "record" and not unjudged(unread, c)), key=lambda c: (c["at"], c["card"]))
+    """The open cards under a decision record's key the user has not answered, oldest first: no row's, so never among
+    the cards with no row; one they answered waits on its asker (answered_cards). A card is left out while its
+    partition's record could not be read, as stray_cards leaves one out, since its close may not have been read."""
+    return sorted((c for c in cards if card_kind(c["key"]) == "record" and not c.get("answered") and not unjudged(unread, c)),
+                  key=lambda c: (c["at"], c["card"]))
 
 
 def question_cards(cards, unread):
-    """The open questions the four asking roles posted in their own name, oldest first (briefs.11), but one whose
-    partition's record could not be read, as record_cards leaves one out."""
-    return sorted((c for c in cards if card_kind(c["key"]) == "question" and not unjudged(unread, c)), key=lambda c: (c["at"], c["card"]))
+    """The open questions the four asking roles posted in their own name the user has not answered, oldest first
+    (briefs.11), but one whose partition's record could not be read, as record_cards leaves one out; one they answered
+    waits on its asker (answered_cards)."""
+    return sorted((c for c in cards if card_kind(c["key"]) == "question" and not c.get("answered") and not unjudged(unread, c)),
+                  key=lambda c: (c["at"], c["card"]))
+
+
+def answered_cards(cards, unread, rows, logs):
+    """The open cards the user has answered that wait on their askers, no row's (crew-rail "An answered question or
+    record card no longer waits on the user", design Decision 3), oldest first: each answered question, each answered
+    decision record's card, and each kit's landings card whose row is gone while a bolt the user's send ticked waits to
+    land (send_waits, the sweep leaving it); none whose partition's record could not be read. A decision of facts
+    alone (code.7)."""
+    rowed = {(r["label"], r["key"]) for r in rows}
+    return sorted((c for c in cards if c.get("answered") and not unjudged(unread, c) and (
+        card_kind(c["key"]) in ("question", "record") or (
+            (c["label"], c["key"]) not in rowed and re.fullmatch(r"land/[a-z0-9][a-z0-9-]*", c["key"] or "")
+            and send_waits(logs.get(c["label"], []), c["card"])))), key=lambda c: (c["at"], c["card"]))
+
+
+def answered_waits(c, entries):
+    """Whose act a card the user answered now waits on, in crew's words (crew-rail "A row whose card the user answered
+    says whose act it waits on", design Decision 3), by its key's kind, from the card (its owner, by, and its answer,
+    answered) and the partition's entries: a kit's landings card, ops's landing of the bolts the send ticked; a
+    proposal, the planner's apply once approved or ticked, else its act on it; a batch, the planner's handing on its
+    notes; a deploy, ops's record of the word, or, once the word stands (ops.word_stands), the deploy's end; a step,
+    ops's record of it; anything else, its owner's act on it. A decision of facts alone (code.7)."""
+    import ops  # its decision of a deploy's word alone
+    by, a = c["by"], c.get("answered") or {}
+    kind = (c["key"] or "").split("/")[0]
+    if kind == "land":
+        bolts = [b for b, _, _ in card_heads(a.get("heads"))]
+        return f"waits on {by} to land {joined(bolts)}" if bolts else f"sent with no bolt ticked: waits on {by} to close it"
+    if kind == "proposal":
+        said = a.get("answer") or ""
+        yes = re.search(r"\bapproved\b", said) or re.search(r"\bticked (?!none)", said)
+        return f"waits on {by} to apply it" if yes else f"waits on {by} to act on it"
+    if kind == "batch":
+        return f"waits on {by} to hand on its notes"
+    if kind == "deploy":
+        return "your word stands: the deploy's end closes it" if ops.word_stands(c["key"], entries) else f"waits on {by} to record your word"
+    if kind == "op":
+        return f"waits on {by} to record it"
+    return f"waits on {by} to act on it"
+
+
+def answered_said(c, now):
+    """When and what the user answered on a card, as the rail says it: answered <HH:MM> (<age> ago): <answer>."""
+    a = c["answered"]
+    return f"answered {a['at'].astimezone():%H:%M} ({age(a['at'], now)} ago): {a.get('answer') or 'answered'}"
 
 
 # What the sweep says first of a kit's landings card it leaves open as the user answered it, waiting on its owner to
@@ -12010,7 +12062,10 @@ def rail_text(fleet, labels, read, now):
     whose and its id, by which its owner asks Pending You for it, or, with none open, the words of the refusal of its
     last post, oldest first; then the questions the asking roles put to the user, each with its key, which names it,
     its asker and its age, since no entry holds a card's words (record.3), a row's card being the one open in its
-    owner's name and each other card open under its key named apart as not the row's (row_cards); then each card act of an agent's whose reply
+    owner's name and each other card open under its key named apart as not the row's (row_cards), and a card the user
+    answered saying when, what, and whose act it now waits on (answered_said, answered_waits), the questions and
+    records they answered listed apart, after the records, as answered cards waiting on their askers, with each kit's
+    landings card left waiting on ops to land what was ticked (answered_cards); then each card act of an agent's whose reply
     crew could not read (unread_card_acts); then the decision records waiting on the user, each the design
     agent's open card for one, with when it was asked and by whom, and no command, since the card is where it is
     answered; then any open card whose row is gone that the sweep did not close, with the words of its last close's
@@ -12049,7 +12104,9 @@ def rail_text(fleet, labels, read, now):
             lines += [f"    {c + ':':<8}{cmd}" for c, cmd in r["cmds"]]
             refused = last_refusal(logs.get(r["label"], []), r["key"])
             own, others = row_cards(cards_, r)  # the row's one card, its owner's, and any other open under its key apart
-            lines += [f"    {'card:':<8}{r['key']}, open, asked by {own['by']} ({own['card']})" if own else
+            lines += [f"    {'card:':<8}{r['key']}, {answered_said(own, now)}; {answered_waits(own, logs.get(r['label'], []))} ({own['card']})"
+                      if own and own.get("answered") else
+                      f"    {'card:':<8}{r['key']}, open, asked by {own['by']} ({own['card']})" if own else
                       f"    {'card:':<8}{r['key']}, none open" + (f"; its last post was refused: {refused}" if refused else "")]
             lines += [f"    {'also:':<8}{c['card']}, {c['by']}'s, open under {r['key']}, not the row's card" for c in others]
     questions = question_cards(cards_, read["unread"])
@@ -12069,6 +12126,13 @@ def rail_text(fleet, labels, read, now):
         lines += ["", "decision records waiting on you:"]
     for c in records:
         lines.append(when(c) + f"{c['key']} ({c['label']}), asked by {c['by']} on {c['host']}")
+    answered = answered_cards(cards_, read["unread"], rows, logs)
+    if answered:
+        lines += ["", "answered, waiting on their askers:"]
+    for c in answered:
+        a = c["answered"]
+        lines.append(when(c) + f"{c['key'] or 'a question'} ({c['label']}), asked by {c['by']} on {c['host']}, answered "
+                     f"{a['at'].astimezone():%H:%M}: {a.get('answer') or 'answered'}; {answered_waits(c, logs.get(c['label'], []))}")
     stray = stray_cards(fleet, found, sv, rows, cards_, read["unread"], logs, read.get("runs"))
     if stray:
         lines += ["", "open cards whose row is gone:"]
