@@ -333,8 +333,8 @@
 #                                      repository once a minute and showing this host's writes within seconds, reading
 #                                      only what moved, asking another host, Pending You or herdr only when something
 #                                      there could have moved, and following each repository's queue through one
-#                                      sluice overview watch; due restarts
-#                                      handed out once crew's checkout or the teams file moved, the rail's frame, the
+#                                      sluice overview watch; due restarts handed out once crew's checkout, the crew
+#                                      the host has installed or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
