@@ -28,7 +28,7 @@ Each pytest check runs from `tests/.venv`, synced by `devenv shell -- moon run t
 
 ## 5. A bolt's time and the agents' bands
 
-- [ ] 5.1 A card holds a bolt for the user only until its answer or close, a kit's landings card only while its rows name the bolt, and a main-level question only when its post names the bolt or its work (design, Decision 8; Task notes 5.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_bolt_time.py` passes.
+- [x] 5.1 A card holds a bolt for the user only until its answer or close, a kit's landings card only while its rows name the bolt, and a main-level question only when its post names the bolt or its work (design, Decision 8; Task notes 5.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_bolt_time.py` passes.
 - [ ] 5.2 The board's cards and markers carry the answer, an agent's band says an answered card is answered and theirs to act on, and ops's land line says the landing is its own (design, Decision 3; Task notes 5.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py` passes.
 - [ ] 5.3 crew's mod draws an answered card's line above ops's view as the views give it (design, Decision 3; Task notes 5.3). Verify `tests/suite mod` ends with "0 failed".
 

@@ -10312,11 +10312,13 @@ def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided,
     opened from it, or whose number the Submission of a queued bolt.submit of the bolt names, since a landing's events
     name its pull request alone, each with the branch it came from (worktree), the standing read standing over the
     decided of the same number; a decided one with no submit, decided before the follower saw it, places no minute and is
-    left out. Its cards are each card posted and not yet closed, a card lost to its owner and posted again
-    under its key counting as one, that is the bolt's: under land/<bolt>; a batch's holding a unit of it; a proposal's
-    whose plan.propose names the bolt or its work, or one of its chain does; its kit's landings card, land/<kit>, from
-    the end of its last merge on; a question its partition's planner, main-level ops or design agent (label's) asked
-    since its start; or one whose post names the bolt or its work. Its holds are those of the host its work runs on,
+    left out. Its cards are each card posted and neither answered nor closed yet, a card lost to its owner and posted
+    again under its key counting as one, each from its post to the user's answer on it (card.answer) or its close,
+    whichever comes first, that is the bolt's: under land/<bolt>; a batch's holding a unit of it; a proposal's whose
+    plan.propose names the bolt or its work, or one of its chain does; its kit's landings card, land/<kit>, while its
+    last post or change names the bolt among its rows, from the later of that entry and the end of its last merge
+    (landings_spans); or one whose post names the bolt or its work, a question among them, and no question that names
+    neither (design Decision 8). Its holds are those of the host its work runs on,
     each host.hold to its host.go, what for being who held the host (the one hold crew records, the design's Decision
     4). Returns {start, stages, submissions, cards, holds} as bolt_time takes them, or {unknown: why} when the start or
     the run record can't be read, and {unknown: why, start} when the start is read and the submissions are not, or one
@@ -10408,17 +10410,24 @@ def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided,
                 named.add(ps[0])
     named = {first(p) for p in named}
     held_units = {f"batch/{n}": [u for u, *_ in us] for n, _, us in batches(entries)}
-    asking = tuple(f"{label}-{r}" for r in ("planner", "ops", "design")) if label else ()  # the askers (ASKERS), by name
-    open_, lost, spans, key_of = {}, {}, [], {}
+    open_, lost, spans, key_of, shows = {}, {}, [], {}, {}
     for e in entries:
         act, card = e.get("Act"), e.get("Card")
+        if act in ("card.post", "card.update") and card and not e.get("Refused"):  # the rows each post or change showed
+            shows.setdefault(card, []).append((utc(e["At"]), e.get("Heads")))
         if act == "card.post" and card and not e.get("Refused"):
             k = e.get("Key") or card
             key_of[card] = k
             if k not in open_:
-                open_[k] = dict(lost.pop(k), cards=set()) if k in lost else {
-                    "at": utc(e["At"]), "key": e.get("Key"), "by": e.get("By"), "on": e.get("On") or [], "cards": set()}
+                open_[k] = dict(lost.pop(k), cards=set(), answered=None) if k in lost else {  # an answer to a lost copy reached nobody
+                    "at": utc(e["At"]), "key": e.get("Key"), "by": e.get("By"), "on": e.get("On") or [], "cards": set(), "all": set(),
+                    "answered": None}
             open_[k]["cards"].add(card)
+            open_[k]["all"].add(card)
+        elif act == "card.answer" and card and not e.get("Refused"):  # the user's answer ends the card's wait on them
+            c = open_.get(key_of.get(card))
+            if c is not None and card in c["cards"] and c["answered"] is None:
+                c["answered"] = utc(e["At"])
         elif act == "card.close" and card and not e.get("Refused"):
             k = key_of.get(card) or e.get("Key") or card
             c = open_.get(k)
@@ -10435,17 +10444,19 @@ def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided,
     cards_ = []
     for c in spans + list(lost.values()) + [dict(c, until=None) for c in open_.values()]:
         key, at = c["key"] or "", c["at"]
+        until = min((u for u in (c["until"], c["answered"]) if u is not None), default=None)  # its answer or its close
+        if key == f"land/{kit_name}" and kit_name != bolt:  # the bolt's only while its rows name it, from its last merge
+            cards_ += [{"at": a, "until": u, "key": c["key"]} for a, u in landings_spans(
+                sorted(x for card in c["all"] for x in shows.get(card, [])), bolt, last_merge, until)]
+            continue
         if key.startswith("batch/"):
             mine = any(u in units for u in card_part(key, held_units.get(key.partition("-")[0], [])))
         elif key.startswith("proposal/"):
             mine = first(key) in named
-        elif key == f"land/{kit_name}" and kit_name != bolt:
-            mine, at = last_merge is not None, max(at, last_merge or at)
         else:
-            mine = (key == f"land/{bolt}" or key.startswith(f"land/{bolt}/") or ours(c["on"])
-                    or (card_kind(key or None) == "question" and at >= start and c["by"] in asking))
-        if mine:
-            cards_.append({"at": at, "until": c["until"], "key": c["key"]})
+            mine = key == f"land/{bolt}" or key.startswith(f"land/{bolt}/") or ours(c["on"])
+        if mine and (until is None or until > at):
+            cards_.append({"at": at, "until": until, "key": c["key"]})
 
     holds, held = [], None
     for e in entries:
@@ -10457,6 +10468,31 @@ def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided,
                 held = None
     return {"start": start, "stages": stages, "submissions": list(gate.values()), "cards": cards_,
             "holds": holds + ([dict(held, until=None)] if held else [])}
+
+
+def landings_spans(shown, bolt, last_merge, until):
+    """The spans a kit's landings card holds a bolt for the user (crew-board "Each holder is read from what crew already
+    keeps", design Decision 8), from facts alone (code.7): shown, each post or change of the card's (copies posted
+    again under its key among them), (when, its Heads or None), oldest first; the bolt; the end of its last merge,
+    None while none has ended; and the card's end, its answer or its close, None while it waits. From each post or
+    change whose rows name the bolt, one recorded with no Heads naming every bolt as before crew recorded heads, from
+    the later of it and the last merge, to the next that does not name it or the card's end; none before the bolt's
+    last merge has ended. [(at, until)]."""
+    if last_merge is None:
+        return []
+    out, since = [], None
+    for when, heads in shown:
+        names = heads is None or bolt in {b for b, _, _ in card_heads(heads)}
+        if names and since is None:
+            since = when
+        elif not names and since is not None:
+            out.append((since, when))
+            since = None
+    if since is not None:
+        out.append((since, until))
+    out = [(max(a, last_merge), u) for a, u in out]
+    return [(a, u if until is None or u is None else min(u, until)) for a, u in out
+            if (u is None or u > a) and (until is None or until > a)]
 
 
 def span(m):
