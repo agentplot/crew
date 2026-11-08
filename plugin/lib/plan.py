@@ -3385,7 +3385,9 @@ def kit_card_state(acts, label, key, owner, card, entries):
     ({status, heads, taking}, ticked), status "answered" once the user answered it, else "waiting", heads its rows as
     its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking); (None,
     why) when Pending You could not be read or no longer finds it, so the raise changes nothing (read.1), but a lost
-    card, recorded lost, reads as none held, for a new one to be posted. A card read answered has the user's answer
+    card, recorded lost, reads as none held, for a new one to be posted, and so does one Pending You has ended by
+    another hand (cards.ended), recorded closed as ended there with what the user answered and their send (close_kept),
+    so the card posted after it has no row for a bolt that send still lands. A card read answered has the user's answer
     recorded, once, with the bolts they ticked at the heads it showed (answer_seen)."""
     try:
         with acts.bridge(owner, "Its landings card is not changed.") as py:
@@ -3399,6 +3401,12 @@ def kit_card_state(acts, label, key, owner, card, entries):
         return None, f"Pending You refused get_request: {words}"
     recorded = shown_heads(entries, card)
     heads, taking = card_heads(recorded), heads_taking(recorded)
+    state = cards.ended(got)
+    if state:  # ended in Pending You by another hand: recorded so, its answer and send kept, and none held (Decision 4)
+        acts.emit(label, "card.close", [cards.row_object(key, acts.kits(label)) or f"agent/{owner}"], by=owner, Card=card, Key=key,
+                  State=state, Outcome=ENDED_ELSEWHERE, **close_kept(got, entries, card, True))
+        print(f"card {key}: {card} was {state} in Pending You already, and the raise posts as the bolts stand")
+        return {"status": None}, None
     if got.get("status") == "answered":  # the user's answer recorded the first time crew reads it (Decision 1)
         answer_seen(acts, label, owner, key, card, got, entries, heads, offered_boxes(recorded))
     return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads,
@@ -3512,8 +3520,8 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
         if state is None:
             print(f"card {key}: {card} is not changed, since where it stands can't be read: {why}", file=sys.stderr)
             return None
-        if state["status"] is None:  # lost to its owner and recorded so: posted again
-            card, state = None, None
+        if state["status"] is None:  # lost to its owner, or ended in Pending You, and recorded so: posted again
+            card, state, entries = None, None, acts.entries(label)
         else:
             ticked = state.pop("ticked")
     rows = [got[b.name()] for b in plan.bolts() if b.name() in got]
@@ -3611,7 +3619,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
                                           since=[outcome] + (left_waits(waits) if waits else []))
     _, _, then, standing = step  # the bolts held whose send stands kept as its close's Heads (landings_sent)
     closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(boxed)),
-                            **({"Heads": " ".join(f"{b}@{h}" for b, h in standing)} if standing else {}))
+                            Heads=" ".join(f"{b}@{h}" for b, h in standing))  # its own, none when nothing stands (close_kept)
     if then is None or not boxed or not closed:  # a close refused leaves the card open, and nothing follows it yet
         return closed
     waits = unticked(then)
@@ -15028,9 +15036,12 @@ def card_closed(acts, label, owner, key, outcome, reason, said=None, here=False,
     False when the close was refused, so the card stays open. said is sent in place of the outcome, and the outcome
     recorded; here closes a card still waiting as answered in a conversation. The close's entry carries what the user
     answered, as Answer, in crew's words (cards.answer_said, offered the ids of the boxes the card offered), or that
-    they answered it in the owner's pane when it closed as answered there; a card withdrawn while it waits, none."""
+    they answered it in the owner's pane when it closed as answered there; a card withdrawn while it waits, none. A
+    kit's landings card the user answered keeps their send as Heads on every close, the ended-in-Pending-You one among
+    them, unless more gives its own (close_kept)."""
     obj = cards.row_object(key, acts.kits(label)) or f"agent/{owner}"
-    card = cards.card_under(acts.entries(label), key, owner)
+    entries = acts.entries(label)
+    card = cards.card_under(entries, key, owner)
     if not card:
         print(f"card {key}: {owner} holds none open on this host, so none is closed")
         return None
@@ -15053,11 +15064,40 @@ def card_closed(acts, label, owner, key, outcome, reason, said=None, here=False,
     if lost is not None:
         card_lost(acts, label, owner, key, card, lost)
         return None
-    answer = cards.answer_said(got, offered) or (f"answered in {owner}'s pane" if here and state == "closed" else None)
+    kept = close_kept(got, entries, card, obj.startswith("kit/"), offered, more)
+    answer = kept.pop("Answer", None) or (f"answered in {owner}'s pane" if here and state == "closed" else None)
     acts.emit(label, "card.close", [obj], by=owner, Card=card, Key=key, State=state, Outcome=cards.close_words(got, outcome, reason),
-              **(more or {}), **({"Answer": answer} if answer else {}))
+              **{k: v for k, v in (more or {}).items() if k != "Heads"}, **kept, **({"Answer": answer} if answer else {}))
     print(f"card {key}: {card} {state}")
     return card
+
+
+def close_kept(got, entries, card, kit, offered=(), more=None):
+    """What a card's close keeps of the user's answer, from get_request's reply (got) and the run record's entries:
+    Answer, in crew's words (cards.answer_said, offered the boxes the card offered, a kit's landings card's read from
+    its last post or change when none are given, offered_boxes); and for a kit's landings card (kit), Heads, the bolts
+    the user ticked at the heads it showed (ticked_of, shown_heads), so the card that follows reads their send
+    (landings_sent) whichever act closes it, the raise, the sweep, crew bolt land or a read that finds it ended in
+    Pending You (rail-cards "A kit's landings card's close keeps the user's send", Decision 4), unless the act gives
+    its own, more's Heads, landings_step's, kept as given and left out when empty. A card still waiting keeps none."""
+    out, shown = {}, shown_heads(entries, card) if kit else None
+    answer = cards.answer_said(got, offered or (offered_boxes(shown) if kit else ()))
+    if answer:
+        out["Answer"] = answer
+    if kit:
+        heads = (more or {}).get("Heads") if "Heads" in (more or {}) else sent_heads(got, card_heads(shown))
+        if heads:
+            out["Heads"] = heads
+    return out
+
+
+def sent_heads(got, heads):
+    """The user's send on a kit's landings card, from get_request's reply on their answer, picked up or acked since or
+    not (cards.ENDED's resolved and closed): the bolts they ticked at the heads the card showed (heads, card_heads),
+    <bolt>@<head> each in the card's order; None for a card they did not answer, or a send ticking none."""
+    answered = isinstance(got, dict) and (got.get("status") == "answered" or cards.ended(got) == "closed")
+    ticked = ticked_of(dict(got, status="answered"), heads) if answered else None
+    return " ".join(f"{b}@{h}" for b, h, _ in heads if b in ticked) or None if ticked else None
 
 
 # ------------------------------------------------------------------------------------------------ crew record
