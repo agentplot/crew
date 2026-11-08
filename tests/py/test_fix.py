@@ -110,8 +110,11 @@ class TestAFixOfAStartedBolt:
             self.fix(w, "start", name, f"Fix {name}.")
         self.fix(w, "drop", "gone")
         requests = plan.Plan(w.files["requests.rec"]).recs("Request")
-        assert runner.fixes_in_flight(requests, ran({2: "code", 3: "landed"}), "x") == {"fix/x/rail-word": "Fix rail-word."}
-        assert runner.fixes_in_flight(requests, {}, "x") == {"fix/x/rail-word": "Fix rail-word.", "fix/x/tidy": "Fix tidy."}
+
+        def fixes(reads):
+            return [(l.get("Work"), l, s) for l, s in runner.fixes_on(requests, reads, "bolt/x")]
+        assert runner.fixes_in_flight(fixes(ran({2: "code", 3: "landed"})), "x") == {"fix/x/rail-word": "Fix rail-word."}
+        assert runner.fixes_in_flight(fixes({}), "x") == {"fix/x/rail-word": "Fix rail-word.", "fix/x/tidy": "Fix tidy."}
         assert plan.landing_unready([("a", "unit", "merged")], "h" * 40, "passed", ["fix/x/rail-word"]) == "fix/x/rail-word is in flight on it"
         row = plan.landing_rows(["x"], {"x": {"head": "h" * 40, "fixes": {"fix/x/rail-word": "Fix rail-word."}}}, {})[0]
         assert (row["box"], row["why"]) == (False, "held for a fix: Fix rail-word. (fix/x/rail-word)")
@@ -170,3 +173,16 @@ class TestAFixItsBoltHolds:
     def test_a_fix_of_main_is_never_read_from_a_bolts_landings(self):
         s = {"stage": "code"}
         assert runner.built_on_bolt("fix/main/crew/red", s, {"fix/main--red": TIDY_LANDED["fix/x--tidy"]}, LAUNCHED) is s
+
+    def test_a_landed_fix_holds_its_bolts_landing_no_longer(self):
+        """bolt-plan "A landed fix holds its bolt's landing no longer" and "A fix whose landings crew can't read still
+        holds": every unit of x merged and sluice green at its head, tidy read merged from its landing is not in flight
+        and x reads proven; with x's landings unread, tidy stays submitted and in flight (read.1)."""
+        launch, s = self.tidy()
+        merged = runner.built_on_bolt("fix/x/tidy", s, TIDY_LANDED, launch.get("Date"))
+        assert runner.fixes_in_flight([("fix/x/tidy", launch, merged)], "x") == {}
+        assert plan.landing_unready([("a", "unit", "merged")], "h" * 40, "passed", []) is None
+        unread = runner.built_on_bolt("fix/x/tidy", s, None, launch.get("Date"))
+        held = runner.fixes_in_flight([("fix/x/tidy", launch, unread)], "x")
+        assert held == {"fix/x/tidy": "Fix tidy."}
+        assert plan.landing_unready([("a", "unit", "merged")], "h" * 40, "passed", sorted(held)) == "fix/x/tidy is in flight on it"

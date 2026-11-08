@@ -3249,7 +3249,8 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     needs beside them, its host, the kit's folder there (main), its repository as the plan names it (repo, for where its
     diff is read whole) and where the bolt last met main (base); (None, why) while it does not. With
     fixes_hold False, a fix in flight on it does not keep it from reading proven, and the facts hold each such fix with
-    the words it started with ({fix: its launch's brief}, runner.fixes_in_flight), the bolt's last landing sluice
+    the words it started with ({fix: its launch's brief}, runner.fixes_in_flight over Stages.fixes, so a fix read
+    merged from its bolt's landing holds nothing), the bolt's last landing sluice
     refused ((head, words),
     refusals) or None, for landing_rows to hold its row by, and its last one sluice or its host stopped ((head, words),
     stops) or None, for its row to say. Refused when its kit can't be read (read.1)."""
@@ -3260,9 +3261,10 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     of = {u.name(): st.of(u.name()) for u in plan.work_of(bolt)}
     work = [(n, s.get("kind", "unit"), s["stage"]) for n, s in of.items()]
     facts = k["bolts"].get(bolt, {})
-    # A started bolt holds its fixes as Flume places, read from their launches and the runner's records, each with its
-    # brief for its words (Decision 10 of teams-cross-to-flume-as-their-bolts-land).
-    flume = runner.fixes_in_flight(*runner_facts(fleet, label), bolt) if crossed_bolt(plan, bolt) else {}
+    # A started bolt holds its fixes as Flume places, read as crew bolts reads them (Stages.fixes): from their launches,
+    # the runner's records and the bolt's landings, each with its brief for its words (Decision 10 of
+    # teams-cross-to-flume-as-their-bolts-land; plan.12).
+    flume = runner.fixes_in_flight(st.fixes(b), bolt) if crossed_bolt(plan, bolt) else {}
     fixes = sorted(flume)
     why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [], facts.get("beside"))
     if why:

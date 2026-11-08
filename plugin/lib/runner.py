@@ -1010,13 +1010,15 @@ def fixes_on(requests, reads, base):
             if l.get("Base") == base and (l.get("Work") or "").startswith("fix/")]
 
 
-def fixes_in_flight(requests, reads, bolt):
-    """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}: each whose launch
-    stands and whose place has not merged into the bolt, landed or been dropped, its stage read from the runner that
-    took it (fixes_on), one crew can't read counted in flight (read.1). A fix in flight holds the bolt's landing as
-    today's does (plan.landing_unready, landing_rows)."""
-    return {l.get("Work"): l.get("Brief") for l, s in fixes_on(requests, reads, f"bolt/{bolt}")
-            if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
+def fixes_in_flight(fixes, bolt):
+    """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}, from facts:
+    fixes, each fix whose launch stands on the bolt as (its work, its launch, its stage) as plan.Stages.fixes reads
+    them, from the runner that took it and the bolt's landings (fixes_on, built_on_bolt): each whose place has not
+    merged into the bolt, landed or been dropped, one crew can't read counted in flight (read.1). A fix in flight holds
+    the bolt's landing as today's does (plan.landing_unready, landing_rows); one read merged from its bolt's landing
+    holds it no longer (bolt-plan "A fix read merged from its bolt's landing holds nothing")."""
+    return {w: l.get("Brief") for w, l, s in fixes
+            if w.startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
 
 
 # ------------------------------------------------------------------------------------------------ a fix of main
