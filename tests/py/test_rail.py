@@ -269,8 +269,8 @@ class TestRows:
         key = f"land/{KIT}"
         assert self.land_line({key: self.kit_card("apex-zones@d185a87")}) == line + f"carried by {key}, waiting on you"
         assert self.land_line({key: self.kit_card("apex-zones@1111111")}) == line + f"carried by {key} at 1111111, its head now d185a87, waiting on you"
-        assert self.land_line({key: self.kit_card("apex-zones@d185a87", answered="apex-zones@d185a87")}) == line + f"held by your send on {key}: wldn-ops lands it"
-        assert self.land_line(sends={key: {"apex-zones": "d185a87"}}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line({key: self.kit_card("apex-zones@d185a87", answered="apex-zones@d185a87")}) == line + f"held by your send on {key}: crew asks the runner to land it on that send"
+        assert self.land_line(sends={key: {"apex-zones": "d185a87"}}) == line + f"held by your send on {key}: crew asks the runner to land it on that send"
         assert self.land_line({key: self.kit_card("other@d185a87", answered="other@d185a87")}) == line + f"follows: the card after {key}'s answered one carries it"
         assert self.land_line() == line + f"follows: the next card under {key} carries it"
 
@@ -433,7 +433,7 @@ class TestText:
         """crew-rail "A landings card the user sent"."""
         k, hm = self.answered(f"land/{KIT}", "req_e9", "wldn-ops", "ticked a and b", heads="a@1111111 b@2222222")
         out = text(rows(), cards=[k])
-        assert f"    card:   land/{KIT}, answered {hm} (5m ago): ticked a and b; waits on wldn-ops to land a and b (req_e9)" in out
+        assert f"    card:   land/{KIT}, answered {hm} (5m ago): ticked a and b; waits on the runner to land a and b (req_e9)" in out
         assert "open, asked by" not in out
         none, hm = self.answered(f"land/{KIT}", "req_e9", "wldn-ops", "ticked none, left a")
         assert f"answered {hm} (5m ago): ticked none, left a; sent with no bolt ticked: waits on wldn-ops to close it (req_e9)" in text(rows(), cards=[none])
@@ -479,7 +479,7 @@ class TestText:
         logs = {"wldn": [{"Act": "card.answer", "Card": "req_5f", "Heads": "a@1111111", "At": iso(5)}]}
         out = text([], cards=[k], logs=logs)
         assert out.split("answered, waiting on their askers:\n")[1].splitlines()[0][29:] == (
-            f"land/{KIT} (wldn), asked by wldn-ops on mac-studio, answered {hm}: approved; waits on wldn-ops to land a")
+            f"land/{KIT} (wldn), asked by wldn-ops on mac-studio, answered {hm}: approved; waits on the runner to land a")
         assert "open cards whose row is gone" not in out
 
     def test_the_record_reading_gives_an_open_card_its_first_answer(self):
@@ -1678,7 +1678,7 @@ class TestSweep:
         out, acts = swept(cards_=[k], entries=[answer], answers={"get_request": ({"status": "answered", "turn": "agent", "version": 3}, None)})
         assert [t for _, t, _ in acts.calls if t in ("ack_answer", "cancel_request")] == [] and acts.emitted == []
         assert out["done"] == [dict(label="wldn", key=f"land/{KIT}", card="req_5f", by="wldn-ops", did="left",
-                                    words="answered: waits on wldn-ops to land a", new=None)]
+                                    words="answered: waits on the runner to land a", new=None)]
         import board
         assert not board.card_left(out), "a card waiting on its owner is no act the next tick tries again"
         assert plan.stray_cards(FLEET, [("wldn", "o/s", "tip", the_plan())], survey(), [], [k], {}, {"wldn": [answer]}) == []
@@ -1690,7 +1690,7 @@ class TestSweep:
         out, acts = swept(cards_=[k], entries=[shown], answers={"get_request": (approved, None),
                                                                  "list_pending": ({"requests": [{"id": "req_5f", "turn": "agent"}]}, None)})
         assert [e["Act"] for e in acts.emitted] == ["card.answer"]
-        assert [(d["did"], d["words"]) for d in out["done"]] == [("answered", "approved"), ("left", "answered: waits on wldn-ops to land a")]
+        assert [(d["did"], d["words"]) for d in out["done"]] == [("answered", "approved"), ("left", "answered: waits on the runner to land a")]
 
     # A card the sweep's owner read finds ended in Pending You (design Decision 5): recorded on that read, nothing sent.
     @staticmethod

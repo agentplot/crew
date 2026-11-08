@@ -57,6 +57,15 @@ class TestEmit:
         assert (e["Outcome"], e["Submission"], e["Head"], e["Base"]) == ("queued", "412", "a" * 40, "b" * 40)
         assert "Submission" in text.split("%allowed:", 1)[1].splitlines()[0].split()
 
+    def test_a_lands_request_is_kept_on_its_entry_and_read_back(self, here):
+        """run-record "A land's entry names its request" (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the
+        land crew posted on the user's send, on its bolt.submit marked asked with the card and the head it ticked."""
+        record.emit("wldn", "bolt.submit", ["bolt/z"], Outcome="asked", Request="57", Card="req_1", Head="a" * 7)
+        text = next(here.glob("*.rec")).read_text()
+        e, = record.parse(text)
+        assert (e["Outcome"], e["Request"], e["Card"], e["Head"]) == ("asked", "57", "req_1", "a" * 7)
+        assert "Request" in text.split("%allowed:", 1)[1].splitlines()[0].split()
+
     def test_a_failed_deploys_words_of_what_the_user_does_are_kept_on_its_entry_and_read_back(self, here):
         record.emit("wldn", "ops.deploy", ["env/srv"], Head="a" * 40, Phase="end", Outcome="failed", Does="read the log; ask ops to offer it again")
         text = next(here.glob("*.rec")).read_text()

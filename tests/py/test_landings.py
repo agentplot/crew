@@ -778,7 +778,7 @@ def test_a_row_shown_taking_main_first_and_left_unticked_is_no_bolt_the_user_lef
     assert step == ("close", f"Landed on GitHub's main: y at 1111111;{TIMER}", None, [])
     # back from taking main in while y still lands: a card follows asking for it
     step = plan.landings_step([box("y"), box("z")], card, ["y"], {"y", "z"})
-    assert step == ("follow", "Landing as you ticked: y. Since your send, z reads proven, and the card that follows asks for it.",
+    assert step == ("follow", "Asked of the runner as you ticked: y. Since your send, z reads proven, and the card that follows asks for it.",
                     [], [("y", "abc1234")])
     assert plan.left_now(card, ["y"], {"y": H1, "z": H1}, {}, []) == {}
     # ticked while it took main in: their send stands for it
@@ -794,7 +794,7 @@ def test_a_ticked_bolt_then_taking_main_first_leaves_the_card_its_send_standing(
 
 def test_a_ticked_bolt_taking_main_first_is_kept_on_the_send_when_a_new_card_follows():
     step = plan.landings_step([taking_main("y"), box("w")], answered("y@abc1234", "z@abc1234"), ["y", "z"], {"y", "z", "w"})
-    assert step == ("follow", "Landing as you ticked: z. Taking main in first, your send standing for it: y. Since your "
+    assert step == ("follow", "Asked of the runner as you ticked: z. Taking main in first, your send standing for it: y. Since your "
                               "send, w reads proven, and the card that follows asks for it.", [], [("y", "abc1234"), ("z", "abc1234")])
 
 
@@ -826,7 +826,7 @@ def test_a_landing_on_the_users_word_in_ops_pane_closes_a_waiting_card_no_row_of
 
 def test_a_bolt_proven_after_the_answer_is_no_row_of_it_and_a_new_card_follows_it_with_the_rest():
     step = plan.landings_step([box("y"), box("z"), box("w")], answered("y@abc1234", "z@abc1234"), ["y"], {"y", "z", "w"})
-    assert step == ("follow", "Landing as you ticked: y. Left: z. Since your send, w reads proven, and the card that "
+    assert step == ("follow", "Asked of the runner as you ticked: y. Left: z. Since your send, w reads proven, and the card that "
                               "follows asks for it.", ["z"], [("y", "abc1234")])
 
 
@@ -848,7 +848,7 @@ def test_a_card_that_follows_names_a_stopped_bolt_as_still_landing_with_what_sto
     """rail-cards "A new card while it is stopped": the closed card's outcome names z as still landing on the send,
     with what stopped it, and the card that follows does not ask for z again."""
     step = plan.landings_step([stopped_box("z"), box("w")], answered("z@abc1234"), ["z"], {"z", "w"})
-    assert step == ("follow", f"Landing as you ticked: z. z's last landing at abc1234 was stopped, nothing of the bolt's: {STOP}; "
+    assert step == ("follow", f"Asked of the runner as you ticked: z. z's last landing at abc1234 was stopped, nothing of the bolt's: {STOP}; "
                               "it lands on your send once that is cleared. Since your send, w reads proven, and the card that "
                               "follows asks for it.", [], [("z", "abc1234")])
     closes = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
@@ -866,9 +866,9 @@ def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_beside_the_comma
                           dict(submitted("y", H1), Why="x", Outcome="stopped"), submitted("y", H1, "sluice: y conflicts")])
     assert plan.landing_lines("swancloud", sent, heads, [], [], stopped) == [
         "  to land, in the card's order: y and z",
-        f"  z's last landing at def5678 was stopped, nothing of the bolt's: {STOP}; once that is cleared, the submit below "
-        "lands it on the user's send",
-        "  lands them: crew bolt submit y z --label swancloud"]
+        f"  z's last landing at def5678 was stopped, nothing of the bolt's: {STOP}; it lands again only on the user's "
+        "next send",
+        "  y: no land is posted for it yet: crew's next raise of the card posts it", "  z: no land is posted for it yet: crew's next raise of the card posts it"]
     assert plan.landing_lines("swancloud", sent, heads) == plan.landing_lines("swancloud", sent, heads, [], [], {})
     assert plan.landing_lines("swancloud", {}, [], ["z"], [], stopped)[1].startswith("  z's last landing at def5678 was stopped")
 
@@ -877,7 +877,7 @@ def test_a_ticked_bolt_proven_again_at_a_new_head_is_asked_again_rather_than_wai
     """rail-cards "A fix adds a commit": the card that follows asks for y, saying what it gained."""
     gained = {"y": work([LEASE])}
     step = plan.landings_step([box("y", H2), box("z")], answered("y@abc1234", "z@abc1234"), ["y", "z"], {"y", "z"}, work=gained)
-    assert step == ("follow", "Landing as you ticked: z. Since your send, y's head is now def5678, with work of its own "
+    assert step == ("follow", "Asked of the runner as you ticked: z. Since your send, y's head is now def5678, with work of its own "
                               "since your send at abc1234: fix: keep the lease, and the card that follows asks for it.",
                     [], [("z", "abc1234")])
     step = plan.landings_step([box("y", H2)], answered("y@abc1234"), ["y"], {"y"}, work=gained)
@@ -942,15 +942,15 @@ def test_a_send_whose_card_followed_before_ops_read_it_is_read_beside_the_card_t
     waits = {"status": "pending", "turn": "you"}
     heads = plan.card_heads("w@abc1234")
     assert plan.landing_lines("swancloud", waits, heads, ["y"]) == [
-        "  to land on the user's send of an earlier card: y", "  lands them: crew bolt submit y --label swancloud"]
+        "  to land on the user's send of an earlier card: y", "  y: no land is posted for it yet: crew's next raise of the card posts it"]
     sent = {"status": "answered", "turn": "agent", "answer": {"approved": True}}
     assert plan.landing_lines("swancloud", sent, heads, ["y", "z"]) == [
         "  to land on the user's send of an earlier card: y and z", "  to land, in the card's order: w",
-        "  lands them: crew bolt submit y z w --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it", "  z: no land is posted for it yet: crew's next raise of the card posts it", "  w: no land is posted for it yet: crew's next raise of the card posts it"]
     none = {"status": "answered", "turn": "agent", "answer": {"choiceIds": []}}
     assert plan.landing_lines("swancloud", none, plan.card_heads("w@abc1234 v@abc1234"), ["y"]) == [
         "  to land on the user's send of an earlier card: y", "  no bolt ticked on this card: nothing of it lands",
-        "  lands them: crew bolt submit y --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
 
 
 def test_what_an_earlier_send_still_lands_leaves_out_the_landed_the_asked_again_and_the_refused_at_its_head():
@@ -1022,7 +1022,7 @@ def test_with_no_card_open_ops_reads_what_an_earlier_send_still_lands_and_the_co
     assert read_unopened(monkeypatch, capsys, closes, {"z": work()}) == (
         "card land/crew: no landings card of crew is open\n"
         "  to land on the user's send of an earlier card: z\n"
-        "  lands them: crew bolt submit z --label swancloud\n")
+        "  z: no land is posted for it yet: crew's next raise of the card posts it\n")
 
 
 def test_with_no_card_open_a_sent_bolt_whose_head_crew_cant_read_is_named_and_left_out_of_the_command(monkeypatch, capsys):
@@ -1032,7 +1032,7 @@ def test_with_no_card_open_a_sent_bolt_whose_head_crew_cant_read_is_named_and_le
         "card land/crew: no landings card of crew is open\n"
         "  can't tell whether the user's earlier send still lands z: bolt/z is on no branch crew can read\n"
         "  to land on the user's send of an earlier card: y\n"
-        "  lands them: crew bolt submit y --label swancloud\n")
+        "  y: no land is posted for it yet: crew's next raise of the card posts it\n")
     assert json.loads(read_unopened(monkeypatch, capsys, closes, {"y": work(head=H1)}, json=True)) == {
         "key": "land/crew", "card": None, "earlier": ["y"], "unknown": {"z": "bolt/z is on no branch crew can read"}}
     # with no send standing, it says only that no card is open
@@ -1234,6 +1234,24 @@ class LandActs:
 
     def keep_main(self, label, kit, sha):
         self.kept[kit] = sha
+
+    def post_lands(self, label, kit, owner, rows, sent, reads, work):
+        """The lands the send makes due, as lands_change decides them on a write over requests.rec as given (requests),
+        recorded in posts; none while the case gives no requests."""
+        self.posts = getattr(self, "posts", [])
+        if getattr(self, "requests", None) is None:
+            return []
+        from facts import FactsWrite
+        w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": self.requests}, entries=self.held)
+        try:
+            got = plan.lands_change(w, kit, rows, sent, reads, work)
+        except plan.Unposted:
+            return []
+        self.requests = w.files["requests.rec"]
+        self.posts.append((w.subject, w.act, list(w.on), dict(w.fields), [(a, o, f) for _, a, o, f in w.also]))
+        for _, a, o, f in [(None, w.act, w.on, w.fields)] + w.also:
+            self.held.append(dict(f, Act=a, On=list(o)))
+        return got
 
     def kept_main(self, label, kit):
         return self.kept.get(kit)
@@ -1510,7 +1528,7 @@ def test_a_bolt_proven_after_the_answer_gets_a_new_card_following_it_and_the_sen
     answers = dict(POSTED, get_request=(answer, None), post_request=({"requestId": "req_k2", "version": 1}, None))
     acts = LandActs({"y": row("y"), "z": row("z")}, held, answers=answers)
     assert raised(monkeypatch, acts) == "req_k2"
-    said = "Landing as you ticked: y. Since your send, z reads proven, and the card that follows asks for it."
+    said = "Asked of the runner as you ticked: y. Since your send, z reads proven, and the card that follows asks for it."
     assert next(a for t, a in acts.calls if t == "ack_answer")["outcome"] == said
     assert not [t for t, _ in acts.calls if t == "update_request"]
     close = next(e for e in acts.emitted if e["Act"] == "card.close")
@@ -1776,7 +1794,7 @@ def test_a_card_following_the_users_send_says_what_changed_of_a_bolt_asked_again
     changed = "z's head is now def5678, with work of its own since your send at abc1234: fix: keep the lease"
     post = next(a for t, a in acts.calls if t == "post_request")
     assert post["follows"] == "req_k1" and post["summary"].startswith(
-        f"You answered the card before this one: ticked y and z. Since then: landing as you ticked: y. Since your send, {changed}, "
+        f"You answered the card before this one: ticked y and z. Since then: asked of the runner as you ticked: y. Since your send, {changed}, "
         "and the card that follows asks for it.\n\n")
     assert post["summary"].count(changed) == 1
 
@@ -2027,3 +2045,79 @@ class TestLandsDue:
 
     def test_a_send_whose_bolts_own_work_changed_posts_nothing(self):
         assert self.due([box("y", H2)], {"bolt/y": ("req_1", H1[:7])}, work={"y": work([LEASE])}) == []
+
+
+class TestTheRaisePostsTheLands:
+    """rail-cards "The user's send on a kit's landings card posts one land for each row it lands" and "A landings row is
+    due one land for each send and head" (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the raise of a
+    kit's landings card that reads the user's send posts its lands by one plan write (plan.lands_change), each land of
+    its row's launch in the card's order with the fixes of main first, an entry for each row naming the card, the head
+    and the land's request, marked asked; a write replayed on a tip that holds them writes nothing."""
+    FIX = "fix/main/crew/red"
+
+    @pytest.fixture(autouse=True)
+    def here(self, monkeypatch):
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+
+    def write(self, requests=None, entries=()):
+        import runner
+        from facts import FactsWrite
+        text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in (requests or TestLandsDue().requests()))
+        return FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, entries=entries, label="swancloud")
+
+    def rows(self):
+        return [box("y"), box("z"), dict(bolt="main--red", work=self.FIX, box=True, facts=dict(head=H2))]
+
+    SENT = {"bolt/y": ("req_k1", H1[:7]), "bolt/z": ("req_k1", H1[:7]), FIX: ("req_k1", H2[:7])}
+
+    def test_one_write_posts_a_land_of_each_row_in_the_cards_order_the_fix_of_main_first(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        w = self.write()
+        got = plan.lands_change(w, "crew", self.rows(), self.SENT, TestLandsDue().reads())
+        assert got == [(self.FIX, 5, H2), ("bolt/y", 6, H1), ("bolt/z", 7, H1)]
+        lands = [(r.get("Request"), r.get("Act"), r.get("Work"), r.get("Of")) for r in plan.Plan(w.files["requests.rec"]).recs("Request")][4:]
+        assert lands == [("5", "land", self.FIX, "4"), ("6", "land", "bolt/y", "1"), ("7", "land", "bolt/z", "2")]
+        assert (w.act, w.on, w.fields) == ("fix.merge", [self.FIX], dict(Card="req_k1", Head=H2, Request="5", Outcome="asked"))
+        assert [(a, o, f) for _, a, o, f in w.also] == [
+            ("bolt.submit", ["bolt/y"], dict(Card="req_k1", Head=H1, Request="6", Outcome="asked")),
+            ("bolt.submit", ["bolt/z"], dict(Card="req_k1", Head=H1, Request="7", Outcome="asked"))]
+        assert w.subject == "plan(crew): land main--red, y and z on the user's send"
+
+    def test_a_write_replayed_on_a_tip_that_holds_the_lands_writes_nothing(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        w = self.write()
+        plan.lands_change(w, "crew", self.rows(), self.SENT, TestLandsDue().reads())
+        entries = [dict(Act=a, On=o, **f) for _, a, o, f in [(None, w.act, w.on, w.fields)] + w.also]
+        again = self.write(plan.Plan(w.files["requests.rec"]).recs("Request"), entries)
+        with pytest.raises(plan.Unposted):
+            plan.lands_change(again, "crew", self.rows(), self.SENT, TestLandsDue().reads())
+        assert plan.lands_posted(entries) == [dict(work=self.FIX, card="req_k1", head=H2, request="5"),
+                                              dict(work="bolt/y", card="req_k1", head=H1, request="6"),
+                                              dict(work="bolt/z", card="req_k1", head=H1, request="7")]
+
+    def test_the_sends_standing_are_the_answered_cards_ticks_and_an_earlier_cards_kept_heads(self):
+        entries = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k0", Heads="w@1111111 main--red@2222222")]
+        shown = plan.card_heads("y@abc1234 z@abc1234")
+        assert plan.lands_sent(entries, "land/crew", "swancloud-ops", "req_k1", shown, ["y"]) == {
+            "bolt/w": ("req_k0", "1111111"), self.FIX: ("req_k0", "2222222"), "bolt/y": ("req_k1", "abc1234")}
+
+    def test_a_raise_reading_the_send_posts_the_lands_of_the_ticked_rows_and_a_second_raise_none(self, monkeypatch, capsys):
+        """rail-cards "Read with no session of ops's running": the user ticked y and z; the raise posts two lands in the
+        card's order, says each, and leaves the card while they land; the next raise posts none."""
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        requests = TestLandsDue().requests()[:3]  # y's and z's base places and y's unit, no fix of main
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
+        monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PLAN))
+        held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
+        answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y", "land:z"]}}
+        acts = LandActs({"y": row("y"), "z": row("z")}, held, answers={"get_request": (answer, None)})
+        acts.requests = self.write(requests).files["requests.rec"]
+        assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+        (subject, act, on, fields, also), = acts.posts
+        assert (act, on, fields["Request"], fields["Card"], [o for _, o, _ in also]) == ("bolt.submit", ["bolt/y"], "4", "req_k1", [["bolt/z"]])
+        out = capsys.readouterr().out
+        assert "card land/crew: y is asked of the runner to land at abc1234 (request 4), on the user's send" in out
+        assert "card land/crew: z is asked of the runner to land at abc1234 (request 5), on the user's send" in out
+        assert "card land/crew: req_k1 is left as it is, the user having answered it" in out
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert len(acts.posts) == 1

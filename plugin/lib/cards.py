@@ -768,6 +768,8 @@ def landing_card(f):
     forecast_why, as forecast_said takes them; held, [{bolt, why}], the bolts held on the card with no box; left,
     whether the user cleared this bolt on their last send; and stopped and ops, its last landing at its head stopped by
     sluice or its host and the ops who submits it again, which its summary says (stopped_said)."""
+    if f.get("fix"):
+        return fix_card(f)
     units, chores, batches = list(f["units"]), list(f.get("chores") or []), f.get("batches") or {}
     parts = ([plural(len(units), "unit")] if units else []) + ([plural(len(chores), "chore")] if chores else [])
     what = joined(parts) if parts else "nothing"
@@ -828,6 +830,27 @@ def landing_card(f):
                  approve=high(f"Land {f['bolt']} on {f['kit']}'s main"), recommendedIds=["approve"], rationale=by_words(then, DETAIL))
 
 
+def fix_said(f):
+    """What a fix of main's row of its kit's landings card says (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 5): the failure it fixes, in the first line of its brief, that its code delivered at its head and its
+    submission waits held, and that the user's send of it is carried to the runner, which lands it."""
+    return (f"It fixes main's red: {(f.get('brief') or 'no words').rstrip('.')}. Its code delivered at {f['head'][:7]} and its "
+            "submission waits held: your send of it is carried to the runner, which lands it through the merge queue.")
+
+
+def fix_card(f):
+    """A kit's landings card whose one row is a fix of main (landings_card's approve form; Decision 5): an approval of
+    risk high, the fix's words on its face, its send the word to land it."""
+    held = list(f.get("held") or [])
+    said = [fix_said(f)] + ([f"Held, with no box: {joined([h['bolt'] for h in held])}."] if held else [])
+    background = f"A note on this card goes to main-level ops; it holds nothing of the fix."
+    shown = [text_list(f"What lands: fix {f['bolt']}", f"land-{f['bolt']}.txt", [f"{f['bolt']}: {f.get('brief') or ''}"])]
+    return built(f.get("key") or f"land/{f['kit']}", f"Land the fix {f['bolt']} on {f['kit']}'s main", " ".join(said),
+                 background, [], shown, f.get("follows"), head=f["head"], kind="approve", intent="approve",
+                 approve=high(f"Land {f['bolt']} on {f['kit']}'s main"), recommendedIds=["approve"],
+                 rationale=by_words("After it lands: crew asks the runner to land what you approved, and every host takes it.", DETAIL))
+
+
 def forecast_said(forecast, why=None, would=None):
     """What a row of a kit's landings card says of its forecast (rail-cards "The landings card forecasts each row's
     conflicts"): forecast, [(with, paths)] as plan.row_forecasts gives it, "main" or a bolt above it, paths None for one
@@ -877,6 +900,8 @@ def landings_form(n):
 def row_bits(r):
     """A landings row's counts, the batches its units were read in (None when none was), and sluice's verdict and when;
     it names no team or conductor (the-team-machinery-leaves)."""
+    if r.get("fix"):
+        return ("a fix of main", None, f"delivered at {r['head'][:7]}, its submission held")
     units, chores, batches = list(r["units"]), list(r.get("chores") or []), r.get("batches") or {}
     parts = ([plural(len(units), "unit")] if units else []) + ([plural(len(chores), "chore")] if chores else [])
     read = sorted({batches[u] for u in units if u in batches})
@@ -907,6 +932,8 @@ def row_paragraph(n, r):
     """A landings row on the card's face, as Markdown: its place and bolt, its units and chores one a line,
     its batches, sluice's verdict and when, how far main moved, its forecast, what stopped its last
     landing at its head (stopped_said), and its reading, preview and pull request as links."""
+    if r.get("fix"):
+        return f"**{n}. fix {r['bolt']}**\n\n{fix_said(r)}"
     units, chores = list(r["units"]), list(r.get("chores") or [])
     moved = r.get("moved") or 0
     lines = [f"**{n}. {r['bolt']}**"
