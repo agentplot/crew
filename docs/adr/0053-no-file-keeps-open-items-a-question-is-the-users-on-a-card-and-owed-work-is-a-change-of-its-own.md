@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-04
 decision-makers: the user; the chore docs-architecture-open-md-goes (the record)
 ---
 
 # 0053. No file keeps open items: a question is the user's on a card, and owed work is a change of its own
 
-Status: proposed. The decision is the user's own words, quoted below; the record is accepted on their yes once they have seen it as a record (`briefs.15`).
+Status: accepted by the user on 2026-11-07, on their card. The decision is the user's own words, quoted below.
 
 Deciders: the user, 2026-11-04, in the brief for the chore `docs-architecture-open-md-goes` on `teamless/deneb`: "We really have to stop maintaining _open.md. That's some made-up file that's been carried forward and is additional context to track, which we don't need. If there's anything in there that we're tracking and don't want to lose, we need to get rid of it." And, of the rules that named it: "A rule that names it as the place for open items says nothing in its place: an open decision is the user's, asked on a Pending You card, and owed work is a change of its own."
 
