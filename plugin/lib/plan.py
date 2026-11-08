@@ -11163,8 +11163,8 @@ def rail_record(fleet, found, props, crossed=None):
     "closed": card keys closed, "posts": batch card keys posted, "due": units whose latest change no batch has held,
     "unanswered": {unit: the batch} whose card the user has not answered that holds its latest change}}, the last two
     None for a partition whose branch could not be read, since then they can't be told; the rail's rows for the
-    operations; the entries the operations are read from, {label: entries}, the ops entries of the main level's host,
-    the landings and the kits' renames, oldest first, which the board's Operation lane reads (ops.environments); and
+    operations; the entries the operations are read from, {label: entries}, the ops entries of the main level's host
+    and the landings, oldest first, which the board's Operation lane reads (ops.environments); and
     every entry read,
     {label: entries}, oldest first, which the sweep (sweep_cards) and the board's design band read. crossed, each
     partition's crossed units' changes, {label: crossed_changes'}, which its due and unanswered units count."""
@@ -11186,7 +11186,7 @@ def rail_record(fleet, found, props, crossed=None):
         import ops  # ops.py imports nothing of this module
         mine = [e for e in entries if (e.get("Act") or "").startswith("ops.") and e.get("Host") == fleet["partitions"][l]["machine"]]
         deploys += [dict(r, at=utc(r["at"]), doc=None) for r in ops.rows(fleet, l, mine)]
-        opses[l] = sorted(mine + [e for e in entries if e.get("Act") in ("bolt.land", "kit.rename")], key=lambda e: (e["At"], e["Id"]))
+        opses[l] = sorted(mine + [e for e in entries if e.get("Act") == "bolt.land"], key=lambda e: (e["At"], e["Id"]))
     return times, cards, unread, landings, held, deploys, opses, logs
 
 
@@ -11445,24 +11445,18 @@ def blind_land(fleet, label, plan, sv, key, runs=None):
 CARD_RETRY = 600
 
 
-def row_gone(key, entries, kits=(), kit_of=None, renames=None):
+def row_gone(key, entries, kits=(), kit_of=None):
     """Why a row's card has no row now, from the run record's entries, oldest first: (outcome, None) when the event
     that ends its row was recorded, so its card is closed with what was done, a proposal applied, a bolt landed or a
     batch answered in a main-level pane, in whose and when (pane_answered); else (None, reason), its card withdrawn
     with why, a proposal or a bolt dropped among them, and a batch that waits on nothing with the words of crew's close
     (batch_settled). A kit's landings card, land/<kit> (kits, the partition's kits' names), that nothing waits to land
-    on its main; one under a former name of a kit (renames, the partition's, renames_in of the entries unless given;
-    kit_now), that the kit is renamed and its landings are rows of land/<new>, never a gone bolt's card (rail-cards "A
-    kit's landings card follows its rename"); and a landing card of a bolt's own, from before a kit's card, whose bolt
-    its kit's landing row names (kit_of, {bolt: its kit}), that it is now a row of its kit's landings card (rail-cards
+    on its main; and a landing card of a bolt's own, from before a kit's card, whose bolt its kit's landing row names (kit_of, {bolt: its kit}), that it is now a row of its kit's landings card (rail-cards
     "A bolt's own landing card gives way to its kit's")."""
     kind, _, rest = (key or "").partition("/")
     thing, _, head = rest.partition("/")
     if kind == "land" and not head and thing in kits:
         return None, f"nothing waits to land on {thing}'s main"
-    now = kit_now(thing, renames_in(entries) if renames is None else renames).split("/")[-1] if kind == "land" and not head else thing
-    if now != thing:
-        return None, f"{thing} is renamed {now}: its landings are rows of land/{now}"
 
     def last(on, *acts):
         return next((e["Act"] for e in reversed(entries) if e.get("Act") in acts and not e.get("Refused") and on in (e.get("On") or [])), None)
@@ -11488,40 +11482,27 @@ def row_gone(key, entries, kits=(), kit_of=None, renames=None):
                   "verify": "a verify report has no card, its findings fixed in one round"}.get(kind, "its row is gone")
 
 
-def record_now(obj, renames):
-    """A decision record's object, record/<kit>/<number>, by its kit's name now (kit_now; Decision 5 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan), so a record's card or entry under a former name of its kit
-    is the record's under the new; any other object as it is."""
-    m = re.fullmatch(r"record/([^/]+)/(\d{4})", obj or "")
-    return f"record/{kit_now(m.group(1), renames).split('/')[-1]}/{m.group(2)}" if m and renames else obj
-
-
-def record_settled(key, entries, kits=(), renames=None):
+def record_settled(key, entries, kits=()):
     """The outcome a decision record's card closes with, under its key in either form (cards.row_object, kits as it
-    takes them), its kit read by its name now as the record's entries are (record_now; renames, the partition's,
-    renames_in of the entries unless given), from the run
-    record's entries, oldest first: the record's last status crew record recorded, "Accepted at <commit>" or "Rejected
-    at <commit>" as crew record closes it, the commit left out when the entry names none; None while it is proposed,
-    or none is recorded."""
-    renames = renames_in(entries) if renames is None else renames
-    obj = record_now(cards.row_object(key or "", kits), renames)
+    takes them), its kit as the key names it, from the run record's entries, oldest first: the record's last status
+    crew record recorded, "Accepted at <commit>" or "Rejected at <commit>" as crew record closes it, the commit left out
+    when the entry names none; None while it is proposed, or none is recorded."""
+    obj = cards.row_object(key or "", kits)
     last = next((e for e in reversed(entries) if obj and e.get("Act") in ("record.proposed", "record.accepted", "record.rejected")
-                 and not e.get("Refused") and obj in [record_now(o, renames) for o in e.get("On") or []]), None)
+                 and not e.get("Refused") and obj in (e.get("On") or [])), None)
     if not last or last["Act"] == "record.proposed":
         return None
     commit = next((c.rsplit("@", 1)[-1][:7] for c in last.get("Commit") or [] if "@" in c), None)
     return last["Act"].split(".")[1].capitalize() + (f" at {commit}" if commit else "")
 
 
-def record_proposed(key, entries, renames=None):
+def record_proposed(key, entries):
     """A decision record's last record.proposed entry, done, under its key in either form (cards.row_object), its kit
-    by its name now as the entries' are (record_now; renames as record_settled takes them), from the run record's
-    entries, oldest first: its State says whether the user settled it in the pane, its Form whether its card offered
-    alternatives; None when crew record recorded it proposed nowhere."""
-    renames = renames_in(entries) if renames is None else renames
-    obj = record_now(cards.row_object(key or ""), renames)
+    as the key names it, from the run record's entries, oldest first: its State says whether the user settled it in
+    the pane, its Form whether its card offered alternatives; None when crew record recorded it proposed nowhere."""
+    obj = cards.row_object(key or "")
     return next((e for e in reversed(entries) if obj and e.get("Act") == "record.proposed" and not e.get("Refused")
-                 and obj in [record_now(o, renames) for o in e.get("On") or []]), None)
+                 and obj in (e.get("On") or [])), None)
 
 
 def refused_lately(entries, now, key=None, card=None):
@@ -11601,7 +11582,7 @@ def proposals_held(found):
 
 
 def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, planner=(None, None), design=(None, None), kits=(),
-                 kit_of=None, renames=None, labels=None):
+                 kit_of=None, labels=None):
     """What the rail's read does with one partition's cards, of those posted on this host (here), the only ones its
     sign-in reaches: each row's card whose row is gone, to close with why (row_gone), but a land card whose row can't
     be told (blind, the bolts whose team's host did not answer) and a proposal's card on a plan read older than it
@@ -11610,8 +11591,7 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     each row's card with its row, which Pending You is asked whether it still finds; a deploy's card whose word stands
     left for the deploy's end to close (ops.word_stands); and each decision record's card, under either key form,
     whose record crew record has recorded accepted or rejected since, to close with its status (record_settled), a
-    card key's kit read by its name now through the partition's renames (renames, renames_in of entries unless given). Then
-    each row in record 0031's
+    card key's kit read as the key names it. Then each row in record 0031's
     form with no card open on any host, whose owner runs here (owners, {row key: (owner, host)}), to post through its
     kind's raise; but each row whose owner runs here and whose owner's newest card under its key this host's sign-in
     can't reach, one posted from another host and not closed, or one lost to its owner on any host (cards.stranded,
@@ -11648,7 +11628,7 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
             if not refused_lately(entries, now, card=c["card"]):
                 out["left_fleet"].append((c, cards.left_said(c["by"], c["key"], ops.word_stands(c["key"], entries))))
         elif kind == "record":
-            settled = record_settled(c["key"], entries, renames=renames)
+            settled = record_settled(c["key"], entries)
             if settled and not refused_lately(entries, now, card=c["card"]):
                 out["gone"].append((c, settled, None))
         elif kind == "question":
@@ -11659,7 +11639,7 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
                 out["unread"].append((c, rowed[c["key"]]))
         elif (not (c["key"].startswith("land/") and c["key"].split("/")[1] in blind) and not refused_lately(entries, now, card=c["card"])
               and not ops.word_stands(c["key"], entries) and not older_than_card(c["key"], proposed)):
-            out["gone"].append((c, *row_gone(c["key"], entries, kits, kit_of, renames)))
+            out["gone"].append((c, *row_gone(c["key"], entries, kits, kit_of)))
     carded = {c["key"] for c in cards_ if not left(c)}  # a card in a name that left the fleet cards no row
     mine = [r for r in rows if cards.row_object(r["key"]) and (owners.get(r["key"]) or (None, None))[1] == here
             and not refused_lately(entries, now, key=r["key"])]
@@ -11672,8 +11652,8 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     if design[1] == here:
         posted = (e.get("Key") for e in entries if e.get("Act") == "card.post" and e.get("By") == design[0])
         for key in dict.fromkeys(k for k in posted if re.fullmatch(r"record/[a-z0-9][a-z0-9-]*/\d{4}", k or "")):
-            last = record_proposed(key, entries, renames)
-            if (not last or record_settled(key, entries, renames=renames) or last.get("State") == "settled in the pane"
+            last = record_proposed(key, entries)
+            if (not last or record_settled(key, entries) or last.get("State") == "settled in the pane"
                     or refused_lately(entries, now, key=key)):
                 continue
             older = cards.stranded(entries, key, design[0], here)
@@ -11808,7 +11788,7 @@ def rail_read(fleet, labels, board=False, sweep=False):
     """Everything the rail is made from, in one read of the labels' plans, proposals, kits and run record: the plans
     found and the errors of those that could not be read, the survey, the open proposals, the cards, the branches whose
     record could not be read, the landings and gives, the operations' entries, every entry read, each partition's kits
-    (kits_at, the repositories its plan and its landings name) and its renames of them (renames_at), and the rows. The survey is of each host where a
+    (kits_at, the repositories its plan and its landings name), and the rows. The survey is of each host where a
     started bolt's work runs, as the runner that took it reported (known_at); with board, of each kit's checkout on its
     partition's main-level host too (main_kit), and the explorations on each kit's main there, for the board
     (board.py), from which the rail's text is made as well.
@@ -11824,7 +11804,6 @@ def rail_read(fleet, labels, board=False, sweep=False):
     held = [(t, b.name()) for l, _, _, p in found if p and l in runs for b in p.bolts() if started(b)
             for t in [known_at(fleet, l, b, runs[l])] if t]
     kits = {l: kits_at(repo, tip, p) for l, repo, tip, p in found}
-    renames = {l: renames_at(repo, tip) for l, repo, tip, p in found}
     if board:  # the explorations on each kit's main, read in the checkout its partition's main-level host keeps of it
         held += [(t, None) for l, ks in kits.items() for k in ks for t in [main_kit_read(fleet, l, k)] if t]
     sv = survey(fleet, held, board=board)
@@ -11832,7 +11811,7 @@ def rail_read(fleet, labels, board=False, sweep=False):
     crossed = {l: crossed_changes(p, Stages(fleet, p, sv, runs, l)) for l, _, _, p in found if p and l in runs}
     times, cards_, unread, landings, batched, deploys, opses, logs = rail_record(fleet, found, props, crossed)
     read = dict(found=found, errors=errors, sv=sv, props=props, times=times, cards=cards_, unread=unread, landings=landings,
-                ops=opses, logs=logs, batched=batched, runs=runs, kits=kits, renames=renames,
+                ops=opses, logs=logs, batched=batched, runs=runs, kits=kits,
                 rows=rail_rows(fleet, found, sv, props, times, batched, runs) + deploys)
     if sweep:
         read["proposed"] = proposals_held(found)
@@ -15283,7 +15262,7 @@ def sweep_judgments(fleet, read, here, now):
         j = sweep_judged(here, rows, [c for c in read["cards"] if c["label"] == l], read["logs"].get(l, []), owners, blind,
                          read["proposed"].get(l), now, planner, design, read["kits"][l],
                          {x["bolt"]: r["key"].split("/", 1)[1] for r in rows if r["group"] == "land" for x in r.get("bolts", [])},
-                         (read.get("renames") or {}).get(l), labels=set(fleet["partitions"]))
+                         labels=set(fleet["partitions"]))
         judged.append((l, dict(owners, **{r["key"]: design for r, _ in j["again"] if r["group"] == "records"}), planner, j))
     return judged, unswept
 
