@@ -1,95 +1,50 @@
 # Verify: crew-calls-no-tool-but-its-runner
 
-Verified on 2026-11-08 at `82d7bfb1`, on `change/crew-calls-no-tool-but-its-runner`, cut from `bolt/crew-talks-only-to-its-runner` at `2ae95617`.
+Verified on 2026-11-08 at `0aede1d7`, on `change/crew-calls-no-tool-but-its-runner`, cut from `bolt/crew-talks-only-to-its-runner` at `2ae95617`.
 
-**Verdict: not ready to archive.** The whole checks fail in the logic tier. The change goes back to its code stage.
+**Verdict: ready to archive.** The whole checks pass, every task is ticked, and the work meets every requirement and scenario of the change's specs as far as reading the code and its cases shows.
 
 ## The whole checks
 
 `tests/suite` ran once: every project's `check-full` tasks, as `.config/sluice.toml` requires them of `bolt/*` and `main`.
 
-**Outcome:** `32 passed (7 replayed), 1 failed`, exit 1.
+**Outcome:** `33 passed (33 replayed), 0 failed`, exit 0.
 
-- **Passed:**
-  - every end-to-end test, among them `t-journey-board`, `t-sluice`, `t-journey-land`, `t-docs` and `t-briefs`;
-  - `contract`;
-  - `mod`;
-  - `nix:format`, `nix:lint`, `nix:typecheck` and `nix:test`.
-- **Failed:** `logic`, with `2 failed, 3436 passed`. Neither failing file is in the verify list of task 1.2, so the narrower checks the tasks name passed while the whole logic tier fails.
+- `logic`, `contract` and `mod`;
+- `nix:format`, `nix:lint`, `nix:typecheck` and `nix:test`;
+- every end-to-end test, 26 of them, among them `t-journey-board`, `t-sluice`, `t-journey-land`, `t-docs` and `t-briefs`.
 
-### Failure 1: `tests/py/test_fix.py:114`
+Every task was replayed: its inputs at `0aede1d7` are identical to a run that passed on this host, and moon replays no run that failed.
 
-`TestAFixOfAStartedBolt.test_a_fix_in_flight_holds_the_bolts_landing_until_it_has_merged_or_been_dropped`
-
-```
->       assert plan.landing_unready([("a", "unit", "merged")], "h" * 40, "passed", ["fix/x/rail-word"]) == "fix/x/rail-word is in flight on it"
-E       TypeError: landing_unready() takes 3 positional arguments but 4 were given
-```
-
-The case still calls `landing_unready` with the old signature `(work, head, verdict, fixes)`. Task 1.2 changed the signature to `(work, verified, fixes)`, where `verified` is the `(state, words)` pair. The case has to pass a verification pair.
-
-### Failure 2: `tests/py/test_chores.py:170`
-
-`TestStage.test_a_bolt_lands_once_every_unit_and_chore_has`
-
-```
->       assert st.bolt_state(p.bolt("x")) == "active"
-E       AssertionError: assert 'waits' == 'active'
-```
-
-The bolt is `x`, with unit `a` and chore `bump`, both read `landed` from the runner by `ran({1: "landed", 2: "landed"})`. `crew_read(main=["a"], bolts={"x": {}})` now gives `x` the default head `LANDED`, which is the commit those runner fixtures landed at. So `runner.verification` reads the bolt green, and `Stages.bolt_state` (`plan.py` 1608) returns `waits` where the case expects `active`.
-
-The code stage decides which way this goes:
-
-- **Keep `active`.** Set a head on `x` that no piece landed at, as task note 1.2 says for a bolt that is not green.
-- **Expect `waits`.** A head that is a piece's landing now reads green, as merge-gate's new requirement says.
-
-Whichever it is, the case's docstring has to say why.
+The first verify, at `82d7bfb1` (its report in `49c214ef`), found the logic tier failing in two cases: `tests/py/test_fix.py:114` (Failure 1), calling `landing_unready` with its old signature, and `tests/py/test_chores.py:170` (Failure 2), a bolt whose pieces all landed at its head expected `active`. `0aede1d7` settles both as task 1.4 says: `test_fix` hands `landing_unready` a `(state, words)` verification, and `test_chores`'s bolt reads `waits`, its verification green, its docstring saying why.
 
 ## Tasks
 
-All 12 tasks in `tasks.md` are ticked `[x]`. Each task's own verify check names a subset of the logic tier. `test_chores.py` and `test_fix.py` are in none of them, which is how the two failures above got through.
+All 11 tasks in `tasks.md` are ticked `[x]`, and none is open. Task 1.4's check, `tests/suite logic`, is the `logic` task above.
 
 ## Specs against the work
 
 `openspec validate crew-calls-no-tool-but-its-runner --strict` reports the change valid.
 
-Read against the code at `82d7bfb1`:
-
 - **merge-gate.** "A bolt's verification is its work's landing at its head, as the runner reports it" is met:
-  - `runner.verification` (`plugin/lib/runner.py` 670) gives green, none and unknown, with the words the design names;
-  - `tests/py/test_runner.py` `TestVerification` holds the eight cases of task note 1.1;
-  - `kit.verification`, `kit.covering` and `VERDICT` are gone;
-  - the gather reads no `Sluice-Result`;
+  - `runner.verification` (`plugin/lib/runner.py` 670) gives green for a head that is a piece's merged or landed commit, naming the head and the work, none for any other head, and unknown with no head;
+  - a landing read from the bolt's own landings commits, record 0062's stopgap, comes through `runner.built_on_bolt` (654) and is named "as its landing on the bolt names it";
+  - `tests/py/test_runner.py` `TestVerification` holds the cases of task note 1.1;
+  - `kit.verification`, `kit.covering`, `kit.VERDICT`, `gather.landing_read`, `LANDING_TRAILERS` and `BESIDE_FIELDS` are gone, and no file under `plugin/` reads `Sluice-Result`;
   - `tests/contract/test_gather.py` `test_a_gather_of_a_kit_with_a_held_bolt_runs_no_sluice` proves "Nothing of sluice's is read".
+
+  The removed requirements, "sluice's verdict on its last landing" and "A landing beside reads as the verdict that covers it", have no reader left.
+- **bolt-plan.** "A bolt on GitHub is read where it lives" reads the verification at the head `gather.bolt_read` gives, GitHub's copy where the policy names a remote.
+- **bolt-teams.** "A bolt's proof is its verification" holds through `landing_unready` and `bolt_state`, which take `Stages.verification`. "A submission's number is on its bolt's row from the submit" holds: a piece's `submitted #<n>` comes from `runner.piece_said`, the bolt's landing from the run record (`plan.landing_phase`), and `merge_said`, `landing_said(b)` and `queue_said` are gone from the views. `t-sluice` and `t-journey-land` assert the verification's words as the runner reports it.
 - **crew-board.** "The follower runs no sluice" and "A gather runs no sluice" are met:
-  - `board.py` holds no `Watches`, queue stamps or kept submissions;
-  - `gather.py` runs no sluice, and keeps `submissions_of`, `status_read` and `sluice_said` for crew's own landing alone;
-  - `t-journey-board` asserts no `sluice` in its log and `submitted #41` after the runner's report.
+  - `board.py` starts no `sluice` and keeps no watch or submission of its own;
+  - `gather.py` runs no sluice, and keeps `submissions_of`, `status_read` and `sluice_said` for crew's own landing alone (`plan.queue_read`, `landing_standing`, `submission_rows`, which say no view calls them);
+  - `t-journey-board` asserts no `sluice` on either host across the follower's ticks, and `submitted #41` on `a`'s row after the runner's report.
 
-  The time requirement is met: `held_time` hands `bolt_facts` no submissions, and `test_board.py` has "A submission the runner reports places no minute".
-- **bolt-teams, bolt-plan, crew-rail and rail-cards.** Their verification and readiness readers all go through `Stages.verification`:
-  - `bolt_state`;
-  - `landing_unready`;
-  - `land_facts`;
-  - `bolts_data`;
-  - the landings row.
+  "Each holder is read from what crew already keeps" places no minute by a submission (`test_board.py`, "A submission the runner reports places no minute").
+- **crew-rail and rail-cards.** The landings row and card offer a bolt only once its verification is green, read through `Stages.verification`, and say what it is otherwise.
+- **The words.** `plugin/bin/crew`'s usage, README, `plugin/skills/crew/SKILL.md`, `plugin/roles/main-ops.md`, CLAUDE.md's *Proving and landing a bolt*, `board.py`'s follower usage and `status.js` say where the queue and the verification come from, and none says a view reads sluice's queue or verdict. README's remaining mentions of sluice's queue are crew's own landing, `crew bolt submit`, which Decision 1 leaves.
 
-  `phase_said` names the number always. `bolts_data` and `board_data` give no `submission`, `landing` or `submissions_error`. `t-sluice` and `t-journey-land` assert the verification's words, as the runner reports it.
-- **The words.** The following say where the queue and the verification come from, and none says a view reads sluice's queue or verdict:
-  - `plugin/bin/crew`'s usage;
-  - README line 63;
-  - `plugin/skills/crew/SKILL.md`;
-  - `plugin/roles/main-ops.md` line 13;
-  - CLAUDE.md's *Proving and landing a bolt*;
-  - `status.js`.
+## Outcome
 
-  README's remaining mentions of sluice's queue are crew's own landing (`crew bolt submit`), which Decision 1 leaves.
-
-The work meets its specs as far as reading shows. What holds the change back is the logic tier's two failing cases.
-
-## What the code stage does
-
-1. Fix `tests/py/test_fix.py:114` for `landing_unready(work, verified, fixes)`.
-2. Settle `tests/py/test_chores.py:170` as Failure 2 says.
-3. Run `tests/suite logic` until it says "0 failed".
+The change is archived on `change/crew-calls-no-tool-but-its-runner`, with this report.
