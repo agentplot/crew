@@ -11373,8 +11373,9 @@ def batch_facts(n, entries, summary, subjects):
 
 def batch_read(fleet, label, n, acts):
     """Batch n's card's facts as its raise reads them, on the main level's host: from this host's run record, the
-    reviewer's summary and the plan's goals (batch_facts), each unit with what its stages recorded as made (batch_made);
-    None while its point has not come or has passed. A summary crew can't read is refused, naming it."""
+    reviewer's summary and the plan's goals (batch_facts), each unit with what its stages recorded as made and the
+    runner's report of each preview of it crew asked for (batch_made), and what each line is told (told); None while
+    its point has not come or has passed. A summary crew can't read is refused, naming it."""
     f = batch_file(label, n)
     try:
         summary = f.read_text()
@@ -11384,32 +11385,57 @@ def batch_read(fleet, label, n, acts):
         fail(f"crew can't read batch {n}'s summary {f}: {e.strerror or e}")
     facts = batch_facts(n, acts.entries(label), summary, batch_subjects(plan_of(fleet, label)))
     if facts:
-        batch_made(fleet, label, facts, acts)
+        facts["told"] = batch_made(fleet, label, facts, acts)
     return facts
 
 
 def batch_made(fleet, label, facts, acts):
     """Each unit of a batch's card given what its stages recorded as made (made), read from the copies kept on the host
-    its bolt's work ran on (batch_unit_at), and the previews brought up from the card there (up, by the made thing's
-    name), through acts.made, one read a host (crew _made, code.3; design Decision 4). A host that does not answer, and
-    a unit whose host crew can't tell, is said on standard error, its units carrying none this raise (read.3); nothing is
-    refused, since the batch stands, and a host is read only for its own kits' places' facts (read.5)."""
+    its bolt's work ran on (batch_unit_at), through acts.made, one read a host (crew _made, code.3; design Decision 4);
+    and, for each made thing that must run, crew's ask of its preview on that host as the runner reports it (up, by
+    the thing's name; Decision 7 of a-cards-preview-is-asked-of-the-runner), the ask of its unit's repository and
+    revision there (previews_asked) and refused ones among them, so the line says why. A host that does not answer,
+    and a unit whose host crew can't tell, is said on standard error, its units carrying none this raise (read.3);
+    the runner crew can't read is said the same way, its lines carrying no preview; nothing is refused, since the batch
+    stands, and a host is read only for its own kits' places' facts (read.5). Returns what each line was told,
+    {request: word}, for the raise to keep once it posts or changes the card (told_kept)."""
     n, by = facts["n"], {}
     for u in facts["units"]:
         try:
             by.setdefault(batch_unit_at(fleet, label, u["bolt"], u["unit"])["machine"], []).append(u["unit"])
         except Refusal as e:
             print(f"batch {n}'s card carries nothing {u['unit']} made: {e}", file=sys.stderr)
+    try:
+        requests, reads = acts.runner(label)
+    except Refusal as e:
+        print(f"batch {n}'s card carries no preview this raise: {e}", file=sys.stderr)
+        requests, reads = [], {}
+    asked, told = runner.previews_asked(requests), {}
     for host, names in sorted(by.items()):
         try:
-            got = acts.made(label, host, names, f"batch/{n}")
+            got = acts.made(label, host, names)
         except Refusal as e:
             print(f"batch {n}'s card carries nothing {joined(names)} made this raise: {host} did not answer ({e})", file=sys.stderr)
             continue
         for u in facts["units"]:
-            if u["unit"] in names:
-                u["made"] = got["made"].get(u["unit"]) or []
-                u["up"] = {t.split("/", 1)[1]: p for t, p in got["previews"].items() if t.split("/", 1)[0] == u["unit"]}
+            if u["unit"] not in names:
+                continue
+            u["made"], u["up"] = got["made"].get(u["unit"]) or [], {}
+            repo = unit_repo(requests, u["bolt"])
+            for _, lines in u["made"]:
+                for m in map(cards.made_line, lines):
+                    ask = asked.get((host, repo, m.get("revision"))) if "branch" in m and "revision" in m and "address" not in m else None
+                    if ask is not None:
+                        u["up"][m["name"]] = runner.preview_report(reads, ask)
+                        told[ask.get("Request")] = runner.preview_word(u["up"][m["name"]])
+    return told
+
+
+def unit_repo(requests, bolt):
+    """The repository a batch's unit was built in, as its bolt's newest launch names it (Decision 6 of
+    a-cards-preview-is-asked-of-the-runner), which a preview of its line names; None when requests.rec holds none."""
+    launches = [r for r in requests if r.get("Act") == "launch" and r.get("Base") == f"bolt/{bolt}"]
+    return launches[-1].get("Repo") if launches else None
 
 
 def raise_batch(fleet, row, acts=None, note=None):
@@ -11423,7 +11449,9 @@ def raise_batch(fleet, row, acts=None, note=None):
     sweep for a row whose card is missing or lost, and for one whose card this host can't reach, handed that older copy
     as the row's dead, when the card is posted saying first that an older copy was lost and to dismiss it in the app
     (cards.posted_again). Run on the main level's host, where the batch and its card are recorded and its summary
-    written. What crew can't read is said and refuses nothing, since the batch stands. The card's id, or None."""
+    written. What crew can't read is said and refuses nothing, since the batch stands. What each line was told of its
+    preview is kept once the card is posted or changed (told_kept; Decision 8 of a-cards-preview-is-asked-of-the-runner).
+    The card's id, or None."""
     m = re.fullmatch(r"batch/(\d+)", row["key"] or "")
     if not m:
         return None
@@ -11436,6 +11464,7 @@ def raise_batch(fleet, row, acts=None, note=None):
         return None
     if not facts:
         return None
+    told = facts.pop("told", {})
     t, whys = None, []
     for u in facts["units"]:
         try:
@@ -11448,8 +11477,9 @@ def raise_batch(fleet, row, acts=None, note=None):
               f"in: {'; '.join(whys)}", file=sys.stderr)
         return None
     build = built_again(cards.batch_card) if row.get("dead") else cards.batch_card
-    return row_card_change(fleet, label, owner, build, facts, note or "Raised again: crew could not find its earlier copy",
-                           card_where(card_kit(fleet, t, t["kit"]["name"], t["kit"])), acts)
+    return told_kept(label, row["key"], told, row_card_change(fleet, label, owner, build, facts,
+                                                              note or "Raised again: crew could not find its earlier copy",
+                                                              card_where(card_kit(fleet, t, t["kit"]["name"], t["kit"])), acts))
 
 
 def built_saying(build, said):
@@ -12939,9 +12969,11 @@ def reading_facts(fleet, label, key, acts):
     one of its chain at the branch's tip (chain_read), whose page is its reading. Refused when its point has passed."""
     kind, n = key.split("/")[0], int(key.split("/")[1])
     if kind == "batch":
-        return batch_read(fleet, label, n, acts) or fail(
+        facts = batch_read(fleet, label, n, acts) or fail(
             f"{key}'s card has nothing to read: this host's run record holds no batch {n} waiting on the user, or its "
             "summary is not there")
+        facts.pop("told", None)
+        return facts
     got = chain_read(fleet, label, n) or fail(f"{key}'s card has nothing to read: no proposal of its chain is open")
     return dict(n=got[1], first=n)
 
@@ -14751,14 +14783,12 @@ def preview_thing(fleet, label, key, thing, owner, done, acts):
     preview_target(key, unit, {u: None for u, _, _ in units})
     between = next(m for u, m, _ in units if u == unit)
     host = batch_unit_at(fleet, label, between, unit)["machine"]
-    lines = (acts.made(label, host, [unit], key).get("made") or {}).get(unit) or []
+    lines = (acts.made(label, host, [unit]).get("made") or {}).get(unit) or []
     carried = {f"{unit}/{m['name']}": (m["branch"], m["revision"]) for _, ls in lines for m in map(cards.made_line, ls)
                if not m.get("unread") and "address" not in m and "branch" in m and "revision" in m}
     branch, revision = preview_target(key, thing, carried)
-    requests, _ = acts.runner(label)
-    launches = [r for r in requests if r.get("Act") == "launch" and r.get("Base") == f"bolt/{between}"]
-    launches or fail(f"no launch of bolt {between}'s work is in requests.rec, so {unit}'s repository can't be told")
-    repo = launches[-1].get("Repo")
+    repo = unit_repo(acts.runner(label)[0], between) or fail(
+        f"no launch of bolt {between}'s work is in requests.rec, so {unit}'s repository can't be told")
     return {"work": f"unit/{unit}", "repo": repo, "branch": branch, "at": (host, repo, revision)}
 
 
@@ -14897,9 +14927,9 @@ def made_drop(label, units):
 
 def made_cmd(fleet, a):
     """crew _made <label> <unit>... --json, on the units' team's host: what each unit's stages recorded as made, kept
-    here (made_kept), {"made": {unit: [[stage, [line]]]}, "previews": {thing: preview}}, with the preview of each thing
-    of a card's key crew brought up on this host (--card, previews_card) as the card shows it; what a copy crew can't
-    read is said on standard error, its unit carrying none."""
+    here (made_kept), {"made": {unit: [[stage, [line]]]}}; what a copy crew can't read is said on standard error, its
+    unit carrying none. A preview of a made thing is read from the runner's report on the main machine (batch_made),
+    nothing of it here."""
     made = {}
     for u in a.unit:
         crew.NAME.match(u) or fail(f"a unit's name is lowercase words with dashes, not {u}")
@@ -14907,21 +14937,20 @@ def made_cmd(fleet, a):
             made[u] = [[s, ls] for s, ls in made_kept(a.label, u) if ls]
         except Refusal as e:
             print(f"{u}: {e}", file=sys.stderr)
-    print(json.dumps({"made": made, "previews": previews_card(a.label, a.card) if a.card else {}}))
+    print(json.dumps({"made": made}))
 
 
 def made_listed(out):
     """crew _made's answer as another host printed it (made_cmd), its shape checked (read.2): {"made": {unit: [[stage,
-    [line]]]}, "previews": {thing: preview}}; refused when it is not that."""
+    [line]]]}}, an older crew's "previews" beside it read as nothing; refused when it is not that."""
     try:
         got = json.loads(out)
     except ValueError:
         got = None
-    ok = (isinstance(got, dict) and isinstance(got.get("made"), dict) and isinstance(got.get("previews"), dict)
+    ok = (isinstance(got, dict) and isinstance(got.get("made"), dict)
           and all(isinstance(v, list) and all(isinstance(s, list) and len(s) == 2 and isinstance(s[0], str) and isinstance(s[1], list)
-                                              and all(isinstance(l, str) for l in s[1]) for s in v) for v in got["made"].values())
-          and all(isinstance(p, dict) and isinstance(p.get("head"), str) for p in got["previews"].values()))
-    return got if ok else fail(f"crew _made printed nothing crew reads: {cut((out or '').strip(), 200)}")
+                                              and all(isinstance(l, str) for l in s[1]) for s in v) for v in got["made"].values()))
+    return {"made": got["made"]} if ok else fail(f"crew _made printed nothing crew reads: {cut((out or '').strip(), 200)}")
 
 
 def batch_hand(fleet, label, n, note):
@@ -14988,32 +15017,6 @@ class CardActs:
         """The key's session ended, in words; None when crew recorded none for it on this host."""
         return end_session(label, key)[0] if (CARDS / label / key / "session.json").exists() else None
 
-    def release_previews(self, label, key):
-        """Every preview brought up from a batch's card released as it closes, on each host its units' bolts' work ran
-        on (batch_unit_at), where they were brought up (crew _preview-release, code.3; design Decision 7), here when
-        this is the host: what each said, or None. A host that does not answer, and a unit whose host crew can't tell,
-        is said, the rail's sweep releasing it later."""
-        n = int(key.split("/")[1].split("-")[0])
-        units = [(u, between) for m, _, us in batches(self.entries(label)) if m == n for u, between, _ in us]
-        said, hosts = [], set()
-        for u, between in units:
-            try:
-                hosts.add(batch_unit_at(self.fleet, label, between, u)["machine"])
-            except Refusal as e:
-                said.append(f"{key}'s previews of {u} are not released yet, the rail's sweep releasing them: {e}")
-        for host in sorted(hosts):
-            if host == crew.this_host():
-                said.append(preview_release_card(label, key))
-                continue
-            try:
-                r = crew.on_machine(self.fleet, host, crew.crew_argv(self.fleet, host, "_preview-release", label, key))
-            except Refusal as e:
-                r = argparse.Namespace(returncode=255, stdout="", stderr=str(e))
-            said.append(r.stdout.strip() if r.returncode == 0 else
-                        f"{key}'s previews on {host} are not released yet, the rail's sweep releasing them: "
-                        + (((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1]))
-        return "\n".join(w for w in said if w) or None
-
     def forward(self, host, args):
         """A crew command run on host as the one asking here (code.3), its output passed on and its failure this
         command's."""
@@ -15027,16 +15030,15 @@ class CardActs:
         """The partition's requests and its runners as this command read them (runner_facts)."""
         return runner_facts(self.fleet, label)
 
-    def made(self, label, host, units, key):
-        """What the units recorded as made, kept on host, and the previews brought up there from the card under key,
-        {"made": {unit: [[stage, [line]]]}, "previews": {thing: preview}} (made_cmd): read here when this is the host,
-        else by crew _made there as the one asking (code.3); refused naming what could not be read."""
+    def made(self, label, host, units):
+        """What the units recorded as made, kept on host, {"made": {unit: [[stage, [line]]]}} (made_cmd): read here when
+        this is the host, else by crew _made there as the one asking (code.3); refused naming what could not be read."""
         if host == crew.this_host():
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                made_cmd(self.fleet, argparse.Namespace(label=label, unit=list(units), card=key, json=True))
+                made_cmd(self.fleet, argparse.Namespace(label=label, unit=list(units), json=True))
             return json.loads(out.getvalue())
-        r = crew.on_machine(self.fleet, host, crew.crew_argv(self.fleet, host, "_made", label, *units, "--card", key, "--json"))
+        r = crew.on_machine(self.fleet, host, crew.crew_argv(self.fleet, host, "_made", label, *units, "--json"))
         sys.stderr.write(r.stderr)
         r.returncode == 0 or fail(((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1])
         return made_listed(r.stdout)
@@ -15533,11 +15535,32 @@ def row_card_close(fleet, label, owner, key, outcome=None, reason=None, acts=Non
         said = acts.end(label, key)
         if said:
             print(said)
-    if card is not False and re.fullmatch(r"batch/\d+", key):  # what was brought up from it goes with it (record 0043)
-        said = acts.release_previews(label, key)
-        if said:
-            print(said)
+    if card is not False and re.fullmatch(r"batch/\d+", key):  # what was asked from it goes with it (record 0043)
+        batch_previews_put_away(fleet, label, owner, key, acts)
     return card or None
+
+
+def batch_previews_put_away(fleet, label, owner, key, acts):
+    """At a batch card's close, the done of each standing ask of a preview of its units' lines that no other open batch
+    card holds, in one plan write (Decision 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A preview is
+    released on the user's done and when its card or row ends"); what it put away said, and a runner or a write crew
+    can't read or make said, the rail's read putting it away later (sweep_previews). Nothing is run on a unit's host."""
+    entries = acts.entries(label)
+    of = lambda k: int(k.split("/")[1].split("-")[0])
+    units = {u for m, _, us in batches(entries) if m == of(key) for u, _, _ in us}
+    others = {e.get("Key") for e in entries if e.get("Act") == "card.post" and e.get("Key") != key
+              and re.fullmatch(r"batch/\d+(-\d+)?", e.get("Key") or "") and cards.card_under(entries, e.get("Key"), owner)}
+    held = {f"unit/{u}" for m, _, us in batches(entries) if m in {of(k) for k in others} for u, _, _ in us}
+    try:
+        requests, reads = acts.runner(label)
+        asks = {k: r for k, r in runner.previews_standing(requests, reads).items() if r.get("Work") in {f"unit/{u}" for u in units}}
+        gone = runner.previews_put_away(asks, set(), held)
+        if gone:
+            preview_written(fleet, label, key, joined(sorted({r.get("Work")[len("unit/"):] for r in gone})), gone, done=True, made=[])
+            print(f"card {key}: put away " + "; ".join(f"{r.get('Work')[len('unit/'):]}'s preview of {r.get('Revision')[:7]} on "
+                                                       f"{r.get('Host')}" for r in gone))
+    except Refusal as e:
+        print(f"card {key}: its units' previews are not put away yet, the rail's read putting them away: {e}", file=sys.stderr)
 
 
 def card_closed(acts, label, owner, key, outcome, reason, said=None, here=False, more=None, offered=()):
@@ -16870,7 +16893,6 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x = sub.add_parser("_made")
     x.add_argument("label")
     x.add_argument("unit", nargs="+")
-    x.add_argument("--card")
     x.add_argument("--json", action="store_true")
     x = sub.add_parser("_batch-card")
     x.add_argument("label")

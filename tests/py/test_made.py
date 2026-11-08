@@ -87,8 +87,11 @@ class Acts:
     def session(self, label, key, facts):
         return self.LINK
 
-    def made(self, label, host, units, key):
+    def made(self, label, host, units):
         return self.made_by
+
+    def runner(self, label):  # no preview asked of any line
+        return [], {}
 
     def bridge(self, name, later, held=None):
         acts = self
@@ -140,7 +143,7 @@ class TestTheCardChanges:
         # a was built where the runner that took its bolt's work reported switchboard-kit (plan.batch_unit_at)
         monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: {"label": label, "machine": "chuck-herdr-alpha",
                                                                                      "stream": "wldn", "kit": kit})
-        acts = Acts(self.HELD, status, {"made": {"a": [["code", [NOTES]]]}, "previews": {}})
+        acts = Acts(self.HELD, status, {"made": {"a": [["code", [NOTES]]]}})
         plan.raise_batch(FLEET, {"label": "wldn", "key": "batch/7"}, acts, note="a recorded notes")
         return acts
 

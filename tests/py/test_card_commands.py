@@ -285,11 +285,8 @@ class Acts:
     def end(self, label, key):  # no reading recorded on this host, so its close ends none
         return None
 
-    def release_preview(self, label, key):  # no preview recorded on this host, so its close releases none
-        return None
-
-    def release_previews(self, label, key):  # nothing was brought up from a batch's card
-        return None
+    def runner(self, label):  # no preview asked, so a batch card's close puts none away
+        return [], {}
 
     def host(self):
         return "chuck-herdr-alpha"
@@ -1493,7 +1490,7 @@ class PreviewActs:
         self.rows.append((bolt, host))
         return (self.row, None) if self.row else (None, "deneb did not answer")
 
-    def made(self, label, host, units, key):
+    def made(self, label, host, units):
         self.made_on.append((host, list(units)))
         return {"made": {u: self.lines or [] for u in units}}
 
@@ -1620,23 +1617,6 @@ class TestCardPreview:
         """roles.1: the role table names every command that writes a request."""
         assert plan.REQUESTERS["card preview"] == ("main-ops", "planner")
         assert plan.ACTS[("card", "preview")] == "card.preview"
-
-
-def test_a_batch_cards_close_hands_its_previews_release_on_and_no_other_card_does(monkeypatch):
-    """rail-cards "A preview is released on the user's done and when its card or row ends": the close's own act."""
-    class Releasing(Acts):
-        def __init__(self, *a, **k):
-            super().__init__(*a, **k)
-            self.batch_released = []
-
-        def release_previews(self, label, key):
-            self.batch_released.append(key)
-            return f"released a/demo's preview of abc1234 from {key}"
-    for key, released in (("batch/7", ["batch/7"]), ("proposal/3", [])):
-        acts = Releasing({"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)},
-                         [post(key, "wldn-planner", "req_7")], caller="wldn-planner")
-        plan.row_card_close(None, "wldn", "wldn-planner", key, reason="the batch was read", acts=acts)
-        assert acts.batch_released == released
 
 
 # --------------------------------------------------------------------- a card's change, as Pending You's notice names it

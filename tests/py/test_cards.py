@@ -693,23 +693,22 @@ LANDING = dict(bolt="b1", kit="k", units=["v1"], chores=[], batches={}, head="ab
 class ReadingActs:
     """A stand-in for the act's reach (plan.CardActs) where a card's reading session starts and ends: a session's link
     given, or its start refused with why, always (refused) or for each start in turn (refusals, None for a start that
-    opens); what each unit made, by host (made, {host: {"made": …, "previews": …}}, a host missing from it not
-    answering); Pending You's tools answered from answers, a (got, words) pair."""
+    opens); what each unit made, by host (made, {host: {"made": …}}, a host missing from it not answering); the
+    partition's requests and runners (run); Pending You's tools answered from answers, a (got, words) pair."""
 
-    def __init__(self, answers=None, entries=(), refused=None, started=True, refusals=(), made=None):
+    def __init__(self, answers=None, entries=(), refused=None, started=True, refusals=(), made=None, run=None):
         self.answers, self.held, self.refused, self.started = dict(answers or {}), list(entries), refused, started
-        self.refusals, self.made_on = list(refusals), made
+        self.refusals, self.made_on, self.run = list(refusals), made, run or ([], {})
         self.sessions, self.ended, self.emitted, self.calls = [], [], [], []
-        self.batch_releases, self.read = [], []
+        self.read = []
 
-    def release_previews(self, label, key):
-        self.batch_releases.append((label, key))
-        return None
+    def runner(self, label):
+        return self.run
 
-    def made(self, label, host, units, key):
-        self.read.append((host, list(units), key))
+    def made(self, label, host, units):
+        self.read.append((host, list(units)))
         if self.made_on is None:
-            return {"made": {}, "previews": {}}
+            return {"made": {}}
         if host not in self.made_on:
             raise crew.Refusal("ssh: connect to host chuck-herdr-alpha port 22: Operation timed out")
         return self.made_on[host]
@@ -2525,15 +2524,27 @@ class TestBatch:
     def test_the_raise_reads_each_units_lines_from_its_bolts_host_and_a_silent_host_is_named(self, capsys):
         """rail-cards "A batch's card carries what each unit's stages recorded as made" with a host that does not
         answer (read.3): one read a host, a silent one said on standard error, its units carrying none, nothing
-        refused."""
-        up = {"head": "abc1234", "name": "preview/0", "state": "up", "addresses": {"web": "http://w"}}
-        acts = ReadingActs(made={"mac-studio": {"made": {"z1": [["code", [self.DEMO]]]}, "previews": {"z1/demo": up}}})
+        refused; a line's preview the runner's report of crew's ask of it on the unit's host."""
+        import runner
+        status = {"name": "crew-z1", "branch": "bolt/y", "revision": "abc1234", "state": "up", "addresses": {"web": "http://w"}}
+        launch = plan.Rec("Request", runner.request_fields(1, "launch", "unit/z1", dict(
+            Repo="atlas-kit", Kind="change", Name="z1", Base="bolt/atl-1", Priority=1, Intent="wldn/atl-1", Recipient="wldn/planner",
+            Brief="Build z1."), "2026-11-08T11:00:00Z", "wldn-dispatch"))
+        ask = plan.Rec("Request", runner.request_fields(2, "preview", "unit/z1", runner.preview_fields(
+            "mac-studio", "atlas-kit", "bolt/y", "abc1234"), "2026-11-08T12:00:00Z", "wldn-planner"))
+        files = {"runner.rec": plan.Plan(runner.RUNNER + "\nHost: mac-studio\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+                 "previews.rec": plan.Plan(runner.PREVIEWS + f"\nRequest: 2\nOutcome: done\nStatus: {json.dumps(status)}\n"
+                                                             "Listed: yes\nAt: 2026-11-08T12:03:00Z\n")}
+        acts = ReadingActs(made={"mac-studio": {"made": {"z1": [["code", [self.DEMO]]]}}},
+                           run=([launch, ask], {"mac-studio": runner.host_read("wldn", "mac-studio", "5" * 40, files, {})}))
         facts = dict(n=7, previous=None, link=None, units=[
             dict(unit="x1", bolt="swb-1", subject="x", paragraph="X."), dict(unit="z1", bolt="atl-1", subject="z", paragraph="Z."),
             dict(unit="y1", bolt="swb-2", subject="y", paragraph="Y."), dict(unit="w1", bolt="gone-9", subject="w", paragraph="W.")])
-        plan.batch_made(FLEET, "wldn", facts, acts)
-        assert acts.read == [("chuck-herdr-alpha", ["x1", "y1"], "batch/7"), ("mac-studio", ["z1"], "batch/7")]
+        assert plan.batch_made(FLEET, "wldn", facts, acts) == {"2": "up"}
+        assert acts.read == [("chuck-herdr-alpha", ["x1", "y1"]), ("mac-studio", ["z1"])]
         assert [u.get("made") for u in facts["units"]] == [None, [["code", [self.DEMO]]], None, None]
+        up = {"host": "mac-studio", "head": "abc1234", "at": "2026-11-08T12:03:00Z", "state": "up", "name": "crew-z1",
+              "addresses": {"web": "http://w"}}
         assert facts["units"][1]["up"] == {"demo": up}
         err = capsys.readouterr().err
         assert "batch 7's card carries nothing w1 made: no runner has reported taking bolt gone-9's work yet" in err
