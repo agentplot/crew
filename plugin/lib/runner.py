@@ -24,8 +24,8 @@ A fix on a started bolt is a launch of Flume's fix kind on the bolt's branch (fi
 (fixes_in_flight); a started bolt whose landing sluice refused for a conflict with main takes main in by one
 (take_main). A red main's fix is a launch of the fix kind on main with its submission held, taken by the runner that
 keeps the kit (main_fix_launch); its kit's landings row carries it once its code has delivered and its submission
-waits held (main_fixes_waiting), and the user's send of it is the retry of its submission, made once (send_refusal,
-sent_of).
+waits held (main_fixes_waiting), and the user's send of it is its kit's landings card's, carried to the runner as a land
+of its launch (lands_due, sent_of).
 
 A main-level role that runs as its kind has its run read from the runner's records (role_run), and its work that lands
 is a launch of Flume's chore kind on its repository's default branch, the role's address its recipient (role_launch).

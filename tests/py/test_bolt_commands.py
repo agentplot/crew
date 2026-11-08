@@ -518,3 +518,28 @@ class TestCrewBoltsCrossed:
         out = plan.bolts_text(self.data(ran({1: "stopped-short", 2: "sent-back"})))
         assert f"  {'a':<40} {'needs':<12} flume/change--agent-mode-is-a-layered-setting  asks at code: Head 118ec46 is ready" in out
         assert "code 26/26   flume/change--teams-cross-to-flume-as-their-bolts-land  sent back by sluice: check-full failed" in out
+
+
+class TestSubmit:
+    """bolt-teams "A bolt lands on the user's send alone, carried to the runner as a land" (crew-lands-each-bolt-through-
+    flumes-base-place, Decision 1): crew bolt submit is kept as a word and refuses at once, with any arguments, before
+    it reads anything, naming the card's send as the way."""
+
+    @pytest.mark.parametrize("args", [[], ["y"], ["y", "z", "--label", "wldn"], ["y", "--excerpt", "Land y."]])
+    def test_it_refuses_with_any_arguments_before_anything_is_read(self, monkeypatch, args):
+        import crew
+
+        def unread(*a, **k):
+            raise AssertionError("a refused submit reads nothing")
+        for name in ("locate", "default_label", "partition_entries", "plan_of", "runner_facts"):
+            monkeypatch.setattr(plan, name, unread)
+        monkeypatch.setattr(crew, "on_machine", unread)
+        a = plan.parser().parse_args(["bolt", "submit", *args])
+        with pytest.raises(plan.Refusal) as e:
+            plan.bolt_submit(FLEET, a)
+        assert str(e.value) == plan.SUBMIT_REFUSED == (
+            "crew bolt submit lands nothing: a bolt lands on the user's send of its row on its kit's landings card, which "
+            "crew carries to the runner as a land")
+
+    def test_its_refusal_records_no_act(self):
+        assert ("bolt", "submit") not in plan.ACTS

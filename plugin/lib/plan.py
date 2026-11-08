@@ -5786,57 +5786,21 @@ def landing_read_on(fleet, t, label, bolt):
     return r.returncode == 0
 
 
+# What crew bolt submit and crew main fix --send say, refusing at once (crew-lands-each-bolt-through-flumes-base-place,
+# Decisions 1 and 5): a landing is the user's send of its row on its kit's landings card, which crew carries to the
+# runner as a land by its own act, so no command of an agent's lands anything.
+SUBMIT_REFUSED = ("crew bolt submit lands nothing: a bolt lands on the user's send of its row on its kit's landings card, "
+                  "which crew carries to the runner as a land")
+SEND_REFUSED = ("crew main fix --send lands nothing: a fix of main lands on the user's send of its row on its kit's landings "
+                "card, which crew carries to the runner as a land")
+
+
 def bolt_submit(fleet, a):
-    """crew bolt submit <bolt>... [--excerpt "<the user's words>"] [--label L]: main-level ops's landing of one kit's
-    bolts, in the order given (plan.16, record 0026, Decision 6): refused before anything is submitted when they are of
-    two kits, one is named twice, or one is not started (submit_refusal). With --excerpt, the word to land is the
-    user's own words in the caller's pane: read first in the caller's own session transcript on this host, and nothing
-    submitted unless crew reads them as the user's (submit_word_refusal); each landed bolt's bolt.submit then names the
-    transcript record they were read from and their length, never the words (record.3), and this host keeps the words
-    for crew bolt land to close the landing card with (landing_word_keep). Without it, the word is the landing card's
-    send. Each bolt's branch submitted to its kit's main through sluice from
-    a short-lived worktree on the host its work runs on (bolt_at, landing_submitted), the next as soon as sluice has queued it when both
-    are on one host, else once it has ended (submit_order); each then waited on in order, whether it landed read from
-    main now, GitHub's after a fetch for a kit with an origin (landing_said, plan.18), and a landed bolt closed as it
-    lands (landing_ended). Nothing is refused for a host's own main lagging GitHub's: sluice forms the landing on
-    GitHub's main and pushes it with a lease (plan.8). Each bolt's landing pull request is live only on the user's word,
-    which this command is (bolt-teams): a draft one is readied before its submission, nothing of that bolt submitted
-    when it can't be, and one a landing leaves open is drafted before the command says the bolt did not land
-    (landing_unheld). A bolt that did not land is said in sluice's words, and the rest go on; it exits non-zero naming
-    each that did not land. It moves no branch itself, and is run in the background and waited on to its end
-    (code.9). Run in main-level ops's run (design Decision 12), it waits on no landing: each bolt is submitted once the
-    one before is queued, and each queued landing is left to its waiter on the bolt's host, which reads its outcome and
-    asks the roles that run as their kinds, the waiter given no Claude session to end with, since the run's turn ends
-    at once; it exits non-zero only for a bolt that did not land before it was queued."""
-    bolts = list(a.bolt) if isinstance(a.bolt, list) else [a.bolt]
-    label, _, _, plan = locate(fleet, "Bolt", bolts[0], default_label(fleet, a))
-    CONTEXT["label"] = label
-    held = {b: plan.bolt(b) or fail(f"{label}'s plan holds no bolt {b}: crew bolt submit lands one partition's bolts") for b in bolts}
-    teams = {b: bolt_at(fleet, label, held[b]) for b in bolts}
-    why = submit_refusal(bolts, {b: held[b].get("Repo") for b in bolts}, {b: t["machine"] if t else None for b, t in teams.items()})
-    not why or fail(why)
-    words, frm = getattr(a, "excerpt", None), []
-    if words is not None:
-        words.strip() or fail("crew bolt submit needs the user's words: --excerpt \"<their words, as they wrote them>\"")
-        frm = [pane_words(CardActs(fleet), words, lambda v: submit_word_refusal(", ".join(bolts), v))]
-    run = crew.run_here(fleet)
-    wait = not (run and run[1] == "ops")
-    if not wait:  # the landing's waiter outlives the run, whose turn ends once its bolts are queued (Decision 12)
-        os.environ.pop("CLAUDE_PID", None)
-    outcomes, pending = [], []
-    for b, when in submit_order(bolts, {b: teams[b]["machine"] for b in bolts}):
-        if when == "ended" and wait:
-            outcomes += [landing_ended(fleet, label, p, a) for p in pending]
-            pending = []
-        pending.append(dict(landing_submitted(fleet, label, teams[b], b, frm, words), frm=frm))
-    outcomes += [landing_ended(fleet, label, p, a, wait) for p in pending]
-    missed = [b for b, landed in outcomes if landed is False]
-    if missed:
-        landed, left = [b for b, x in outcomes if x], [b for b, x in outcomes if x is None]
-        print(f"{joined(missed)} did not land, as said above; " + "; ".join(
-            ([f"{joined(landed)} landed"] if landed else []) + ([f"{joined(left)} left to the landing's waiter"] if left else [])
-            or ["none landed"]), file=sys.stderr)
-        raise Stopped(1)
+    """crew bolt submit [<bolt>...] [--excerpt "<words>"] [--label L]: kept as a word, so an agent whose brief predates
+    crew's landing through the runner is told the way (crew-lands-each-bolt-through-flumes-base-place, Decision 1): run
+    with any arguments, refused at once, before it reads anything (SUBMIT_REFUSED); its usage still answers --help
+    (code.11)."""
+    fail(SUBMIT_REFUSED)
 
 
 def bolt_leave(fleet, a):
@@ -9681,25 +9645,21 @@ def fix_flume(fleet, w, bolt, mode, name, words):
 
 
 def main_fix(fleet, a):
-    """crew main fix <kit> <name> "<the failure's words>" | --drop | --send [--excerpt "<the user's words>"] [--label
-    L]: a fix of a kit's red main as a Flume place on main (Decision 11 of teams-cross-to-flume-as-their-bolts-land,
+    """crew main fix <kit> <name> "<the failure's words>" | --drop [--label L]: a fix of a kit's red main as a Flume place on main (Decision 11 of teams-cross-to-flume-as-their-bolts-land,
     Decision 15 of the-team-machinery-leaves, state.3), main-level ops's or the user's on reading main's checks red
     after a landing (may_request), a plan write on the asking host that starts nothing there: a launch of Flume's fix
     kind on main, its submission held for the user's send and main-level ops its recipient, in the kit's repository for
     a runner whose configuration names it to take in the stream its host maps it to (the user's ruling of 2026-11-01;
     runner.main_fix_launch), refused naming state.3's way, a bolt of one chore proposed first among the planned, where
-    no runner answers for the partition; --drop a drop of
-    its launch (runner.fix_drop_refusal); --send, ops's on the user's send of the kit's landings row, the retry of its
-    submission once its code has delivered and the submission waits held, made once (runner.send_refusal), the user's
-    words with --excerpt read first in the caller's own transcript as crew bolt submit reads them (pane_words), nothing
-    sent unless crew reads them as the user's, and without it the word being the row's send (plan.16, roles.2). The
-    kit's partition is the one whose plan or landings name it (partition_kits), --label choosing. Recorded as fix.start, fix.drop or fix.merge on
-    fix/main/<kit>/<name>, done or refused, a send's naming the transcript record the words were read from and their
-    length, none of the words (record.3)."""
-    mode = "drop" if a.drop else "send" if a.send else "start"
-    (a.words is not None) + a.drop + a.send == 1 or fail(
-        'crew main fix takes the failure\'s words, --drop or --send: crew main fix <kit> <name> "<words>" | --drop | --send')
-    a.excerpt is None or mode == "send" or fail("--excerpt carries the user's words a fix of main is sent on, with --send")
+    no runner answers for the partition; --drop a drop of its launch (runner.fix_drop_refusal). --send, with or without
+    --excerpt, is refused at once, before anything is read (SEND_REFUSED): the fix lands on the user's send of its row
+    on its kit's landings card, which crew carries to the runner as a land (lands_change; crew-lands-each-bolt-through-
+    flumes-base-place, Decision 5). The kit's partition is the one whose plan or landings name it (partition_kits),
+    --label choosing. Recorded as fix.start or fix.drop on fix/main/<kit>/<name>, done or refused."""
+    not (a.send or a.excerpt is not None) or fail(SEND_REFUSED)  # before anything is read (Decision 5)
+    mode = "drop" if a.drop else "start"
+    (a.words is not None) + a.drop == 1 or fail(
+        'crew main fix takes the failure\'s words or --drop: crew main fix <kit> <name> "<words>" | --drop')
     crew.NAME.match(a.name) or fail("a fix is named with lowercase words and dashes")
     label = default_label(fleet, a)
     labels = [l for l in ([label] if label else sorted(fleet["partitions"])) if kit_in(a.kit, kits_read(fleet, l))]
@@ -9709,13 +9669,10 @@ def main_fix(fleet, a):
     CONTEXT["label"] = label = labels[0]
     kit_name = a.kit.split("/")[-1]
     repo = next(k for k in kits_read(fleet, label) if kit_in(a.kit, [k]))
-    on, act, seen = [f"fix/main/{kit_name}/{a.name}"], {"start": "fix.start", "drop": "fix.drop", "send": "fix.merge"}[mode], {}
+    on, act, seen = [f"fix/main/{kit_name}/{a.name}"], {"start": "fix.start", "drop": "fix.drop"}[mode], {}
     frm, fields = [], {}
     try:
         (a.words or "").strip() or mode != "start" or fail(f"crew main fix needs the failure's words: crew main fix {kit_name} {a.name} \"<words>\"")
-        if a.excerpt is not None:
-            a.excerpt.strip() or fail("crew main fix --send needs the user's words: --excerpt \"<their words, as they wrote them>\"")
-            frm, fields = [pane_words(CardActs(fleet), a.excerpt, lambda v: send_word_refusal(a.name, v))], {"Chars": len(a.excerpt)}
 
         def change(w):
             seen.update(main_fix_change(fleet, w, repo, a.name, mode, a.words))
@@ -9727,10 +9684,6 @@ def main_fix(fleet, a):
     if mode == "drop":
         print(f"fix main--{a.name} of {kit_name}'s main is dropped (request {seen['n']}): {took(seen['host'])} drops its place")
         return
-    if mode == "send":
-        print(f"fix main--{a.name} of {kit_name}'s main is sent on the user's word (request {seen['n']}): {took(seen['host'])} "
-              "submits it to main through sluice")
-        return
     print(f"fix main--{a.name} is launched on {kit_name}'s main in {repo} (request {seen['n']}) for a runner whose configuration "
           f"names it to take, its submission held for the user's send: once its code has delivered, {kit_name}'s landings row carries it")
 
@@ -9738,20 +9691,12 @@ def main_fix(fleet, a):
 def main_fix_change(fleet, w, repo, name, mode, words):
     """crew main fix's change to a write (main_fix), each fact read again at the tip it is applied to (plan.1): for a
     new fix, a runner answering for the partition and the launch appended in the kit's repository (repo, as the
-    partition's kits name it; runner.main_fix_launch); for --drop, its launch's drop (runner.fix_drop_refusal); for
-    --send, the retry of its submission (runner.send_refusal); each stage read from the runner that took it as the write
-    reads them. Returns what it asked, {n, host}: host, the runner's that took the launch, where crew can tell."""
+    partition's kits name it; runner.main_fix_launch); for --drop, its launch's drop (runner.fix_drop_refusal), its
+    stage read from the runner that took it as the write reads them; the user's send of it is its kit's landings card's
+    (lands_change). Returns what it asked, {n, host}: host, the runner's that took the launch, where crew can tell."""
     kit = repo.split("/")[-1]
     requests = requests_of(w).recs("Request")
     work = f"fix/main/{kit}/{name}"
-    if mode == "send":
-        launch = runner.launch_of(requests, work)
-        reads = w.runners()
-        s, sent = (runner.piece_stage(requests, reads, launch), runner.sent_of(requests, reads, launch)) if launch is not None else (None, None)
-        why = runner.send_refusal(work, launch, s, sent)
-        not why or fail(why)
-        w.subject = f"plan(main): send fix {name} of {kit}"
-        return dict(n=request(w, "retry", work, Of=launch.get("Request"), Submission=True), host=w.taker(launch))
     if mode == "drop":
         launch = runner.launch_of(requests, work)
         s = runner.piece_stage(requests, w.runners(), launch) if launch is not None else None
@@ -16542,9 +16487,9 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x = bo.add_parser("land")
     x.add_argument("bolt")
     x.add_argument("--label")
-    x = bo.add_parser("submit")
-    x.add_argument("bolt", nargs="+")
-    x.add_argument("--excerpt", help="the user's words in your pane that said to land them, as they wrote them")
+    x = bo.add_parser("submit")  # a refusal alone, whatever it is given (bolt_submit)
+    x.add_argument("bolt", nargs="*")
+    x.add_argument("--excerpt")
     x.add_argument("--label")
     x = bo.add_parser("leave")
     x.add_argument("bolt", nargs="+")
@@ -16777,7 +16722,7 @@ HOST_COMMANDS = {(c, None) for c in ("_sweep", "_main", "_review", "_console", "
 # The act a command that moves work records, done or refused. A command that only reads records nothing.
 ACTS = {
     ("state", "init"): "state.init", ("bolt", "new"): "bolt.new", ("bolt", "start"): "bolt.start", ("bolt", "order"): "bolt.order",
-    ("bolt", "drop"): "bolt.drop", ("bolt", "land"): "bolt.land", ("bolt", "submit"): "bolt.submit", ("bolt", "leave"): "bolt.leave",
+    ("bolt", "drop"): "bolt.drop", ("bolt", "land"): "bolt.land", ("bolt", "leave"): "bolt.leave",
     ("unit", "add"): "unit.add", ("unit", "split"): "unit.split",
     ("unit", "amend"): "unit.amend",
     ("unit", "order"): "unit.order", ("unit", "after"): "unit.after", ("unit", "move"): "unit.move", ("unit", "drop"): "unit.drop",
@@ -16827,8 +16772,12 @@ def main(argv):
     crew.answer_usage(ap, argv)
     need_recutils()
     args = ap.parse_args(argv)
-    fleet = crew.load()
     key = (args.cmd, getattr(args, "sub", None))
+    # a landing is the user's send on its kit's landings card alone: these refuse whoever asks, before anything is read,
+    # the teams file among it (crew-lands-each-bolt-through-flumes-base-place, Decisions 1 and 5)
+    key != ("bolt", "submit") or fail(SUBMIT_REFUSED)
+    not (key == ("main", "fix") and (args.send or args.excerpt is not None)) or fail(SEND_REFUSED)
+    fleet = crew.load()
     if key in HOST_COMMANDS:  # one process says what each of its steps did, in the order they did it
         sys.stdout.reconfigure(line_buffering=True)
     try:
