@@ -12,7 +12,7 @@ Build the groups in order. Sync the tests' venv once before the first check: `de
 
 ## 2. What a card says
 
-- [ ] 2.1 A landing row and a batch line say a preview asked, waiting for room, coming up, up, failed with no output, refused in the runner's or sluice's words, no longer listed or unread, and no longer say "No preview." (design Decision 4; Task notes 2.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_cards.py -k "preview or made"`.
+- [x] 2.1 A landing row and a batch line say a preview asked, waiting for room, coming up, up, failed with no output, refused in the runner's or sluice's words, no longer listed or unread, and no longer say "No preview." (design Decision 4; Task notes 2.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_cards.py -k "preview or made"`.
 
 ## 3. The commands
 

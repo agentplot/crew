@@ -1106,21 +1106,6 @@ class TestLandingPreview:
         card = built.landings_card(dict(kit="k", rows=[row["facts"]]))["card"]
         assert {"label": "Preview: web", "url": "http://web.example"} in card["context"]["links"]
 
-    def test_a_kit_declaring_none_is_handed_to_the_act_as_none(self, monkeypatch):
-        """rail-cards "A kit that declares none"."""
-        acts = ReadingActs(preview={"head": LANDING["head"], "none": True})
-        assert self.row(monkeypatch, acts, (False, None))["facts"]["preview"] == {"head": LANDING["head"], "none": True}
-        assert acts.previews == [("wldn", "land/b1", LANDING["head"], False, None)]
-
-    def test_a_policy_crew_cannot_read_is_handed_to_the_act_with_why_and_the_row_raised(self, monkeypatch):
-        """rail-cards "The policy can't be read": the row keeps its box."""
-        why = "git show in /kit/main on mac-studio failed: fatal: bad object abc1234"
-        acts = ReadingActs(preview={"head": LANDING["head"], "why": why, "policy": True})
-        row = self.row(monkeypatch, acts, (None, why))
-        assert row["box"] and acts.previews == [("wldn", "land/b1", LANDING["head"], None, why)]
-        card = built.landings_card(dict(kit="k", rows=[row["facts"]]))["card"]
-        assert f"Whether abc1234 has a preview to try can't be told: {why}." in card["context"]["background"]
-
     def test_a_previews_change_hands_the_card_it_was_asked_from_its_note(self, monkeypatch):
         """rail-cards "The host is busy when the card is raised" and "A line naming a branch sluice does not land": a
         kit's landings card raised with the note, a batch's card with its own."""
@@ -1464,26 +1449,55 @@ class TestLanding:
                 f"web: {self.WEB}\napi: {self.API}\n\n") in c["context"]["background"]
         assert [a["title"] for a in c["artifacts"][2:4]] == ["Preview: web", "Preview: api"]
 
-    def test_a_preview_that_failed_says_so_with_the_end_of_its_output_and_lists_no_address(self):
-        """rail-cards "The stack fails to come up"."""
-        output = "".join(f"step {i}: building the stack's images, which takes its time\n" for i in range(8)) + "error: port 4321 in use\n"
+    def test_a_preview_that_failed_says_it_did_not_come_up_with_no_output_and_lists_no_address(self):
+        """rail-cards "The stack fails to come up": the runner carries no output of sluice's command."""
         bare = landing(link=self.READ)["card"]
-        c = landing(link=self.READ, preview=dict(self.PREVIEW, state="failed", output=output))["card"]
+        c = landing(link=self.READ, preview={"head": "4581216abcdef", "host": "deneb", "state": "failed"})["card"]
         said = c["context"]["background"].split("\n\n")[2]
-        assert said == ("A preview of 4581216 was asked for and is not there: step 6: building the stack's images, which takes "
-                        "its time / step 7: building the stack's images, which takes its time / error: port 4321 in use. Nothing "
-                        "waits on it.")
+        assert said == ("A preview of 4581216 was asked for and is not there: it did not come up, as sluice on deneb lists it. "
+                        "Nothing waits on it.")
         assert "Preview:" not in json.dumps(c) and c["artifacts"] == bare["artifacts"]
         self.same_but_details(c, bare)
 
-    def test_a_preview_not_asked_says_why_and_the_card_is_raised_all_the_same(self):
-        """rail-cards "The host's sluice has no preview command"."""
-        why = "sluice exited 2: unrecognized subcommand 'preview'"
-        bare, c = landing()["card"], landing(preview={"head": "4581216abcdef", "why": why})["card"]
-        assert c["context"]["background"] == (f"A preview of 4581216 was asked for and is not there: {why}. Nothing waits on it.\n\n"
-                                              + bare["context"]["background"])
-        assert c["artifacts"] == bare["artifacts"] and c["context"]["links"] == bare["context"]["links"]
+    def test_a_preview_crew_cant_read_says_why_and_the_card_is_raised_all_the_same(self):
+        why = "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec holds request 12 twice"
+        bare = landing()["card"]
+        for p in ({"head": "4581216abcdef", "why": why}, {"head": "4581216abcdef", "host": "deneb", "state": "unread", "why": why}):
+            c = landing(preview=p)["card"]
+            assert c["context"]["background"] == (f"A preview of 4581216 was asked for and is not there: {why}. Nothing waits on it.\n\n"
+                                                  + bare["context"]["background"])
+            assert c["artifacts"] == bare["artifacts"] and c["context"]["links"] == bare["context"]["links"]
+            self.same_but_details(c, bare)
+
+    def test_a_preview_asked_says_whose_runner_brings_it_up_and_that_it_is_not_there_yet(self):
+        """rail-cards "Not answered yet"."""
+        bare = landing(link=self.READ)["card"]
+        c = landing(link=self.READ, preview={"head": "4581216abcdef", "host": "deneb", "state": "asked"})["card"]
+        assert c["context"]["background"].split("\n\n")[2] == (
+            "A preview of 4581216 is asked of the runner on deneb, which brings it up at its next pass; it is not there yet. "
+            "Nothing waits on it.")
+        assert c["artifacts"] == bare["artifacts"]
         self.same_but_details(c, bare)
+
+    def test_a_preview_held_says_it_waits_for_room_on_its_host(self):
+        """rail-cards "The host is busy when the card is raised"."""
+        c = landing(preview={"head": "4581216abcdef", "host": "deneb", "state": "held"})["card"]
+        assert c["context"]["background"].startswith(
+            "A preview of 4581216 waits for room on deneb; its runner asks for it again at its next pass. Nothing waits on it.\n\n")
+
+    def test_a_preview_refused_says_so_in_the_runners_or_sluices_words(self):
+        """rail-cards "The runner refuses the preview", "A kit that declares no preview"."""
+        words = "its Act preview, which crew's implementation does not read"
+        c = landing(preview={"head": "4581216abcdef", "host": "deneb", "state": "refused", "words": words})["card"]
+        assert c["context"]["background"].startswith(
+            f"A preview of 4581216 was asked for and is not there: it could not be brought up on deneb: {words}. Nothing waits on it.\n\n")
+        assert "Preview:" not in json.dumps(c)
+
+    def test_a_preview_sluice_no_longer_lists_says_so(self):
+        """rail-cards "A preview sluice no longer lists"."""
+        c = landing(preview={"head": "4581216abcdef", "host": "deneb", "state": "unlisted"})["card"]
+        assert c["context"]["background"].startswith(
+            "A preview of 4581216 was asked for and is not there: sluice on deneb no longer lists it. Nothing waits on it.\n\n")
 
     def test_a_preview_of_nine_addresses_keeps_the_cards_face_at_eight_artifacts(self):
         many = {f"site{i}": f"http://site{i}-4581216.localhost:{4320 + i}" for i in range(9)}
@@ -1509,24 +1523,13 @@ class TestLanding:
         assert c["artifacts"] == bare["artifacts"] and c["context"]["links"] == bare["context"]["links"]
         self.same_but_details(c, bare)
 
-    def test_a_row_whose_kit_declares_none_says_no_preview(self):
-        """rail-cards "A kit that declares none"."""
-        c = landing(preview={"head": "4581216abcdef", "none": True})["card"]
-        assert c["context"]["background"].startswith("No preview.\n\n")
-
-    def test_a_policy_crew_cannot_read_says_its_preview_cant_be_told_and_why(self):
-        """rail-cards "The policy can't be read"."""
-        why = "git show in /kit/main on mac-studio failed: fatal: bad object 4581216"
-        c = landing(preview={"head": "4581216abcdef", "why": why, "policy": True})["card"]
-        assert c["context"]["background"].startswith(f"Whether 4581216 has a preview to try can't be told: {why}.\n\n")
-
     def test_a_moved_head_says_the_old_ones_preview_was_released(self):
-        """rail-cards "The head moves with a preview up"."""
+        """rail-cards "The head moves with a preview up"; and one put away at this head, "The user is done"."""
         c = landing(preview={"branch": "bolt/y", "head": "4581216abcdef", "state": "ask", "released": "abc1234000"})["card"]
         assert ("Try it running from bolt/y at 4581216: write on this card to bring it up, and that you are done to put it "
                 "away. It is not held while the card waits. Its preview of abc1234 was released as the head moved.") in c["context"]["background"]
-        c = landing(preview={"head": "4581216abcdef", "none": True, "released": "4581216abcdef"})["card"]
-        assert c["context"]["background"].startswith("No preview. Its preview of 4581216 was put away.\n\n")
+        c = landing(preview={"branch": "bolt/y", "head": "4581216abcdef", "state": "ask", "released": "4581216abcdef"})["card"]
+        assert "It is not held while the card waits. Its preview of 4581216 was put away.\n\n" in c["context"]["background"]
 
 
 def landings_row(bolt, head="abc1234def", **more):
@@ -1679,15 +1682,15 @@ class TestLandings:
         assert "- a\n- b\n- c (chore)" in face
         assert [l["label"] for l in b["card"]["context"]["links"]][:2] == ["Read y", "Preview y: web"]
 
-    def test_each_rows_paragraph_names_what_brings_its_preview_up_or_says_it_has_none(self):
+    def test_each_rows_paragraph_names_what_brings_its_preview_up_or_what_the_runner_reports_of_it(self):
         """rail-cards "A landing row carries what brings its bolt's preview up": on a list of rows, each row's own."""
         rows = [landings_row("y", preview={"branch": "bolt/y", "head": "abc1234def", "state": "ask"}),
-                landings_row("z", preview={"head": "abc1234def", "none": True})]
+                landings_row("z", preview={"head": "abc1234def", "host": "deneb", "state": "asked"})]
         b = built.landings_card(dict(kit="crew", rows=rows))
         face = "\n".join(b["card"]["artifacts"][0]["lines"])
         assert ("Try it running from bolt/y at abc1234: write on this card to bring it up, and that you are done to put it "
                 "away. It is not held while the card waits.") in face.split("**2. z**")[0]
-        assert "No preview." in face.split("**2. z**")[1]
+        assert "A preview of abc1234 is asked of the runner on deneb" in face.split("**2. z**")[1]
         assert not any(l["label"].startswith("Preview") for l in b["card"]["context"]["links"])
 
     def test_a_card_holds_at_most_pending_yous_artifacts(self):
@@ -2519,6 +2522,20 @@ class TestBatch:
         assert built.TRY == ("To try it running, write on this card naming it; it is put away when you write that you are "
                              "done, or when this card closes.")
         assert not any(a["kind"] == "url" and "example.test" in a["ref"] for a in c["artifacts"])
+
+    @pytest.mark.parametrize("p, said", [
+        ({"head": "abc1234", "host": "deneb", "state": "asked"}, "it is asked of the runner on deneb"),
+        ({"head": "abc1234", "host": "deneb", "state": "held"}, "it waits for room on deneb"),
+        ({"head": "abc1234", "name": "crew-a", "state": "starting", "addresses": {"web": "http://w"}}, "coming up at web http://w; it lands nothing"),
+        ({"head": "abc1234", "host": "deneb", "state": "failed"}, "it could not be brought up: sluice on deneb lists it failed"),
+        ({"head": "abc1234", "host": "deneb", "state": "refused", "words": "no [branches] table names unit/a."},
+         "it could not be brought up: no [branches] table names unit/a"),
+        ({"head": "abc1234", "host": "deneb", "state": "unlisted"}, "sluice on deneb no longer lists it"),
+        ({"head": "abc1234", "why": "deneb's runner can't be read"}, "it could not be brought up: deneb's runner can't be read")])
+    def test_a_lines_preview_says_what_the_runner_reports_of_it(self, p, said):
+        """rail-cards "A line naming a branch sluice does not land" and the states under a batch line (Decision 4)."""
+        assert built.made_said("u1", [["code", [self.DEMO]]], {"demo": p}) == [
+            f"- `code`: demo, preview, brought up from bolt/y at abc1234; {said}"]
 
     def test_a_batch_whose_units_made_nothing_says_nothing_of_made_things(self):
         c = built.batch_card(dict(n=7, previous=6, units=[dict(u, made=[]) for u in BATCH_UNITS[:2]], link=None))["card"]
