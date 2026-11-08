@@ -1150,8 +1150,11 @@ def kept_stamp(kept, left, asks, listed):
 
 def card_left(swept):
     """Whether a card sweep (plan.sweep_cards) left a card or a partition unswept, its act not gone through: what the
-    clock's next tick tries again (cards_stamp)."""
-    return bool(swept) and (any(d["did"] == "left" for d in swept["done"]) or bool(swept["unswept"]))
+    clock's next tick tries again (cards_stamp). A landings card left as the user answered it, waiting on its owner to
+    land what they ticked (plan.WAITS_ON_OWNER), is no act that did not go through: the landing's own entry moves the
+    record, and the read after it sweeps the card."""
+    return bool(swept) and (any(d["did"] == "left" and not (d["words"] or "").startswith(plan.WAITS_ON_OWNER) for d in swept["done"])
+                            or bool(swept["unswept"]))
 
 
 def queue_key(doc):

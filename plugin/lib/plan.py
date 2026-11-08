@@ -11495,10 +11495,30 @@ def question_cards(cards, unread):
     return sorted((c for c in cards if card_kind(c["key"]) == "question" and not unjudged(unread, c)), key=lambda c: (c["at"], c["card"]))
 
 
+# What the sweep says first of a kit's landings card it leaves open as the user answered it, waiting on its owner to
+# land what they ticked (sweep_cards, send_waits): no act of the sweep's that did not go through (board.card_left).
+WAITS_ON_OWNER = "answered: "
+
+
+def send_waits(entries, card):
+    """The bolts the user's send on a kit's landings card still waits to land (rail-cards "The sweep leaves an answered
+    landings card while a bolt it ticked waits to land", design Decision 5): each its card.answer's Heads name, the
+    first recorded, with no bolt.land or bolt.drop of it since, none refused; [] when the run record (entries) holds no
+    answer of the card, or one ticking none. A decision of facts alone (code.7)."""
+    answer = next((e for e in entries if e.get("Act") == "card.answer" and e.get("Card") == card and not e.get("Refused")), None)
+    if answer is None:
+        return []
+    since = answer.get("At") or ""
+    ended = {o[5:] for e in entries if e.get("Act") in ("bolt.land", "bolt.drop") and not e.get("Refused") and (e.get("At") or "") >= since
+             for o in e.get("On") or [] if o.startswith("bolt/")}
+    return [b for b, _, _ in card_heads(answer.get("Heads")) if b not in ended]
+
+
 def stray_cards(fleet, found, sv, rows, cards, unread, logs=None, runs=None):
     """The open cards under a row's key that match no row, oldest first: never a decision record's (record_cards) nor
     a question (question_cards), nor a deploy's whose word stands, from each partition's entries (logs), which the
-    deploy's end closes (ops.word_stands). A card is left out when whether it has a row can't be known: its partition's
+    deploy's end closes (ops.word_stands), nor a kit's landings card the user answered while a bolt their send ticked
+    waits to land (send_waits), which waits on its owner and is listed with the answered cards. A card is left out when whether it has a row can't be known: its partition's
     record could not be read from its branch, so its close may not have been read, or it is a land card of a bolt whose
     host did not answer (runs, the read's runners, rail_runs). A verify report's card, posted before its row went (teams.17), matches none."""
     import ops  # its decision of a deploy's card alone
@@ -11507,6 +11527,8 @@ def stray_cards(fleet, found, sv, rows, cards, unread, logs=None, runs=None):
         if (c["label"], c["key"]) in rowed or card_kind(c["key"]) != "row" or unjudged(unread, c):
             continue
         if ops.word_stands(c["key"], (logs or {}).get(c["label"], [])):
+            continue
+        if re.fullmatch(r"land/[a-z0-9][a-z0-9-]*", c["key"] or "") and send_waits((logs or {}).get(c["label"], []), c["card"]):
             continue
         if c["key"] and blind_land(fleet, c["label"], plans_[c["label"]], sv, c["key"], runs):
             continue
@@ -11719,13 +11741,17 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     (cards.role_left), to withdraw in its owner's name with the words that say so (cards.left_said), and none judged
     so with no labels handed; such a card cards no row, so its row is posted in its owner's name as a row with none.
     And each decision record's card still open, its record not settled, whose answer the sweep reads in its owner's
-    name (records, cards_owned).
+    name (records, cards_owned). A kit's landings card whose row is gone is not judged gone while the user's answer on
+    it holds a bolt that has neither landed nor been dropped since (send_waits): its row's absence is one read, a kit not
+    read or a head not yet read, and taking the wait as ended from it is a guess (read.1); it is left waiting on its
+    owner to land those bolts (waiting_on_owner, design Decision 5).
     Returns {gone: [(card, outcome, reason)], questions: [card], held: [(card, row)], none: [row], again: [(row, older
-    card)], settled: [(key, why)], unread: [(card, row)], left_fleet: [(card, words)], records: [card]}."""
+    card)], settled: [(key, why)], unread: [(card, row)], left_fleet: [(card, words)], records: [card],
+    waiting_on_owner: [(card, bolts)]}."""
     import ops  # its decision of a deploy's card alone
     rowed = {r["key"]: r for r in rows}
     out = {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [], "unread": [], "left_fleet": [],
-           "records": []}
+           "records": [], "waiting_on_owner": []}
 
     def left(c):  # a card of crew's own whose owner left the fleet (cards.role_left)
         return labels is not None and bool(cards.row_object(c["key"] or "")) and cards.role_left(c["by"], labels)
@@ -11748,6 +11774,8 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
             out["held"].append((c, rowed[c["key"]]))
             if re.fullmatch(r"(batch|proposal)/\d+|land/[a-z0-9][a-z0-9-]*", c["key"]) and reading_unread(entries, c["key"], c["card"], now):
                 out["unread"].append((c, rowed[c["key"]]))
+        elif (land_key(c["key"], kits) or (None,))[0] == "kit" and send_waits(entries, c["card"]):
+            out["waiting_on_owner"].append((c, send_waits(entries, c["card"])))
         elif (not (c["key"].startswith("land/") and c["key"].split("/")[1] in blind) and not refused_lately(entries, now, card=c["card"])
               and not ops.word_stands(c["key"], entries) and not older_than_card(c["key"], proposed)):
             out["gone"].append((c, *row_gone(c["key"], entries, kits, kit_of, renames)))
@@ -15634,8 +15662,9 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
         except Refusal as e:
             did(l, row["key"], None, owner, "left", f"its raise refused: {e}")
             return None, None
+    recorded = {}  # each partition's run record with the answers this sweep recorded
     for l, owners, j in judged:  # the user's answers its owners' reads found, recorded first (Decision 1)
-        es = (logs.get(l) or []) + acts.entries(l)
+        es = recorded[l] = (logs.get(l) or []) + acts.entries(l)
         for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"] + j["records"]:
             got, words = mine.get(c["card"], (None, None))
             if words is not None or not isinstance(got, dict) or got.get("status") != "answered":
@@ -15648,8 +15677,13 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
                 es.append(dict(Act="card.answer", By=c["by"], **seen))
                 did(l, c["key"], c["card"], c["by"], "answered", seen["Answer"])
     for l, owners, j in judged:
+        kits = (read.get("kits") or {}).get(l, ())
+        for c, bolts in j["waiting_on_owner"] + [(c, send_waits(recorded[l], c["card"])) for c, *_ in j["gone"]
+                                                 if (land_key(c["key"], kits) or (None,))[0] == "kit" and send_waits(recorded[l], c["card"])]:
+            did(l, c["key"], c["card"], c["by"], "left", f"{WAITS_ON_OWNER}waits on {c['by']} to land {joined(bolts)}")
+        waiting = {d["card"] for d in out["done"] if d["label"] == l and d["did"] == "left" and d["words"].startswith(WAITS_ON_OWNER)}
         for c, outcome, reason in j["gone"]:
-            if c["card"] not in found:
+            if c["card"] not in found or c["card"] in waiting:
                 continue
             words = found[c["card"]][1]
             if cards.lost(words):
