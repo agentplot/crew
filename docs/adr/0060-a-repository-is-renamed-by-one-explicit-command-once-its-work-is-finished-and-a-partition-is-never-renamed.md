@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-07
 decision-makers: the user (a repository is renamed in crew by one explicit command once its work is finished; a partition is never renamed); the design agent (what the command renames and refuses, from record 0055's reading)
 ---
 
 # 0060. A repository is renamed by one explicit command once its work is finished, and a partition is never renamed
 
-Status: proposed to the user on 2026-11-07, as `briefs.15` has it; accepted only on their yes.
+Status: accepted by the user on 2026-11-07, on their card.
 
 Deciders: the user, 2026-11-07. In agentplot-operator's pane, on the change `crew-renames-no-kit`: "To be clear I'm referring to renaming the repos. I think we do want a rename function for renaming the state but it would be something that's done explicitly. Just to rename the state, it should be simple. Now that I think about it, I don't know how to coordinate that with removing the repo and adding it back so I don't know what to do about that". On agentplot-design's card, of the repository: "One explicit crew command, after the work is finished". Of a partition: "I don't think we want to have a partition rename. I imagine that in the cloud we'd have a slug that either can't be changed or we'd refer to and use a UUID on disk (although it would be easier for the user to navigate the folders if it was a slug)". What the command renames, what it refuses and the order around it are the design agent's, from record 0055's reading of crew's records.
 
