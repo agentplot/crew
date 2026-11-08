@@ -17,6 +17,8 @@
   crew.py found <agent>               an agent of this host as herdr lists it, one JSON object, its name given back in
                                       the pane crew keeps for it when herdr dropped it there from the session crew
                                       started (read_agent from another host)
+  crew.py _release                    what this crew is, crew_read of its own root, as one line of JSON, read before the
+                                      teams file and reading nothing else (crew _release)
   crew.py run-name                    the name and partition of the role's run FLUME_PLACE is, as shell assignments of
                                       CREW_AGENT and CREW_LABEL; nothing for a place that is no run
 
@@ -1252,11 +1254,11 @@ def crew_repository():
 
 
 def crew_on(fleet, host, here, repo):
-    """The crew command on a host, crew being the repository repo (owner/name): this crew's own where host is here,
-    else the one in the checkout of repo the host's sessions keep, as kept_on finds it. Refused where no session there
-    keeps repo, naming it, since crew can't run there (read.1)."""
+    """The crew command on a host, crew being the repository repo (owner/name): the crew this host has installed where
+    host is here (crew_command), else the one in the checkout of repo the host's sessions keep, as kept_on finds it.
+    Refused where no session there keeps repo, naming it, since crew can't run there (read.1)."""
     if host == here:
-        return str(HOME / "plugin/bin/crew")
+        return crew_command()
     c = kept_on(fleet, host, repo) or fail(f"none of {host}'s sessions keeps {repo}, the repository crew is, so crew can't run there")
     return f"{c}/plugin/bin/crew"
 
@@ -1439,8 +1441,10 @@ SENDERS = ("A message in your pane that begins `[crew tell from <name>]` was sen
 
 # How anything for another partition is sent, beside every brief's roster (briefs.10): to that partition's operator,
 # its one door, and to nobody else.
-SENDS = (f"`{HOME}/plugin/bin/crew send <partition> \"<text>\"`, which reaches that partition's operator, its one door, "
-         "and to nobody else")
+def sends(cmd):
+    """How a brief says anything for another partition is sent, by crew's command cmd."""
+    return (f"`{cmd} send <partition> \"<text>\"`, which reaches that partition's operator, its one door, "
+            "and to nobody else")
 
 # How an agent reports results, the same in every brief that reports them.
 RESULTS = ("## Test, check and proof results\n\n"
@@ -1498,7 +1502,7 @@ def turn_said(p, defn):
 
 def main_tokens(fleet, p, role, self_name):
     import plan  # plan imports this module
-    label, host, cmd = p["label"], this_host(), f"{HOME}/plugin/bin/crew"
+    label, host, cmd = p["label"], this_host(), crew_command()
     # The partition's kits, the repositories its plan and its landings name, as crew's cache holds its branch (plan.12),
     # and those its main level's host keeps a checkout of (Decision 3 of the-team-machinery-leaves).
     named = plan.kits_read(fleet, label, False)
@@ -1534,7 +1538,7 @@ def main_tokens(fleet, p, role, self_name):
         f"bolts and posts its review batches; `{label}-reviewer`, started fresh for each batch, summarizes its changes; `{label}-ops` lands "
         f"proven bolts on the user's send on each kit's landings card; and `{label}-operator`, the partition's door, works for the user. "
         f"Any of these is reached with `{cmd} tell <agent> \"<text>\"`, wherever it runs; "
-        f"anything for another partition is sent with {SENDS}. {SENDERS}")
+        f"anything for another partition is sent with {sends(cmd)}. {SENDERS}")
     return tok
 
 
@@ -1796,11 +1800,41 @@ def head_here(root=None):
     return (r.stdout.strip() or None) if r.returncode == 0 else None
 
 
-def crew_version(root=None):
-    """This host's crew: (its checkout's commit, its version), the version being the release tag at or before the
-    commit, with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when
-    git can't read the checkout."""
-    root = str(root or HOME)
+# A build's release file, beside the code that reads it in the plugin folder a session loads: the commit crew's flake was
+# built from and the package's version (crew-flake), written by the build alone and never kept in the tree (code.10).
+RELEASE = "plugin/release.json"
+COMMIT = re.compile(r"[0-9a-f]{40}")
+# A package version that is a release's, as crew's tags name one without their v.
+RELEASED = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+
+
+def release_read(text):
+    """A build's release file checked field by field (read.2): ({"commit", "version"}, None), or (None, why) when it is
+    not a JSON object naming a full commit and a version."""
+    try:
+        got = json.loads(text)
+    except ValueError:
+        return None, "the release file is not JSON"
+    if not isinstance(got, dict):
+        return None, "the release file is not a JSON object"
+    commit, version = got.get("commit"), got.get("version")
+    if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
+        return None, "the release file names no commit"
+    if not isinstance(version, str) or not version:
+        return None, "the release file names no version"
+    return {"commit": commit, "version": version}, None
+
+
+def release_version(version, commit):
+    """The version crew shows for a build, as git describe gives a checkout's: v<x.y.z> where the package's version is a
+    release's, and otherwise the version with the commit's first seven characters, so two builds of a day read apart."""
+    return f"v{version}" if RELEASED.fullmatch(version) else f"{version}+{commit[:7]}"
+
+
+def git_version(root):
+    """A checkout's (commit, version) as git reads them, the version being the release tag at or before the commit,
+    with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when git
+    can't read the checkout."""
     r = subprocess.run(["git", "-C", root, "describe", "--tags", "--long", "--match", "v[0-9]*", "--abbrev=40", "HEAD"],
                        capture_output=True, text=True)
     m = re.fullmatch(r"(v[0-9]\S*)-([0-9]+)-g([0-9a-f]{40})", r.stdout.strip()) if r.returncode == 0 else None
@@ -1808,6 +1842,154 @@ def crew_version(root=None):
         return m.group(3), m.group(1) + ("" if m.group(2) == "0" else f"+{m.group(2)}")
     r = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True, text=True)
     return (r.stdout.strip() or None, None) if r.returncode == 0 else (None, None)
+
+
+def crew_read(root=None):
+    """What a crew root is, as facts: {root, commit, version, from, unread}. A checkout, where root/.git is there, a
+    folder or a linked worktree's file, read by git, from "checkout"; else a build whose release file is there, read
+    from it, from "release"; else nothing, from None. Whether root is a checkout is read from root/.git alone, never
+    from git's search upward, so a build kept under some repository is never read as it. unread says why nothing was
+    read, None when a commit was (read.1)."""
+    root = pathlib.Path(root or HOME)
+    out = {"root": str(root), "commit": None, "version": None, "from": None, "unread": None}
+    if (root / ".git").exists():
+        commit, version = git_version(str(root))
+        out.update({"commit": commit, "version": version, "from": "checkout"})
+        if not commit:
+            out["unread"] = f"git can't read the checkout {root}"
+        return out
+    path = root / RELEASE
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        out["unread"] = f"{root} has neither git nor a release file, {RELEASE}"
+        return out
+    except OSError as e:
+        out["unread"] = f"crew can't read {path}: {e.strerror or e}"
+        return out
+    got, why = release_read(text)
+    if got is None:
+        out["unread"] = f"{why} ({path})"
+        return out
+    out.update({"commit": got["commit"], "version": release_version(got["version"], got["commit"]), "from": "release"})
+    return out
+
+
+def crew_version(root=None):
+    """A crew's (commit, version) as crew_read reads them where it runs: a checkout's from git, a build's from its
+    release file; both None where it reads neither."""
+    got = crew_read(root)
+    return got["commit"], got["version"]
+
+
+# The Nix store: a folder in it names one build forever, so a crew there is never the one a host has installed.
+STORE = "/nix/store/"
+
+
+def installed_command(home, checkout, found):
+    """The command of the crew the host has installed, from facts (code.7): where crew runs from a checkout, its own
+    plugin/bin/crew, the checkout being what this host runs and moves; otherwise the crew in the first of found, the
+    folders of crew's path in their order that hold an executable crew, that lies outside the Nix store, a profile's
+    link each install moves or a host's own link to a checkout; otherwise None."""
+    if checkout:
+        return str(pathlib.Path(home) / "plugin/bin/crew")
+    out = next((d for d in found if not (d.rstrip("/") + "/").startswith(STORE)), None)
+    return os.path.join(out, "crew") if out else None
+
+
+def path_crews(path=None):
+    """The folders of a search path, crew's own by default, in their order, that hold a crew it may run: an absolute
+    folder whose crew is a file crew may execute."""
+    out = []
+    for d in (os.environ.get("PATH", "") if path is None else path).split(os.pathsep):
+        f = os.path.join(d, "crew")
+        if os.path.isabs(d) and os.path.isfile(f) and os.access(f, os.X_OK):
+            out.append(d)
+    return out
+
+
+def installed_here():
+    """The command of the crew this host has installed (installed_command), read from crew's root and path, or None."""
+    return installed_command(HOME, (HOME / ".git").exists(), path_crews())
+
+
+def crew_command():
+    """crew's own command for a later run, wherever crew names it (a brief, a forwarded command, a hand, a notice, a
+    tab): the crew the host has installed, or this build's own plugin/bin/crew where crew finds none."""
+    return installed_here() or str(HOME / "plugin/bin/crew")
+
+
+def own_command(cmd):
+    """Whether a command is this crew's own: its root's plugin/bin/crew or bin/crew, by their real paths."""
+    real = os.path.realpath(cmd)
+    return real in (os.path.realpath(HOME / "plugin/bin/crew"), os.path.realpath(HOME / "bin/crew"))
+
+
+# How long crew waits on another crew's `crew _release` (code.9), inside the Stop hook's ten seconds.
+RELEASE_ASKED = 5
+# What a process read of each installed command it asked, by the command's real path: asked once each, so a long-lived
+# follower asks again only once an install moves the path.
+ASKED = {}
+NONE_INSTALLED = "no folder of crew's path outside the Nix store has a crew"
+
+
+def release_said(text):
+    """Another crew's `crew _release` line checked field by field (read.2): (its facts in crew_read's shape, None), or
+    (None, why) when it is not a JSON object naming a root, a full commit, a version or null, and where they came from."""
+    try:
+        got = json.loads(text)
+    except ValueError:
+        return None, "its answer is not JSON"
+    if not isinstance(got, dict):
+        return None, "its answer is not a JSON object"
+    if isinstance(got.get("unread"), str) and got["unread"]:
+        return None, f"it reads nothing of itself: {got['unread']}"
+    if not isinstance(got.get("root"), str) or not got["root"]:
+        return None, "its answer names no root"
+    if not isinstance(got.get("commit"), str) or not COMMIT.fullmatch(got["commit"]):
+        return None, "its answer names no commit"
+    if "version" not in got or not (got["version"] is None or isinstance(got["version"], str) and got["version"]):
+        return None, "its answer names no version"
+    if got.get("from") not in ("checkout", "release"):
+        return None, "its answer names no checkout or release it was read from"
+    return {k: got[k] for k in ("root", "commit", "version", "from")} | {"unread": None}, None
+
+
+def unread_crew(why, root=None):
+    """An installed crew crew could not read, in crew_read's shape, saying why (read.1)."""
+    return {"root": root, "commit": None, "version": None, "from": None, "unread": why}
+
+
+def installed():
+    """The crew this host has installed, as facts of crew_read's shape: crew_read of its own root with no process where
+    the installed command is crew's own; unread where there is none; otherwise its answer to `crew _release`, asked
+    within RELEASE_ASKED seconds, once for each real path of the command (ASKED), an answer late, failed or missing a
+    field unread with its why."""
+    cmd = installed_here()
+    if cmd is None:
+        return unread_crew(NONE_INSTALLED)
+    if own_command(cmd):
+        return crew_read()
+    real = os.path.realpath(cmd)
+    if real not in ASKED:
+        ASKED[real] = ask_release(cmd)
+    return ASKED[real]
+
+
+def ask_release(cmd):
+    """Another crew's answer to `crew _release`, read (release_said), or unread saying why."""
+    try:
+        r = subprocess.run(["bash", cmd, "_release"], capture_output=True, text=True, timeout=RELEASE_ASKED,
+                           stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return unread_crew(f"{cmd} did not answer crew _release within {RELEASE_ASKED} seconds")
+    except OSError as e:
+        return unread_crew(f"crew can't run {cmd}: {e.strerror or e}")
+    if r.returncode != 0:
+        said = (r.stderr or "").strip().splitlines()
+        return unread_crew(f"{cmd} _release exited {r.returncode}" + (f": {said[-1]}" if said else ""))
+    got, why = release_said((r.stdout or "").strip())
+    return got if got else unread_crew(f"{cmd}: {why}")
 
 
 def loaded_changed(old, new, root=None):
@@ -1818,12 +2000,18 @@ def loaded_changed(old, new, root=None):
     return {0: False, 1: True}.get(r.returncode)
 
 
-def launch_digest(l, text):
+def launch_digest(l, text, names=None):
     """What an agent's start is made of besides crew's plugin, as one short digest: its model, effort, folders and
-    brief (teams.6), so that a change to any of them reads as due (update_due). The brief names crew's own command by
-    the path of the crew that builds it, a host's checkout or its release, so that path is read as one word: two crews of
-    one host, the follower's release and a checkout another host's command ran (crew_at), digest the same start alike."""
-    text = text.replace(str(HOME), "<crew>")
+    brief (teams.6), so that a change to any of them reads as due (update_due). A brief names crew's command by the
+    crew the host has installed (crew_command), or by the root's own plugin/bin/crew where crew finds none, so every
+    path in names, those two by default, is read as the one word <crew>, longest first, and any other mention of crew's
+    root as <crew-home>: two crews of one host, a build naming the installed command and a checkout naming its own,
+    digest the same start alike. A start digested before crew read its command so, its brief's path read as
+    <crew>/plugin/bin/crew, digests otherwise, and so reads as due once (update_due)."""
+    names = [str(HOME / "plugin/bin/crew"), crew_command()] if names is None else names
+    for n in sorted(set(names), key=len, reverse=True):
+        text = text.replace(n, "<crew>")
+    text = text.replace(str(HOME), "<crew-home>")
     return hashlib.sha256(json.dumps([l["model"], l["effort"], sorted(l["dirs"]), text]).encode()).hexdigest()[:16]
 
 
@@ -1877,34 +2065,46 @@ def start_of(name):
     return starts().get(name)
 
 
-# What the update check says of a start that recorded its launch but no crew commit, as one on a host that loads crew
-# from its release, where there is no git to read the commit from (record 0050 as amended 2026-10-30).
-NO_COMMIT_SAID = ("crew can't tell whether its plugin changed since it started, its start having recorded no crew commit: "
-                  "a bump of crew's pin restarts it only by crew main down and crew main up, until crew reads its release "
-                  "where it runs")
+# What the update check says of each reading (update_due, teams.19).
+UNKEPT_SAID = "it started before crew kept what an agent loads"
+LAUNCH_SAID = "its brief, model, effort or folders changed"
+# A start that recorded its launch but no crew commit, as one from a build that carries no release, or from before crew
+# read its release where it runs (record 0050 as amended 2026-10-30 and 2026-11-08).
+NO_COMMIT_SAID = ("crew can't tell whether its plugin changed since it started, its start having recorded no release of "
+                  "crew's: crew main down and crew main up restart it on the crew this host has installed")
+UNREAD_SAID = "crew can't read the crew this host has installed: {}"
+UNTOLD_SAID = "crew can't tell whether its plugin changed since {}"
+PLUGIN_SAID = "crew's plugin changed"
+RELEASE_SAID = "crew's release changed"
 
 
-def update_due(started, commit, launch, loaded):
+def update_due(started, installed, launch, loaded):
     """Whether a standing agent is due a restart for crew's update (teams.19), and why, from facts: what its last start
-    recorded (start_of), this checkout's commit, the digest of the launch it would be started with now, and whether
-    what a session loads of crew's plugin changed between its start's commit and this one (loaded_changed, None when
-    git can't tell). Returns (due, why): due when it started before crew kept what it loaded, when its brief, model,
-    effort or folders changed, or when what it loaded of crew's plugin did; never for a change to crew's code alone,
-    which is live at once; and not when crew can't tell, which it says (read.1). A start that recorded its launch and no
-    crew commit is read by its launch alone, since the digest covers no part of crew's plugin (NO_COMMIT_SAID)."""
+    recorded (start_of), the crew the host has installed now (installed), whose commands it runs, the digest of the
+    launch it would be started with now, and, for an installed checkout, whether what a session loads of crew's plugin
+    changed between its start's commit and the checkout's (loaded_changed, None when git can't tell). Returns (due,
+    why), in order: no start, not due; a start before crew kept what it loaded, due; its brief, model, effort or
+    folders changed, due; a start with no commit, not due (NO_COMMIT_SAID); the installed crew unread, not due, saying
+    why (read.1); the same commit, not due; an installed checkout, due when what a session loads changed, never for a
+    change to crew's code alone, which every command runs live, and saying it can't tell when git can't; an installed
+    build of another release, due, since the session loaded its build's plugin folder whole and its hooks run from it."""
     if started is None:
         return False, None
     if not started["launch"]:
-        return True, "it started before crew kept what an agent loads"
+        return True, UNKEPT_SAID
     if started["launch"] != launch:
-        return True, "its brief, model, effort or folders changed"
+        return True, LAUNCH_SAID
     if not started["commit"]:
         return False, NO_COMMIT_SAID
-    if started["commit"] == commit:
+    if installed["unread"] or not installed["commit"]:
+        return False, UNREAD_SAID.format(installed["unread"] or "it names no commit")
+    if started["commit"] == installed["commit"]:
         return False, None
+    if installed["from"] == "release":
+        return True, RELEASE_SAID
     if loaded is None:
-        return False, f"crew can't tell whether its plugin changed since {started['commit'][:7]}"
-    return (True, "crew's plugin changed") if loaded else (False, None)
+        return False, UNTOLD_SAID.format(started["commit"][:7])
+    return (True, PLUGIN_SAID) if loaded else (False, None)
 
 
 # Why a main level's standing agent is due an end and never a restart once its partition runs its role as its kind
@@ -1920,10 +2120,11 @@ def end_due(fleet, name):
     return KIND_SAID if kind and kind[1] in MAIN_STANDING else None
 
 
-def due_of(fleet, name, started=None, commit=None):
+def due_of(fleet, name, started=None, now=None):
     """Whether a standing agent of this host is due a restart for crew's update, read: (due, why, what its start
-    recorded). A name that is no standing agent's is never due. A main level's agent whose role now runs as its kind
-    is due an end, its why KIND_SAID (end_due)."""
+    recorded), judged against now, the crew the host has installed, read (installed) where it is not given. A name that
+    is no standing agent's is never due. A main level's agent whose role now runs as its kind is due an end, its why
+    KIND_SAID (end_due). What a session loads is compared by git only in an installed checkout, in its own root."""
     started = started or start_of(name)
     role = standing_role(fleet, name)
     if started is None or role is None:
@@ -1931,13 +2132,14 @@ def due_of(fleet, name, started=None, commit=None):
     ends = end_due(fleet, name)
     if ends:
         return True, ends, started
-    commit = commit or crew_version()[0]
+    now = installed() if now is None else now
     try:
-        now = launch_now(fleet, *role)
+        launch = launch_now(fleet, *role)
     except Refusal as e:
         return False, f"crew can't build its brief: {e}", started
-    loaded = loaded_changed(started["commit"], commit) if started["commit"] and commit and started["commit"] != commit else None
-    return (*update_due(started, commit, now, loaded), started)
+    was, commit = started["commit"], now["commit"]
+    loaded = loaded_changed(was, commit, now["root"]) if now["from"] == "checkout" and was and commit and was != commit else None
+    return (*update_due(started, now, launch, loaded), started)
 
 
 def resolve(fleet, scope, role, extra, fetch=False):
@@ -2349,7 +2551,22 @@ def standing(fleet, kind, label, force=False):
     return Agents(fleet, "console", label, label, label, state, (), sess["dir"], host, host, force)
 
 
+def release_cmd(argv):
+    """crew _release: what this crew is, crew_read of its own root, as one line of JSON, and nothing else; its usage
+    for -h or --help (code.11)."""
+    import argparse
+    ap = argparse.ArgumentParser(prog="crew _release", description=(
+        "What this crew is, as one line of JSON: its root, commit and version, where they were read from, \"checkout\" "
+        "from git, \"release\" from a build's plugin/release.json, or null, and why nothing was read where nothing "
+        "was. It reads nothing else and starts nothing, so one crew reads another it cannot import by it."))
+    answer_usage(ap, argv)
+    ap.parse_args(argv)
+    print(json.dumps(crew_read()))
+
+
 def main(a):
+    if a[:1] == ["_release"]:
+        return release_cmd(a[1:])
     fleet = load()
     if a[:1] == ["labels"]:
         print("\n".join(fleet["partitions"]))
