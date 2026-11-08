@@ -111,6 +111,7 @@ class TestAFixOfAStartedBolt:
         requests = plan.Plan(w.files["requests.rec"]).recs("Request")
         assert runner.fixes_in_flight(requests, ran({2: "code", 3: "landed"}), "x") == {"fix/x/rail-word": "Fix rail-word."}
         assert runner.fixes_in_flight(requests, {}, "x") == {"fix/x/rail-word": "Fix rail-word.", "fix/x/tidy": "Fix tidy."}
-        assert plan.landing_unready([("a", "unit", "merged")], "h" * 40, "passed", ["fix/x/rail-word"]) == "fix/x/rail-word is in flight on it"
+        green = ("green", f"its head {'h' * 7} is change/a's landing, as the runner reports it")
+        assert plan.landing_unready([("a", "unit", "merged")], green, ["fix/x/rail-word"]) == "fix/x/rail-word is in flight on it"
         row = plan.landing_rows(["x"], {"x": {"head": "h" * 40, "fixes": {"fix/x/rail-word": "Fix rail-word."}}}, {})[0]
         assert (row["box"], row["why"]) == (False, "held for a fix: Fix rail-word. (fix/x/rail-word)")

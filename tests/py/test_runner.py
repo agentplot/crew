@@ -431,6 +431,53 @@ class TestStageOf:
         assert of("unit/b", {})["why"].startswith("no runner answers for the partition")
 
 
+class TestVerification:
+    """A bolt's verification is its work's landing at its head, as the runner reports it (merge-gate "A bolt's
+    verification is its work's landing at its head"; runner.verification): green once some unit, chore or fix of it
+    reads merged or landed at the head's commit, none for any other head, unknown with no head."""
+
+    HEAD = "d185a879b51dba33555c036392b50443f4dfc5e8"
+    OTHER = "0123abc" + "0" * 33
+
+    def merged(self, commit=HEAD, **more):
+        return dict({"stage": "merged", "place": "p", "commit": commit}, **more)
+
+    def test_a_unit_landed_at_the_head_reads_green_naming_the_head_and_the_work(self):
+        assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER)), ("unit/b", self.merged())]) == (
+            "green", "its head d185a87 is b's landing, as the runner reports it")
+
+    def test_a_chore_landed_at_the_head_reads_green(self):
+        assert runner.verification(self.HEAD, [("unit/a", {"stage": "code"}), ("chore/tidy", self.merged())]) == (
+            "green", "its head d185a87 is tidy's landing, as the runner reports it")
+
+    def test_a_fix_landed_beside_the_queue_reads_as_any_landing_of_its_work(self):
+        """A landing beside, a take-main fix's among them, is a landing like any other: sluice lands beside only when no
+        required check reads its changes (sluice clause 140)."""
+        assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER)), ("fix/b/take-main", self.merged())]) == (
+            "green", "its head d185a87 is b--take-main's landing, as the runner reports it")
+
+    def test_a_piece_read_from_its_bolts_landing_says_so(self):
+        piece = self.merged(on="bolt", branch="change/a", landed="2026-11-08T10:00:00Z")
+        assert runner.verification(self.HEAD, [("unit/a", piece)]) == (
+            "green", "its head d185a87 is a's landing, as its landing on the bolt names it")
+
+    def test_a_piece_merged_at_another_commit_leaves_the_head_no_landing(self):
+        assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER))]) == (
+            "none", "its head d185a87 is no landing of its work that the runner reports")
+
+    def test_a_piece_with_no_commit_matches_nothing(self):
+        assert runner.verification(self.HEAD, [("unit/a", self.merged(None)), ("unit/b", {"stage": "submitted", "submission": "41"})])[0] == "none"
+        assert runner.verification(self.HEAD, [("unit/a", {"stage": "code", "commit": self.HEAD})])[0] == "none"
+
+    def test_a_bolt_with_no_pieces_reads_none(self):
+        assert runner.verification(self.HEAD, []) == (
+            "none", "its head d185a87 is no landing of its work that the runner reports")
+
+    def test_no_head_reads_unknown(self):
+        assert runner.verification(None, [("unit/a", self.merged())]) == ("unknown", "no head crew can read")
+        assert runner.verification("", [])[0] == "unknown"
+
+
 class TestWhere:
     """Where a bolt's or a kit's work runs is what the runner that took it reported (the user's ruling of 2026-11-01;
     runner.where): the host whose runner took its newest launch taken, the kit's folder as that runner's

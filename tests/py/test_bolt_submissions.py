@@ -1,15 +1,15 @@
-"""Every submission's number on its bolt's row (bolt-teams "A submission's number is on its bolt's row from the
-submit", teams.22, record 0046 part 2): the gather's read of sluice's queue, gather.submissions_of, on sluice 0.51.3's
-own overview (tests/py/sluice-0.51.3/), every field guarded and a document of another schema said; gather.queue's
-failures, each said, on a stand-in for the process; the submissions an overview's recent events name decided,
-gather.decided_in, on sluice 0.56.0's and 0.51.3's own overviews (tests/py/sluice-0.56.0/); sluice's record of every
-submission a branch has had, gather.decided_of, as the landing reads it once, on its own `status --all` documents;
-whose line each submission is, plan.submission_rows; and what
-crew bolts shows of them, plan.bolts_data and plan.bolts_text, beside the rest of crew bolts in test_rail.py and
-test_chores.py."""
+"""What crew's own landing reads of sluice's queue and records, and what crew bolts shows of a submission (bolt-teams
+"A submission's number is on its bolt's row from the submit", teams.22): the read of an overview's standing
+submissions, gather.submissions_of, on sluice 0.51.3's own overview (tests/py/sluice-0.51.3/), every field guarded and
+a document of another schema said, which the landing reads before it submits (plan.queue_read); sluice's record of
+every submission a branch has had, gather.decided_of, as the landing reads it once, on its own `status --all`
+documents;
+whose line each submission is, plan.submission_rows, which crew's own landing reads; and that crew bolts,
+plan.bolts_data and plan.bolts_text, shows a piece's submission as the runner carries it and a bolt's landing as the
+run record holds it, never from sluice's queue (crew record 0056 points 1 and 4), beside the rest of crew bolts in
+test_rail.py and test_chores.py."""
 import json
 import pathlib
-import subprocess
 
 import pytest
 
@@ -20,7 +20,6 @@ import gather
 import plan
 
 RECORDED = pathlib.Path(__file__).parent / "sluice-0.51.3"
-RECENT = pathlib.Path(__file__).parent / "sluice-0.56.0" / "overview-recent.json"
 
 
 def overview():
@@ -87,33 +86,6 @@ def test_a_document_of_another_schema_is_said_never_read_as_an_empty_queue(doc, 
     assert gather.submissions_of(doc) == (None, why)
 
 
-class Ran:
-    def __init__(self, code, out="", err=""):
-        self.returncode, self.stdout, self.stderr = code, out, err
-
-
-@pytest.mark.parametrize("run, why", [
-    (FileNotFoundError("sluice"), "this host has no sluice on its path"),
-    (subprocess.TimeoutExpired("sluice", 15), "sluice overview did not answer within 15 seconds"),
-    (Ran(2, '{"error":{"kind":"refused","message":"not a repository sluice serves"}}'),
-     "sluice overview exited 2: not a repository sluice serves"),
-    (Ran(2, "", "error: unrecognized subcommand 'overview'\n"), "sluice overview exited 2: error: unrecognized subcommand 'overview'"),
-    (Ran(0, "not json"), "sluice overview printed no JSON")])
-def test_a_queue_that_cant_be_read_says_why(monkeypatch, run, why):
-    def ran(args, **kw):
-        assert args == ["sluice", "overview", "--json"] and kw["cwd"] == "/k/main" and kw["timeout"] == 15
-        if isinstance(run, BaseException):
-            raise run
-        return run
-    monkeypatch.setattr(gather.subprocess, "run", ran)
-    assert gather.queue("/k/main") == (None, why)
-
-
-def test_a_queue_read_is_the_documents_submissions(monkeypatch):
-    monkeypatch.setattr(gather.subprocess, "run", lambda args, **kw: Ran(0, (RECORDED / "overview-standing.json").read_text()))
-    assert [s["id"] for s in gather.queue("/k/main")[0]] == [317, 318, 355]
-
-
 # ------------------------------------------------------------------------- sluice's record of every submission had
 
 def recorded(name):
@@ -164,60 +136,6 @@ def test_a_record_field_missing_or_mistyped_is_none_and_one_with_no_number_is_le
      "sluice status printed a record of sluice/submission@2, not the sluice/submission@1 crew reads")])
 def test_a_record_of_another_shape_is_said(doc, why):
     assert gather.decided_of(doc) == (None, why)
-
-
-# ------------------------------------------------------------------- the decided an overview's recent events name
-
-def recent():
-    return json.loads(RECENT.read_text())
-
-
-def test_each_number_a_branchs_recent_events_name_is_decided_at_its_events_time_from_the_place_it_came_from():
-    """crew-board "A row drawn from the overview": sluice 0.56.0's events name their submissions as a list, ids."""
-    got, why = gather.decided_in(recent())
-    assert why is None and [(s["id"], s["branch"], s["worktree"], s["event"], s["decided"]) for s in got][:3] == [
-        (365, "bolt/crew-reads-a-bolts-time-and-its-landing", "fix/crew-reads-a-bolts-time-and-its-landing/take-main", "landed", "2026-10-28T19:30:45Z"),
-        (366, "bolt/crew-reads-a-bolts-time-and-its-landing", "unit/a-bolts-row-shows-its-age-and-who-holds-it", "landed", "2026-10-28T20:40:09Z"),
-        (367, "bolt/crew-reads-a-bolts-time-and-its-landing", "unit/a-landing-is-read-from-sluices-record", "landed", "2026-10-28T21:56:08Z")]
-    assert all((s["pull_head"], s["submitted"], s["started"]) == (None, None, None) for s in got), "an event was read for what it does not give"
-    main = [(s["id"], s["worktree"]) for s in got if s["branch"] == "main"]
-    assert len(main) == 10 and main[4] == (355, "pull/198"), "a landing by pull request is named by its pull request alone"
-
-
-def test_an_event_naming_its_one_submission_as_id_is_read_as_sluice_0_51_3_printed_it():
-    blamed = [(s["id"], s["event"], s["worktree"]) for s in gather.decided_in(recent())[0] if s["branch"] == "bolt/crews-chores-of-the-24th-night"]
-    assert blamed == [(313, "blamed", "chore/a-stage-drives-a-browser-only-the-kits-way"),
-                      (315, "blamed", "chore/crew-needs-help-prints-its-usage-and-records-nothing"),
-                      (316, "blamed", "chore/a-failed-taking-with-no-conflict-is-said-in-gits-words")]
-    assert [s["id"] for s in gather.decided_in(overview())[0]] == [313, 315, 316]
-
-
-def test_a_standing_submission_is_none_decided():
-    assert {s["id"] for s in gather.decided_in(recent())[0]}.isdisjoint({317, 318})
-
-
-def test_a_recent_field_missing_or_mistyped_is_none_and_a_number_that_is_none_is_left_out():
-    """read.2: a missing value never becomes text."""
-    doc = recent()
-    landed = doc["branches"][0]
-    landed["recent"][0]["at"] = 1730000000
-    del landed["recent"][1]["event"]
-    landed["recent"][2]["ids"] = [367, "368", True]
-    landed["recent"].append("landed #369")
-    landed["recent_from"] = ["unit/a"]
-    doc["branches"][1]["recent"] = None
-    doc["branches"][2] = dict(doc["branches"][2], branch=None)
-    got, why = gather.decided_in(doc)
-    assert why is None and [(s["id"], s["worktree"], s["event"], s["decided"]) for s in got] == [
-        (365, None, "landed", None), (366, None, None, "2026-10-28T20:40:09Z"), (367, None, "landed", "2026-10-28T21:56:08Z")]
-
-
-@pytest.mark.parametrize("doc, why", [
-    (dict(recent(), schema="sluice/overview@2"), "sluice overview printed sluice/overview@2, not the sluice/overview@1 crew reads"),
-    ([], "sluice overview printed no schema, where crew reads sluice/overview@1"),
-    (dict(recent(), branches={}), "sluice overview's sluice/overview@1 holds no list of branches")])
-def test_an_overview_of_another_schema_names_no_decided_and_says_why(doc, why):
-    assert gather.decided_in(doc) == (None, why)
 
 
 # --------------------------------------------------------------------------------------- whose line each one is
@@ -287,10 +205,10 @@ def here(monkeypatch):
     monkeypatch.setenv("CREW_AGENT", "chuck")
 
 
-def bolts(submissions=None, error=None, at="code", carries=None):
+def bolts(at="code", carries=None, logs=None):
     """crew bolts of wldn's plan, its bolt y started and its work launched, taken by the runner on the box, which keeps
-    switchboard-kit in /kit/main, a's place at the Flume 0.3.6 status fixture named (tests/py/flume-0.3.6/<at>.json), the
-    kit's submissions in sluice's queue as given."""
+    switchboard-kit in /kit/main, a's place at the Flume 0.3.6 status fixture named (tests/py/flume-0.3.6/<at>.json),
+    the kit read as the gather reads it, with no queue of sluice's, and wldn's run record the entries logs gives."""
     from facts import FactsWrite, ran
     import runner
     w = FactsWrite(plan_text(bolts=[("y", "switchboard-kit", "swb-1")],
@@ -298,11 +216,11 @@ def bolts(submissions=None, error=None, at="code", carries=None):
     plan.reach_places(FLEET, w, "y")
     requests = plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")
     kit = {"ok": True, "main": [], "fixes": [], "places": {}, "bolts": {"y": {"exists": True, "head": "d" * 40, "changes": [],
-                                                                         **({"carries": carries} if carries else {})}},
-           **({"submissions": submissions} if submissions is not None else {}), **({"submissions_error": error} if error else {})}
+                                                                         **({"carries": carries} if carries else {})}}}
     sv = {BOX: {"ok": True, "kits": {"/kit/main": kit}}}
     return plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, w.plan)], sv, {},
-                           runs={"wldn": (requests, ran({1: at}, host=BOX, label="wldn", repository="/kit/main"))})
+                           runs={"wldn": (requests, ran({1: at}, host=BOX, label="wldn", repository="/kit/main"))},
+                           logs={"wldn": logs} if logs is not None else None)
 
 
 def held(d):
@@ -321,37 +239,34 @@ def test_crew_bolts_says_a_bolt_carrying_another_bolts_work_is_held_naming_it():
     assert held(bolts())["carries"] == {} and "carries" not in plan.bolts_text(bolts())
 
 
+A_LINE = "  a                                        submitted #413 flume/change--teams-cross-to-flume-as-their-bolts-land"
+
+
 def test_crew_bolts_shows_a_merge_under_test_on_its_line_and_the_landing_on_the_head_line():
-    """bolt-teams "A unit's merge under test", "A bolt's landing queued on main"."""
-    d = bolts([sub(41, "bolt/y", "unit/a", "testing"), sub(355, "main", "pull/198", pull_head="bolt/y", head="d" * 40)], at="submitted")
+    """bolt-teams "A unit's merge under test", "A bolt's landing queued on main" and "Read again after the session that
+    submitted it ended": a's line says its submission as the runner carries Flume's status of its place, under test as
+    #413, and y's head line its landing as the run record holds it, queued as #355; the JSON gives a's stage from the
+    runner and no line a submission, nor the bolt a landing or a submissions error, read from sluice's queue."""
+    queued = [dict(Act="bolt.submit", On=["bolt/y"], Outcome="queued", Submission="355", Head="d" * 40)]
+    d = bolts(at="submitted", logs=queued)
     b = held(d)
-    assert {u["unit"]: u["submission"] for u in b["units"]} == {"a": {"id": 41, "state": "testing"}, "b": None, "bump": None}
-    assert (b["landing"], b["submissions_error"]) == ({"id": 355, "state": "queued", "head": "d" * 40}, None)
+    assert (b["units"][0]["flume"]["stage"], b["units"][0]["flume"]["submission"]) == ("submitted", "413")
+    assert not any("submission" in x for x in b["units"] + b["fixes"]) and "landing" not in b and "submissions_error" not in b
     out = plan.bolts_text(d).splitlines()
-    assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active  landing #355 queued"
-    assert "  a                                        submitted #413 flume/change--teams-cross-to-flume-as-their-bolts-land" in out
-    assert json.loads(json.dumps(d))["partitions"][0]["plans"][0]["bolts"][0]["units"][0]["submission"] == {"id": 41, "state": "testing"}
-
-
-def test_a_merge_passed_and_nothing_waiting_on_it_still_shows():
-    """bolt-teams "Read again after the session that submitted it ended": the queue is sluice's, so a restart loses nothing."""
-    d = bolts([sub(41, "bolt/y", "unit/a", "passed")])
-    assert held(d)["units"][0]["submission"] == {"id": 41, "state": "passed"}
-    assert plan.standing_said(held(d)["units"][0]["submission"]) == "#41 passed, to land next"
+    assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active  landing queued as #355"
+    assert A_LINE in out
 
 
 def test_once_decided_no_line_shows_a_submission():
-    """bolt-teams "Decided": sluice's overview holds a landed submission in no chain."""
-    d = bolts([])
-    assert all(u["submission"] is None for u in held(d)["units"]) and held(d)["landing"] is None
+    """bolt-teams "Decided": the runner carries a's place landed, so a reads merged and its line names no number."""
+    d = bolts(at="landed")
+    assert held(d)["units"][0]["stage"] == "merged"
     assert "#" not in plan.bolts_text(d)
 
 
-def test_a_queue_that_cant_be_read_is_said_once_on_the_head_line_and_no_line_shows_a_number():
-    """bolt-teams "sluice's record can't be read"."""
-    d = bolts([sub(41, "bolt/y", "unit/a", "testing")], error="sluice overview exited 2: not a repository sluice serves")
-    assert all(u["submission"] is None for u in held(d)["units"]) and held(d)["landing"] is None
-    assert held(d)["submissions_error"] == "sluice overview exited 2: not a repository sluice serves"
-    out = plan.bolts_text(d)
-    assert out.count("can't be read") == 1 and "#41" not in out
-    assert out.splitlines()[2] == f"  submissions: can't be read on {BOX}: sluice overview exited 2: not a repository sluice serves"
+def test_sluices_record_cant_be_read_and_nothing_is_said_of_it():
+    """bolt-teams "sluice's record can't be read": the kit's read carries nothing of sluice's queue, and none is asked;
+    a's line still says its submission from the runner, and the head line says nothing of the queue."""
+    out = plan.bolts_text(bolts(at="submitted")).splitlines()
+    assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active"
+    assert A_LINE in out and not any("can't be read" in line for line in out)

@@ -104,14 +104,14 @@ Each drive SHALL keep one plan, the recutils file `plan.rec` on its branch of it
 - **THEN** its `plan.rec` declares no `Team` field and its `proposals.rec` no `Agreed` field
 
 ### Requirement: A bolt on GitHub is read where it lives
-crew SHALL read a bolt at GitHub's copy of its branch, `origin/bolt/<bolt>`, when the host holds that copy and the policy in it names a remote for the bolt, and otherwise at the host's own `bolt/<bolt>`. Its head, verification, the changes and chores it holds, and every stage read from it SHALL come from that ref. crew SHALL never read a bolt on GitHub from the host's own `bolt/<bolt>`, sluice's copy, whether or not sluice has levelled it.
+crew SHALL read a bolt at GitHub's copy of its branch, `origin/bolt/<bolt>`, when the host holds that copy and the policy in it names a remote for the bolt. Otherwise it SHALL read the bolt at the host's own `bolt/<bolt>`. The bolt's head, the changes and chores it holds, and every stage read from it SHALL come from that ref. So SHALL its verification: whether that head is the landing of its work, as the runner reports it. crew SHALL never read a bolt on GitHub from the host's own `bolt/<bolt>`, which is sluice's copy, whether or not sluice has levelled it.
 
 #### Scenario: A merge landed on GitHub while the host's copy stayed behind
 - **WHEN** sluice lands a unit's merge and a chore's merge on GitHub's `bolt/b`, the host has fetched it, and the host's own `bolt/b` is still at the commit before them
-- **THEN** the unit and the chore read `merged`, the bolt's head is GitHub's, and its verification is the verdict at that head
+- **THEN** the unit and the chore read `merged`, the bolt's head is GitHub's, and its verification is read at that head
 
 #### Scenario: A proven bolt whose copy lags
-- **WHEN** every unit of a bolt on GitHub has merged and the `Sluice-Result` at GitHub's head starts `passed`, while the host's `bolt/b` is at an earlier landing
+- **WHEN** every unit of a bolt on GitHub has merged, GitHub's head is the commit at which the runner carries the bolt's last unit landed, and the host's `bolt/b` is at an earlier landing
 - **THEN** the bolt reads proven, and its row on its kit's landings card is offered
 
 #### Scenario: A bolt kept on its host

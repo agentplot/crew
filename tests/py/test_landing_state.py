@@ -62,15 +62,14 @@ class TestLandingPhase:
 
 
 class TestPhaseSaid:
-    def test_queued_names_the_number_unless_sluices_queue_shows_it_standing(self):
+    def test_queued_names_the_number(self):
+        """No view reads sluice's queue, so the record's number is always named (crew record 0056 points 1 and 4)."""
         phase = plan.landing_phase(QUEUED, "x")
         assert plan.phase_said(phase, H1) == "landing queued as #412"
-        assert plan.phase_said(phase, H1, live=True) is None
 
     def test_landing_again_names_the_rejection_it_follows(self):
         phase = plan.landing_phase(AGAIN, "x")
         assert plan.phase_said(phase, H2) == "landing again as #415, after #412 was rejected"
-        assert plan.phase_said(phase, H2, live=True) == "landing again, after #412 was rejected"
 
     def test_rejected_says_the_bolt_is_open_for_work_with_sluices_words_while_at_that_head(self):
         phase = plan.landing_phase(REJECTED, "x")

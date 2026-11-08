@@ -667,6 +667,25 @@ def built_on_bolt(work, s, landings):
     return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
 
 
+def verification(head, pieces):
+    """A bolt's verification (record 0025 point 4, crew record 0056 points 1 and 4; read.1, read.2), from plain facts:
+    head, the bolt's head as read where the bolt lives (gather.bolt_read), None where there is none; pieces, its units,
+    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of or built_on_bolt gives it.
+    Returns (state, words): "green", naming the head and the work, for the first piece in the order given that reads
+    merged or landed with its commit the head, since every piece lands on its bolt through a submission sluice lands
+    only on its required checks passing, or beside its queue when none of them reads its changes (teams.5, sluice
+    clause 140), so a head that is a piece's landing is one the kit's checks passed, a landing beside reading the same;
+    "none" for any other head, a commit pushed another way or a landing the runner does not report among them; and
+    "unknown" with no head. A piece with no commit matches nothing, and the commits compare whole."""
+    if not head:
+        return "unknown", "no head crew can read"
+    for work, s in pieces:
+        if s.get("stage") in ("merged", "landed") and s.get("commit") and s["commit"] == head:
+            how = "as its landing on the bolt names it" if s.get("on") == "bolt" else "as the runner reports it"
+            return "green", f"its head {head[:7]} is {bare(work)}'s landing, {how}"
+    return "none", f"its head {head[:7]} is no landing of its work that the runner reports"
+
+
 def working(reading):
     """The places a host's runner carries Flume's status of whose current stage is working, begun with its phase live
     (flume_facts), from reading, host_read's, read: (each place's folder name, in its launches' order, None), or (None,

@@ -403,7 +403,7 @@ class TestWhereABoltIsRead:
         why = ".config/sluice.toml at origin/bolt/b is not TOML, so crew can't read bolt b: Expected ']'"
         fleet = madswan_fleet()
         p, requests = launched(["b"], work=[("a", "b", [], "unit", []), ("done", "b", [], "unit", [])], fleet=fleet)
-        unread = {"exists": False, "head": None, "head_at": None, "verdict": None, "error": why}
+        unread = {"exists": False, "head": None, "head_at": None, "error": why}
         st = plan.Stages(fleet, p, crew_read(main=["done"], bolts={"b": unread}), runs={"madswan": (requests, ran({1: "code", 2: "landed"}))},
                          label="madswan")
         assert (st.of("a")["stage"], st.of("a")["worktree"]) == ("code", None)
@@ -418,7 +418,7 @@ class TestWhenABoltIsFetched:
     FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio"}}}
     KIT_READ = {"ok": True, "main": [], "chores": [], "places": {}, "chore_places": {}, "fixes": [],
                 "bolts": {"b": {"exists": True, "at": "origin/bolt/b", "changes": [], "archived": [], "open": {}, "chores": [],
-                                "head": "d" * 40, "head_at": "2026-10-23T09:00:00Z", "verdict": ""}}}
+                                "head": "d" * 40, "head_at": "2026-10-23T09:00:00Z"}}}
 
     WHERE = {"label": "wldn", "machine": "box", "stream": "wldn", "kit": {"main": "/kit/main", "dir": "/kit/main", "name": KIT, "repo": KIT}}
 
@@ -566,7 +566,7 @@ class TestCrewBoltsCrossed:
 
     def test_a_bolt_whose_units_its_branch_holds_reads_where_it_runs_and_each_unit_merged(self):
         """bolt-plan "A unit whose work its bolt's branch holds is built" (signal 2026-11-07-agentplot-planner-cbc41169/02):
-        x's a and b ran as another partition's places and landed on x, sluice passing its last landing; crew launched
+        x's a and b ran as another partition's places and landed on x, x's head b's landing; crew launched
         them again here and the runner refused each, the bolt already holding the change, so no place of x's names the
         kit's folder; y, started, runs on deneb. crew bolts reads x at deneb, never "where it runs can't be told", each
         of a and b merged at its landing, and x waiting to land."""
@@ -577,7 +577,7 @@ class TestCrewBoltsCrossed:
         runners = ran({3: "code"}, refused={n: f"the base bolt/x already holds a change named {u}" for n, u in ((1, "a"), (2, "b"))})
         landings = {"change/a": {"commit": "1" * 40, "at": "2026-11-07T19:10:00Z"}, "change/b": {"commit": "2" * 40, "at": "2026-11-07T19:20:00Z"}}
         d = plan.bolts_data(fleet, ["madswan"], [("madswan", "afterthought/crew-state", "abcdef1" + "0" * 33, p)],
-                            crew_read(bolts={"x": {"landings": landings, "verdict": "passed (9 run, 0 replayed)"}, "y": {}}), {},
+                            crew_read(bolts={"x": {"landings": landings, "head": "2" * 40}, "y": {}}), {},
                             runs={"madswan": (requests, runners)})
         out = plan.bolts_text(d).splitlines()
         assert "x  crew  @ deneb, in Flume stream madswan  waits" in out

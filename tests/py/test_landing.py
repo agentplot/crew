@@ -2087,26 +2087,27 @@ class TestTheCardsClose:
 
 class TestTheLandingsPoint:
     """crew raises a bolt's landing card once the bolt reads proven (rail-cards, record 0031 §1, record 0025): every
-    unit and chore merged, sluice green at its head, no fix in flight on it, and every unit's latest change in a
-    batch; then which act follows each event."""
-    GREEN = "passed (3 run, 1 replayed)"
+    unit and chore merged, its head the landing of its work as the runner reports it, no fix in flight on it, and every
+    unit's latest change in a batch; then which act follows each event."""
+    GREEN = ("green", "its head abc1234 is b's landing, as the runner reports it")
+    NONE = ("none", "its head abc1234 is no landing of its work that the runner reports")
     WORK = [("a", "unit", "merged"), ("b", "unit", "merged"), ("c", "chore", "merged")]
 
-    def unready(self, work=WORK, verdict=GREEN, fixes=()):
-        return plan.landing_unready(work, "abc1234" + "0" * 33, verdict, list(fixes))
+    def unready(self, work=WORK, verified=GREEN, fixes=()):
+        return plan.landing_unready(work, verified, list(fixes))
 
     def test_a_green_bolt_whose_every_unit_and_chore_merged_reads_proven(self):
         assert self.unready() is None
         assert self.unready(self.WORK + [("d", "unit", "landed")]) is None
 
-    @pytest.mark.parametrize("work, verdict, fixes, why", [
+    @pytest.mark.parametrize("work, verified, fixes, why", [
         ([("a", "unit", "verify")] + WORK[1:], GREEN, (), "unit a has not merged: it is verify"),
         ([], GREEN, (), "it holds no units or chores"),
         ([("a", "unit", "landed")], GREEN, (), "every unit and chore of it has landed"),
-        (WORK, "", (), "its verification is not green: its head abc1234 is no landing of sluice's, so it has no verdict"),
+        (WORK, NONE, (), "its verification is not green: its head abc1234 is no landing of its work that the runner reports"),
         (WORK, GREEN, ("fix/y/zone-gap",), "fix/y/zone-gap is in flight on it")])
-    def test_until_then_no_card_is_raised(self, work, verdict, fixes, why):
-        assert self.unready(work, verdict, fixes) == why
+    def test_until_then_no_card_is_raised(self, work, verified, fixes, why):
+        assert self.unready(work, verified, fixes) == why
 
     def test_a_fix_in_flight_holds_it(self):
         """The landing's point waits for no fix of the bolt in flight (runner.fixes_in_flight, its cases test_fix's)."""
@@ -2832,55 +2833,53 @@ class TestConflictWithMain:
 
 class TestACrossedBoltLands:
     """A crossed team's bolt lands by the one procedure (Decision 12 of teams-cross-to-flume-as-their-bolts-land; crew-rail
-    "A crossed bolt proven"): it reads proven from its pieces' stages in the runner's records and sluice's verdict at its
-    head, and its close reads each piece merged there, a chore asked for no trailer, landing once main holds the commit
+    "A crossed bolt proven"): it reads proven from its pieces' stages in the runner's records and its head the landing
+    of its work as the runner reports it, and its close reads each piece merged there, a chore asked for no trailer, landing once main holds the commit
     each place landed at on the bolt (plan.land_refusal, runner.unlanded)."""
-    GREEN = "passed (3 run, 1 replayed)"
     LANDED = "d185a879b51dba33555c036392b50443f4dfc5e8"  # where flume's landed.json says its place landed
 
     @pytest.fixture(autouse=True)
     def writer(self, monkeypatch):
         monkeypatch.setenv("CREW_AGENT", "madswan-ops")
 
-    def stages(self, at, main=(), verdict=GREEN, **head):
+    def stages(self, at, main=(), **head):
         """crossed crw-4's x, holding a, b after a, and chore c, launched as requests 1 to 3, each at the flume fixture at
-        names; crew's kit as read on deneb, its main holding main's changes, x's head d…d carrying verdict, or the head
-        and what gather.landing_read gives of it (beside) as head names them."""
+        names; crew's kit as read on deneb, its main holding main's changes, x's head LANDED, or the head head names."""
         from facts import CREW_AT, crew_read, launched, madswan_fleet, ran
         fleet = madswan_fleet()
         p, requests = launched(["x"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("c", "x", [], "chore", [])],
                                fleet=fleet)
-        return plan.Stages(fleet, p, crew_read(main, bolts={"x": {"verdict": verdict, **head}}), runs={"madswan": (requests, ran(at))},
+        return plan.Stages(fleet, p, crew_read(main, bolts={"x": head}), runs={"madswan": (requests, ran(at))},
                            label="madswan")
 
     def test_every_piece_merged_and_green_at_its_head_reads_proven(self):
-        """crew-rail "A crossed bolt proven": a, b and c merged by the runner's records, sluice green at x's head."""
+        """crew-rail "A crossed bolt proven": a, b and c merged by the runner's records, x's head the commit their
+        places landed at."""
         st = self.stages({1: "landed", 2: "landed", 3: "landed"})
         work = [(n, st.of(n)["kind"], st.of(n)["stage"]) for n in "abc"]
         assert work == [("a", "unit", "merged"), ("b", "unit", "merged"), ("c", "chore", "merged")]
-        assert plan.landing_unready(work, "d" * 40, self.GREEN, []) is None
-        assert st.bolt_state(st.plan.bolt("x")) == "waits"
+        x = st.plan.bolt("x")
+        assert st.verification(x, self.LANDED) == ("green", "its head d185a87 is a's landing, as the runner reports it")
+        assert plan.landing_unready(work, st.verification(x, self.LANDED), []) is None
+        assert st.bolt_state(x) == "waits"
 
-    def test_a_head_landed_beside_the_queue_and_covered_by_a_passed_verdict_reads_proven(self):
-        """merge-gate "A landing beside reads as the verdict that covers it": x's head is a take-main fix sluice 0.69.0
-        landed beside its queue, its record naming the verdict that covers it, which passed: x reads proven and waits to
-        land, so its row reaches crew's landings card; sluice 0.68.1's record, naming none, keeps it unproven."""
-        from facts import BESIDE_HEAD, BESIDE_NEW, BESIDE_OLD, landed_beside
-        work = [("a", "unit", "merged"), ("b", "unit", "merged"), ("c", "chore", "merged")]
-        assert plan.landing_unready(work, BESIDE_HEAD, BESIDE_NEW, [], landed_beside("0.69.0")) is None
-        assert plan.landing_unready(work, BESIDE_HEAD, BESIDE_OLD, [], landed_beside("0.68.1")).startswith(
-            "its verification is not green: its head b01e966 landed beside sluice's queue with nothing run (#1319), and "
-            "sluice's record of it names no verdict that covers it")
-        st = self.stages({1: "landed", 2: "landed", 3: "landed"}, verdict=BESIDE_NEW, head=BESIDE_HEAD, beside=landed_beside("0.69.0"))
-        assert st.bolt_state(st.plan.bolt("x")) == "waits"
-        st = self.stages({1: "landed", 2: "landed", 3: "landed"}, verdict=BESIDE_OLD, head=BESIDE_HEAD, beside=landed_beside("0.68.1"))
-        assert st.bolt_state(st.plan.bolt("x")) == "active"
+    def test_a_head_that_is_no_landing_of_its_work_keeps_it_unproven(self):
+        """merge-gate "A head that is no landing of the bolt's work": every piece merged, but x's head is a commit no
+        piece of it landed at, as a commit pushed by hand is: x reads active and is offered for no landing."""
+        other = "e" * 40
+        st = self.stages({1: "landed", 2: "landed", 3: "landed"}, head=other)
+        work = [(n, st.of(n)["kind"], st.of(n)["stage"]) for n in "abc"]
+        x = st.plan.bolt("x")
+        assert plan.landing_unready(work, st.verification(x, other), []) == (
+            "its verification is not green: its head eeeeeee is no landing of its work that the runner reports")
+        assert st.bolt_state(x) == "active"
 
     def test_a_piece_still_in_code_keeps_it_unproven(self):
         st = self.stages({1: "landed", 2: "code", 3: "landed"})
-        assert plan.landing_unready([(n, st.of(n)["kind"], st.of(n)["stage"]) for n in "abc"], "d" * 40, self.GREEN, []) == (
+        x = st.plan.bolt("x")
+        assert plan.landing_unready([(n, st.of(n)["kind"], st.of(n)["stage"]) for n in "abc"], st.verification(x, self.LANDED), []) == (
             "unit b has not merged: it is code")
-        assert st.bolt_state(st.plan.bolt("x")) == "active"
+        assert st.bolt_state(x) == "active"
 
     def refusal(self, st, held, outside=()):
         return plan.land_refusal("x", ["a", "b", "c"], st.of, list(outside), "madswan", held, "crew")

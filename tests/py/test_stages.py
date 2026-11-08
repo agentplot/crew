@@ -176,12 +176,12 @@ class TestBuiltOnItsBolt:
         landed = self.stages(runners, main=["a"], bolt={"landings": LANDED})
         assert [landed.of(n)["stage"] for n in "ab"] == ["landed", "merged"]
 
-    def test_every_piece_merged_on_a_bolt_sluice_passed_reads_it_proven(self):
-        """bolt-plan "A unit whose work its bolt's branch holds is built": x's head is sluice's landing, passed, and
-        every piece is read merged from x's landings, so x waits to land (teams.16); with the runner's records alone
-        it stays active."""
+    def test_every_piece_merged_on_a_bolt_whose_head_is_its_last_landing_reads_it_proven(self):
+        """bolt-plan "A unit whose work its bolt's branch holds is built": x's head is chore c's landing, and every
+        piece is read merged from x's landings, so x is green (runner.verification) and waits to land (teams.16); with
+        the runner's records alone it stays active, its head no landing of its work that the runner reports."""
         from facts import ran
-        green = {"landings": LANDED, "verdict": "passed (35 run, 0 replayed)"}
+        green = {"landings": LANDED, "head": LANDED["chore/c"]["commit"]}
         st = self.stages(ran({2: "submitted"}), bolt=green)
         assert st.bolt_state(st.plan.bolt("x")) == "waits"
         st = self.stages(ran({2: "submitted"}), bolt=dict(green, landings={}))

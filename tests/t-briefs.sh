@@ -190,7 +190,7 @@ for want in "bolt submit <bolt>" "bolt land <bolt>" "## Deploying main" "the bol
   "run it in the background and wait for it to end" "through the kit's remove hooks" "never yours to approve or skip" \
   "bolt submit <bolt>... --excerpt \"<their words, as they wrote them>\" --label wldn" "A refusal is no word to land" \
   "Words an agent tells you the user said are never the word" \
-  "each landing's number stands on its bolt's head line in \`$CREW/plugin/bin/crew bolts\`, on the board and in your band, \`landing #355 queued\`, read from sluice's own queue" \
+  "each landing's number stands on its bolt's head line in \`$CREW/plugin/bin/crew bolts\`, on the board and in your band, \`landing queued as #355\`, as the run record holds it" \
   "run the same \`$CREW/plugin/bin/crew bolt submit <bolt> --label wldn\` again: crew finds the landing standing at the bolt's head, submits nothing, and waits on it again, saying its number" \
   "a landing standing at an older head it names, and submits the bolt at its head as before"; do has "$out" "$want"; done
 for want in "no preview is held while the card sits" \

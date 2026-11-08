@@ -8,8 +8,8 @@
 # agent's view with its open cards; running, a tick of its clock with nothing moved starts nothing but its fetch of each
 # repository, a plan write on its host is shown at its next look, with nothing fetched or gathered, a reading sent back on its host
 # has that host's card sessions swept at its next look, with nothing gathered, a write to sluice's folder in the box's
-# kit moves nothing, and a merge queued in sluice is on its unit's row at the next look from the kit's overview watch,
-# with nothing gathered; crew page writes the page whole, with the deploys, a dock for each item with its history as
+# kit moves nothing, it runs no sluice on either host, and a piece the box's runner reports submitted is on its unit's
+# row at the refresh after the clock's fetch, with no kit gathered; crew page writes the page whole, with the deploys, a dock for each item with its history as
 # crew trace walks it, and its partition links in the layout of its file, saying so when that names no partition, and
 # nothing when the branch can't be read; crew page --fleet writes every partition on one page beside the partitions'
 # folders, its links in the layout of its file, and a partition's page served as <label>.html links back to it; every
@@ -17,7 +17,7 @@
 # records among it; and a plan a hand edit broke is refused, named by its commit. What each lane, line, URL and node
 # says are logic cases (tests/py/test_board.py, test_page.py, test_fleet.py, test_rail.py), and what the kit reader
 # takes from git, contract cases (tests/contract/test_gather.py); each step here checks a command's wiring once.
-# Reads: tests/stubs-sites/ plugin/lib/board.py plugin/lib/sites.py plugin/lib/page.py plugin/lib/page.html plugin/lib/fleet.html
+# Reads: tests/stubs-sites/ plugin/lib/board.py plugin/lib/sites.py plugin/lib/page.py plugin/lib/page.html plugin/lib/fleet.html tests/py/flume-0.3.6/code.json
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 export PATH="$TESTS/stubs-sites:$PATH"
 bolt_world
@@ -194,16 +194,16 @@ expect_ok crew _board wldn --once
 eq "$(tail -n +2 <<<"$out" | unaged)" "$(crew board --label wldn | tail -n +2 | unaged)"
 ok "the host's follower, with no tab open, writes each partition's frames there from one read, one fetch of the state branch and one read of each host's kits, the rail the rail tab draws as crew rail prints it, ends the dead session crew board left, and writes the frame the board tab draws as crew board does, with each agent's view and open cards beside it"
 
-# The follower running: its clock set past the test's length, so only a signal ticks it (tests.8), and each kit's queue
-# followed through the stub sluice's overview watch. Its first refresh reads and opens a watch on each kit holding a
-# bolt, the box's over ssh, its gathers running no sluice status; a tick with nothing moved fetches each repository
-# once and starts nothing else: no other git, no gather, no portless and no python3 on mac-studio, and no ssh, no
-# sluice, no Pending You and no herdr anywhere (Decisions 1 to 3 of a-followers-tick-reads-nothing-while-nothing-moved);
-# a plan write on mac-studio is shown at the next look, with nothing fetched and no
-# kit gathered; a reading's result written on mac-studio, as plannotator writes the one the user sends back, has
-# mac-studio's card sessions swept at the next look, the box's not, and nothing gathered; a write to sluice's folder in
-# the box's kit moves nothing at the next tick; and a merge of unit a queued in sluice, its watch printing a new line,
-# puts the submission's number on a's row at the next look, with nothing gathered and no sluice run but the watches.
+# The follower running: its clock set past the test's length, so only a signal ticks it (tests.8). Its first read and
+# its ticks run no sluice on either host (crew-board "A follower's life"); a tick with nothing moved fetches each
+# repository once and starts nothing else: no other git, no gather, no portless and no python3 on mac-studio, and no
+# ssh, no sluice, no Pending You and no herdr anywhere (Decisions 1 to 3 of
+# a-followers-tick-reads-nothing-while-nothing-moved); a plan write on mac-studio is shown at the next look, with nothing
+# fetched and no kit gathered; a reading's result written on mac-studio, as plannotator writes the one the user sends
+# back, has mac-studio's card sessions swept at the next look, the box's not, and nothing gathered; a write to sluice's
+# folder in the box's kit moves nothing at the next tick; and the box's runner reporting unit a's place submitted as #41,
+# under test, puts `submitted #41` on a's row at the refresh after the clock's fetch, with no kit gathered and no sluice
+# run (crew-board "The runner reports the merge"; crew record 0056 points 1 and 4).
 # rewrote: a round whose every frame is new since the files given, its agents' views last, so the round reached its
 # end: a round goes on past wldn's rail, to swancloud's frames and, at its first write of each partition, a read of
 # crew's version (board.here_read); ticked, the tick's own round, every frame new since the tick's fetch found them;
@@ -230,12 +230,11 @@ at=$(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json"); r
 fol=$!
 until_ok ticked || fail "the running follower never refreshed: $(cat "$T/follower")"
 eq "$(tick_reads $box gather)" "1"
-watching() { grep -q "^$box sluice overview --json --watch in " "$CREW_TEST_LOG" && grep -q "^mac-studio sluice overview --json --watch in " "$CREW_TEST_LOG"; }
-until_ok watching || fail "the follower opened no overview watch on each kit: $(cat "$CREW_TEST_LOG")"
-! grep -q " sluice status " "$CREW_TEST_LOG" || fail "the follower's read of the kits ran sluice status: $(grep ' sluice status ' "$CREW_TEST_LOG")"
-# a first tick settles what the read left (its watches' first lines, the cards its sweep did not ask after); the one
-# after it, with everything answered and nothing moved, is the quiet tick
+eq "$(grep -c ' sluice ' "$CREW_TEST_LOG" || true)" "0"
+# a first tick settles what the read left (the cards its sweep did not ask after); the one after it, with everything
+# answered and nothing moved, is the quiet tick
 tick "the follower's tick wrote no frame"
+eq "$(grep -c ' sluice ' "$CREW_TEST_LOG" || true)" "0"
 tick "the follower's quiet tick wrote no frame"
 # one fetch of each repository: wldn's state, here with its partition's branch, and willdan's blueprints, afterthought's
 # blueprints and afterthought's state, fetched once more without madswan's branch, which is not made there; mac-studio's
@@ -262,17 +261,23 @@ echo 2 > "$records/main/version"; echo '{}' > "$records/bolt/tenant-environments
 tick "the follower's tick after sluice's write wrote no frame"
 eq "$(tick_reads $box gather) $(tick_reads mac-studio gather) $(tick_reads mac-studio git)" "0 0 0"
 proposed || fail "the rail lost its words at sluice's write: $(railtext)"
-eq "$(unit_of a | jq -c .submission)" "null"
-: > "$T/reads.log"; : > "$CREW_TEST_LOG"
-jq -n '{schema: "sluice/overview@1", at: "2026-10-28T16:24:41Z", branches: [{branch: "bolt/tenant-environments",
-  submissions: [{id: 41, branch: "bolt/tenant-environments", state: "testing", from: {worktree: "unit/a"}}]}]}' > "$T/sluice-overview.json"
-queued() { [[ $(unit_of a | jq -c .submission) == '{"id":41,"state":"testing"}' ]]; }
-until_ok queued || fail "the watch's new line did not put the submission on a's row: $(unit_of a)"
-eq "$(reads mac-studio gather) $(reads $box gather) $(reads mac-studio fetch)" "0 0 0"
-eq "$(grep ' sluice ' "$CREW_TEST_LOG" | grep -vc ' overview --json --watch' || true)" "0"
-expect_ok crew _board wldn --once; has "$(line_of "$out" "  a  ")" "#41 under test"
+eq "$(unit_of a | jq -r .stage) $(grep -c ' sluice ' "$CREW_TEST_LOG" || true)" "code 0"
+# the box's runner reports a's place submitted as #41, under test: Flume's status of it as code.json's, its submission
+# found under test, at the folder and stream the box's runner keeps the kit in
+submitted=$(python3 -c 'import json, sys
+s = json.load(open(sys.argv[1])); p = s["status"]["places"][0]
+p["place"] = sys.argv[2]; p.pop("repository", None); p.pop("stream", None)
+p["submission"] = dict(p["submission"], read={"found": {"submission": {"id": "41", "branch": "change/a", "target": "bolt/tenant-environments",
+                                                                       "state": "under_test"}}}, submits=1)
+print(json.dumps(s))' "$CREW/tests/py/flume-0.3.6/code.json" "$pa")
+runner_writes $box "$(request_of unit/a)" "$pa" "$submitted"
+tick "the follower's tick after the box's runner reported wrote no frame"
+eq "$(unit_of a | jq -r '[.flume.stage, .flume.submission] | join(" ")')" "submitted 41"
+eq "$(tick_reads $box gather) $(tick_reads mac-studio gather) $(grep -c ' sluice ' "$CREW_TEST_LOG" || true)" "0 0 0"
+expect_ok crew _board wldn --once; has "$(line_of "$out" "  a  ")" "submitted #41"
 kill "$fol"; wait "$fol" 2>/dev/null || true
-ok "the running follower's first read runs no sluice status, its tick with nothing moved starts nothing but one fetch of each repository, no ssh, sluice, Pending You, herdr, portless or gather, a plan write on mac-studio is shown at its next look with nothing fetched and no kit gathered, a reading sent back there has mac-studio's card sessions swept and nothing gathered, a write to sluice's folder moves nothing, and a merge queued in sluice is on its row from the kit's overview watch with nothing gathered"
+runner_writes $box "$(request_of unit/a)" "$pa" "$(live "$pa" code 1 2)"  # a's place back at code, as the views below read it
+ok "the running follower's first read and its ticks run no sluice on either host, its tick with nothing moved starts nothing but one fetch of each repository, no ssh, sluice, Pending You, herdr, portless or gather, a plan write on mac-studio is shown at its next look with nothing fetched and no kit gathered, a reading sent back there has mac-studio's card sessions swept and nothing gathered, a write to sluice's folder moves nothing, and the box's runner reporting a's place submitted as #41 puts submitted #41 on its row at the refresh after the clock's fetch, with no kit gathered"
 
 # crew page: the page written whole under the partition's state folder, its path and header printed, nothing
 # appended; a node's history on it, and its dock's, is what crew trace prints.
