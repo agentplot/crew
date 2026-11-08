@@ -49,7 +49,8 @@ def runnerless(label, tips):
 REQUESTS = """\
 # crew's requests of the runners: a launch of a Flume place for a started
 # bolt's work, a fix or a role's work that lands, or a retry, drop or priority
-# of a place launched.
+# of a place launched; or a preview of a branch at a revision on the host whose
+# runner took the work it serves, or its done.
 # Written only by crew, each in the commit of the plan write that occasions it;
 # numbered once, and never changed or removed. The runner whose configuration
 # names a launch's Repo takes it, or for a role's the runner on its Host, and
@@ -60,30 +61,35 @@ REQUESTS = """\
 %doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work; or a retry, drop or priority of the place the launch Of names launched, taken by the runner that took it.
 %key: Request
 %type: Request,Of,After,Priority int
-%type: Act enum launch retry drop priority
+%type: Act enum launch retry drop priority preview
 %type: Kind enum change chore fix
 %type: Hold enum submission
 %type: Submission bool
+%type: Done bool
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Date date
 %mandatory: Request Act Work Date By
-%allowed: Request Act Host Work Repo Kind Name Base Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
+%allowed: Request Act Host Work Repo Kind Name Base Branch Revision Done Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
 """
 # A request's fields in the order requests.rec writes them (Decision 4's table).
-FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent", "Recipient", "Hold",
-          "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
+FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Branch", "Revision", "Done", "Stream", "Priority",
+          "Intent", "Recipient", "Hold", "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
 # What every request carries, and, by its act, what it must carry beside them and what else it may: a launch of a
-# role's work names its Host and Stream, and a launch of a kit's work neither (request_refusal).
+# role's work names its Host and Stream, and a launch of a kit's work neither; a preview names the host whose runner
+# brings it up, its repository, branch and revision, and Done: yes to put it away (request_refusal).
 COMMON = ("Request", "Act", "Work", "Date", "By")
 ACTS = {
     "launch": (("Repo", "Kind", "Name", "Base", "Priority", "Intent", "Recipient", "Brief"), ("Hold", "After", "Host", "Stream")),
     "retry": (("Of",), ("Stage", "Submission", "Words")),
     "drop": (("Of",), ()),
     "priority": (("Of", "Priority"), ()),
+    "preview": (("Host", "Repo", "Branch", "Revision"), ("Done",)),
 }
 # The work a request serves, as crew names it: a unit, a chore, a fix on a bolt or a fix of a kit's main, or a role's
-# work that lands (Decision 10 of roles-run-as-flume-kinds).
+# work that lands (Decision 10 of roles-run-as-flume-kinds); and the work a preview serves alone, a landings row's
+# bolt or a batch line's unit (Decision 1 of a-cards-preview-is-asked-of-the-runner), bolt/<bolt> serving no other.
 WORK = re.compile(r"^(?:unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+PREVIEW_WORK = re.compile(r"^(?:bolt/N|unit/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
 
 
 def number(v):
@@ -118,15 +124,21 @@ def request_refusal(requests, new):
     launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
     host's Flume configuration maps the repository to (settled with the user 2026-11-01); a retry, drop or priority names by Of a launch of the same
     work; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds its
-    submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
+    submission; and a retry starts a stage again or submits again, not both (Decision 4). A preview names the host
+    whose runner brings it up, serves a landings row's bolt/<bolt> or a batch line's unit/<unit>, bolt/<bolt> being
+    the work of no other request, and is marked done by Done: yes alone (Decision 1 of
+    a-cards-preview-is-asked-of-the-runner)."""
     n, act, work = new.get("Request"), new.get("Act"), new.get("Work")
     want = next_request(requests)
     if number(n) != want:
         return (f"request {n} is not the next in requests.rec: it holds "
                 + (f"requests 1 to {want - 1}" if want > 2 else "request 1" if want == 2 else "none") + f", so the next is {want}")
     if act not in ACTS:
-        return f"request {n} is a {act}, and a request is a launch, a retry, a drop or a priority"
+        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority or a preview"
     need, may = ACTS[act]
+    if act == "preview" and not new.get("Host"):
+        return (f"preview {n} for {work} names no Host: a preview names the host whose runner brings it up, the one whose "
+                "runner reported the work it serves")
     missing = [f for f in COMMON + need if not new.get(f)]
     if missing:
         return (f"{act} {n} for {work} names no {' and no '.join(missing)}: a {act} carries "
@@ -134,16 +146,22 @@ def request_refusal(requests, new):
     extra = sorted({f for f, _ in new.fields if f not in COMMON + need + may})
     if extra:
         return f"{act} {n} for {work} carries {', '.join(extra)}, which a {act} does not take"
-    if not WORK.match(work):
+    if act == "preview" and not PREVIEW_WORK.match(work):
+        return f"preview {n} serves {work}, and a preview serves bolt/<bolt>, a landings row's, or unit/<unit>, a batch line's"
+    if act != "preview" and PREVIEW_WORK.match(work) and work.startswith("bolt/"):
+        return f"{act} {n} serves {work}, and bolt/<bolt> is the work of a preview alone"
+    if act != "preview" and not WORK.match(work):
         return (f"{act} {n} serves {work}, and a request serves unit/<unit>, chore/<chore>, fix/<bolt>/<name>, fix/main/<kit>/<name> "
                 "or role/<role>/<name>")
+    if act == "preview" and new.get("Done") not in (None, "yes"):
+        return f"preview {n} for {work} is marked Done: {new.get('Done')}, and a preview is put away by Done: yes alone"
     if act == "launch" and work.startswith("role/") and not (new.get("Host") and new.get("Stream")):
         return f"launch {n} of {work} names no Host or no Stream: a role's work runs on the host and in the stream its role runs in"
     if act == "launch" and not work.startswith("role/") and (new.get("Host") or new.get("Stream")):
         return (f"launch {n} of {work} names a Host or a Stream: a kit's work is taken by a runner whose configuration "
                 "names its repository, in the stream its host's Flume configuration maps the repository to, and crew names neither")
     by = {r.get("Request"): r for r in requests}
-    if act != "launch":
+    if act in ("retry", "drop", "priority"):
         of = by.get(new.get("Of"))
         if of is None or of.get("Act") != "launch":
             return f"{act} {n} for {work} names request {new.get('Of')}, which is no launch" + (
@@ -163,6 +181,14 @@ def request_refusal(requests, new):
     if act == "retry" and new.get("Stage") and new.get("Submission"):
         return f"retry {n} of {work} names stage {new.get('Stage')} and the submission: a retry starts a stage again or submits again"
     return None
+
+
+def preview_fields(host, repo, branch, revision, done=False):
+    """The fields of a preview request (Decision 1 of a-cards-preview-is-asked-of-the-runner), as plan.request takes
+    them beside its act and work: the host whose runner reported the work it serves, which alone brings it up; its
+    repository as the plan names it, resolved by that runner as a launch's is; the branch and the revision the row or
+    line names; and, for its done, Done: yes."""
+    return {"Host": host, "Repo": repo, "Branch": branch, "Revision": revision, "Done": True if done else None}
 
 
 def append_refusal(before, after):

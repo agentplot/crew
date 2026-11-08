@@ -89,7 +89,7 @@ class TestRequests:
         have = held(rec(1, "launch"))
         assert runner.request_refusal(have, rec(2, "drop", Of=1, Words="Gone.", Stream="madswan")) == (
             "drop 2 for unit/a carries Stream, Words, which a drop does not take")
-        assert runner.request_refusal([], rec(1, "reorder")) == "request 1 is a reorder, and a request is a launch, a retry, a drop or a priority"
+        assert runner.request_refusal([], rec(1, "reorder")) == "request 1 is a reorder, and a request is a launch, a retry, a drop, a priority or a preview"
 
     def test_the_work_is_named_as_crew_names_it(self):
         for work in ("unit/a", "chore/bump", "fix/b/tidy", "fix/main/crew/red", "role/design/record-0053"):
@@ -121,6 +121,71 @@ class TestRequests:
         assert runner.request_refusal(have, rec(2, "retry", Of=1, Submission=True)) is None
         assert runner.request_refusal(have, rec(2, "retry", Of=1, Stage="code", Submission=True)) == (
             "retry 2 of unit/a names stage code and the submission: a retry starts a stage again or submits again")
+
+
+PREVIEW = dict(Host="deneb", Repo="crew", Branch="bolt/y", Revision="abc1234" + "0" * 33)
+
+
+class TestPreviewRequest:
+    """A preview names its host, its work, its repository, its branch and its revision, and Done: yes to put it away
+    (drive-state "A preview names its host, its work, its repository, its branch and its revision"; Decision 1)."""
+
+    def test_a_previews_fields_are_written_in_the_files_order_and_its_done_as_yes(self):
+        given = runner.preview_fields("deneb", "crew", "bolt/y", PREVIEW["Revision"])
+        assert rec(8, "preview", "bolt/y", **given).fields == [
+            ("Request", "8"), ("Act", "preview"), ("Host", "deneb"), ("Work", "bolt/y"), ("Repo", "crew"), ("Branch", "bolt/y"),
+            ("Revision", PREVIEW["Revision"]), ("Date", AT), ("By", BY)]
+        done = rec(9, "preview", "bolt/y", **runner.preview_fields("deneb", "crew", "bolt/y", PREVIEW["Revision"], done=True))
+        assert done.get("Done") == "yes"
+        assert [f for f, _ in done.fields].index("Done") == [f for f, _ in done.fields].index("Revision") + 1
+
+    def test_a_preview_of_a_bolt_and_one_of_a_unit_pass(self):
+        """drive-state "A preview of a landings row's bolt"; and a batch line's, of its unit."""
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **PREVIEW)) is None
+        have = held(rec(1, "preview", "bolt/y", **PREVIEW))
+        assert runner.request_refusal(have, rec(2, "preview", "unit/a", **dict(PREVIEW, Branch="change/a"))) is None
+        assert runner.request_refusal(have, rec(2, "preview", "bolt/y", **dict(PREVIEW, Done="yes"))) is None
+
+    def test_a_preview_naming_no_host_is_refused_saying_whose_runner_brings_it_up(self):
+        """drive-state "A preview naming no host"."""
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **dict(PREVIEW, Host=None))) == (
+            "preview 1 for bolt/y names no Host: a preview names the host whose runner brings it up, the one whose runner "
+            "reported the work it serves")
+
+    @pytest.mark.parametrize("field", ["Repo", "Branch", "Revision"])
+    def test_a_preview_naming_no_repo_branch_or_revision_is_refused_naming_it(self, field):
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **dict(PREVIEW, **{field: None}))) == (
+            f"preview 1 for bolt/y names no {field}: a preview carries Request, Act, Work, Date, By, Host, Repo, Branch, Revision")
+
+    def test_a_preview_carrying_what_it_does_not_take_is_refused_naming_the_fields(self):
+        """drive-state "A preview carrying what it does not take"."""
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", Kind="change", Stream="madswan", **PREVIEW)) == (
+            "preview 1 for bolt/y carries Kind, Stream, which a preview does not take")
+
+    def test_a_preview_of_other_work_or_marked_done_otherwise_is_refused(self):
+        assert runner.request_refusal([], rec(1, "preview", "chore/c", **PREVIEW)) == (
+            "preview 1 serves chore/c, and a preview serves bolt/<bolt>, a landings row's, or unit/<unit>, a batch line's")
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **dict(PREVIEW, Done="no"))) == (
+            "preview 1 for bolt/y is marked Done: no, and a preview is put away by Done: yes alone")
+
+    def test_a_launch_retry_or_drop_of_a_bolts_work_is_refused(self):
+        """drive-state "A bolt's work on any other request"."""
+        assert runner.request_refusal([], rec(1, "launch", "bolt/y")) == (
+            "launch 1 serves bolt/y, and bolt/<bolt> is the work of a preview alone")
+        have = held(rec(1, "preview", "bolt/y", **PREVIEW))
+        assert runner.request_refusal(have, rec(2, "retry", "bolt/y", Of=1, Words="Again.")) == (
+            "retry 2 serves bolt/y, and bolt/<bolt> is the work of a preview alone")
+        assert runner.request_refusal(have, rec(2, "drop", "bolt/y", Of=1)) == (
+            "drop 2 serves bolt/y, and bolt/<bolt> is the work of a preview alone")
+
+    def test_the_descriptor_takes_a_preview_last_its_done_and_its_fields_after_base(self):
+        lines = runner.REQUESTS.splitlines()
+        assert "%type: Act enum launch retry drop priority preview" in lines
+        assert lines[lines.index("%type: Submission bool") + 1] == "%type: Done bool"
+        allowed = next(l for l in lines if l.startswith("%allowed:")).split()[1:]
+        assert allowed[allowed.index("Base") + 1:allowed.index("Base") + 4] == ["Branch", "Revision", "Done"]
+        assert allowed == list(runner.FIELDS)
+        assert "# of a place launched; or a preview of a branch at a revision on the host whose" in lines
 
 
 class TestAppended:
