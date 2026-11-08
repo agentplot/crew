@@ -1,16 +1,15 @@
-"""Every submission's number on its bolt's row (bolt-teams "A submission's number is on its bolt's row from the
-submit", teams.22, record 0046 part 2): the gather's read of sluice's queue, gather.submissions_of, on sluice 0.51.3's
-own overview (tests/py/sluice-0.51.3/), every field guarded and a document of another schema said; gather.queue's
-failures, each said, on a stand-in for the process; the submissions an overview's recent events name decided,
-gather.decided_in, on sluice 0.56.0's and 0.51.3's own overviews (tests/py/sluice-0.56.0/); sluice's record of every
-submission a branch has had, gather.decided_of, as the landing reads it once, on its own `status --all` documents;
+"""What crew's own landing reads of sluice's queue and records, and what crew bolts shows of a submission (bolt-teams
+"A submission's number is on its bolt's row from the submit", teams.22): the read of an overview's standing
+submissions, gather.submissions_of, on sluice 0.51.3's own overview (tests/py/sluice-0.51.3/), every field guarded and
+a document of another schema said, which the landing reads before it submits (plan.queue_read); sluice's record of
+every submission a branch has had, gather.decided_of, as the landing reads it once, on its own `status --all`
+documents;
 whose line each submission is, plan.submission_rows, which crew's own landing reads; and that crew bolts,
 plan.bolts_data and plan.bolts_text, shows a piece's submission as the runner carries it and a bolt's landing as the
 run record holds it, never from sluice's queue (crew record 0056 points 1 and 4), beside the rest of crew bolts in
 test_rail.py and test_chores.py."""
 import json
 import pathlib
-import subprocess
 
 import pytest
 
@@ -21,7 +20,6 @@ import gather
 import plan
 
 RECORDED = pathlib.Path(__file__).parent / "sluice-0.51.3"
-RECENT = pathlib.Path(__file__).parent / "sluice-0.56.0" / "overview-recent.json"
 
 
 def overview():
@@ -88,33 +86,6 @@ def test_a_document_of_another_schema_is_said_never_read_as_an_empty_queue(doc, 
     assert gather.submissions_of(doc) == (None, why)
 
 
-class Ran:
-    def __init__(self, code, out="", err=""):
-        self.returncode, self.stdout, self.stderr = code, out, err
-
-
-@pytest.mark.parametrize("run, why", [
-    (FileNotFoundError("sluice"), "this host has no sluice on its path"),
-    (subprocess.TimeoutExpired("sluice", 15), "sluice overview did not answer within 15 seconds"),
-    (Ran(2, '{"error":{"kind":"refused","message":"not a repository sluice serves"}}'),
-     "sluice overview exited 2: not a repository sluice serves"),
-    (Ran(2, "", "error: unrecognized subcommand 'overview'\n"), "sluice overview exited 2: error: unrecognized subcommand 'overview'"),
-    (Ran(0, "not json"), "sluice overview printed no JSON")])
-def test_a_queue_that_cant_be_read_says_why(monkeypatch, run, why):
-    def ran(args, **kw):
-        assert args == ["sluice", "overview", "--json"] and kw["cwd"] == "/k/main" and kw["timeout"] == 15
-        if isinstance(run, BaseException):
-            raise run
-        return run
-    monkeypatch.setattr(gather.subprocess, "run", ran)
-    assert gather.queue("/k/main") == (None, why)
-
-
-def test_a_queue_read_is_the_documents_submissions(monkeypatch):
-    monkeypatch.setattr(gather.subprocess, "run", lambda args, **kw: Ran(0, (RECORDED / "overview-standing.json").read_text()))
-    assert [s["id"] for s in gather.queue("/k/main")[0]] == [317, 318, 355]
-
-
 # ------------------------------------------------------------------------- sluice's record of every submission had
 
 def recorded(name):
@@ -165,60 +136,6 @@ def test_a_record_field_missing_or_mistyped_is_none_and_one_with_no_number_is_le
      "sluice status printed a record of sluice/submission@2, not the sluice/submission@1 crew reads")])
 def test_a_record_of_another_shape_is_said(doc, why):
     assert gather.decided_of(doc) == (None, why)
-
-
-# ------------------------------------------------------------------- the decided an overview's recent events name
-
-def recent():
-    return json.loads(RECENT.read_text())
-
-
-def test_each_number_a_branchs_recent_events_name_is_decided_at_its_events_time_from_the_place_it_came_from():
-    """crew-board "A row drawn from the overview": sluice 0.56.0's events name their submissions as a list, ids."""
-    got, why = gather.decided_in(recent())
-    assert why is None and [(s["id"], s["branch"], s["worktree"], s["event"], s["decided"]) for s in got][:3] == [
-        (365, "bolt/crew-reads-a-bolts-time-and-its-landing", "fix/crew-reads-a-bolts-time-and-its-landing/take-main", "landed", "2026-10-28T19:30:45Z"),
-        (366, "bolt/crew-reads-a-bolts-time-and-its-landing", "unit/a-bolts-row-shows-its-age-and-who-holds-it", "landed", "2026-10-28T20:40:09Z"),
-        (367, "bolt/crew-reads-a-bolts-time-and-its-landing", "unit/a-landing-is-read-from-sluices-record", "landed", "2026-10-28T21:56:08Z")]
-    assert all((s["pull_head"], s["submitted"], s["started"]) == (None, None, None) for s in got), "an event was read for what it does not give"
-    main = [(s["id"], s["worktree"]) for s in got if s["branch"] == "main"]
-    assert len(main) == 10 and main[4] == (355, "pull/198"), "a landing by pull request is named by its pull request alone"
-
-
-def test_an_event_naming_its_one_submission_as_id_is_read_as_sluice_0_51_3_printed_it():
-    blamed = [(s["id"], s["event"], s["worktree"]) for s in gather.decided_in(recent())[0] if s["branch"] == "bolt/crews-chores-of-the-24th-night"]
-    assert blamed == [(313, "blamed", "chore/a-stage-drives-a-browser-only-the-kits-way"),
-                      (315, "blamed", "chore/crew-needs-help-prints-its-usage-and-records-nothing"),
-                      (316, "blamed", "chore/a-failed-taking-with-no-conflict-is-said-in-gits-words")]
-    assert [s["id"] for s in gather.decided_in(overview())[0]] == [313, 315, 316]
-
-
-def test_a_standing_submission_is_none_decided():
-    assert {s["id"] for s in gather.decided_in(recent())[0]}.isdisjoint({317, 318})
-
-
-def test_a_recent_field_missing_or_mistyped_is_none_and_a_number_that_is_none_is_left_out():
-    """read.2: a missing value never becomes text."""
-    doc = recent()
-    landed = doc["branches"][0]
-    landed["recent"][0]["at"] = 1730000000
-    del landed["recent"][1]["event"]
-    landed["recent"][2]["ids"] = [367, "368", True]
-    landed["recent"].append("landed #369")
-    landed["recent_from"] = ["unit/a"]
-    doc["branches"][1]["recent"] = None
-    doc["branches"][2] = dict(doc["branches"][2], branch=None)
-    got, why = gather.decided_in(doc)
-    assert why is None and [(s["id"], s["worktree"], s["event"], s["decided"]) for s in got] == [
-        (365, None, "landed", None), (366, None, None, "2026-10-28T20:40:09Z"), (367, None, "landed", "2026-10-28T21:56:08Z")]
-
-
-@pytest.mark.parametrize("doc, why", [
-    (dict(recent(), schema="sluice/overview@2"), "sluice overview printed sluice/overview@2, not the sluice/overview@1 crew reads"),
-    ([], "sluice overview printed no schema, where crew reads sluice/overview@1"),
-    (dict(recent(), branches={}), "sluice overview's sluice/overview@1 holds no list of branches")])
-def test_an_overview_of_another_schema_names_no_decided_and_says_why(doc, why):
-    assert gather.decided_in(doc) == (None, why)
 
 
 # --------------------------------------------------------------------------------------- whose line each one is

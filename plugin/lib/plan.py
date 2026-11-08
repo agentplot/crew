@@ -590,10 +590,6 @@ class Kept:
         # listed: herdr's listing of the askers of the questions the sweep judges, read on the clock's tick beside the
         # cards (askers_listed), {name: (listed, why)}; None while no tick has read it
         self.listed = None
-        # queued: each kit's queue as the follower's overview watch last read it, [submissions, why] by (host, main),
-        # handed to the kit's gather in place of its own run of sluice; decided, beside it, what the follower kept of
-        # each submission it saw decided there (board.kept_submissions), which the gather gives back
-        self.queued, self.decided = {}, {}
 
     def served(self, host, main, req):
         return kit_served(self.kits.get(host, {}).get(main), self.stamps.get((host, main)), req)
@@ -1353,15 +1349,14 @@ def gathered(fleet, host, req):
     return json.loads(r.stdout), None
 
 
-def stamped(fleet, host, kits, labels=(), overviews=(), routes=False):
+def stamped(fleet, host, kits, labels=(), routes=False):
     """Each kit's stamp on a host (gather.stamp) and the stamp of its card readings folders of the partitions named
     (gather.readings_stamp), {"kits": {main: stamp}, "readings": stamp}, a stamp None when it can't be read, and None;
     or None and why the host did not answer: in this process on this host, which starts nothing, and in one ssh to
-    another, the follower's check that nothing moved there (plan.12). At the follower's clock's tick it also asks the
-    overview of each kit named in overviews, which no watch follows, {"overviews": {main: [document, why]}}, and with
-    routes the host's portless routes, {"routes": routes}: one sluice and one portless here, and the same ssh there."""
-    return gathered(fleet, host, {"kits": kits, "stamp": True, "labels": sorted(labels),
-                                  **({"overview": sorted(overviews)} if overviews else {}), **({"routes": True} if routes else {})})
+    another, the follower's check that nothing moved there (plan.12). At the follower's clock's tick, with routes, it
+    also asks the host's portless routes, {"routes": routes}: one portless here, and the same ssh there. It asks no
+    sluice."""
+    return gathered(fleet, host, {"kits": kits, "stamp": True, "labels": sorted(labels), **({"routes": True} if routes else {})})
 
 
 def survey(fleet, held, sites=False, board=False, fetch=False):
@@ -1391,11 +1386,7 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
                 kept.use(host, m, kits[m], have[m])
         ask = [k for m, k in kits.items() if m not in have]
         if ask:
-            # the follower hands each kit's queue as its overview watch last read it, and what it kept of the decided,
-            # so the gather runs no sluice
-            queued = {m: q for m in kits if (q := (kept.queued.get((host, m)) if kept is not None else None))}
-            req = {"kits": [dict(k, queued=queued[k["main"]], decided=kept.decided.get((host, k["main"]), [[], None])) if k["main"] in queued else k
-                            for k in ask], "sites": sites,
+            req = {"kits": list(ask), "sites": sites,
                    **({"board": True} if board else {}), **({"fetch": True} if fetch else {}), **({"stamped": True} if kept is not None else {})}
             got, error = gathered(fleet, host, req)
             for k in ask if kept is not None else ():

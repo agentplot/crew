@@ -1304,7 +1304,7 @@ def stamps_now(fleet, kits, readings, routes=(), hosts=None):
         if hosts is not None and host not in hosts:
             continue
         ks = kits.get(host, {})
-        got, why = plan.stamped(fleet, host, [req for req, _ in ks.values()], readings.get(host, ()), (), host in routes and bool(ks))
+        got, why = plan.stamped(fleet, host, [req for req, _ in ks.values()], readings.get(host, ()), host in routes and bool(ks))
         out["kits"].update({(host, m): ((got or {}).get("kits") or {}).get(m) for m in ks})
         if host in readings:
             out["readings"][host] = (got or {}).get("readings")

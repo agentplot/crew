@@ -871,7 +871,7 @@ def test_the_check_asks_each_host_once_for_its_kits_and_its_readings(monkeypatch
     every stamp of its None, which counts as moved (read.1)."""
     asked = []
 
-    def stamped(fleet, host, kits, labels=(), overviews=(), routes=False):
+    def stamped(fleet, host, kits, labels=(), routes=False):
         asked.append((host, [k["main"] for k in kits], list(labels)))
         return (None, "exit 255") if host == "macbook-pro" else ({"kits": {k["main"]: "s" for k in kits}, "readings": "r"}, None)
     monkeypatch.setattr(plan, "stamped", stamped)
@@ -1101,16 +1101,16 @@ class TestKept:
         assert again[BOX]["kits"]["/kit/main"] == first[BOX]["kits"]["/kit/main"] and again["mac-studio"] == first["mac-studio"]
         assert set(k.used) == {BOX, "mac-studio"} and set(k.used[BOX]) == {"/kit/main", "/b/main"}
 
-    def test_a_board_survey_hands_each_kit_its_queue_as_the_watch_read_it_in_place_of_running_sluice(self, monkeypatch):
-        """The crew-board spec, One watch for each kit: a refresh that gathers the kit takes its queue from the watch's line."""
+    def test_a_board_survey_hands_a_kit_no_queue(self, monkeypatch):
+        """crew-board "A gather runs no sluice": the follower's gather of a kit is asked its bolts and nothing of sluice's
+        queue, and the follower keeps no queue to hand it (crew record 0056 points 1 and 4)."""
         asked = []
         monkeypatch.setattr(plan, "gathered", lambda fleet, host, req: asked.append(req) or ({k["main"]: {"ok": True} for k in req["kits"]}, None))
         k = plan.Kept()
-        k.queued = {(BOX, "/kit/main"): [[{"id": 41, "branch": "bolt/te"}], None]}
         monkeypatch.setattr(plan.READ, "follower", k)
         plan.survey(FLEET, [(WHERE["a"], "te")], board=True)
-        assert [x.get("queued") for x in asked[0]["kits"]] == [[[{"id": 41, "branch": "bolt/te"}], None]]
-        assert "queued" not in k.used[BOX]["/kit/main"][0], "the kit was kept by a request that names its queue"
+        assert [sorted(x) for x in asked[0]["kits"]] == [["bolts", "dir", "main"]]
+        assert not hasattr(k, "queued") and not hasattr(k, "decided")
 
     def test_a_host_that_does_not_answer_is_kept_with_no_answer_so_its_kits_read_as_moved(self, monkeypatch):
         monkeypatch.setattr(plan, "gathered", lambda fleet, host, req: (None, "ssh: connect timed out") if host == BOX else

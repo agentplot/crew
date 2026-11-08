@@ -49,68 +49,6 @@ class Kit:
         return gather.kit({"main": str(self.repo.path), "dir": str(self.dir), "bolts": ["te"]})
 
 
-def test_a_kits_queue_handed_in_is_its_submissions_and_sluice_is_not_run(repo, tmp_path, monkeypatch):
-    """The host's follower hands a kit's gather its queue as its overview watch read it, and what it kept of each
-    submission it saw decided (the crew-board spec, One watch for each kit), so the gather runs no sluice and gives
-    both back; with none handed it reads the overview itself."""
-    k = Kit(repo, tmp_path)
-    doc = {"schema": "sluice/overview@1", "branches": []}
-    ran = []
-    monkeypatch.setattr(gather, "overview", lambda main: ran.append(main) or (doc, None))
-    req = {"main": str(repo.path), "dir": str(k.dir), "bolts": ["te"]}
-    kept = {"id": 40, "branch": "bolt/te", "worktree": "unit/b", "submitted": "2026-10-28T14:00:00Z", "started": "2026-10-28T14:05:00Z",
-            "decided": "2026-10-28T14:17:00Z", "event": "landed"}
-    got = gather.kit(dict(req, queued=[[{"id": 41, "branch": "bolt/te"}], None], decided=[[kept], None]), stamped=True)
-    assert got["submissions"] == [{"id": 41, "branch": "bolt/te"}] and "submissions_error" not in got and "overview" not in got
-    assert got["decided"] == [kept] and "decided_error" not in got
-    gone = gather.kit(dict(req, queued=[None, "its overview watch ended"], decided=[[kept], None]))
-    assert gone["submissions_error"] == "its overview watch ended" and gone["decided"] == [kept], "a gather threw away what was kept"
-    assert gather.kit(dict(req, queued=[[], None]))["decided_error"] == "the host's follower handed in its queue and nothing it kept of the decided"
-    assert ran == []
-    got = gather.kit(req)
-    assert got["submissions"] == [] and "overview" not in got and ran == [str(repo.path)]
-    assert gather.kit(req, stamped=True)["overview"] == doc, "the follower's gather did not give back the overview its watch starts from"
-
-
-def test_a_kits_gather_reads_sluice_only_through_one_overview_and_with_its_queue_handed_in_starts_no_sluice(repo, tmp_path, monkeypatch):
-    """The crew-board spec, A held bolt's decided merges: a gather of a kit asked two held bolts runs one `sluice
-    overview --json` in the kit's main checkout and no `sluice status`, for either bolt's branch or main, its decided
-    read from the overview's recent events; with the follower's queue handed in it starts no sluice process at all
-    (plan.20, read.1). sluice here is a script on the path that logs every call and answers the overview in the shape
-    sluice 0.56.0 prints it (tests/py/sluice-0.56.0/), an event naming its submissions as ids."""
-    k = Kit(repo, tmp_path)
-    repo.git("branch", "bolt/new")
-    bin_, log, recorded = tmp_path / "bin", tmp_path / "sluice.log", tmp_path / "overview.json"
-    bin_.mkdir()
-    recorded.write_text(json.dumps({"schema": "sluice/overview@1", "at": "2026-10-28T14:20:00Z", "branches": [
-        {"branch": "bolt/te", "submissions": [{"id": 42, "branch": "bolt/te", "state": "queued", "submitted": "2026-10-28T14:18:00Z",
-                                               "from": {"worktree": "unit/b"}}], "candidates": [],
-         "recent": [{"at": "2026-10-28T14:17:00Z", "event": "landed", "ids": [41]}], "recent_from": {"41": "unit/a"}},
-        {"branch": "main", "submissions": [], "candidates": [], "recent": [], "recent_from": {}}]}))
-    (bin_ / "sluice").write_text(f"""#!/bin/sh
-echo "$(pwd -P) $*" >> {log}
-case "$*" in
-  "overview --json") cat {recorded} ;;
-  *) echo "sluice: $* is not stubbed" >&2; exit 2 ;;
-esac
-""")
-    (bin_ / "sluice").chmod(0o755)
-    monkeypatch.setenv("PATH", f"{bin_}{os.pathsep}{os.environ['PATH']}")
-    req = {"main": str(repo.path), "dir": str(k.dir), "bolts": ["te", "new"]}
-    got = gather.kit(dict(req, queued=[[], None], decided=[[], None]))
-    assert not log.exists(), f"a gather with its queue handed in ran sluice: {log.read_text()}"
-    assert (got["submissions"], got["decided"]) == ([], [])
-    got = gather.kit(req)
-    main = os.path.realpath(repo.path)
-    assert log.read_text().splitlines() == [f"{main} overview --json"]
-    assert "decided_error" not in got and [s["id"] for s in got["submissions"]] == [42]
-    assert [(s["id"], s["branch"], s["worktree"], s["decided"]) for s in got["decided"]] == [(41, "bolt/te", "unit/a", "2026-10-28T14:17:00Z")]
-    (bin_ / "sluice").write_text(f"#!/bin/sh\necho \"$(pwd -P) $*\" >> {log}\necho 'error: unexpected argument' >&2\nexit 2\n")
-    got = gather.kit(req)
-    assert got["decided_error"] == got["submissions_error"] == "sluice overview exited 2: error: unexpected argument"
-    assert [l.split(" ", 1)[1] for l in log.read_text().splitlines()] == ["overview --json", "overview --json"]
-
-
 def test_main_holds_its_open_and_archived_changes_an_archived_one_without_its_date(repo, tmp_path):
     """Stages: a unit whose change main holds, open or archived, has landed (the archive at merge, record 0006)."""
     k = Kit(repo, tmp_path)
@@ -339,12 +277,15 @@ def test_a_merge_landed_on_github_is_read_there_with_the_hosts_copy_left_behind(
     assert gather.bolt_read(str(repo.path), "te") == ("refs/remotes/origin/bolt/te", None)
 
 
-def test_a_head_landed_beside_the_queue_is_read_with_no_sluice_run_and_no_verdict(repo, tmp_path, monkeypatch):
-    """merge-gate "Nothing of sluice's is read" (crew record 0056 points 1 and 4): a bolt whose head is a take-main fix
-    sluice landed beside its queue with nothing run, its commit naming a submission and no combination tested as sluice
-    0.69.0 writes it (text.rs beside_message), is read with its head and no verdict or record of sluice's: the bolt's
-    verification is read from the runner's report of its work's landing at that head (runner.verification). sluice here
-    is a script first on the path that appends every call it gets to a file, which names no `sluice status`."""
+def test_a_gather_of_a_kit_with_a_held_bolt_runs_no_sluice(repo, tmp_path, monkeypatch):
+    """crew-board "A gather of a kit with a held bolt" and merge-gate "Nothing of sluice's is read" (crew record 0056
+    points 1 and 4): bolt te on GitHub holds a merge sluice landed through its queue and, at its head, a take-main fix
+    landed beside the queue with nothing run, its commit naming a submission and no combination tested as sluice
+    0.69.0 writes it (text.rs beside_message), and sluice's records on the host hold a merge decided and one standing.
+    The gather, asked te and stamped as the host's follower asks it, reads te's head and runs no sluice: its answer
+    carries no submissions, decided, overview, verdict or beside, nor the errors of their reads, and its stamp request
+    no overviews. sluice here is a script first on the path that appends every call it gets to a file, which stays
+    empty."""
     k, other = on_github(repo, tmp_path)
     covering = landed_on_github(other, {"src.txt": "s\n"}, (
         "chore(land): #1316 unit/u\n\nSluice-Submission: 1316\nSluice-From: swb-3-unit-1 (unit/u)\n"
@@ -353,17 +294,25 @@ def test_a_head_landed_beside_the_queue_is_read_with_no_sluice_run_and_no_verdic
         "chore(land): #1319 fix/te/take-main\n\nSluice-Submission: 1319\nSluice-From: swb-3-unit-1 (fix/te/take-main)\n"
         "Sluice-Result: passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the "
         f"result at {covering}, passed (141 run, 0 replayed)"))
+    records = repo.path / ".git" / "sluice" / "bolt" / "te" / "submissions"
+    records.mkdir(parents=True)
+    (records / "41.json").write_text(json.dumps({"id": 41, "branch": "bolt/te", "state": "landed", "from": {"worktree": "unit/a"}}))
+    (records / "42.json").write_text(json.dumps({"id": 42, "branch": "bolt/te", "state": "queued", "from": {"worktree": "unit/b"}}))
     bin_, log = tmp_path / "bin", tmp_path / "sluice.log"
     bin_.mkdir()
-    (bin_ / "sluice").write_text(f'#!/bin/sh\necho "$*" >> {log}\nexit 0\n')
+    (bin_ / "sluice").write_text(f'#!/bin/sh\necho "$(pwd -P) $*" >> {log}\nexit 0\n')
     (bin_ / "sluice").chmod(0o755)
     log.write_text("")
     monkeypatch.setenv("PATH", f"{bin_}{os.pathsep}{os.environ['PATH']}")
     repo.git("fetch", "-q", "origin")
-    got = k.read()["bolts"]["te"]
-    assert got["head"] == head and got["exists"] is True
-    assert "verdict" not in got and "beside" not in got
-    assert not [l for l in log.read_text().splitlines() if l.startswith("status")]
+    req = {"main": str(repo.path), "dir": str(k.dir), "bolts": ["te"]}
+    got = gather.read({"kits": [req], "stamped": True, "board": True})[str(repo.path)]
+    assert got["ok"] and got["bolts"]["te"]["head"] == head
+    assert not {"submissions", "decided", "overview", "submissions_error", "decided_error"} & set(got)
+    assert not {"verdict", "beside"} & set(got["bolts"]["te"])
+    stamps = gather.read({"kits": [req], "stamp": True, "labels": ["wldn"], "overview": [str(repo.path)]})
+    assert set(stamps) == {"kits", "readings"}
+    assert log.read_text() == "", f"the gather ran sluice: {log.read_text()}"
 
 
 def test_a_chores_place_beside_a_bolt_on_github_is_read_against_githubs_copy(repo, tmp_path):
@@ -499,8 +448,9 @@ class TestStamp:
         assert gather.stamp(self.req) not in (made, None)
 
     def test_a_write_under_sluices_folder_leaves_it(self, repo, tmp_path):
-        """The crew-board spec, sluice's folder moves: a kit's queue is its overview's to say (sluice ADR 0023), so a
-        branch's version written and a submission queued in the git folder's sluice/ leave the stamp as it was."""
+        """The crew-board spec, sluice's folder moves: a submission's move is in its runner's report (crew record 0056
+        points 1 and 4), so a branch's version written and a submission queued in the git folder's sluice/ leave the
+        stamp as it was."""
         self.kit(repo, tmp_path)
         s = gather.stamp(self.req)
         r = repo.path / ".git" / "sluice"
@@ -511,8 +461,8 @@ class TestStamp:
         assert gather.stamp(self.req) == s
 
     def test_nothing_of_crews_names_a_path_in_sluices_folder(self):
-        """crew reads and names no folder of sluice's (the crew-board spec, The follower follows each kit's queue through
-        sluice's overview): no file of crew's joins a git folder to sluice/ or names a path under it."""
+        """crew reads and names no folder of sluice's (the crew-board spec, The follower runs no sluice): no file of
+        crew's joins a git folder to sluice/ or names a path under it."""
         plugin = Path(__file__).resolve().parents[2] / "plugin"
         named = re.compile(r"""(common|git[_-]?dir|\.git)\S*\s*,\s*["']sluice["']|\.git/sluice\b|sluice/(main|bolt)/|\.next-id""")
         found = [f"{p.relative_to(plugin)}:{n}" for p in sorted(plugin.rglob("*")) if p.is_file() and p.suffix in ("", ".py", ".sh", ".js", ".ts", ".md")
