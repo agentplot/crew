@@ -1646,6 +1646,83 @@ def test_a_forecast_that_flips_between_raises_holds_the_card_to_one_request_chan
         ("card.update", "req_k1", "y@abc1234 z@def5678"), ("card.update", "req_k1", "y@abc1234 z@def5678:main")]
 
 
+FOUR = ("%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in ("a", "b", "c", "d")) + "%rec: Unit\n\n")
+FOUR_POSTED = dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="a@abc1234 b@abc1234 c@abc1234 d@abc1234")
+
+
+def offers_what_it_recommends(args):
+    """What Pending You holds every card it takes to (afterthought-ops's signal card-update-recommends-removed-options,
+    req_acf27442b1fa4ce4a278 on deneb, 2026-11-08: "Recommend from: land:a-boxs-build-engine-is-never-killed-at-its-cap,
+    land:moons-store-…"): a list of boxes recommends only boxes it offers, and an approval only its approve."""
+    if "options" in args:
+        return set(args["recommendedIds"]) <= {o["id"] for o in args["options"]}
+    return args["recommendedIds"] == ["approve"] and "approve" in args
+
+
+def test_rows_turning_to_take_main_first_while_the_card_waits_change_it_in_place_recommending_only_what_it_offers(monkeypatch):
+    """rail-cards "A row taking main first changes the card in place": afterthought's land/swancloud on deneb,
+    2026-11-08, four bolts waiting when main moved under three of them, which then took main in. The card is changed in
+    place, still four boxes, the three unticked saying they take main first, its recommended ids all among the options
+    it sends; their take-main fixes starting change nothing it shows, so it is left as it is."""
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(FOUR))
+    rows = {b: row(b) for b in "abcd"}
+    acts = LandActs(rows, [FOUR_POSTED], answers=dict(POSTED, **WAITING),
+                    against_main={b: [("main", ["README.md"])] for b in "abc"})
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    fixing = {b: dict(row(b), box=False, why=TAKE_MAIN_FIX, takes_main=True) for b in "abc"}
+    acts.rows, acts.against_main = dict(fixing, d=row("d")), {}  # each take-main fix in flight
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    tools = [t for t, _ in acts.calls]
+    assert tools.count("update_request") == 1 and "cancel_request" not in tools and "post_request" not in tools
+    change = next(a for t, a in acts.calls if t == "update_request")
+    assert [o["id"] for o in change["options"]] == ["land:a", "land:b", "land:c", "land:d"]
+    assert change["recommendedIds"] == ["land:d"] and offers_what_it_recommends(change)
+    assert change["multi"] == {"min": 0, "max": 4}
+    assert all(o["detail"].startswith(MAIN_FIRST[0].upper() + MAIN_FIRST[1:]) for o in change["options"][:3])
+    assert change["changeNote"].startswith("a takes main first: forecast to conflict with main")  # cut to what Pending You takes
+    assert [(e["Act"], e["Heads"]) for e in acts.emitted if e["Act"].startswith("card.")] == [
+        ("card.update", "a@abc1234:main b@abc1234:main c@abc1234:main d@abc1234")]
+
+
+def test_take_main_fixes_started_on_rows_the_card_shows_taking_main_first_change_it_in_place_as_four_boxes(monkeypatch):
+    """The refused changes of 2026-11-08 themselves: land/swancloud posted with three rows marked :main and one that can
+    land, then crew fix started a take-main fix on each of the three, each start raising the card with its note (crew
+    fix's "<bolt> is held for a fix: <words>"). Each raise changes the card in place, its four rows as the post recorded
+    them, the one that can land its only recommended id, every recommended id among the options it sends; the older crew
+    read the post as one row and sent its approval, recommending "approve", in place over the four boxes, which Pending
+    You refused."""
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(FOUR))
+    posted = dict(FOUR_POSTED, Heads="a@abc1234:main b@abc1234:main c@abc1234:main d@abc1234")
+    fixing = {b: dict(row(b), box=False, why=TAKE_MAIN_FIX, takes_main=True) for b in "abc"}
+    acts = LandActs(dict(fixing, d=row("d")), [posted], answers=dict(POSTED, **WAITING))
+    for b in "abc":
+        note = f"{b} is held for a fix: Take main into the bolt: merge origin/main into this place"
+        assert plan.raise_landings(FLEET, "swancloud", "crew", acts, note=note) == "req_k1"
+    tools = [t for t, _ in acts.calls]
+    assert tools.count("update_request") == 3 and "cancel_request" not in tools and "post_request" not in tools
+    for change in (a for t, a in acts.calls if t == "update_request"):
+        assert [o["id"] for o in change["options"]] == ["land:a", "land:b", "land:c", "land:d"]
+        assert change["recommendedIds"] == ["land:d"] and offers_what_it_recommends(change)
+    assert [e["Heads"] for e in acts.emitted] == ["a@abc1234:main b@abc1234:main c@abc1234:main d@abc1234"] * 3
+
+
+def test_rows_leaving_a_card_of_boxes_for_one_that_can_land_follow_it_with_an_approval_never_changed_in_place(monkeypatch):
+    """rail-cards "A row taking main first changes the card in place", its other side: three of four rows held for a fix
+    that takes no main in leave the card, so one row can land and the card's form moves from boxes to a hold-to-approve,
+    which Pending You never changes (cards.landings_form). It is withdrawn and the approval follows it, so no change
+    sends an approval's recommended id over boxes that offer none, as the refused changes of 2026-11-08 did."""
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(FOUR))
+    held = {b: dict(row(b), box=False, why="held for a fix: one zone is missing (fix/a/gap)") for b in "abc"}
+    acts = LandActs(dict(held, d=row("d")), [FOUR_POSTED], answers=dict(POSTED, **WAITING))
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    tools = [t for t, _ in acts.calls]
+    assert "update_request" not in tools and tools.count("cancel_request") == 1 and tools.count("post_request") == 1
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert (post["kind"], post["recommendedIds"]) == ("approve", ["approve"]) and offers_what_it_recommends(post)
+    assert [(e["Act"], e.get("Heads")) for e in acts.emitted if e["Act"].startswith("card.")] == [
+        ("card.close", None), ("card.post", "d@abc1234")]
+
+
 def test_a_conflict_the_record_holds_at_the_rows_head_holds_it_with_no_forecast_against_it(monkeypatch):
     """rail-cards "Raised again at the same heads": the row is handed to the forecast as held, and held taking main first in the
     recorded files though the card's own forecast says nothing of it."""
