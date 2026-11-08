@@ -242,17 +242,6 @@ class TestCarried:
         assert ops.carried(S3, S1, self.LANDS) == (["two", "three"], None)
         assert ops.carried(S2, "none", self.LANDS) == (["one", "two"], None)
 
-    def test_landings_under_a_kits_former_name_are_its_landings_after_the_rename(self):
-        """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: one and two landed on tailrace, renamed
-        timber before three landed: a deploy of timber to three's commit from one's carries two and three."""
-        rename = dict(Id="20261012T100230Z-mac-studio-1-r", At="2026-10-12T10:02:30Z", Act="kit.rename", On=["kit/timber"],
-                      From=["kit/tailrace"], Commit=[], Repo="timber", Count="2")
-        es = [landed("one", S1, repo="tailrace", minutes=0), landed("crew-one", "d" * 40, repo="crew", minutes=1),
-              landed("two", S2, repo="agentplot/tailrace", minutes=2), rename, landed("three", S3, repo="timber", minutes=3)]
-        assert [x["repo"] for x in ops.landings(es)] == ["timber", "crew", "timber", "timber"]
-        assert ops.carried(S3, S1, ops.landings(es)) == (["two", "three"], None)
-        assert ops.carried(S3, S1, ops.landings([x for x in es if x is not rename])) == (None, "aaaaaaa is no landing's commit in the record")
-
     def test_a_commit_no_landing_left_main_at_is_said_rather_than_guessed(self):
         assert ops.carried("e" * 40, S1, self.LANDS) == (None, "eeeeeee is no landing's commit in the record")
         assert ops.carried(S3, "f" * 40, self.LANDS) == (None, "fffffff is no landing's commit in the record")
@@ -352,6 +341,41 @@ class TestRange:
                                                            {"pr": 66, "subject": "fix(timers): every timer job runs under a time limit"}]
         assert ops.range_landings(commits, MERGED, [dict(bolt="retry-offered", head=S3)])[1] == {"pr": 66, "subject": "retry-offered"}
         assert ops.range_landings(commits, {}, [])[1]["subject"] == "chore(land): #69 pull/66"
+
+
+class TestRangesKits:
+    """Where a deploy's range is read (Decision 8 of a-kept-repositorys-folder-is-the-runners-container): in each
+    repository its main level's session keeps, at the checkout the host keeps it at (crew.session_checkouts), the teams
+    file's where it names the repository for that host."""
+    SESS = {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/flume"]}
+    FILE = {"host": "deneb", "named": {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"}}}
+
+    def test_a_session_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
+        import crew
+        fleet = {"hosts": {}, "partitions": {}, "repositories": self.FILE}
+        assert crew.session_checkouts(fleet, "deneb", self.SESS) == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
+        assert crew.session_checkouts(fleet, "mac-studio", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert crew.session_checkouts({"hosts": {}}, "deneb", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert crew.session_checkouts(fleet, "deneb", {"dir": "/d/x"}) == []
+
+    def test_the_range_is_read_in_the_checkouts_the_host_keeps(self, monkeypatch, tmp_path):
+        """ops.kit_range probes the resolver's checkouts, here git standing in for the tool."""
+        import pathlib
+        import subprocess
+        view = tmp_path / "v/agentplot/crew"
+        view.mkdir(parents=True)
+        fleet = {"hosts": {"deneb": {"sessions": {"madswan": dict(self.SESS, dir=str(tmp_path / "d"))}}},
+                 "partitions": {"madswan": {"label": "madswan", "machine": "deneb", "session": "madswan"}},
+                 "repositories": {"host": "deneb", "named": {"agentplot/crew": {"dir": str(tmp_path / "r"), "checkout": str(view)}}}}
+        asked = []
+
+        def git(argv, **kw):
+            asked.append((argv[2], argv[3]))
+            return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+        monkeypatch.setattr(subprocess, "run", git)
+        monkeypatch.setattr(pathlib.Path, "is_dir", lambda self: str(self) in (str(view), str(tmp_path / "d/flume/main")))
+        assert ops.kit_range(fleet, "madswan", S1, S2) == (None, None, f"{S2[:7]} is a commit of 2 kits madswan's main level keeps on deneb")
+        assert asked == [(str(view), "cat-file"), (str(tmp_path / "d/flume/main"), "cat-file")]
 
 
 class TestOfferedAgain:

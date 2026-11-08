@@ -155,6 +155,18 @@ def run_cards(listed):
         if isinstance(requests, list) else []
 
 
+def pending_turns(listed):
+    """Each card list_pending's reply holds in the name asked, by its id, to whose turn it is, read as run_cards reads
+    the reply (Pending You's wake mod's reading of list_pending): every card the list holds, not only those on the
+    agent's turn, so a card the list no longer holds can be told (design Decision 2 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); a request of any other shape left out; None when the reply
+    holds no list, which says nothing of what is missing from it (read.2)."""
+    requests = listed.get("requests") if isinstance(listed, dict) else None
+    if not isinstance(requests, list):
+        return None
+    return {r["id"]: r.get("turn") for r in requests if isinstance(r, dict) and isinstance(r.get("id"), str) and REQUEST_ID.match(r["id"])}
+
+
 def stranded(entries, key, owner, here):
     """The owner's newest card under a key when this host (here) can't reach it: one posted from another host, done and
     naming a card, that no later card.close of it closes, or one whose last close was as lost to its owner, on any
@@ -187,21 +199,40 @@ def followed_open(entries, card, by):
     return key
 
 
-def lost(words):
-    """Whether Pending You's refusal says it no longer finds the card: what a card posted under another sign-in reads
-    as to its owner once the host has signed in again (ADR 0005 as amended 2026-10-11)."""
-    return isinstance(words, str) and words.lower().startswith("not found")
+HOLDER = re.compile(r"This is (\S+?)'s card\b")  # Pending You's refusal of a card to any name but its holder's
+
+
+def held_elsewhere(words, owner):
+    """Whether Pending You's refusal of a read, change or close made in the name of the card's recorded owner says
+    another assistant holds it: "This is <name>'s card", <name> not the owner (design Decision 6 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), as madswan's batch cards 16 to 31, posted under
+    swancloud-planner's name, were refused to madswan-planner on every close from 2026-10-25."""
+    m = HOLDER.match(words) if isinstance(words, str) and owner else None
+    return bool(m) and m.group(1) != owner
+
+
+def lost(words, owner=None):
+    """Whether Pending You's refusal says the card is lost to its owner: that it no longer finds the card, what a card
+    posted under another sign-in reads as to its owner once the host has signed in again (ADR 0005 as amended
+    2026-10-11); or, given the owner the refused call was made in the name of, that another assistant holds it
+    (held_elsewhere). crew's own asks in its own name, which Pending You refuses as the holder's card by design, give
+    no owner."""
+    return isinstance(words, str) and (words.lower().startswith("not found") or held_elsewhere(words, owner))
 
 
 def lost_said(key, card, words):
     """The refusal of a read of a lost card: the card is still the user's to see, but no longer its owner's to reach. A
     row's card, while its row still waits, the rail's next read posts again under the key, the summary saying the older
-    copy is dead; a question its asker asks again, if it still matters."""
+    copy is dead; a question its asker asks again, if it still matters. A card held in another assistant's name is said
+    so, naming that assistant."""
     again = ("While the row still waits, the rail's next read posts it again under its key, its summary saying an older "
              "copy is dead and to dismiss it in the app" if row_object(key) else
              "Ask it again if it still matters, saying in it that an older copy is dead and to dismiss it in the app")
-    return (f"card {card} under {key} is lost to its owner (Pending You: \"{words}\"): it was posted under another "
-            f"sign-in than this host's, and the user may still see it and answer it, to nobody. {again}")
+    m = HOLDER.match(words) if isinstance(words, str) else None
+    how = (f"Pending You holds it in {m.group(1)}'s name, not its owner's" if m else
+           "it was posted under another sign-in than this host's")
+    return (f"card {card} under {key} is lost to its owner (Pending You: \"{words}\"): {how}, and the user may still "
+            f"see it and answer it, to nobody. {again}")
 
 
 # A name crew raises its own cards in: a partition's planner, main-level ops or design agent (plan.row_owner, the
@@ -404,34 +435,23 @@ def block(head, name, says):
 
 
 def renamed_drawn(a, before, kits, repo, where, renamed):
-    """A kit's rename as a proposal's card draws it (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan),
-    from what the card has read of the plan so far (kits, {bolt: its kit}; repo, {unit: its kit}; where, {unit: its
-    bolt}), which it renames: its RENAME KIT block, the old name and the new, the bolts it renames, the started ones
-    among them marked so, and its units and chores; and its sections, each renamed bolt, and the new kit's queue where it
-    renames queued work or nothing at all, which the picture draws under the new kit (renamed, {section: (old, new, the
-    queued units it renames)}). It makes nothing new, so it asks no question of its own."""
-    same = lambda k: bool(k) and k.split("/")[-1] == a.old.split("/")[-1]
-    bolts, units = [b for b, k in kits.items() if same(k)], [u for u, k in repo.items() if same(k)]
-    begun = {b for b in bolts if before.bolt(b) is not None and before.bolt(b).get("Path") == "flume"}
-    queued = [u for u in units if not where.get(u)]
-    for b in bolts:
-        kits[b], renamed[("bolt", b)] = a.new, (a.old, a.new, [])
-    for u in units:
-        repo[u] = a.new
-    if queued or not bolts:
-        renamed[("queue", a.new)] = (a.old, a.new, queued)
-    says = (["bolts: " + ", ".join(b + (" (started)" if b in begun else "") for b in bolts)] if bolts else ["no bolt"])
-    says += ["units: " + ", ".join(units)] if units else []
-    secs = [("bolt", b) for b in bolts] + ([("queue", a.new)] if queued or not bolts else [])
-    return secs, block("RENAME KIT", f"{a.old} → {a.new}", [x for l in says for x in wrap(l, SAYS)])
+    """A repository's rename as a proposal's card draws it (Decision 7 of a-repository-is-renamed-by-one-explicit-command;
+    plan-proposals "A proposal's card draws a kit's rename"): its RENAME KIT block, the old name and the new, saying the
+    repository's work is finished and its launches, landings and decision-record sources are renamed. A rename stands
+    with no bolt or unit of the repository (plan.22), so it names none and returns no section, the picture drawing
+    nothing for it; it makes nothing new, so it asks no question of its own. Called as drawn calls every command, with
+    what the card has read of the plan so far (kits, repo, where, renamed), none of which it changes."""
+    says = ["its work is finished; its launches, landings and record sources are renamed"]
+    return [], block("RENAME KIT", f"{a.old} → {a.new}", [x for l in says for x in wrap(l, SAYS)])
 
 
 def drawn(before, after, argvs):
     """A proposal's change, from the plan at the tip, the plan its commands leave and its commands, parsed: each bolt
     they touch and each kit's queue a unit goes to, before and after, as the picture's sections; the change as the
-    card's text, lines of at most forty characters; the counts; and what the card says of each unit, its intent, why
-    it is dropped, the intent an amendment replaces, the bolt a unit moved in comes from, the parts of a split. A
-    function of those facts alone, no kit read (plan.12), shared by every proposal card crew builds."""
+    card's text, lines of at most forty characters, a change drawn in no section, a repository's rename, after the
+    sections; the counts; what the card says of each unit, its intent, why it is dropped, the intent an amendment
+    replaces, the bolt a unit moved in comes from, the parts of a split; and each rename, (old, new). A function of
+    those facts alone, no kit read (plan.12), shared by every proposal card crew builds."""
     where = {u.name(): u.get("Bolt") for u in before.work()}
     repo = {u.name(): u.get("Repo") for u in before.work()}
     # A chore's words are said as its intent, marked as a chore's, on the picture and in its option (plan.11).
@@ -513,7 +533,7 @@ def drawn(before, after, argvs):
             dropped[a.unit] = a.reason
             secs, b = [group(a.unit)], block("DROP", a.unit, wrap(a.reason, SAYS, 3))
         order += [s for s in secs if s not in order]
-        blocks.append((secs[0], b))
+        blocks.append((secs[0] if secs else None, b))
 
     sections, lines = [], []
     for kind, name in order:
@@ -568,9 +588,13 @@ def drawn(before, after, argvs):
                 lines += [f"{r['n']:>2} {r.get('mark', ' ')} {first}"] + ["     " + x for x in rest]
         if kind == "bolt" and not after.bolt(name):
             lines.append("   the bolt is dropped")
+    for sec, b in blocks:  # a change drawn in no section, a repository's rename, after them all
+        if sec is None:
+            lines += ([""] if lines else []) + b
+    renames = [(a.old, a.new) for a in argvs if (a.cmd, a.sub) == ("kit", "rename")]
 
     return {"sections": sections, "lines": lines, "counts": counts, "intent": intent, "dropped": dropped,
-            "amended": amended, "came_from": came_from, "parts": parts, "goals": goals}
+            "amended": amended, "came_from": came_from, "parts": parts, "goals": goals, "renames": renames}
 
 
 # --------------------------------------------------------------------------------- the words rule (briefs.13)
@@ -1356,7 +1380,7 @@ def proposal_card(f):
     f.get("state", "open") == "open" or fail(f"proposal {n} is {f['state']}: it is closed, so it has no card")
     d = drawn(f["before"], f["after"], argvs)
     counts = ", ".join(f"{d['counts'][c]} {c}" for c, _ in COUNTS if d["counts"][c])
-    headings = [s["heading"] for s in d["sections"]]
+    headings = [s["heading"] for s in d["sections"]] or [old for old, _ in d["renames"]]  # a rename draws no section
     room = TITLE - len(f"Plan change to : {counts}")
     to = next(said for k in range(len(headings), 0, -1)
               for said in [joined(headings[:k] + ([f"{len(headings) - k} more"] if k < len(headings) else []))]
@@ -1755,7 +1779,9 @@ def close_words(got, outcome=None, reason=None):
 
 def close_call(got, card, name, outcome=None, reason=None, here=False):
     """How crew closes a card, from get_request's answer: one the user answered acked at its version with what was
-    done on it, the outcome, or the reason it is withdrawn; one still waiting withdrawn with the reason, or the
+    done on it, the outcome, or, where the event gives only a reason, the reason as its outcome, and closed, never
+    withdrawn, since a withdrawal is for a card nobody answered and the user reads the ack's words as what became of
+    their answer (record 0031 §1; rail-cards "A card the user answered is closed, never withdrawn"); one still waiting withdrawn with the reason, or the
     outcome (close_words), or, with here, the user having answered it in a conversation, as a landing said in ops's
     pane is (plan.16), cancelled as answered there (Pending You's answeredHere) and closed. Either is cut to OUTCOME
     characters, since Pending You refuses a longer one (proposal 142's close on 2026-10-18: "outcome: Too big: expected
@@ -1764,8 +1790,7 @@ def close_call(got, card, name, outcome=None, reason=None, here=False):
     words = close_words(got, outcome, reason)
     said = cut(words, OUTCOME) if isinstance(words, str) else words
     if got.get("status") == "answered":
-        return ("ack_answer", {"requestId": card, "name": name, "expectedVersion": version_of(got, card), "outcome": said},
-                "closed" if outcome is not None else "withdrawn")
+        return "ack_answer", {"requestId": card, "name": name, "expectedVersion": version_of(got, card), "outcome": said}, "closed"
     if here:
         return "cancel_request", {"requestId": card, "name": name, "reason": said, "answeredHere": True}, "closed"
     return "cancel_request", {"requestId": card, "name": name, "reason": said}, "withdrawn"

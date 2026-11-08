@@ -133,18 +133,23 @@
 #                                      the planner or the user, and a drop of launched work says the name stays taken
 #                                      while Flume keeps its branch
 #   crew kit   rename <old> <new> [--label L]
-#                                      a kit renamed on its host renamed across the plan, the user's at a shell or a
-#                                      proposal's, the planner's own run refused naming crew plan propose and any other
-#                                      agent's naming the planner: in one commit the Repo of every Bolt and Unit record
-#                                      naming <old>, by its name or <owner>/<name>, set to <new>, and a kit.rename entry
-#                                      in the run record naming both, with Count the records renamed; nothing else
-#                                      rewritten, no request appended and nothing launched, so a started bolt goes on as
-#                                      it stood; refused, nothing written, for an old name that is no kit of the
-#                                      partition or that a rename already renamed, while the partition's main-level
-#                                      host's spaces keep a repository by <old> or none by <new>, for a new name a
-#                                      bolt's, for two names of one kit, and when the hosts file can't be read. What
-#                                      crew recorded under a former name and never rewrites is read under the name now,
-#                                      and bolt new, unit add and chore add given one write the name now and say so
+#                                      a repository renamed in crew's records once its work is finished, after its
+#                                      removal from the runner, Flume and sluice and its rename on its forge, before it
+#                                      is added back under <new>; the user's at a shell or a proposal's, the planner's
+#                                      own run refused naming crew plan propose and any other agent's naming the
+#                                      planner: in one commit <old> renamed <new> in the plan's decision-record sources,
+#                                      each request's Repo and a fix of its main's Work, and the run record's entries on
+#                                      the drive's branch, their Repo, On and From, and a kit.rename entry naming both,
+#                                      with Count every record renamed; Goals, words, keys, every earlier kit.rename
+#                                      entry and each host's own run record left as written; refused, nothing written
+#                                      and all that stands named, while <old>'s work stands (a bolt, unit or chore, a
+#                                      fix of main or a role's work not landed, a live place, an open or lost card under
+#                                      land/<old> or record/<old>/<n>, an unanswered batch holding its work, an open
+#                                      proposal naming it), while a host's runner, or its spaces where the runner
+#                                      reports none, keeps <old>, for a new name a bolt's, for two names of one
+#                                      repository, and when no record names <old>. Run again, it renames what an
+#                                      earlier one left, its host's kept entries pushed first. No command renames a
+#                                      partition. Every record is read as written, no reader mapping a former name
 #   crew plan  propose|proposed|approve|answer|drop ...
 #                                      the planner's proposals: a change to the plan, waiting on the user alone and applied
 #                                      once the user approves it,
@@ -153,10 +158,19 @@
 #                                      approval once it holds them all
 #   crew rail  [--label L]             what waits on the user: proposals, review batches and bolts to land,
 #                                      each with when it began to wait, the command that answers it and its Pending
-#                                      You card; then the questions the agents asked; then the decision records
-#                                      waiting on you, each the design agent's open card for one; then any open card
-#                                      whose row is gone. It sweeps the cards on this host under its sign-in: closes
-#                                      a card whose row is gone, withdraws a question whose asker has ended, and
+#                                      You card, the one in the row owner's name, any other copy named apart, an
+#                                      answered card saying when, what and whose act it waits on, and each bolt's
+#                                      land line whether its card carries, holds or follows it; then the questions
+#                                      the agents asked; then the decision records waiting on you, each the design
+#                                      agent's open card for one; then the answered cards waiting on their askers;
+#                                      then any open card whose row is gone, with its refused close's words. It
+#                                      sweeps the cards on this host under its sign-in, reading each owner's pending
+#                                      list in its name: records the user's answer on each card it finds answered,
+#                                      once, and each card Pending You has ended, closed or withdrawn, a card held in
+#                                      another assistant's name lost to its owner; closes a card whose row is gone,
+#                                      an answered one never withdrawn and a landings card keeping the user's send,
+#                                      leaving an answered landings card while a bolt it ticked waits to land;
+#                                      withdraws a question whose asker has ended, and
 #                                      posts again a row's card Pending You no longer finds and a row's card that
 #                                      has none, through its kind's raise, and on its owner's host every row's card
 #                                      posted from another host or lost to its owner, and a still-proposed decision
@@ -327,13 +341,17 @@
 #                                      repository once a minute and showing this host's writes within seconds, reading
 #                                      only what moved, asking another host, Pending You or herdr only when something
 #                                      there could have moved, and following each repository's queue through one
-#                                      sluice overview watch; due restarts
-#                                      handed out once crew's checkout or the teams file moved, the rail's frame, the
+#                                      sluice overview watch; due restarts handed out once crew's checkout, the crew
+#                                      the host has installed or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
 #                                      notice, pendingyou watch -- crew _answered, which makes each change on a card in a
 #                                      role's run's name an ask of the role, reading nothing of the card
+#   crew _release                      what this crew is, as one line of JSON: its root, commit and version and where
+#                                      they were read from, "checkout" from git, "release" from a build's
+#                                      plugin/release.json, or null, with why where nothing was read; reading nothing
+#                                      else and starting nothing, so one crew reads another it cannot import by it
 #   crew tell     <agent> "<text>"     prompt an agent crew started, a main level's, wherever it runs, marked with who sent it;
 #                                      refused, with nothing typed, while the agent waits on a question in its pane.
 #                                      To a role that runs as its kind with no standing agent of it up, crew's own
@@ -482,7 +500,8 @@ for a in ${args[@]+"${args[@]:1}"}; do
   case $cmd in
     bolts | bolt | unit | chore | kit | fix | signal | state | plan | rail | card | record | answer | role | events | trace | \
       page | sites | ops | board | _views | _board | _rail | _follow | _hold | _go | _update | _renew | _preview | \
-      _answered | _card-preview | _preview-release | _made | _batch-card | _land-row | _land-card | _landing-read) break ;;  # their own arms below
+      _answered | _card-preview | _preview-release | _made | _batch-card | _land-row | _land-card | _landing-read | \
+      _release) break ;;  # their own arms below
     _sweep) exec python3 "$here/../lib/plan.py" "${args[@]}" ;;  # plan.py's of that name, before its label is asked for
     main) [[ ${2:-} == fix ]] && break ;;
     review) [[ ${2:-} == delivered ]] && break ;;
@@ -490,6 +509,12 @@ for a in ${args[@]+"${args[@]:1}"}; do
   esac
   usage "$cmd" "${2:-}"; exit 0
 done
+
+# crew _release says what this crew is and nothing else (crew.py crew_read): answered here, before a role's run is
+# named or any command's host is chosen, so it reads no teams file and starts nothing; another crew asks it so.
+case $cmd in
+  _release) exec python3 "$here/../lib/crew.py" "${args[@]}" ;;
+esac
 
 # ------------------------------------------------------------------------------------------- where a command runs
 

@@ -212,7 +212,7 @@ class TestHostRead:
         assert (r["why"], r["answers"], r["places"]) == (None, {}, {})
 
     def test_the_repositories_a_runner_keeps_are_read_by_their_forge_addresses(self):
-        """drive-state "The repositories a runner keeps" (Decision 6 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
+        """drive-state "The repositories a runner keeps" (roles.9: where a kit lives on a host is its runner's report):
         madswan/runner/deneb's repositories.rec names agentplot/boomdrive-cloud at /r/boomdrive-cloud; a branch with no
         repositories.rec reports none, and one whose file holds no record reports that it keeps none."""
         r = runner.host_read("madswan", "deneb", TIP, branch(repositories=kept(("agentplot/boomdrive-cloud", "/r/boomdrive-cloud"),
@@ -481,8 +481,8 @@ class TestWhere:
     """Where a bolt's or a kit's work runs is what the runner that took it reported (the user's ruling of 2026-11-01;
     runner.where): the host whose runner took its newest launch taken, the kit's folder as that runner's
     repositories.rec reports it where it reports its repositories, else as Flume's status of its newest place of the
-    work names it, and the stream as that status names it (Decision 6 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan; drive-state "A runner that reports no repositories")."""
+    work names it, and the stream as that status names it (roles.9; drive-state
+    "A runner that reports no repositories")."""
 
     def test_the_host_folder_and_stream_of_the_newest_launch_taken(self):
         """deneb's repositories.rec names afterthought/crew: the folder is the one it reports, the stream the place's;

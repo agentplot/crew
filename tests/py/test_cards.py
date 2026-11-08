@@ -2601,6 +2601,32 @@ class TestActDecisions:
         assert built.close_call({"status": "pending", "version": 1}, "req_a", "wldn-ops", reason="A newer head") == (
             "cancel_request", {"requestId": "req_a", "name": "wldn-ops", "reason": "A newer head"}, "withdrawn")
 
+    def test_a_card_the_user_answered_is_closed_with_the_reason_as_its_outcome_and_never_withdrawn(self):
+        """rail-cards "A card the user answered is closed, never withdrawn": agentplot's land/sluice card, approved,
+        closed by the sweep with a reason alone, its row gone (design Decision 4); a card still waiting is withdrawn."""
+        why = "nothing waits to land on sluice's main"
+        assert built.close_call({"status": "answered", "version": 3}, "req_5f", "agentplot-ops", reason=why) == (
+            "ack_answer", {"requestId": "req_5f", "name": "agentplot-ops", "expectedVersion": 3, "outcome": why}, "closed")
+        assert built.close_call({"status": "answered", "version": 3}, "req_5f", "agentplot-ops", outcome="Landed: a")[2] == "closed"
+        assert built.close_call({"status": "pending", "version": 1}, "req_5f", "agentplot-ops", reason=why) == (
+            "cancel_request", {"requestId": "req_5f", "name": "agentplot-ops", "reason": why}, "withdrawn")
+
+    # madswan-planner's close of its batch/16 card, refused on 2026-10-26 and on every close after: the card was posted
+    # under swancloud-planner's name (rail-cards "A card Pending You holds in another assistant's name is lost to its
+    # owner", design Decision 6).
+    HELD = "This is swancloud-planner's card; leave it. You're \"madswan-planner\": act only on the cards you posted."
+
+    def test_a_card_held_in_another_assistants_name_is_lost_to_its_recorded_owner_alone(self):
+        assert built.held_elsewhere(self.HELD, "madswan-planner") and built.lost(self.HELD, "madswan-planner")
+        assert not built.held_elsewhere(self.HELD, "swancloud-planner") and not built.lost(self.HELD, "swancloud-planner")
+        assert not built.lost(self.HELD), "crew's own ask, in its own name, is refused as the holder's card by design"
+        for words in ["Pending You refused the close: the service is down", "This card is at version 3, not 2: read it again.",
+                      "This request is already closed.", None]:
+            assert not built.lost(words, "madswan-planner") and not built.held_elsewhere(words, "madswan-planner")
+        assert built.lost("Not found: request:req_ea.", "madswan-planner") and built.lost("Not found: request:req_ea.")
+        said = built.lost_said("batch/16", "req_ea", self.HELD)
+        assert "Pending You holds it in swancloud-planner's name, not its owner's" in said
+
     def test_a_waiting_card_answered_in_a_conversation_is_cancelled_as_answered_there_and_closed(self):
         """plan.16: a landing said in ops's pane closes its card as answered in the conversation (Pending You's
         cancel_request answeredHere, read from its MCP schema on 2026-10-22); a card the user tapped is acked as before."""

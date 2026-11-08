@@ -3,7 +3,7 @@
 # configuration naming switchboard-kit (Decision 1 of the-team-machinery-leaves; the user's ruling of 2026-11-01). An agent's own question, through Pending You's own tools, with crew's card hook before and
 # after each call: the operator's post refused, naming why, with nothing sent; the planner's question posted in a kit's
 # area made under the kit's key, recorded on the planner with its id and key; crew card read printing where it stands
-# and the user's answer, recording nothing; the planner's close and withdrawal recorded under its key; a post under a
+# and the user's answer, recording the answer once; the planner's close and withdrawal recorded under its key; a post under a
 # bolt's landing key refused as crew's card; and after the host signs in again, a question read as lost, saying to ask
 # it again, and asked again under its key. Then the act that sends crew's own cards, as a raise of the series calls it:
 # a landing card raised outside its owner's turn, asked in main-level ops's name, told to ops with the line that adopts
@@ -130,11 +130,12 @@ eq "$(card2 read $q1)" "card $q1: req_stub-1, answered, your turn: the user has 
   https://www.pendingyou.com/app/r/req_stub-1"
 eq "$(card2 read $q1 --json | jq -r .version)" "2"
 eq "$(entries card.read)" ""
+eq "$(entries card.answer | jq -r '[(.On | join(" ")), .Card, .Key, .Answer, .By] | join(" ")')" "agent/wldn-planner req_stub-1 $q1 approved, with a note wldn-planner"
 : > "$CREW_TEST_LOG"
 eq "$(ask wldn-planner ack_answer '{"name": "wldn-planner", "requestId": "req_stub-1", "expectedVersion": 2, "outcome": "Held until Monday."}' | jq -r .status)" "resolved"
 eq "$(entries card.close | jq -r '[(.On | join(" ")), .Card, .Key] | join(" ")')" "agent/wldn-planner req_stub-1 $q1"
 expect_fail "wldn-planner holds no open card under $q1 on $box" card2 read $q1
-ok "crew card read prints where the question stands and the user's answer, recording nothing, and the planner's close is recorded under its key"
+ok "crew card read prints where the question stands and the user's answer, recording the answer once in crew's words, and the planner's close is recorded under its key"
 
 # Crew's own cards are crew's: the planner's post under a bolt's landing key is refused, naming the card as crew's.
 : > "$CREW_TEST_LOG"
@@ -509,8 +510,9 @@ ok "a batch's session sent with no card held, or with its card's close refused, 
 # A proposal's card, crew's own (plan-proposals, record 0031 §1, change crew-raises-a-proposals-card): raised by crew plan
 # propose in the planner's name on its own host, withdrawn by a rewrite that moves it from one list to lists of
 # questions while it waits, a change of form update_request never makes, and followed by the new version, followed by
-# a new version too when a rewrite comes after the user's note answered it, answered on the card and applied with its
-# boxes as they stand, then closed with what was applied. Which act each step makes is a logic case
+# a new version too when a rewrite comes after the user's note answered it, the rail's sweep reading that answer in the
+# planner's pending list and recording it once, the row's card line saying it waits on the planner to apply it,
+# answered on the card and applied with its boxes as they stand, then closed with what was applied. Which act each step makes is a logic case
 # (tests/py/test_proposal_life.py); the plan's side of each step, the proposals journey's (t-journey-plan).
 as_planner() { HOST=$box CREW_AGENT=wldn-planner "$@"; }
 proposal() { printf '%s\n' "$@" > "$T/proposal.rec"; echo "$T/proposal.rec"; }
@@ -549,8 +551,23 @@ eq "$(as_planner crew rail --label wldn | grep -A4 "proposal $m (wldn)" | grep '
   "card:   proposal/$n, open, asked by wldn-planner ($c1)"
 ok "a rewrite that moves the card from one list to lists of questions withdraws the waiting card with its note and posts the new version following it, and the rail's row for the successor carries the chain's key"
 
-# The user sends the card with a note asking for a change, which answers it; the planner's rewrite follows it.
+# The user sends the card with a note asking for a change, which answers it. The rail's sweep reads it in the planner's
+# pending list, one list_pending in the planner's name, and records the answer once (design Decisions 1 to 3 of
+# a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); the row's card line says it waits on the planner.
 echo '{"answer": {"answers": {"rows-1": {"choiceIds": ["add:p-a", "add:p-c"]}}, "note": {"text": "c before a, and only those."}}}' > "$stub/answered/$c1.json"
+: > "$CREW_TEST_LOG"
+as_planner expect_ok crew rail --label wldn; r=$out
+eq "$(py_calls | grep -c '^list_pending {"name": "wldn-planner"}$')" "1"
+eq "$(entries card.answer | jq -r "select(.Card == \"$c1\") | [(.On | join(\" \")), .Key, .Answer, .By] | join(\" \")")" \
+  "proposal/$n proposal/$n ticked p-a and p-c, with a note wldn-planner"
+has "$r" "  proposal/$n (wldn), wldn-planner's $c1: answered: ticked p-a and p-c, with a note"
+eq "$(grep -A4 "proposal $m (wldn)" <<<"$r" | grep 'card:' | sed -e 's/^ *//' -e 's/answered [0-9:]* ([^)]*)/answered/')" \
+  "card:   proposal/$n, answered: ticked p-a and p-c, with a note; waits on wldn-planner to apply it ($c1)"
+as_planner expect_ok crew rail --label wldn
+eq "$(entries card.answer | jq -r "select(.Card == \"$c1\") | .Card" | wc -l | tr -d ' ')" "1"
+ok "the rail's sweep reads the proposal's card answered in the planner's pending list and records the answer once, and the row's card line says it waits on the planner to apply it"
+
+# The planner's rewrite follows the card the user answered.
 : > "$CREW_TEST_LOG"
 as_planner expect_ok crew plan propose --replaces "$m" "$(proposal 'Case: The page gets a bolt of its own, c before a.' \
   'Do: bolt new p3 "The page is drawn." --repo switchboard-kit' 'Do: unit add p-c "C page." --bolt p3' 'Do: unit add p-a "A page." --bolt p3')"

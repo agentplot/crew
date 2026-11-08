@@ -7,6 +7,8 @@ runner.where), a partition's hosts its main level's and its runners' (plan.hosts
 has taken a kit's work, it does in the checkout its partition's main-level host keeps of the kit (plan.main_kit,
 crew.kit_kept, crew.kits_on)."""
 import json
+import pathlib
+import re
 
 import pytest
 
@@ -25,52 +27,6 @@ def landing(repo, refused=None, act="bolt.land"):
 
 def the_plan(bolts=(), units=()):
     return plan.Plan(plan_text(bolts, units))
-
-
-def renamed(old, new, at="2026-11-05T10:00:00Z", n=1, refused=None):
-    """A kit.rename entry as record.parse gives it: crew kit rename <old> <new>."""
-    return dict({"Id": f"20261105T100000Z-{n}-deneb-1-1", "At": at, "Act": "kit.rename", "On": [f"kit/{new.split('/')[-1]}"],
-                 "From": [f"kit/{old}"], "Commit": [], "Repo": new}, **({"Refused": refused} if refused else {}))
-
-
-class TestKitNow:
-    """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: a kit's name now, read through the
-    partition's renames in the order they were written (plan.kit_now)."""
-
-    def test_a_name_no_rename_names_reads_as_written(self):
-        assert plan.kit_now("crew", [("tailrace", "timber")]) == "crew"
-        assert plan.kit_now("agentplot/tailrace", []) == "agentplot/tailrace"
-
-    def test_a_renamed_kit_reads_by_its_new_name_from_its_name_or_its_forge_address(self):
-        assert plan.kit_now("tailrace", [("tailrace", "timber")]) == "timber"
-        assert plan.kit_now("agentplot/tailrace", [("tailrace", "timber")]) == "timber"
-        assert plan.kit_now("tailrace", [("agentplot/tailrace", "agentplot/timber")]) == "agentplot/timber"
-
-    def test_a_chain_of_renames_reads_to_its_last(self):
-        renames = [("a", "b"), ("b", "c")]
-        assert (plan.kit_now("a", renames), plan.kit_now("b", renames), plan.kit_now("c", renames)) == ("c", "c", "c")
-
-    def test_a_rename_and_its_undoing_read_back(self):
-        renames = [("a", "b"), ("b", "a")]
-        assert (plan.kit_now("a", renames), plan.kit_now("b", renames)) == ("a", "a")
-
-    def test_renames_read_in_the_order_they_were_written(self):
-        """b->c written before a->b: a reads b, and b, renamed before a took its name, reads c."""
-        renames = [("b", "c"), ("a", "b")]
-        assert (plan.kit_now("a", renames), plan.kit_now("b", renames)) == ("b", "c")
-
-    def test_an_unrelated_kit_is_unchanged(self):
-        assert plan.kit_now("flume", [("tailrace", "timber"), ("flywheel-cloud", "boomdrive-cloud")]) == "flume"
-
-
-class TestRenamesIn:
-    def test_each_rename_not_refused_as_old_and_new_in_the_order_written(self):
-        entries = [renamed("b", "c", at="2026-11-05T12:00:00Z"), landing("crew"), renamed("x", "y", refused="deneb keeps no y"),
-                   renamed("a", "b", at="2026-11-05T11:00:00Z", n=2), renamed("tailrace", "agentplot/timber", at="2026-11-05T11:00:00Z")]
-        assert plan.renames_in(entries) == [("tailrace", "agentplot/timber"), ("a", "b"), ("b", "c")]
-
-    def test_none_where_the_record_holds_none(self):
-        assert plan.renames_in([landing("crew")]) == [] and plan.renames_in([]) == []
 
 
 class TestPartitionKits:
@@ -98,24 +54,17 @@ class TestPartitionKits:
         assert plan.partition_kits(the_plan(), [landing("atlas-kit", refused="it conflicts"), landing("atlas-kit", act="bolt.drop"),
                                                 landing(None)]) == []
 
-    def test_landings_under_a_kits_former_name_name_it_once_by_its_name_now(self):
-        """Two bolts landed under tailrace, renamed timber after."""
-        assert plan.partition_kits(the_plan(), [landing("tailrace"), landing("tailrace")], [("tailrace", "timber")]) == ["timber"]
-
-    def test_a_plan_renamed_and_landings_under_the_former_name_are_one_kit(self):
+    def test_landings_under_another_name(self):
+        """bolt-plan "Landings under another name": madswan's plan names timber, and one bolt landed under tailrace."""
         p = the_plan([("b", "timber", True)], [("a", "timber", "b", [])])
-        assert plan.partition_kits(p, [landing("tailrace"), landing("crew")], [("tailrace", "timber")]) == ["crew", "timber"]
-        assert plan.partition_kits(p, [landing("agentplot/tailrace")], [("tailrace", "timber")]) == ["timber"]
-
-    def test_with_no_renames_each_kit_reads_as_written(self):
-        p = the_plan([("b", "timber", True)])
-        assert plan.partition_kits(p, [landing("tailrace")]) == plan.partition_kits(p, [landing("tailrace")], []) == ["tailrace", "timber"]
+        assert plan.partition_kits(p, [landing("tailrace")]) == ["tailrace", "timber"]
 
 
 class TestRunsRead:
-    """plan.12: a partition's landings and its renames come of one read of runs/ at a tip, kept for the command."""
+    """run-record "A rename's entry renames nothing": a tip's landings come of one read of runs/, kept for the command
+    (plan.12), and a kit.rename entry after a landing renames nothing crew reads."""
 
-    def test_the_landings_and_the_renames_are_one_read_per_tip(self, monkeypatch):
+    def test_a_renames_entry_renames_nothing(self, monkeypatch):
         shown = []
         text = ("%rec: Entry\n\nId: 1\nAt: 2026-10-30T11:00:00Z\nAct: bolt.land\nOn: bolt/b\nRepo: tailrace\nHead: abc\n\n"
                 "Id: 2\nAt: 2026-11-05T10:00:00Z\nAct: kit.rename\nOn: kit/timber\nFrom: kit/tailrace\nRepo: timber\nCount: 2\n")
@@ -124,10 +73,9 @@ class TestRunsRead:
         monkeypatch.setattr(plan, "kept_listing", lambda repo, tip: {})
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: shown.append((tip, path)) or text)
         assert [e["Id"] for e in plan.landings_at("o/state", "t1")] == ["1"]
-        assert plan.renames_at("o/state", "t1") == [("tailrace", "timber")]
-        assert plan.kits_at("o/state", "t1", the_plan()) == ["timber"]
+        assert plan.kits_at("o/state", "t1", the_plan()) == ["tailrace"]
         assert shown == [("t1", "runs/deneb/2026-11-05.rec")]
-        assert plan.renames_at("o/state", None) == [] and plan.kits_at("o/state", None, None) == []
+        assert plan.kits_at("o/state", None, None) == []
 
 
 class TestKitIn:
@@ -326,36 +274,25 @@ class TestWhereABoltRuns:
         with pytest.raises(plan.Refusal, match="^no runner has reported taking atlas-kit's work yet"):
             plan.kit_at(FLEET, "madswan", "atlas-kit", (self.LAUNCHES, {"deneb": took("deneb", 1)}))
 
-    def test_a_launch_under_a_kits_former_name_is_its_kits_after_the_rename(self):
-        """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: request 1 was launched in flywheel-cloud,
-        which madswan renamed boomdrive-cloud after; read through the renames (plan.launches_now) it is boomdrive-cloud's
-        work, for the kit (plan.kit_at) and for a batch's unit read from its bolt's launches (plan.batch_unit_at), and
-        requests.rec's record itself is left as written."""
-        renames = [("flywheel-cloud", "boomdrive-cloud")]
+    def test_a_launch_read_as_written(self, monkeypatch):
+        """bolt-plan "A launch read as written": request 1 was launched in flywheel-cloud, which madswan renamed
+        boomdrive-cloud after; crew reads it as flywheel-cloud's launch, for the kit (plan.kit_at), and plan.runner_facts
+        and the rail's plan.rail_runs give requests.rec's records as written."""
         launches = [launch(1, "unit/one-seam", "bolt/you-sign-in-to-staging", repo="flywheel-cloud")]
-        reads = {"deneb": took("deneb", 1, repository="/w/boomdrive-cloud")}
-        now = plan.launches_now(launches, renames)
-        at = plan.kit_at(FLEET, "madswan", "boomdrive-cloud", (now, reads))
-        assert (at["machine"], at["kit"]["name"], at["kit"]["main"]) == ("deneb", "boomdrive-cloud", "/w/boomdrive-cloud")
-        assert plan.batch_unit_at(FLEET, "madswan", "you-sign-in-to-staging", "one-seam", (now, reads))["kit"]["repo"] == "boomdrive-cloud"
-        assert [(f, v) for f, v in now[0].fields if f != "Repo"] == [(f, v) for f, v in launches[0].fields if f != "Repo"]
-        assert launches[0].get("Repo") == "flywheel-cloud"
+        reads = {"deneb": took("deneb", 1, repository="/w/flywheel-cloud")}
         with pytest.raises(plan.Refusal, match="^no runner has reported taking boomdrive-cloud's work yet"):
             plan.kit_at(FLEET, "madswan", "boomdrive-cloud", (launches, reads))
-
-    def test_a_commands_launches_are_read_through_the_renames_at_the_tip_they_were_read_at(self, monkeypatch):
-        """plan.runner_facts and the rail's plan.rail_runs read requests.rec and the renames at one tip."""
-        asked, text = [], runner.REQUESTS + "".join(f"\n{f}: {v}" for f, v in launch(1, "unit/a", "bolt/x", repo="flywheel-cloud").fields)
+        at = plan.kit_at(FLEET, "madswan", "flywheel-cloud", (launches, reads))
+        assert (at["machine"], at["kit"]["name"], at["kit"]["main"]) == ("deneb", "flywheel-cloud", "/w/flywheel-cloud")
+        text = runner.REQUESTS + "".join(f"\n{f}: {v}" for f, v in launches[0].fields)
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", "refs/crew/madswan/main"))
         monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "t1")
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: text if path == "requests.rec" else None)
-        monkeypatch.setattr(plan, "renames_at", lambda repo, tip: asked.append(tip) or [("flywheel-cloud", "boomdrive-cloud")])
         monkeypatch.setattr(plan, "runners", lambda repo, label: {})
         requests, _ = plan.runner_facts(FLEET, "madswan")
-        assert [r.get("Repo") for r in requests] == ["boomdrive-cloud"]
+        assert [r.get("Repo") for r in requests] == ["flywheel-cloud"]
         runs = plan.rail_runs([("madswan", "o/state", "t2", plan.Plan(flume_plan([("x", None, "flume")])))])
-        assert [r.get("Repo") for r in runs["madswan"][0]] == ["boomdrive-cloud"] and asked == ["t1", "t2"]
-
+        assert [r.get("Repo") for r in runs["madswan"][0]] == ["flywheel-cloud"]
 
 def test_a_partitions_hosts_are_its_main_levels_and_its_runners():
     """Decision 5: deneb, madswan's main level's, and alpha, where a runner answers for it, each once."""
@@ -407,3 +344,114 @@ class TestBeforeARunnerTookIt:
         assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/d/madswan/crew/main", "/d/agentplot/flume/main"]
         assert crew.kits_on(self.FLEET, "madswan", "deneb", fetch=True) == ["/d/madswan/crew/main", "/d/agentplot/flume/main"]
         assert asked == [("madswan", False), ("madswan", True)]
+
+
+class TestInTheRunnersCopy:
+    """drive-state, A kit in the runner's copy (record 0061; Decision 5 of a-kept-repositorys-folder-is-the-runners-container):
+    on the host its teams file is for, a repository the file names is kept at its `dir` and `checkout`, whether or not a
+    space lists it, by its address or its name alone; every other host's kits are its spaces', as before."""
+    SPACES = dict(TestBeforeARunnerTookIt.SPACES, deneb={"sessions": {
+        "madswan": {"dir": "/d/madswan", "repos": ["afterthought/blueprints", "afterthought/swancloud"]},
+        "madswan-2": {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/sluice", "agentplot/flume"]}}})
+    NAMED = {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"},
+             "agentplot/weir": {"dir": "/r/agentplot/weir", "checkout": "/v/agentplot/weir"}}
+    FLEET = dict(FLEET, hosts=SPACES, repositories={"host": "deneb", "named": NAMED})
+
+    def test_a_kit_the_file_names_is_its_container_and_view_by_its_name_or_its_forge_address(self):
+        for kit in ("crew", "agentplot/crew"):
+            assert plan.main_kit(self.FLEET, "madswan", kit)["kit"] == {
+                "name": "crew", "repo": "agentplot/crew", "dir": "/r/agentplot/crew", "main": "/v/agentplot/crew"}
+        assert plan.main_kit(self.FLEET, "madswan", "sluice")["kit"] == {
+            "name": "sluice", "repo": "agentplot/sluice", "dir": "/d/agentplot/sluice", "main": "/d/agentplot/sluice/main"}
+
+    def test_a_repository_the_file_names_and_no_space_keeps_is_kept(self):
+        """drive-state, A repository the file names and no space keeps."""
+        assert plan.main_kit(self.FLEET, "madswan", "weir")["kit"]["main"] == "/v/agentplot/weir"
+        import crew
+        assert crew.kept_on(self.FLEET, "deneb", "agentplot/weir") == "/v/agentplot/weir"
+        assert crew.kept_on(self.FLEET, "deneb", "agentplot/crew") == "/v/agentplot/crew"
+
+    def test_another_host_keeps_its_spaces_folders(self):
+        """drive-state, Another host's kit: deneb's file names deneb's repositories alone."""
+        import crew
+        fleet = dict(self.FLEET, partitions={"madswan": {"label": "madswan", "machine": "alpha"}})
+        assert plan.main_kit(fleet, "madswan", "crew")["kit"] == {
+            "name": "crew", "repo": "afterthought/crew", "dir": "/a/willdan/crew", "main": "/a/willdan/crew/main"}
+        assert crew.kit_kept(fleet, "alpha", "weir") is None
+        assert crew.kept_on(fleet, "alpha", "agentplot/crew") is None
+
+    def test_one_name_for_two_repositories_across_the_file_and_the_spaces_is_refused_naming_both(self):
+        """drive-state, One name, two repositories."""
+        fleet = dict(self.FLEET, repositories={"host": "deneb", "named": {
+            "agentplot/blueprints": {"dir": "/r/agentplot/blueprints", "checkout": "/v/agentplot/blueprints"}}})
+        with pytest.raises(plan.Refusal, match="^deneb's teams file and spaces keep agentplot/blueprints and afterthought/blueprints "
+                                               "by the name blueprints, so crew can't tell which is meant$"):
+            plan.main_kit(fleet, "madswan", "blueprints")
+        assert plan.main_kit(fleet, "madswan", "agentplot/blueprints")["kit"]["main"] == "/v/agentplot/blueprints"
+        assert plan.main_kit(fleet, "madswan", "afterthought/blueprints")["kit"]["main"] == "/d/madswan/blueprints/main"
+
+    def test_the_main_levels_kit_folders_are_the_files_checkouts(self, monkeypatch):
+        import crew
+        monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/crew", "flume", "weir"])
+        assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/v/agentplot/crew", "/d/agentplot/flume/main", "/v/agentplot/weir"]
+
+    def test_a_fleet_that_names_none_keeps_its_spaces_folders(self):
+        import crew
+        assert crew.kept(dict(self.FLEET, repositories={}), "deneb")[2] == {
+            "name": "crew", "repo": "agentplot/crew", "dir": "/d/agentplot/crew", "main": "/d/agentplot/crew/main"}
+        assert crew.kept(TestBeforeARunnerTookIt.FLEET, "deneb") == crew.kept(dict(TestBeforeARunnerTookIt.FLEET, repositories={}), "deneb")
+
+
+class TestNoFetchInTheRunnersClone:
+    """drive-state "crew fetches nothing in the runner's clone" (agentplot-design's ruling on batch 12; agentplot/boomdrive
+    core.14; records 0056 and 0061): where the host's teams file names a repository, its folder, its checkout and every
+    worktree under either are the runner's clone, which the runner alone fetches, so crew fetches nothing there and reads
+    origin's tracking refs as the runner last fetched them; every other checkout is fetched as before."""
+    FLEET = TestInTheRunnersCopy.FLEET
+    SHA = "a" * 40
+
+    def test_the_files_folder_checkout_and_their_worktrees_are_the_runners_clone_on_its_host_alone(self):
+        import crew
+        for path in ("/r/agentplot/crew", "/r/agentplot/crew/places/design-x", "/v/agentplot/crew", "/v/agentplot/crew/",
+                     "/r/agentplot/weir/places/fix-y"):
+            assert not crew.fetches_in(self.FLEET, "deneb", path), path
+        assert crew.runners_clone(self.FLEET, "deneb", "/r/agentplot/crew/places/design-x") == "agentplot/crew"
+        for path in ("/r/agentplot/crew-kit", "/v/agentplot", "/d/agentplot/sluice/main", "/d/madswan/blueprints/main"):
+            assert crew.fetches_in(self.FLEET, "deneb", path), path
+        assert crew.fetches_in(self.FLEET, "alpha", "/v/agentplot/crew")
+        assert crew.fetches_in(dict(self.FLEET, repositories={}), "deneb", "/v/agentplot/crew")
+        assert crew.fetches_in(TestBeforeARunnerTookIt.FLEET, "deneb", "/v/agentplot/crew")
+
+    FETCHING = ("MAIN", "POLICY", "GIVE_READ", "LANDED", "CARRIES", "LAND_COPIES", "BOLT_CREATE")
+
+    def test_a_script_is_told_fetch_no_in_the_runners_clone_and_nothing_elsewhere(self):
+        assert plan.fetch_told(self.FLEET, "deneb", "/v/agentplot/crew", plan.MAIN) == "fetch=no\n" + plan.MAIN
+        assert plan.fetch_told(self.FLEET, "deneb", "/d/agentplot/sluice/main", plan.MAIN) is plan.MAIN
+        for name in self.FETCHING:
+            text = getattr(plan, name)
+            assert "origin_fetch()" in text and "git fetch" not in text.replace(plan.FETCH, ""), name
+
+    def test_every_script_that_fetches_is_told_where_it_runs(self):
+        """No script that fetches from origin reaches bash or a host but through told, so none fetches in the runner's
+        clone by a call that forgot to ask (roles.3)."""
+        src = pathlib.Path(plan.__file__).read_text()
+        for name in self.FETCHING:
+            assert not re.search(rf'(?:host_run\(fleet, [^,()]+, |"-c", ){name}\b', src), name
+            assert re.search(rf'told\([^()]*, {name}\)', src), name
+
+    def test_main_now_in_the_runners_clone_is_origin_main_as_the_runner_last_fetched_it(self):
+        import kit
+        assert kit.main_now(f"ORIGIN=yes\nFETCHED=runner\nGITHUB={self.SHA}\nOWN=-\n", "crew", "deneb") == ("origin/main", self.SHA, None)
+        assert kit.main_now(f"ORIGIN=yes\nFETCHED=runner\nGITHUB=-\nOWN={self.SHA}\n", "crew", "deneb") == (
+            None, None, "the runner's clone of crew on deneb holds no origin/main yet, and crew fetches nothing there: its "
+                        "runner's next fetch brings it")
+
+    def test_a_forecasts_read_fetches_nothing_in_the_runners_clone(self, monkeypatch):
+        ran = []
+        monkeypatch.setattr(plan, "kit_git", lambda fleet, t, main, *args, ok=(0,): ran.append(args) or (0, ""))
+        t = {"machine": "deneb", "kit": {"main": "/r/agentplot/crew", "dir": "/r/agentplot/crew"}}
+        assert plan.origin_fetched(self.FLEET, t, "/r/agentplot/crew") is True
+        assert ran == [("remote", "get-url", "origin")]
+        ran.clear()
+        assert plan.origin_fetched(self.FLEET, dict(t, kit={"main": "/d/agentplot/sluice/main"}), "/d/agentplot/sluice/main") is True
+        assert ran == [("remote", "get-url", "origin"), ("fetch", "-q", "origin")]

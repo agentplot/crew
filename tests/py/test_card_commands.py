@@ -788,6 +788,61 @@ def test_a_card_followed_once_answered_records_the_answer_on_its_close_and_on_th
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", entries[-1]["At"])
 
 
+class TestAnswerSeen:
+    """rail-cards "crew records the user's answer the first time it reads it" (design Decision 1): plan.answer_seen, one
+    card.answer per card, on its object in its owner's name, its Answer in crew's words."""
+    APPROVED = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+
+    def test_the_users_answer_is_recorded_once_on_the_rows_object_in_its_owners_name(self, capsys):
+        held = [post("proposal/57", "wldn-planner", "req_57")]
+        acts = Acts(entries=held, caller="wldn-planner")
+        got = plan.answer_seen(acts, "wldn", "wldn-planner", "proposal/57", "req_57", self.APPROVED, held)
+        (e,) = acts.emitted
+        assert {k: e[k] for k in ("Act", "On", "by", "Card", "Key", "Answer")} == {
+            "Act": "card.answer", "On": ["proposal/57"], "by": "wldn-planner", "Card": "req_57", "Key": "proposal/57", "Answer": "approved"}
+        assert got == {"Card": "req_57", "Key": "proposal/57", "Answer": "approved"} and "Heads" not in e
+        assert "req_57 was answered, approved" in capsys.readouterr().err
+        again = Acts(entries=held + [dict(e, Act="card.answer")], caller="wldn-planner")
+        assert plan.answer_seen(again, "wldn", "wldn-planner", "proposal/57", "req_57", self.APPROVED, again.held) is None
+        assert again.emitted == []
+
+    def test_a_refused_answer_entry_records_it_again_and_a_card_still_waiting_records_nothing(self):
+        held = [post("proposal/57", "wldn-planner", "req_57"), dict(Act="card.answer", Card="req_57", Refused="x")]
+        assert plan.answer_due(held, "req_57") and not plan.answer_due(held + [dict(Act="card.answer", Card="req_57")], "req_57")
+        acts = Acts(entries=held, caller="wldn-planner")
+        waiting = {"status": "pending", "turn": "you", "version": 1}
+        assert plan.answer_seen(acts, "wldn", "wldn-planner", "proposal/57", "req_57", waiting, held) is None and acts.emitted == []
+
+    def test_a_landings_cards_heads_are_the_bolts_ticked_at_the_heads_the_card_showed(self):
+        held = [post("land/switchboard-kit", "wldn-ops", "req_e9", Heads="a@1111111 b@2222222")]
+        got = {"status": "answered", "turn": "agent", "version": 2, "answer": {"choiceIds": ["land:a"]}}
+        acts = Acts(entries=held)
+        plan.answer_seen(acts, "wldn", "wldn-ops", "land/switchboard-kit", "req_e9", got, held,
+                         heads=plan.card_heads("a@1111111 b@2222222"), offered=["land:a", "land:b"])
+        (e,) = acts.emitted
+        assert (e["On"], e["Answer"], e["Heads"]) == (["kit/switchboard-kit"], "ticked a, left b", "a@1111111")
+        none = {"status": "answered", "turn": "agent", "version": 2, "answer": {"choiceIds": []}}
+        acts = Acts(entries=held)
+        plan.answer_seen(acts, "wldn", "wldn-ops", "land/switchboard-kit", "req_e9", none, held,
+                         heads=plan.card_heads("a@1111111 b@2222222"), offered=["land:a", "land:b"])
+        assert acts.emitted[0]["Answer"] == "ticked none, left a and b" and "Heads" not in acts.emitted[0]
+
+    def test_a_questions_answer_is_on_its_asker(self):
+        held = [post("ask/agentplot-design/sluice-who-claims", "agentplot-design", "req_q2")]
+        acts = Acts(entries=held, caller="agentplot-design")
+        got = {"status": "answered", "turn": "agent", "version": 2, "answer": {"choiceIds": ["a"]}}
+        plan.answer_seen(acts, "wldn", "agentplot-design", "ask/agentplot-design/sluice-who-claims", "req_q2", got, held)
+        (e,) = acts.emitted
+        assert (e["On"], e["Card"], e["Key"], e["Answer"]) == (["agent/agentplot-design"], "req_q2", "ask/agentplot-design/sluice-who-claims", "picked a")
+
+    def test_a_note_is_said_with_a_note_and_never_its_words(self):
+        held = [post("proposal/57", "wldn-planner", "req_57")]
+        acts = Acts(entries=held, caller="wldn-planner")
+        got = dict(self.APPROVED, answer={"approved": True, "note": "but drop the third unit"})
+        plan.answer_seen(acts, "wldn", "wldn-planner", "proposal/57", "req_57", got, held)
+        assert acts.emitted[0]["Answer"] == "approved, with a note" and "third unit" not in repr(acts.emitted)
+
+
 def test_a_followed_card_pending_you_picked_up_records_the_answer_its_reply_still_carries():
     acts, card = act_follow(({"status": "resolved", "version": 4, "answer": {"approved": True}}, None))
     assert [(e["Act"], e.get("Answer")) for e in acts.emitted] == [("card.post", None), ("card.close", "approved")]
@@ -1226,7 +1281,7 @@ class ReadSent:
     def __init__(self, monkeypatch, got, told=(), branch=(), held=PLAN, now=None):
         import argparse
         self.entries = [post("land/crew", "swancloud-ops", "req_k1", Heads="y@abc1234 z@abc1234")]
-        self.raised, self.calls, self.worked = [], [], []
+        self.raised, self.calls, self.worked, self.emitted = [], [], [], []
         acts = self
 
         class Bridge(Py):
@@ -1237,7 +1292,11 @@ class ReadSent:
             print("card land/crew: req_k1 is left as it is, the user having answered it")
             self.raised.append(kit)
             self.entries += list(told)
+        def emit(label, act, on, **fields):  # this host's run record, the read's own acts among it
+            self.emitted.append(dict(fields, Act=act, On=on))
+            self.entries.append(dict(fields, Act=act, On=on, By=fields.get("by")))
         monkeypatch.setattr(cards, "Bridge", Bridge)
+        monkeypatch.setattr(plan.record, "emit", emit)
         monkeypatch.setattr(cards, "host_entries", lambda record, label, host: list(self.entries))
         monkeypatch.setattr(plan, "card_asker", lambda fleet, a: ("swancloud", "swancloud-ops"))
         monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
@@ -1328,7 +1387,36 @@ def test_a_plan_that_cant_be_read_refuses_the_read_of_what_the_send_lands(monkey
 def test_a_card_still_waiting_on_the_user_is_not_raised(monkeypatch, capsys):
     read = ReadSent(monkeypatch, {"status": "pending", "turn": "you", "version": 2})
     read.run()
-    assert read.raised == []
+    assert read.raised == [] and read.emitted == []
+
+
+def test_reading_a_sent_landings_card_records_the_users_answer_once_before_its_raise(monkeypatch, capsys):
+    """rail-cards "crew records the user's answer the first time it reads it": crew card read is one of the three acts."""
+    read = ReadSent(monkeypatch, TICKED)
+    read.run()
+    assert [(e["Act"], e["On"], e["by"], e["Card"], e["Answer"], e["Heads"]) for e in read.emitted] == [
+        ("card.answer", ["kit/crew"], "swancloud-ops", "req_k1", "ticked y and z", "y@abc1234 z@abc1234")]
+    read.run()
+    assert len(read.emitted) == 1
+
+
+def test_reading_an_answered_proposal_card_records_its_answer(monkeypatch, tmp_path, capsys):
+    entries = [post("proposal/57", "wldn-planner", "req_57")]
+    got = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+    acts = Acts(entries=entries, caller="wldn-planner")
+
+    class Bridge(Py):
+        def __init__(self, name, later, held=None):
+            Py.__init__(self, acts, {"get_request": (got, None)})
+    monkeypatch.setattr(cards, "Bridge", Bridge)
+    monkeypatch.setattr(cards, "host_entries", lambda record, label, host: list(entries))
+    monkeypatch.setattr(plan, "card_asker", lambda fleet, a: ("wldn", "wldn-planner"))
+    monkeypatch.setattr(crew, "this_host", lambda: "chuck-herdr-alpha")
+    monkeypatch.setattr(plan, "CARDS", tmp_path)
+    plan.card_read({}, argparse.Namespace(key="proposal/57", label=None, json=False, sub="read"), acts)
+    assert [(e["Act"], e["On"], e["Card"], e["Key"], e["Answer"]) for e in acts.emitted] == [
+        ("card.answer", ["proposal/57"], "req_57", "proposal/57", "approved")]
+    assert capsys.readouterr().out.splitlines()[0] == "card proposal/57: req_57, answered, your turn: the user has answered"
 
 
 # ------------------------------------------------------------ crew card preview, on the user's words (record 0043)

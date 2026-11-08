@@ -221,19 +221,64 @@ def test_the_users_card():
     assert got["now"] == {"holder": "user", "what": "land/switchboard-kit", "since": mins(60)}
 
 
-def test_a_question_a_main_level_role_asked_since_the_start_is_the_users():
-    """a's place stopped short and the planner's question to the user is open, with nothing of b running: a question of
-    the partition's planner, main-level ops or design agent since b's start is b's; one asked before it, one of another
-    partition's planner and an old conductor's are not."""
-    entries = [e("card.post", -20, Card="req_9", Key=None, By="wldn-planner"), given(0),
-               e("card.post", 10, Card="req_3", Key=None, By="wldn-planner"),
-               e("card.post", 12, Card="req_4", Key="ask/madswan", By="madswan-planner"),
-               e("card.post", 13, Card="req_6", Key=None, By="swb-1-conductor"),
-               e("card.post", 14, Card="req_5", Key=None, By="wldn-ops"),
-               e("card.post", 15, Card="req_7", Key=None, By="wldn-design")]
+def test_a_main_level_question_about_something_else_is_no_card_of_the_bolts():
+    """crew-board "A main-level question about something else": agentplot-design's question, its post naming the asker
+    alone, is none of b's, nor is any question of a main-level role's that names neither b nor its work (design
+    Decision 8); a question whose post names b's work is b's."""
+    entries = [given(0),
+               e("card.post", 10, "agent/wldn-design", Card="req_3", Key="ask/wldn-design/sluice-who-claims", By="wldn-design"),
+               e("card.post", 12, "agent/wldn-planner", Card="req_4", Key=None, By="wldn-planner"),
+               e("card.post", 14, "agent/wldn-ops", "unit/a", Card="req_5", Key="ask/wldn-ops/a-zone", By="wldn-ops")]
     got = facts_of(entries)
-    assert [c["key"] for c in got["cards"]] == [None, None, None]
-    assert [c["at"] for c in got["cards"]] == [mins(10), mins(14), mins(15)]
+    assert [(c["key"], c["at"]) for c in got["cards"]] == [("ask/wldn-ops/a-zone", mins(14))]
+
+
+def test_a_cards_span_ends_at_the_users_answer_or_its_close_whichever_is_first():
+    """A batch card holding a, posted at 2 and answered at 20, closed at 50; a proposal's naming b, closed at 30 with no
+    answer recorded; the answer of a copy lost to its owner reached nobody, so the copy posted again waits anew."""
+    entries = [given(0), e("review.batch", 1, Batch="12", Units="a:b@abc1234"),
+               e("card.post", 2, "batch/12", Card="req_b12", Key="batch/12", By="wldn-planner"),
+               e("card.answer", 20, "batch/12", Card="req_b12", Key="batch/12", Answer="answered with a note"),
+               e("card.answer", 25, "batch/12", Card="req_b12", Key="batch/12", Answer="again"),
+               e("card.close", 50, Card="req_b12", Key="batch/12", State="closed"),
+               e("plan.propose", 3, "proposal/7", "bolt/b"),
+               e("card.post", 4, "proposal/7", Card="req_p7", Key="proposal/7", By="wldn-planner"),
+               e("card.close", 30, Card="req_p7", Key="proposal/7", State="closed"),
+               e("card.post", 5, Card="req_l1", Key="land/b", By="wldn-ops"),
+               e("card.answer", 6, Card="req_l1", Key="land/b", Answer="approved"),
+               e("card.close", 7, Card="req_l1", Key="land/b", State="lost"),
+               e("card.post", 8, Card="req_l2", Key="land/b", By="wldn-ops")]
+    got = {c["key"]: (c["at"], c["until"]) for c in facts_of(entries)["cards"]}
+    assert got == {"batch/12": (mins(2), mins(20)), "proposal/7": (mins(4), mins(30)), "land/b": (mins(5), None)}
+
+
+def test_the_user_answered_the_landings_card():
+    """crew-board "The user answered the landings card": b's kit's card posted at 14:00 (here 0) with b among its rows,
+    answered at 14:40, ops not yet submitting b: 14:00 to 14:40 the user's, nobody's after, and the user holds b no
+    more."""
+    entries = [given(-30), e("stage.start", -20, "stage/a/merge", "unit/a", "agent/swb-1-unit-1"),
+               e("stage.end", -10, "stage/a/merge", "unit/a", "agent/swb-1-unit-1"),
+               e("card.post", 0, "kit/switchboard-kit", Card="req_e9", Key="land/switchboard-kit", By="wldn-ops", Heads="b@abc1234 o@def5678"),
+               e("card.answer", 40, "kit/switchboard-kit", Card="req_e9", Key="land/switchboard-kit", Answer="ticked b", Heads="b@abc1234")]
+    facts = facts_of(entries)
+    assert [(c["at"], c["until"]) for c in facts["cards"]] == [(mins(0), mins(40))]
+    got = plan.time_at(facts, mins(70))
+    assert got["shares"]["user"] == 40 and got["now"]["holder"] == "nobody"
+
+
+def test_a_landings_card_that_no_longer_carries_the_bolt():
+    """crew-board "A landings card that no longer carries the bolt": changed at 15:00 (here 60) to rows that no longer
+    name b; an older post recorded with no Heads names every bolt, as before crew recorded heads; none counts before
+    b's last merge ends."""
+    merged = [given(-30), e("stage.start", -20, "stage/a/merge", "unit/a", "agent/swb-1-unit-1"),
+              e("stage.end", -10, "stage/a/merge", "unit/a", "agent/swb-1-unit-1")]
+    card = [e("card.post", 0, Card="req_e9", Key="land/switchboard-kit", By="wldn-ops", Heads="b@abc1234 o@def5678"),
+            e("card.update", 60, Card="req_e9", Key="land/switchboard-kit", By="wldn-ops", Heads="o@def5678"),
+            e("card.update", 90, Card="req_e9", Key="land/switchboard-kit", By="wldn-ops", Heads="o@def5678 b@1111111")]
+    assert [(c["at"], c["until"]) for c in facts_of(merged + card)["cards"]] == [(mins(0), mins(60)), (mins(90), None)]
+    bare = [e("card.post", -20, Card="req_e1", Key="land/switchboard-kit", By="wldn-ops")]
+    assert [(c["at"], c["until"]) for c in facts_of(merged + bare)["cards"]] == [(mins(-10), None)]
+    assert facts_of(merged[:1] + card)["cards"] == []
 
 
 def test_a_held_host():

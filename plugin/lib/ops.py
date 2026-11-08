@@ -240,16 +240,14 @@ WAITING = ("waiting", "handed", "failed")  # a step in one of these states is an
 
 def landings(es):
     """The partition's landings, from its bolt.land entries not refused, oldest first: each {bolt, units, at, by, repo,
-    head}, the kit it landed on, by its name now through the kit.rename entries among es (plan.kit_now), so a deploy
-    carries the landings recorded under a kit's former name, and the commit that kit's main held afterwards, None where
-    the entry has none."""
-    import plan
-    out, renames = [], plan.renames_in(es)
+    head}, the kit it landed on, its Repo as written, and the commit that kit's main held afterwards, None where the
+    entry has none."""
+    out = []
     for e in es:
         bolt = next((o[5:] for o in e["On"] if o.startswith("bolt/")), None) if e.get("Act") == "bolt.land" and not e.get("Refused") else None
         if bolt:
             out.append(dict(bolt=bolt, units=[o[5:] for o in e["On"] if o.startswith("unit/")], at=e["At"], by=e.get("By"),
-                            repo=plan.kit_now(e.get("Repo"), renames), head=e.get("Head")))
+                            repo=e.get("Repo"), head=e.get("Head")))
     return out
 
 
@@ -305,7 +303,8 @@ def range_landings(commits, merged, lands):
 
 def kit_range(fleet, label, frm, to):
     """What a deploy from frm to to carries on its kit's main, read with git on this host, the partition's main level's,
-    in the main checkouts of the repos its main-level session keeps: the kit is the one that holds to. (commits, merged)
+    in the main checkouts of the repos its main-level session keeps, each where the host keeps it (crew.session_checkouts:
+    the teams file's checkout where it names the repo for this host): the kit is the one that holds to. (commits, merged)
     as range_landings takes them, and None; or (None, None, why) naming what git could not read (read.1)."""
     import plan
     p = crew.partition_of(fleet, label)
@@ -313,7 +312,7 @@ def kit_range(fleet, label, frm, to):
 
     def git(where, *args):
         return subprocess.run(["git", "-C", where, *args], capture_output=True, text=True, env=plan.gitenv())
-    held = [m for m in (crew.checkout(sess, r) for r in sess.get("repos") or [])
+    held = [m for m in crew.session_checkouts(fleet, p["machine"], sess)
             if pathlib.Path(m).is_dir() and git(m, "cat-file", "-e", f"{to}^{{commit}}").returncode == 0]
     if len(held) != 1:
         return None, None, (f"{to[:7]} is a commit of {len(held)} kits {label}'s main level keeps on {p['machine']}" if held
@@ -702,7 +701,7 @@ def raise_deploy(fleet, row, acts=None, note=None):
     offer = state(es)[0][env]
     since = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=DAYS)).isoformat()
     gathered, _ = record.gather(fleet, [label], since)
-    lands = sorted({e["Id"]: e for e in es + [e for e in gathered if e.get("Act") in ("bolt.land", "kit.rename")]}.values(),
+    lands = sorted({e["Id"]: e for e in es + [e for e in gathered if e.get("Act") == "bolt.land"]}.values(),
                    key=lambda e: (e["At"], e["Id"]))
     base = offer.get("Base")
     ranged = kit_range(fleet, label, base, offer["Head"]) if base not in (None, "", "none") else (None, None, None)
