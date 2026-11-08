@@ -22,10 +22,13 @@
                                      restarts handed out once crew's checkout, the crew the host has installed or the
                                      teams file moved (crew _update), and each partition's rail, board and agents'
                                      views written as frames, stale after three minutes; it waits for the host's
-                                     follower lock while a rail tab holds it. --once makes one tick and ends
+                                     follower lock while a rail tab holds it, and follows only on the crew the host
+                                     has installed, starting again as it before it reads while it runs another.
+                                     --once makes one tick and ends
   crew _rail <label> [--once]        the rail tab: the latest rail the host's follower wrote, drawn whenever it
                                      changes, headed with its age once stale; while no one holds the host's follower
-                                     lock, it takes it and follows itself. --once draws once and follows nothing
+                                     lock, it takes it and follows itself, on the crew the host has installed as the
+                                     job does. --once draws once and follows nothing
   crew _board <label> [--once]       the board tab: the latest board the host's follower wrote, drawn at the pane's
                                      width whenever it or the pane changes
 
@@ -1224,6 +1227,27 @@ def crew_stamp():
     return os.path.realpath(cmd) if cmd else None
 
 
+def behind(mine, theirs):
+    """Whether a follower runs a crew other than the one its host has installed (crew-board "A follower follows on the
+    crew its host has installed"), from crew_read's facts of each (code.7): True when both name a commit and the commits
+    differ, False when they name one, and None when either names none, which starts nothing again on a guess (read.1)."""
+    if not (mine or {}).get("commit") or not (theirs or {}).get("commit"):
+        return None
+    return mine["commit"] != theirs["commit"]
+
+
+def behind_here():
+    """Whether this process follows on a crew other than the one its host has installed (behind): False, read with no
+    process, where the installed command is this crew's own, as a checkout's always is, or the host has none, since
+    then there is no other crew to follow on; else this build's release against the installed crew's answer to crew
+    _release, asked once for each real path of the installed command (crew.installed), so a follower asks again only
+    once an install moves it."""
+    cmd = crew.installed_here()
+    if cmd is None or crew.own_command(cmd):
+        return False
+    return behind(crew.crew_read(), crew.installed())
+
+
 def moved_at():
     """What says crew or the teams file has moved since a refresh: crew's stamp (crew_stamp) and the teams file's bytes,
     each None when it can't be read."""
@@ -1260,17 +1284,22 @@ def wake(now, tick_at, seen, looked):
     return "refresh" if looked != seen else None
 
 
-def refresh_plan(m, kept, crew_read=True):
-    """What a refresh does, from what moved since its last read (moved), whether it kept one, and whether crew's stamp
-    (crew_stamp) and the teams file could be read then and now (crew_read): "read" with none kept, its first, or when a
-    tip or a kit moved, reading only what moved and running every sweep; "update" once crew's checkout, the crew the
-    host has installed or the teams file moved, the
-    due restarts handed out and the follower started again as the new crew, but a read when either can't be read, which
-    hands out nothing on a guess (read.1); "sweep" when only a host's card readings folder, the cards or a host's routes
-    moved, reading nothing, taking the routes into the kept read and running against it only the sweeps of what moved
-    (sweeps_after); "render" when nothing
-    moved, the frames written again from the kept read and the card sessions swept only on the hosts the last refresh
-    could not check (plan.sessions_unchecked). A decision on plain facts (code.7)."""
+def refresh_plan(m, kept, crew_read=True, lag=False):
+    """What a refresh does, from what moved since its last read (moved), whether it kept one, whether crew's stamp
+    (crew_stamp) and the teams file could be read then and now (crew_read), and whether the follower runs a crew other
+    than the one its host has installed (lag, behind_here's): "update" while it does, with a read kept or none, before
+    anything is read or swept, since a follower on another crew reads rows and judges their cards as that crew does,
+    and one older than the host's withdraws as gone a row the installed crew reads and posts again (crew-board "A
+    follower follows on the crew its host has installed"); "read" with none kept, its first, or when a tip or a kit
+    moved, reading only what moved and running every sweep; "update" once crew's checkout, the crew the host has
+    installed or the teams file moved, the due restarts handed out and the follower started again as the new crew, but
+    a read when either can't be read, which hands out nothing on a guess (read.1); "sweep" when only a host's card
+    readings folder, the cards or a host's routes moved, reading nothing, taking the routes into the kept read and
+    running against it only the sweeps of what moved (sweeps_after); "render" when nothing moved, the frames written
+    again from the kept read and the card sessions swept only on the hosts the last refresh could not check
+    (plan.sessions_unchecked). A decision on plain facts (code.7)."""
+    if lag:
+        return "update"
     if not kept:
         return "read"
     if m["crew"]:
@@ -1404,6 +1433,9 @@ class Follower:
         self.asked, self.asked_at_tick = {}, {}
         # what handing out the restarts said before the follower started again as the new crew (again)
         self.updated = json.loads(os.environ.pop("CREW_FOLLOWER_UPDATED", "") or "{}")
+        # whether this process was started again as the installed crew for running another (again's lag), and whether
+        # it has said that it still runs another (lagging)
+        self.started_lagging, self.said_lag = os.environ.pop("CREW_FOLLOWER_LAGGED", None) == "1", False
         # Pending You's notice while a role here runs as its kind (hear), None while it runs none
         self.notice = None
 
@@ -1579,9 +1611,10 @@ class Follower:
         m = moved(kept and kept["stamps"], stamps)
         routes = routes_moved(kits, now["routes"])  # read on the clock's tick alone (Decision 8)
         m = dict(m, routes=routes, any=m["any"] or bool(routes))
-        how = refresh_plan(m, kept is not None, None not in looked["crew"] and None not in (kept["stamps"]["crew"] if kept else ()))
+        lag = self.lagging()
+        how = refresh_plan(m, kept is not None, None not in looked["crew"] and None not in (kept["stamps"]["crew"] if kept else ()), lag)
         if how == "update":
-            self.again(fleet)
+            self.again(fleet, lag=lag)
             how = "read"
         if how == "read":
             self.read(fleet, looked, stamps)
@@ -1656,12 +1689,26 @@ class Follower:
         self.last = dict(self.last, said=said.getvalue().strip(), read=dict(read, swept=swept, moved={"raised": [], "unread": []}, ended=ended, unchecked=unchecked),
                          stamps=dict(self.last["stamps"], readings=stamps["readings"], cards=self.cards))
 
-    def again(self, fleet):
-        """crew's checkout, the crew the host has installed or the teams file moved: each partition's agents here that
-        it made due a restart are handed theirs by the installed crew (crew _update, teams.19), and the follower starts
-        again as the new crew, its lock handed on and what the update said with it: through the installed command where
-        it is not crew's own, as after an install of a build, else as this crew's board.py; the kept read goes with this
-        process. When it can't start again it reads afresh here."""
+    def lagging(self):
+        """Whether this follower is to start again as the installed crew before it reads, running another (behind_here):
+        never once it was started again for that and still runs another, as a crew whose release disagrees with its own
+        answer to crew _release would, which it says once and follows on as it is rather than start again for ever."""
+        lag = behind_here()
+        if lag and self.started_lagging:
+            if not self.said_lag:
+                print(f"crew's follower on {crew.this_host()} was started again as the crew the host has installed and still "
+                      "runs another, its release not the one the installed crew names: it follows as it is", file=sys.stderr)
+                self.said_lag = True
+            return False
+        return lag
+
+    def again(self, fleet, lag=False):
+        """crew's checkout, the crew the host has installed or the teams file moved, or the follower runs a crew other
+        than the installed one (lag, behind_here): each partition's agents here that it made due a restart are handed
+        theirs by the installed crew (crew _update, teams.19), and the follower starts again as the new crew, its lock
+        handed on and what the update said with it, and whether it started again for running another: through the
+        installed command where it is not crew's own, as after an install of a build, else as this crew's board.py; the
+        kept read goes with this process. When it can't start again it reads afresh here."""
         installed = crew.installed_here()
         cmd = ["bash", installed or crew.crew_command()]
         updated = {l: subprocess.run(cmd + ["_update", "--label", l], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True).stdout.strip() or None
@@ -1670,7 +1717,8 @@ class Follower:
         try:
             os.set_inheritable(self.lock.fileno(), True)
             sys.stdout.flush()
-            env = dict(os.environ, CREW_FOLLOWER_LOCK=str(self.lock.fileno()), CREW_FOLLOWER_UPDATED=json.dumps(updated))
+            env = dict(os.environ, CREW_FOLLOWER_LOCK=str(self.lock.fileno()), CREW_FOLLOWER_UPDATED=json.dumps(updated),
+                       CREW_FOLLOWER_LAGGED="1" if lag else "0")
             if installed and not crew.own_command(installed):
                 os.execvpe("bash", ["bash", installed, *sys.argv[1:]], env)
             else:

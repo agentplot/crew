@@ -405,6 +405,16 @@ class TestFollower:
         """A tip or a kit moved reads; only a readings folder or the cards moved sweeps; nothing moved renders."""
         assert board.refresh_plan(m, kept, crew_read) == how
 
+    @pytest.mark.parametrize("m, kept, crew_read", [
+        ({"crew": True, "read": True, "any": True}, False, True), ({"crew": False, "read": False, "any": False}, True, True),
+        ({"crew": False, "read": True, "any": True}, True, True), ({"crew": True, "read": True, "any": True}, True, False)])
+    def test_a_follower_on_another_crew_than_the_installed_one_starts_again_as_it_whatever_moved(self, m, kept, crew_read):
+        """crew-board "A follower follows on the crew its host has installed": its first refresh, one after nothing
+        moved, one after a tip moved and one whose stamp can't be read alike start it again before anything is read;
+        a follower whose lag can't be told (None) refreshes as it would on the installed crew (read.1)."""
+        assert board.refresh_plan(m, kept, crew_read, True) == "update"
+        assert board.refresh_plan(m, kept, crew_read, None) == board.refresh_plan(m, kept, crew_read)
+
     NOTHING = {"crew": False, "state": set(), "blueprints": set(), "kits": set(), "readings": set(), "cards": False, "read": False, "any": False}
     READINGS = {"mac-studio": ["wldn", "swancloud"], BOX: ["wldn"]}
 
@@ -506,6 +516,61 @@ class TestInstalledCrew:
         assert ran == [["bash", str(profile / "crew"), "_update", "--label", "wldn"]]
         assert started == [("bash", ["bash", str(profile / "crew"), "_follow"], str(lock.fileno()))]
 
+    @pytest.mark.parametrize("mine, theirs, lag", [
+        ({"commit": "a" * 40}, {"commit": "b" * 40}, True), ({"commit": "a" * 40}, {"commit": "a" * 40}, False),
+        ({"commit": None, "unread": "no release file"}, {"commit": "b" * 40}, None),
+        ({"commit": "a" * 40}, {"commit": None, "unread": "did not answer crew _release within 5 seconds"}, None), (None, None, None)])
+    def test_a_follower_lags_only_when_both_crews_name_a_commit_and_they_differ(self, mine, theirs, lag):
+        assert board.behind(mine, theirs) is lag
+
+    def test_a_build_lags_behind_an_installed_build_of_another_release_asked_once_for_its_path(self, build, monkeypatch):
+        """A rail tab opened on one build takes the lock after the host installed another (deneb, 2026-11-08: a tab on
+        0.41.0 held it while 0.46.0 was installed, and withdrew land/flume each sweep as a row gone while 0.46.0 posted
+        it again, signal 2026-11-08-agentplot-ops-2411bbac/01)."""
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        monkeypatch.setattr(crew, "ASKED", {})
+        asked = []
+        theirs = {"root": str(store / "def-crew"), "commit": "b" * 40, "version": "v0.46.0", "from": "release", "unread": None}
+        monkeypatch.setattr(crew, "ask_release", lambda cmd: asked.append(cmd) or theirs)
+        monkeypatch.setattr(crew, "crew_read", lambda root=None: {"root": str(home), "commit": "a" * 40, "version": "v0.41.0",
+                                                                  "from": "release", "unread": None})
+        assert board.behind_here() is True and board.behind_here() is True
+        assert asked == [str(profile / "crew")], "the installed crew was asked more than once for one path"
+        theirs["commit"] = "a" * 40
+        monkeypatch.setattr(crew, "ASKED", {})
+        assert board.behind_here() is False
+
+    def test_a_follower_that_is_the_installed_crew_or_has_none_asks_nothing_and_never_lags(self, build, monkeypatch):
+        store, home, profile = build
+        monkeypatch.setattr(crew, "ask_release", lambda cmd: pytest.fail(f"asked {cmd} crew _release"))
+        monkeypatch.setattr(crew, "crew_read", lambda root=None: pytest.fail("read its own release"))
+        assert board.behind_here() is False, "with no crew installed it has none to follow on"
+        (profile / "crew").symlink_to(self.built(store, "abc-crew"))
+        assert board.behind_here() is False, "the installed command is its own"
+
+    def test_on_a_checkout_the_follower_never_lags_and_asks_nothing(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").write_text("gitdir: /elsewhere\n")
+        monkeypatch.setattr(crew, "HOME", tmp_path)
+        monkeypatch.setattr(crew, "ask_release", lambda cmd: pytest.fail(f"asked {cmd} crew _release"))
+        assert board.behind_here() is False
+
+    def test_a_follower_started_again_for_its_lag_says_so_as_it_starts(self, build, tmp_path, monkeypatch):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        started = []
+        monkeypatch.setattr(board.subprocess, "run", lambda argv, **kw: board.subprocess.CompletedProcess(argv, 0, "", ""))
+        monkeypatch.setattr(board.os, "execvpe", lambda file, argv, env: started.append((argv, env["CREW_FOLLOWER_LAGGED"])))
+        monkeypatch.setattr(board.sys, "argv", ["board.py", "_rail", "agentplot"])
+        f = board.Follower(open(tmp_path / "lock", "w"))
+        f.labels = ["agentplot"]
+        f.again({}, lag=True)
+        f.again({})
+        assert started == [(["bash", str(profile / "crew"), "_rail", "agentplot"], "1"), (["bash", str(profile / "crew"), "_rail", "agentplot"], "0")]
+        monkeypatch.setenv("CREW_FOLLOWER_LAGGED", "1")
+        assert board.Follower(None).started_lagging and "CREW_FOLLOWER_LAGGED" not in os.environ
+        assert not board.Follower(None).started_lagging
+
     def test_on_a_checkout_the_follower_starts_again_as_its_own_board(self, tmp_path, monkeypatch):
         (tmp_path / ".git").write_text("gitdir: /elsewhere\n")
         monkeypatch.setattr(crew, "HOME", tmp_path)
@@ -587,8 +652,10 @@ class TestRefresh:
                 self.fleet_, self.labels = test.FLEET, board.labels_here(test.FLEET, "mac-studio")
                 return test.FLEET
 
-            def again(self, fleet):
+            def again(self, fleet, lag=False):
                 test.again.append(list(self.labels))
+                test.lags.append((lag, len(test.reads)))
+        self.lags = []
         return Here(None)
 
     def test_the_follower_runs_pending_yous_notice_while_a_role_here_runs_as_its_kind(self, tmp_path, monkeypatch):
@@ -669,6 +736,35 @@ class TestRefresh:
         self.looks["crew"] = ("e" * 40, b"{teams}")
         follower.refresh()
         assert self.again == [["wldn", "swancloud"]]
+
+    def test_a_follower_on_another_crew_than_the_installed_one_starts_again_as_it_before_it_reads(self, follower, monkeypatch):
+        """crew-board "A follower follows on the crew its host has installed", Scenario: A tab older than the install
+        takes the lock: its first refresh, with nothing kept and nothing moved, starts it again before it reads a row
+        or sweeps a card, saying it started again for its lag (signal 2026-11-08-agentplot-ops-2411bbac/01)."""
+        monkeypatch.setattr(board, "behind_here", lambda: True)
+        follower.refresh()
+        assert self.lags[0] == (True, 0), "the follower read before it started again as the installed crew"
+        monkeypatch.setattr(board, "behind_here", lambda: False)
+        follower.refresh()
+        assert len(self.lags) == 1, "a follower on the installed crew started again with nothing moved"
+
+    def test_a_follower_started_again_for_its_lag_that_still_lags_follows_as_it_is_and_says_so_once(self, follower, monkeypatch, capsys):
+        """Scenario: Started again and still another: it reads and sweeps as it is, starts nothing again, and says why
+        once, whatever its later refreshes find."""
+        monkeypatch.setattr(board, "behind_here", lambda: True)
+        follower.started_lagging = True
+        follower.refresh()
+        follower.refresh()
+        assert self.lags == [] and len(self.reads) == 1
+        said = capsys.readouterr().err
+        assert said.count("still runs another") == 1 and "it follows as it is" in said
+
+    def test_a_follower_whose_lag_cant_be_told_follows_as_it_is(self, follower, monkeypatch):
+        """Scenario: The installed crew can't be read."""
+        monkeypatch.setattr(board, "behind_here", lambda: None)
+        follower.refresh()
+        follower.refresh()
+        assert self.lags == [] and len(self.reads) == 1
 
     def test_the_clock_asks_pending_you_after_the_kept_reads_cards_when_they_could_have_moved_and_never_between(self, follower, monkeypatch):
         """The crew-board spec, The follower asks Pending You about cards when they could have moved: one bridge at a
