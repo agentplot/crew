@@ -524,6 +524,7 @@ for want in "Every bolt's units, chores and fixes are Flume places, taken by a r
   "main fix <kit> <name> \"<the failure's words>\" --label wldn\`" "which you launch on reading main red" \
   "its submission held for the user's word" "\`fixes in flight\`" \
   "answer main--<name> \"<the answer>\" --label wldn\`" "\`fix main--<name>\` with the failure's first line" \
+  "the kit's landings card asks for it as a box ahead of the bolts, raised for it though no bolt can land beside it" \
   "main fix <kit> <name> --send --label wldn\`" \
   "with \`--excerpt \"<their words, as they wrote them>\"\`, which crew reads in your own session's transcript as the user's and refuses otherwise, sending nothing" \
   "Send it ahead of the bolts the same word lands" "main fix <kit> <name> --drop --label wldn\`" \

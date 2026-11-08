@@ -211,7 +211,9 @@
 #                                      an approval the user declined is closed with their words; for a kit's landings
 #                                      card (land/<kit>), the bolts the user ticked in its order and the crew bolt
 #                                      submit that lands them, after those an earlier send still lands at their head
-#                                      now; what an earlier send still lands, with or without a card open, naming a
+#                                      now, and each fix of main ticked, there or on an earlier send while it waits
+#                                      held, as crew main fix <kit> <name> --send, ops's command for it, ahead of
+#                                      the submit; what an earlier send still lands, with or without a card open, naming a
 #                                      bolt it can't tell of; a sent card is raised first, so a ticked bolt that was
 #                                      left and conflicts with main takes main first, until a fix taking main in moves
 #                                      its head, and the submit leaves it out
@@ -258,8 +260,9 @@
 #                                      whose configuration names it; refused, naming a bolt of one chore proposed first
 #                                      among the planned as the way, where no runner answers for the partition
 #   crew main     fix <kit> <name> --send [--excerpt "<the user's words>"] [--label L]
-#                                      main-level ops's, on the user's send of the kit's landings row, which carries the
-#                                      fix once its code has delivered and its submission waits held: the retry of its
+#                                      main-level ops's, on the user's send of the kit's landings row or card, which
+#                                      carry the fix once its code has delivered and its submission waits held, the
+#                                      card raised for it though no bolt can land beside it: the retry of its
 #                                      submission, appended once, which the runner makes and sluice lands on main; with
 #                                      --excerpt, on the user's words in ops's pane, sent only once crew reads them in
 #                                      ops's own transcript as the user's, no words in the run record
