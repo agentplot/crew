@@ -240,6 +240,17 @@ class TestQuiet:
 
 
 class TestRenew:
+    def test_the_hand_of_a_restart_runs_crew_renew_through_the_installed_crew(self, tmp_path, monkeypatch):
+        # The Stop hook of a session that loaded an older build runs that build's hold.hand: the restart it hands is the
+        # installed crew's, so the agent comes back on crew as the host has it now.
+        ran = []
+        monkeypatch.setattr(crew, "crew_command", lambda: "/etc/profiles/per-user/chuck/bin/crew")
+        monkeypatch.setattr(hold, "RENEW", tmp_path / "renew")
+        monkeypatch.setattr(hold.subprocess, "Popen", lambda argv, **kw: ran.append(argv))
+        hold.hand("wldn-ops")
+        assert ran == [["bash", "/etc/profiles/per-user/chuck/bin/crew", "_renew", "wldn-ops"]]
+        assert (tmp_path / "renew/wldn-ops.log").exists()
+
     def test_a_due_agent_is_restarted_only_once_it_is_idle_with_nothing_of_its_own_running(self):
         assert hold.renew_ready("idle", False, None, []) == (True, None)
         assert hold.renew_ready("done", False, None, []) == (True, None)

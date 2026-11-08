@@ -350,11 +350,12 @@ def update_here(fleet, a):
 
 
 def hand(name):
-    """The restart of an agent due for an update handed to a process of its own on this host (code.9), its words kept in
+    """The restart of an agent due for an update handed to a process of its own on this host (code.9), run by the crew
+    the host has installed (crew.crew_command), whichever build the hand runs from, its words kept in
     RENEW/<agent>.log."""
     RENEW.mkdir(parents=True, exist_ok=True)
     with open(RENEW / f"{name}.log", "a") as log:
-        subprocess.Popen(["bash", str(crew.HOME / "plugin/bin/crew"), "_renew", name], stdin=subprocess.DEVNULL,
+        subprocess.Popen(["bash", crew.crew_command(), "_renew", name], stdin=subprocess.DEVNULL,
                          stdout=log, stderr=log, start_new_session=True)
 
 
