@@ -21,4 +21,4 @@
 
 ## 4. The docs
 
-- [ ] 4.1 README, the crew skill and `crew`'s usage header say a kit's folder is the runner's report alone and a landed bolt's pieces are read from its landing on main (`docs.2`; Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.1 README, the crew skill and `crew`'s usage header say a kit's folder is the runner's report alone and a landed bolt's pieces are read from its landing on main (`docs.2`; Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
