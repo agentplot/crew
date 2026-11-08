@@ -1483,7 +1483,7 @@ class Stages:
             place = reading["places"].get(n) if reading else None
             res["carried"] = place["at"] if place else None  # when the runner carried its place's status
         k, _ = self.kit(bolt) if not isinstance(run, str) else (None, None)
-        built = runner.built_on_bolt(work, s, ((k or {}).get("bolts", {}).get(bolt.name()) or {}).get("landings"))
+        built = runner.built_on_bolt(work, s, self.landings(bolt))
         if built is not s:
             s, res["carried"] = built, built["landed"]
         if s["stage"] == "merged":
@@ -1492,14 +1492,29 @@ class Stages:
         res.update(stage=s["stage"], tasks=s.get("tasks"), flume=s, **({"why": s["why"]} if s.get("why") else {}))
         return res
 
+    def landings(self, bolt):
+        """The landings sluice made on a started bolt, by the branches they name (gather.bolt_landings), as its kit was
+        read where its work runs (kit), {branch: {"commit", "at"}}; None where its partition's runners, its kit or its
+        landings can't be read, which then build nothing (read.1). Read by crossed and fixes alike (bolt-plan "A unit
+        whose work its bolt's branch holds is built", "A fix read merged from its bolt's landing holds nothing")."""
+        if isinstance(self.runner(self.label), str):
+            return None
+        k, _ = self.kit(bolt)
+        return ((k or {}).get("bolts", {}).get(bolt.name()) or {}).get("landings")
+
     def fixes(self, bolt):
         """Each fix standing on a started bolt, in requests.rec's order, as (its work, fix/<bolt>/<name>, its launch, its
-        stage as stage_of gives it), read as its units and chores are; none where the partition's runners can't be
-        read, which unread names."""
+        stage as stage_of gives it), read as its units and chores are: merged once a landing on the bolt at or after its
+        launch names its place's branch, fix/<bolt>--<name>, whatever the runner last carried of its place, and the
+        runner's reading where the bolt's landings can't be read (landings, runner.built_on_bolt; bolt-plan "A fix whose
+        place's landing its bolt's branch holds is merged"); none where the partition's runners can't be read, which
+        unread names."""
         run = self.runner(self.label)
         if isinstance(run, str):
             return []
-        return [(l.get("Work"), l, s) for l, s in runner.fixes_on(*run, f"bolt/{bolt.name()}")]
+        landings = self.landings(bolt)
+        return [(l.get("Work"), l, runner.built_on_bolt(l.get("Work"), s, landings, l.get("Date")))
+                for l, s in runner.fixes_on(*run, f"bolt/{bolt.name()}")]
 
     def unread(self, bolt):
         """Why the runners a started bolt is read from can't be read, as (what, why), or None: its partition's requests,

@@ -124,15 +124,36 @@ class TestCrossed:
         st = self.stages(None, runs=([], ran()))
         assert (st.of("a")["stage"], st.of("a")["why"]) == ("unknown", "unit/a has no launch in requests.rec")
 
+    def with_tidy(self, runners, bolt=None):
+        """Stages of x (stages) with its fix tidy launched as request 4 at 2026-11-08T04:00:00Z."""
+        st = self.stages(runners, bolt=bolt)
+        requests, _ = st.runs["madswan"]
+        fix = plan.Rec("Request", [("Request", "4"), ("Act", "launch"), ("Work", "fix/x/tidy"), ("Name", "x--tidy"),
+                                   ("Base", "bolt/x"), ("Kind", "fix"), ("Date", "2026-11-08T04:00:00Z")])
+        st.runs["madswan"] = (requests + [fix], st.runs["madswan"][1])
+        return st
+
     def test_a_crossed_bolts_fixes_read_their_stages_from_the_runner(self):
         """bolt-plan's requirement holds for a fix: fix/x/tidy, launched as request 4, read at code."""
         from facts import ran
-        st = self.stages(ran({4: "code"}))
-        requests, _ = st.runs["madswan"]
-        fix = plan.Rec("Request", [("Request", "4"), ("Act", "launch"), ("Work", "fix/x/tidy"), ("Name", "x--tidy"),
-                                   ("Base", "bolt/x"), ("Kind", "fix")])
-        st.runs["madswan"] = (requests + [fix], st.runs["madswan"][1])
+        st = self.with_tidy(ran({4: "code"}))
         assert [(w, s["stage"]) for w, _, s in st.fixes(st.plan.bolt("x"))] == [("fix/x/tidy", "code")]
+
+    def test_a_crossed_bolts_landed_fix_reads_merged_from_its_bolts_landing(self):
+        """bolt-plan "A fix whose place's landing its bolt's branch holds is merged": tidy's place last carried at
+        submitted and x's landing of fix/x--tidy after its launch, it reads merged there, as crew bolts and the board
+        show it; with x's landings unread, or the landing made before its launch, it reads submitted (read.1)."""
+        from facts import ran
+        landed = {"fix/x--tidy": {"commit": "4" * 40, "at": "2026-11-08T04:18:32Z"}}
+        st = self.with_tidy(ran({4: "submitted"}), bolt={"landings": landed})
+        [(w, _, s)] = st.fixes(st.plan.bolt("x"))
+        assert (w, s["stage"], s["commit"], s["landed"], s["on"], s["branch"]) == (
+            "fix/x/tidy", "merged", "4" * 40, "2026-11-08T04:18:32Z", "bolt", "fix/x--tidy")
+        assert runner.piece_said(s) == ("merged", "fix/x--tidy landed on its bolt at 4444444")
+        unread = self.with_tidy(ran({4: "submitted"}), bolt={"landings_error": "git could not list the landings on origin/bolt/x"})
+        assert [s["stage"] for _, _, s in unread.fixes(unread.plan.bolt("x"))] == ["submitted"]
+        before = self.with_tidy(ran({4: "submitted"}), bolt={"landings": {"fix/x--tidy": dict(landed["fix/x--tidy"], at="2026-11-08T03:59:59Z")}})
+        assert [s["stage"] for _, _, s in before.fixes(before.plan.bolt("x"))] == ["submitted"]
 
 
 # ------------------------------------------------------------------- a unit whose work its bolt's branch already holds
