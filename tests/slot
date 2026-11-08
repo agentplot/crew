@@ -1,35 +1,61 @@
 #!/usr/bin/env python3
-"""Run a command in one of the host's test slots: tests/slot <command...> (tests.9).
+"""Run a command in one of the host's test slots, and end what it leaves running: tests/slot <command...> (tests.9).
 
 Every crew test on a host, whichever worktree, team or suite runs it, takes one of the host's slots first and holds it
 until the test ends, so the tests running at once on the host never outnumber its slots however many suites run side
-by side. A slot is a lock file, slot-<n>, in ~/.cache/crew/test-slots (CREW_TEST_SLOTS_DIR names another), held
-with flock for as long as the command or anything it leaves running has the file open, and let go by the system when
-the last of them ends, killed or not. The host has CREW_TEST_SLOTS slots, else its cores less two and at least two: each
-test keeps at most about a core busy starting processes, and two are left for the agents and the user beside them. A
-command waits, polling, until a slot is free.
+by side. A slot is a lock file, slot-<n>, in ~/.cache/crew/test-slots (CREW_TEST_SLOTS_DIR names another), held with
+flock by this process alone: the command runs as its child, and the file is open in no process the command starts, so
+the slot is let go as soon as the command has ended, whatever it left running, and by the system when this process is
+killed. The host has CREW_TEST_SLOTS slots, else as many as its cores less two hold at what one test costs the host
+beside others, TEST_CORES, and at least one: two cores are left for the agents and the user beside them, and the tests
+running at once keep the rest busy and no more (tests.9). A command waits, polling, until a slot is free.
+
+The command runs in a process group of its own, under a keeper, this file run again with --keeper: the group's leader
+and the command's parent, which kills the whole group should this process end without ending it, killed by a signal no
+process can catch. Once the command has ended, the slot is let go and whatever is left in the group, a board follower or
+an overview watch a test started in the background and never ended because it failed first, is sent SIGTERM, and
+SIGKILL when it is still there GRACE seconds later; then this process exits as the command did, 128 and the signal's
+number when a signal ended it. SIGTERM, SIGINT or SIGHUP sent to this process is passed to the group, and the group is
+ended all the same. A process the command starts in a session of its own has left the group and is not reached: crew
+starts a card's plannotator session so, and the stub of it ends once its test's shell has (tests/stubs/plannotator).
 
 A test runs with CREW_TEST_SLOT naming its slot. A suite or test started inside it (t-suite's) runs in that slot
-rather than waiting on another one its own test may be holding. Written for macOS, which has no flock command.
+rather than waiting on another one its own test may be holding, and what it leaves running is ended with it all the
+same. Written for macOS, which has no flock command.
 """
 import fcntl
 import os
 import pathlib
+import signal
+import subprocess
 import sys
+import threading
 import time
 
+GRACE = 5  # seconds what a test left running has, once sent SIGTERM, before it is sent SIGKILL
+# What one crew test costs the host beside others, in cores, from what it starts. Read on deneb (18 cores) on
+# 2026-11-07: a test alone keeps 0.8 to 1.0 cores busy with its crew, git and python processes, half of it the kernel's
+# starting them; beside others the same run's processes take more CPU, 30% more with eight side by side and 45% more
+# with sixteen, and the host spends a sixth again outside them, so a run costs the host 1.4 to 1.6 cores for each second
+# it takes alone. Sixteen side by side, its cores less two, held 17.9 of its 18 cores busy with the host's other work
+# and ran each test twice as long as alone.
+TEST_CORES = 1.5
 
-def count():
+
+def count(cores=None):
+    """The host's slots: CREW_TEST_SLOTS, else as many tests as its cores, this host's unless given, less two hold at
+    TEST_CORES each, and at least one."""
     want = os.environ.get("CREW_TEST_SLOTS", "")
     if want:
         if not want.isdigit() or int(want) < 1:
             sys.exit(f"tests/slot: CREW_TEST_SLOTS is '{want}', not a number of slots")
         return int(want)
-    return max(2, (os.cpu_count() or 4) - 2)
+    return max(1, int(((cores or os.cpu_count() or 4) - 2) / TEST_CORES))
 
 
 def take(d, n):
-    """The open file of a free slot, held; waits until one is."""
+    """The open file of a free slot, held, and its number; waits until one is. The file is open in this process alone:
+    os.open makes it non-inheritable, so no process started from here holds it."""
     d.mkdir(parents=True, exist_ok=True)
     while True:
         for i in range(n):
@@ -43,18 +69,77 @@ def take(d, n):
         time.sleep(0.2)
 
 
+def status(code):
+    """A child's return code as an exit status: its own, or 128 and the signal's number when a signal ended it."""
+    return code if code >= 0 else 128 - code
+
+
+def sent(group, sig):
+    """Whether the signal reached a process of the group: none when the group is gone, and none when it holds only
+    processes that have ended and wait to be reaped, for which macOS answers EPERM."""
+    try:
+        os.killpg(group, sig)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
+def end(group):
+    """Whatever is left in the group sent SIGTERM, and SIGKILL when it is still there GRACE seconds later."""
+    if not sent(group, signal.SIGTERM):
+        return
+    until = time.monotonic() + GRACE
+    while time.monotonic() < until:
+        if not sent(group, 0):
+            return
+        time.sleep(0.05)
+    sent(group, signal.SIGKILL)
+
+
+def keeper(fd, argv):
+    """tests/slot --keeper <fd> <command...>: the command run as this process's child, in its group, and its exit
+    status taken as this one's; and the group killed should the read end of the pipe fd come to its end, which it does
+    only when tests/slot, which holds the write end alone, ends without ending the group."""
+    try:
+        cmd = subprocess.Popen(argv)
+    except OSError as e:
+        sys.exit(f"tests/slot: cannot run {argv[0]}: {e.strerror or e}")
+
+    def watch():
+        while os.read(fd, 1):
+            pass
+        os.killpg(os.getpgrp(), signal.SIGKILL)
+
+    threading.Thread(target=watch, daemon=True).start()
+    sys.exit(status(cmd.wait()))
+
+
 def main(argv):
+    if argv[:1] == ["--keeper"]:
+        return keeper(int(argv[1]), argv[2:])
     if not argv:
         sys.exit("usage: tests/slot <command...>")
+    held = None
     if not os.environ.get("CREW_TEST_SLOT"):
         d = pathlib.Path(os.environ.get("CREW_TEST_SLOTS_DIR") or pathlib.Path.home() / ".cache/crew/test-slots")
-        fd, i = take(d, count())
-        os.set_inheritable(fd, True)
+        held, i = take(d, count())
         os.environ["CREW_TEST_SLOT"] = str(i)
-    try:
-        os.execvp(argv[0], argv)
-    except OSError as e:
-        sys.exit(f"tests/slot: cannot run {argv[0]}: {e}")
+    r, w = os.pipe()
+    keep = subprocess.Popen([sys.executable, os.path.abspath(__file__), "--keeper", str(r), *argv], pass_fds=(r,),
+                            start_new_session=True)
+    os.close(r)
+
+    def passed(sig, _):
+        sent(keep.pid, sig)
+
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, passed)
+    code = keep.wait()
+    if held is not None:
+        os.close(held)
+    end(keep.pid)
+    os.close(w)
+    sys.exit(status(code))
 
 
 if __name__ == "__main__":

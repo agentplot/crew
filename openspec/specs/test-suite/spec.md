@@ -154,7 +154,7 @@ A task SHALL be replayed from moon's cache, without running the test, when its i
 - **THEN** that test runs again
 
 ### Requirement: crew's own toolchain is devenv's system tools and proto's pins
-crew's devenv shell SHALL carry proto, jq and recutils as its system tools, and SHALL install, when one is missing, and activate the tools crew's `.prototools` pins: moon at the version crew pins, Python at the minor the hosts run crew on, and uv. crew's tests SHALL run on that Python, with pytest from `tests/pyproject.toml`, locked in `tests/uv.lock`, synced by moon. crew SHALL declare its own toolchain and runner in `.config/sluice.toml` like any kit.
+crew's devenv shell SHALL carry proto, jq and recutils as its system tools. Entering it SHALL install the tools crew's `.prototools` pins, by a devenv task run before the entry and only when one is missing from crew's proto home, and SHALL activate them: moon at the version crew pins, Python at the minor the hosts run crew on, and uv. The toolchain crew's policy names, `devenv print-dev-env`, SHALL only activate: the script it prints SHALL install nothing. In a working copy sluice equips, sluice's equip installs the pins (sluice 147; kit standard toolchain.8). crew's tests SHALL run on that Python, with pytest from `tests/pyproject.toml`, locked in `tests/uv.lock` and synced by moon. crew SHALL declare its own toolchain and runner in `.config/sluice.toml` like any kit.
 
 #### Scenario: The tests' Python
 - **WHEN** crew's logic tier runs as a moon task inside crew's shell
@@ -167,3 +167,77 @@ crew's devenv shell SHALL carry proto, jq and recutils as its system tools, and 
 #### Scenario: A moon of the user's
 - **WHEN** the user's own proto or moon home holds an older moon
 - **THEN** no moon task of crew's runs it
+
+#### Scenario: The toolchain crew's policy names only activates
+- **WHEN** the command `.config/sluice.toml` names as its `[tests]` toolchain is run in crew's checkout
+- **THEN** the script it prints activates proto's pins and runs no `proto install`
+
+### Requirement: A test's slot is free once the test has ended
+A test's slot SHALL be held by its runner alone, in no process the test starts, so that the slot is free once the test has ended, whatever the test left running.
+
+#### Scenario: A test that leaves a process running
+- **WHEN** a test starts a process in the background, as `t-journey-board` starts crew's board follower, and ends without ending it
+- **THEN** no file the process holds open is the slot's, and the slot is free once the test has ended
+
+### Requirement: What a test leaves running ends with it
+What a test leaves running in its process group SHALL be ended once the test ends, passed or failed: sent SIGTERM, and SIGKILL when it is still there five seconds later. The runner SHALL exit as the test did. A signal that stops the runner SHALL end the test and what it left, and a runner killed outright SHALL take them with it. A card's plannotator session, which crew starts in a session of its own, SHALL end once the test's shell has.
+
+#### Scenario: A process left running
+- **WHEN** a test starts a process in the background and exits 3 without ending it
+- **THEN** the process is ended and the runner exits 3
+
+#### Scenario: A process that ignores SIGTERM
+- **WHEN** a process a test left running ignores SIGTERM
+- **THEN** it is sent SIGKILL and ends
+
+#### Scenario: A stopped runner
+- **WHEN** the runner of a test that is still running is sent SIGTERM
+- **THEN** the test and what it started end, the runner exits 143, and the slot is free
+
+#### Scenario: A killed runner
+- **WHEN** the runner of a test that is still running is killed with SIGKILL
+- **THEN** the slot is free for the next test, and the test and what it started end
+
+#### Scenario: A card's session
+- **WHEN** a test that started a card's plannotator session, in a session of its own, ends while the session waits on no decision
+- **THEN** the session ends, writing no result
+
+### Requirement: A follower's round is counted from its own first read
+A test that counts what crew's follower read in one round SHALL count from that round's own first read, and SHALL wait for that round's own frames, so that a read an earlier round made late is never counted as the round's.
+
+#### Scenario: A quiet tick on a loaded host
+- **WHEN** `t-journey-board` signals the board follower's clock with nothing moved, and a read of an earlier round reaches the reads log after the log was emptied but before the tick's fetch of wldn's state branch
+- **THEN** the tick's count starts at its fetch and holds one fetch, no git, no gather and one stamp of the box, and the check fails only when the tick itself reads
+
+### Requirement: The suite runs every project's checks
+`tests/suite` SHALL select every moon project's `check-full` tasks when given no name, as sluice selects them by `#check-full`, take a task of another project than `tests` by `<project>:<task>`, and name such a task `<project>:<task>` in its lines and its failure output.
+
+#### Scenario: Every project's checks in one run
+- **WHEN** `tests/suite` runs with no name in a workspace whose project `nix` has a `check-full` task `test` beside the tests' tasks
+- **THEN** `nix:test` runs beside them, and the run reports it on a line `ok    nix:test`
+
+#### Scenario: A project's task by name
+- **WHEN** `tests/suite nix:test` runs
+- **THEN** only `nix:test` runs
+
+#### Scenario: Another project's task fails
+- **WHEN** `nix:test` fails
+- **THEN** the run names it on a line `FAIL  nix:test` with its output, the other tasks still run, and the command exits non-zero
+
+#### Scenario: Only the flake's files changed
+- **WHEN** `tests/suite --affected` runs on a branch whose only edit is under `nix/`
+- **THEN** only the project `nix`'s tasks whose inputs hold that file run
+
+### Requirement: The flake's checks are the moon project nix
+crew's flake SHALL be the moon project `nix`, whose tasks `format`, `lint`, `typecheck` and `test` are each tagged `check-full`, and whose checks evaluate the flake offline and read-only, building nothing, with the inputs crew's shell fetched.
+
+#### Scenario: The flake's four checks
+- **WHEN** moon lists crew's projects and their tasks in crew's checkout
+- **THEN** the project `nix` gives `format`, `lint`, `typecheck` and `test`, each tagged `check-full`
+
+### Requirement: crew's shell carries the flake's tools and inputs
+crew's devenv shell SHALL carry nix, nixfmt, statix and deadnix, from its own nixpkgs, and SHALL give `CREW_FLAKE_INPUTS`, the store path of each input `flake.lock` locks, fetched by the shell, so the flake's checks read them with no network.
+
+#### Scenario: The flake's tools
+- **WHEN** a contract case runs inside crew's shell
+- **THEN** `nix`, `nixfmt`, `statix` and `deadnix` are on its path from the Nix store, and `CREW_FLAKE_INPUTS` names, for each input of `flake.lock`, a store path that exists

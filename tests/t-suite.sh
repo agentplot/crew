@@ -1,13 +1,17 @@
 # crew's suite runs as moon tasks. With the shell's real moon, in a scratch repository holding crew's
 # .moon/workspace.yml, tests/suite and tests/moon-tasks, a stand-in tests/run (it fails a test when plugin/bin/ holds
-# red-<name>) and three stand-in tests: a first run runs every test side by side and replays none; a second replays
+# red-<name>), three stand-in tests and a stand-in project nix, whose one check-full task test reads nix/ and fails
+# while nix/red is there: a first run runs every test, and nix:test beside them, side by side and replays none; a
+# second replays
 # all; a test-only edit reruns that test alone; an edit to crew's command core reruns all, and one to a plugin/ path
 # outside it reruns only the test naming it on its # Reads: line (tests.10); a red test is named on one FAIL line with
 # its output while the others still run, the exit is non-zero, and it runs again on the next run; __pycache__ under
 # plugin/ changes no hash; --force replays nothing; the live test gets no task and never runs; a new test with no
 # task, and a test reading a file of crew's its task doesn't name, refuse the run before anything runs; a second
-# checkout replays the first's passes; --affected runs only the tests a branch's edits touch, uncommitted ones
-# counted, and with none says so and passes.
+# checkout replays the first's passes; nix:test runs alone by name, a task the project lacks refuses before anything
+# runs, and a red nix:test is named on its FAIL line with its output while the tests still pass; --affected runs only
+# the tests a branch's edits touch, uncommitted ones counted, with none says so and passes, and with an edit under
+# nix/ alone runs nix:test alone.
 # Reads: .moon/workspace.yml tests/suite tests/moon-tasks
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 [[ $(moon --version 2>/dev/null) == "moon 2."* ]] || fail "this test needs moon 2 from crew's toolchain (.prototools), not: $(moon --version 2>&1)"
@@ -17,11 +21,11 @@ zzz=$(type -a -P sleep | grep -vxF "$TESTS/stubs/sleep" | head -1)
 [[ -x $zzz ]] || fail "no sleep on PATH but the stub's"
 
 r=$T/repo
-mkdir -p "$r/.moon" "$r/tests/stubs" "$r/plugin/bin" "$r/plugin/lib" "$r/plugin/roles"
+mkdir -p "$r/.moon" "$r/tests/stubs" "$r/plugin/bin" "$r/plugin/lib" "$r/plugin/roles" "$r/nix"
 cp "$CREW/.moon/workspace.yml" "$r/.moon/"; cp "$CREW/tests/suite" "$CREW/tests/moon-tasks" "$r/tests/"
 printf '.moon/cache/\n__pycache__/\n' > "$r/.gitignore"
 touch "$r/devenv.nix" "$r/devenv.lock" "$r/tests/lib.sh" "$r/tests/slot" "$r/tests/stubs/herdr" "$r/README.md"
-touch "$r/plugin/bin/crew" "$r/plugin/lib/"{crew,record,gather,transcript,questions}.py "$r/plugin/roles/coder.md"
+touch "$r/plugin/bin/crew" "$r/plugin/lib/"{crew,record,gather,transcript,questions}.py "$r/plugin/roles/planner.md"
 echo 'print(1)' > "$r/plugin/lib/plan.py"
 # The stand-in tests/run: each run is logged in $T/ran.log. With $T/barrier, each test waits until all three have
 # started, so a run that is not side by side fails.
@@ -40,6 +44,16 @@ echo "ok    \$n"; echo "1 passed, 0 failed"
 EOF
 chmod +x "$r/tests/run"
 for n in a b c; do echo "# t-$n: a stand-in test." > "$r/tests/t-$n.sh"; done
+# The stand-in project nix: one check-full task, test, red while nix/red is there.
+cat > "$r/nix/moon.yml" <<'EOF'
+language: 'nix'
+tasks:
+  test:
+    script: 'if [ -e nix/red ]; then echo "nix is red"; exit 1; fi; echo "nix holds"'
+    inputs: ['/nix/**/*']
+    tags: [check-full]
+    options: {runFromWorkspaceRoot: true}
+EOF
 echo "# Reads: plugin/roles/" >> "$r/tests/t-c.sh"
 (cd "$r" && tests/moon-tasks) || fail "tests/moon-tasks could not write the tasks"
 git init -q "$r"; commit_all "$r" "chore: start"
@@ -59,34 +73,34 @@ touch "$T/barrier"
 MOON_CONCURRENCY=3 suite
 rm "$T/barrier"
 eq "$rc" 0
-has "$out" "ok    t-a"$'\n'"ok    t-b"$'\n'"ok    t-c"$'\n'"3 passed (0 replayed), 0 failed"
+has "$out" "ok    nix:test"$'\n'"ok    t-a"$'\n'"ok    t-b"$'\n'"ok    t-c"$'\n'"4 passed (0 replayed), 0 failed"
 lacks "$out" "(replayed)"
 eq "$(ran)" "t-a t-b t-c"
-ok "a first run runs every test side by side and replays none"
+ok "a first run runs every test, and every project's check-full task beside them, side by side and replays none"
 
 suite
 eq "$rc" 0
 has "$out" "ok    t-a   (replayed)"; has "$out" "ok    t-b   (replayed)"; has "$out" "ok    t-c   (replayed)"
-has "$out" "3 passed (3 replayed), 0 failed"
+has "$out" "ok    nix:test   (replayed)"; has "$out" "4 passed (4 replayed), 0 failed"
 eq "$(ran)" ""
 ok "a second run on the same tree replays every test"
 
 echo "echo edited" >> "$r/tests/t-b.sh"
 suite
 eq "$rc" 0
-has "$out" "ok    t-a   (replayed)"$'\n'"ok    t-b"$'\n'"ok    t-c   (replayed)"$'\n'"3 passed (2 replayed), 0 failed"
+has "$out" "ok    t-a   (replayed)"$'\n'"ok    t-b"$'\n'"ok    t-c   (replayed)"$'\n'"4 passed (3 replayed), 0 failed"
 eq "$(ran)" "t-b"
 ok "an edit to one test reruns that test alone"
 
 echo 'print(2)' > "$r/plugin/lib/plan.py"
 suite
-eq "$rc" 0; has "$out" "3 passed (0 replayed), 0 failed"
+eq "$rc" 0; has "$out" "ok    nix:test   (replayed)"; has "$out" "4 passed (1 replayed), 0 failed"
 eq "$(ran)" "t-a t-b t-c"
 ok "an edit to crew's command core reruns every test"
 
-echo "edited" >> "$r/plugin/roles/coder.md"
+echo "edited" >> "$r/plugin/roles/planner.md"
 suite
-eq "$rc" 0; has "$out" "ok    t-a   (replayed)"$'\n'"ok    t-b   (replayed)"$'\n'"ok    t-c"$'\n'"3 passed (2 replayed), 0 failed"
+eq "$rc" 0; has "$out" "ok    t-a   (replayed)"$'\n'"ok    t-b   (replayed)"$'\n'"ok    t-c"$'\n'"4 passed (3 replayed), 0 failed"
 eq "$(ran)" "t-c"
 ok "an edit to a plugin/ path outside the core reruns only the test that names it"
 
@@ -95,7 +109,7 @@ suite
 eq "$rc" 1
 has "$out" "ok    t-a"$'\n'"FAIL  t-b"$'\n'"ok    t-c"$'\n'
 has "$out" "── t-b failed:"$'\n'"      FAIL  t-b   (scratch kept: none)"$'\n'"            t-b is red"
-has "$out" "2 passed (0 replayed), 1 failed"
+has "$out" "3 passed (1 replayed), 1 failed"
 eq "$(grep -c '^FAIL  ' <<<"$out")" 1
 eq "$(ran)" "t-a t-b t-c"
 ok "a red test is named on one FAIL line with its output, the others still run, and the run fails"
@@ -103,34 +117,53 @@ ok "a red test is named on one FAIL line with its output, the others still run, 
 suite
 eq "$rc" 1
 has "$out" "ok    t-a   (replayed)"$'\n'"FAIL  t-b"$'\n'"ok    t-c   (replayed)"$'\n'
-has "$out" "2 passed (2 replayed), 1 failed"
+has "$out" "3 passed (3 replayed), 1 failed"
 eq "$(ran)" "t-b"
 ok "a test that failed runs again on the next run, never replayed"
 
 rm "$r/plugin/bin/red-t-b"
 suite
-eq "$rc" 0; has "$out" "ok    t-a   (replayed)"$'\n'"ok    t-b"$'\n'"ok    t-c   (replayed)"$'\n'"3 passed (2 replayed), 0 failed"
+eq "$rc" 0; has "$out" "ok    t-a   (replayed)"$'\n'"ok    t-b"$'\n'"ok    t-c   (replayed)"$'\n'"4 passed (3 replayed), 0 failed"
 eq "$(ran)" "t-b"
 ok "back on a tree that passed, the others replay and the test that last failed here runs"
 
 mkdir -p "$r/plugin/lib/__pycache__"; echo junk > "$r/plugin/lib/__pycache__/plan.cpython.pyc"
 suite
-eq "$rc" 0; has "$out" "3 passed (3 replayed), 0 failed"
+eq "$rc" 0; has "$out" "4 passed (4 replayed), 0 failed"
 eq "$(ran)" ""
 ok "__pycache__ under plugin/ changes no hash"
 
 suite --force
-eq "$rc" 0; has "$out" "3 passed (0 replayed), 0 failed"
+eq "$rc" 0; has "$out" "4 passed (0 replayed), 0 failed"
 eq "$(ran)" "t-a t-b t-c"
 suite b
 eq "$rc" 0; has "$out" "ok    t-b   (replayed)"$'\n'"1 passed (1 replayed), 0 failed"
 ok "--force runs every test without the cache, and named tests run alone"
 
+suite nix:test
+eq "$rc" 0; has "$out" "ok    nix:test   (replayed)"$'\n'"1 passed (1 replayed), 0 failed"; lacks "$out" "t-a"
+suite nix:nope
+eq "$rc" 2; has "$out" "tests/suite: nix:nope is no task in nix/moon.yml"; lacks "$out" "passed"
+eq "$(ran)" ""
+ok "another project's task runs alone by <project>:<task>, and one the project lacks refuses before anything runs"
+
+touch "$r/nix/red"
+suite
+eq "$rc" 1
+has "$out" "FAIL  nix:test"$'\n'"ok    t-a   (replayed)"$'\n'"ok    t-b   (replayed)"$'\n'"ok    t-c   (replayed)"$'\n'
+has "$out" "── nix:test failed:"; has "$out" "nix is red"
+has "$out" "3 passed (3 replayed), 1 failed"
+eq "$(grep -c '^FAIL  ' <<<"$out")" 1
+rm "$r/nix/red"
+suite
+eq "$rc" 0; has "$out" "ok    nix:test"$'\n'"ok    t-a   (replayed)"; has "$out" "4 passed (3 replayed), 0 failed"
+ok "another project's red task is named <project>:<task> on one FAIL line with its output, the tests still pass, and the run fails"
+
 echo "# t-sites-live: the live test." > "$r/tests/t-sites-live.sh"
 (cd "$r" && tests/moon-tasks) || fail "tests/moon-tasks could not write the tasks"
 lacks "$(cat "$r/tests/moon.yml")" "t-sites-live"
 CREW_TEST_LIVE=1 suite
-eq "$rc" 0; has "$out" "3 passed (3 replayed), 0 failed"; lacks "$out" "t-sites-live"
+eq "$rc" 0; has "$out" "4 passed (4 replayed), 0 failed"; lacks "$out" "t-sites-live"
 suite sites-live
 eq "$rc" 2; has "$out" "t-sites-live is no task"
 eq "$(ran)" ""
@@ -154,7 +187,7 @@ ok "a test with no task, or reading a file its task doesn't name, refuses the ru
 commit_all "$r" "chore: the tree that passed"
 git -C "$r" worktree add -q -b second "$T/second" HEAD; link "$T/second"
 rc=0; out=$(cd "$T/second" && tests/suite 2>&1) || rc=$?
-eq "$rc" 0; has "$out" "3 passed (3 replayed), 0 failed"
+eq "$rc" 0; has "$out" "4 passed (4 replayed), 0 failed"
 eq "$(ran)" ""
 ok "a second checkout replays the passes of the first"
 
@@ -165,6 +198,14 @@ echo "echo edited" >> "$r/tests/t-c.sh"; commit_all "$r" "test: edit t-c"
 echo "echo edited" >> "$r/tests/t-a.sh"
 suite --affected
 eq "$rc" 0
-has "$out" "ok    t-a"$'\n'"ok    t-c"$'\n'"2 passed (0 replayed), 0 failed"; lacks "$out" "t-b"
+has "$out" "ok    t-a"$'\n'"ok    t-c"$'\n'"2 passed (0 replayed), 0 failed"; lacks "$out" "t-b"; lacks "$out" "nix:test"
 eq "$(ran)" "t-a t-c"
 ok "--affected runs only the tests a branch's edits touch, uncommitted ones counted, and with none says so"
+
+# The second checkout's branch holds main's tree: an uncommitted edit under nix/ is the only edit it has.
+echo "edited" > "$T/second/nix/notes"
+rc=0; out=$(cd "$T/second" && tests/suite --affected 2>&1) || rc=$?
+eq "$rc" 0
+has "$out" "ok    nix:test"$'\n'"1 passed (0 replayed), 0 failed"; lacks "$out" "t-a"; lacks "$out" "t-b"; lacks "$out" "t-c"
+eq "$(ran)" ""
+ok "--affected with an edit under nix/ alone runs nix:test alone"

@@ -30,8 +30,10 @@ plannotator that ends before its session is ready does.
 not, as plannotator 0.28.26 does, so a pid the host gives another process later never reads as a session; and, for the
 test alone, adds a line to $CREW_TEST_ROOT/plannotator-sessions.log, so a test knows a wait has looked.
 
-It ends by itself when its registry is gone, as when tests/run removes a passed test's scratch directory, or after
-five minutes, so no stub outlives its test for long."""
+It ends by itself, writing no result, once its test's shell, CREW_TEST_PID, has ended, which tests/slot's end of
+the test's process group does not reach, crew starting a card's session in a session of its own; when its registry is
+gone, as when tests/run removes a passed test's scratch directory; or after five minutes; so no stub outlives its
+test."""
 import atexit, datetime, fcntl, json, os, pathlib, re, signal, sys, time
 
 reg = pathlib.Path(os.environ["HOME"]) / ".stub-plannotator"
@@ -153,8 +155,9 @@ if not skipped and os.environ.get("CREW_TEST_LOG"):
         log.write(f"{host} plannotator opened a browser on {url}\n")
 
 decision, give_up = reg / f"{os.getpid()}.decision", time.monotonic() + 300
+tested = int(os.environ.get("CREW_TEST_PID") or 0)
 while not decision.exists():
-    if not reg.is_dir() or time.monotonic() > give_up:
+    if not reg.is_dir() or time.monotonic() > give_up or (tested and not alive(tested)):
         sys.exit(0)
     time.sleep(0.05)
 time.sleep(0.05)  # the test's write is whole

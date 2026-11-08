@@ -40,7 +40,7 @@ Considered: sluice core.43's shape alone. That would carry one diff file whole a
 No part can hold such a file's change whole. Here the reading takes core.43's shape, which rules out cutting an item within itself to fit a limit and naming nothing past it:
 
 - In the file's place in the diff, a line names it: "<path>: its change, <size>, passes the 2 MB plannotator opens in one file, so it is not in this reading; its first page says where to read it whole."
-- The page lists every such file with its size, says how many there are, and says where to read them whole: GitHub's compare view, `https://github.com/<repo>/compare/<base>...<head>`, and `git -C <main> diff <base> <head> -- <path>` on the team's host. `<repo>` is the kit's `repo` from the teams file. `<base>` is where the bolt last met main and `<head>` is the bolt's head, both full commits, the same range the reading's diff is read from. Both commits are on GitHub: base on main, and head on the bolt's branch (`plan.19`). The git command reads the same range on the host when GitHub's view does not render a large diff.
+- The page lists every such file with its size, says how many there are, and says where to read them whole: GitHub's compare view, `https://github.com/<repo>/compare/<base>...<head>`, and `git -C <main> diff <base> <head> -- <path>` on the host the bolt's work runs on. `<repo>` is the kit's repository as the plan names it. `<base>` is where the bolt last met main and `<head>` is the bolt's head, both full commits, the same range the reading's diff is read from. Both commits are on GitHub: base on main, and head on the bolt's branch (`plan.19`). The git command reads the same range on the host when GitHub's view does not render a large diff.
 
 `diff_path` names the file from its header, `diff --git a/<path> b/<path>`. When the two sides differ, as for a rename or a path git quotes, it gives both as git wrote them.
 
@@ -61,7 +61,7 @@ Considered: cutting such a file's change at its hunks, or at line ends, into par
 ## Risks
 
 - A bolt of very many large files makes a reading of many parts. Plannotator loads each part only when the reader opens it, so the session starts as before.
-- GitHub's compare view does not render a file's diff past its own limits. The git command on the team's host reads it whole.
+- GitHub's compare view does not render a file's diff past its own limits. The git command on the host the bolt's work runs on reads it whole.
 
 ## After deploy
 
@@ -73,7 +73,7 @@ None. Every behaviour here is code proven in crew's tiers. wldn's box gets it wh
 
 **1.2** `plan.landing_reading(..., diff, whole)`, where `whole` is `dict(repo, base, main, host)`: the parts' names, the page's count of parts, the page's list of files left out with the compare view and the git command, and the line in each one's place. The existing cases pass `WHOLE`. Case: `README.md`, `vendor/bundle.js` at 2.5 MB, then `README.md` again.
 
-**1.3** `plan.landing_write` builds `whole` from the team's kit (`repo`, `main`, `machine`) and the facts' `base`, and writes each file as UTF-8. Case: a diff of 1.5, 1.5 and 3 MB files written as two parts, every file within the limit on disk, the 3 MB file named on the page and in its place.
+**1.3** `plan.landing_write` builds `whole` from the facts' `repo`, `main`, `host` and `base`, and writes each file as UTF-8. Case: a diff of 1.5, 1.5 and 3 MB files written as two parts, every file within the limit on disk, the 3 MB file named on the page and in its place.
 
 **1.4** `tests/stubs/plannotator`: the refusal and the docstring's sentence on it. `tests/t-journey-land.sh` runs the landing's reading on the stub.
 

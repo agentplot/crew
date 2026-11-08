@@ -1,96 +1,60 @@
 # A help flag shows a command's usage and acts on nothing (code.11), through the crew command on the stubs (tests.11):
-# crew needs --help run by a stage's agent leaves its stage begun, records nothing and tells nobody, as atl-1's coder's
-# did not on 2026-11-07 ("It needs: --help"); crew fix <team> <name> --help and crew unit run <unit> code --help start
-# nothing; every command crew dispatches answers -h or --help among its own arguments with its usage and exits 0, with
-# no call to herdr, ssh, sluice or any other tool, no agent started, no entry and no write to the state branch; and a
-# word that is not exactly the flag is a word, so crew needs "--help with ..." ends its stage as any needs does.
-# Which parser's usage a Python command's arguments ask for is a logic case (tests/py/test_help.py).
-# Reads: plugin/hooks/ plugin/lib/board.py plugin/lib/hold.py plugin/lib/ops.py plugin/lib/page.py plugin/lib/sites.py tests/units.sh
+# crew tell <agent> --help prints tell's usage and asks or tells nobody, where it was taken as the words of a tell, as
+# main's crew needs --help was on the Willdan box on 2026-11-07 ("It needs: --help"); crew fix <bolt> <name> --help
+# launches nothing; every command crew dispatches answers -h or --help among its own arguments with its usage and
+# exits 0, with no call to herdr, ssh, sluice or any other tool, no agent started, no entry and no write to the state
+# branch; and a word that is not exactly the flag is a word, so crew tell <agent> "--help with ..." is a tell. Which
+# parser's usage a Python command's arguments ask for is a logic case (tests/py/test_help.py).
+# Reads: plugin/lib/board.py plugin/lib/hold.py plugin/lib/ops.py plugin/lib/page.py plugin/lib/sites.py tests/journeys.sh
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
-. "$TESTS/units.sh"
-units_world '[unit(u, "tenant-environments") for u in "ab"]'
-export CREW_AGENT=swb-1-conductor
-expect_ok crew unit run a construct
-has "$out" "swb-1-unit-1 has a: construct"
+. "$TESTS/journeys.sh"
+flume_world
+role_stream wldn planner wldn-main
+record_of() { as "$1" bash -c 'cat "$HOME"/.local/state/crew/wldn/runs/*/*.rec 2>/dev/null'; }
 
 # nothing_done <what>: since the last `before`, no tool was called, no agent started, no entry written on either host
 # and the state branch did not move
-before() { : > "$CREW_TEST_LOG"; launched=$(launches); recorded="$(record_of $box)$(record_of mac-studio)"; tip=$(git --git-dir "$ws" rev-parse wldn/main); staged=$(cat "$stages"); }
+before() { : > "$CREW_TEST_LOG"; launched=$(launches); recorded="$(record_of $box)$(record_of mac-studio)"; tip=$(git --git-dir "$ws" rev-parse wldn/main); }
 nothing_done() {
   eq "$(calls)" ""
   [[ $(launches) == "$launched" ]] || fail "$1 started an agent"
   [[ "$(record_of $box)$(record_of mac-studio)" == "$recorded" ]] || fail "$1 wrote the run record"
   eq "$(git --git-dir "$ws" rev-parse wldn/main)" "$tip"
-  [[ $(cat "$stages") == "$staged" ]] || fail "$1 changed the team's stages"
 }
 
 before
 for flag in --help -h; do
-  HOST=$box CREW_AGENT=swb-1-unit-1 expect_ok crew needs "$flag"
-  has "$out" 'crew needs   "<what you need>"'
-  lacks "$out" "is ended, stopped short"
+  CREW_AGENT=wldn-design expect_ok crew tell wldn-planner "$flag"
+  has "$out" 'crew tell     <agent> "<text>"'
+  lacks "$out" "asked wldn-planner"; lacks "$out" "crew send"
 done
-nothing_done "crew needs --help"
-eq "$(field $box stage.end Ended stage/a/construct)" ""
-eq "$(told swb-1-conductor)" ""
-has "$(cat "$stages")" "unit-1 a construct "
-[[ -n $(pane swb-1-unit-1) ]] || fail "crew needs --help ended the stage's agent"
-ok "crew needs --help run by a stage's agent prints its usage, and its stage stays begun: nothing recorded, nobody told, its agent left running"
+nothing_done "crew tell --help"
+ok "crew tell <agent> --help prints tell's usage and asks or tells nobody: no ask on the state branch, nothing typed, no entry"
 
-fb=fix/tenant-environments/tidy fp=$kd/places/fix-tenant-environments--tidy
 before
-expect_ok crew fix swb-1 tidy --help
-has "$out" 'crew fix     <team> <name> "<what is wrong>" [--bolt <bolt>]'
-has "$out" "crew fix     <team> <name> --merge"
-expect_ok crew fix swb-1 tidy "The banner flickers." -h
-has "$out" 'crew fix     <team> <name> "<what is wrong>"'
+expect_ok crew fix tenant-environments tidy --help
+has "$out" "usage: crew fix"
+expect_ok crew fix tenant-environments tidy "The banner flickers." -h
+has "$out" "usage: crew fix"
 nothing_done "crew fix --help"
-[[ ! -e $fp ]] || fail "crew fix --help made the fix's place"
-git -C "$k" show-ref --verify --quiet "refs/heads/$fb" && fail "crew fix --help made the fix's branch"
-ok "crew fix <team> <name> --help prints the fix's usage and starts nothing"
-
-before
-expect_ok crew unit run b code --help
-has "$out" 'crew unit run <unit> construct|code|verify|settle|merge ["<words>"]'
-lacks "$out" "crew fix"
-nothing_done "crew unit run --help"
-[[ ! -e $kd/places/b ]] || fail "crew unit run --help made b's place"
-ok "crew unit run <unit> code --help prints the stage's usage and starts nothing"
+ok "crew fix <bolt> <name> --help prints the fix's usage and launches nothing"
 
 # Every command crew dispatches, each with arguments of its own shape before the flag. The list holds every command
 # the dispatch in plugin/bin/crew names, so a command added there without a line here fails below.
 commands=$(cat <<'EOF'
-list
-status swb-1
-status
-up swb-1
-close swb-1
-rebuild swb-1
-down swb-1
-restart swb-1 conductor
-resume swb-1 ops
-clear swb-1 conductor
-unit free b
-unit wait b
-unit run b construct "Name the tenant."
-unit add c --bolt tenant-environments
-unit drop b
-chore run c code
-chore wait c
-chore free c
-chore add c
-fix swb-1 tidy --merge
-fix swb-1 tidy --drop
-fix swb-1 tidy --wait
-needs "I tried the table"
-answer tenant-environments--tidy "use the old table"
-tell swb-1-conductor "carry on"
-tell --board
-send wldn "a word"
 bolts tenant-environments
-bolt give swb-1
+bolt start tenant-environments
 bolt submit tenant-environments
 bolt land tenant-environments
+unit add c --bolt tenant-environments
+unit drop b
+chore add c
+kit rename switchboard-kit switchboard
+fix tenant-environments tidy --drop
+answer tenant-environments--tidy "use the old table"
+tell wldn-planner "carry on"
+tell --board
+send wldn "a word"
 signal a-finding "it asserts" --excerpt "the words"
 signal move x attach
 signal show x
@@ -119,14 +83,11 @@ update
 _hold set
 _go
 _update
-_renew swb-1-conductor
-_end-short swb-1 unit-1
-_tidy swb-1
-_notice swb-1 tenant-environments
-_construct-again swb-1 a --by proposal
+_renew wldn-planner
+_sweep wldn switchboard-kit --dir /k
 _preview wldn land/b b bolt/b HEAD
 _answered
-_card-preview wldn land/b b swb-1
+_card-preview wldn land/b b
 _preview-release wldn land/b
 _made wldn a
 _batch-card wldn 1
@@ -137,7 +98,6 @@ main up wldn
 main fix switchboard-kit red "main is red"
 review wldn --wait
 review delivered
-_dispatch up wldn
 revive
 console up wldn rail
 operator up wldn
@@ -157,16 +117,14 @@ while IFS= read -r line; do
   done
   nothing_done "crew $line --help"
 done <<<"$commands"
-expect_ok crew --help; has "$out" "crew needs   \"<what you need>\""; has "$out" "crew console  up|down"
-expect_ok crew -h; has "$out" "crew list"
-expect_ok "$CREW/plugin/bin/crew-role" swb-1 conductor --help
-has "$out" "crew-role <team> conductor|ops [resume]"
+expect_ok crew --help; has "$out" 'crew tell     <agent> "<text>"'; has "$out" "crew console  up|down"
+expect_ok crew -h; has "$out" "crew bolts [<bolt>]"
+expect_ok "$CREW/plugin/bin/crew-role" wldn planner --help
+has "$out" "crew-role <label> design|planner|ops|reviewer|operator [resume]"
 nothing_done "crew --help"
 ok "every command crew dispatches answers -h or --help with its usage and exits 0, calling no tool, starting no agent, writing no entry and moving no branch"
 
-: > "$CREW_TEST_LOG"
-HOST=$box CREW_AGENT=swb-1-unit-1 expect_ok crew needs "--help with which table holds tenants ZQXN"
-has "$out" "construct on a is ended, stopped short"
-has "$(told swb-1-conductor)" "It needs: --help with which table holds tenants ZQXN"
-eq "$(field $box stage.end Ended stage/a/construct)" "short"
-ok "a word that is not exactly -h or --help is a word: crew needs \"--help with ...\" ends its stage and tells the conductor"
+CREW_AGENT=wldn-design expect_ok crew tell wldn-planner "--help with which table holds tenants ZQXN"
+has "$out" "asked wldn-planner"
+eq "$(git --git-dir "$ws" show wldn/main:asks.rec | recsel -t Ask -P Words | grep ZQXN)" "--help with which table holds tenants ZQXN"
+ok "a word that is not exactly -h or --help is a word: crew tell <agent> \"--help with ...\" is a tell, an ask of the planner that runs as its kind"

@@ -61,7 +61,7 @@ Its refresh token rotates on every use, so concurrent crew commands on one host 
 | What went wrong | Cause | crew speaking MCP | Webhook | Person API |
 |---|---|---|---|---|
 | Sessions lost the tools for good on 2026-10-09; reviews reached the user with no card (signals fa4348e4, 6d65f646/01–02) | The server timed out from 21:16Z to 21:52Z; Claude Code never fetches tools again after a reconnection whose `tools/list` fails | Posting survives: each command opens a fresh session, fails loudly during an outage and posts again later under the same key. The wake still rides the session's connection | Posting survives, as notices | Cannot post |
-| No landing card can post (`_open.md`; signals 27bc8685, 81759830, 46974ab9) | crew's form demanded `highStakes`; the service wants `approve.risk` on an approval | Same drift is possible: crew's form is still crew's. The service's refusal comes back to crew's command, which records it, so the rail shows the refusal instead of an empty row | Webhook `approve` has `risk` too; same drift | — |
+| No landing card can post (signals 27bc8685, 81759830, 46974ab9) | crew's form demanded `highStakes`; the service wants `approve.risk` on an approval | Same drift is possible: crew's form is still crew's. The service's refusal comes back to crew's command, which records it, so the rail shows the refusal instead of an empty row | Webhook `approve` has `risk` too; same drift | — |
 | A posted card recorded with no card id (signal 02c7ce29) | The after-hook parses Claude Code's rendering of the result | Gone: crew reads the reply it got | Gone: the reply is crew's | — |
 | Cards orphaned after a new sign-in (signal 291133cb; ADR 0005, 2026-10-11) | Cards and keys belong to the host's connection | Unchanged: same connection | Cards belong to the webhook; replacing its address orphans nothing open | Unchanged |
 | Answers do not wake (signals c47708c4, f97c5978) | The wake needs `mcp__pendingyou` allowed in the session | Unchanged for the wake | No wake at all: answers go to the receiver | No wake |
@@ -123,7 +123,7 @@ The user said yes to three test cards (2026-10-12). Readying them showed somethi
 
 - **Since 2026-10-10.** `~/.config/pendingyou/credentials.json` has held no sign-in since 09:05Z that day. `pendingyou status` says "Sign-in: not signed in", the headers helper exits 1 ("this computer isn't signed in to Pending You"), and `pendingyou mcp --app claude-code` answers every request with -32001.
 - **Sessions fall back to Claude Code's own sign-in.** Every session's MCP log since shows "headersHelper for MCP server 'pendingyou' did not return a valid value", then Claude Code's own OAuth tokens for the server, one sign-in per account's settings folder. That is what minted the connection of 2026-10-11 that ADR 0005 calls "minted by something unread".
-- **Some accounts have no tools at all.** Sessions of an account never signed in that way show "Authentication required": on 2026-10-12, sluice, willdan and flywheel-web.
+- **Some accounts have no tools at all.** Sessions of an account never signed in that way show "Authentication required": on 2026-10-12, sluice, willdan and boomdrive-web.
 
 So a card crew posts under the host's sign-in and the agents' sessions are on different connections. Two things follow, read in the wake mod's code (`~/.config/pendingyou/mod/hooks/`) and the CLI's (`dist/herdr.js`):
 

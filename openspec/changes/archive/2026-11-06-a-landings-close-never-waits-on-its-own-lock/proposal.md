@@ -15,6 +15,8 @@ The tidy finds the bolt still held when it reads the plan as it stood before the
 
 ## What Changes
 
+On `teamless/deneb`, where crew runs no team, the close asks for the kit's read on the kit's host (`sweep_on`, `kit_read`) in place of the team's tidy, and that read reads the host's landings the same way, in the same process when the kit's host is this one, so it waits on the lock as the tidy did: the kit's read after a landing (`crew _sweep --landed`) reads no landing, and the kit's next read or the rail's next sweep reads the rest. The bullets below are crew main's, with the team's tidy for the kit's read.
+
 - **The tidy a landing's close runs reads no landing.** `reap`, run as `crew _tidy --landed <bolt>`, skips `reap_landings`. The landing it follows was read by the act that closed it, under its lock. The team's other bolts' landings are read by the team's next read. So no holder of a landing's lock ever waits on a command that takes one.
 - **What the lock covers stays the same.** It still covers reading the outcome, recording it, the close and the close's tidy, so a second read waiting on it still finds all of that done and says what the first said.
 - **The other locks have no such shape.** `waits/<slot>.lock`, `handed/.lock` and the cards' `land/.<kit>.lock` were read for it, and none changes (design, Decision 2).
@@ -27,11 +29,11 @@ None.
 
 ### Modified Capabilities
 
-- `bolt-teams`: a read never waits on itself. The tidy a read's close runs reads no landing, and the team's next read reads the rest.
+- `bolt-teams`: a read never waits on itself. The kit's read a read's close runs reads no landing, and the kit's next read or the rail's next sweep reads the rest.
 
 ## Impact
 
-- `plugin/lib/plan.py`: `reap` skips `reap_landings` when it runs as a landing's tidy. The docstrings of `reap` and `team_tidy`, and the comment on `landing_read`'s lock, say why.
+- `plugin/lib/plan.py`: `kit_read` skips `reap_landings` when it runs after a landing. The docstrings of `kit_read`, `kit_sweep` and `sweep_on`, and the comment on `landing_read`'s lock, say why.
 - Tests: `tests/py/test_landing.py` drives a landing whose close runs its tidy while the read holds the lock, and checks the read finishes within a bound.
 - Nothing the board or the mod draws changes (`code.8` not reached), and nothing outside the standard library is imported (`code.1`). No command's behaviour a user sees changes, so README, the skill and the usage are unchanged (`docs.2`).
 

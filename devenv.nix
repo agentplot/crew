@@ -38,6 +38,15 @@ let
     git rev-parse -q --verify MERGE_HEAD >/dev/null && exit 0
     exec ${pkgs.convco}/bin/convco check --from-stdin --strip --config .versionrc < "$1"
   '';
+  # proto's and moon's homes are crew's own, in the git common dir, so every worktree shares one install: moon puts
+  # both homes' bin first on every task's PATH, and a user's own installs there (an older moon among them) must never
+  # run in a task. A checkout that is no git repository gets no homes of its own, and _crew_common is empty. Set here
+  # once for enterShell and for the install task, which runs before enterShell and has none of its exports.
+  homes = ''
+    if _crew_common="$(git -C "${config.devenv.root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+      export PROTO_HOME="$_crew_common/proto" MOON_HOME="$_crew_common/moon-home"
+    fi
+  '';
 in
 {
   # The system tools crew's own scripts call. herdr, wt and openspec come from the machine and from each team's
@@ -46,8 +55,14 @@ in
   # inputs already passed (tests/suite, .moon/workspace.yml; record 0008), and Python, at the minor every host runs
   # crew on, with uv. pytest runs the logic and contract tiers (record 0022), synced by moon from tests/pyproject.toml
   # into tests/.venv; crew's own Python imports nothing but the standard library (code.1). git-cliff writes crew's
-  # releases from its conventional commits (cliff.toml, code.10).
-  packages = [ pkgs.jq proto pkgs.recutils pkgs.git-cliff ];
+  # releases from its conventional commits (cliff.toml, code.10). nix, nixfmt, statix and deadnix are the flake's
+  # checks', the moon project nix (nix/moon.yml): the nix its type check and test evaluate with, nixfmt its format
+  # runs, statix and deadnix its lint (flake.3), from this shell's own nixpkgs, pinned by devenv.lock.
+  packages = [ pkgs.jq proto pkgs.recutils pkgs.git-cliff pkgs.nix pkgs.nixfmt pkgs.statix pkgs.deadnix ];
+
+  # The flake's inputs as flake.lock locks them, fetched by this shell and given to the flake's checks by their store
+  # paths, which nix/check.sh reads with no network and no nix daemon (flake.3, nix/inputs.nix).
+  env.CREW_FLAKE_INPUTS = builtins.toJSON (import ./nix/inputs.nix { }).paths;
 
   # What CI would release from here: the next version and its notes (code.10).
   scripts.release-preview = {
@@ -85,19 +100,14 @@ in
   # moon's task archives (.moon/cache/outputs) are a link into the git common dir, so every worktree of crew on a
   # host and its main checkout share them: a test one worktree passed replays in another's run of the same inputs.
   # The rest of .moon/cache stays the checkout's own, since it records the checkout's absolute paths. moon reads no
-  # setting for where its cache lives, hence the link.
+  # setting for where its cache lives, hence the link. A checkout that is no git repository gets no link.
   #
-  # proto's and moon's homes are crew's own, in the git common dir, so every worktree shares one install: moon puts
-  # both homes' bin first on every task's PATH, and a user's own installs there (an older moon among them) must never
-  # run in a task. Entering the shell installs what .prototools pins when a pin is missing from the proto home and can
-  # be installed, then activates it. A checkout that is no git repository gets neither link nor homes of its own.
-  #
-  # proto's install runs only for a missing pin, read from .prototools against proto's layout (tools/<tool>/<version>
-  # under its home, proto 0.63.1): one that finds every pin installed still took 2.8 of a warm entry's 3.2 seconds
-  # (median of ten, mac-studio at a load of 15, 2026-10-13), and an agent enters the shell for every command it runs
-  # through it (record 0024); without it a warm entry took 0.37 seconds.
+  # Entering the shell only activates what .prototools pins, from crew's proto home, which crew:proto:install fills
+  # before it: so the script `devenv print-dev-env` prints, the toolchain crew's policy names, installs nothing (the
+  # kit standard's toolchain.8).
   enterShell = ''
-    if _crew_common="$(git -C "${config.devenv.root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+    ${homes}
+    if [ -n "$_crew_common" ]; then
       _moon_cache="${config.devenv.root}/.moon/cache"
       [ -L "$_moon_cache" ] && rm -f "$_moon_cache"
       mkdir -p "$_crew_common/moon-outputs" "$_moon_cache"
@@ -105,19 +115,39 @@ in
         rm -rf "$_moon_cache/outputs"
         ln -s "$_crew_common/moon-outputs" "$_moon_cache/outputs"
       fi
-      export PROTO_HOME="$_crew_common/proto" MOON_HOME="$_crew_common/moon-home"
     fi
     unset _crew_common _moon_cache
-    if [ -f "${config.devenv.root}/.prototools" ]; then
-      while read -r _tool _eq _version _; do
-        case $_tool in "" | \#*) continue ;; \[*) break ;; esac
-        if [ ! -d "''${PROTO_HOME:-$HOME/.proto}/tools/$_tool/''${_version//\"/}" ]; then
-          ${proto}/bin/proto install --config-mode upwards >/dev/null 2>&1 || true
-          break
-        fi
-      done < "${config.devenv.root}/.prototools"
-    fi
-    unset _tool _eq _version
     eval "$(${proto}/bin/proto activate bash --export --no-bin --config-mode upwards 2>/dev/null)"
   '';
+
+  # Entering the shell installs what .prototools pins into crew's proto home, before enterShell activates it, when a
+  # pin is missing there; an install that fails, offline for instance, keeps no one from the shell, and the command
+  # that needs the missing tool fails for want of it (tests.7). A task, not part of enterShell: the script
+  # `devenv print-dev-env` prints holds enterShell and none of the tasks, so the toolchain crew's policy names, which
+  # sluice and Flume source, only activates (.config/sluice.toml; the kit standard's toolchain.8), and in a working
+  # copy sluice equips, sluice's equip installs the pins (sluice 147).
+  #
+  # Its status skips the install unless a pin is missing, read from .prototools against proto's layout
+  # (tools/<tool>/<version> under its home, proto 0.63.1): an install that finds every pin installed still took 2.8 of
+  # a warm entry's 3.2 seconds (median of ten, mac-studio at a load of 15, 2026-10-13), and an agent enters the shell
+  # for every command it runs through it (record 0024); without it a warm entry took 0.37 seconds. devenv's
+  # execIfModified would keep its record per checkout, so a new worktree would install though the home every worktree
+  # shares holds every pin.
+  tasks."crew:proto:install" = {
+    before = [ "devenv:enterShell" ];
+    status = ''
+      ${homes}
+      [ -f "${config.devenv.root}/.prototools" ] || exit 0
+      while read -r _tool _eq _version _; do
+        case $_tool in "" | \#*) continue ;; \[*) break ;; esac
+        [ -d "''${PROTO_HOME:-$HOME/.proto}/tools/$_tool/''${_version//\"/}" ] || exit 1
+      done < "${config.devenv.root}/.prototools"
+      exit 0
+    '';
+    exec = ''
+      cd "${config.devenv.root}"
+      ${homes}
+      ${proto}/bin/proto install --config-mode upwards || true
+    '';
+  };
 }

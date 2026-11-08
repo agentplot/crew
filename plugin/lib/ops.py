@@ -9,30 +9,39 @@ when it names one.
   crew ops offer <env> --label L --to <sha> --from <sha|none> [--notes <file>] [--steps <file>]
       a deploy of a commit, offered for a `manual` environment: a row under *operations* on the rail, deploy/<env>,
       and its card, which crew raises in main-level ops's name and tells it the line that adopts. On its face the
-      kit's release notes for the range, --notes, as its changelog tool wrote them, and the range's after-deploy
-      steps, --steps, one a line as the deployer gathers them (step <n> <doer> <when> <environments> <why> <text>,
-      tab-separated, held among the when words); handed no notes, the landings it carries: the first-parent commits
+      kit's release notes for the range, --notes, as its changelog tool wrote them, and the range's steps, --steps,
+      one a line as the deployer gathers them (step <n> <doer> <when> <environments> <why> <text>, tab-separated,
+      held among the when words for an agent's step held for the user's word, before for a step of the user's the
+      deploy waits on, which the card shows first, before the notes, a box each for the user to tick, every other
+      step after the deploy); handed no notes, the landings it carries: the first-parent commits
       of the kit's main from --from to --to, read with git, a landing of sluice's by the branch it merged. Run away
       from the main level's host, it carries the files' text there. The same `to` again records no second offer: it
       posts the card again when main-level ops holds none open, as when Pending You refused its post, changes the card
       in place when it is handed other notes or steps, and otherwise changes nothing; a newer one replaces it and
       changes its card
-  crew ops approve <env> --label L --to <sha>
+  crew ops approve <env> --label L --to <sha> [--ticked <n>[,<n>...]]
       the user's word for that deploy, given by holding its card, recorded by whoever the user's yes reached; the row
-      leaves the rail
+      leaves the rail. A deploy that waits on steps of the user's is approved by the card's send with every box
+      ticked: --ticked names the steps ticked, by their numbers on the card, each recorded done; refused, nothing
+      recorded but the refusal, naming each step still open, neither ticked nor done
   crew ops word <env> --label L
       the commit the user's word was given for, exit 0; exit 1 when there is none. A word is for one deploy: once that
-      deploy's end is recorded there is none until the user approves a new offer
+      deploy's end is recorded, or the end of a newer deploy of the environment, one started after the word was given,
+      there is none until the user approves a new offer
   crew ops record <env> --label L --to <sha> --act start|step|end [--from <sha|none>] [--step machine|guests|suite]
-                  [--outcome ok|failed|done] [--log <path>] [--rows <json file>]
-      a deploy's start, one of its steps, or its end, in the run record as it runs; its end closes the deploy's card
-      with each step's outcome, or the step that failed and its log
+                  [--outcome ok|failed|done] [--log <path>] [--rows <json file>] [--does <words>]
+      a deploy's start, one of its steps, or its end, in the run record as it runs; its end, when it ends the word,
+      closes the deploy's card with each step's outcome, or the step that failed and its log, naming the deploy when
+      it is a newer one than the word's, then, where the end was handed --does, the deployer's words of what the user
+      does
   crew ops step <env> --label L --key <key> --state waiting|handed|done|failed|declined [--to <sha>]
-                [--doer dispatcher|main-ops|user] [--agent <name>] [--when deployed|quiet] [--held] [--text <file>]
+                [--doer main-ops|user] [--agent <name>] [--when deployed|quiet] [--held] [--text <file>]
                 [--changes <a,b>] [--note <text>]
       an operation of its own and its state, after the deploy it names with --to or on its own; one the user is to
       take, or an agent's held for the user's word, that waits is a rail row with a card, which crew raises one at a
-      time on an environment, each following the one before, and closes when the step is marked done or declined.
+      time on an environment, each following the one before, and closes when the step is marked done or declined. A
+      user's step in the words of a step the environment's open offer waits on is recorded as one (before among its
+      when words), ticked on the deploy's card, with no row or card of its own while that offer is open.
       Recorded again while its own card is open, the card is changed in place when its words, doer or hold differ,
       and the line that adopts it is printed either way. The text's field lines, `- why:`, `- where:`, `- command:`
       (one a command) and `- done:`, are the card's. Run away from the main level's host, it carries the text there
@@ -40,8 +49,8 @@ when it names one.
       the latest state of every step on the environment: [{to, key, state, by, at, note}], to empty for a step that
       names no deploy
   crew ops quiet <env> --label L
-      exit 0 when no stage agent of a team on the environment's host is working and no test of crew's runs there;
-      exit 1 saying what is
+      exit 0 when no Flume place of the partition's has a stage working on the environment's host, as its runner there
+      carries Flume's status, and no test of crew's runs there; exit 1 saying what is
 
 Every command acts on the partition's operations where its main level runs, on that host's run record, as ops.*
 entries on env/<env>: run anywhere else, it is run there, as the one asking. An environment is a machine of the fleet,
@@ -53,14 +62,16 @@ LIB = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(LIB))
 import crew  # noqa: E402
 import record  # noqa: E402
+import runner  # noqa: E402
 from crew import Refusal, fail  # noqa: E402
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 SHA = re.compile(r"^[0-9a-f]{7,40}$")
 STEP_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#-]*$")
+TICKED = re.compile(r"^[0-9]+(,[0-9]+)*$")  # --ticked: the numbers of the steps ticked on a deploy's card
 ACTS = ("start", "step", "end")
 STATES = ("waiting", "handed", "done", "failed", "declined")
-DOERS = ("dispatcher", "main-ops", "user")
+DOERS = ("main-ops", "user")
 DAYS = 60  # how far back the operations are read: an offer, a word or a step older than this has no row
 
 
@@ -79,11 +90,19 @@ def env_of(e):
     return next((o[4:] for o in e.get("On", []) if o.startswith("env/")), None)
 
 
+def spends(word, to, started):
+    """Whether a deploy's end of to spends the word, the user's approve entry or None (plan.14): the end of a deploy of
+    the word's own head, or of a newer one, a deploy whose start is recorded after the word was given (started, the
+    heads whose deploys started since). A deploy that was running when the word was given, or whose start the record
+    lacks, is no newer one, and the word stands (read.1)."""
+    return bool(word) and (word.get("Head") == to or to in started)
+
+
 def state(es):
     """Each environment's operations as the record holds them: its deploy offer still open (unanswered, no deploy of
-    it ended), {env: entry}; the word the user gave and no deploy has ended since, {env: entry}; and each step's
-    latest entry, {(env, to or "", key): entry}, in the order of each step's first entry."""
-    offers, words, steps = {}, {}, {}
+    it ended), {env: entry}; the word the user gave that no deploy's end has spent since (spends), {env: entry}; and
+    each step's latest entry, {(env, to or "", key): entry}, in the order of each step's first entry."""
+    offers, words, steps, started = {}, {}, {}, {}
     for e in es:
         env, act, to = env_of(e), e["Act"], e.get("Head")
         if not env:
@@ -91,11 +110,13 @@ def state(es):
         if act == "ops.offer":
             offers[env] = e
         elif act == "ops.approve" and not e.get("Refused"):
-            words[env] = e
+            words[env], started[env] = e, set()
             if offers.get(env, {}).get("Head") == to:
                 offers.pop(env)
+        elif act == "ops.deploy" and e.get("Phase") == "start":
+            started.setdefault(env, set()).add(to)
         elif act == "ops.deploy" and e.get("Phase") == "end":
-            if words.get(env, {}).get("Head") == to:
+            if spends(words.get(env), to, started.get(env, ())):
                 words.pop(env)
             if offers.get(env, {}).get("Head") == to:
                 offers.pop(env)
@@ -128,22 +149,76 @@ def waits_on_user(e):
     return e.get("State") == "waiting" and (e.get("Doer") == "user" or held(e))
 
 
+BEFORE = "before"  # a step the deploy waits on, among the when words as the deployer marks it (swancloud record 0038)
+
+
+def waits_before(e):
+    """Whether a recorded step is one the deploy of its environment waits on: before among its when words, as crew
+    records a user's step in the words of a step the open offer was handed marked so (marked_before)."""
+    return BEFORE in (e.get("When") or "").split()
+
+
+def own_card(e, offers):
+    """Whether a step's latest entry has a row and a card of its own: it waits on the user (waits_on_user), and is no
+    step the deploy waits on while its environment has an offer open (offers, state's), whose card asks it ticked
+    (record 0059)."""
+    return waits_on_user(e) and not (waits_before(e) and env_of(e) in offers)
+
+
+def words_of(text):
+    """A step's words as crew compares them: each run of spaces, line breaks among them, one space."""
+    return " ".join((text or "").split())
+
+
+def waited_on(handed, es, env):
+    """The steps the open offer's deploy of env waits on (swancloud record 0038, record 0059), from the steps it was
+    handed (handed_steps') and the partition's ops entries (es, oldest first): each handed step marked before, in the
+    order handed, with the user's step the record holds on env in the same words (words_of), the one whose latest
+    entry is newest when several are: each {n, text, why, to, key, state}, its to, key and state None while its
+    deployer has not recorded it, and done once its state is done."""
+    steps, worded = state(es)[2], {}
+    for e in es:
+        if e.get("Act") == "ops.step" and env_of(e) == env and e.get("Text") and e.get("Doer") == "user":
+            worded[(env, e.get("Head") or "", e.get("Key"))] = words_of(e["Text"])
+    out = []
+    for s in handed or []:
+        if not s.get("before"):
+            continue
+        mine = [(k, steps[k]) for k, w in worded.items() if w == words_of(s["text"]) and k in steps]
+        k, latest = max(mine, key=lambda kv: (kv[1]["At"], kv[1]["Id"])) if mine else (None, None)
+        out.append(dict(n=s["n"], text=s["text"], why=s.get("why"), to=(k[1] or None) if k else None, key=k[2] if k else None,
+                        state=latest.get("State") if latest else None))
+    return out
+
+
+def marked_before(doer, text, handed):
+    """Whether a step recorded now is one the open offer's deploy waits on (record 0059): the user's, in the words of a
+    step the offer was handed marked before (handed_steps'). The deployer records such a step as it records any
+    user's step, with no mark (swancloud's record_waited), so crew carries the offer's mark onto the record by the
+    step's words."""
+    return doer == "user" and bool(words_of(text)) and any(s.get("before") and words_of(s["text"]) == words_of(text) for s in handed or [])
+
+
 def rows(fleet, label, es):
     """The rail's rows for the partition's operations, from its entries: each open deploy offer, deploy/<env>,
     answered by crew ops approve; and each step that waits on the user, theirs to take or an agent's held for their
     word, op/<env>/<n>, its n counting the environment's steps in the order they were first recorded, answered by
-    marking it done or declined; a gate's step (gate_of) said as the deploy waiting at its gate for the user. Each
+    marking it done or declined, but for a step the open offer's card asks ticked (own_card); a gate's step (gate_of)
+    said as the deploy waiting at its gate for the user. Each
     row's card is raised by crew in main-level ops's name (briefs.11)."""
     offers, _, steps = state(es)
     out = []
     for env, e in sorted(offers.items()):
         to, base = e["Head"], e.get("Base") or "none"
+        first = sum(1 for k, x in steps.items() if k[0] == env and waits_on_user(x) and waits_before(x))
         what = [f"deploy {env} ({label}) to {to[:7]}, from {base[:7] if base != 'none' else 'nothing deployed'}: "
-                f"crew raises its card in {label}-ops's name, and holding it is the word to deploy"]
+                f"crew raises its card in {label}-ops's name, and holding it is the word to deploy"
+                + (f", once {'the step' if first == 1 else f'the {first} steps'} of yours it waits on "
+                   f"{'is' if first == 1 else 'are'} ticked on it" if first else "")]
         out.append(dict(group="operations", label=label, key=f"deploy/{env}", at=e["At"], what=what,
                         cmds=[("answer", f"crew ops approve {env} --to {to} --label {label}")]))
     for n, (env, to, key), e in numbered(steps):
-        if not waits_on_user(e):
+        if not own_card(e, offers):
             continue
         link = gate_of(e)
         if link:
@@ -165,13 +240,16 @@ WAITING = ("waiting", "handed", "failed")  # a step in one of these states is an
 
 def landings(es):
     """The partition's landings, from its bolt.land entries not refused, oldest first: each {bolt, units, at, by, repo,
-    head}, the kit it landed on and the commit that kit's main held afterwards, None where the entry has none."""
-    out = []
+    head}, the kit it landed on, by its name now through the kit.rename entries among es (plan.kit_now), so a deploy
+    carries the landings recorded under a kit's former name, and the commit that kit's main held afterwards, None where
+    the entry has none."""
+    import plan
+    out, renames = [], plan.renames_in(es)
     for e in es:
         bolt = next((o[5:] for o in e["On"] if o.startswith("bolt/")), None) if e.get("Act") == "bolt.land" and not e.get("Refused") else None
         if bolt:
             out.append(dict(bolt=bolt, units=[o[5:] for o in e["On"] if o.startswith("unit/")], at=e["At"], by=e.get("By"),
-                            repo=e.get("Repo"), head=e.get("Head")))
+                            repo=plan.kit_now(e.get("Repo"), renames), head=e.get("Head")))
     return out
 
 
@@ -264,26 +342,27 @@ def environments(es, since=None):
 
     A deploy is one commit offered or deployed until its deploy ends: its to and from, when it was offered, the user's
     word (who held its card, and when), its answer (approved; waiting on the word; replaced, an unanswered offer a newer
-    one replaced, or an approved one not started when the user's word went to another commit, as state reads the word;
-    or unasked, a deploy started with no offer in the record, an auto environment's), when it started
+    one replaced, or an approved one not started when the user's word went to another commit or a newer deploy's end
+    spent it, as state reads the word, spent naming that newer deploy's commit; or unasked, a deploy started with no
+    offer in the record, an auto environment's), when it started
     and ended and its outcome, each of its steps with its outcome, the suite's checks (the rows of its last step that
     has them), the bolts it carried or why the record can't tell, every after-deploy step recorded against its commit
     with its doer and latest state, its rail row while it waits on the word, and when it last moved; newest first,
     those that last moved before since left out unless still open. Waiting are the operations whose latest state is
     waiting, handed or failed, each with whether it is held for the user's word, the link of the gate it waits at
-    (gate_of) or None, and its rail row when it waits on the user."""
+    (gate_of) or None, and its rail row when it has one of its own (own_card)."""
     lands = landings(es)
-    _, _, steps = state(es)
+    offers, _, steps = state(es)
     envs = {}
     for e in es:
         env, act, to = env_of(e), e.get("Act") or "", e.get("Head")
         if not env or not act.startswith("ops.") or act == "ops.step" or not to:
             continue
-        E = envs.setdefault(env, {"deploys": [], "open": {}})
+        E = envs.setdefault(env, {"deploys": [], "open": {}, "word": None, "started": set()})
 
         def new(frm, offered, answer):
-            d = {"to": to, "from": frm, "offered": offered, "word": None, "answer": answer, "started": None, "ended": None, "outcome": None,
-                 "steps": [], "checks": None, "at": e["At"]}
+            d = {"to": to, "from": frm, "offered": offered, "word": None, "answer": answer, "spent": None, "started": None, "ended": None,
+                 "outcome": None, "steps": [], "checks": None, "at": e["At"]}
             E["deploys"].append(d)
             E["open"][to] = d
             return d
@@ -293,7 +372,10 @@ def environments(es, since=None):
                 o.update(answer="replaced", at=e["At"])
                 del E["open"][o["to"]]
             d or new(e.get("Base"), e["At"], "waiting")
-        elif act == "ops.approve" and d and not e.get("Refused"):
+        elif act == "ops.approve" and not e.get("Refused"):
+            E["word"], E["started"] = e, set()
+            if not d:
+                continue
             for o in [o for o in E["open"].values() if o["to"] != to and o["answer"] == "approved" and not o["started"]]:
                 o.update(answer="replaced", at=e["At"])
                 del E["open"][o["to"]]
@@ -303,6 +385,7 @@ def environments(es, since=None):
             if phase == "start":
                 d = d or new(e.get("Base"), None, "unasked")
                 d.update({"started": e["At"], "from": e.get("Base") or d["from"], "at": e["At"]})
+                E["started"].add(to)
             elif d and phase == "step":
                 d["steps"].append({"step": e.get("Step"), "outcome": e.get("Outcome"), "at": e["At"]})
                 try:
@@ -313,6 +396,11 @@ def environments(es, since=None):
             elif d and phase == "end":
                 d.update(ended=e["At"], outcome=e.get("Outcome"), at=e["At"])
                 del E["open"][to]
+                if spends(E["word"], to, E["started"]):
+                    for o in [o for o in E["open"].values() if o["answer"] == "approved" and not o["started"]]:
+                        o.update(answer="replaced", spent=to, at=e["At"])
+                        del E["open"][o["to"]]
+                    E["word"] = None
     out = {}
     for env in sorted(set(envs) | {k[0] for k in steps}):
         E = envs.get(env, {"deploys": [], "open": {}})
@@ -327,7 +415,7 @@ def environments(es, since=None):
             deploys.append(dict(d, bolts=bolts, bolts_why=why, after=after, row=row))
         waiting = [{"key": key, "to": t or None, "state": x.get("State"), "doer": x.get("Doer"), "agent": x.get("Agent"), "at": x["At"],
                     "text": next((l.strip() for l in (x.get("Text") or "").splitlines() if l.strip()), None), "note": x.get("Note"),
-                    "held": held(x), "gate": gate_of(x), "row": f"op/{env}/{n}" if waits_on_user(x) else None}
+                    "held": held(x), "gate": gate_of(x), "row": f"op/{env}/{n}" if own_card(x, offers) else None}
                    for n, (en, t, key), x in numbered(steps) if en == env and x.get("State") in WAITING]
         out[env] = {"deploys": deploys, "waiting": waiting}
     return out
@@ -342,14 +430,16 @@ CARRIED = ("ok", "done")  # a deploy's end that left its environment running its
 
 def doer_of(doer, agent, label, env):
     """Who does a step, as a card names them: the user, the agent it is handed to, or its doer's crew name."""
-    return agent or {"main-ops": f"{label}-ops", "dispatcher": f"{label}-dispatch-{env}"}.get(doer, doer)
+    return agent or {"main-ops": f"{label}-ops"}.get(doer, doer)
 
 
 def handed_steps(text, env, label):
-    """The after-deploy steps a deployer hands crew ops offer --steps, one a line, tab-separated, as its
-    after-deploy.awk prints them: step <n> <doer> <when> <environments> <why> <text>, held among the when words. Those
-    for env, or for every environment when they name none, in the order handed, each {n, text, doer, held}, its doer
-    as a card names it: ([steps], None), or (None, why) naming the first line crew can't read (read.1)."""
+    """The steps a deployer hands crew ops offer --steps, one a line, tab-separated, as its after-deploy.awk prints
+    them: step <n> <doer> <when> <environments> <why> <text>, held among the when words for an agent's step held for
+    the user's word, and before for a step the deploy waits on, the user's alone (swancloud record 0038). Those for
+    env, or for every environment when they name none, in the order handed, each {n, text, doer, held, before, why},
+    its doer as a card names it: ([steps], None), or (None, why) naming the first line crew can't read, a step the
+    deploy waits on whose doer is not the user among them (read.1)."""
     out = []
     for i, line in enumerate((text or "").splitlines(), 1):
         if not line.strip():
@@ -358,10 +448,16 @@ def handed_steps(text, env, label):
         if len(f) != 7 or f[0] != "step" or f[2] not in DOERS or not f[6].strip():
             return None, (f"line {i} is no step crew reads: step <n> <doer> <when> <environments> <why> <text>, "
                           f"tab-separated, the doer {', '.join(DOERS[:-1])} or {DOERS[-1]}")
+        when = f[3].split()
+        if BEFORE in when and f[2] != "user":
+            return None, f"line {i} is a step the deploy waits on, which is the user's alone, with the doer {f[2]}"
         envs = [x.strip() for x in f[4].split(",") if x.strip()]
         if envs and env not in envs:
             continue
-        out.append(dict(n=f[1].strip(), text=f[6].strip(), doer=doer_of(f[2], None, label, env), held="held" in f[3].split()))
+        if BEFORE in when and any(s["before"] and s["n"] == f[1].strip() for s in out):
+            return None, f"line {i} numbers a step the deploy waits on {f[1].strip()}, as an earlier line does, so its box can't be told apart"
+        out.append(dict(n=f[1].strip(), text=f[6].strip(), doer=doer_of(f[2], None, label, env), held="held" in when,
+                        before=BEFORE in when, why=f[5].strip() or None))
     return out, None
 
 
@@ -371,14 +467,15 @@ def release_of(notes):
     return names[0] if len(names) == 1 else None
 
 
-def deploy_facts(env, offer, es, ranged, notes=None, steps=None):
+def deploy_facts(env, offer, es, ranged, notes=None, steps=None, waited=None):
     """The facts of the deploy's card for env's open offer (cards.deploy_card, plan.14), from the partition's entries
     (es, oldest first: the main level's ops entries and every landing) and its range as git read it on the kit's main
     (ranged, kit_range's (commits, merged, why)): the environment, the head and the commit it runs, None when nothing is
     deployed, whose range is then not read; the landings it carries, each first-parent commit of the range named as
     range_landings names it, the record adding only the bolt it holds a landing of, or why git could not read them; the
-    notes as handed, their release, and the steps as handed; the environments whose deploy of the head has ended done,
-    which it comes after. The deployer hands no order of its environments, so none comes after."""
+    notes as handed, their release, and the steps as handed for after the deploy; the steps the deploy waits on, as
+    waited_on reads them (waited); the environments whose deploy of the head has ended done, which it comes after. The
+    deployer hands no order of its environments, so none comes after."""
     to, base = offer["Head"], offer.get("Base")
     base = None if base in (None, "", "none") else base
     commits, merged, why = ranged if base else (None, None, None)
@@ -386,15 +483,16 @@ def deploy_facts(env, offer, es, ranged, notes=None, steps=None):
     before = sorted({env_of(e) for e in es if e.get("Act") == "ops.deploy" and e.get("Phase") == "end" and e.get("Head") == to
                      and e.get("Outcome") in CARRIED and env_of(e) not in (None, env)})
     return dict(env=env, head=to, base=base, landings=lands, landings_why=why,
-                notes=notes or None, release=release_of(notes), steps=list(steps or []), before=before, after=[])
+                notes=notes or None, release=release_of(notes), steps=[s for s in steps or [] if not s.get("before")],
+                waited=list(waited or []), before=before, after=[])
 
 
 def deploy_move(es, env, held_card):
     """What the deploy's card of env does now (record 0031 §3), from the partition's ops entries and whether main-level
     ops holds a card under deploy/<env>: ("post", None) when it holds none; ("change", the change note) when the card
     asks for an older offer still unanswered, the note naming the head offered now and the one it replaces; (None,
-    why) when nothing is offered, or when the card asks for a deploy the user approved, which closes at that deploy's
-    end, the open offer's card raised then."""
+    why) when nothing is offered, or when the card asks for a deploy the user approved, which closes at the end of that
+    deploy or of a newer one (spends), the open offer's card raised then."""
     offers, words, _ = state(es)
     offer = offers.get(env)
     if not offer:
@@ -409,18 +507,27 @@ def deploy_move(es, env, held_card):
     return "change", f"Now offering {offer['Head'][:7]}" + (f", which includes {was[-1][:7]}" if was else "")
 
 
-def deploy_outcome(es, env, to, outcome, log=None):
+def deploy_outcome(es, env, to, outcome, log=None, does=None, word=None):
     """What the deploy's card closes with at the deploy's end (record 0031 §1): each step of its run with its outcome,
-    or the step that failed and its log, from the partition's ops entries since its start."""
+    or the step that failed and its log, from the partition's ops entries since its start, and after them, when the
+    end was handed them, the deployer's words of what the user does, as it wrote them (swancloud deploy.6); and, when
+    the card asked for another commit, word, the head the user approved, that this newer deploy ended before it
+    (plan.14)."""
     mine = [e for e in es if e.get("Act") == "ops.deploy" and env_of(e) == env and e.get("Head") == to]
     starts = [i for i, e in enumerate(mine) if e.get("Phase") == "start"]
     ran = [e for e in mine[starts[-1] if starts else 0:] if e.get("Phase") == "step" and e.get("Step")]
     failed = next((e for e in ran if e.get("Outcome") == "failed"), None)
+    newer = f", newer than the {word[:7]} you approved," if word and word != to else ""
     if failed or outcome == "failed":
         at = f" at {failed['Step']}" if failed else ""
         where = (failed or {}).get("Log") or log
-        return f"The deploy of {to[:7]} to {env} failed{at}" + (f"; its log: {where}" if where else "") + "."
-    return f"Deployed {to[:7]} to {env}" + (": " + ", ".join(f"{e['Step']} {e.get('Outcome') or 'done'}" for e in ran) if ran else "") + "."
+        said = f"The deploy of {to[:7]} to {env}{newer} failed{at}" + (f"; its log: {where}" if where else "") + "."
+        does = " ".join((does or "").split())
+        if not does:
+            return said
+        return f"{said} What you do: {does}" + ("" if does.endswith((".", "!", "?")) else ".")
+    return (f"Deployed {to[:7]} to {env}{newer[:-1]}" + (": " + ", ".join(f"{e['Step']} {e.get('Outcome') or 'done'}" for e in ran) if ran else "")
+            + ".")
 
 
 def step_words(text):
@@ -451,8 +558,8 @@ def gate_of(e):
 def step_facts(env, n, e, label, working=None):
     """The facts of a step's card (cards.step_card) from its latest entry: its environment and number, its words and
     fields as its text gives them (step_words), its doer as a card names it, whether it is held, the gate it waits at
-    (gate_of) and the deploy it names, and for a held step what doing it now cuts: working, the stage agents working
-    on its host as the card is raised, or why crew could not tell (a string)."""
+    (gate_of) and the deploy it names, and for a held step what doing it now cuts: working, the Flume places whose stage
+    works on its host as the card is raised (places_working), or why crew could not tell (a string)."""
     words, fields = step_words(e.get("Text"))
     doer = "user" if e.get("Doer") == "user" else doer_of(e.get("Doer"), e.get("Agent"), label, env)
     f = dict(env=env, n=n, text=words or e.get("Key"), doer=doer, held=held(e), why=fields.get("why"), where=fields.get("where"),
@@ -470,8 +577,8 @@ def step_facts(env, n, e, label, working=None):
 
 def step_due(es, entries, env):
     """The step on env whose card crew raises now, one at a time (record 0031 §5): the first, by its number, of the
-    environment's steps that wait on the user and have had no card under their key, while no step card of the
-    environment is open, from the partition's ops entries and this host's card entries (entries, oldest first).
+    environment's steps with a card of their own (own_card) that have had no card under their key, while no step card
+    of the environment is open, from the partition's ops entries and this host's card entries (entries, oldest first).
     ((n, (env, to, key), latest entry), None); (None, the open card's key) while one is open; (None, None)."""
     import cards  # its decisions only: what the run record shows posted and closed
     mine = [c for c in cards.posted_cards(entries) if c["key"].startswith(f"op/{env}/")]
@@ -479,8 +586,8 @@ def step_due(es, entries, env):
     if open_:
         return None, open_
     had = {c["key"] for c in mine}
-    _, _, steps = state(es)
-    due = next(((n, k, e) for n, k, e in numbered(steps) if k[0] == env and waits_on_user(e) and f"op/{env}/{n}" not in had), None)
+    offers, _, steps = state(es)
+    due = next(((n, k, e) for n, k, e in numbered(steps) if k[0] == env and own_card(e, offers) and f"op/{env}/{n}" not in had), None)
     return due, None
 
 
@@ -494,7 +601,8 @@ def step_point(es, entries, key):
     if open_ and open_ != key:
         return None, f"card {open_} is open: this step's card is raised when it closes"
     if open_ == key:
-        mine = next((x for x in numbered(state(es)[2]) if x[0] == n and x[1][0] == env and waits_on_user(x[2])), None)
+        offers, _, steps = state(es)
+        mine = next((x for x in numbered(steps) if x[0] == n and x[1][0] == env and own_card(x[2], offers)), None)
         return (mine, None) if mine else (None, "its step no longer waits on the user")
     if due and due[0] == n:
         return due, None
@@ -538,8 +646,8 @@ def step_again(es, entries, k, label):
 
 def word_stands(key, es):
     """Whether a row's card under key outlives its row: a deploy's, deploy/<env>, once the user's word for it is given
-    and its deploy's end not yet recorded, which closes it with the outcome (record 0031 §1), from the partition's
-    entries; the rail's sweep leaves it, and lists it as no stray."""
+    and no deploy's end has spent it yet (spends), the end that spends it closing it with the outcome (record 0031 §1),
+    from the partition's entries; the rail's sweep leaves it, and lists it as no stray."""
     kind, _, env = (key or "").partition("/")
     return kind == "deploy" and env in state(es)[1]
 
@@ -574,9 +682,12 @@ def raise_deploy(fleet, row, acts=None, note=None):
     was handed other files (note), and withheld when neither, their answer standing (cards.deploy_since,
     plan.card_posted); posted again when Pending You no longer finds it, and saying
     first that an older copy was lost when the rail's sweep hands it the older copy this host can't reach as the row's
-    dead (plan.built_again); built from the open offer, the files it was handed and the partition's run record. None,
-    saying why, when no offer waits on a card; the offer's own call and the rail's sweep alike. A card not posted or
-    changed is said and recorded, and the offer stands. The card's id, or None."""
+    dead (plan.built_again); built from the open offer, the files it was handed and the partition's run record, the
+    steps the deploy waits on among them (waited_on); followed rather than changed in place when it moves between a
+    hold-to-approve and boxes to tick (cards.deploy_form), which Pending You never changes a card's kind between,
+    since the form each post or change of it took is recorded with it (cards.form_asked). None, saying why, when no
+    offer waits on a card; the offer's own call and the rail's sweep alike. A card not posted or changed is said and
+    recorded, and the offer stands. The card's id, or None."""
     import cards, plan
     acts = acts or plan.CardActs(fleet)
     label, key = row["label"], row["key"]
@@ -591,33 +702,40 @@ def raise_deploy(fleet, row, acts=None, note=None):
     offer = state(es)[0][env]
     since = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=DAYS)).isoformat()
     gathered, _ = record.gather(fleet, [label], since)
-    lands = sorted({e["Id"]: e for e in es + [e for e in gathered if e.get("Act") == "bolt.land"]}.values(), key=lambda e: (e["At"], e["Id"]))
+    lands = sorted({e["Id"]: e for e in es + [e for e in gathered if e.get("Act") in ("bolt.land", "kit.rename")]}.values(),
+                   key=lambda e: (e["At"], e["Id"]))
     base = offer.get("Base")
     ranged = kit_range(fleet, label, base, offer["Head"]) if base not in (None, "", "none") else (None, None, None)
     d = kept(label, env, offer["Head"])
     steps, _ = handed_steps(kept_text(d / "steps.txt"), env, label)
-    facts = deploy_facts(env, offer, lands, ranged, kept_text(d / "notes.md"), steps)
+    facts = deploy_facts(env, offer, lands, ranged, kept_text(d / "notes.md"), steps, waited_on(steps, es, env))
     facts["follows"] = cards.follows_of("deploy", {"env": env, "head": offer["Head"]}, gathered, owner)
     anew = cards.head_anew(mine, held, offer["Head"])
     earlier = cards.head_asked(mine, facts["follows"]) if facts["follows"] else (anew or {}).get("approved")
     since = cards.deploy_since(earlier, offer["Head"]) + ([note] if note else [])
     build = plan.built_again(cards.deploy_card) if row.get("dead") else cards.deploy_card
-    return plan.row_card_change(fleet, label, owner, build, facts, said or "Raised again", ops_where(fleet, label), acts, anew=anew,
-                                since=since)
+    moved = bool(held) and cards.form_asked(mine, held) != cards.deploy_form(facts)
+    return plan.row_card_change(fleet, label, owner, build, facts, said or "Raised again", ops_where(fleet, label), acts,
+                                kind_changed=moved, anew=anew, since=since)
 
 
-def stages_working(fleet, env):
-    """The stage agents working on env's host, a list; or why crew could not tell, a string. An environment that is
-    no host of the fleet runs no team."""
-    out = []
-    for t in sorted((t for t in fleet["teams"].values() if t["machine"] == env), key=lambda t: t["name"]):
-        for n in range(1, t["units"] + 1):
-            agent, unread = crew.read_agent(fleet, f"{t['name']}-unit-{n}")
-            if unread:
-                return f"{t['name']}-unit-{n}: {unread}"
-            if agent and agent.get("agent_status") == "working":
-                out.append(f"{t['name']}-unit-{n}")
-    return out
+def places_working(fleet, label, env):
+    """The Flume places of the partition whose stage works on env's host, as the partition's runner there carries
+    Flume's status of them (runner.working), a list, none where no runner of the partition answers there, since none
+    of its places runs there; or why crew could not tell, a string (read.1)."""
+    import plan
+    try:
+        repo, ref = plan.state_of(fleet, label)
+        plan.fetch(repo, ref)
+        reading = runner.of_host(plan.runners(repo, label), label, env)
+    except Refusal as e:
+        return str(e)
+    if reading["tip"] is None:
+        return []
+    if reading["why"]:
+        return reading["why"]
+    names, why = runner.working(reading)
+    return why or names
 
 
 def raise_step(fleet, row, acts=None, note="Raised again", kind_changed=False):
@@ -639,7 +757,7 @@ def raise_step(fleet, row, acts=None, note="Raised again", kind_changed=False):
         print(f"card {key}: {why}")
         return None
     n, _, e = step
-    facts = step_facts(env, n, e, label, stages_working(fleet, env) if held(e) else None)
+    facts = step_facts(env, n, e, label, places_working(fleet, label, env) if held(e) else None)
     facts["follows"] = cards.follows_of("step", {"env": env, "key": key}, mine, f"{label}-ops")
     followed = next((x.get("Key") for x in mine if x.get("Act") == "card.post" and x.get("Card") == facts["follows"]
                      and not x.get("Refused")), None) if facts["follows"] else None
@@ -789,14 +907,70 @@ def offer(fleet, a):
     raise_deploy(fleet, {"label": a.label, "key": key})
 
 
+def offered_steps(label, env, es):
+    """The steps env's open offer was handed, as handed_steps reads them from the file kept beside it (kept): [] when
+    nothing is offered or the offer was handed no steps; refused, naming what can't be read (read.1)."""
+    offer = state(es)[0].get(env)
+    if not offer:
+        return []
+    steps, why = handed_steps(kept_text(kept(label, env, offer["Head"]) / "steps.txt"), env, label)
+    why is None or fail(f"the steps kept with {env}'s offer of {offer['Head'][:7]} can't be read: {why}")
+    return steps or []
+
+
 def approve(fleet, a):
-    offers, _, _ = state(entries(a.label))
+    es = entries(a.label)
+    offers, _, _ = state(es)
     why = approve_refusal(offers, a.env, a.to)
     if why:
         emit(a.label, "ops.approve", a.env, f"approve a deploy of {a.to[:7]}", refused=why, Head=a.to)
         fail(f"{why}: crew ops approve answers the offer the rail shows (crew rail --label {a.label})")
+    waited, ticked = waited_on(offered_steps(a.label, a.env, es), es, a.env), ticks_of(a.ticked)
+    why = ticked_refusal(a.env, a.to, waited, ticked)
+    if why:
+        emit(a.label, "ops.approve", a.env, f"approve a deploy of {a.to[:7]}", refused=why, Head=a.to)
+        fail(why)
+    done = [w for w in waited if w["n"] in ticked and w["state"] != "done"]
+    for w in done:
+        emit(a.label, "ops.step", a.env, f"{w['key']} done", Head=w["to"], Key=w["key"], State="done", Doer="user", When=BEFORE,
+             Note="ticked on its deploy's card")
     emit(a.label, "ops.approve", a.env, f"approve a deploy of {a.to[:7]}", Head=a.to)
-    print(f"the deploy of {a.env} to {a.to[:7]} is approved: the deployer runs it at its next run")
+    for w in done:
+        step_closed(fleet, a.label, a.env, w["to"], w["key"], "done")
+    import cards  # its decisions only
+    ticked_said = f", its {'step' if len(done) == 1 else 'steps'} {cards.joined([w['n'] for w in done])} recorded done" if done else ""
+    print(f"the deploy of {a.env} to {a.to[:7]} is approved{ticked_said}: the deployer runs it at its next run")
+
+
+def ticks_of(text):
+    """The step numbers --ticked names, in the order given; [] when it names none."""
+    return [t for t in (text or "").split(",") if t]
+
+
+def ticked_refusal(env, to, waited, ticked):
+    """Why the user's approval of the deploy of env to to is refused for the steps it waits on, or None (swancloud
+    record 0038, record 0059): from those steps (waited_on's) and the numbers ticked on its card; a number that is no
+    step it waits on; each step it waits on neither ticked nor done, named, since the card's send with a step unticked
+    is not the word; a step ticked that its deployer has not recorded yet, whose tick crew can't mark done on it."""
+    import cards  # its decisions only
+    numbers = [w["n"] for w in waited]
+    stray = [t for t in ticked if t not in numbers]
+    if stray:
+        return (f"--ticked {stray[0]} is no step the deploy of {env} to {to[:7]} waits on: it waits on "
+                + (f"{'step' if len(numbers) == 1 else 'steps'} {cards.joined(numbers)}" if numbers else "none"))
+
+    def named(ws):
+        return f"{'step' if len(ws) == 1 else 'steps'} " + cards.joined([f'{w["n"]} ("{cards.by_words(w["text"], 60)}")' for w in ws])
+    left = [w for w in waited if w["state"] != "done" and w["n"] not in ticked]
+    if left:
+        return (f"the deploy of {env} to {to[:7]} waits on your {named(left)}, not ticked: the word is its card's send with "
+                "every step it waits on ticked")
+    unrecorded = [w for w in waited if w["n"] in ticked and w["state"] != "done" and not w["key"]]
+    if unrecorded:
+        return (f"the deploy of {env} to {to[:7]} waits on your {named(unrecorded)}, which its deployer has not recorded on "
+                f"{env} yet, so crew can't mark {'it' if len(unrecorded) == 1 else 'them'} done: approve again once "
+                f"crew ops steps {env} lists {'it' if len(unrecorded) == 1 else 'them'}")
+    return None
 
 
 def approve_refusal(offers, env, to):
@@ -833,13 +1007,15 @@ def record_cmd(fleet, a):
     rows_ = a.rows_json
     _, words, _ = state(entries(a.label))
     emit(a.label, "ops.deploy", a.env, f"deploy {a.to[:7]}: {a.act}" + (f" {a.step}" if a.step else ""), Head=a.to,
-         Base=getattr(a, "from"), Phase=a.act, Step=a.step, Outcome=a.outcome, Log=a.log, Rows=rows_)
+         Base=getattr(a, "from"), Phase=a.act, Step=a.step, Outcome=a.outcome, Log=a.log, Rows=rows_, Does=a.does)
     if a.act != "end":
         return
     import plan
     es = entries(a.label)
-    if words.get(a.env, {}).get("Head") == a.to:
-        plan.row_card_close(fleet, a.label, f"{a.label}-ops", f"deploy/{a.env}", outcome=deploy_outcome(es, a.env, a.to, a.outcome, a.log))
+    was = words.get(a.env)
+    if was and a.env not in state(es)[1]:
+        plan.row_card_close(fleet, a.label, f"{a.label}-ops", f"deploy/{a.env}",
+                            outcome=deploy_outcome(es, a.env, a.to, a.outcome, a.log, a.does, was["Head"]))
     if state(es)[0].get(a.env):
         raise_deploy(fleet, {"label": a.label, "key": f"deploy/{a.env}"})
 
@@ -860,14 +1036,34 @@ def stepped_text(a):
         fail(f"the step's text {where} can't be read: {getattr(e, 'strerror', None) or e}")
 
 
+def step_closed(fleet, label, env, to, key, state_):
+    """Close the card of its own the step (env, to, key) holds, once it is recorded done or declined: True when one was
+    open."""
+    import cards, plan
+    owner, n = f"{label}-ops", next(n for n, k, _ in numbered(state(entries(label))[2]) if k == (env, to or "", key))
+    if not cards.card_under(plan.CardActs(fleet).entries(label), f"op/{env}/{n}", owner):
+        return False
+    plan.row_card_close(fleet, label, owner, f"op/{env}/{n}", outcome=CLOSED[state_])
+    return True
+
+
 def step(fleet, a):
+    es = entries(a.label)
+    offers, _, steps = state(es)
+    was = steps.get((a.env, a.to or "", a.key))
+    before = marked_before(a.doer, a.step_text, offered_steps(a.label, a.env, es)) if a.doer == "user" and a.step_text else False
     emit(a.label, "ops.step", a.env, f"{a.key} {a.state}", Head=a.to, Key=a.key, State=a.state, Doer=a.doer, Agent=a.agent,
-         When=" ".join(w for w in (a.when, "held" if a.held else None) if w), Text=a.step_text, Changes=a.changes, Note=a.note)
+         When=" ".join(w for w in (a.when, "held" if a.held else None, BEFORE if before else None) if w), Text=a.step_text,
+         Changes=a.changes, Note=a.note)
+    if before:
+        print(f"step {a.key}: the deploy of {a.env} offered waits on it, so it is ticked on deploy/{a.env}'s card and has no "
+              "card of its own while that offer is open")
     if a.state in CLOSED:
+        step_closed(fleet, a.label, a.env, a.to, a.key, a.state)
+    if a.state == "done" and was and waits_before(was) and a.env in offers:
         import cards, plan
-        owner, n = f"{a.label}-ops", next(n for n, k, _ in numbered(state(entries(a.label))[2]) if k == (a.env, a.to or "", a.key))
-        if cards.card_under(plan.CardActs(fleet).entries(a.label), f"op/{a.env}/{n}", owner):
-            plan.row_card_close(fleet, a.label, owner, f"op/{a.env}/{n}", outcome=CLOSED[a.state])
+        if cards.card_under(plan.CardActs(fleet).entries(a.label), f"deploy/{a.env}", f"{a.label}-ops"):
+            raise_deploy(fleet, {"label": a.label, "key": f"deploy/{a.env}"}, note="A step it waits on is recorded done")
     if a.state in CLOSED or a.state == "waiting" and (a.doer == "user" or a.held):
         raise_next_step(fleet, a.label, a.env, (a.env, a.to or "", a.key) if a.state == "waiting" else None)
 
@@ -894,16 +1090,12 @@ print(busy)
 
 
 def quiet(fleet, a):
-    """Whether the environment's host is quiet: no stage agent of a team there working, and no test of crew's running."""
+    """Whether the environment's host is quiet: no Flume place of the partition's with a stage working there
+    (places_working), and no test of crew's running."""
     a.env in fleet["hosts"] or fail(f"{a.env} is no host of the fleet's hosts file")
-    said = []
-    for t in sorted((t for t in fleet["teams"].values() if t["machine"] == a.env), key=lambda t: t["name"]):
-        for n in range(1, t["units"] + 1):
-            agent, unread = crew.read_agent(fleet, f"{t['name']}-unit-{n}")
-            if unread:
-                fail(f"crew can't tell whether {t['name']}-unit-{n} is working: {unread}")
-            if agent and agent.get("agent_status") == "working":
-                said.append(f"{t['name']}-unit-{n} is working")
+    working = places_working(fleet, a.label, a.env)
+    not isinstance(working, str) or fail(f"crew can't tell whether a place works on {a.env}: {working}")
+    said = [f"{w} is working" for w in working]
     r = crew.on_machine(fleet, a.env, ["python3", "-c", SLOTS])
     if r.returncode or not r.stdout.strip().isdigit():
         fail(f"crew can't tell whether a test runs on {a.env}: " + (crew.unanswered(a.env, r) or (r.stderr or "").strip() or "no answer"))
@@ -932,7 +1124,8 @@ def parser():
     p.add_argument("--notes")
     p.add_argument("--steps")
     p.add_argument("--handed", choices=("-",), help=argparse.SUPPRESS)  # an offer forwarded here: forwarded's
-    cmd("approve")
+    p = cmd("approve")
+    p.add_argument("--ticked")
     cmd("word", to=False)
     p = cmd("record")
     p.add_argument("--act", required=True, choices=ACTS)
@@ -941,6 +1134,7 @@ def parser():
     p.add_argument("--outcome", choices=("ok", "failed", "done"))
     p.add_argument("--log")
     p.add_argument("--rows")
+    p.add_argument("--does")  # the deployer's words of what the user does about a failure, taken on every act
     p = cmd("step", to=False)
     p.add_argument("--key", required=True)
     p.add_argument("--state", required=True, choices=STATES)
@@ -959,8 +1153,8 @@ def parser():
 
 def args_refusal(fleet, a):
     """Why crew ops refuses what it was given, or None: an environment's name, a partition of the teams file, a
-    commit as a sha in hex (--from none for nothing deployed), a step key crew takes, and --held only on an agent's
-    step, since a user's waits on the user already."""
+    commit as a sha in hex (--from none for nothing deployed), a step key crew takes, the numbers of the steps ticked
+    on a deploy's card, and --held only on an agent's step, since a user's waits on the user already."""
     if not NAME.match(a.env):
         return f"{a.env} is no environment's name: lowercase words and dashes"
     if a.label not in fleet["partitions"]:
@@ -971,8 +1165,10 @@ def args_refusal(fleet, a):
             return f"--{f} {v} is no commit: a sha in hex"
     if getattr(a, "key", None) and not STEP_KEY.match(a.key):
         return f"--key {a.key} is no step key crew takes"
+    if getattr(a, "ticked", None) is not None and not TICKED.match(a.ticked):
+        return f"--ticked {a.ticked} is no list of the card's step numbers: 1 or 1,2"
     if getattr(a, "held", False) and a.doer in (None, "user"):
-        return "--held marks an agent's step held for the user's word: give its --doer, dispatcher or main-ops"
+        return "--held marks an agent's step held for the user's word: give its --doer, main-ops"
     if getattr(a, "handed", None) and (a.notes or a.steps):
         return "--handed carries the text of the files --notes and --steps name, so it is given in their place"
     return None

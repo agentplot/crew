@@ -57,6 +57,13 @@ class TestEmit:
         assert (e["Outcome"], e["Submission"], e["Head"], e["Base"]) == ("queued", "412", "a" * 40, "b" * 40)
         assert "Submission" in text.split("%allowed:", 1)[1].splitlines()[0].split()
 
+    def test_a_failed_deploys_words_of_what_the_user_does_are_kept_on_its_entry_and_read_back(self, here):
+        record.emit("wldn", "ops.deploy", ["env/srv"], Head="a" * 40, Phase="end", Outcome="failed", Does="read the log; ask ops to offer it again")
+        text = next(here.glob("*.rec")).read_text()
+        e, = record.parse(text)
+        assert (e["Phase"], e["Outcome"], e["Does"]) == ("end", "failed", "read the log; ask ops to offer it again")
+        assert "Does" in text.split("%allowed:", 1)[1].splitlines()[0].split()
+
     def test_a_teams_crossing_names_its_stream_and_its_trace_reads_it_after_the_landing_that_crossed_it(self, here):
         """team.cross, once crw-4's conductor and ops are ended for its crossing (the change
         teams-cross-to-flume-as-their-bolts-land, Decision 3): on team/crw-4, its State the stream."""
@@ -110,6 +117,61 @@ class TestEmit:
         monkeypatch.setattr(crew, "load", missing)
         with pytest.raises(crew.Refusal, match="^nothing reached wldn/main: /x/teams.json is missing"):
             record.reach("wldn")
+
+    def test_a_refused_writes_waits_grow_from_half_a_second_and_stay_within_their_bound(self):
+        """plan.replay_wait (state.1, code.9): each replay waits at least as long as the one before, from half a second
+        up to eight, each wait drawn over its upper half so writers refused at one moment replay apart, and the whole
+        wait is 23.5 s at most whatever is drawn."""
+        waits = plan.REPLAY_WAITS
+        assert plan.REPLAYS == len(waits) == 6 and waits[0] == 0.5 and max(waits) == 8
+        assert all(a <= b for a, b in zip(waits, waits[1:])) and waits[0] < waits[-1] and sum(waits) == 23.5
+        assert [plan.replay_wait(n, 0.0) for n in range(plan.REPLAYS)] == [0.25, 0.5, 1.0, 2.0, 4.0, 4.0]
+        highs = [plan.replay_wait(n, 0.999999) for n in range(plan.REPLAYS)]
+        assert all(w * 0.99 < h < w for w, h in zip(waits, highs)) and sum(highs) < 23.5
+
+    def test_a_branch_that_keeps_moving_is_outwaited_then_its_entry_is_kept_for_the_hosts_next_push(self, here, monkeypatch, capsys):
+        """plan.land on madswan/main of 2026-10-27, nineteen commits in two minutes (state.1, record.2): each refused
+        push waits a growing moment before the branch is fetched afresh, the last refusal waiting for nothing, and a
+        branch that moved before every push refuses the write naming the wait; record.reach says so once and keeps the
+        entry, and the next push, once the branch takes it, carries it."""
+        import types
+        monkeypatch.setattr(record, "reach", REACH)
+        monkeypatch.setattr(crew, "load", lambda: FLEET)
+        monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        events, branch, made = [], {"tip": "t0", "busy": True}, []
+
+        def tip_of(repo, ref, fresh=False):
+            events.append("fetch" if fresh else "read")
+            if fresh and branch["busy"]:  # another writer's commit landed while this one waited
+                branch["tip"] = f"t{int(branch['tip'][1:]) + 1}"
+            return branch["tip"]
+
+        def git(repo, *args, input=None, env=None, check=True):
+            if args[0] == "push":
+                events.append("push")
+                return types.SimpleNamespace(returncode=1 if branch["busy"] else 0, stdout="",
+                                             stderr="! [rejected] wldn/main (fetch first)" if branch["busy"] else "")
+            return ""
+        monkeypatch.setattr(plan, "tip_of", tip_of)
+        monkeypatch.setattr(plan, "git", git)
+        monkeypatch.setattr(plan, "show", lambda repo, tip, path: None)
+        monkeypatch.setattr(plan, "checked", lambda files: None)
+        monkeypatch.setattr(plan, "commit", lambda repo, parent, files, message: made.append(files) or f"c-{parent}")
+        monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(s))
+        monkeypatch.setattr("random.random", lambda: 0.5)
+        eid = record.emit("wldn", "card.close", ["proposal/170"])
+        waits = [w * 0.75 for w in plan.REPLAY_WAITS]
+        assert events == ["read", "read", *[e for w in waits for e in ("push", w, "fetch")], "push", "fetch"]
+        assert capsys.readouterr().err.splitlines() == [
+            f"crew: entry {eid} did not reach wldn/main of WilldanGroup/crew-state: wldn/main of WilldanGroup/crew-state kept moving: "
+            f"the write was applied 7 times, waiting {sum(waits):.1f} s in all between them, and each push was refused; mac-studio keeps "
+            "it and pushes it with its next entry"]
+        assert [e["Id"] for e in record.parse(next(here.glob("*.rec")).read_text())] == [eid]
+        branch["busy"], events[:], made[:] = False, [], []
+        assert record.reach("wldn") == 1 and events == ["read", "read", "push"]
+        (files,) = made
+        assert [e["Id"] for e in record.parse(next(iter(files.values())))] == [eid]
 
     def test_a_fetchs_tip_is_read_from_the_caches_files_with_no_git_after_the_fetch(self, monkeypatch, tmp_path):
         """The host's follower fetches on its clock, and the tip a fetch moved is read from the cache's files
@@ -267,6 +329,16 @@ class TestTrace:
         assert record.line(entry("x", "2026-10-05T10:00:00Z", "bolt.land", ["bolt/b", "unit/a"], Repo="switchboard-kit", Head="c" * 40)).endswith(
             "bolt/b unit/a → switchboard-kit main at ccccccc")
 
+    def test_a_stage_end_and_a_slot_free_from_before_crew_stopped_driving_stages_print_as_written(self):
+        """crew writes no stage.* entry and no slot.free now (design Decision 8 of the-team-machinery-leaves), and crew
+        trace prints the ones on the branch as written, with what each recorded."""
+        end = entry("20261005T120000Z-box-4-1", "2026-10-05T12:00:00Z", "stage.end", ["stage/u/code", "unit/u", "agent/swb-1-unit-1"],
+                    Result="ticked", Tasks="2/2", Head="ccccccc", Ended="delivered", Delivered="unit/u@ccccccc")
+        free = entry("20261005T121000Z-box-5-1", "2026-10-05T12:10:00Z", "slot.free", ["unit/u", "agent/swb-1-unit-1"], Paths="/kit/places/u")
+        assert [e["Act"] for e in record.lineage(E + [end, free], "unit/u")][-3:] == ["stage.end", "stage.end", "slot.free"]
+        assert record.line(end).endswith("stage/u/code unit/u agent/swb-1-unit-1 → ticked 2/2, delivered unit/u@ccccccc")
+        assert record.line(free).endswith("unit/u agent/swb-1-unit-1 (removed /kit/places/u)")
+
 
 class TestRoleRuns:
     """The run-record spec, An ask and a turn are entries: a role that runs as its kind has an ask entry for each ask
@@ -403,7 +475,7 @@ class TestPlanEntries:
 
     def test_a_refused_command_names_what_its_command_line_names(self):
         assert plan.named(plan.parser().parse_args(["unit", "drop", "a", "Gone."])) == ["unit/a"]
-        assert plan.named(plan.parser().parse_args(["bolt", "give", "swb-1", TE])) == [f"bolt/{TE}", "team/swb-1"]
+        assert plan.named(plan.parser().parse_args(["bolt", "start", TE])) == [f"bolt/{TE}"]
         assert plan.named(plan.parser().parse_args(["state", "init", "wldn"])) == ["plan/wldn"]
 
 
@@ -413,7 +485,7 @@ class TestStateInit:
 
     def test_two_plans_sharing_a_name_refuse_the_init_before_anything_is_pushed(self):
         a = self.plan_of(("site-refresh", "swancloud", None), ("the-home-page-loads-fast", "swancloud", "site-refresh", []))
-        b = self.plan_of(("flywheel-loop", "flywheel-next", None), ("the-home-page-loads-fast", "flywheel-next", None, []))
+        b = self.plan_of(("drive-loop", "flywheel-next", None), ("the-home-page-loads-fast", "flywheel-next", None, []))
         assert plan.shared_name("madswan", [("afterthought/blueprints", a), ("agentplot/blueprints", b)]) == (
             "plan/madswan of afterthought/blueprints and plan/madswan of agentplot/blueprints both hold unit the-home-page-loads-fast: "
             "rename one in its plan first; nothing was written")
@@ -421,12 +493,12 @@ class TestStateInit:
 
     def test_a_joined_plans_records_follow_the_branchs_their_sources_naming_where_they_came_from(self):
         have = plan.Plan(plan_text(bolts=[("site-refresh", "swancloud", None)]))
-        other = plan.Plan(plan_text(bolts=[("flywheel-loop", "flywheel-next", None)], units=[("the-loop-turns", "flywheel-next", None, [])])
-                          .replace("Goal of flywheel-loop.\n", "Goal of flywheel-loop.\nSource: design/loop.md\nSource: x/y:z.md\n"))
+        other = plan.Plan(plan_text(bolts=[("drive-loop", "flywheel-next", None)], units=[("the-loop-turns", "flywheel-next", None, [])])
+                          .replace("Goal of drive-loop.\n", "Goal of drive-loop.\nSource: design/loop.md\nSource: x/y:z.md\n"))
         plan.joined_into(have, other, "agentplot/blueprints", "madswan/main of afterthought/crew-state", "madswan")
-        assert [b.name() for b in have.bolts()] == ["site-refresh", "flywheel-loop"] and have.unit("the-loop-turns")
-        assert have.bolt("flywheel-loop").all("Source") == ["agentplot/blueprints:design/loop.md", "x/y:z.md"]
-        with pytest.raises(plan.Refusal, match="^madswan/main of afterthought/crew-state already holds bolt flywheel-loop, which plan/madswan of agentplot"):
+        assert [b.name() for b in have.bolts()] == ["site-refresh", "drive-loop"] and have.unit("the-loop-turns")
+        assert have.bolt("drive-loop").all("Source") == ["agentplot/blueprints:design/loop.md", "x/y:z.md"]
+        with pytest.raises(plan.Refusal, match="^madswan/main of afterthought/crew-state already holds bolt drive-loop, which plan/madswan of agentplot"):
             plan.joined_into(have, other, "agentplot/blueprints", "madswan/main of afterthought/crew-state", "madswan")
 
     def test_a_new_moves_file_starts_with_crews_descriptor_and_the_moves_it_adopts(self):

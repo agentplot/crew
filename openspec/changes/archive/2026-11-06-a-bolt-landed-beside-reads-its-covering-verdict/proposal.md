@@ -24,6 +24,8 @@ None.
 - `merge-gate`: a bolt's verification, for a head sluice landed beside its queue, is the verdict sluice's record of that landing names as covering it, a requirement of its own, "A landing beside reads as the verdict that covers it".
 - `crew-board`: a kit's gather runs one `sluice status <n> --json` for each held bolt whose head is a landing beside, the record of that landing's submission.
 
+On `teamless/deneb`, where crew gives no bolt to a team, there is no `give_refusal` or `proven_facts`; every other read of a bolt's verification passes `beside` as below.
+
 ## Impact
 
 - `plugin/lib/gather.py`: the new read `landing_read`, its trailers and fields, giving each bolt `beside` beside its `verdict`.

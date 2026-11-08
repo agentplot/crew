@@ -22,8 +22,7 @@ None.
 
 ### Modified Capabilities
 
-- `flywheel-state`: "A commit names its run-record entry" holds every plan write to being an act whose entry it records before it returns, and refuses one with no act; "A decision reads an act whole and says when it read below the tip" is new.
-- `run-record`: "Every command that moves work leaves an entry" gains the construct run again on a committed change, its `unit.mark` and `unit.unmark`.
+- `drive-state`: "A commit names its run-record entry" holds every plan write to being an act whose entry it records before it returns, and refuses one with no act; "A decision reads an act whole and says when it read below the tip" is new.
 
 ## Impact
 
@@ -33,7 +32,7 @@ None.
 - `docs/architecture/plan.md`: `plan.2`'s details read 2026-11-07 and say the ruling of 2026-11-02 is built.
 - Tests: `tests/py/test_in_flight.py`, `tests/contract/test_record.py`, `tests/contract/test_recfix.py` (its give now names its act), `tests/t-journey-plan.sh`, `tests/t-journey-prompts.sh`.
 - Nothing crew models changes, so neither `board.agent_views` nor the mod does (`code.8` not reached). Nothing outside the standard library is imported (`code.1`).
-- `teamless/deneb` holds none of the three writes, the team machinery having left it, so this fix is main's alone.
+- On `teamless/deneb`, carried by `teamless-deneb-takes-crews-main-in` for main to take that line's code: none of the three writes is there, the team machinery having left it, and every write names its act already, so it carries `unacted` and `write`'s record of its entry, the read below the tip said, its tests and docs, and `plan.2`'s reading; `flywheel-state` is `drive-state` there, and `run-record`'s construct scenario, `record.py`'s `Head` of a `unit.mark`, the three writes and `t-journey-prompts` are main's alone.
 
 ## Touches
 

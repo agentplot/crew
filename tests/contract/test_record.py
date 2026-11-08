@@ -3,7 +3,8 @@ under an older descriptor, before a card's Card and Key were allowed, takes an e
 record.unpushed writes that day to the branch under the descriptor that allows them, which recfix --check passes
 (record.emit, record.unpushed, the card hook's entries); and a chain of entries plan.land pushes to a bare repository
 standing for GitHub lands as one commit per entry, each changing its day's file alone, made again on top of another
-clone's push that moved the branch between its fetch and its push (plan.land, record.reach, state.1); and a first-parent
+clone's push that moved the branch between its fetch and its push, and on a branch moved before each of three pushes,
+after a growing wait before each fresh fetch (plan.land, record.reach, state.1); and a first-parent
 log's parents, Crew-Entry trailers and subjects, root commit and all, read a branch below a plan write whose entry is
 still in flight though another host's entry landed after it, naming that write and its agent, and at its tip once the
 entry arrives (plan.read_point, plan.fetch, read.5); and a plan write, its commit and then its entry's, is read at the
@@ -143,6 +144,35 @@ def test_a_push_refused_because_another_clone_pushed_first_makes_the_chain_again
     assert git(github, "show", f"wldn/main:runs/mac-studio/{DAY}.rec").count("Id: ") == 2
 
 
+def test_a_branch_busy_for_three_pushes_is_outwaited_each_wait_longer_and_made_before_a_fresh_fetch(github, runs, tmp_path, monkeypatch):
+    """plan.land on a branch taking commits faster than one replay (state.1; madswan/main, 2026-10-27): git refuses
+    the push of a chain made on a tip another clone has since moved, and land waits a growing moment before it fetches
+    afresh, so it lands once the other clone is quiet, on top of its last commit."""
+    two_entries(runs)
+    other = tmp_path / "other"
+    git(tmp_path, "clone", "-q", "--branch", "wldn/main", str(github), str(other))
+    events = []
+    fetch = plan.tip_of
+    monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: events.append("fetch" if fresh else "read") or fetch(repo, ref, fresh))
+    monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(s))
+    monkeypatch.setattr("random.random", lambda: 0.0)
+
+    def make(tip):
+        if events.count("read") + events.count("fetch") <= 3:  # another host writes between this fetch and this push
+            (other / "plan.rec").write_text((other / "plan.rec").read_text() + "\n")
+            git(other, "commit", "-q", "-am", "plan: another host's write (wldn-planner)")
+            git(other, "push", "-q", "origin", "wldn/main")
+        return chain_at(tip)
+    sha = plan.land("WilldanGroup/crew-state", "wldn/main", None, make)
+    theirs = git(other, "rev-parse", "HEAD")
+    waits = [w for w in events if isinstance(w, float)]
+    assert events == ["read", waits[0], "fetch", waits[1], "fetch", waits[2], "fetch"]
+    assert waits == [plan.replay_wait(n, 0.0) for n in range(3)] and waits[0] < waits[1] < waits[2]
+    assert git(github, "rev-parse", "wldn/main") == sha and git(github, "rev-parse", f"{sha}~2") == theirs
+    assert git(github, "rev-list", "--count", f"{git(other, 'rev-parse', 'HEAD~3')}..{theirs}") == "3"
+    assert git(github, "show", f"wldn/main:runs/mac-studio/{DAY}.rec").count("Id: ") == 2
+
+
 def test_a_branch_is_read_below_a_write_whose_entry_is_in_flight_and_at_its_tip_once_it_arrives(github, tmp_path):
     other = tmp_path / "other"
     git(tmp_path, "clone", "-q", "--branch", "wldn/main", str(github), str(other))
@@ -158,8 +188,8 @@ def test_a_branch_is_read_below_a_write_whose_entry_is_in_flight_and_at_its_tip_
         git(other, "push", "-q", "origin", "wldn/main")
     (other / "plan.rec").write_text(plan.HEADER + "\n")
     git(other, "commit", "-q", "-am", f"plan(y): land the bolt (wldn-ops)\n\nCrew-Entry: {land}")
-    git(other, "push", "-q", "origin", "wldn/main")
     written = git(other, "rev-parse", "HEAD")
+    git(other, "push", "-q", "origin", "wldn/main")
     entry(theirs, "mac-studio")  # another host's entry lands between the write and its own
     assert plan.fetch("WilldanGroup/crew-state", "wldn/main", fresh=True) == seed
     assert plan.READ.below() == [dict(ref="wldn/main", tip=git(github, "rev-parse", "wldn/main"), at=seed, write=written,
@@ -173,10 +203,9 @@ def test_a_plan_write_is_read_at_the_tip_it_leaves_once_it_returns_and_one_given
     """plan.2, read.5 (every-plan-write-is-an-act-with-its-entry): the write's commit names its entry, the write records
     it, and its own commit follows before the write returns, so no decision after it reads the branch below it; a write
     given no act, whose commit would name an entry nothing writes, is refused with the branch where it was."""
-    fleet = {"partitions": {}, "teams": {}, "hosts": {}}
+    fleet = {"partitions": {}, "hosts": {}}
     monkeypatch.setattr(crew, "load", lambda: fleet)
     monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
-    monkeypatch.setattr(plan, "notify", lambda fleet, seen, subject: None)
 
     def change(w):
         w.plan.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "switchboard-kit"), ("Goal", "A goal.")]))

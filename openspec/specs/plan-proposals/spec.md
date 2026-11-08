@@ -1,7 +1,7 @@
 # plan-proposals Specification
 
 ## Purpose
-Makes every change the planner would make to a flywheel's plan a proposal the user reads and approves before it takes effect, with the agreement of any conductor whose bolt it touches, so that where work goes is the user's decision and what was approved is exactly what is applied.
+Makes every change the planner would make to a drive's plan a proposal the user reads and approves before it takes effect, with the agreement of any conductor whose bolt it touches, so that where work goes is the user's decision and what was approved is exactly what is applied.
 
 ## Requirements
 
@@ -16,31 +16,8 @@ A command that would write the plan, run by a partition's planner, SHALL be refu
 - **WHEN** `wldn-planner` runs `crew bolt new <bolt> "<goal>" --repo switchboard-kit`
 - **THEN** it is refused in the same way
 
-### Requirement: Other agents write the plan only within their own job
-A conductor SHALL write directly only `crew unit split`, `crew unit order`, `crew unit after`, `crew chore order` and `crew chore after`, and only on units and chores of the bolt its team holds. The design agent SHALL write directly only `crew unit add` and `crew chore add` into a kit's queue. A dispatcher's `crew bolt give` and the main-level ops' `crew bolt land` SHALL stay direct. Any other plan write by an agent crew started SHALL be refused, naming the planner. The user at a shell SHALL write the plan directly.
-
-#### Scenario: A conductor narrows a unit of its bolt
-- **WHEN** swb-2's conductor runs `crew unit split` on a unit of the bolt swb-2 holds
-- **THEN** the split is written, with no proposal
-
-#### Scenario: A conductor adds a unit to its bolt
-- **WHEN** swb-2's conductor runs `crew unit add <unit> "<intent>" --bolt <its bolt>`
-- **THEN** it is refused, and the message says to tell the planner
-
-#### Scenario: A conductor adds a chore to its bolt
-- **WHEN** swb-2's conductor runs `crew chore add <chore> "<words>" --bolt <its bolt>`
-- **THEN** it is refused, and the message says to tell the planner
-
-#### Scenario: The design agent queues a unit
-- **WHEN** the design agent runs `crew unit add <unit> "<intent>" --repo <kit>`
-- **THEN** the unit is queued, with no proposal
-
-#### Scenario: The user at a shell
-- **WHEN** the user runs `crew bolt new` in a terminal
-- **THEN** the bolt is written, with no proposal
-
 ### Requirement: A proposal is a case and the commands it would run
-`crew plan propose <file>` SHALL write one Proposal record to `proposals.rec` on the flywheel's branch: its number, the planner's case, the plan commands it would run in order, who wrote it and when, and its state, `open`. The commands SHALL be among `bolt new`, `bolt order`, `bolt drop`, `unit add`, `unit amend`, `unit move`, `unit split`, `unit order`, `unit after`, `unit drop`, `chore add`, `chore move`, `chore order`, `chore after` and `chore drop`. A number SHALL be given once and never reused, and a proposal SHALL never be removed or its commands changed.
+`crew plan propose <file>` SHALL write one Proposal record to `proposals.rec` on the drive's branch: its number, the planner's case, the plan commands it would run in order, who wrote it and when, and its state, `open`. The commands SHALL be among `bolt new`, `bolt order`, `bolt drop`, `unit add`, `unit amend`, `unit move`, `unit split`, `unit order`, `unit after`, `unit drop`, `chore add`, `chore move`, `chore order`, `chore after` and `chore drop`. A number SHALL be given once and never reused, and a proposal SHALL never be removed or its commands changed.
 
 #### Scenario: A new bolt with two units
 - **WHEN** the planner proposes `bolt new cfn-checks …`, `unit add cfn-nag-security-check … --bolt cfn-checks` and `unit move retire-suite-cfn-lint cfn-checks`, with its case
@@ -77,61 +54,8 @@ Before a proposal is written, each of its commands SHALL be applied in order to 
 - **WHEN** a proposal moves a unit that has merged into its bolt
 - **THEN** the proposal is refused, as the move would be
 
-### Requirement: A proposal is read as the user would read it
-`crew plan proposed` SHALL list the open proposals from any host, each with its number, who wrote it, when, the first line of its case and what it waits on. `crew plan proposed <n>` SHALL print the case and then each change in plain words: a new unit's intent beside the sources it rests on and the goal of the bolt it would join, a move's bolts with their goals, a new bolt's goal, a drop's reason. Under each change's plain words it SHALL print the command approval will run for that change, so the sequence of adds, moves and drops reads as the plan commands it is. For an open proposal it SHALL then name, in words, each conductor whose agreement it still waits on, the conductors that have agreed, and the user, without the commands that answer it. `--json` SHALL give the same.
-
-#### Scenario: A unit for an existing bolt
-- **WHEN** proposal N adds a unit to a bolt a team holds
-- **THEN** `crew plan proposed N` shows the unit's intent, the bolt's goal beside it, and that the bolt's conductor has not yet agreed
-
-#### Scenario: Each change shows its command
-- **WHEN** proposal N creates a bolt, adds a unit to it and moves a queued unit into it
-- **THEN** `crew plan proposed N` prints under each of the three changes, in order, the `crew` command approval will run for it
-
-#### Scenario: Waiting on, in words
-- **WHEN** proposal N is open and waits on a conductor and the user
-- **THEN** `crew plan proposed N` names both and what each would do, and prints no `crew plan agree`, `crew plan approve` or `crew plan drop` command
-
-#### Scenario: Nothing open
-- **WHEN** no proposal is open
-- **THEN** `crew plan proposed` says so
-
-### Requirement: A bolt in flight is changed only with its conductor's agreement
-When a proposal is written, crew SHALL tell the conductor of each bolt a team holds that the proposal touches, with the commands that touch it. `crew plan agree <n>`, run by that conductor, SHALL record the team's agreement on the proposal. Approval SHALL be refused while any touched bolt held by a team has no recorded agreement, naming the conductor.
-
-#### Scenario: The conductor agrees
-- **WHEN** swb-2's conductor runs `crew plan agree 4` for a proposal that adds a unit to its bolt
-- **THEN** the proposal records swb-2's agreement, and the planner is told
-
-#### Scenario: Approval before agreement
-- **WHEN** `crew plan approve 4` runs while swb-2 has not agreed
-- **THEN** it is refused, naming `swb-2-conductor`, and nothing changes
-
-#### Scenario: A conductor whose bolt is not touched
-- **WHEN** swb-1's conductor runs `crew plan agree 4` and the proposal touches no bolt swb-1 holds
-- **THEN** it is refused
-
-#### Scenario: A bolt given after the proposal was written
-- **WHEN** a planned bolt the proposal touches is given to a team before approval
-- **THEN** approval is refused until that team's conductor has agreed
-
-### Requirement: Work a bolt in flight needs to land goes into that bolt
-Landing SHALL be part of every bolt's goal. A unit that a bolt held by a team needs before it can be proven or land SHALL be proposed into that bolt, ordered ahead of the units that wait on it, and marked with the bolt it unblocks (`--unblocks <bolt>` on the `crew unit add` or `crew unit move` the proposal runs). crew SHALL refuse a proposal that marks a unit as unblocking a held bolt but places it in the queue or in another bolt. `crew plan proposed <n>` SHALL show the mark beside the unit. The planner's and the conductor's briefs SHALL say this, and a dispatcher given a planned bolt whose units only serve a bolt a team already holds SHALL tell the planner to fold them into the held bolt instead of waiting for a free team.
-
-#### Scenario: A conductor's bolt can't land without new work
-- **WHEN** swb-1's conductor tells the planner its bolt can't land until two pins agree
-- **THEN** the planner's proposal adds the unit to swb-1's bolt, ahead of the units waiting on it, marked as unblocking that bolt, and the user reads the mark on the proposal
-
-#### Scenario: Unblocking work placed elsewhere
-- **WHEN** a proposal marks a unit `--unblocks biome-follows-the-shell` but adds it to the queue or to a new bolt
-- **THEN** writing the proposal is refused, naming the held bolt
-
-#### Scenario: A new bolt that only serves a held bolt
-- **WHEN** the dispatcher is told of a new bolt whose units only finish a bolt swb-1 holds
-- **THEN** it does not give the new bolt to a team, and tells the planner to move its units into swb-1's bolt
-
 ### Requirement: Approval applies a proposal exactly as it was read
-`crew plan approve <n>` SHALL apply the proposal's commands in order to the plan at the branch's tip and close the proposal as `approved`, in one commit. When any command would now be refused, the approval SHALL be refused, naming the command and the reason, and the plan and the proposal SHALL be unchanged. What follows a direct command (a rebased unit, a freed slot, a conductor told) SHALL follow the approval. `crew plan approve <n> --clear <unit>...` SHALL apply the commands the user kept: each cleared unit SHALL be one the proposal adds or moves into a bolt, every command that names only cleared units SHALL be left out, and when a command left in names a cleared unit the approval SHALL be refused, naming that command and the unit, with nothing changed. The approved proposal SHALL record each cleared unit.
+`crew plan approve <n>` SHALL apply the proposal's commands in order to the plan at the branch's tip and close the proposal as `approved`, in one commit. When any command would now be refused, the approval SHALL be refused, naming the command and the reason, and the plan and the proposal SHALL be unchanged. What follows a direct command SHALL follow the approval. `crew plan approve <n> --clear <unit>...` SHALL apply the commands the user kept: each cleared unit SHALL be one the proposal adds or moves into a bolt, every command that names only cleared units SHALL be left out, and when a command left in names a cleared unit the approval SHALL be refused, naming that command and the unit, with nothing changed. The approved proposal SHALL record each cleared unit.
 
 #### Scenario: A proposal is approved
 - **WHEN** the user approves proposal N, which creates a bolt and adds a unit to it
@@ -142,8 +66,8 @@ Landing SHALL be part of every bolt's goal. A unit that a bolt held by a team ne
 - **THEN** the approval is refused, naming that command, and the proposal stays open
 
 #### Scenario: A unit with a worktree is moved
-- **WHEN** an approved proposal moves a unit in construct to another bolt in the same checkout and the rebase conflicts
-- **THEN** the rebase is undone, the approval is refused, and the plan and the proposal are unchanged
+- **WHEN** an approved proposal moves unit `a`, launched as a Flume place on started `x`, to bolt `y`
+- **THEN** the approval is refused, naming `a`'s place and that it is dropped and added again as the way on, crew rebases nothing, and the plan and the proposal are unchanged
 
 #### Scenario: A unit from a signal
 - **WHEN** an approved proposal holds `unit add … --signal <id>`
@@ -221,7 +145,7 @@ For a `unit amend` command, `crew plan proposed <n>` SHALL show the unit's inten
 - **THEN** its card is open, titled "Plan change to <bolt>: 3 new", with the case, the change drawn and in text, a paragraph per unit, and one list of the three units ticked
 
 ### Requirement: A proposal can be opened in plannotator
-`crew plan proposed <n> [--label L] --open` SHALL write the proposal, exactly as `crew plan proposed <n>` prints it, to a file on the host it runs on, and open that file in plannotator for the user to read and annotate: beside the caller with `plannotator-tui herdr open` when it runs in herdr, inline with `plannotator-tui` otherwise. It SHALL read only the flywheel's branch, so it works from any host. It SHALL write nothing to the branch or the run record. `--open` SHALL be refused without `<n>` and with `--json`.
+`crew plan proposed <n> [--label L] --open` SHALL write the proposal, exactly as `crew plan proposed <n>` prints it, to a file on the host it runs on, and open that file in plannotator for the user to read and annotate: beside the caller with `plannotator-tui herdr open` when it runs in herdr, inline with `plannotator-tui` otherwise. It SHALL read only the drive's branch, so it works from any host. It SHALL write nothing to the branch or the run record. `--open` SHALL be refused without `<n>` and with `--json`.
 
 #### Scenario: Opened from the rail's shell
 - **WHEN** the user runs `crew plan proposed 3 --label wldn --open` in a herdr pane
@@ -232,7 +156,7 @@ For a `unit amend` command, `crew plan proposed <n>` SHALL show the unit's inten
 - **THEN** it is refused, saying `--open` needs a proposal's number
 
 ### Requirement: A proposal's card is drawn from the plan and the proposal
-When crew raises or changes a proposal's card it SHALL read only the flywheel's branch and build every part of the card: its title "Plan change to <bolt or queue>: <counts>", no question and no proposal number; its summary, a sentence of what the planner proposes and why from the case; a paragraph per new unit and per dropped unit as inline Markdown on its face, the intent and a "Direction" line from the proposal's `Do` line and case, a dropped unit's with its why; its background; its boxes and its artifacts; and SHALL draw the card's picture, a PNG 1560 pixels wide at twice a phone's pixel density so it is sharp on a Retina screen, itself, with no browser, no other program and no agent.
+When crew raises or changes a proposal's card it SHALL read only the drive's branch and build every part of the card: its title "Plan change to <bolt or queue>: <counts>", no question and no proposal number; its summary, a sentence of what the planner proposes and why from the case; a paragraph per new unit and per dropped unit as inline Markdown on its face, the intent and a "Direction" line from the proposal's `Do` line and case, a dropped unit's with its why; its background; its boxes and its artifacts; and SHALL draw the card's picture, a PNG 1560 pixels wide at twice a phone's pixel density so it is sharp on a Retina screen, itself, with no browser, no other program and no agent.
 
 #### Scenario: A proposal that drops, amends and adds
 - **WHEN** crew raises the card for a proposal that drops one unit of bolt `y`, amends one and adds two
@@ -407,3 +331,67 @@ crew SHALL take a source to name a decision record wherever it holds `docs/adr/<
 #### Scenario: A record named in words
 - **WHEN** a source reads `record 0026 point 4`
 - **THEN** crew reads no record for it
+
+### Requirement: Other agents write the plan only within their own job, and no conductor or dispatcher is among them
+The design agent SHALL write directly only `crew unit add` and `crew chore add` into a kit's queue. The main-level ops' `crew bolt land` SHALL stay direct. Any other plan write by an agent crew started SHALL be refused, naming the planner. The user at a shell SHALL write the plan directly.
+
+#### Scenario: An agent narrows a unit of a bolt
+- **WHEN** an agent crew started, other than the planner, runs `crew unit split` on a unit of a bolt in flight
+- **THEN** it is refused, naming the planner, and the plan is unchanged
+
+#### Scenario: An agent adds a unit to a bolt
+- **WHEN** main-level ops runs `crew unit add <unit> "<intent>" --bolt <a bolt>`
+- **THEN** it is refused, and the message says to tell the planner
+
+#### Scenario: An agent adds a chore to a bolt
+- **WHEN** main-level ops runs `crew chore add <chore> "<words>" --bolt <a bolt>`
+- **THEN** it is refused, and the message says to tell the planner
+
+#### Scenario: The design agent queues a unit
+- **WHEN** the design agent runs `crew unit add <unit> "<intent>" --repo <kit>`
+- **THEN** the unit is queued, with no proposal
+
+#### Scenario: The user at a shell
+- **WHEN** the user runs `crew bolt new` in a terminal
+- **THEN** the bolt is written, with no proposal
+
+### Requirement: Work a bolt in flight needs goes into that bolt
+Landing SHALL be part of every bolt's goal. A unit that a bolt in flight needs before it can be proven or land SHALL be proposed into that bolt, ordered ahead of the units that wait on it, and marked with the bolt it unblocks (`--unblocks <bolt>` on the `crew unit add` or `crew unit move` the proposal runs). crew SHALL refuse a proposal that marks a unit as unblocking a bolt in flight but places it in the queue or in another bolt. `crew plan proposed <n>` SHALL show the mark beside the unit. The planner's brief SHALL say this, and SHALL say to fold into a bolt in flight the units a planned bolt holds that only serve it.
+
+#### Scenario: A bolt can't land without new work
+- **WHEN** a stage stops short telling the planner its bolt can't land until two pins agree
+- **THEN** the planner's proposal adds the unit to that bolt, ahead of the units waiting on it, marked as unblocking that bolt, and the user reads the mark on the proposal
+
+#### Scenario: Unblocking work placed elsewhere
+- **WHEN** a proposal marks a unit `--unblocks biome-follows-the-shell` but adds it to the queue or to a new bolt
+- **THEN** writing the proposal is refused, naming the bolt in flight
+
+#### Scenario: The planner's brief on unblocking work
+- **WHEN** the planner's brief is printed
+- **THEN** it says to propose work a bolt in flight needs into that bolt, marked `--unblocks`, and to fold into it the units of a planned bolt that only serve it
+
+### Requirement: A proposal is read as the user would read it, waiting on the user alone
+`crew plan proposed` SHALL list the open proposals from any host, each with its number, who wrote it, when, the first line of its case and what it waits on. `crew plan proposed <n>` SHALL print the case and then each change in plain words: a new unit's intent beside the sources it rests on and the goal of the bolt it would join, a move's bolts with their goals, a new bolt's goal, a drop's reason. Under each change's plain words it SHALL print the command approval will run for that change, so the sequence of adds, moves and drops reads as the plan commands it is. For an open proposal it SHALL then name, in words, that it waits on the user, without the commands that answer it. `--json` SHALL give the same.
+
+#### Scenario: A unit for an existing bolt
+- **WHEN** proposal N adds a unit to a bolt in flight
+- **THEN** `crew plan proposed N` shows the unit's intent and the bolt's goal beside it, and names no agreement it waits on
+
+#### Scenario: Each change shows its command
+- **WHEN** proposal N creates a bolt, adds a unit to it and moves a queued unit into it
+- **THEN** `crew plan proposed N` prints under each of the three changes, in order, the `crew` command approval will run for it
+
+#### Scenario: Waiting on, in words
+- **WHEN** proposal N is open
+- **THEN** `crew plan proposed N` names the user and what they would do, and prints no `crew plan approve` or `crew plan drop` command
+
+#### Scenario: Nothing open
+- **WHEN** no proposal is open
+- **THEN** `crew plan proposed` says so
+
+### Requirement: A proposal's card draws a kit's rename
+A proposal holding `kit rename <old> <new>` SHALL draw it on its card as a block of its own. The block SHALL name the old name and the new, the bolts and units the rename renames, and the started bolts among them. The card's picture SHALL show each renamed bolt under its new kit. A proposal whose changes add no unit SHALL stay a plain approval, the rename asking no question of its own.
+
+#### Scenario: madswan's renames proposed
+- **WHEN** madswan-planner proposes `kit rename flywheel-cloud boomdrive-cloud` and `kit rename tailrace timber`
+- **THEN** its card draws two rename blocks, the first naming `you-sign-in-to-staging` as started and its unit, and the card is a plain approval

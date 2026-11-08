@@ -8,7 +8,7 @@ A bolt whose kit's read says it carries another bolt's work that main lacks SHAL
 - **THEN** `y`'s row has no box and says "held: carries bolt breadboard-shows-a-deleted-app-as-deleting's work, its landing f5e67f3, which main lacks", and no landing card is raised for it
 
 #### Scenario: Held with a take-main fix in flight
-- **WHEN** `y` carries another bolt's work and a take-main fix is in flight on it
+- **WHEN** `y` carries another bolt's work and a take-main fix place is in flight on it
 - **THEN** `y`'s row is held for the work it carries, not marked as taking main first
 
 #### Scenario: What it carries can't be read

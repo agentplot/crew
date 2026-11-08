@@ -41,22 +41,22 @@ crew SHALL start a plannotator reading session when it raises a batch's card, on
 - **THEN** the command prints the same link, one session runs for `land/y`, and its files are not written again
 
 ### Requirement: A session is started only where its link can be answered
-crew SHALL start no session, and SHALL say why, when the key is no row's or the row has nothing to read, when the batch's session would run on any host but the main level's, when a landing's session would run on any host but its bolt's team's, when a landing's bolt does not read proven, when the document is not on the host the session would run on or crew cannot read it whole, and when plannotator gives a link that names the host only for itself (`localhost` or a loopback address), ending that session.
+crew SHALL start no session, and SHALL say why, when the key is no row's or the row has nothing to read, when the batch's session would run on any host but the main level's, when a landing's session would run on any host but the one its bolt's work runs on, as the runner that took it reported, when a landing's bolt is not started or does not read proven, when the document is not on the host the session would run on or crew cannot read it whole, and when plannotator gives a link that names the host only for itself (`localhost` or a loopback address), ending that session.
 
 #### Scenario: A key whose row is gone
 - **WHEN** the planner runs `crew card session batch/3` after batch 3's card was closed
 - **THEN** it is refused as a key with no row, and no session is started
 
 #### Scenario: A batch's session on another host
-- **WHEN** a conductor on the box runs `crew card session batch/3 --label wldn`, and the partition's main level is on mac-studio
+- **WHEN** wldn-ops on the box runs `crew card session batch/3 --label wldn`, and the partition's main level is on mac-studio
 - **THEN** it is refused, naming mac-studio, and no session is started
 
 #### Scenario: A landing's session on another host
-- **WHEN** the planner on mac-studio runs `crew card session land/y --label wldn`, and `y` is held by swb-1, whose host is the box
+- **WHEN** the planner on mac-studio runs `crew card session land/y --label wldn`, and the runner that took `y`'s work runs on the box
 - **THEN** it is refused, naming the box as where `land/y`'s reading runs, and no session is started
 
 #### Scenario: A landing card
-- **WHEN** swb-1-conductor runs `crew card session land/y` while unit `b` of `y` has not merged
+- **WHEN** wldn-ops runs `crew card session land/y` while unit `b` of `y` has not merged
 - **THEN** it is refused, saying `y` does not read proven and why, so its landing card is not raised and has no session
 
 ### Requirement: A card whose session could not start is raised all the same
@@ -182,7 +182,7 @@ crew SHALL write a batch's session's files into the batch's own folder on the ma
 - **THEN** every file plannotator is given is in batch 3's folder on mac-studio before plannotator starts
 
 ### Requirement: A session whose card is closed or whose row is gone is ended on every rail read
-Each time `crew rail` runs, and each time the host's follower refreshes after a state tip or a kit it read has moved, whether swancloud's job or a rail tab runs it, crew SHALL end, on every host of each partition read, each session it started for a card key whose row is gone, or whose card the run record holds as closed with no card open under the key. A refresh after no state tip and no kit moved SHALL sweep sessions only on a host whose card readings folder moved since its last read, or that the last refresh could not check, and on no other host. It SHALL end only sessions it recorded, and only a process plannotator lists as serving the recorded document.
+Each time `crew rail` runs, and each time the host's follower refreshes after a state tip or a kit it read has moved, whether swancloud's job or a rail tab runs it, crew SHALL end, on every host of each partition read, each session it started for a card key whose row is gone, or whose card the run record holds as closed with no card open under the key. A refresh after no state tip and no kit moved SHALL sweep sessions only on a host whose card readings folder moved since its last read, as the follower's check last asked it, or that the last refresh could not check, and on no other host. It SHALL end only sessions it recorded, and only a process plannotator lists as serving the recorded document.
 
 #### Scenario: A verify card's session from before
 - **WHEN** the session crew started for `verify/x/20261009-1412`, before a verify report had no row, still runs on chuck-herdr-alpha
@@ -218,7 +218,7 @@ Each time `crew rail` runs, and each time the host's follower refreshes after a 
 
 #### Scenario: A reading sent on one host
 - **WHEN** the user sends back a reading on chuck-herdr-alpha, and nothing else has moved since mac-studio's follower last read
-- **THEN** the follower's next refresh asks chuck-herdr-alpha alone to sweep its card sessions, and asks no other host
+- **THEN** the follower's next refresh that asks chuck-herdr-alpha, at the next move there or within ten minutes, asks chuck-herdr-alpha alone to sweep its card sessions, and asks no other host
 
 ### Requirement: The rail says which sessions it ended
 After its groups and its open cards with no row, `crew rail` SHALL list each session it ended on that read, with its card key, the unit for a batch card's, its partition, its host and whether its card was closed or its row gone, and SHALL name each host whose sessions it could not check, with why. When it ended nothing and checked every host, it SHALL print nothing about sessions.
@@ -251,7 +251,7 @@ A rail read SHALL end no session whose row or card it cannot tell: none on a hos
 - **THEN** that read leaves it running
 
 ### Requirement: A landing's session opens what the bolt brings to main, as one review
-A `land/<bolt>` card's session SHALL be one plannotator review of several files, in this order: a page naming the bolt, its head, the units and chores that land, and that the reading lands nothing; each unit's change in the plan's order as the head holds it, its Markdown files named for the unit; then the bolt's diff against main, from where the bolt last met main to its head, less the change folders already shown. Each file SHALL open whole, as its own path. The diff SHALL be in as many files as keep each within the most plannotator opens in one file, 2 MB, each holding whole files' changes in git's order, and the page SHALL say how many when there are several. A file whose own change passes that most SHALL be cut nowhere: a line in its place in the diff SHALL name it and its size, and the page SHALL name each such file with its size, how many there are, and where to read them whole, GitHub's compare view of the bolt against main from where it last met main to its head and the git command on the team's host. Nothing of the diff SHALL be left out unnamed.
+A `land/<bolt>` card's session SHALL be one plannotator review of several files, in this order: a page naming the bolt, its head, the units and chores that land, and that the reading lands nothing; each unit's change in the plan's order as the head holds it, its Markdown files named for the unit; then the bolt's diff against main, from where the bolt last met main to its head, less the change folders already shown. Each file SHALL open whole, as its own path. The diff SHALL be in as many files as keep each within the most plannotator opens in one file, 2 MB, each holding whole files' changes in git's order, and the page SHALL say how many when there are several. A file whose own change passes that most SHALL be cut nowhere: a line in its place in the diff SHALL name it and its size, and the page SHALL name each such file with its size, how many there are, and where to read them whole, GitHub's compare view of the bolt against main from where it last met main to its head and the git command on the host the bolt's work runs on. Nothing of the diff SHALL be left out unnamed.
 
 #### Scenario: A bolt of two units and a chore
 - **WHEN** bolt `y` holds units `a` and `b`, both archived on its branch, and chore `c`, and crew raises its landing card at head `def5678`
@@ -271,49 +271,49 @@ A `land/<bolt>` card's session SHALL be one plannotator review of several files,
 
 #### Scenario: One file's change past plannotator's limit
 - **WHEN** bolt `y` changes `README.md` by a few lines and `vendor/bundle.js` by 2.5 MB
-- **THEN** the diff holds `README.md`'s change whole and, in `vendor/bundle.js`'s place, a line naming it and its 2.5 MB, and the page names `vendor/bundle.js`, 2.5 MB, as the one file left out, with GitHub's compare view of the kit from the commit the diff is from to `y`'s head and the `git -C <main> diff <base> <head> -- <path>` that reads it on the team's host
+- **THEN** the diff holds `README.md`'s change whole and, in `vendor/bundle.js`'s place, a line naming it and its 2.5 MB, and the page names `vendor/bundle.js`, 2.5 MB, as the one file left out, with GitHub's compare view of the kit from the commit the diff is from to `y`'s head and the `git -C <main> diff <base> <head> -- <path>` that reads it on the host the bolt's work runs on
 
 ### Requirement: A landing's session follows the bolt's head
-A bolt's reading, keyed `land/<bolt>`, SHALL run on the host of the team holding it while the bolt is a row of its kit's landings card, and its link SHALL be carried on that row. When a merge moves the bolt's head, crew SHALL end the session on the old head and start one on the new head before the row changes, and the card, changed in place, SHALL carry the new link. When `crew card session land/<bolt>` starts the session anew because none runs, or gives a running session's link again while the run record shows the kit's card standing without a row's reading, crew SHALL change the kit's open card in place to carry the link while it waits on the user, and SHALL leave a card the user has answered as it is, printing the link alone.
+A bolt's reading, keyed `land/<bolt>`, SHALL run on the host its work runs on, as the runner that took it reported, in the kit's folder there, while the bolt is a row of its kit's landings card, and its link SHALL be carried on that row. When a merge moves the bolt's head, crew SHALL end the session on the old head and start one on the new head before the row changes, and the card, changed in place, SHALL carry the new link. When `crew card session land/<bolt>` starts the session anew because none runs, or gives a running session's link again while the run record shows the kit's card standing without a row's reading, crew SHALL change the kit's open card in place to carry the link while it waits on the user, and SHALL leave a card the user has answered as it is, printing the link alone.
 
 #### Scenario: A merge moves the head
 - **WHEN** bolt `y` is a row of `land/crew` with a session on head `abc1234`, and a fix merges into `y` at `def5678`
 - **THEN** the session on `abc1234` is no longer running, one on `def5678` is, and `land/crew`, changed in place saying `y`'s head is now `def5678`, carries the new session's link on `y`'s row
 
 #### Scenario: Started again after a restart
-- **WHEN** the team's host restarted, `land/y`'s session no longer runs, and swb-1-conductor runs `crew card session land/y` while `land/crew` waits on the user
+- **WHEN** the bolt's host restarted, `land/y`'s session no longer runs, and wldn-ops runs `crew card session land/y` while `land/crew` waits on the user
 - **THEN** a new session starts on `y` at its head, its link is printed, and `land/crew`, changed in place, carries that link on `y`'s row
 
 #### Scenario: A card raised before landings had a reading
-- **WHEN** bolt `y`'s row on `land/crew` carries no link, and swb-1-conductor runs `crew card session land/y`
+- **WHEN** bolt `y`'s row on `land/crew` carries no link, and wldn-ops runs `crew card session land/y`
 - **THEN** a session starts on `y` at its head, and the open card is changed in place to carry its link on `y`'s row
 
 #### Scenario: A card already approved
-- **WHEN** the user has sent `land/crew`, `y`'s session no longer runs, and swb-1-conductor runs `crew card session land/y`
+- **WHEN** the user has sent `land/crew`, `y`'s session no longer runs, and wldn-ops runs `crew card session land/y`
 - **THEN** a new session starts and its link is printed, and the card is not changed and no new card follows it
 
 #### Scenario: A running session whose row never got its link
-- **WHEN** `land/crew` was posted with `y`'s row standing without its reading, a later try started `y`'s session but the card's change was refused, and swb-1-conductor runs `crew card session land/y` while that session runs and the card waits on the user
+- **WHEN** `land/crew` was posted with `y`'s row standing without its reading, a later try started `y`'s session but the card's change was refused, and wldn-ops runs `crew card session land/y` while that session runs and the card waits on the user
 - **THEN** the same link is printed, no new session starts, and `land/crew`, changed in place, carries that link on `y`'s row
 
 #### Scenario: A running session on a card that carries it
-- **WHEN** swb-1-conductor runs `crew card session land/y` while its session runs and `land/crew` already carries every row's link
+- **WHEN** wldn-ops runs `crew card session land/y` while its session runs and `land/crew` already carries every row's link
 - **THEN** the same link is printed and the card is not changed
 
 #### Scenario: A bolt that is no row
-- **WHEN** swb-1-conductor runs `crew card session land/y` while `y` does not read proven
+- **WHEN** wldn-ops runs `crew card session land/y` while `y` does not read proven
 - **THEN** it is refused, saying `y` is no row of crew's landings card and what it waits on, and nothing is started
 
 ### Requirement: A landing's raise tries its reading again before raising without it
-When a bolt's reading refuses to open as crew puts its row on the kit's landings card or changes it, crew SHALL try once more as `crew card session land/<bolt>` would, on the team's host: the kit's main fetched there, the bolt's landing read afresh, and its reading opened again. The row SHALL carry the second try's link, and be on the card without a reading only when both tries refuse, with the second's reason. A failed fetch SHALL be said and SHALL NOT stop the second try.
+When a bolt's reading refuses to open as crew puts its row on the kit's landings card or changes it, crew SHALL try once more as `crew card session land/<bolt>` would, on the host the bolt's work runs on: the kit's main fetched in its folder there, the bolt's landing read afresh, and its reading opened again. The row SHALL carry the second try's link, and be on the card without a reading only when both tries refuse, with the second's reason. A failed fetch SHALL be said and SHALL NOT stop the second try.
 
 #### Scenario: The first start fails and the second opens
 - **WHEN** the merge's end makes bolt `y` a row of `land/crew` and plannotator's first start of its reading ends before it is ready, and its second start comes up
-- **THEN** one session runs for `land/y` on the team's host, and `y`'s row on the posted card carries its link
+- **THEN** one session runs for `land/y` on the bolt's host, and `y`'s row on the posted card carries its link
 
 #### Scenario: Both starts fail
 - **WHEN** both starts of bolt `y`'s reading end before they are ready
-- **THEN** `y`'s row is on the card without a reading, saying so with the second start's reason and naming `crew card session land/y` as its conductor's act, and no session of `land/y` is recorded
+- **THEN** `y`'s row is on the card without a reading, saying so with the second start's reason and naming `crew card session land/y` as main-level ops's act, and no session of `land/y` is recorded
 
 #### Scenario: The bolt no longer reads proven at the second try
 - **WHEN** the first start of bolt `y`'s reading fails and, read afresh, `y` no longer reads proven
@@ -399,25 +399,6 @@ On each rail read, crew's sweep SHALL try the reading of each batch card, long p
 - **WHEN** `land/crew` stands without a row's reading, posted on the box, and the rail is read on mac-studio
 - **THEN** that read does not try it
 
-### Requirement: A later try of a reading is recorded
-Each try of a batch's, a long proposal's or a bolt's reading that is not part of its card's post or change, by `crew card session` starting it anew or by the rail's sweep, SHALL append one `card.reading` entry to the run record on the reading's key, in the name of its owner, the planner's for a batch's and a proposal's and the bolt's conductor's for a bolt's, `land/<bolt>`, done, or refused with crew's own message saying why. The sweep's try of a kit's landings card is its raise, recorded as the card's change.
-
-#### Scenario: A try that refuses
-- **WHEN** the rail's sweep tries batch 3's reading and plannotator does not list it within its start time
-- **THEN** a `card.reading` entry for `batch/3` holds that reason in crew's words, and the card is not changed
-
-#### Scenario: A link given again
-- **WHEN** the planner runs `crew card session batch/3` while its session runs
-- **THEN** no entry is appended
-
-#### Scenario: A landing's reading started by hand
-- **WHEN** swb-1-conductor runs `crew card session land/y`, no session of `land/y` runs, and the reading opens
-- **THEN** a done `card.reading` entry for `land/y` is appended in swb-1-conductor's name
-
-#### Scenario: A landing's try off its team's host
-- **WHEN** the planner on mac-studio runs `crew card session land/y --label wldn`, and `y` is held by swb-1 on the box
-- **THEN** it is refused as before, and no entry is appended, since no reading was tried
-
 ### Requirement: The rail's refresh tells a reading's owner once that the user sent it
 On each rail read and follower refresh, crew's sweep on each host SHALL tell the owner of each reading there that the user sent, approved or annotated, and the owner has not read, once, through `crew tell`, naming `crew card read <key>` and no word of the user's; it SHALL mark the reading told once the tell goes through, and try again at the next refresh when it does not. A reading closed undecided, read or told SHALL be told nothing.
 
@@ -436,3 +417,22 @@ On each rail read and follower refresh, crew's sweep on each host SHALL tell the
 #### Scenario: Closed with no decision
 - **WHEN** the user closes proposal 4's reading without approving or sending feedback
 - **THEN** no refresh tells the planner anything
+
+### Requirement: A later try of a card's reading is recorded
+Each try of a batch's, a long proposal's or a bolt's reading that is not part of its card's post or change, by `crew card session` starting it anew or by the rail's sweep, SHALL append one `card.reading` entry to the run record on the reading's key, in the name of its owner, the planner's for a batch's and a proposal's and main-level ops's for a bolt's, `land/<bolt>`, done, or refused with crew's own message saying why. The sweep's try of a kit's landings card is its raise, recorded as the card's change.
+
+#### Scenario: A try that refuses
+- **WHEN** the rail's sweep tries batch 3's reading and plannotator does not list it within its start time
+- **THEN** a `card.reading` entry for `batch/3` holds that reason in crew's words, and the card is not changed
+
+#### Scenario: A link given again
+- **WHEN** the planner runs `crew card session batch/3` while its session runs
+- **THEN** no entry is appended
+
+#### Scenario: A landing's reading started by hand
+- **WHEN** wldn-ops runs `crew card session land/y`, no session of `land/y` runs, and the reading opens
+- **THEN** a done `card.reading` entry for `land/y` is appended in wldn-ops's name
+
+#### Scenario: A landing's try off the host its work runs on
+- **WHEN** the planner on mac-studio runs `crew card session land/y --label wldn`, and the runner that took `y`'s work runs on the box
+- **THEN** it is refused as before, and no entry is appended, since no reading was tried

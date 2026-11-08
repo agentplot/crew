@@ -204,6 +204,41 @@ def lost_said(key, card, words):
             f"sign-in than this host's, and the user may still see it and answer it, to nobody. {again}")
 
 
+# A name crew raises its own cards in: a partition's planner, main-level ops or design agent (plan.row_owner, the
+# design agent's records), its label read up to the last dash before the role.
+ROLE_NAME = re.compile(r"([a-z0-9][a-z0-9-]*)-(planner|ops|design)")
+
+
+def role_left(owner, labels):
+    """Whether a card's owner is a role that left the fleet: a name crew raises its cards in (ROLE_NAME) whose label no
+    partition of the teams file has now (labels), its partition removed or its label changed, which is a partition
+    removed and another added, since a partition is never renamed (record 0055, rejected; record 0058's decision 6 and
+    plan.22, proposed). Any other name, a conductor's, an asker's of its own or the user's, is no partition's role and
+    is not judged here; nothing maps a former name."""
+    m = ROLE_NAME.fullmatch(owner or "")
+    return bool(m) and m.group(1) not in labels
+
+
+def left_said(owner, key, stands=False):
+    """The words a card whose owner left the fleet (role_left) is withdrawn with: that an answer on it reaches nobody,
+    and how whoever holds the work now raises it again, by the key's kind, naming no partition, since crew takes none
+    as another's successor; a deploy whose word stands (stands, ops.word_stands) goes on, its word read by its
+    environment and not its card."""
+    kind, _, rest = (key or "").partition("/")
+    parts = rest.split("/")
+    again = {
+        "deploy": (f"Your word on {parts[0]}'s deploy stands, and the deploy goes on." if stands else
+                   f"The deploy is offered again in the name of the ops of the partition that holds {parts[0]} now."),
+        "op": f"The step on {parts[0]} is recorded again by the partition that holds it now, its card in its ops's name.",
+        "land": "Its landings are carded by the ops of the partition that holds them now.",
+        "proposal": f"Proposal {parts[0]} is carded by the planner of the partition that holds it now.",
+        "batch": f"Batch {parts[0]} is carded by the planner of the partition that holds it now.",
+        "record": (f"Record {parts[1] if len(parts) > 1 else ''} of {parts[0]} is carded again with crew record by the design "
+                   "agent of the partition that holds it now."),
+    }.get(kind, "Whoever holds its work now asks it again.")
+    return f"{owner} left the fleet, so an answer here reaches nobody. {again}"
+
+
 def version_of(got, card):
     """A card's version, as get_request gives it; refused when it gives none, since a change or an ack needs it."""
     v = got.get("version") if isinstance(got, dict) else None
@@ -368,6 +403,29 @@ def block(head, name, says):
     return [f"{head:<7}{names[0]}"] + ["       " + x for x in names[1:] + says]
 
 
+def renamed_drawn(a, before, kits, repo, where, renamed):
+    """A kit's rename as a proposal's card draws it (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan),
+    from what the card has read of the plan so far (kits, {bolt: its kit}; repo, {unit: its kit}; where, {unit: its
+    bolt}), which it renames: its RENAME KIT block, the old name and the new, the bolts it renames, the started ones
+    among them marked so, and its units and chores; and its sections, each renamed bolt, and the new kit's queue where it
+    renames queued work or nothing at all, which the picture draws under the new kit (renamed, {section: (old, new, the
+    queued units it renames)}). It makes nothing new, so it asks no question of its own."""
+    same = lambda k: bool(k) and k.split("/")[-1] == a.old.split("/")[-1]
+    bolts, units = [b for b, k in kits.items() if same(k)], [u for u, k in repo.items() if same(k)]
+    begun = {b for b in bolts if before.bolt(b) is not None and before.bolt(b).get("Path") == "flume"}
+    queued = [u for u in units if not where.get(u)]
+    for b in bolts:
+        kits[b], renamed[("bolt", b)] = a.new, (a.old, a.new, [])
+    for u in units:
+        repo[u] = a.new
+    if queued or not bolts:
+        renamed[("queue", a.new)] = (a.old, a.new, queued)
+    says = (["bolts: " + ", ".join(b + (" (started)" if b in begun else "") for b in bolts)] if bolts else ["no bolt"])
+    says += ["units: " + ", ".join(units)] if units else []
+    secs = [("bolt", b) for b in bolts] + ([("queue", a.new)] if queued or not bolts else [])
+    return secs, block("RENAME KIT", f"{a.old} → {a.new}", [x for l in says for x in wrap(l, SAYS)])
+
+
 def drawn(before, after, argvs):
     """A proposal's change, from the plan at the tip, the plan its commands leave and its commands, parsed: each bolt
     they touch and each kit's queue a unit goes to, before and after, as the picture's sections; the change as the
@@ -381,7 +439,7 @@ def drawn(before, after, argvs):
     kits = {b.name(): b.get("Repo") for b in before.bolts()}
     goals = {b.name(): b.get("Goal") for b in before.bolts()}
     dropped, out, came_from, amended, split, parts, ordered, queued = {}, {}, {}, {}, {}, {}, set(), set()
-    counts, bolt_moves, touched, order, blocks = dict.fromkeys(dict(COUNTS), 0), {}, set(), [], []
+    counts, bolt_moves, touched, order, blocks, renamed = dict.fromkeys(dict(COUNTS), 0), {}, set(), [], [], {}
 
     def group(u):
         return ("bolt", where[u]) if where.get(u) else ("queue", repo[u])
@@ -392,6 +450,8 @@ def drawn(before, after, argvs):
         if key == ("bolt", "new"):
             kits[a.bolt], goals[a.bolt] = a.repo, a.goal
             secs, b = [("bolt", a.bolt)], block("NEW BOLT", a.bolt, wrap(a.goal, SAYS, 3))
+        elif key == ("bolt", "start"):
+            secs, b = [("bolt", a.bolt)], block("START", a.bolt, wrap("its work launched through Flume", SAYS))
         elif key == ("bolt", "order"):
             counts["moved"] += 1
             bolt_moves[a.bolt] = bolt_moves.get(a.bolt, 0) + 1
@@ -440,6 +500,8 @@ def drawn(before, after, argvs):
             amended.setdefault(a.unit, intent[a.unit])
             intent[a.unit] = a.intent
             secs, b = [group(a.unit)], block("AMEND", a.unit, wrap(a.intent, SAYS, 3))
+        elif key == ("kit", "rename"):
+            secs, b = renamed_drawn(a, before, kits, repo, where, renamed)
         elif key in (("unit", "order"), ("unit", "after")):
             counts["moved"] += 1
             ordered.add(a.unit)
@@ -464,10 +526,13 @@ def drawn(before, after, argvs):
             line = (f"A new bolt; {plural(len(now), 'unit')} once approved" if not before.bolt(name) else
                     f"{plural(len(was), 'unit')} now; " + (f"{len(now)} once approved" if after.bolt(name) else "dropped once approved"))
         else:
-            was_all, numbered = [u.name() for u in before.queue(name)], [u.name() for u in after.queue(name)]
-            was, now = [u for u in was_all if u in touched], [u for u in numbered if u in touched]
+            moved_in = (renamed.get((kind, name)) or (None, None, []))[2]
+            was_all, numbered = [u.name() for u in before.queue(name)] + moved_in, [u.name() for u in after.queue(name)]
+            was, now = [u for u in was_all if u in touched | set(moved_in)], [u for u in numbered if u in touched | set(moved_in)]
             heading, said = f"the {name} queue", f"{len(was_all)} queued → {len(numbered)}"
             line = f"{len(was_all)} queued now; {len(numbered)} once approved"
+        if (kind, name) in renamed:
+            line = f"In {renamed[(kind, name)][1]}, renamed from {renamed[(kind, name)][0]}. {line}"
         rows = []
         for u in put_back(now, was):
             r = {"n": str(numbered.index(u) + 1) if u in now else "–", "name": u, "tag": None, "intent": intent.get(u)}
@@ -511,6 +576,8 @@ def drawn(before, after, argvs):
 # --------------------------------------------------------------------------------- the words rule (briefs.13)
 
 TITLE, SUMMARY, DETAIL, LABEL = 140, 400, 200, 80  # Pending You's budgets: a title, a summary, a detail, consequence or rationale, an option's label
+STEP = 299  # an action step's words: post_request's refusal "Keep each step’s words under 300 characters." (deneb, 2026-11-06); its schema states none
+ABOUT, NOTE = 120, 120  # a card's about title, when it asks questions; update_request's changeNote
 OUTCOME = 200  # Pending You's budget for a close's words: ack_answer's outcome and cancel_request's reason
 ARTIFACTS = 8  # Pending You's most artifacts on a card: post_request's artifacts maxItems (read 2026-10-19)
 LINE = 40  # the most characters a line of a list on a card's face holds: the phone shows it in monospace
@@ -668,12 +735,12 @@ def landing_card(f):
     the batches; the reading linked first, then sluice's pull request when the submission has one. f: bolt, kit,
     units, chores, batches ({unit: the batch it was read in}), head, at (sluice's time), moved (landings on main since
     the bolt was cut), pr ({number, url}) or None, offers (the environments whose deploy will be offered on a card),
-    link (the reading session's) or None, preview (a preview of the head as preview_said takes it) or None, frees
-    ({team, next}, when its team holds another bolt proven too) or None, follows, and approved, on a card that follows
+    link (the reading session's) or None, preview (a preview of the head as preview_said takes it) or None, follows,
+    and approved, on a card that follows
     one the user answered at another head, the head they approved, "" when crew holds no record of it (head_anew).
     A preview's addresses follow the reading in its details and links, each on its face as a link after the reading's
     and before the pull request, as many as the card's artifacts leave room for (record 0031 §3).
-    As the one row of its kit's landings card (landings_card), f also holds key, land/<kit>; conductor; forecast and
+    As the one row of its kit's landings card (landings_card), f also holds key, land/<kit>; forecast and
     forecast_why, as forecast_said takes them; held, [{bolt, why}], the bolts held on the card with no box; left,
     whether the user cleared this bolt on their last send; and stopped and ops, its last landing at its head stopped by
     sluice or its host and the ops who submits it again, which its summary says (stopped_said)."""
@@ -697,10 +764,6 @@ def landing_card(f):
                 "main has not moved since the bolt was cut.")
     if "forecast" in f:  # a row of its kit's landings card (rail-cards "The landings card forecasts each row's conflicts")
         said.append(forecast_said(f["forecast"], f.get("forecast_why"), f.get("would_main")))
-    frees = f.get("frees")
-    if frees:  # its team holds another bolt, proven too, so a yes frees it (teams.16)
-        said.append(f"A yes frees {frees['team']} for {frees['next']}, which waits behind this landing." if frees.get("next")
-                    else f"A yes frees {frees['team']}, and nothing is planned for it.")
     offers = list(f.get("offers") or [])
     then = ("After it lands: main-level ops lands it through sluice and every host takes it"
             + (f"; {joined(offers)}'s deploy will be offered on a card." if offers else "."))
@@ -718,11 +781,11 @@ def landing_card(f):
         said.insert(0, "Left on your last send.")
     if "key" in f and f.get("unread") and not f.get("link"):
         said.insert(1, f"Its reading could not be opened on the tailnet: crew tries it again when the rail is read, and "
-                       f"{f.get('conductor') or 'its conductor'} starts it with crew card session land/{f['bolt']}; this card "
+                       f"main-level ops starts it with crew card session land/{f['bolt']}; this card "
                        "then carries its link.")
     defect = ("A note naming a defect holds the landing: crew withdraws this card, and raises it again, following this "
               "one, once the bolt is green again." if "key" not in f else
-              f"A note naming a defect in {f['bolt']} goes to {f.get('conductor') or 'its conductor'}, and holds it on "
+              f"A note naming a defect in {f['bolt']} goes to main-level ops, and holds it on "
               "this card with no box until its fix merges.")
     unread = (f"The reading could not be opened on the tailnet: {f['unread']}\n\n"
               if "key" in f and f.get("unread") and not f.get("link") else "")
@@ -758,7 +821,7 @@ def forecast_said(forecast, why=None, would=None):
         said.append(f"Its forecast against {joined(unmade)} could not be made: {(why or 'git could not tell').rstrip('.')}.")
     if would:
         said = [f"It would take main first if you tick it: forecast to conflict with main on {joined(list(would[1]))} at "
-                f"{would[0][:7]}. Ticked, its team takes main in by a fix, your send standing through it."] + (
+                f"{would[0][:7]}. Ticked, it waits for a fix taking main in, your send standing through it."] + (
             [] if said == ["No conflict is forecast."] else said)
     return " ".join(said)
 
@@ -766,9 +829,8 @@ def forecast_said(forecast, why=None, would=None):
 def taking_said(r):
     """What a row of a kit's landings card taking main first says in place of its forecast (rail-cards "A row taking
     main first stays on the card"): r's taking, why it takes main first as plan.landing_rows words it, and what a tick
-    on it does, which its send stands through (send_stands)."""
-    return (f"It {r['taking'].rstrip('.')}. Ticked, it lands once its team has taken main in and sluice has proven it, "
-            "your send standing through it.")
+    on it does, which its send stands through (plan.send_stands)."""
+    return f"It {r['taking'].rstrip('.')}. Ticked, it lands once a fix on it has taken main in and sluice has proven it, your send standing through it."
 
 
 def row_said(r):
@@ -789,15 +851,14 @@ def landings_form(n):
 
 
 def row_bits(r):
-    """A landings row's counts, the batches its units were read in (None when none was), sluice's verdict and when,
-    and its conductor."""
+    """A landings row's counts, the batches its units were read in (None when none was), and sluice's verdict and when;
+    it names no team or conductor (the-team-machinery-leaves)."""
     units, chores, batches = list(r["units"]), list(r.get("chores") or []), r.get("batches") or {}
     parts = ([plural(len(units), "unit")] if units else []) + ([plural(len(chores), "chore")] if chores else [])
     read = sorted({batches[u] for u in units if u in batches})
     return (joined(parts) if parts else "nothing to land",
             f"read in batch{'' if len(read) == 1 else 'es'} {joined([str(b) for b in read])}" if read else None,
-            f"green at {r['head'][:7]}" + (f" since {r['at']}" if r.get("at") else ""),
-            r.get("conductor") or f"{r['team']}-conductor")
+            f"green at {r['head'][:7]}" + (f" since {r['at']}" if r.get("at") else ""))
 
 
 def stopped_said(r):
@@ -813,32 +874,28 @@ def stopped_said(r):
 
 
 def row_counts(r):
-    """A landings row's counts, batches, verdict and conductor, the detail of its box, after what stopped its last
+    """A landings row's counts, batches and verdict, the detail of its box, after what stopped its last
     landing at its head (stopped_said), first so a detail's budget keeps it."""
     return " ".join(x for x in (stopped_said(r), "; ".join(x for x in row_bits(r) if x)) if x)
 
 
 def row_paragraph(n, r):
-    """A landings row on the card's face, as Markdown: its place, bolt and conductor, its units and chores one a line,
-    its batches, sluice's verdict and when, how far main moved, what a yes frees, its forecast, what stopped its last
+    """A landings row on the card's face, as Markdown: its place and bolt, its units and chores one a line,
+    its batches, sluice's verdict and when, how far main moved, its forecast, what stopped its last
     landing at its head (stopped_said), and its reading, preview and pull request as links."""
     units, chores = list(r["units"]), list(r.get("chores") or [])
     moved = r.get("moved") or 0
-    lines = [f"**{n}. {r['bolt']}** · {r.get('conductor') or r['team'] + '-conductor'}"
+    lines = [f"**{n}. {r['bolt']}**"
              + (" · *takes main first*" if r.get("taking") else " · *left on your last send*" if r.get("left") else ""), ""]
     lines += [f"- {u}" for u in units] + [f"- {c} (chore)" for c in chores] + [""]
-    _, read, green, _ = row_bits(r)
+    _, read, green = row_bits(r)
     said = ([stopped_said(r)] if r.get("stopped") else []) + ([f"Read in {read[8:]}."] if read else []) + [f"sluice is {green}."]
     said.append(f"main has moved {plural(moved, 'landing')} since it was cut." if moved else "main has not moved since it was cut.")
-    frees = r.get("frees")
-    if frees:
-        said.append(f"A yes frees {frees['team']} for {frees['next']}." if frees.get("next") else
-                    f"A yes frees {frees['team']}, and nothing is planned for it.")
     said.append(row_said(r))
     lines.append(" ".join(said))
     links = ([f"[Read {r['bolt']}]({r['link']})"] if r.get("link") else
              [f"Its reading could not be opened: {r['unread']}; crew tries it again when the rail is read, and "
-              f"{r.get('conductor') or 'its conductor'} starts it with crew card session land/{r['bolt']}"] if r.get("unread") else [])
+              f"main-level ops starts it with crew card session land/{r['bolt']}"] if r.get("unread") else [])
     _, addresses = preview_said(r.get("preview"))
     links += [f"[Preview {label}]({url})" for label, url in addresses]
     if r.get("preview") and not addresses:
@@ -853,20 +910,20 @@ def landings_card(f):
     ops's: every bolt of the kit that can land, and each beside them taking main first (plan.card_rows), a row each in
     the plan's order, one send the word for every row the user leaves ticked, in the order shown. One row is the
     landing card of today (landing_card), an approve of risk high that never carries highStakes; two to BOXES, one list
-    of boxes carrying highStakes, each `<n>. <bolt>`, its detail the row's counts, batches, verdict and conductor, its
-    consequence its forecast, each ticked as crew proposes but one the user cleared on their last send and one taking
-    main first, whose detail and consequence say why and what a tick on it does (taking_said); more, lists of BOXES at
-    most, in order, each a question about the kit's main (landings_form). What follows a yes is its rationale, each list's own when it has several,
+    of boxes carrying highStakes, each `<n>. <bolt>`, its detail the row's counts, batches and verdict, its consequence
+    its forecast, each ticked as crew proposes but one the user cleared on their last send and one taking main first,
+    whose detail and consequence say why and what a tick on it does (taking_said); more, lists of BOXES at most, in order, each a question
+    about the kit's main (landings_form). What follows a yes is its rationale, each list's own when it has several,
     since Pending You refuses a card's rationale beside questions. On its face, one Markdown artifact, a paragraph a row (row_paragraph), then
     the rows held with no box and why; in its details, every row's reading first, then its previews and pull request,
-    as many as the card's artifacts leave room for. f: kit, rows (each the facts landing_card takes, with team,
-    conductor, forecast, forecast_why, link or unread and preview, stopped when sluice or its host stopped its last
-    landing at its head, which its paragraph and its box's detail say, stopped_said, and taking, why, for a row taking
-    main first), held ([{bolt, why}]), left (the bolts the user cleared on their last send), ops (the main-level ops
-    whose card it is), follows. Also handed back: heads, each row as <bolt>@<head>, :main for one taking main first and
-    :left for one the user cleared, which the run record keeps on the card's post and change for the next raise to
-    read (plan.landings_step), and linked, since each row's reading was opened with it and the card has no reading of
-    its own."""
+    as many as the card's artifacts leave room for. f: kit, rows (each the facts landing_card takes, with forecast,
+    forecast_why, link or unread and preview, stopped when sluice or its host stopped its last landing at its head,
+    which its paragraph and its box's detail say, stopped_said, and taking, why, for a row taking main first), held
+    ([{bolt, why}]), left (the bolts the user cleared on their last send), ops (the main-level ops whose card it is),
+    follows. Also handed back: heads, each row as <bolt>@<head>, :main for one taking main first and :left for one the
+    user cleared, which the run record keeps on the card's post and change for the next raise to read
+    (plan.landings_step), and linked, since each row's reading was opened with it and the card has no reading of its
+    own."""
     kit, rows, held, left = f["kit"], [dict(r) for r in f["rows"]], list(f.get("held") or []), set(f.get("left") or [])
     key, form = f"land/{kit}", landings_form(len(rows))
     rows or fail(f"{key} has no bolt that can land, so it has no card")
@@ -888,7 +945,7 @@ def landings_card(f):
     taking = [r["bolt"] for r in rows if r.get("taking")]
     summary = (f"{n} bolts wait to land on {about}, in the order below. One send lands the ticked ones in that order, each "
                "queued behind the one before; clear a box to leave that bolt waiting. A note can move one in the order, or "
-               "name a defect in one, which goes to its conductor."
+               "name a defect in one, which goes to main-level ops."
                + (f" {joined(left_said)} {'was' if len(left_said) == 1 else 'were'} left on your last send, and "
                   f"{'is' if len(left_said) == 1 else 'are'} unticked." if left_said else "")
                + (f" {joined(taking)} {'takes' if len(taking) == 1 else 'take'} main first, and "
@@ -899,8 +956,7 @@ def landings_card(f):
         return {"id": f"land:{r['bolt']}", "label": cut(f"{i}. {r['bolt']}", LABEL),
                 "detail": by_words((f"{r['taking'][0].upper()}{r['taking'][1:].rstrip('.')}. " if r.get("taking") else
                                     "Left on your last send. " if r["left"] else "") + row_counts(r), DETAIL),
-                "consequence": by_words("Ticked, it lands once its team has taken main in and sluice has proven it, your send "
-                                        "standing through it." if r.get("taking") else row_said(r), DETAIL)}
+                "consequence": by_words("Ticked, it lands once a fix on it has taken main in and sluice has proven it, your send standing through it." if r.get("taking") else row_said(r), DETAIL)}
     options = [option(i, r) for i, r in enumerate(rows, 1)]
     ticked = [o["id"] for o, r in zip(options, rows) if not r["left"] and not r.get("taking")]
     then = by_words("After they land: main-level ops lands them through sluice in this order, closing each as it lands, "
@@ -912,7 +968,7 @@ def landings_card(f):
         g = -(-n // BOXES)
         sizes = [n // g + (1 if k < n % g else 0) for k in range(g)]
         groups = [options[sum(sizes[:k]):sum(sizes[:k + 1])] for k in range(g)]
-        shape = dict(intent="decide", about={"kind": "other", "title": cut(f"Land on {about}", 120)},
+        shape = dict(intent="decide", about={"kind": "other", "title": cut(f"Land on {about}", ABOUT)},
                      questions=[dict(id=f"rows-{k}", kind="multi", title=f"Bolts {grp[0]['label'].split('.')[0]} to "
                                      f"{grp[-1]['label'].split('.')[0]} of {n}, in order", options=grp,
                                      multi={"min": 0, "max": len(grp)}, recommendedIds=[o["id"] for o in grp if o["id"] in ticked],
@@ -922,13 +978,13 @@ def landings_card(f):
     previews = [(f"Preview {r['bolt']}: {label}", url) for r in rows for label, url in preview_said(r.get("preview"))[1]]
     pulls = [(f"Pull request #{r['pr']['number']} for {r['bolt']}, opened by sluice", r["pr"]["url"]) for r in rows if r.get("pr")]
     links = reads + previews + pulls
-    background = ("\n\n".join(f"{i}. {r['bolt']} ({r.get('conductor') or r['team'] + '-conductor'}): {row_counts(r)}. "
+    background = ("\n\n".join(f"{i}. {r['bolt']}: {row_counts(r)}. "
                               + (taking_said(r) if r.get("taking") else forecast_said(r.get("forecast") or [], r.get("forecast_why")))
                               + (f" Read it: {r['link']}" if r.get("link") else
                                  f" Its reading could not be opened: {r['unread']}" if r.get("unread") else "")
                               for i, r in enumerate(rows, 1))
                   + ("\n\nA preview lands nothing; your send is the word to land." if previews else "")
-                  + "\n\nA note naming a defect in a bolt goes to its conductor, and holds that bolt on this card with no "
+                  + "\n\nA note naming a defect in a bolt goes to main-level ops, and holds that bolt on this card with no "
                     "box until its fix merges.")
     shown = [markdown(f"What lands on {about}, in order", f"land-{kit}.md", face)]
     out = built(key, f"Land on {about}: {n} bolts in order", summary, background, links,
@@ -937,19 +993,38 @@ def landings_card(f):
     return out
 
 
+def deploy_form(f):
+    """The form of a deploy's card from its facts (record 0059): "boxes" while a step the deploy waits on is open, a
+    box to tick for each and one for the deploy; None, a hold-to-approve, otherwise. Pending You changes no card's
+    kind, so a card that moves from one to the other is followed rather than changed (ops.raise_deploy)."""
+    return "boxes" if any(w.get("state") != "done" for w in f.get("waited") or []) else None
+
+
 def deploy_card(f):
     """A deploy's card (record 0031 §5, plan.14): an approval of risk high naming the environment and the commit; its
     summary counting the landings since the environment's last deploy, or saying it is the first deploy, which carries
     all of main, and naming the environments before and after it; on its face the kit's release notes as the deployer
     hands them, as inline Markdown, crew writing none, or the landings' subjects when it hands none, saying so, and the
-    after-deploy steps with their doers; the landings' subjects in its details. f: env, head, base (what the environment
-    runs) or None, landings ([{pr, subject}], oldest first), landings_why (why they can't be read) or None, notes
-    (Markdown) or None, release (the notes' name) or None, steps ([{n, text, doer, held}]), before ([env]), after ([{env,
-    policy}]), follows."""
+    after-deploy steps with their doers; the landings' subjects in its details. A deploy that waits on steps of the
+    user's (swancloud record 0038, record 0059) says so first, and shows them first on its face, before the notes, each
+    with why or that it is done; while one is open it is boxes to tick carrying highStakes (deploy_form), a box for
+    each open step, `before:<n>`, then one for the deploy, `deploy`, none ticked, its send with every box ticked the
+    word, in one list or, past BOXES, lists of BOXES at most, each a question, each carrying what follows a yes, since
+    Pending You refuses a card's rationale beside questions. f: env, head, base (what the environment runs) or None,
+    landings ([{pr, subject}], oldest first), landings_why (why they can't be read) or None, notes (Markdown) or None,
+    release (the notes' name) or None, steps ([{n, text, doer, held}]), waited ([{n, text, why, state}], ops.waited_on),
+    before ([env]), after ([{env, policy}]), follows. Also handed back: its form, which the run record keeps on the
+    card's post and change."""
     env, head, landings, steps = f["env"], f["head"][:7], list(f.get("landings") or []), list(f.get("steps") or [])
+    waited = list(f.get("waited") or [])
+    left = [w for w in waited if w.get("state") != "done"]
     why, first = f.get("landings_why"), not f.get("base")
     since = f"in the first deploy to {env}" if first else f"since {env}'s last deploy ({f['base'][:7]})"
-    said = [f"Which landings it carries {since} can't be read: {why}." if why else
+    ahead = f"It waits on {plural(len(waited), 'step')} of yours before the deploy" if waited else ""
+    said = ([ahead + (f", {len(waited) - len(left)} done" if len(left) < len(waited) else "")
+             + ": tick each once it is done, and the deploy; your send with every box ticked is the word to deploy, and a "
+               "box left unticked deploys nothing."] if left else [ahead + ", each done."] if waited else [])
+    said += [f"Which landings it carries {since} can't be read: {why}." if why else
             f"The first deploy to {env}, carrying all of main up to {head}." if first else
             f"{plural(len(landings), 'landing')} since {env}'s last deploy ({f['base'][:7]})."]
     if not f.get("notes"):
@@ -975,10 +1050,38 @@ def deploy_card(f):
         shown.append(text_list(f"After the deploy: {plural(len(steps), 'step')}, {yours} yours", f"deploy-{env}-steps.txt",
                                [(f"{s['n']}  {s['text']}", "you" if s["doer"] == "user" else
                                  f"{s['doer']}, held for your word" if s.get("held") else s["doer"]) for s in steps]))
+    if waited:
+        shown.insert(0, text_list(f"Before the deploy: {plural(len(waited), 'step')}, yours", f"deploy-{env}-before.txt",
+                                  [(f"{w['n']}  {w['text']}",) + (("done",) if w.get("state") == "done" else
+                                                                  (w["why"],) if w.get("why") else ()) for w in waited]))
     background = f"Landings since {env}'s last deploy:\n" + "\n".join(subjects) if subjects else ""
-    return built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
-                 head=f["head"], kind="approve", intent="approve", approve=high(f"Deploy {head} to {env}"), recommendedIds=["approve"],
-                 rationale=f"{env} deploys only on your word, and a deploy is not undone.")
+    then = f"{env} deploys only on your word, and a deploy is not undone."
+    if not left:
+        return built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
+                     head=f["head"], kind="approve", intent="approve", approve=high(f"Deploy {head} to {env}"),
+                     recommendedIds=["approve"], rationale=then)
+    options = [{"id": f"before:{w['n']}", "label": cut(f"Done: {w['n']}. {' '.join(w['text'].split())}", LABEL),
+                "detail": by_words(w.get("why") or w["text"], DETAIL),
+                "consequence": by_words("Ticked: you have done it, and it is recorded done with your word.", DETAIL)} for w in left]
+    options.append({"id": "deploy", "label": cut(f"Deploy {head} to {env}", LABEL),
+                    "detail": by_words("Your word to deploy, once every step above is ticked.", DETAIL),
+                    "consequence": by_words(f"Sent with every box ticked: {env} is deployed {head} at its deployer's next run. "
+                                            "A box left unticked deploys nothing.", DETAIL)})
+    if len(options) <= BOXES:
+        shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": len(options)}, recommendedIds=[],
+                     rationale=then)
+    else:  # Pending You refuses a card's rationale beside questions, so each list carries what follows a yes
+        g = -(-len(options) // BOXES)
+        sizes = [len(options) // g + (1 if k < len(options) % g else 0) for k in range(g)]
+        groups = [options[sum(sizes[:k]):sum(sizes[:k + 1])] for k in range(g)]
+        shape = dict(intent="decide", about={"kind": "other", "title": cut(f"Deploy {head} to {env}", ABOUT)},
+                     questions=[dict(id=f"before-{k}", kind="multi", title=f"Before the deploy, part {k} of {g}", options=grp,
+                                     multi={"min": 0, "max": len(grp)}, recommendedIds=[], rationale=then)
+                                for k, grp in enumerate(groups, 1)])
+    out = built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
+                head=f["head"], highStakes=True, **shape)
+    out["form"] = deploy_form(f)
+    return out
 
 
 QUIET = {"quiet": ("When the host is quiet", "No stage is cut; it could be hours"),
@@ -986,33 +1089,52 @@ QUIET = {"quiet": ("When the host is quiet", "No stage is cut; it could be hours
          "skip": ("Skip it", "It is not done")}
 
 
+def step(words, command=None, short=None):
+    """An action step as Pending You takes it: its words when they fit a step's budget (STEP), else short, words within
+    it that say what to do, the card holding the long words whole elsewhere; its command whole, never cut, since a
+    command cut short does not run."""
+    s = {"text": words if len(words) <= STEP else short}
+    return dict(s, command=command) if command else s
+
+
 def step_card(f):
     """An after-deploy step's card (record 0031 §5, plan.14): the user's step a `do` with its words, where, each
     command whole and what is seen when it worked, its Done, Skip and Later the app's own; an agent's step held for
     the user's word a choice of when, quiet recommended, now or skip, each with its consequence; a deploy waiting at
-    its gate (plan.14) the user's `do` to approve it there, its one step, its where and its link the gate's. f: env, n,
-    text, doer ("user" or the agent), held, why, where, commands, done, gate (the gate's link) or None, to (the commit
-    the step names) or None, consequences ({quiet, now, skip}), follows."""
-    key, title = f"op/{f['env']}/{f['n']}", f"After {f['env']}'s deploy: {f['text']}"
+    its gate (plan.14) the user's `do` to approve it there, its one step, its where and its link the gate's. Each of
+    its action steps holds to a step's budget (step), and the step's words reach the user whole: in its title, its one
+    action step or its summary when one holds them, else on its face as inline Markdown, so words of any length get
+    their card. f: env, n, text, doer ("user" or the agent), held, why, where, commands, done, gate (the gate's link)
+    or None, to (the commit the step names) or None, consequences ({quiet, now, skip}), follows."""
+    key, head, words = f"op/{f['env']}/{f['n']}", f"After {f['env']}'s deploy: ", f["text"]
+    face = [markdown("The step", f"op-{f['env']}-{f['n']}.md", words)]
     if f.get("gate"):
         link, of = f["gate"], f" of {f['to'][:7]}" if f.get("to") else ""
         said = (f"The deploy{of} to {f['env']} waits at its gate for your approval there. Approving it at the gate is the "
                 "word to deploy; nothing else asks for it.")
         return built(key, f"Approve the deploy{of} to {f['env']} at its gate", said + (f" {f['why']}" if f.get("why") else ""),
                      links=[("The gate", link)], follows=f.get("follows"), kind="action", intent="do",
-                     action={"steps": [{"text": link}], "where": link, "done": "The run goes on past its gate."})
+                     action={"steps": [step(link, short="Open the gate at this card's link and approve the deploy there.")],
+                             "where": link, "done": "The run goes on past its gate."})
     if f["doer"] == "user":
-        steps = [{"text": c, "command": c} for c in f.get("commands") or []] or [{"text": f["text"]}]
+        titled = by_words(words, TITLE - len(head))
+        steps = ([step(c, c, "Run this command.") for c in f.get("commands") or []]
+                 or [step(words, short=prose(words, STEP))])
+        summary = f.get("why") or words
+        whole = (titled == " ".join(words.split()) or [s["text"] for s in steps] == [words]
+                 or (summary == words and prose(words) == prose(words, 10 ** 6)))
         action = dict({"steps": steps}, **{k: f[k] for k in ("where", "done") if f.get(k)})
-        return built(key, title, f.get("why") or f["text"], follows=f.get("follows"), kind="action", intent="do",
-                     action=action)
+        return built(key, head + titled, summary, artifacts=() if whole else face, follows=f.get("follows"),
+                     kind="action", intent="do", action=action)
     said = dict(f.get("consequences") or {})
     options = [{"id": k, "label": label, "consequence": by_words(said.get(k) or then, DETAIL)}
                for k, (label, then) in QUIET.items()]
-    return built(key, f"{title}, now or when the host is quiet?",
+    asks = ", now or when the host is quiet?"
+    titled = by_words(words, TITLE - len(head) - len(asks))
+    return built(key, head + titled + asks,
                  f"{f['doer']} can do it. " + (f"{f['why']} " if f.get("why") else "") + "Held for your word.",
-                 follows=f.get("follows"), urgency="whenever", kind="choice", intent="decide", options=options,
-                 recommendedIds=["quiet"])
+                 artifacts=() if titled == " ".join(words.split()) else face, follows=f.get("follows"),
+                 urgency="whenever", kind="choice", intent="decide", options=options, recommendedIds=["quiet"])
 
 
 AMENDED = re.compile(r"^Amended\b[^:.]*:\s*")
@@ -1132,10 +1254,10 @@ def made_running(units):
 def batch_card(f):
     """A batch's card (record 0031 §5, briefs.9): a one-tap notice titled by what the batch is about, from its units'
     subjects; its summary opening "N changes to read, nothing to approve" with each unit's paragraph after it, cut at
-    whole sentences; the reviewer's summary on its face as inline Markdown, a paragraph per unit with its team, and
+    whole sentences; the reviewer's summary on its face as inline Markdown, a paragraph per unit with its bolt, and
     under it what the unit's stages recorded as made (made_said); its details opening with the one link to the batch's
-    reading session, then where notes go and every unit with its team, paragraph and made lines, and how to bring a
-    thing that must run up (TRY) when one is carried. f: n, previous (the batch before) or None, units ([{unit, team,
+    reading session, then where notes go and every unit with its bolt, paragraph and made lines, and how to bring a
+    thing that must run up (TRY) when one is carried. f: n, previous (the batch before) or None, units ([{unit, bolt,
     subject, paragraph, made, up}], made [(stage, [line])] and up {name: preview} as made_said takes them, either
     absent for none), link (the reading session's) or None."""
     n, units = f["n"], list(f["units"])
@@ -1145,15 +1267,15 @@ def batch_card(f):
                  for said in [joined(subjects[:k] + ([f"{len(subjects) - k} more"] if k < len(subjects) else []))]
                  if len(said) + len(tail) <= TITLE or k == 1)
     first = f"{plural(len(units), 'change')} to read, nothing to approve" + (f", since batch {f['previous']}." if f.get("previous") else ".")
-    paragraphs = [f"{u['team']} · {u['unit']}: {u['paragraph']}" for u in units]
-    notes = ("Notes go in the reading or in this card's note, naming the unit; each reaches its team as your words, and the "
-             "units go on building whatever you do with this card.")
+    paragraphs = [f"{u['bolt']} · {u['unit']}: {u['paragraph']}" for u in units]
+    notes = ("Notes go in the reading or in this card's note, naming the unit; each reaches the planner as your words, who "
+             "hands it on to the unit's work, and the units go on building whatever you do with this card.")
     made = {u["unit"]: made_said(u["unit"], u.get("made") or [], u.get("up")) for u in units}
     tried = f"\n\n{TRY}" if made_running(units) else ""
     background = ((f"Read it all in one session: {f['link']}\n\n" if f.get("link") else "") + notes + "\n\n"
-                  + "\n\n".join(f"{u['unit']} ({u['team']})\n{prose(u['paragraph'], 10 ** 6)}"
+                  + "\n\n".join(f"{u['unit']} ({u['bolt']})\n{prose(u['paragraph'], 10 ** 6)}"
                                 + "".join(f"\n{m}" for m in made[u["unit"]]) for u in units) + tried)
-    summary = "\n\n".join(f"**{u['team']} · {u['unit']}**\n\n{u['paragraph'].strip()}"
+    summary = "\n\n".join(f"**{u['bolt']} · {u['unit']}**\n\n{u['paragraph'].strip()}"
                           + ("\n\n" + "\n".join(made[u["unit"]]) if made[u["unit"]] else "") for u in units) + tried
     shown = [markdown("The reviewer's summary", f"batch-{n}.md", summary)] + ([link(f"Read batch {n}", f["link"])] if f.get("link") else [])
     return built(f"batch/{n}", about[0].upper() + about[1:] + tail, "\n\n".join([first] + paragraphs), background,
@@ -1227,7 +1349,7 @@ def proposal_card(f):
     note to keep what it drops or amends, or more than CARD_NEW, which link its reading session; a paragraph per new
     and dropped unit on its face as inline Markdown; the change drawn at twice the density and as text. f: n, first
     (the first proposal of its chain, its key's), state, case, before and after (the plan at the tip and as its
-    commands leave it), argvs (its commands, parsed), waiting ([teams whose conductor has yet to agree]), session (the
+    commands leave it), argvs (its commands, parsed), session (the
     reading session's link) or None. Also handed back: the boxes, each {id, unit, is: new, ticked: true}, and whether
     the card needs its reading session."""
     n, argvs = f["n"], list(f["argvs"])
@@ -1279,16 +1401,14 @@ def proposal_card(f):
         lists = [{"options": [option(r) for r in grp], "multi": {"min": 0, "max": len(grp)},
                   "recommendedIds": [r["id"] for r in grp]} for grp in groups]
         form = (dict(kind="multi", intent="decide", **lists[0]) if g == 1 else
-                dict(intent="decide", about={"kind": "other", "title": cut(f"Plan change to {to}", 120)},
+                dict(intent="decide", about={"kind": "other", "title": cut(f"Plan change to {to}", ABOUT)},
                      questions=[dict(id=f"rows-{k}", kind="multi", title=f"The change, part {k} of {g}: each row as proposed", **q)
                                 for k, q in enumerate(lists, 1)]))
     if shape != "approve" and also:
         how += " What it drops or amends applies with it."
-    waiting = [f"{t}-conductor" for t in f.get("waiting") or []]
     case = prose(f["case"], 10 ** 6)
     said = ((f"Read it all in one session: {f['session']}\n\n" if f.get("session") else "")
-            + f"{SENTENCE.split(case)[0] if case else ''} {how}"
-            + (f" It waits on {joined(waiting)} to agree." if waiting else ""))
+            + f"{SENTENCE.split(case)[0] if case else ''} {how}")
     paragraphs = []
     for u, a in units.items():
         if a.sub == "drop":
@@ -1303,7 +1423,7 @@ def proposal_card(f):
                        "\n\n".join(paragraphs))] if paragraphs else [])
     shown += [{"kind": "image", "title": "The change, once approved", "ref": f"proposal-{n}.png", "upload": True, "caption": CAPTION},
               {"kind": "code", "lang": "text", "title": "The change, in text", "ref": f"proposal-{n}.txt", "lines": d["lines"]}]
-    background = f["case"].strip() + (f"\n\nWaiting on {joined(waiting)} to agree." if waiting else "")
+    background = f["case"].strip()
     links = [(f"Read proposal {n}", f["session"])] if f.get("session") else ()
     out = built(f"proposal/{f.get('first') or n}", title, said, background, links, shown, picture=picture.draw(d["sections"]), **form)
     out.update(boxes=[{k: r[k] for k in ("id", "unit", "is", "ticked")} for r in rows], session=session)
@@ -1488,7 +1608,7 @@ KEY_LEAST, FILL = 8, "_"
 
 def row_object(key, kits=()):
     """The run record's object of one of crew's six cards' keys, the row's: a proposal's, a batch's, a kit's for its
-    landings card, land/<kit> where kits, the names of the kits the partition's teams build, hold it, else a bolt's for
+    landings card, land/<kit> where kits, the partition's kits (plan.partition_kits), hold it, else a bolt's for
     its reading or an old landing card of its own, an environment's for its deploy and steps, a record's, under record
     0031's key or the key with the commit after it, record/<kit>/<number>/<commit>, as the design agent posted it
     before; None for any other key."""
@@ -1527,8 +1647,9 @@ def told_to(owner, caller):
 
 def change_args(card, note):
     """update_request's arguments for a card crew built again, but the card's id, name and version: what it takes of
-    the card, and the change note the user sees."""
-    return dict({k: card[k] for k in CHANGED if k in card}, changeNote=cut(note, 120))
+    the card, its face emptied when the card carries none now, so a step's words a face held whole go once its title
+    or its step holds them, and the change note the user sees."""
+    return dict({k: card[k] for k in CHANGED if k in card}, artifacts=card.get("artifacts") or [], changeNote=cut(note, NOTE))
 
 
 # The statuses get_request gives a card that waits on nobody any more: picked up or acked (resolved, or closed),
@@ -1558,7 +1679,7 @@ def revision(got, kind_changed=False, questions=False, anew=False):
     questions under its new title, as proposal 140's did over proposal 139's rows on 2026-10-18. Once they have
     answered it, which Pending You changes no longer, picked up or acked since or not, "leave", the card left as it
     is, since an answered card is final for what it asked and the act their answer calls for goes on (record 0031 §1
-    and §3): a change to what it offers, a reading's link, a preview's addresses, a note on what a yes frees, never
+    and §3): a change to what it offers, a reading's link, a preview's addresses, never
     closes it or asks again; only when what it asks changed, its kind or anew, a head that moved after the answer among
     them (head_anew), "follow", the new card following it (Pending You's guide, "Follow up with a new card"), or
     "ended" when Pending You has ended it already (ended), as it has a card withdrawn or expired unanswered."""
@@ -1569,6 +1690,16 @@ def revision(got, kind_changed=False, questions=False, anew=False):
     if state:
         return "ended"
     return "follow" if answered or kind_changed or questions else "change"
+
+
+def form_asked(entries, card):
+    """The form a card of crew's took at its last post or change the run record holds done, its Form (a deploy's
+    boxes, deploy_form), or None for a hold-to-approve or one posted before crew recorded forms."""
+    form = None
+    for e in entries:
+        if e.get("Act") in ("card.post", "card.update") and e.get("Card") == card and not e.get("Refused"):
+            form = e.get("Form")
+    return form
 
 
 def head_asked(entries, card):

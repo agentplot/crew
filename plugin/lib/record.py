@@ -14,11 +14,11 @@ cards it raises itself, with why a card's reading could not be opened in Unread,
 try of a batch's or a long proposal's reading made after its card was raised, by crew card session, the batch's wait or
 the rail's read: done when it started the reading, refused with crew's own message when it could not.
 
-A team's crossing to Flume (record 0050 part 3) ends its conductor and ops at their stops: each end is agent.end, on
-team/<team> and the agent, and once both are down the act that ended the last appends team.cross, on team/<team>, its
-State the Flume stream the team's work now runs in, so crew trace team/<team> reads when it crossed.
+A team's crossing to Flume (record 0050 part 3), which an older crew recorded as team.cross on team/<team>, its State
+the Flume stream the team's work then ran in, is read by crew trace team/<team> as written; crew writes it no more
+(Decision 8 of the-team-machinery-leaves).
 
-Each entry reaches the flywheel's branch of its state repository as it is written: the command that appended it
+Each entry reaches the drive's branch of its state repository as it is written: the command that appended it
 pushes it there, to the same path under runs/<host>/, as a commit of its own from this host, before it goes on. The
 branch's file becomes the union by Id of what it had and what the host has, so a host only ever adds to its own files
 and a host that is asleep or rebuilt loses nothing it pushed. A push that is refused is said once and changes nothing
@@ -66,18 +66,19 @@ DESCRIPTOR = """\
 %rec: Entry
 %key: Id
 %mandatory: Id At Host By Act
-%allowed: Id At Host By Session Act On From Commit Why Refused Result Tasks Head Ended Delivered Observed Chars Amended Took Heads Paths Reached Forecast Batch Units Count Card Key Unread Base Phase Step Outcome Log Rows State Doer Agent When Text Changes Note Repo After Lifted Settle Form Answer Age Split Submission
+%allowed: Id At Host By Session Act On From Commit Why Refused Result Tasks Head Ended Delivered Observed Chars Amended Took Heads Paths Reached Forecast Batch Units Count Card Key Unread Base Phase Step Outcome Log Rows State Doer Agent When Text Changes Note Repo After Lifted Settle Form Answer Age Split Submission Does
 
 """
 # Fields beyond the common ones: a stage.end's Result, Tasks, Head, Ended (delivered, short or stopped), Delivered (what
 # it delivered, as an object) and Observed, a tell's or a send's Chars, the Amended of a construct's start that marked
-# its unit amended, the Head of the unit.mark that marked it (the head construct starts again from) and of the
-# unit.unmark that cleared the mark once that construct delivered (plan.6, plan.2), the After units' heads a construct's place Took and a dependent's rebase left out (a forecast's Took), a
+# its unit amended, the After units' heads a construct's place Took and a dependent's rebase left out (a forecast's Took), a
 # forecast's Heads (the later unit's and the other's, <name>@<sha>; a bolt's against main, bolt/<bolt>@<sha> main@<sha>
 # and #<id> for each submission queued on main it meets, or bolt/<bolt>@<sha> alone when sluice gave none), its
 # conflicting Paths and how it Reached the later unit (told, prompt or settle) or the conductor (wait), a slot.free's Paths (the
 # place of its slot's work the tidy in its command removed, plan.9), a stage start's Forecast (the forecast entries its prompt carries), a review batch's
 # Batch (its number) and Units (each unit as <unit>:<team>@<the commit its change was read at>), a batch due's Count, a
+# kit.rename's Repo (the kit's new name, its On kit/<name> and its From the kit/<old> it had) and Count (the plan's
+# records it renamed), a
 # card act's Card (the Pending You card's id), Key (the rail row's card key) and Unread (why its reading could not open,
 # crew's own message, on a card's post or change raised without it), a card's close's Answer (what the user answered
 # on it, in crew's words made from names alone, cards.answer_said), a landing's Repo (the kit it landed on),
@@ -90,12 +91,16 @@ DESCRIPTOR = """\
 # order of two units a forecast found in conflict, a turn.begin's Took (how many asks and waiting places a role's run
 # took at its start), the unit.after that puts one After the other or the one that Lifted
 # it, with the Settle whose end decided it (plan.13), a team.cross's State (the Flume stream its team's work now runs in), a record.proposed's State (settled in the pane) and Form
-# (alternatives, when its card offered them, none of the file's words), and an operation's (ops.py): a deploy's commit
+# (alternatives, when its card offered them, none of the file's words), a deploy card's post or change's Form (boxes,
+# while a step the deploy waits on is open, cards.deploy_form), and an operation's (ops.py): a deploy's commit
 # as Head and the one it comes from as Base, its Phase (start, step or end), a step's Step and Outcome, its Log and the
-# suite's Rows; a step's Key, State, Doer, Agent, When, Text, Changes and Note.
+# suite's Rows, and the words of what the user does about a failure the deployer handed it, Does; a step's Key, State,
+# Doer, Agent, When (before among its words for a step the deploy waits on), Text, Changes and Note;
+# and a unit.drop's or chore.drop's Note, for work whose launch stood: that Flume keeps its place's branch while it holds
+# work and the name stays taken while that branch stands, crew's words made from names alone (runner.drop_kept_said).
 EXTRA = ("Result", "Tasks", "Head", "Ended", "Delivered", "Observed", "Chars", "Amended", "Took", "Heads", "Paths", "Reached",
          "Forecast", "Batch", "Units", "Count", "Card", "Key", "Unread", "Base", "Phase", "Step", "Outcome", "Log", "Rows", "State", "Doer", "Agent",
-         "When", "Text", "Changes", "Note", "Repo", "After", "Lifted", "Settle", "Form", "Answer", "Age", "Split", "Submission")
+         "When", "Text", "Changes", "Note", "Repo", "After", "Lifted", "Settle", "Form", "Answer", "Age", "Split", "Submission", "Does")
 LISTS = ("On", "From", "Commit")
 # Objects a trace prints but never follows: following them would pull in everything a team or a kit ever did.
 UNFOLLOWED = ("agent/", "team/", "queue/", "plan/")
@@ -370,6 +375,19 @@ def parse(text):
     return out
 
 
+def acts_in(text, act):
+    """The entries of one act in run-record text (parse), each found by its Act line before it is parsed, since a
+    partition's record is megabytes and an act like bolt.land a few entries of it."""
+    out, i, line = [], 0, f"\nAct: {act}"
+    while (i := text.find(line, i)) >= 0:
+        j = i + len(line)
+        if j == len(text) or text[j] == "\n":
+            start, end = text.rfind("\n\n", 0, i), text.find("\n\n", i + 1)
+            out += [e for e in parse(text[start + 2 if start >= 0 else 0:end if end >= 0 else len(text)]) if e.get("Act") == act]
+        i = j
+    return out
+
+
 def on_branch(fleet, label, since_day, tips=None):
     """The entries the label's branch of its state repository holds, from since_day on. tips, when given, is told the
     commit they were read at, {label: sha}, None for a branch not started."""
@@ -378,8 +396,12 @@ def on_branch(fleet, label, since_day, tips=None):
     tip = plan.fetch(repo, ref)
     if tips is not None:
         tips[label] = tip
-    if not tip:
-        return []
+    return at(repo, tip, since_day) if tip else []
+
+
+def at(repo, tip, since_day):
+    """The entries a state repository's branch holds at the commit tip, from since_day on, as on_branch reads them."""
+    import plan
     out = []
     for path in plan.paths_at(repo, tip, "runs/"):
         if path.endswith(".rec") and pathlib.PurePath(path).stem >= since_day:
@@ -451,8 +473,12 @@ def line(e, zoe=False):
         s += f" (removed {e['Paths']})"
     if e.get("Forecast"):
         s += f" (carrying {e['Forecast']})"
-    if e.get("Count"):
+    if e.get("Count") and e.get("Act") == "kit.rename":
+        s += f" ({e['Count']} renamed)"
+    elif e.get("Count"):
         s += f" ({e['Count']} due)"
+    if e.get("Note") and e.get("Act") in ("unit.drop", "chore.drop"):
+        s += f" ({e['Note']})"
     if e.get("Key") or e.get("Card"):
         s += " (card " + " ".join(x for x in (e.get("Key"), e.get("Card")) if x) + ")"
     if e.get("Refused"):

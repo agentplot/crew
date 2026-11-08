@@ -2,8 +2,10 @@
 commits, a signal's and a capture's markdown by its frontmatter as one record, so a value that breaks the record is
 refused, named by its file and line, and nothing is pushed (plan.1, signals.4); a Move the moves file's enum does not
 allow is refused (the route a unit add --signal writes); a hand edit that duplicates a key is refused by name
-(read.1, crew bolts naming the commit); a bolt given to a crossed team is marked Path: flume, the one Path the
-plan takes; and requests.rec and a runner's branch files are refused for what their descriptors do not allow."""
+(read.1, crew bolts naming the commit); a started bolt is marked Path: flume, the one Path the plan takes, and a new
+branch allows no Team or Agreed while an old branch's records still pass; requests.rec and a runner's branch files are refused for what their descriptors do not allow;
+and a kit's rename (plan.op_kit_rename) is one commit whose plan passes, its entry the commit after, while a plan it
+would leave naming a record's Repo twice is refused before any commit."""
 import json
 import re
 
@@ -59,7 +61,7 @@ MADSWAN = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "b
 
 
 def an_asks_write():
-    """A write of the flywheel holding no asks.rec or roles.rec yet, as a branch before its first ask."""
+    """A write of the drive holding no asks.rec or roles.rec yet, as a branch before its first ask."""
     class W(plan.Write):
         def text(self, path):
             return self.files.get(path)
@@ -101,10 +103,10 @@ def test_an_ask_or_a_role_record_the_headers_do_not_allow_is_refused(path, drop,
         plan.checked({path: pl.text()})
 
 
-def test_a_bolt_given_to_a_crossed_team_is_marked_flume_and_no_other_path_passes():
-    """A give to a crossed team marks its bolt Path: flume beside Team (the change teams-cross-to-flume-as-their-bolts-land,
-    Decision 2): plan.checked takes it, and refuses a Path the Bolt set's enum does not hold (plan.1)."""
-    bolt = "Bolt: x\nRepo: crew\nGoal: Cross.\nTeam: crw-4\nPath: flume\n\n"
+def test_a_started_bolt_is_marked_flume_and_no_other_path_passes():
+    """crew bolt start marks its bolt Path: flume (Decision 14 of the-team-machinery-leaves): plan.checked takes it, and
+    refuses a Path the Bolt set's enum does not hold (plan.1)."""
+    bolt = "Bolt: x\nRepo: crew\nGoal: Start.\nPath: flume\n\n"
     text = plan.HEADER.replace("%rec: Unit", bolt + "%rec: Unit")
     plan.recfix(text, "plan.rec")
     assert [b.get("Path") for b in plan.Plan(text).bolts()] == ["flume"]
@@ -112,11 +114,30 @@ def test_a_bolt_given_to_a_crossed_team_is_marked_flume_and_no_other_path_passes
         plan.recfix(text.replace("Path: flume", "Path: other"), "plan.rec")
 
 
+def test_a_new_branch_allows_no_team_or_agreement_and_an_old_branchs_records_still_pass():
+    """bolt-plan (Decision 9 of the-team-machinery-leaves): a new state branch's descriptors (HEADER, PROPOSALS) allow
+    no Bolt's Team and no Proposal's Agreed, so recfix --check refuses a record that carries one; a branch whose own
+    descriptor allows Team keeps allowing it when crew brings it in step (plan.in_step, still_allowed), so a bolt still
+    carrying Team passes, nothing stripped from it (plan.1, state.2)."""
+    bolt = "Bolt: x\nRepo: crew\nGoal: Start.\nTeam: crw-4\nPath: flume\n\n"
+    with pytest.raises(Refusal, match="^plan.rec fails recfix --check"):
+        plan.recfix(plan.HEADER.replace("%rec: Unit", bolt + "%rec: Unit"), "plan.rec")
+    proposal = "\nProposal: 1\nCase: Why.\nDo: bolt start x\nAgreed: crw-4-conductor\nState: open\nOpened: 2026-10-31\nBy: madswan-planner\n"
+    with pytest.raises(Refusal, match="^proposals.rec fails recfix --check"):
+        plan.recfix(plan.PROPOSALS + proposal, "proposals.rec")
+    old = plan.Plan(plan.HEADER.replace("%allowed: Bolt Repo Goal Source Path", "%allowed: Bolt Repo Goal Team Source Path")
+                    .replace("%rec: Unit", bolt + "%rec: Unit"))
+    assert not plan.in_step(old) or "Team" in old.text()
+    plan.recfix(old.text(), "plan.rec")
+    assert [b.get("Team") for b in old.bolts()] == ["crw-4"]
+
+
 def launch_rec(n, work="unit/a", after=(), **more):
-    """A launch request as plan.request writes it (runner.request_fields), its brief over two lines."""
-    given = dict(Repo="afterthought/crew", Kind="change", Name=work.split("/")[-1], Base="bolt/b", Stream="madswan",
+    """A kit's launch request as plan.request writes it (runner.request_fields), naming its repository and no host or
+    stream, its brief over two lines."""
+    given = dict(Repo="afterthought/crew", Kind="change", Name=work.split("/")[-1], Base="bolt/b",
                  Priority=2, Intent="madswan/b", Recipient="madswan/planner", After=list(after), Brief="Build a.\nSource: a.md", **more)
-    return plan.Rec("Request", runner.request_fields(n, "launch", "deneb", work, given, "2026-10-31T12:00:00Z", "madswan-dispatch-deneb"))
+    return plan.Rec("Request", runner.request_fields(n, "launch", work, given, "2026-10-31T12:00:00Z", "madswan-dispatch-deneb"))
 
 
 def requests_text(*recs):
@@ -129,10 +150,10 @@ def test_requests_of_every_act_pass_and_the_descriptor_refuses_what_it_does_not_
     lines and its After, a retry with a stage and words, a retry of the submission, a drop, a priority and a role's chore
     launch on main at priority 0 (runner.role_launch; Decision 10 of roles-run-as-flume-kinds) pass; an act, a kind or a
     hold the enums do not hold, a number that is no number and a date that is none are refused."""
-    other = lambda n, act, **g: plan.Rec("Request", runner.request_fields(n, act, "deneb", "unit/a", g, "2026-10-31T12:00:00Z", "madswan-planner"))
-    (_, _, work, given), _ = runner.role_launch([], {"afterthought/crew"}, "madswan", "design", "deneb", "madswan-main", "afterthought/crew",
-                                                "record-0053", "Write docs/adr/0053.md whole:\n# 53. Roles run as kinds")
-    role_land = plan.Rec("Request", runner.request_fields(7, "launch", "deneb", work, given, "2026-10-31T12:00:00Z", "madswan-design"))
+    other = lambda n, act, **g: plan.Rec("Request", runner.request_fields(n, act, "unit/a", g, "2026-10-31T12:00:00Z", "madswan-planner"))
+    (_, work, given), _ = runner.role_launch([], {"afterthought/crew"}, "madswan", "design", "deneb", "madswan-main", "afterthought/crew",
+                                             "record-0053", "Write docs/adr/0053.md whole:\n# 53. Roles run as kinds")
+    role_land = plan.Rec("Request", runner.request_fields(7, "launch", work, given, "2026-10-31T12:00:00Z", "madswan-design"))
     text = requests_text(launch_rec(1, "unit/a"), launch_rec(2, "unit/b", after=[1]), other(3, "retry", Of=1, Stage="construct", Words="Read it again."),
                          other(4, "retry", Of=1, Submission=True), other(5, "drop", Of=2), other(6, "priority", Of=1, Priority=5), role_land)
     plan.checked({"requests.rec": text})
@@ -166,38 +187,121 @@ def test_a_runners_branch_files_pass_by_their_descriptors_and_an_outcome_they_do
 
 
 def launch_of_a(w, **more):
-    """A change function's request: a launch of unit a on bolt b, as a give appends it."""
-    return plan.request(w, "launch", "deneb", "unit/a", **dict(dict(Repo="afterthought/crew", Kind="change", Name="a", Base="bolt/b",
-                        Stream="madswan", Priority=1, Intent="madswan/b", Recipient="madswan/planner", Brief="Build a."), **more))
+    """A change function's request: a launch of unit a on bolt b in its repository, as a start appends it."""
+    return plan.request(w, "launch", "unit/a", **dict(dict(Repo="afterthought/crew", Kind="change", Name="a", Base="bolt/b",
+                        Priority=1, Intent="madswan/b", Recipient="madswan/planner", Brief="Build a."), **more))
 
 
 def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_and_a_refused_one_pushes_nothing(state, monkeypatch):
     """plan.write commits requests.rec with the plan, one commit and one Crew-Entry (state.1, plan.2); a request crew's
     rules refuse, one recfix refuses and a write that changes a request the branch holds each refuse the whole write,
     and the branch is as it was (Decision 4 of teams-cross-to-flume-as-their-bolts-land). Every write names its act
-    (plan.2): the give's entry is the one its commit names, held here rather than written to this host's record."""
+    (plan.2): the start's entry is the one its commit names, held here rather than written to this host's record."""
     import record
-    monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
     entries = []
     monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, **f: entries.append((act, list(commit), eid)))
+    monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
     ref = f"{state.LABEL}/main"
     before = state.git("rev-parse", ref)
 
-    def give(w):
-        w.plan.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "afterthought/crew"), ("Goal", "Cross."), ("Team", "crw-4"), ("Path", "flume")]))
+    def start(w):
+        w.plan.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "afterthought/crew"), ("Goal", "Start."), ("Path", "flume")]))
         assert launch_of_a(w) == 1
         return []
-    sha = plan.write(state.fleet, state.LABEL, give, "plan(bolt b): give to crw-4", act="bolt.give", on=["bolt/b", "team/crw-4"])
+    sha = plan.write(state.fleet, state.LABEL, start, "plan(b): start the bolt", act="bolt.start", on=["bolt/b"])
     assert state.git("rev-parse", ref) == sha and state.git("rev-list", "--count", f"{before}..{sha}") == "1"
     assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == ["plan.rec", "requests.rec"]
     eid, = state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).split()
-    assert entries == [("bolt.give", [f"{state.REPO}@{sha}"], eid)]
+    assert entries == [("bolt.start", [f"{state.REPO}@{sha}"], eid)]
     held = state.git("show", f"{sha}:requests.rec")
-    assert held.startswith(runner.REQUESTS.split("\n")[0]) and "Request: 1\nAct: launch\nHost: deneb\nWork: unit/a\n" in held
+    assert held.startswith(runner.REQUESTS.split("\n")[0]) and "Request: 1\nAct: launch\nWork: unit/a\n" in held
 
-    for change, said in ((lambda w: launch_of_a(w, Stream=None), "names no Stream"),
+    for change, said in ((lambda w: launch_of_a(w, Stream="madswan"), "names a Host or a Stream"),
                          (lambda w: launch_of_a(w, Priority="high"), "^requests.rec fails recfix --check"),
                          (lambda w: w.replace("requests.rec", w.text("requests.rec").replace("Name: a", "Name: b")), "request 1 would be changed")):
         with pytest.raises(Refusal, match=said):
-            plan.write(state.fleet, state.LABEL, lambda w: change(w) and [], "plan: ask again", act="bolt.give")
+            plan.write(state.fleet, state.LABEL, lambda w: change(w) and [], "plan: ask again", act="bolt.start")
         assert state.git("rev-parse", ref) == sha
+
+
+def madswan_plan():
+    """madswan's plan.rec as afterthought/crew-state held it on 2026-11-05, under crew's descriptors (plan.HEADER): 21
+    Bolt and Unit records in tailrace, the started bolt you-sign-in-to-staging and its unit in flywheel-cloud, and a
+    bolt of timber's own whose goal a tailrace bolt shares."""
+    bolt = lambda b, repo, goal, path=None: f"Bolt: {b}\nRepo: {repo}\nGoal: {goal}\n" + (f"Path: {path}\n" if path else "") + "\n"
+    unit = lambda u, repo, b: f"Unit: {u}\nRepo: {repo}\nBolt: {b}\nIntent: {u} is built.\n\n"
+    bolts = "".join(bolt(f"trc-{n}", "tailrace", f"Goal {n}.") for n in (1, 2, 3)) + bolt("you-sign-in-to-staging", "flywheel-cloud", "Sign in.", "flume")
+    bolts += bolt("timber-own", "timber", "Goal 1.")
+    units = "".join(unit(f"tailrace-work-{n}", "tailrace", f"trc-{1 + n % 3}") for n in range(18))
+    units += unit("one-seam-turns-every-credential-into-a-principal", "flywheel-cloud", "you-sign-in-to-staging")
+    return plan.HEADER.replace("%rec: Unit", bolts + "%rec: Unit") + "\n" + units
+
+
+def renamed_fleet(state):
+    """madswan's fleet with its main level on deneb, whose spaces keep agentplot/timber and no tailrace."""
+    return dict(state.fleet, partitions={state.LABEL: dict(state.fleet["partitions"][state.LABEL], machine="deneb")},
+                hosts={"deneb": {"sessions": {"main": {"dir": "/d", "repos": ["agentplot/timber", "agentplot/boomdrive-cloud"]}}}})
+
+
+def a_rename(state, monkeypatch):
+    """crew kit rename tailrace timber, run by the user on deneb over madswan's plan: the fleet crew reads, the
+    entry's push to the branch (record.reach) among it, and the command's arguments."""
+    import argparse
+    import crew
+    import record
+    fleet = renamed_fleet(state)
+    monkeypatch.setenv("CREW_AGENT", "")
+    monkeypatch.setenv("CREW_SESSION", "")
+    monkeypatch.setattr(crew, "load", lambda: fleet)
+    monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+    monkeypatch.setattr(record, "_session", ...)
+    state.push(f"{state.LABEL}/main", {"plan.rec": madswan_plan()}, "plan: madswan's plan (chuck@deneb)")
+    return fleet, argparse.Namespace(cmd="kit", sub="rename", old="tailrace", new="timber", label=state.LABEL)
+
+
+def test_a_rename_is_one_commit_whose_plan_passes_recfix_and_its_entry_names_both_names(state, monkeypatch):
+    """Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan (plan.1, plan.2, state.1): the user's crew kit
+    rename tailrace timber is one commit of plan.rec alone, under its Crew-Entry, the plan it leaves passing a real
+    recfix --check with every tailrace record naming timber, two bolts of one goal now under one name among them, since
+    %unique holds a field once within a record and not across records; its kit.rename entry, the commit after on the
+    branch (read.5), names kit/timber and kit/tailrace with Repo timber and Count 21."""
+    import datetime
+    import record
+    fleet, a = a_rename(state, monkeypatch)
+    ref = f"{state.LABEL}/main"
+    before = state.git("rev-parse", ref)
+    plan.COMMANDS[("kit", "rename")](fleet, a)
+    commits = state.git("rev-list", "--reverse", f"{before}..{ref}").split()
+    assert len(commits) == 2
+    sha, entry = commits
+    assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == ["plan.rec"]
+    assert state.git("log", "-1", "--format=%s", sha) == f"plan(kit): rename tailrace timber ({plan.agent()})"
+    eid = state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).strip()
+    text = state.git("show", f"{sha}:plan.rec")
+    plan.recfix(text, "plan.rec")
+    p = plan.Plan(text)
+    assert [r.name() for r in p.bolts() + p.work() if r.get("Repo") == "timber"][:4] == ["trc-1", "trc-2", "trc-3", "timber-own"]
+    assert sum(1 for r in p.bolts() + p.work() if r.get("Repo") == "timber") == 22 and "Repo: tailrace" not in text
+    assert [(b.get("Repo"), b.get("Path")) for b in p.bolts() if b.name() == "you-sign-in-to-staging"] == [("flywheel-cloud", "flume")]
+    day = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    e, = [e for e in record.parse(state.git("show", f"{entry}:runs/deneb/{day}.rec")) if e["Id"] == eid]
+    assert (e["Act"], e["On"], e["From"], e["Repo"], e["Count"], e.get("Refused")) == (
+        "kit.rename", ["kit/timber"], ["kit/tailrace"], "timber", "21", None)
+    assert plan.renames_in([e]) == [("tailrace", "timber")]
+
+
+def test_a_rename_whose_plan_breaks_unique_repo_goal_is_refused_before_any_commit(state, monkeypatch):
+    """plan.1: the plan a rename leaves goes through a real recfix --check before land commits it, so one that would
+    hold a record naming its Repo twice, against %unique: Repo Goal, is refused, the branch as it was."""
+    fleet, a = a_rename(state, monkeypatch)
+    ref = f"{state.LABEL}/main"
+    before = state.git("rev-parse", ref)
+    op = plan.op_kit_rename(plan.Direct(fleet, a), a)
+
+    def twice(w):
+        op.change(w)
+        w.plan.bolt("trc-1").add("Repo", "tailrace")
+        return []
+    with pytest.raises(Refusal, match=r"^plan.rec fails recfix --check: .*field 'Repo' should be unique in this record"):
+        plan.write(fleet, state.LABEL, twice, op.subject, act=op.act, on=op.on, frm=op.frm, fields=op.fields)
+    assert state.git("rev-parse", ref) == before

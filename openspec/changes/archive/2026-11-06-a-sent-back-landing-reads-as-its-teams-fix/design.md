@@ -9,6 +9,10 @@ What crew reads of sluice was read at agentplot/sluice v0.68.1, the fleet's pin 
 - **The record.** `crates/sluice-core/src/records.rs`, `Submission`: `state`, `head`, `failed` (each `FailedTask` with `task`, `hash` empty for a check left without a result, `system`, `flaky`, `not_run`), `result`, `conflict` (`paths`, `with`) and `tested` (`combination`, `on`, `submissions`). `sluice status <n> --json` prints it, decided or not. `on` is main's revision the candidate was formed on; `combination` is the candidate, which only sluice holds.
 - **The driver.** `crates/sluice/src/profiles/worktrunk/wt_submit.rs` reads what stands before it submits (`standing_in`, in `profiles/worktrunk/mod.rs`) with `sluice submit <branch> --status --json --worktree <place>`. Where another host takes the branch's requests in (clause 137), `submit_pull` follows a request across (`pulls.rs` `follow_across`) and answers a request whose head carries sluice's failed check with `{state: "failed" | "conflict", title, summary}`, exit 1 or 2, and no `sends`. `standing` refuses that document, so `wt submit` exits 3, `INTERNAL`, saying "could not read whether a submission stands, so nothing was submitted". That fault is sluice's, and agentplot's planner takes it; crew does not work around it.
 
+## On teamless/deneb
+
+This change is carried from crew main's `615a28b3`. Here crew runs no team, so each decision below holds with the bolt's fix in place of a team's: `team_fix` and `team_fix_said` are `bolt_fix` (a failed check's fix alone, a conflict's being crew's own launch) and `sent_back_way`, `held_way` names a failed check's fix from sluice's record, `sent_back_refusal` takes no team, and refuses nothing of a conflict only with a submission queued ahead, which `held_way` has the bolt wait out (teams.21). Decision 4's `crew bolts` line is this line's `landing_phase`, which reads `sent_back`; no `bolts_sent_back` is added.
+
 ## Decisions
 
 ### Decision 1: a refusal stands until something is submitted at its head, or the head moves

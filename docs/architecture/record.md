@@ -9,12 +9,12 @@ The rules for the run record: what an entry is, when it is written, what it neve
 
 ## Rules
 
+Retired 2026-11-03 for deneb alone with `the-team-machinery-leaves` on `teamless/deneb`: `record.5` (one `stage.end` per `stage.start`) and `record.6` (a fix's object), rules of entries crew no longer writes; the entries already written are read as before (`record.4`).
+
 - **[record.1]** Every command that moves work appends one entry per act, after the act, done or refused; a pure read appends nothing.
 - **[record.2]** A failed append is said once on standard error and never changes what the command does or how it exits.
 - **[record.3]** No entry holds text anyone typed: not a tell's text, a stage's words, an intent, a goal, a reason, an excerpt or a proposal's `Do` line; `Why` is composed from names, a tell records its length, a refusal records crew's own message.
-- **[record.4]** A host appends only to its own `runs/<host>/<UTC day>.rec`, each entry in one write after the descriptor, never rewritten or removed; the branch's copy of a day is the union of both by `Id`, so carrying twice changes nothing.
-- **[record.5]** Each `stage.start` is followed by exactly one `stage.end`; an end nobody waited for is recorded once, marked late, by the next command that reads the team.
-- **[record.6]** A fix's object is `fix/<bolt>/<name>`, and its `Why` names the fix by the part after the last slash, for fixes under either naming.
+- **[record.4]** A host appends only to its own `runs/<host>/<UTC day>.rec`, each entry in one write after the descriptor, never rewritten or removed; the branch's copy of a day is the union of both by `Id`, so carrying twice changes nothing. The one rewrite is `crew kit rename`'s, of a repository's name in the entries that name it, in one commit with its `kit.rename` entry (`plan.22`). (Proposed 2026-11-07, record 0058, on the user's words; accepted only on their yes.)
 
 ## Details
 
@@ -24,8 +24,5 @@ The rules for the run record: what an entry is, when it is written, what it neve
 
 **[record.3]** Rules out: `Refused: \`unit add x "the whole intent"\``. Source: `run-record` spec "An entry holds no text anyone typed"; `record.py` 6–7; `tests/py/test_record.py`, `tests/t-journey-signals.sh`.
 
-**[record.4]** Rules out: a host writing another's file; an entry edited in place. Source: `record.py` `emit`, `carry`; state-repository design; `tests/py/test_record.py`, `tests/contract/test_record.py`, `tests/t-journey-state.sh`.
+**[record.4]** Rules out: a host writing another's file; an entry edited in place, but for `plan.22`'s rename of a repository's name (proposed, record 0058). Source: `record.py` `emit`, `carry`; state-repository design; `tests/py/test_record.py`, `tests/contract/test_record.py`, `tests/t-journey-state.sh`.
 
-**[record.5]** Rules out: two ends for one start; an end never recorded. Source: `run-record` spec "A stage's end is recorded when crew sees it".
-
-**[record.6]** Rules out: a fix's `Why` naming its bolt as the fix. Source: fix 147075d.

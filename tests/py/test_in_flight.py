@@ -1,11 +1,9 @@
 """Every plan write is an act with its entry, and a read below the branch's tip says so (plan.2, read.5; the fix
 every-plan-write-is-an-act-with-its-entry): a write given no act is refused before it reads or pushes anything, since its
-commit would name a run-record entry nothing writes; every write crew makes names its act, the give of a bolt, a unit
-marked amended so its construct runs again and that mark cleared among them; and of a read below the tip, the write it
-waits on, that write's agent, the words a command says of it, and those words before a refusal, whose last line stays
-the refusal. Each on plain facts (code.7). A real write read whole once it returns is the contract tier's
-(tests/contract/test_record.py); the commands' wiring, t-journey-prompts' and t-journey-plan's."""
-import argparse
+commit would name a run-record entry nothing writes; every write crew makes names its act; and of a read below the
+tip, the write it waits on, that write's agent, the words a command says of it, and those words before a refusal, whose
+last line stays the refusal. Each on plain facts (code.7). A real write read whole once it returns is the contract tier's
+(tests/contract/test_record.py); the commands' wiring, t-journey-plan's."""
 import ast
 import pathlib
 
@@ -53,37 +51,14 @@ def test_a_write_given_no_act_is_refused_before_it_reads_or_pushes_anything(monk
 
 def test_every_plan_write_crew_makes_names_its_act():
     """plan.write's callers, read from plan.py itself: each names act=, so none is refused at run time and none commits an
-    entry nothing writes. The give of a bolt (its bolt.give entry once written apart under an id of its own), a unit
-    marked amended so its construct runs again, and that mark cleared were the three that named none."""
+    entry nothing writes. On crew main, the give of a bolt, a unit marked amended so its construct runs again, and that
+    mark cleared were the three that named none; this line has none of the three."""
     tree = ast.parse(pathlib.Path(plan.__file__).read_text())
     # a plan write takes the fleet, the label, the change and the subject; a session's write() of its own takes none
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "write"
              and len(n.args) >= 4]
-    assert len(calls) > 20
+    assert len(calls) > 10
     assert [n.lineno for n in calls if not any(k.arg == "act" for k in n.keywords)] == []
-
-
-@pytest.fixture
-def writes(monkeypatch):
-    got = []
-    monkeypatch.setattr(plan, "write", lambda fleet, label, change, subject, body="", **k: got.append((label, subject, k)) or "c" * 40)
-    return got
-
-
-def test_a_unit_marked_amended_is_a_unit_mark_naming_the_head_its_construct_starts_from(writes):
-    assert plan.mark_amended({}, "wldn", "u", "b", "1" * 40) == "c" * 40
-    assert writes == [("wldn", "plan(b): u amended, construct runs again",
-                       dict(act="unit.mark", on=["unit/u", "bolt/b"], fields={"Head": "1" * 40}))]
-
-
-def test_a_mark_cleared_once_its_construct_delivered_is_a_unit_unmark_naming_the_mark(writes, monkeypatch):
-    p = plan.Plan(plan.HEADER)
-    p.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "switchboard-kit"), ("Goal", "A goal.")]))
-    p.insert(plan.Rec("Unit", [("Unit", "u"), ("Repo", "switchboard-kit"), ("Bolt", "b"), ("Intent", "Unit u."), ("Amended", "2" * 40)]))
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: p)
-    plan.unmark({}, {"label": "wldn", "name": "swb-2"}, argparse.Namespace(fix=None, stage="construct", name="u"))
-    assert writes == [("wldn", "plan(b): u constructed again, its mark cleared",
-                       dict(act="unit.unmark", on=["unit/u", "stage/u/construct", "bolt/b"], fields={"Head": "2" * 40}))]
 
 
 # ------------------------------------------------------------------------------------- a read below the tip says so

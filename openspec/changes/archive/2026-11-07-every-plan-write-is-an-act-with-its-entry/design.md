@@ -6,6 +6,10 @@ The proposal gives wldn's case of 2026-11-07 and the two of 2026-11-02. Rules th
 
 How a write and its entry reach the branch today: `write` makes the entry's id before its commit, names it in the commit's `Crew-Entry` trailer, lands the commit, and then, only when given `act`, has `record.emit` append the entry, which `record.reach` pushes as the commit after. A decision reads the branch by `fetch`, which reads the newest twenty first-parent commits and, when one names an entry the tip lacks, reads at the parent of the oldest such commit (`decision_at`, `read_point`).
 
+## On teamless/deneb
+
+Carried from crew main's `2d63cf9c` and `50df1064`. Decision 2's three writes are not on this line, where every write names its act already; Decisions 1, 3 and 4 hold as written, the drive's branch for the flywheel's.
+
 ## Decisions
 
 ### Decision 1: every write is an act, and the write records its entry

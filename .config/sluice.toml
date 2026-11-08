@@ -1,7 +1,9 @@
-# crew's policy for sluice, read from each branch's own revision: what crew's toolchain and tests are, which crew reads
-# when it makes a worktree of crew ready (plugin/lib/kit.py, plan.17), and what gates a merge into a bolt and a landing
-# on main. Every merge into crew's branches is a submission (record 0026): units, chores and fixes `wt submit
-# bolt/<bolt>`, main-level ops's landing `crew bolt submit <bolt>`; nothing else moves them (teams.5, plan.8).
+# crew's policy for sluice, read from each branch's own revision: what crew's toolchain and tests are, with which sluice
+# equips every working copy of crew it runs in, and a Flume place of crew's at Flume's asking (`sluice equip`, sluice's
+# clause 147; Flume's record 0036), crew readying none: the toolchain only activates, and sluice's equip installs what
+# .prototools pins (the kit standard's toolchain.8); and what gates a merge into a bolt and a landing on main. Every
+# merge into crew's branches is a submission (record 0026): units, chores and fixes `wt submit bolt/<bolt>`, main-level
+# ops's landing `crew bolt submit <bolt>`; nothing else moves them (teams.5, plan.8).
 [tests]
 toolchain = ["devenv", "print-dev-env"]
 runner = "moon"
@@ -32,6 +34,16 @@ trust = ["open"]
 # `crew bolt submit`, opens a pull request that joins the queue once out of draft: it waits on no review or check of
 # GitHub's, since the user's word on the bolt's landing card is the approval (plan.16). Bolts live on GitHub beside it.
 [branches.main]
+remote = "origin"
+required = ["#check-full"]
+flaky = "fail"
+timeout = "20m"
+trust = ["open"]
+
+# teamless/deneb is crew without teams, which deneb runs while the box keeps crew's release (record 0047 move 5;
+# swancloud record 0044). Until the refactor is confirmed and goes back into main, crew's own work lands here alone,
+# through sluice, as a push leased on where the round found it, with no pull request (the user, 2026-11-03).
+[branches."teamless/deneb"]
 remote = "origin"
 required = ["#check-full"]
 flaky = "fail"

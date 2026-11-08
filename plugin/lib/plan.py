@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""plan.py: the bolt plan, one recutils plan.rec per flywheel, on the flywheel's branch of its state repository.
+"""plan.py: the bolt plan, one recutils plan.rec per drive, on the drive's branch of its state repository.
 
-A flywheel is a partition's loop, named by its label. Its state is the files on the branch <label>/main of the
+A drive is a partition's loop, named by its label. Its state is the files on the branch <label>/main of the
 state repository the teams file names for it (`state`): plan.rec, moves.rec, proposals.rec, the signals agents record
 under signals/, and the run record under runs/<host>/.
 The plan holds only intent: Bolt and Unit records, a Unit record marked Kind: chore being a chore (plan.11). Every
@@ -23,7 +23,7 @@ five times. A write that changes several files is one commit; its run-record ent
                                              card and still-proposed record's another host holds or its owner lost,
                                              saying the older copy is dead, and tries again the reading of a batch's, a
                                              long proposal's or a kit's landings card that stands without it, ten
-                                             minutes on, a landings card's rows' each on its team's host
+                                             minutes on, a landings card's rows' each where its bolt's work runs
   crew record <kit> <number> --proposed|--accepted|--rejected [--settled-in-pane --excerpt "<words>"] [--alternatives <file>]
                                              the design agent's record at each turn of its status, read on the kit's
                                              main, raising its card unless settled in the pane, the user's yes read in
@@ -32,7 +32,8 @@ five times. A write that changes several files is one commit; its run-record ent
                                              a revision and closing it on accepted or rejected
   crew card session|end <key> [<unit>]       a plannotator session on what the rail row with that card key asks the
                                              user to read, started on this host with no browser and its link printed,
-                                             a batch card's one per unit on that unit's team's host; a reading
+                                             a batch's on the main level's host and a landing's where its bolt's work
+                                             runs, as the runner that took it reported; a reading
                                              started anew, or given again to a card standing without it, changing its
                                              open card to carry the link, each try recorded; and its end, which a
                                              card's close brings too. crew card wait is refused, naming crew card
@@ -44,16 +45,18 @@ five times. A write that changes several files is one commit; its run-record ent
                                              closed with them, and the planner told
                                              them when the operator ran it
   crew bolt new <bolt> "<goal>" --repo <kit> [--source S]... [--before <bolt>]
-  crew bolt give <team> [<bolt>]             the team takes the bolt (default: the first planned in its kit)
+  crew bolt start <bolt> [--label L]         the bolt's work started through Flume, its branch made by sluice on
+                                             GitHub and a launch of each unit and chore appended; the user's, or a
+                                             proposal's
   crew bolt order <bolt> --before <bolt>|--first|--last
   crew bolt drop <bolt> "<reason>" [--requeue]
                                              the bolt and its units out of the plan, or with --requeue its units
-                                             queued, refused while one has a worktree; its worktrees then go from its
-                                             team's host
+                                             queued, each of its launches still standing dropped either way; sluice
+                                             then asked to delete its branch where its work ran
   crew bolt land <bolt>                      once every unit has landed on main, recording the commit main then
-                                             holds; its worktree then goes from its team's host, unless it has
-                                             uncommitted changes; a bolt no team holds lands once each unit's change
-                                             is on its kit's main
+                                             holds; its landing's worktree then goes from the host its work ran on,
+                                             unless it has uncommitted changes; a bolt never started lands once each
+                                             unit's change is on its kit's main
   crew bolt submit <bolt>... [--excerpt "<the user's words>"] [--label L]
                                              main-level ops's landing of one kit's bolts through sluice, in order; with
                                              --excerpt, on the user's words in ops's pane, submitted only once crew
@@ -67,8 +70,9 @@ five times. A write that changes several files is one commit; its run-record ent
   crew unit add <unit> "<intent>" --bolt <bolt>|--repo <kit> [--source S]... [--after U]... [--before U] [--signal ID]
                                              [--unblocks <bolt>]
   crew unit split <unit> "<narrowed intent>" --into <unit> "<intent>" [--into ...]
-  crew unit amend <unit> "<new intent>"      a unit's intent replaced; one with a worktree is marked amended, and its
-                                             construct runs again at once on its team's host, its conductor told
+  crew unit amend <unit> "<new intent>"      a unit's intent replaced; one whose place is launched is marked amended
+                                             and its construct retried with the amendment's words, as the write's own
+                                             request
   crew unit order <unit> --before <unit>|--first|--last
   crew unit after <unit> <unit>...|--none
   crew unit move <unit> <bolt>|queue [--unblocks <bolt>]
@@ -76,13 +80,12 @@ five times. A write that changes several files is one commit; its run-record ent
   crew chore add <chore> "<words>" --bolt <bolt>|--repo <kit> [--source S]... [--after U]... [--before U] [--signal ID]
                                              [--unblocks <bolt>]
   crew chore order|after|move|drop ...       as a unit's, of a chore: planned maintenance that changes nothing a spec
-                                             says must be true, built in its bolt by code, verify and merge
+                                             says must be true, built in its bolt as Flume's chore kind
   crew plan propose <file> [--replaces <n>]  the planner's proposal: a Case and the plan commands it would run (Do);
                                              crew raises its card in the planner's name, or changes the card of the
                                              one it replaces
   crew plan proposed [<n>] [--json] [--open] the open proposals, or one as the user reads it; --open writes that to a
                                              file on this host and opens it in plannotator
-  crew plan agree <n> [--team <team>]        a conductor's agreement to a proposal that touches its bolt
   crew plan card <n>                         the proposal's Pending You card as JSON, from the branch alone, and its
                                              picture, a PNG crew draws, written on this host
   crew plan approve <n> [--clear <unit>...]  the proposal applied as read, in one commit, but for the new units the
@@ -92,14 +95,14 @@ five times. A write that changes several files is one commit; its run-record ent
                                              applied with its boxes as they stand once every question is answered
   crew plan drop <n> "<reason>"              the proposal closed unapplied
   crew signal <slug> "<what it asserts>" --excerpt "<the words, verbatim>"|--excerpt-file <path> [--kind K] [--subject a,b]
-                                             a finding, as a capture and its signal on the flywheel's branch: an
+                                             a finding, as a capture and its signal on the drive's branch: an
                                              agent's excerpt checked against its own Claude transcript and graded, the
                                              user's note at a shell its own excerpt
   crew signal show <id>                      a signal with its capture's provenance and its move, from either home
   crew signal move <id> attach|challenge|new-territory|answered|drop [--target T] [--reason R]
-                                             curation's move for a signal, in moves.rec on the flywheel's branch
+                                             curation's move for a signal, in moves.rec on the drive's branch
 
-A signal recorded through crew is on the flywheel's branch, under signals/; one the daily pass read from a meeting or
+A signal recorded through crew is on the drive's branch, under signals/; one the daily pass read from a meeting or
 a channel is in the partition's first blueprints repo. An id is looked up in that order. Every command that takes a
 signal's id takes its full id, <capture>/<NN>-<slug>, or its short one, <capture>/<NN>, such as
 2026-10-20-swancloud-planner-72efd8ec/01: the one signal of that capture numbered NN, written by its full id.
@@ -129,7 +132,11 @@ from cards import joined, new_units  # noqa: E402
 from crew import Refusal, Stopped, fail  # noqa: E402
 from picture import cut  # noqa: E402
 
-REPLAYS = 5
+# The waits, in seconds, before a refused write's replays, one before each replay's fresh fetch: each the double of the
+# one before up to eight, so a branch taking a commit every few seconds is outwaited rather than given up on (state.1),
+# and 23.5 in all at most, so a command whose write and entry are both replayed to the end still answers (code.9).
+REPLAY_WAITS = (0.5, 1.0, 2.0, 4.0, 8.0, 8.0)
+REPLAYS = len(REPLAY_WAITS)
 # How many times a fetch is made again when another command on this host moved crew's cache's ref of the branch while it
 # fetched, which git refuses as a ref that is at another commit than it read: every act pushes its entry (read.5), so
 # commands on one host fetch and push side by side.
@@ -142,20 +149,20 @@ HEADER = """\
 # which bolt, in what order. Nothing here says how far anything has got: `crew
 # bolts` reads that from the kits. Written only by `crew bolt`, `crew unit` and
 # `crew chore`.
-# A Source is a path in the flywheel's first blueprints repo, or
+# A Source is a path in the drive's first blueprints repo, or
 # <owner>/<name>:<path> in another.
 
 %rec: Bolt
-%doc: Work on branch bolt/<Bolt> of Repo, deployed and tested from <Repo>/bolts/<Bolt>; marked Path: flume when it was given to a team crossed to Flume, whose places build it.
+%doc: Work on branch bolt/<Bolt> of Repo, marked Path: flume once crew bolt start has started it, whose Flume places build it.
 %key: Bolt
 %type: Bolt regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Path enum flume
 %mandatory: Repo Goal
-%allowed: Bolt Repo Goal Team Source Path
-%unique: Repo Goal Team
+%allowed: Bolt Repo Goal Source Path
+%unique: Repo Goal
 
 %rec: Unit
-%doc: One OpenSpec change named Unit, built on unit/<Unit> at <Repo>/places/<Unit>; or, marked Kind: chore, a chore: planned maintenance with no change, its Intent its words, built on chore/<Unit> at <Repo>/places/chore-<Unit>.
+%doc: One OpenSpec change named Unit, built in a Flume place of its bolt's; or, marked Kind: chore, a chore: planned maintenance with no change, its Intent its words, built in a Flume place of the chore kind.
 %key: Unit
 %type: Unit regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Bolt rec Bolt
@@ -165,9 +172,9 @@ HEADER = """\
 %unique: Repo Bolt Kind Intent
 """
 MOVES = """\
-# The flywheel's curation moves: one per signal, appended through crew and
+# The drive's curation moves: one per signal, appended through crew and
 # never merged. A Signal is a signal's id: signals/<id>.md on this branch, or
-# in the flywheel's first blueprints repo.
+# in the drive's first blueprints repo.
 
 %rec: Move
 %doc: A curation move over one signal, stored with its inputs.
@@ -327,9 +334,6 @@ class Plan:
         """The work built in order with this unit or chore: its bolt's, or its repo's queue."""
         return self.work_of(u.get("Bolt")) if u.get("Bolt") else self.queue(u.get("Repo"))
 
-    def teams(self):
-        return {b.name(): b.get("Team") for b in self.bolts()}
-
     def remove(self, rec):
         self.paras.remove(rec)
 
@@ -388,14 +392,26 @@ def declares(p):
 
 def in_step(plan, header=HEADER):
     """Bring each record descriptor of a plan, or of another of crew's files with its header, in step with crew's own
-    (HEADER), so a branch started before a field was allowed takes it on its next write. Returns whether any changed."""
+    (HEADER), so a branch started before a field was allowed takes it on its next write, still allowing what the
+    branch's own allowed (still_allowed). Returns whether any changed."""
     want = {declares(p): p for p in Plan(header).paras if declares(p)}
     changed = False
     for i, p in enumerate(plan.paras):
         k = declares(p)
-        if k in want and p != want[k]:
-            plan.paras[i], changed = list(want[k]), True
+        new = still_allowed(p, want[k]) if k in want else p
+        if new != p:
+            plan.paras[i], changed = new, True
     return changed
+
+
+def still_allowed(have, want):
+    """crew's descriptor of a record set (want), still allowing each field the branch's own (have) allowed and crew's
+    no longer does, a Bolt's Team and a Proposal's Agreed among them, so records that carry one pass recfix --check
+    with nothing stripped from them (Decision 9 of the-team-machinery-leaves; plan.1, state.2)."""
+    def allowed(p):
+        return next((l.split()[1:] for l in p if l.startswith("%allowed:")), [])
+    extra = [f for f in allowed(have) if f not in allowed(want)]
+    return [l + "".join(f" {f}" for f in extra) if extra and l.startswith("%allowed:") else l for l in want]
 
 
 def check(plan):
@@ -700,7 +716,7 @@ def in_flight(commits, texts):
 
 
 def decision_at(commits, texts):
-    """The commit a decision reads a flywheel's branch at (read.5, plan.2), from facts alone (code.7): commits, the
+    """The commit a decision reads a drive's branch at (read.5, plan.2), from facts alone (code.7): commits, the
     branch's newest first, each (sha, its first parent, the entries its Crew-Entry trailer names); texts, {path: text}
     of the run-record files at the tip those entries' ids name (entry_paths), None for one the tip lacks. A commit
     whose entry the tip lacks is in flight, its write on the branch and its entry not yet; the branch is read at the
@@ -786,24 +802,72 @@ def tip_of(repo, ref, fresh=False):
     return tip
 
 
+def tips_of(repo, refs):
+    """Several branches of the repo fetched now over https in one fetch, each with what it brings beside it (beside),
+    the host's follower's one fetch of a repository at its clock's tick, carrying every branch it reads of it (plan.12;
+    sluice's core.31, the remote's one fetch a tick): {ref: tip}, None for a branch the repo does not have. A fetch
+    git refuses for a branch it cannot find is made again without the branch it names, which reads None, so a branch
+    not yet made costs the rest one fetch more and nothing else; one naming no branch asked for fetches each alone
+    (tip_of); any other failure refuses, naming the repo."""
+    refs, out = list(dict.fromkeys(refs)), {}
+    while refs:
+        specs = [s for ref in refs for s in [f"+refs/heads/{ref}:refs/crew/{ref}", *beside(ref)]]
+        prune = any(beside(ref) for ref in refs)
+        for n in range(LOCK_TRIES):
+            r = git(repo, "fetch", "--quiet", "--no-tags", *(["--prune"] if prune else []), url(repo), *specs, check=False)
+            if not (r.returncode and "cannot lock ref" in r.stderr):
+                break
+            time.sleep(0.1 * (n + 1))
+        if not r.returncode:
+            break
+        if "couldn't find remote ref" not in r.stderr:
+            fail(f"could not fetch {', '.join(refs)} of {repo} over https: {r.stderr.strip()}")
+        gone = next((ref for ref in refs if re.search(rf"couldn't find remote ref (refs/heads/)?{re.escape(ref)}\s*$", r.stderr, re.M)), None)
+        if gone is None:
+            return dict(out, **{ref: tip_of(repo, ref, fresh=True) for ref in refs})
+        out[gone] = None
+        refs.remove(gone)
+    for ref in refs:
+        out[ref] = tip_here(repo, ref) or git(repo, "rev-parse", f"refs/crew/{ref}")  # the cache's files, else git
+        READ.keep_tip(repo, ref, out[ref])
+    return out
+
+
 def beside(ref):
-    """What a fetch of a branch brings with it, in the same fetch (plan.12): for a flywheel's branch, <label>/main, its
+    """What a fetch of a branch brings with it, in the same fetch (plan.12): for a drive's branch, <label>/main, its
     runners' branches, <label>/runner/*, which crew reads and never writes (state.5), pruned of a host's branch gone
     from the repository; nothing for any other branch (Decision 4 of teams-cross-to-flume-as-their-bolts-land)."""
     m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)/main", ref)
     return [f"+refs/heads/{m.group(1)}/runner/*:refs/crew/{m.group(1)}/runner/*"] if m and m.group(1) != "plan" else []
 
 
-def runner_tips(repo, label):
+def runner_tips(repo, label, fetch=True):
     """Each host's runner branch of the partition as crew's cache of its state repository holds it, as this command's
-    fetch of <label>/main brought it (tip_of, beside): {host: commit}. Read from the cache's files with no process, its
-    loose refs over packed-refs, as tip_here reads a branch; through git for-each-ref only when the files can't say."""
-    tip_of(repo, f"{label}/main")
+    fetch of <label>/main brought it (tip_of, beside), or with fetch False as the cache holds it now, as the follower's
+    clock last fetched it (plan.12): {host: commit}. Read from the cache's files with no process, its loose refs over
+    packed-refs, as tip_here reads a branch; through git for-each-ref only when the files can't say."""
+    if fetch:
+        tip_of(repo, f"{label}/main")
     c, prefix = CACHE / f"{repo}.git", f"refs/crew/{label}/runner/"
     tips = crew.files_refs(c, prefix) if (c / "HEAD").exists() else {}
     if tips is None:
         tips = dict(l.split(" ", 1) for l in git(repo, "for-each-ref", "--format=%(refname) %(objectname)", prefix).splitlines())
     return {name[len(prefix):]: sha for name, sha in tips.items() if crew.NAME.match(name[len(prefix):])}
+
+
+def partition_hosts(fleet, label, fetch=True):
+    """A partition's hosts (Decision 5 of the-team-machinery-leaves): its main level's machine and every host whose
+    runner answers for it, its branch <label>/runner/<host> in the partition's state repository as this command's
+    fetch brought it, or with fetch False as crew's cache holds it now (runner_tips), each once, sorted; the hosts its
+    kits' work runs on, as the runners report it, which crew looks up no other way (the user's ruling of 2026-11-01)."""
+    repo, _ = state_of(fleet, label)
+    return sorted({crew.partition_of(fleet, label)["machine"], *runner_tips(repo, label, fetch)})
+
+
+def hosts_of(fleet, label, runs):
+    """A partition's hosts as a read holds them (Decision 5 of the-team-machinery-leaves): its main level's machine and
+    each host whose runner the read read beside its plan (runs, rail_runs), each once, sorted; reading nothing (code.7)."""
+    return sorted({crew.partition_of(fleet, label)["machine"], *((runs or {}).get(label, ([], {}))[1])})
 
 
 def runners(repo, label):
@@ -876,15 +940,25 @@ def commit(repo, parent, files, message):
     return git(repo, "commit-tree", tree, *(["-p", parent] if parent else []), "-F", "-", input=message)
 
 
+def replay_wait(n, draw):
+    """How long a refused write waits, in seconds, before its nth replay's fresh fetch (from 0): REPLAY_WAITS' nth,
+    spread over its upper half by draw, a number in [0, 1) drawn afresh for each wait, so commands refused at one moment
+    replay at different moments rather than in step. Never more than the nth, so the whole wait is bounded by their
+    sum (code.7, code.9)."""
+    return REPLAY_WAITS[n] * (1 + draw) / 2
+
+
 def land(repo, ref, path, make):
     """make(tip) gives a file's new text (or, with path None, {path: text}) and the commit message, or refuses; or a
     chain of them, a list, each committed on the one before, as the run record's entries are, one commit each. Every
     file a commit holds is checked first. The first attempt starts from the tip the command holds; the last commit is
-    pushed without force, and when the push is refused because the branch moved, the branch is fetched afresh and make
-    runs again on the new tip, the whole chain made again, up to five times (plan.1, state.1). The command then holds
-    the commit it pushed, so its later steps read its own write once its entry is on the branch (fetch)."""
-    tip = tip_of(repo, ref)
-    for _ in range(1 + REPLAYS):
+    pushed without force, and when the push is refused because the branch moved, the write waits a growing moment
+    (replay_wait), the branch is fetched afresh and make runs again on the new tip, the whole chain made again, up to
+    REPLAYS times, so a busy branch is outwaited (plan.1, state.1); a write still refused is refused, and an entry so
+    refused is kept for the host's next push (record.reach, record.2). The command then holds the commit it pushed, so
+    its later steps read its own write once its entry is on the branch (fetch)."""
+    tip, waited = tip_of(repo, ref), 0.0
+    for n in range(1 + REPLAYS):
         made = make(tip)
         sha = tip
         for text, message in made if isinstance(made, list) else [made]:
@@ -898,11 +972,17 @@ def land(repo, ref, path, make):
             git(repo, "update-ref", f"refs/crew/{ref}", sha, check=False)
             READ.keep_tip(repo, ref, sha)
             return sha
+        if n < REPLAYS:  # the last refusal waits for no replay, and is still fetched to tell a moved branch
+            import random  # here, as the module's rarer imports are: only a refused push draws
+            wait = replay_wait(n, random.random())
+            time.sleep(wait)
+            waited += wait
         moved = tip_of(repo, ref, fresh=True)
         if moved == tip:
             fail(f"the push of {ref} to {repo} failed: {r.stderr.strip()}")
         tip = moved
-    fail(f"{ref} of {repo} kept moving: the write was applied {1 + REPLAYS} times and each push was refused")
+    fail(f"{ref} of {repo} kept moving: the write was applied {1 + REPLAYS} times, waiting {waited:.1f} s in all between "
+         "them, and each push was refused")
 
 
 def agent():
@@ -915,7 +995,7 @@ def agent():
 # ---------------------------------------------------------------------------------------------------- the plan
 
 def state_of(fleet, label):
-    """A flywheel's state repository and its branch there: <owner>/<name> and <label>/main."""
+    """A drive's state repository and its branch there: <owner>/<name> and <label>/main."""
     return crew.partition_of(fleet, label)["state"], f"{label}/main"
 
 
@@ -942,16 +1022,16 @@ def removed_by(repo, tip, kind, name):
 
 
 class Write:
-    """What a change sees: the flywheel's state at the tip it is applied to (the plan, and any other file it reads or
+    """What a change sees: the drive's state at the tip it is applied to (the plan, and any other file it reads or
     replaces), and how to refuse with the commit that removed something."""
 
     def __init__(self, repo, label, tip, plan):
         self.repo, self.label, self.tip, self.plan, self.subject = repo, label, tip, plan, None
         self.files = {}  # every other file the change replaced, {path: text}, committed with the plan
-        self.quiet = set()  # teams the write's own command greets, so notify leaves them be
         self.on, self.frm = [], []  # objects only the change can name, for the write's run-record entry
         self.asked, self.held = [], []  # the asks the change wrote in its commit (ask_lines), and the keys it found held
         self.why, self.fields = None, {}  # the entry's Why and fields where only the tip the change is applied to says them
+        self.renamed = []  # the kits a rename in this write renamed, (old, new), whose entry the run record holds once it lands
 
     def text(self, path):
         """A file of the branch as the change has left it: replaced, else at the tip, else None."""
@@ -960,9 +1040,38 @@ class Write:
     def replace(self, path, text):
         self.files[path] = text
 
-    def runner_of(self, host):
-        """A host's runner as this command read it beside the plan, at its branch's tip (runners, runner.of_host)."""
-        return runner.of_host(runners(self.repo, self.label), self.label, host)
+    def runners(self):
+        """The partition's runners as this command read them beside the plan, each at its branch's tip (runners)."""
+        return runners(self.repo, self.label)
+
+    def taker(self, launch):
+        """The host whose runner took a launch, as this command read the runners (runner.taken), or None while crew
+        can't tell or none has."""
+        reading = runner.taken(self.runners(), runner.number(launch.get("Request")))[0] if launch is not None else None
+        return reading["host"] if reading else None
+
+    def entries(self):
+        """The partition's run record from BATCH_DAYS back as the branch holds it at the tip the change is applied to,
+        each entry once, oldest first, as partition_entries reads it from the branch's tip (read.5), so a check of it
+        is made again on each replay (plan.1)."""
+        if getattr(self, "_entries", None) is None:
+            since = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=BATCH_DAYS)).isoformat()
+            seen = {}
+            for e in record.at(self.repo, self.tip, since):
+                seen.setdefault(e["Id"], e)
+            self._entries = sorted(seen.values(), key=lambda e: (e["At"], e["Id"]))
+        return self._entries
+
+    def renames(self):
+        """The partition's renames of its kits as the run record holds them at the tip the change is applied to
+        (renames_at), whole, since a launch made under a former name stands in requests.rec however old it is, then
+        each a rename earlier in this write made (renamed), so a command after it in a proposal reads it too."""
+        return renames_at(self.repo, self.tip) + self.renamed
+
+    def kits(self):
+        """The partition's kits by their names now (partition_kits), in the plan as the change has left it so far, with
+        the landings the run record holds at the tip it is applied to, read through its renames (renames)."""
+        return partition_kits(self.plan, landings_at(self.repo, self.tip) if self.tip else [], self.renames())
 
     def bolt(self, name):
         return self.plan.bolt(name) or self.gone("Bolt", name)
@@ -1003,8 +1112,8 @@ def unacted(act, subject):
 
 
 def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
-    """Apply change(Write) to the tip of the flywheel's branch, its plan's record descriptors first brought in step
-    with crew's, commit every file it changed, each checked first, and push, replaying on a refused push. change returns the bolts it touched; each one's conductor is told the subject, unless it wrote it.
+    """Apply change(Write) to the tip of the drive's branch, its plan's record descriptors first brought in step
+    with crew's, commit every file it changed, each checked first, and push, replaying on a refused push. change returns the bolts it touched.
     Every write is an act (plan.2): the commit names its run-record entry, written by the write itself once pushed,
     naming on and frm and whatever the change added to them, with the act's own fields, and reaching the branch as the
     commit after it before the write returns (read.5), so no write leaves the branch in flight; one given no act is
@@ -1023,28 +1132,25 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
         tip or fail(f"{repo} has no {ref} yet: crew state init {label}")
         w = Write(repo, label, tip, read(repo, ref, tip))
         in_step(w.plan)
-        before = w.plan.teams()
         touched = change(w) or []
         check(w.plan)
         if "requests.rec" in w.files:
             appended(w)
         files = {"plan.rec": w.plan.text(), **w.files}
-        seen.update(before=before, after=w.plan.teams(), due=due_teams(fleet, w.plan), touched=touched, quiet=w.quiet, label=label,
+        seen.update(touched=touched, label=label,
                     subject=f"{w.subject or subject} ({agent()})", on=list(on) + w.on, frm=list(frm) + w.frm, asked=w.asked, held=w.held,
-                    why=w.why, fields=w.fields,
-                    takers=planned_takers(fleet, label, w.plan, [b for b in touched if b not in before]))
+                    why=w.why, fields=w.fields)
         return files, message(seen["subject"], body, [seen["eid"]] + [eid for eid, _ in w.asked])
     sha = land(repo, ref, None, make)
     print(f"{ref} {sha[:7]}: {seen['subject']}")
     record.emit(label, act, seen["on"], seen["frm"], [f"{repo}@{sha}"], why or seen["why"] or record.subject(seen["subject"]),
                 eid=seen["eid"], by=by, **{**(fields or {}), **seen["fields"]})
     asked(label, f"{repo}@{sha}", seen["asked"], seen["held"])
-    notify(fleet, seen, seen["subject"])
     return sha
 
 
 def requests_of(w):
-    """requests.rec of the flywheel as the write has it, its descriptor in step with crew's (runner.REQUESTS), or a new
+    """requests.rec of the drive as the write has it, its descriptor in step with crew's (runner.REQUESTS), or a new
     one when the branch has none yet (Decision 4 of teams-cross-to-flume-as-their-bolts-land)."""
     text = w.text("requests.rec")
     rq = Plan(text if text is not None else runner.REQUESTS)
@@ -1052,8 +1158,8 @@ def requests_of(w):
     return rq
 
 
-def request(w, act, host, work, **given):
-    """A request of a host's runner (act, launch, retry, drop or priority, for work on host, with the fields given as
+def request(w, act, work, **given):
+    """A request of the runners (act, launch, retry, drop or priority, for work, with the fields given as
     runner.request_fields takes them) appended to requests.rec in the write's own commit, beside the plan write that
     occasions it and under its one Crew-Entry (state.1, plan.2): numbered the next, dated now and by the writer, and
     checked by crew's own rules (runner.request_refusal) before land checks the file by recfix with every other the
@@ -1062,7 +1168,7 @@ def request(w, act, host, work, **given):
     have = rq.recs("Request")
     n = runner.next_request(have)
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    rec = Rec("Request", runner.request_fields(n, act, host, work, given, now, agent()))
+    rec = Rec("Request", runner.request_fields(n, act, work, given, now, agent()))
     why = runner.request_refusal(have, rec)
     why is None or fail(why)
     rq.insert(rec)
@@ -1082,68 +1188,6 @@ def either(rows):
     return rows[0] if len(rows) == 1 else ", ".join(rows[:-1]) + " or " + rows[-1]
 
 
-def notify(fleet, seen, subject):
-    """Tell the conductor of each team holding a bolt the write touched, before or after, unless that conductor wrote it,
-    or the write's own command greets it instead; crew closes a row's card itself at the event that ends it, so no
-    write names a card to close. Tell the partition's dispatchers that are up of a bolt
-    added, or of one landed or dropped that frees a team, so a free team gets its next bolt, unless one of them wrote
-    it."""
-    tells, shown, dispatch = notices(fleet["teams"], seen, agent(), subject)
-    for to, text in tells:
-        crew.tell(fleet, to, text)
-    for line in shown:
-        print(line)
-    if dispatch:
-        tell_dispatchers(fleet, seen["label"], dispatch_said(subject, seen.get("takers") or {}))
-
-
-def planned_takers(fleet, label, plan, added):
-    """Of the bolts a write added (added, by name), each held by no team in a kit a team crossed to Flume builds, with
-    those teams (runner.takers; Decisions 3 and 5 of teams-cross-to-flume-as-their-bolts-land): {bolt: [team]}."""
-    found = {b: runner.takers(plan, fleet["teams"], label, b) for b in added}
-    return {b: names for b, names in found.items() if names}
-
-
-def dispatch_said(subject, takers):
-    """What the partition's dispatchers are told of a write that added a bolt or freed a team (notices): the write's
-    subject, then for each bolt added in a kit a team crossed to Flume builds, that it can be given to that team
-    (runner.planned_said), else to give a free team its next bolt."""
-    if not takers:
-        return f"{subject}. Give a free team its next bolt."
-    return f"{subject}. " + " ".join(runner.planned_said(b, names) + "." for b, names in takers.items())
-
-
-def tell_dispatchers(fleet, label, text):
-    """Each of the partition's dispatchers that is up told the text, unless it is the one asking."""
-    for host in crew.partition_hosts(fleet, label):
-        d = f"{label}-dispatch-{host}"
-        if d != agent() and crew.agent_status(fleet, d):
-            crew.tell(fleet, d, text)
-
-
-def due_teams(fleet, plan):
-    """The teams a plan leaves due to cross to Flume or back (runner.path_of), whose bolt landed or dropped frees
-    nothing, since each is given no bolt until it has crossed (Decision 2 of teams-cross-to-flume-as-their-bolts-land)."""
-    return {n for n, t in fleet["teams"].items() if runner.path_of(plan, t)[0] == "due"}
-
-
-def notices(teams, seen, me, subject):
-    """Who a write tells, as facts (teams.7): each conductor of a team holding a bolt the write touched, before or after
-    it, unless it wrote it (me) or the write's own command greets it (seen["quiet"]), sent the subject, nothing more,
-    since crew closes a row's card itself; and whether the dispatchers hear of it, a bolt added or one a team held
-    landed or dropped, but for a team the write leaves due (seen["due"]), which is free for nothing. Returns
-    ([(conductor, text)], [lines shown], whether the dispatchers are told)."""
-    before, after, touched = seen["before"], seen["after"], seen["touched"]
-    tells, shown = [], []
-    for t in sorted(x for x in {before.get(b) for b in touched} | {after.get(b) for b in touched}
-                    if x and x not in seen["quiet"] and x in teams):
-        if f"{t}-conductor" != me:
-            tells.append((f"{t}-conductor", subject))
-    added = [b for b in touched if b not in before and b in after]
-    freed = [b for b in touched if b not in after and before.get(b) and before[b] not in seen["due"]]
-    return tells, shown, bool(added or freed)
-
-
 def push_now(fleet, label):
     """crew events --push: each entry of the host's run record of the label that its branch lacks, which a push that
     was refused left in the host's file, pushed now, each as its own commit (record.reach); said when there is none."""
@@ -1155,7 +1199,7 @@ def push_now(fleet, label):
 # --------------------------------------------------------------------------------------------- crew state init
 
 def state_init(fleet, a):
-    """Create the flywheel's branch, adopting what the partition had: the first blueprints repo's plan/<label> is
+    """Create the drive's branch, adopting what the partition had: the first blueprints repo's plan/<label> is
     pushed as the branch, so the plan's history is the branch's, else the branch starts with an empty plan; each other
     blueprints repo's plan/<label> is joined in one commit naming where it came from; the plan's record descriptors are
     brought in step with crew's; then moves.rec, with the first blueprints repo's moves. Every step is its own push and first checks whether the branch already shows it, so a
@@ -1185,7 +1229,7 @@ def state_init(fleet, a):
             did.append(f"adopted plan/{label} of {bp} at {t[:7]}, with its history")
             record.emit(label, "state.init", [f"plan/{label}"], commit=[f"{repo}@{tip}"], why=f"state({label}): adopt plan/{label} of {bp}")
         else:
-            tip = init_step(repo, ref, label, f"state({label}): start the flywheel's plan",
+            tip = init_step(repo, ref, label, f"state({label}): start the drive's plan",
                             lambda w_tip, files: files.update({"plan.rec": HEADER}) if w_tip is None else fail(f"{repo} has {ref} since {w_tip[:7]}"))
             did.append("started an empty plan")
     for bp, t, plan in joins:
@@ -1306,12 +1350,11 @@ def stamped(fleet, host, kits, labels=(), overviews=(), routes=False):
 
 
 def survey(fleet, held, sites=False, board=False, fetch=False):
-    """Read the kits of every host holding active bolts, one call per host. held is [(team, bolt)] or [(team, bolt, kit)], the kit the bolt's
-    as the plan's Repo names it. The answer is
-    per host: its kits by main checkout, or why it did not answer. With sites, each worktree's devurl names and
-    the host's running portless routes too; board implies sites and adds each team's slots and the explorations on
-    each kit's main, for the board. With board, each kit is asked for the slots of every team that builds it on that
-    host. With fetch, each kit's GitHub is fetched on its host before it is read, for a read a decision of the moment
+    """Read the kits of every host holding active bolts, one call per host. held is [(where, bolt)], where a bolt's
+    work runs as the runner that took it reported (bolt_at, its host and the kit's folder there), bolt None for the kit
+    alone. The answer is per host: its kits by folder, or why it did not answer. With sites, each worktree's devurl names and
+    the host's running portless routes too; board implies sites and adds the explorations on each kit's main, for the
+    board. With fetch, each kit's GitHub is fetched on its host before it is read, for a read a decision of the moment
     rests on (plan.18, plan.19), and a fetch that fails reads that kit unread with git's words. A kit the command has
     already read is not asked again, but by a survey that fetches, which must read after its own fetch; what a host
     answers is kept for the command's later steps; a sites survey is neither served nor kept, but in the host's
@@ -1319,22 +1362,11 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
     (Kept.served) and asks each host only for the rest, its answers stamped."""
     sites = sites or board
     hosts = {}
-    for team, bolt, *repo in held:
-        t = fleet["teams"].get(team)
-        if not t:
-            continue
-        # A team with a bolt reads that bolt's kit; one asked of with none, every kit it holds (record 0035).
-        try:
-            kits = [crew.with_kit(t, repo[0])["kit"]] if repo and repo[0] else [t["kit"]] if bolt else crew.kits_of(t)
-        except Refusal:
-            continue
-        for kt in kits:
-            mates = sorted(o["name"] for o in fleet["teams"].values() if o["machine"] == t["machine"]
-                           and any(x["main"] == kt["main"] for x in crew.kits_of(o)))
-            k = hosts.setdefault(t["machine"], {}).setdefault(kt["main"], {"main": kt["main"], "dir": kt["dir"], "bolts": [],
-                **({"slots": {o: f"~/.local/state/{o}-team/slots" for o in mates}} if board else {})})
-            if bolt and bolt not in k["bolts"]:
-                k["bolts"].append(bolt)
+    for t, bolt in held:
+        kt = t["kit"]
+        k = hosts.setdefault(t["machine"], {}).setdefault(kt["main"], {"main": kt["main"], "dir": kt["dir"], "bolts": []})
+        if bolt and bolt not in k["bolts"]:
+            k["bolts"].append(bolt)
     out, kept = {}, READ.follower if board and not fetch else None  # the follower's read is the board's survey
     for host, kits in sorted(hosts.items()):
         have = {} if sites or fetch else {m: k for m, k in READ.kits(host).items() if m in kits}
@@ -1367,23 +1399,6 @@ def amended(mark):
     """Whether a unit's Amended mark waits for construct to be run again: proposal/<n> or intent. Any other mark is
     the head of unit/<unit> when construct started again."""
     return mark == "intent" or (mark or "").startswith("proposal/")
-
-
-def place_stage(pl, mark=None):
-    """The stage of a unit that has neither landed nor merged, from its place and its Amended mark. A marked unit is
-    amended until construct runs again, and in construct while its head is still where construct started; once that
-    construct has committed the mark stops counting (plan.6). Otherwise: verify, code, planned or construct, from its
-    tasks and its planning."""
-    if mark and (amended(mark) or not pl or pl.get("head") == mark):
-        return "amended" if amended(mark) else "construct"
-    done, total = pl["tasks"] or (0, 0)
-    return "verify" if total and done == total else "code" if done else "planned" if pl["planning"] else "construct"
-
-
-def carried_place(tasks):
-    """A place read from a unit's change its bolt holds open, carried there inside another unit's merge, for a unit
-    whose own place is gone: its tasks as the bolt holds them, its planning complete (teams.17)."""
-    return {"tasks": tasks, "planning": True, "open": [], "head": None}
 
 
 # The stages at which a unit has finished construct: its change is committed, and a unit after it may be constructed.
@@ -1426,22 +1441,16 @@ def chore_stage(name, bolt, k, pl):
 
 
 class Stages:
-    """Each unit's and chore's stage, read from its kit on its team's host. The first rule that holds is a unit's stage:
-    landed, merged once its bolt holds its change archived (teams.17), then amended or construct for a unit the plan
-    marks amended whose construct has not committed again, then verify, code, planned, construct, then ready or waiting
-    by whether its After is met (after_met); a chore's is chore_stage's, then ready or waiting the same way. A unit
-    whose change its bolt holds open, carried there inside another unit's merge, is marked carried and reads its stage
-    from its place, or with none from the change on the bolt, its merge owed (carried_place). A place at its path that
-    tracks another bolt, one it has left, kept from a drop or a move, is not its place: its stage is read as having none,
-    and that place is marked left, which the tidy removes and no stage starts over (left_refusal). Work with no bolt is
-    queued, and work whose host does not answer, or whose bolt crew can't tell where to read, is unknown, unless main
-    holds it landed. A unit or chore of a bolt given through Flume (Path: flume) reads its stage from the runner's
-    records alone, never from a place in the kit (crossed; Decision 8 of teams-cross-to-flume-as-their-bolts-land),
-    each partition's requests and runners read once for the command beside its plan (runs, {label: (requests,
-    readings)} as runner_facts reads them, read when first needed where not given; plan.12)."""
+    """Each unit's and chore's stage. Work with no bolt is queued; work of a bolt not started is ready or waiting by
+    whether its After is met (after_met); and a unit or chore of a started bolt (Path: flume, started) reads its stage
+    from the runner's records alone, never from a place in the kit, landed once main holds it, and unknown where the
+    runner that took it can't be read or told (crossed; Decision 8 of teams-cross-to-flume-as-their-bolts-land), the
+    plan's partition's (label) requests and runners read once for the command beside its plan (runs, {label: (requests,
+    readings)} as runner_facts reads them, read when first needed where not given; plan.12), and its kit read where
+    the runner that took its work reported it (at, bolt_at)."""
 
-    def __init__(self, fleet, plan, survey, runs=None):
-        self.fleet, self.plan, self.survey, self.memo, self.runs = fleet, plan, survey, {}, dict(runs or {})
+    def __init__(self, fleet, plan, survey, runs=None, label=None):
+        self.fleet, self.plan, self.survey, self.memo, self.runs, self.label = fleet, plan, survey, {}, dict(runs or {}), label
 
     def runner(self, label):
         """The partition's requests and its runners as read (runner_facts), or why they could not be read."""
@@ -1453,81 +1462,97 @@ class Stages:
         return self.runs[label]
 
     def crossed(self, name, u, bolt, res):
-        """A crossed piece's stage (runner.stage_of) from its newest launch not dropped, the runner's answer to it and
-        its place's record, read on its host's runner branch: unknown where the bolt's team or its runner can't be read,
+        """A started piece's stage (runner.stage_of) from its newest launch not dropped, the answer of the runner that
+        took it and its place's record there (runner.piece_stage): unknown where its partition's runners can't be read,
         or it has no launch, as stage_of says; merged once its place has landed on its bolt, and landed once main holds
         it, a unit's change archived there or a chore's trailer, as today's do. It has no worktree in the kit, flume
         holds the whole of stage_of's answer, which the views show (runner.piece_said), and carried when the runner
-        carried its place's status, which a batch reads it at (crossed_changes)."""
-        try:
-            t = bolt_team(self.fleet, bolt)
-        except Refusal as e:
-            t, res["why"] = None, str(e)
-        if not t:
-            res.setdefault("why", f"team {bolt.get('Team')} is not in the teams file")
-            res["flume"] = {"stage": "unknown", "why": res["why"]}
-            return res
-        run, work = self.runner(t["label"]), runner.work_of(u)
+        carried its place's status, which a batch reads it at (crossed_changes). A piece whose place's branch a landing
+        on its bolt names is merged at that landing, read from the bolt's branch as the kit was read, whatever the
+        runner reports of its place and whichever partition's launch made it, carried then when it landed
+        (runner.built_on_bolt; crew record 0056 decision 2)."""
+        run, work = self.runner(self.label), runner.work_of(u)
         if isinstance(run, str):
-            s = runner.stage_of(work, None, None, None, f"crew can't read {t['label']}'s requests or runners: {run}")
+            s = runner.stage_of(work, None, None, None, f"crew can't read {self.label}'s requests or runners: {run}")
         else:
             requests, reads = run
             launch = runner.launch_of(requests, work)
-            reading = runner.of_host(reads, t["label"], launch.get("Host") if launch is not None else t["machine"])
-            s = runner.piece_stage(requests, reading, launch) if launch is not None else \
-                runner.stage_of(work, None, None, None, reading["why"] or True)
-            place = reading["places"].get(runner.number(launch.get("Request"))) if launch is not None and not reading["why"] else None
+            s = runner.piece_stage(requests, reads, launch) if launch is not None else runner.stage_of(work, None, None, None, True)
+            n = runner.number(launch.get("Request")) if launch is not None else None
+            reading = runner.taken(reads, n)[0] if launch is not None else None
+            place = reading["places"].get(n) if reading else None
             res["carried"] = place["at"] if place else None  # when the runner carried its place's status
+        k, _ = self.kit(bolt) if not isinstance(run, str) else (None, None)
+        built = runner.built_on_bolt(work, s, ((k or {}).get("bolts", {}).get(bolt.name()) or {}).get("landings"))
+        if built is not s:
+            s, res["carried"] = built, built["landed"]
         if s["stage"] == "merged":
-            k, _ = self.kit(bolt)
             if k and name in (k.get("chores", []) if is_chore(u) else k["main"]):
                 s = dict(s, stage="landed")
         res.update(stage=s["stage"], tasks=s.get("tasks"), flume=s, **({"why": s["why"]} if s.get("why") else {}))
         return res
 
     def fixes(self, bolt):
-        """Each fix standing on a bolt given through Flume, in requests.rec's order, as (its work, fix/<bolt>/<name>,
-        its launch, its stage as stage_of gives it), read as its units and chores are; none where the bolt's team or
-        runner can't be read, which unread names."""
-        t = self.team_of(bolt)
-        run = self.runner(t["label"]) if t else None
-        if not t or isinstance(run, str):
+        """Each fix standing on a started bolt, in requests.rec's order, as (its work, fix/<bolt>/<name>, its launch, its
+        stage as stage_of gives it), read as its units and chores are; none where the partition's runners can't be
+        read, which unread names."""
+        run = self.runner(self.label)
+        if isinstance(run, str):
             return []
-        return [(l.get("Work"), l, s) for l, s in runner.fixes_on(*run, t["label"], f"bolt/{bolt.name()}")]
+        return [(l.get("Work"), l, s) for l, s in runner.fixes_on(*run, f"bolt/{bolt.name()}")]
 
     def unread(self, bolt):
-        """Why the runner a bolt given through Flume is read from can't be read, as (what, why), or None: its
-        partition's requests, or its team's host's runner branch, missing or refused (read.1, read.3)."""
-        t = self.team_of(bolt)
-        if not t:
-            return None
-        run = self.runner(t["label"])
+        """Why the runners a started bolt is read from can't be read, as (what, why), or None: its partition's requests,
+        or, while crew can't tell where its work runs, a runner's branch of the partition missing or refused (read.1,
+        read.3)."""
+        run = self.runner(self.label)
         if isinstance(run, str):
-            return f"the requests and runners of {t['label']}", run
-        why = runner.of_host(run[1], t["label"], t["machine"])["why"]
-        return (f"{t['machine']}'s runner", why) if why else None
-
-    def team_of(self, bolt):
-        try:
-            return bolt_team(self.fleet, bolt)
-        except Refusal:
+            return f"the requests and runners of {self.label}", run
+        if not run[1]:
+            return f"{self.label}'s runners", (f"no runner answers for {self.label}: its state repository holds no "
+                                               f"{self.label}/runner/<host>")
+        if self.at(bolt)[0]:
             return None
+        bad = [(f"{h}'s runner", r["why"]) for h, r in sorted(run[1].items()) if r["why"]]
+        return bad[0] if bad else None
 
-    def kit(self, b):
-        """The bolt's team, host and kit as read, or why they can't be."""
+    def at(self, bolt):
+        """Where a started bolt's work runs, as the runner that took it reported (bolt_at), or None, and why crew can't
+        tell."""
+        run = self.runner(self.label)
+        if isinstance(run, str):
+            return None, f"crew can't read {self.label}'s requests or runners: {run}"
         try:
-            t = bolt_team(self.fleet, b)
+            return bolt_at(self.fleet, self.label, bolt, run), None
         except Refusal as e:
             return None, str(e)
+
+    def host(self, bolt):
+        """The host a started bolt's work runs on, as its head line says it: where it runs (at), or, while the kit's
+        folder there can't be told, the runner that took the newest of its launches has carried no place of it yet,
+        the host of that runner (runner.where), which took the work and whose place of it Flume holds on the bolt's
+        branch; None where no runner has taken it or crew can't tell which did (read.1)."""
+        t, _ = self.at(bolt)
+        if t:
+            return t["machine"]
+        run = self.runner(self.label)
+        if isinstance(run, str) or not started(bolt):
+            return None
+        took, _ = runner.where(run[1], bolt_launches(run[0], bolt.name()), f"bolt {bolt.name()}", bolt.get("Repo") or "")
+        return took["host"] if took else None
+
+    def kit(self, b):
+        """The bolt's kit as read where its work runs (at), with that place (at) and its host, or why it can't be."""
+        t, why = self.at(b)
         if not t:
-            return None, f"team {b.get('Team')} is not in the teams file"
+            return None, why or f"bolt {b.name()} is not started"
         h = self.survey.get(t["machine"])
         if not h or not h["ok"]:
             return None, f"{t['machine']} did not answer" + (f" ({h['error']})" if h else "")
         k = h["kits"].get(t["kit"]["main"])
         if not k or not k.get("ok"):
             return None, f"{t['machine']}: " + (k.get("error") if k else "the kit was not read")
-        return dict(k, team=t, host=t["machine"]), None
+        return dict(k, at=t, host=t["machine"]), None
 
     def of(self, name):
         if name in self.memo:
@@ -1539,49 +1564,17 @@ class Stages:
             res["stage"] = "queued"
             return res
         bolt = self.plan.bolt(b)
-        if bolt.get("Team") and bolt.get("Path") == "flume":
+        if started(bolt):
             return self.crossed(name, u, bolt, res)
-        if bolt.get("Team"):
-            k, why = self.kit(bolt)
-            if not k:
-                res["why"] = why
-                return res
-            pl = k.get("chore_places", {}).get(name) if is_chore(u) else k["places"].get(name)
-            if pl and pl.get("bolt") and pl["bolt"] != b:  # a place of a bolt it has left is not its place (left_refusal)
-                res["left"], pl = pl, None
-            res["worktree"], res["head"], res["place"] = (pl["path"], pl.get("head"), pl) if pl else (None, None, None)
-            unread = k["bolts"].get(b, {}).get("error")  # a bolt crew can't tell where to read (gather.bolt_read)
-            if unread and name not in (k.get("chores", []) if is_chore(u) else k["main"]):
-                res["why"] = unread
-                return res
-            if is_chore(u):
-                stage, why = chore_stage(name, b, k, pl)
-                if stage:  # unknown only for its place, so a drop or a move is not refused for it (place_unread)
-                    res.update(stage=stage, **({"why": why, "place_unread": True} if why else {}))
-                    return res
-            elif name in k["main"]:
-                res["stage"] = "landed"
-                return res
-            elif name in k["bolts"].get(b, {}).get("archived", []):
-                res["stage"] = "merged"
-                return res
-            elif pl or u.get("Amended") or name in k["bolts"].get(b, {}).get("open", {}):
-                if name in k["bolts"].get(b, {}).get("open", {}):
-                    res["carried"] = True
-                    pl = pl or carried_place(k["bolts"][b]["open"][name])
-                if pl:
-                    res.update(tasks=pl["tasks"], open=pl["open"])
-                res["stage"] = place_stage(pl, u.get("Amended"))
-                return res
         met = after_met([(self.of(a)["kind"], self.of(a)["stage"]) for a in u.all("After")])
         res["stage"] = "unknown" if met is None else "ready" if met else "waiting"
         return res
 
     def bolt_state(self, b):
-        """A bolt's state: planned while no team holds it; unknown when its kit can't be read; landed once every unit
+        """A bolt's state: planned while it is not started (started); unknown when its kit can't be read; landed once every unit
         and chore has landed; else unknown when crew can't tell where the bolt is read (gather.bolt_read); waits, to
         land, once every one has merged and sluice is green at its head (teams.16); else active."""
-        if not b.get("Team"):
+        if not started(b):
             return "planned"
         k, _ = self.kit(b)
         if not k:
@@ -1598,11 +1591,15 @@ class Stages:
         return "active"
 
 
-def stages_for(fleet, plan, bolts, fetch=False):
-    """Stages for the units of the given bolts, reading only the hosts that hold them, each kit's GitHub fetched first
-    with fetch (survey)."""
-    held = [(b.get("Team"), b.name(), b.get("Repo")) for b in bolts if b.get("Team")]
-    return Stages(fleet, plan, survey(fleet, held, fetch=fetch))
+def stages_for(fleet, label, plan, bolts, fetch=False):
+    """Stages for the units of the given bolts of a partition's plan, reading its runners once and only the hosts their
+    work runs on (bolt_at), each kit's GitHub fetched first with fetch (survey)."""
+    try:
+        run = runner_facts(fleet, label)
+    except Refusal as e:
+        return Stages(fleet, plan, {}, {label: str(e)}, label)
+    held = [(t, b.name()) for b in bolts if started(b) for t in [known_at(fleet, label, b, run)] if t]
+    return Stages(fleet, plan, survey(fleet, held, fetch=fetch), {label: run}, label)
 
 
 # ------------------------------------------------------------------------------------------- finding the plans
@@ -1618,7 +1615,7 @@ def default_label(fleet, a):
 
 
 def plans(fleet, labels, errors=None):
-    """(label, repo, tip, plan) for each flywheel's one plan, on its branch of its state repository, with tip and
+    """(label, repo, tip, plan) for each drive's one plan, on its branch of its state repository, with tip and
     plan None where the branch is not started. A plan that can't be read is left out and its reason put in errors
     when that is given, else refused."""
     out = []
@@ -1646,30 +1643,200 @@ def locate(fleet, kind, name, label, word=None):
     return hits[0]
 
 
-def kit_teams(fleet, kit, label=None):
-    return [crew.with_kit(t, kit) for n, t in sorted(fleet["teams"].items()) if crew.builds(t, kit) and label in (None, t["label"])]
+def kit_labels(fleet, kit):
+    """The partitions whose kits (partition_kits, the repositories their plans and landings name) name a kit, by its
+    name or forge address (kit_in), a former name by the kit's name now (kit_now, the partition's renames), sorted; each
+    branch read once for the command, and refused naming one that can't be read (read.1), since crew can't tell then
+    whether it names the kit."""
+    return [l for l in sorted(fleet["partitions"]) if kit_in(kit_now(kit, renames_read(fleet, l)), kits_read(fleet, l))]
+
+
+def main_kit(fleet, label, kit):
+    """Where crew acts on a kit before any runner has taken the work in hand (the user's ruling of 2026-11-01; Decision 4
+    of the-team-machinery-leaves): the checkout the partition's main-level host keeps of it, as that host's spaces keep
+    it (crew.kit_kept), in the shape bolt_at gives a bolt's, {"label", "machine", "stream" None, "kit"}; None where the
+    host keeps none. A start's branch and checks, a new unit's name, a bolt never started landed, the design agent's
+    records, a proposal's records and the board's explorations are read and acted on there."""
+    host = crew.partition_of(fleet, label)["machine"]
+    k = crew.kit_kept(fleet, host, kit)
+    return {"label": label, "machine": host, "stream": None, "kit": k} if k else None
+
+
+def main_kit_read(fleet, label, kit):
+    """A kit's checkout on its partition's main-level host (main_kit) for a view, None where crew can't tell it, its
+    spaces keeping none or two by the kit's name: the board shows no explorations of it then."""
+    try:
+        return main_kit(fleet, label, kit)
+    except Refusal:
+        return None
+
+
+def main_kit_said(fleet, label, kit, what):
+    """Why crew can't act on a kit on its partition's main-level host (main_kit): that host keeps no checkout of it,
+    and, since a kit renamed on its host is kept there by its new name alone, the way on when it was (Decision 2 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan)."""
+    host = crew.partition_of(fleet, label)["machine"]
+    return (f"{label}'s main level runs on {host}, and no space there keeps {kit}, so crew can't {what}; if it was "
+            f"renamed on its host, crew kit rename {kit} <new> names it so in the plan")
+
+
+def kit_in(kit, kits):
+    """Whether kits (partition_kits) name a kit, by its name or its forge address, <owner>/<name>, either way round."""
+    return kit.split("/")[-1] in {k.split("/")[-1] for k in kits}
+
+
+# A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
+# the hosts file lists it, the owner as GitHub has it.
+KIT = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]*/)?[a-z0-9][a-z0-9-]*$")
+
+
+def kit_name(text):
+    """A kit's name as crew's parser takes it (KIT), refused otherwise, as the parser refuses any argument it can't
+    read."""
+    if not KIT.match(text):
+        raise argparse.ArgumentTypeError(f"a kit is named by its name, lowercase words with dashes, or <owner>/<name>, not {text}")
+    return text
+
+
+def former_said(given, now):
+    """What a command given a kit's former name says of the name it wrote (Decision 4 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan), or None for a name no rename renamed."""
+    return None if now == given else f"{given} is {now} since its rename; written as {now}"
+
+
+def former_kept_said(given, now, host, kept):
+    """Why a command given a kit's former name is refused, or None (Decision 4 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan): the partition's main-level host keeps a repository by that
+    name again (kept, crew.kit_kept's, or None), made after the rename, whose records crew could not tell from the
+    renamed kit's (read.1)."""
+    if now == given or kept is None:
+        return None
+    return (f"{given} is {now} since its rename, and {host}'s spaces keep {kept['repo']} again: crew can't tell its "
+            f"records from {now}'s, so that repository needs another name in crew")
+
+
+def rename_refusal(label, old, new, kits, renames, bolts, host, spaces):
+    """Why crew kit rename <old> <new> is refused, or None (Decision 2 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan), from plain facts (code.7): the partition's kits by their names
+    now (partition_kits), its renames (renames_in), its bolts' names, and its main-level host with what its spaces keep,
+    spaces None where the hosts file lists no such host, else (the repositories they keep, crew.kit_kept's of old, of
+    new). Refused for two names of one kit; for an old name a rename already renamed, or no kit of the partition; for a
+    new name a bolt of the partition holds, since land/<new> would name the bolt; and unless the host keeps a repository
+    by the new name and none by the old, the fleet's word that the rename has happened."""
+    name = new.split("/")[-1]
+    if old.split("/")[-1] == name:
+        return f"{old} and {new} name one kit: a rename gives it another name"
+    now = kit_now(old, renames)
+    if now != old:
+        return f"{old} is {now} since its rename: crew kit rename {now} {new} renames it again"
+    if not kit_in(old, kits):
+        return f"{label}'s plan names no kit {old}: neither its plan nor its landings name it"
+    if name in bolts:
+        return (f"{name} is the name of bolt {name} of {label}, so land/{name} would name the bolt and not the kit: "
+                "a kit and a bolt of one partition take different names")
+    if spaces is None:
+        return f"{crew.HOSTS} lists no {host}, {label}'s main level's host, so crew can't read whether its spaces keep {new}"
+    repos, kept_old, kept_new = spaces
+    if kept_old is not None:
+        return f"{host}'s spaces still keep {kept_old['repo']}, so it is not renamed there"
+    if kept_new is None:
+        return f"{host}'s spaces keep no {new}, so it is not renamed there: they keep " + (", ".join(repos) or "nothing")
+    return None
+
+
+def renamed_in(plan, old):
+    """The plan's records a rename of old renames (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
+    its bolts and its units and chores whose Repo names old, by its name or forge address (kit_in), as (bolts, work),
+    each in the plan's order."""
+    of = lambda r: bool(r.get("Repo")) and kit_in(r.get("Repo"), [old])
+    return [b for b in plan.bolts() if of(b)], [u for u in plan.work() if of(u)]
+
+
+def kit_now(kit, renames):
+    """A kit's name now (Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan), as crew reads what it
+    recorded under a former name and never rewrites, a launch, a landing, a fix of main or a source: from kit, each
+    rename (renames, the partition's as (old, new) in the order they were written, renames_in) whose old names the name
+    so far, by its name or forge address (kit_in), makes its new the name; a name no rename names reads as written.
+    Read in order, a rename and its undoing read back, a->b then b->a reading both as a."""
+    for old, new in renames:
+        if kit and kit_in(kit, [old]):
+            kit = new
+    return kit
+
+
+def renames_in(entries):
+    """A partition's renames of its kits (Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan), as kit_now
+    reads them: each kit.rename entry not refused among a run record's entries, as (old, new), the kit its From names
+    and its Repo, in the order they were written, by At then Id."""
+    out = sorted((e for e in entries if e.get("Act") == "kit.rename" and not e.get("Refused")), key=lambda e: (e["At"], e["Id"]))
+    return [(old, e.get("Repo")) for e in out for old in [next((o[4:] for o in e.get("From") or [] if o.startswith("kit/")), None)]
+            if old and e.get("Repo")]
 
 
 def plan_for(fleet, kit, label):
-    """The plan a kit's work goes in, (label, state repository): the flywheel of the teams that build it."""
-    labels = sorted({t["label"] for t in kit_teams(fleet, kit, label)})
-    labels or fail(f"no team" + (f" of {label}" if label else "") + f" builds {kit}, so no plan holds its work")
-    len(labels) == 1 or fail(f"{kit}'s work could go in the plan of " + ", ".join(labels) + "; add --label")
-    CONTEXT["label"] = labels[0]
-    return labels[0], state_of(fleet, labels[0])[0]
+    """The plan a kit's work goes in, (label, state repository) (Decision 3 of the-team-machinery-leaves): the partition
+    the command runs as (label, --label or the agent's own: default_label), a kit entering a partition with its first
+    bolt or unit; else the one partition whose plan or landings already name the kit (kit_labels), refused when none
+    or several do."""
+    if not label:
+        labels = kit_labels(fleet, kit)
+        labels or fail(f"no partition's plan or landings name {kit}, so crew can't tell which plan its work goes in; add --label")
+        len(labels) == 1 or fail(f"{kit}'s work could go in the plan of " + ", ".join(labels) + "; add --label")
+        label = labels[0]
+    CONTEXT["label"] = label
+    return label, state_of(fleet, label)[0]
 
 
 def name_free(fleet, label, kit, names):
     """A unit's name is its OpenSpec change's, and a name is taken once in a kit, by a unit or a chore (plan.7, plan.11):
-    refused when the kit's main already has that change, open or archived, or holds a chore by it."""
-    t = kit_teams(fleet, kit, label)[0]
-    sv = survey(fleet, [(t["name"], None)])[t["machine"]]
+    refused when the kit's main already has that change, open or archived, or holds a chore by it, read in the checkout
+    the partition's main-level host keeps of the kit (main_kit), and refused where it keeps none."""
+    t = main_kit(fleet, label, kit) or fail(main_kit_said(fleet, label, kit, f"check {kit}'s changes"))
+    sv = survey(fleet, [(t, None)])[t["machine"]]
     sv["ok"] or fail(f"cannot check {kit}'s changes: {t['machine']} did not answer ({sv['error']})")
     k = sv["kits"][t["kit"]["main"]]
     k.get("ok") or fail(f"cannot check {kit}'s changes on {t['machine']}: {k.get('error')}")
     for n in names:
         why = name_taken(kit, n, k["main"], k.get("chores"))
         not why or fail(why)
+
+
+# Which of Flume's branches stand in a repository, read in its folder ($1) as Flume's place profile reads a branch
+# before it makes one (flume 3, 78: `git worktree add -b` refuses a branch that exists): each ref named after it,
+# refs/heads/<branch>, with its commit, and nothing for one that does not stand (runner.refs_standing).
+BRANCHES = r"""cd "$1" || exit 3
+shift
+git for-each-ref --format='%(objectname) %(refname)' "$@"
+"""
+
+
+def branches_in(fleet, host, folder, branches):
+    """{branch: commit} of the branches that stand in the repository at folder on host (BRANCHES,
+    runner.refs_standing); refused naming the folder and host when git there can't be read, or the host did not answer
+    (read.1)."""
+    r = crew.on_machine(fleet, host, ["bash", "-c", BRANCHES, "crew", folder, *[f"refs/heads/{b}" for b in branches]])
+    if r.returncode == 255:
+        fail(f"cannot read whether {', '.join(branches)} stands in {folder}: {host} did not answer")
+    r.returncode == 0 or fail(f"cannot read whether {', '.join(branches)} stands in {folder} on {host}: "
+                              + ((r.stderr or r.stdout).strip() or f"git exited {r.returncode}"))
+    return runner.refs_standing(r.stdout, branches)
+
+
+def branch_free(fleet, label, kit, names, kind):
+    """A unit or chore (kind) is planned under a name only while no launch of it would be refused because Flume's
+    branch for its place stands (runner.branch_refusal; flume 3, 67): Flume keeps a dropped place's branch while it holds
+    work, so a name dropped and added again would pass the plan and fail at its launch. Read in every repository a
+    launch of the kit's work would be made in (runner.launch_repositories), from the partition's requests and runners as
+    this command read them (runner_facts), and in each with git as Flume reads it (branches_in), never from crew's own
+    record of a drop; refused when crew can't tell where (read.1); nothing read while no runner has taken any of the
+    kit's work and none reports keeping it."""
+    requests, reads = runner_facts(fleet, label)
+    repos, why = runner.launch_repositories(reads, runner.kit_launches(requests, kit), kit)
+    not why or fail(f"cannot check whether Flume's branch for {kind} {', '.join(names)} stands: {why}")
+    branches = [runner.place_branch(f"{kind}/{n}") for n in names]
+    found = [dict(r, refs=branches_in(fleet, r["host"], r["dir"], branches)) for r in repos]
+    why = runner.branch_refusal(kit, kind, names, found)
+    not why or fail(why)
 
 
 def name_taken(kit, name, changes, chores):
@@ -1702,69 +1869,6 @@ pol() { if [ "$1" != - ] && text=$(git show "$1:$file" 2>/dev/null); then printf
 BOLT_AT = REFS + r"""l=$(ref "refs/heads/bolt/$bolt") o=$(ref "refs/remotes/origin/bolt/$bolt")
 echo "LOCAL=$l"; echo "TRACKED=$o"; echo "AT_LOCAL=$(pol "$l")"; echo "AT_TRACKED=$(pol "$o")"
 """
-
-# A place: a worktree at a fixed path, on its branch, made on the team's host, its branch tracking its bolt where the
-# bolt lives (plan.19, kit.place_base): given no base, PLACE says where the bolt lives (BOLT_AT) and makes nothing;
-# given origin/bolt/<bolt>, it fetches the bolt from GitHub first, and says FETCHED with git's words, making nothing,
-# when the fetch fails. A new branch is cut from base; a branch already there with no worktree, one a drop kept
-# (plan.10, record 0003), is taken as it stands, then tracks base, and the commit it is at is printed as KEPT.
-PLACE = r"""main=$1 path=$2 branch=$3 bolt=$4 base=$5 file=$6
-cd "$main" || exit 1
-if [ ! -d "$path" ]; then
-  if [ -z "$base" ]; then
-""" + BOLT_AT + r"""    exit 0
-  fi
-  if [ "$base" = "origin/bolt/$bolt" ] && ! err=$(git fetch -q origin "+refs/heads/bolt/$bolt:refs/remotes/origin/bolt/$bolt" 2>&1); then
-    echo "FETCHED=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0
-  fi
-  if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
-    git worktree add -q "$path" "$branch" || exit 1
-    git branch -q --set-upstream-to="$base" "$branch" || exit 1
-    echo "KEPT=$(git rev-parse --short "refs/heads/$branch")"
-  else git worktree add -q --track -b "$branch" "$path" "$base" || exit 1; fi
-fi
-# Where the worktree keeps what crew runs for it, and what its kit declares of its toolchain and tests (kit.py).
-echo "GITDIR=$(git -C "$path" rev-parse --absolute-git-dir)"
-if [ -f "$path/$file" ]; then echo "DECLARATION=$(base64 < "$path/$file" | tr -d '\n')"; else echo "DECLARATION=-"; fi
-"""
-
-# A step of a worktree's readying, run in it with only the variables kit.KEEP names and every LC_* the host has, and
-# stdin closed; with an output file, its stdout kept there.
-IN_PLACE = r"""path=$1 out=$2 keep=$3; shift 3
-cd "$path" || exit 2
-env=()
-for v in $keep $(compgen -e | grep '^LC_'); do if val=$(printenv "$v"); then env+=("$v=$val"); fi; done
-if [ -n "$out" ]; then mkdir -p "$(dirname "$out")" || exit 2; exec env -i "${env[@]}" "$@" </dev/null >"$out"; fi
-exec env -i "${env[@]}" "$@" </dev/null
-"""
-
-
-def make_place(fleet, t, path, branch, bolt, unready=False):
-    """A worktree at a fixed path on its branch, made with git itself on the team's host, its branch tracking the bolt
-    where it lives, origin/bolt/<bolt> after a fetch for a bolt on GitHub (plan.19, PLACE), a new branch cut from it,
-    then made ready through its kit's declaration (plan.17), whether it is new or was already there: the declared
-    toolchain, its output kept in the worktree's git directory, and the runner's setup inside it. A step that fails
-    refuses the command with the worktree made; with unready, as a fix's place is made (teams.3, record 0028), it stops
-    the readying instead, and what failed is returned, None once the worktree is ready; with the commit a kept branch
-    the new worktree was made on is at (PLACE's KEPT), else None. The command's next step reads the kit again."""
-    main, host = t["kit"]["main"], t["machine"]
-    said = host_run(fleet, host, PLACE, main, path, branch, bolt, "", kit.DECLARATION)
-    if "GITDIR=" not in said:
-        said = host_run(fleet, host, PLACE, main, path, branch, bolt, kit.place_base(said, bolt), kit.DECLARATION)
-    gitdir, text = kit.place_said(said, bolt)
-    kept = next((l[len("KEPT="):] for l in said.splitlines() if l.startswith("KEPT=")), None)
-    why = None
-    for what, argv, out in kit.readying(kit.declared(text, f"{path}/{kit.DECLARATION}"), f"{gitdir}/crew/toolchain.sh"):
-        r = crew.on_machine(fleet, t["machine"], ["bash", "-c", IN_PLACE, "crew", path, out or "", " ".join(kit.KEEP), *argv])
-        if r.returncode:
-            why = kit.step_failed(path, what, r.returncode, r.stderr + r.stdout)
-        elif what == "moon --version" and kit.moon_said(r.stdout):
-            why = f"{path} is made but not ready: {kit.moon_said(r.stdout)}"
-        if why:
-            unready or fail(why)
-            break
-    READ.drop_kit(t["machine"], t["kit"]["main"])
-    return why, kept
 
 
 # What a kit's main checkout holds of its mains, on its host, for kit.main_now to decide which is main now (plan.18,
@@ -1799,13 +1903,13 @@ GIVE_READ = POLICY + r"""echo "SLUICE=$(sluice --version 2>&1 | tr '\n' ' ')"
 # branch too, crew marks that branch in the kit's git config, branch.bolt/<bolt>.crew, so the tidy knows it as crew's
 # (read.4), and fetches GitHub's copy, origin/bolt/<bolt>, where the bolt is read from then (gather.bolt_read), before
 # the give's plan write; a mark git refused, or a fetch that failed, is said on standard error, and the give goes on,
-# since the branch is made and the team's next read fetches it again.
+# since the branch is made and crew's next read of the bolt fetches it again.
 BOLT_CREATE = r"""cd "$1" || exit 3
 sluice branch create "bolt/$2" --from main --json; rc=$?
 if [ "$rc" = 0 ]; then
   git config "branch.bolt/$2.crew" given || echo "git could not mark bolt/$2 as crew's" >&2
   git fetch -q origin "+refs/heads/bolt/$2:refs/remotes/origin/bolt/$2" >&2 \
-    || echo "git could not fetch bolt/$2 from GitHub; the team's next read fetches it again" >&2
+    || echo "git could not fetch bolt/$2 from GitHub; crew's next read of the bolt fetches it again" >&2
 fi
 exit $rc
 """
@@ -1874,213 +1978,47 @@ def main_held(name, machine, said):
     return sha, why
 
 
-def tidy_after(fleet, t, what, landed=None, dropped=None, units=()):
-    """crew _tidy on the team's host, after a plan write that ends work there: the slots of work the plan no longer
-    has are freed and the worktrees whose work is over removed, as the team's next read would, saying what it did; and,
-    after a landing, the bolt's landing card closed there with the words, where its conductor holds it
-    (landing_cards_closed), and the bolt's branch deleted by sluice once the landing's place is gone (land_delete,
-    plan.19), landed being (bolt, the outcome recorded, what Pending You is sent in its place or None, whether the user
-    answered it in a conversation); after a drop (dropped, the bolt), its branch asked of sluice by the tidy's judgment
-    of it (bolt_branch_asked); after either, what the bolt's units (units) recorded as made, kept there, removed
-    (made_drop). A host that does not answer leaves that to the team's next read, the delete named with its command,
-    and the write stands."""
+def sweep_on(fleet, t, what, landed=None, dropped=None, units=()):
+    """The kit's read after a landing or a drop of one of its bolts (kit_read, code.3), on the host its work runs on and
+    in the kit's folder there (t, bolt_at): run in this process when that is this host, else crew _sweep there as the
+    one asking, saying what it did: each landing of the kit's bolts nothing recorded read, but after a landing
+    (reap_landings, plan.21, kit_read), the sweep of crew's own landing place and marked branch of the bolt, and, after a landing,
+    the bolt's landing card closed there with the words (landing_cards_closed) and its branch deleted by sluice once the
+    landing's place is gone (land_delete, plan.19), landed being (bolt, the outcome recorded, what Pending You is sent in
+    its place or None, whether the user answered it in a conversation); after a drop (dropped, the bolt), its branch
+    asked of sluice by the sweep's judgment of it (bolt_branch_asked); after either, what the bolt's units (units)
+    recorded as made, kept there, removed (made_drop). A host that does not answer, or whose read fails, leaves that to
+    the kit's next read, the delete named with its command, and the write stands."""
     bolt, outcome, said, here = landed or (None, None, None, False)
+    kit_name = t["kit"]["name"]
+    if t["machine"] == crew.this_host():
+        try:
+            kit_read(fleet, t, bolt, outcome, said, here, units)
+        except Refusal as e:
+            print(f"{kit_name}'s read after {what} failed ({e}): its next read sweeps what is over")
+        return
     more = (["--landed", bolt, "--outcome", outcome] + (["--said", said] if said else []) + (["--here"] if here else [])) if landed else []
     more += ["--units", *units] if units else []
-    r = crew.on_machine(fleet, t["machine"], crew.crew_argv(fleet, t["machine"], "_tidy", t["name"], *more))
+    r = crew.on_machine(fleet, t["machine"], crew.crew_argv(fleet, t["machine"], "_sweep", t["label"], kit_name, "--dir",
+                                                            t["kit"]["dir"], *more))
     READ.drop_kit(t["machine"], t["kit"]["main"])
-    said = tidied(t["name"], what, r.returncode, r.stdout, r.stderr)
-    if said:
-        print(said)
+    if r.returncode:
+        why = "did not answer" if r.returncode == 255 else "failed (" + ((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1] + ")"
+        print(f"{kit_name}'s host {t['machine']} {why}, so what crew made for {what} is not swept yet: the kit's next read sweeps it")
+    elif (r.stdout + r.stderr).strip():
+        print((r.stdout + r.stderr).strip())
     if landed and r.returncode == 255:  # nothing ran there, the land's delete among it
         print(deleted_said(landed[0], t["machine"], r.returncode, r.stdout, r.stderr))
-    if dropped and r.returncode == 255:  # the team's next read asks it, the bolt's branch marked given and in no plan
+    if dropped and r.returncode == 255:  # the kit's next read asks it, the bolt's branch marked given and in no plan
         print(dropped_said(dropped, t["machine"], r.returncode, r.stdout, r.stderr))
-
-
-def tidied(team, what, code, out, err):
-    """What a plan write that ended work says of the tidy it asked of the team's host: what the tidy said, or, when the
-    host did not answer (ssh's 255) or the tidy failed, that the team's next read removes what is over; the write
-    stands either way."""
-    if code:
-        why = "did not answer" if code == 255 else "failed (" + ((err or out).strip().splitlines() or [f"exit {code}"])[-1] + ")"
-        return f"{team}'s host {why}, so its worktrees for {what} are not removed yet: the team's next read removes them"
-    return (out + err).strip()
 
 
 # --------------------------------------------------------------------------------------------------- bolts
 
-def held_by(plan, team):
-    return [b for b in plan.bolts() if b.get("Team") == team]
-
-
-def building(team, held, gives):
-    """The bolt a team builds (teams.16): of the bolts it holds (held, by name), the one given last, the other waiting to
-    land. One held is that one, with no record read; none is None; of two, the one whose newest give is later in gives,
-    the bolts given to the team as the run record's gives name them, oldest first (given_to). Refused when the record
-    holds a give of neither, rather than guess (read.1)."""
-    if len(held) < 2:
-        return held[0] if held else None
-    last = {b: i for i, b in enumerate(gives)}
-    known = [b for b in held if b in last]
-    known or fail(f"can't tell which bolt {team} builds: the run record holds no give of {either(held)}")
-    return max(known, key=last.get)
-
-
-def given_to(entries, team):
-    """The bolts the run record's gives handed a team, oldest first: each unrefused bolt.give on team/<team>."""
-    return [o[len("bolt/"):] for e in entries if e.get("Act") == "bolt.give" and not e.get("Refused")
-            and f"team/{team}" in (e.get("On") or []) for o in e["On"] if o.startswith("bolt/")]
-
-
-def team_building(fleet, plan, t):
-    """The bolt a team builds, by name, from its plan (building): the run record read, from the partition's branch
-    (read.5), only when it holds two."""
-    held = [b.name() for b in held_by(plan, t["name"])]
-    gives = given_to(partition_entries(fleet, t["label"]), t["name"]) if len(held) > 1 else []
-    return building(t["name"], held, gives)
-
-
-def waiting_bolt(plan, team, built):
-    """The bolt a team holds beside the one it builds (built), which waits to land, or None."""
-    return next((b.name() for b in held_by(plan, team) if b.name() != built), None)
-
-
-def bolt_give(fleet, a):
-    """crew bolt give <team> [<bolt>]: bolt/<bolt> made by sluice on GitHub from the kit's main, run on the team's host,
-    and no worktree (plan.19, record 0026), then the bolt given to the team in the plan; the conductor and ops start in
-    the kit's main checkout. Refused, with the plan unchanged and no branch made, while the team is due to cross to
-    Flume or back, naming each bolt it finishes first (give_due), while a bolt the team holds is not
-    proven or it holds two (teams.16, give_refusal), or its host is held (teams.19), since a give starts the team's
-    agents again: its ops at once for a team that held no bolt, and at its next stop beside a bolt that waits to land
-    (team_handed), and its conductor on its host at once when it is idle with nothing of its own running, else at its
-    next stop. Whatever the conductor is doing, the give's notice reaches it, handed to its host before anything else
-    starts (give_notice, given_noticed): its restart's greeting names the bolt, or, while its restart waits, crew tells it
-    once it is idle, at the end of its turn when it works; where it is not up, or its host could not take the notice,
-    the give says so and records the notice refused, which the bolt's head line and the rail say until something tells
-    it (noticed, notice_unsent); when the kit's policy at its main now names no checks or no remote for its bolt branches, since a
-    bolt merges and lands only through sluice and lives on GitHub (teams.5, give_check); when the host's sluice has no
-    `branch create`; and in sluice's words when it makes no branch, but for a branch already on its remote at main's
-    tip with no commit of its own, as a give that failed after sluice made it leaves it, which the give takes and goes
-    on with (made_said). A plan write refused after sluice made the branch, or the give took it, has sluice delete it
-    again (ungiven_said).
-
-    A give to a team crossed to Flume (Decision 5 of teams-cross-to-flume-as-their-bolts-land) makes the branch the
-    same way and is refused besides only while no runner answers on the team's host, its branch <label>/runner/<host>
-    missing (runner.runnerless), never for the bolts the team holds, a crossed team holding no bound: its one plan write
-    marks the bolt Path: flume with its Team and appends a launch of each of its units and chores (reach_places), and
-    it starts, restarts and greets no agent."""
-    t = crew.team_of(fleet, a.team)
-    label, kits = t["label"], [k["name"] for k in crew.kits_of(t)]
-    CONTEXT["label"] = label
-    h = crew.held_on(fleet, t["machine"])
-    not h or fail(crew.held_said(t["machine"], h))
-    repo, ref = state_of(fleet, label)
-    CONTEXT["label"] = label
-    tip = fetch(repo, ref)
-    tip or fail(f"{repo} has no {ref} yet: crew state init {label}")
-    plan = read(repo, ref, tip)
-    why = give_due(plan, t)
-    not why or fail(why)
-    crossed = runner.path_of(plan, t)[0] == "crossed"
-    if crossed:
-        why = runner.runnerless(label, t["machine"], runner_tips(repo, label))
-        not why or fail(why)
-    # The bolts the team holds, oldest first, read once on its host (plan.12): a give waits only for their proof. A
-    # crossed team waits for none (teams.16 binds today's path).
-    held = held_by(plan, t["name"]) if not crossed else []
-    if len(held) > 1:
-        built = team_building(fleet, plan, t)
-        held = sorted(held, key=lambda b: b.name() == built)
-    if held:
-        # Read after a fetch, since a merge sluice landed on GitHub may be what proves the bolt (plan.19).
-        why = give_refusal(t["name"], proven_facts(stages_for(fleet, plan, held, fetch=True), plan, held))
-        not why or fail(why)
-    checked = {b.name() for b in held}
-    # The bolt's kit, one of the team's (record 0035), decides the policy read and the branch made; the write gives
-    # the same bolt, read again at the tip it replays on.
-    named = (plan.bolt(a.bolt) or fail(f"{label}/main has no bolt {a.bolt}")) if a.bolt else None
-    chosen = to_give(plan, named, t["name"], kits, label).name()
-    t = crew.with_kit(t, plan.bolt(chosen).get("Repo"))
-    kit_name, main, host = t["kit"]["name"], t["kit"]["main"], t["machine"]
-    text, ref, _, version = kit_policy(fleet, t)
-    remote = give_check(kit_name, f"{main}/{kit.DECLARATION}", ref, text, chosen, version, host)
-    r = crew.on_machine(fleet, host, ["bash", "-c", BOLT_CREATE, "crew", main, chosen])
-    READ.drop_kit(host, main)
-    if r.stderr.strip():
-        print(r.stderr.strip(), file=sys.stderr)
-    found = None
-    if r.returncode == 2:
-        # sluice refused: a branch a give that did not finish left at main is taken as it stands (made_said).
-        try:
-            found = kit.bolt_found(host_run(fleet, host, BOLT_FOUND, main, chosen, remote), chosen)
-        except Refusal as e:
-            found = {"read": str(e)}
-    made, adopted = made_said(chosen, kit_name, host, r.stdout, r.returncode, found, remote)
-    if adopted and found["own"]:
-        m = crew.on_machine(fleet, host, ["git", "-C", main, "config", f"branch.bolt/{chosen}.crew", "given"])
-        m.returncode == 0 or print(f"git could not mark bolt/{chosen} as crew's", file=sys.stderr)
-
-    def change(w):
-        why = give_due(w.plan, t)
-        not why or fail(why)
-        (runner.path_of(w.plan, t)[0] == "crossed") == crossed or fail(f"{t['name']}'s path changed since {tip[:7]}")
-        if not crossed:
-            # The kit's proof was read only for the bolts held then.
-            again = [b.name() for b in held_by(w.plan, t["name"])]
-            new = [b for b in again if b not in checked]
-            not new or fail(f"{t['name']} was given {new[0]} since {tip[:7]}")
-            len(again) < 2 or fail(f"{t['name']} holds {again[0]} and {again[1]}")
-        b = to_give(w.plan, w.bolt(chosen), t["name"], [kit_name], label)
-        b.set("Team", t["name"])
-        if crossed:
-            b.set("Path", "flume", after="Team")
-            seen["launched"] = reach_places(fleet, w, b.name(), t)
-        w.subject = f"plan({b.name()}): give to {t['name']}"
-        w.quiet = {t["name"]}  # greeted below once its bolt's branch exists, or at its restart beside a waiting bolt
-        seen["bolt"] = b.name()
-        return [b.name()]
-    seen = {}
-    try:
-        # The give is the write's own act, its bolt.give entry the one its commit names (plan.2, read.5).
-        write(fleet, label, change, "plan: give a bolt", act="bolt.give", on=[f"bolt/{chosen}", f"team/{t['name']}"])
-    except Refusal as e:
-        r = crew.on_machine(fleet, host, ["bash", "-c", BOLT_DELETE, "crew", main, chosen, kit.DECLARATION])
-        READ.drop_kit(host, main)
-        fail(ungiven_said(chosen, str(e), r.stdout, r.returncode))
-    b = seen["bolt"]
-    print(given_said(t["name"], b, kit_name, remote, made, host, adopted))
-    if crossed:
-        print(launched_said(t, b, seen["launched"]))
-        return
-    up = [r for r in ("conductor", "ops") if crew.agent_status(fleet, f"{t['name']}-{r}")]
-    # The conductor is told of the give by its team's host, whatever it is doing (teams.7): handed there first, so
-    # the restart below finds the notice owed and its greeting names the bolt; said and recorded where it is not up or
-    # the host could not take it (given_noticed).
-    noticed(t, b, *give_notice(fleet, t, b))
-    if checked:
-        # The team still holds a proven bolt, its landing card and any carrying fix the conductor waits on, so neither
-        # role is cut off: the team's host tells their panes the bolt they now work for and hands each whose session
-        # carries the old branch its restart at its next stop, once idle (teams.16, teams.20), greeted there with both
-        # bolts (greet_team).
-        print(given_beside(t["name"], b, up, *team_handed(fleet, t)))
-        return
-    # The team held no bolt, so nothing is in flight: ops, when up, starts again here, with fresh context, greeted and
-    # told the bolt (teams.7); the conductor starts again fresh on its host, at once when idle with nothing of its own
-    # running, else at its next stop, its greeting naming the bolt (given_noticed, hold.renew).
-    ops = [r for r in up if r == "ops"]
-    if ops:
-        r = crew.on_machine(fleet, t["machine"], crew.crew_argv(fleet, t["machine"], "restart", t["name"], *ops, "--no-greet"))
-        said = (r.stdout + r.stderr).strip()
-        if said:
-            print(said)
-    greeted(greet_team(fleet, t, crew.greeted_roles("give", ops, ops), bolt=b))
-
-
 def give_check(kit_name, where, ref, text, bolt, version, host):
-    """What a give checks before sluice makes the bolt's branch, so that any refusal leaves the plan as it was and no
+    """What a start checks before sluice makes the bolt's branch, so that any refusal leaves the plan as it was and no
     branch made (plan.19, teams.5, read.1): the kit's policy at its main now (text, read at ref) names checks for the
-    bolt's branch and a remote to make it on, and the team's host runs a sluice with `branch create` (version, what its
+    bolt's branch and a remote to make it on, and the kit's host runs a sluice with `branch create` (version, what its
     `sluice --version` said). The remote, else refused naming the file and what it lacks, or the version needed and
     the host's words."""
     kit.bolt_checks(text, kit_name, where, f"bolt/{bolt}", ref=ref)
@@ -2109,37 +2047,37 @@ def made_said(bolt, kit_name, host, out, code, found=None, remote="origin"):
         return there, True
     if there and there != main:
         fail(f"{said}; bolt/{bolt} on {remote} is at {there[:7]} and {remote}'s main at {main[:7] if main else 'nothing'}, "
-             "so it is no branch a give left empty at main, and crew gives no bolt onto it")
+             "so it is no branch a start left empty at main, and crew starts no bolt onto it")
     if there:
-        fail(f"{said}; {host}'s own bolt/{bolt} is at {own[:7]}, not at {remote}'s {there[:7]}, and crew gives no bolt "
+        fail(f"{said}; {host}'s own bolt/{bolt} is at {own[:7]}, not at {remote}'s {there[:7]}, and crew starts no bolt "
              "onto it")
     if own:
-        fail(f"{said}; {host}'s own bolt/{bolt} is at {own[:7]} and {remote} has none, and crew gives no bolt onto it")
+        fail(f"{said}; {host}'s own bolt/{bolt} is at {own[:7]} and {remote} has none, and crew starts no bolt onto it")
     fail(said)
 
 
-def given_said(team, bolt, kit_name, remote, made, host, adopted=False):
-    """What a give says once the plan gives the bolt (plan.19): where sluice made its branch, on GitHub by the kit's
-    remote, from main at the commit it made it at, or that crew took the branch an earlier give left there at main
-    (adopted, made_said), and the team's host that builds it."""
-    how = (f"crew took bolt/{bolt}, which sluice made on GitHub ({remote}) for a give that did not finish, at "
+def started_said(bolt, kit_name, remote, made, host, adopted=False):
+    """What a start says once the plan marks the bolt started (plan.19): where sluice made its branch, on GitHub by the
+    kit's remote, from main at the commit it made it at, or that crew took the branch an earlier start left there at
+    main (adopted, made_said), and the kit's host its work runs on."""
+    how = (f"crew took bolt/{bolt}, which sluice made on GitHub ({remote}) for a start that did not finish, at "
            f"{kit_name}'s main {made[:7]}" if adopted else
            f"sluice made bolt/{bolt} on GitHub ({remote}) from {kit_name}'s main at {made[:7]}")
-    return f"{team} holds {bolt}: {how}, built on {host} and merged into only through sluice"
+    return f"{bolt} is started: {how}, built on {host} and merged into only through sluice"
 
 
-def ungiven_said(bolt, why, out, code):
-    """What a give refused at its plan write says, once crew had sluice delete the bolt's branch it made just before
-    (plan.19): the write's refusal, and that the branch is deleted again, or why it stands, in sluice's words, so
-    nobody gives the bolt again onto a branch left behind. out and code are what BOLT_DELETE printed and its exit."""
+def unstarted_said(bolt, out, code):
+    """What a start refused at its plan write says once crew had sluice delete the bolt's branch it made just before
+    (plan.19): that the branch is deleted again, or why it stands, in sluice's words, so nobody starts the bolt again
+    onto a branch left behind. out and code are what BOLT_DELETE printed and its exit."""
     try:
         code == 0 or fail(f"its delete exited {code}: {(out or '').strip()[-200:] or 'nothing was said'}")
         gone, words = kit.branch_said(*kit.delete_ran(out))
     except Refusal as e:
         gone, words = None, str(e)
     if gone:
-        return f"{why}; sluice deleted bolt/{bolt} again, so nothing of the give is left"
-    return f"{why}; and bolt/{bolt}, which sluice made for the give, still stands, since sluice did not delete it: {words}"
+        return f"sluice deleted bolt/{bolt} again, so nothing of the start is left"
+    return f"bolt/{bolt}, which sluice made for the start, still stands, since sluice did not delete it: {words}"
 
 
 def deleted_said(bolt, host, code, out, err, held=None):
@@ -2172,15 +2110,15 @@ def dropped_said(bolt, host, code, out, err, again=False):
     code), read as deleted_said reads it (delete_heard): deleted, from GitHub or, for a bolt made before, from the host;
     gone already, which refuses nothing; kept where it lives, at its tip, in sluice's words when sluice refused, as it
     does while main lacks the tip or a submission is queued on it, named as the drop's unmerged work, the user's; and,
-    when the host did not answer, crew can't read what sluice said or sluice failed, the command, which the team's next
+    when the host did not answer, crew can't read what sluice said or sluice failed, the command, which the kit's next
     read asks again. Asked again (again), once main holds a kept branch's tip: removed, or still kept in sluice's
     words."""
     if code:
-        return unasked(bolt, host, code, out, err) + "; the team's next read asks it"
+        return unasked(bolt, host, code, out, err) + "; the kit's next read asks it"
     h = delete_heard(bolt, host, out)
     on, frm = (f" on {h['where']}", f" from {h['where']}") if h["where"] else ("", "")
     if h["rc"] not in (0, 1, 2):
-        return f"bolt/{bolt} may still stand{on}: {h['words']}; the team's next read asks sluice again"
+        return f"bolt/{bolt} may still stand{on}: {h['words']}; the kit's next read asks sluice again"
     if h["gone"]:
         return (f"bolt/{bolt} is removed: main now holds bolt {bolt}'s tip, and sluice deleted it{frm} at {h['gone'][:7]}" if again
                 else f"sluice deleted bolt/{bolt}{frm} at {h['gone'][:7]}")
@@ -2220,119 +2158,6 @@ def delete_heard(bolt, host, out):
     return dict(where=where, tip=tip, gone=gone, rc=rc, words=words)
 
 
-def team_handed(fleet, t):
-    """crew _tidy on the team's host after a give beside a bolt the team still holds: its read, its standing panes told
-    the bolt they now work for and each due handed its restart at its next stop (team_tidy). (code, what it said)."""
-    r = crew.on_machine(fleet, t["machine"], crew.crew_argv(fleet, t["machine"], "_tidy", t["name"]))
-    READ.drop_kit(t["machine"], t["kit"]["main"])
-    return r.returncode, (r.stdout + r.stderr).strip()
-
-
-def notice_on(team, bolt):
-    """The objects a give's notice to its conductor is recorded on (bolt.notice): the bolt, its team and the conductor."""
-    return [f"bolt/{bolt}", f"team/{team}", f"agent/{team}-conductor"]
-
-
-def give_notice(fleet, t, bolt):
-    """crew _notice on the team's host, which owes its conductor the give's notice there (given_noticed): (code, what it
-    said)."""
-    r = crew.on_machine(fleet, t["machine"], crew.crew_argv(fleet, t["machine"], "_notice", t["name"], bolt))
-    return r.returncode, (r.stdout + r.stderr).strip()
-
-
-def notice_unhanded(team, bolt, code, said):
-    """What a give says when its team's host could not take its conductor's notice (give_notice's code and words), the
-    words its refused bolt.notice records (teams.7, read.1): that the host did not answer, or what it said, and how the
-    conductor is told; None when the host took it."""
-    if not code:
-        return None
-    why = "did not answer" if code == 255 else "could not take it: " + ((said or "").strip().splitlines() or [f"exit {code}"])[-1]
-    return (f"{team}-conductor was not told of {bolt}, since {team}'s host {why}; "
-            f"crew tell {team}-conductor \"Your team now holds the bolt {bolt}.\" tells it")
-
-
-def noticed(t, bolt, code, said):
-    """What a give says of its conductor's notice: what the team's host said of it, and, when the host could not take
-    it, why, recorded as a refused bolt.notice, which the bolt's head line and the rail say until something tells it
-    (notice_unsent)."""
-    words = notice_unhanded(t["name"], bolt, code, said)
-    if code and said:
-        print(said, file=sys.stderr)
-    if not words:
-        print(said)
-        return
-    print(words, file=sys.stderr)
-    record.emit(t["label"], "bolt.notice", notice_on(t["name"], bolt), refused=words,
-                why=f"team({t['name']}): tell {t['name']}-conductor of bolt {bolt}")
-
-
-def notice_handed_said(name, team, bolt, status, unread):
-    """What the team's host says of a give's notice to its conductor (given_noticed), from herdr's reading of it: that
-    it is told once idle, at once if it is, else at the end of its turn; or, when herdr reads it not up, that it was not
-    told and how it is, which its refused bolt.notice records. crew that can't read it says so and owes it all the same,
-    since what a later look reads decides (read.1)."""
-    if status is None and not unread:
-        return f"{name} is not up, so it was not told of {bolt}: crew up {team} starts and greets it"
-    said = f"{name} is told of {bolt} once it is idle: at once if it is, else at the end of its turn"
-    return said + (f" (crew can't read it now: {unread})" if unread else "")
-
-
-def given_noticed(fleet, a):
-    """crew _notice <team> <bolt>, on the team's host, run by a give on today's path once its write is made (teams.7):
-    the give's notice owed the team's conductor there (hold.owe_given) and handed to crew _renew, which tells it at once
-    when it is idle, by its restart's greeting when it is due one that may run now and else by crew's notice, and at the
-    end of its turn when it works, crew's Stop hook handing it back (crew.renew_owed); or, when herdr reads it not up,
-    said and recorded as a refused bolt.notice, its next start greeting it. The session it runs is kept with the notice,
-    so a start of it since spends the notice (hold.notice_spent)."""
-    import hold  # hold imports this module
-    t = at_work(fleet, a.team)
-    team = on_team_host(fleet, t, False)
-    name = team.agent_of("conductor")
-    status, _, unread = crew.waits_on_question(fleet, name)
-    said = notice_handed_said(name, t["name"], a.bolt, status, unread)
-    if status is None and not unread:
-        print(said, file=sys.stderr)
-        record.emit(t["label"], "bolt.notice", notice_on(t["name"], a.bolt), refused=said,
-                    why=f"team({t['name']}): tell {name} of bolt {a.bolt}")
-        return
-    hold.owe_given(name, t["label"], t["name"], a.bolt, (crew.start_of(name) or {}).get("session"))
-    hold.hand(name)
-    print(said)
-
-
-def notice_unsent(entries, bolt, team):
-    """Whether the conductor of a bolt's team is still untold of its give (teams.7), from the partition's run record
-    (entries, oldest first): the newest refused bolt.notice of the bolt since its newest give to the team, when no
-    bolt.notice of it told it and no greeting of the conductor came after, {"words", "at"}; else None. A greeting of the
-    conductor tells it to read where its bolt stands, so it tells it of the give. A decision of facts alone (code.7)."""
-    unsent = None
-    for e in entries:
-        on, act = e.get("On") or [], e.get("Act")
-        if act == "bolt.give" and not e.get("Refused") and f"bolt/{bolt}" in on and f"team/{team}" in on:
-            unsent = None
-        elif act == "bolt.notice" and f"bolt/{bolt}" in on:
-            unsent = {"words": e["Refused"], "at": e.get("At")} if e.get("Refused") else None
-        elif act == "greet" and not e.get("Refused") and f"agent/{team}-conductor" in on:
-            unsent = None
-    return unsent
-
-
-def given_beside(team, bolt, up, code, said):
-    """What a give to a team that still holds a proven bolt says of its conductor and ops (teams.16): what the team's
-    host said, then that each that is up starts again on the new bolt at its next stop, or, when the host did not
-    answer or its tidy failed, that they start again on it only at their next start."""
-    lines = [said] if said else []
-    roles = " and ".join(f"{team}-{r}" for r in up)
-    if code:
-        why = "did not answer" if code == 255 else "could not hand them their restart"
-        lines.append(f"{team}'s host {why}: {roles or 'its conductor and ops'} carry bolt/{bolt} once next started")
-    elif up:
-        lines.append(f"{roles} start{'s' if len(up) == 1 else ''} again on bolt/{bolt} at {'its' if len(up) == 1 else 'their'} next stop")
-    else:
-        lines.append(f"{team}-conductor is not up: crew up {team} starts and greets it")
-    return "\n".join(lines)
-
-
 def kit_policy(fleet, t):
     """The team's kit's policy as its main holds it now and what its host's sluice says of its version, read on the
     team's host in one go, origin/main after a fetch for a kit with an origin (GIVE_READ, kit.main_now, plan.18): (the
@@ -2342,26 +2167,13 @@ def kit_policy(fleet, t):
     return text, ref, sha, kit.said_of(said).get("SLUICE", "")
 
 
-def proven_facts(st, plan, bolts):
-    """What give_refusal reads of each of the bolts, in the order given, from one read of their kits (st, stages_for):
-    (name, work, head, verdict, unread, beside), beside sluice's record of a landing beside its queue at the head
-    (gather.landing_read)."""
-    out = []
-    for b in bolts:
-        k, why = st.kit(b)
-        facts = k["bolts"].get(b.name(), {}) if k else {}
-        work = [(u.name(), kind_of(u), st.of(u.name())["stage"]) for u in plan.work_of(b.name())]
-        out.append((b.name(), work, facts.get("head"), facts.get("verdict"), why, facts.get("beside")))
-    return out
-
-
-def launched_said(t, bolt, launched):
-    """What a give to a team crossed to Flume says once the plan gives the bolt (Decision 5): each piece of work
-    launched by its request, for the runner on the team's host to launch in the team's stream, and that no agent
-    starts, crew bolts showing the places."""
+def launched_said(repo, bolt, launched):
+    """What a start says once the plan starts the bolt (Decision 5): each piece of work launched by its request, for the
+    runner whose configuration names the bolt's repository to take in the stream its host maps it to (the user's ruling of
+    2026-11-01), and that no agent starts, crew bolts showing the places."""
     work = ", ".join(f"{w} (request {n})" for n, w in launched) or "nothing, the bolt holding no unit or chore yet"
-    return (f"{t['name']} has crossed to Flume, so no agent of it starts: the runner on {t['machine']} launches {work} in "
-            f"stream {t['flume']}, and crew bolts shows their places")
+    return (f"no agent starts: {work} is launched in {repo}, for a runner whose configuration names it to take, in the "
+            "stream its host maps it to, and crew bolts shows their places")
 
 
 def crossed_bolt(plan, bolt):
@@ -2370,20 +2182,17 @@ def crossed_bolt(plan, bolt):
     return b is not None and b.get("Path") == "flume"
 
 
-def reach_places(fleet, w, bolt, t=None, again=()):
-    """A plan write's own act on a bolt given through Flume (Decisions 5 to 7 of teams-cross-to-flume-as-their-bolts-
-    land): the requests runner.reach decides, its launches, drops and launches anew, appended in the write's own commit
-    (request), then the priorities the plan's order changed (reprioritise). t is the team holding the bolt with the
-    bolt's kit as its kit, read from the plan when not given, refused when the teams file names no team by it, since
-    crew can't tell where its work runs; again the work launched anew. Returns each launch appended, as (its number,
-    its work)."""
+def reach_places(fleet, w, bolt, again=()):
+    """A plan write's own act on a started bolt (Decisions 5 to 7 of teams-cross-to-flume-as-their-bolts-land): the
+    requests runner.reach decides, its launches, drops and launches anew, each in the bolt's repository for the runner
+    whose configuration names it to take (the user's ruling of 2026-11-01), appended in the write's own commit
+    (request), then the priorities the plan's order changed (reprioritise); again the work launched anew. Returns each
+    launch appended, as (its number, its work)."""
     b = w.plan.bolt(bolt)
-    if t is None and b is not None:
-        t = bolt_team(fleet, b) or fail(f"bolt {bolt} is given to {b.get('Team')}, which {crew.TEAMS} does not name, so crew can't "
-                                        "tell where its work runs")
+    b is None or started(b) or fail(f"bolt {bolt} is not started, so nothing of its work is launched")
     launched = []
-    for act, host, work, given in runner.reach(w.plan, requests_of(w).recs("Request"), bolt, t, again):
-        n = request(w, act, host, work, **given)
+    for act, work, given in runner.reach(w.plan, requests_of(w).recs("Request"), bolt, w.label, again):
+        n = request(w, act, work, **given)
         if act == "launch":
             launched.append((n, work))
     reprioritise(w)
@@ -2397,16 +2206,29 @@ def reprioritise(w):
     if w.text("requests.rec") is None:
         return
     for launch, p in runner.priorities(w.plan, requests_of(w).recs("Request")):
-        request(w, "priority", launch.get("Host"), launch.get("Work"), Of=launch.get("Request"), Priority=p)
+        request(w, "priority", launch.get("Work"), Of=launch.get("Request"), Priority=p)
 
 
 def runner_facts(fleet, label):
     """What a crossed piece's stage is read from in a partition (runner.piece_stage; Decision 8 of teams-cross-to-flume-
-    as-their-bolts-land): requests.rec's records at the tip of its branch this command reads (fetch), none where the
-    branch is not started, and each host's runner read beside it (runners)."""
+    as-their-bolts-land): requests.rec's records at the tip of its branch this command reads (fetch), read through the
+    partition's renames at that tip (launches_now), none where the branch is not started, and each host's runner read
+    beside it (runners)."""
     repo, ref = state_of(fleet, label)
     tip = fetch(repo, ref)
-    return (Plan(show(repo, tip, "requests.rec") or runner.REQUESTS).recs("Request") if tip else []), runners(repo, label)
+    requests = Plan(show(repo, tip, "requests.rec") or runner.REQUESTS).recs("Request") if tip else []
+    return launches_now(requests, renames_at(repo, tip)), runners(repo, label)
+
+
+def launches_now(requests, renames):
+    """requests.rec's records as crew reads them (Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
+    each record's Repo by its kit's name now through the partition's renames (kit_now), read at the tip the records
+    were, so a launch made under a former name is its kit's launch; the file itself is never changed, and every other
+    field reads as written."""
+    if not renames:
+        return requests
+    return [Rec(r.kind, [(f, kit_now(v, renames) if f == "Repo" else v) for f, v in r.fields]) if r.get("Repo") else r
+            for r in requests]
 
 
 def launch_label(fleet, work, label):
@@ -2432,13 +2254,15 @@ def launch_label(fleet, work, label):
 
 
 def answer(fleet, a):
-    """crew answer <work> "<words>" [--label L]: a retry of the stage the place of a crossed team's work stopped short on,
+    """crew answer <work> "<words>" [--label L]: a retry of the stage the place of a started bolt's work stopped short on,
     or waits on its caller for, carrying the words, the planner's, the design agent's or main-level ops's answer
     (Decision 9 of teams-cross-to-flume-as-their-bolts-land, runner.answer_retry); its submission again where that is
     what waits, unheld. Appended to requests.rec in one plan write, the work's stage read again from the runner's
     records at the tip it is applied to (plan.1), and recorded as stage.answer, which holds none of the words
-    (record.3). Refused, naming the place's stage, when the place neither stopped short nor waits on its caller, and
-    when no launch of the work stands."""
+    (record.3). Refused, naming the place's stage, when the place neither stopped short nor waits on its caller; naming
+    what crew could not read when it can't tell, as while the runner holds the launch or has carried no status of the
+    place (read.1); and when no launch of the work stands. A stop-short whose agent Flume keeps open is answered as any
+    other, the retry naming its stage reaching that session (flume 49)."""
     label = launch_label(fleet, a.work, default_label(fleet, a))
     CONTEXT["label"], seen = label, {}
 
@@ -2454,72 +2278,22 @@ def answer_place(w, named, words):
     """crew answer's change to a write (answer): the retry runner.answer_retry decides for the place of the work named,
     its stage read from the runner's records as the write reads them, appended to requests.rec with the words, the
     write's subject and objects set. Returns what it asked, {n, work, host, place, what}: the request's number, the work
-    as requests name it, the host whose runner retries it, its place, and the stage, or the submission, run again."""
+    as requests name it, the host whose runner took it and retries it, its place, and the stage, or the submission,
+    run again."""
     requests = requests_of(w).recs("Request")
     launch, why = runner.named_launch(requests, named)
     not why or fail(why)
-    work, host = launch.get("Work"), launch.get("Host")
+    work = launch.get("Work")
     CONTEXT["work"] = work
-    s = runner.piece_stage(requests, w.runner_of(host), launch)
+    s = runner.piece_stage(requests, w.runners(), launch)
     how, stage = runner.answer_retry(work, s)
     how or fail(stage)
-    n = request(w, "retry", host, work, Of=launch.get("Request"), Stage=stage, Submission=how == "submission", Words=words)
+    host = w.taker(launch)
+    n = request(w, "retry", work, Of=launch.get("Request"), Stage=stage, Submission=how == "submission", Words=words)
     what = stage or "submission"
     w.subject = f"plan({(launch.get('Intent') or '').split('/', 1)[-1]}): answer {work}'s {what}"
     w.on += [work] + ([launch.get("Base")] if (launch.get("Base") or "").startswith("bolt/") else [])
     return dict(n=n, work=work, host=host, place=s.get("place") or launch.get("Name"), what=what)
-
-
-def path_facts(plan, t):
-    """A team's path as the views say it (runner.path_facts; Decision 14 of teams-cross-to-flume-as-their-bolts-land),
-    from its plan: its setting and each bolt the plan gives it, with the Path it was given on."""
-    return runner.path_facts(runner.path_of(plan, t), t["flume"], [(b.name(), b.get("Path")) for b in held_by(plan, t["name"])])
-
-
-def give_due(plan, t):
-    """Why a give hands a team no bolt while it is due to cross to Flume or back (runner.due_refusal), from its plan:
-    each bolt the plan gives it, with the Path it was given on; None when it is not due (Decision 2 of
-    teams-cross-to-flume-as-their-bolts-land)."""
-    return runner.due_refusal(t["name"], runner.path_of(plan, t), [(b.name(), b.get("Path")) for b in held_by(plan, t["name"])])
-
-
-def give_refusal(team, held):
-    """Why a team is given no bolt now, or None (teams.16, record 0020): a team builds one bolt and holds at most one
-    more, proven and waiting to land, so a give is refused while it holds two, and while a bolt it holds is not proven:
-    its kit could not be read (read.1), it holds no unit or chore yet, one of them has not merged, or sluice's verdict
-    at its head is not green (kit.verification). held is each bolt the team holds, oldest first, as (name, work, head,
-    verdict, unread): work its units and chores as (name, kind, stage), unread why its kit could not be read or None.
-    A fix in flight refuses nothing, since a carrying fix is what the proven bolt keeps of the team; a bolt every unit
-    of which has landed passes, only crew bolt land being left of it."""
-    if len(held) >= 2:
-        return f"{team} holds {held[0][0]} and {held[1][0]}; {held[0][0]} waits to land, and its landing frees {team}"
-    for name, work, head, verdict, unread, beside in held:
-        if unread:
-            return f"can't tell whether bolt {name} is proven: {unread}"
-        if not work:
-            return f"bolt {name} holds no units or chores yet"
-        for n, kind, stage in work:
-            if stage not in ("merged", "landed"):
-                return f"bolt {name}'s {kind} {n} has not merged ({stage})"
-        if all(stage == "landed" for *_, stage in work):
-            continue
-        state, said = kit.verification(head, verdict, beside)
-        if state != "green":
-            return f"bolt {name}'s verification is not green: {said}"
-    return None
-
-
-def to_give(plan, b, team, kits, label):
-    """The bolt a give hands a team: the one named (b), refused when it is in a kit the team does not hold or another
-    team holds it; else the first bolt in the plan's order of any kit the team holds (kits, by name) that no team holds
-    (record 0035)."""
-    built = " and ".join(kits)
-    if b is not None:
-        b.get("Repo") in kits or fail(f"bolt {b.name()} is in {b.get('Repo')}, and {team} builds {built}")
-        not b.get("Team") or fail(f"bolt {b.name()} is held by {b.get('Team')}")
-        return b
-    free = [x for x in plan.bolts() if x.get("Repo") in kits and not x.get("Team")]
-    return free[0] if free else fail(f"{label}/main has no planned bolt in {built} for {team}")
 
 
 def land_refusal(bolt, units, stage_of, outside, label, held=None, kit_name=None):
@@ -2546,23 +2320,78 @@ def land_refusal(bolt, units, stage_of, outside, label, held=None, kit_name=None
     return None
 
 
-def builder(fleet, label, kit):
-    """The team of the partition building a kit, the first by name, on whose host and main checkout a bolt no team
-    holds is read and landed; None when no team of the partition builds it."""
-    return next((crew.with_kit(fleet["teams"][t], kit) for t in sorted(crew.partition_of(fleet, label)["teams"]) if crew.builds(fleet["teams"][t], kit)), None)
+def partition_kits(plan, landings, renames=()):
+    """A partition's kits (Decision 3 of the-team-machinery-leaves): the repositories its plan's Bolt and Unit records
+    name, with those its run record's landings name, each bolt.land entry not refused (landings, as record.acts_in
+    finds them), each by its name now through the partition's renames (kit_now), sorted and each once, so a kit whose
+    landings were recorded under a former name is one kit. There is no registry of repositories in crew: a kit enters
+    a partition with its first bolt, and a kit whose last bolt has landed stays one by its landings. plan None, a
+    branch not started, names none."""
+    named = [r.get("Repo") for r in (plan.bolts() + plan.work() if plan is not None else [])]
+    named += [e.get("Repo") for e in landings if e.get("Act") == "bolt.land" and not e.get("Refused")]
+    return sorted({kit_now(r, renames) for r in named if r})
 
 
-def partition_kits(fleet, label):
-    """The names of the kits the partition's teams build, from the teams file alone (code.5), sorted."""
-    return sorted({k["name"] for t in crew.partition_of(fleet, label)["teams"] for k in crew.kits_of(fleet["teams"][t])})
+def runs_at(repo, tip):
+    """What crew reads of the run record by its acts at a tip of a drive's branch, in one pass over its files under
+    runs/, read once for the command by the tip (plan.12): every bolt.land entry and every kit.rename entry, found by
+    their act (record.acts_in), {"landings", "renames"}."""
+    name = f"runs-{tip}"
+    held = READ.held(name)
+    if held is not None:
+        return held
+    paths = [p for p in paths_at(repo, tip, "runs/") if p.endswith(".rec")]
+    texts = [show(repo, tip, p) for p in paths] if kept_listing(repo, tip) is not None else cat_file(repo, [f"{tip}:{p}" for p in paths])
+    out = {"landings": [e for t in texts for e in record.acts_in(t or "", "bolt.land")],
+           "renames": [e for t in texts for e in record.acts_in(t or "", "kit.rename")]}
+    READ.keep(name, out)
+    return out
+
+
+def landings_at(repo, tip):
+    """Every bolt.land entry the run record holds at a tip of a drive's branch (runs_at)."""
+    return runs_at(repo, tip)["landings"]
+
+
+def renames_at(repo, tip):
+    """The partition's renames of its kits as the run record holds them at a tip of a drive's branch (runs_at,
+    renames_in), read with its landings; none for a branch not started (tip None)."""
+    return renames_in(runs_at(repo, tip)["renames"]) if tip else []
+
+
+def kits_at(repo, tip, pl):
+    """A partition's kits (partition_kits) as its branch holds them at a tip: the plan read there (pl) and the landings
+    and renames its run record holds; none for a branch not started (tip None)."""
+    return partition_kits(pl, landings_at(repo, tip) if tip else [], renames_at(repo, tip))
+
+
+def kits_read(fleet, label, fresh=True):
+    """A partition's kits (partition_kits) read from its branch, fetched once for the command, or, not fresh, as crew's
+    cache holds it now with no fetch (tip_here, plan.12), as a standing agent's due restart reads its kit folders
+    (crew.kits_on); none for a branch not started, or not yet fetched into the cache. Refused naming the branch when it
+    can't be read (read.1)."""
+    repo, ref = state_of(fleet, label)
+    if fresh:
+        tip = fetch(repo, ref)
+    else:
+        tip = tip_here(repo, ref)
+        tip is not None or fail(f"crew's cache of {repo} can't be read for {ref}")
+    return kits_at(repo, tip, read(repo, ref, tip) if tip else None)
+
+
+def renames_read(fleet, label):
+    """A partition's renames of its kits (renames_at) read from its branch at the tip this command fetched once
+    (plan.12), as kits_read reads its kits; none for a branch not started."""
+    repo, ref = state_of(fleet, label)
+    return renames_at(repo, fetch(repo, ref))
 
 
 def land_key(key, kits):
-    """What a land/ card key names (rail-cards, record 0031 as amended 2026-10-23), from the names of the kits the
-    partition's teams build (kits): ("kit", <kit>) for land/<kit>, the kit's landings card, main-level ops's; ("bolt",
-    <bolt>) for any other land/<x>, a bolt's reading and preview on its team's host, and an old landing card of the
-    bolt's own, land/<bolt> or land/<bolt>/<head> as a conductor posted one before; None for a key that is no
-    landing's."""
+    """What a land/ card key names (rail-cards, record 0031 as amended 2026-10-23), from the partition's kits
+    (partition_kits, the repositories its plan and its landings name): ("kit", <kit>) for land/<kit>, the kit's
+    landings card, main-level ops's; ("bolt", <bolt>) for any other land/<x>, a bolt's reading and preview, and an old
+    landing card of the bolt's own, land/<bolt> or land/<bolt>/<head> as a conductor posted one before; None for a key
+    that is no landing's."""
     m = re.fullmatch(r"land/([a-z0-9][a-z0-9-]*)(/[0-9a-f]{7})?", key or "")
     if not m:
         return None
@@ -2571,11 +2400,11 @@ def land_key(key, kits):
 
 def kit_named(bolt, kits, label):
     """Why a bolt may not be added under its name, or None (rail-cards "A bolt's own landing card gives way to its
-    kit's"): it is the name of a kit the partition's teams build (kits), whose landings card is land/<kit>, so land/
-    <bolt> would name the kit's card and not the bolt."""
+    kit's"): it is the name of one of the partition's kits (partition_kits, the repositories its plan and its landings
+    name), whose landings card is land/<kit>, so land/<bolt> would name the kit's card and not the bolt."""
     if bolt in kits:
-        return (f"a bolt of {label} may not be named {bolt}: that is the name of a kit {label}'s teams build, whose "
-                f"landings card is land/{bolt}")
+        return (f"a bolt of {label} may not be named {bolt}: that is the name of a kit {label}'s plan or landings name, "
+                f"whose landings card is land/{bolt}")
     return None
 
 
@@ -2591,24 +2420,14 @@ def unheld_stages(k, why, other, chores=()):
     return of
 
 
-def unheld_refusal(bolt, units, kit, t, label):
-    """Why a bolt no team holds can't land, or None: it holds units or chores, since a bolt with none has nothing on
-    main, and a team of the partition builds its kit, whose main checkout is read."""
+def unheld_refusal(fleet, bolt, units, kit, t, label):
+    """Why a bolt never started can't land, or None: it holds units or chores, since a bolt with none has nothing on
+    main, and the partition's main-level host keeps a checkout of its kit (t, main_kit), whose main is read."""
     if not units:
-        return f"bolt {bolt} is held by no team and holds no units or chores, so nothing of it has landed"
+        return f"bolt {bolt} was never started and holds no units or chores, so nothing of it has landed"
     if t is None:
-        return f"bolt {bolt} is held by no team, and no team of {label} builds {kit}, so crew can't read its main"
+        return f"bolt {bolt} was never started, and {main_kit_said(fleet, label, kit, 'read its main')}"
     return None
-
-
-def landed_line(bolt, kit_name, head, team, still):
-    """What crew bolt land says of a bolt its team held (teams.16): where it landed, and the bolt the team still builds
-    (still, the bolts it holds once the landing is written), or that it holds none; when the plan could not be read
-    after the write (still None), only where it landed."""
-    said = f"{bolt} has landed at {kit_name}'s {head[:7]}"
-    if still is None:
-        return f"{said}; {team}'s plan could not be read again to say what it holds"
-    return f"{said}; {team} builds {still[0]}" if still else f"{said} and {team} holds no bolt"
 
 
 def landed_words(head, submission):
@@ -2650,8 +2469,8 @@ def words_kept_where(pane_host, here):
 
 
 def landing_card_keys(entries, bolt, owner):
-    """The keys under which the bolt's conductor (owner) holds an open landing card, from its host's run record:
-    land/<bolt>, as crew raises it (record 0031), and land/<bolt>/<head>, as a conductor posted one before."""
+    """The keys under which owner holds an open landing card of the bolt's own, from its host's run record:
+    land/<bolt>, as crew raised it (record 0031), and land/<bolt>/<head>, as a conductor posted one before."""
     keys = sorted({e.get("Key") for e in entries if e.get("Act") == "card.post" and e.get("By") == owner
                    and re.fullmatch(rf"land/{re.escape(bolt)}(/[0-9a-f]{{7}})?", e.get("Key") or "")})
     return [k for k in keys if cards.card_under(entries, k, owner)]
@@ -2712,13 +2531,6 @@ def preview_listed(doc, branch, head):
     return None
 
 
-def fixes_in_flight(fixes, bolt):
-    """The fixes of the bolt in flight, by name, from the fixes a kit read found (gather.kit): each whose place stands,
-    that has not merged into the bolt and that its conductor did not drop (record 0028); a fix in flight holds the
-    bolt's landing (landing_unready)."""
-    return sorted(f["fix"] for f in fixes if f.get("bolt") == bolt and not f.get("merged") and not f.get("dropped"))
-
-
 def landing_unready(work, head, verdict, fixes, beside=None):
     """Why a bolt does not yet read proven, from its kit alone (record 0031 §1, record 0025), or None: work is each of
     its units and chores as (name, kind, stage); head and verdict, its branch's head and sluice's Sluice-Result there;
@@ -2738,19 +2550,18 @@ def landing_unready(work, head, verdict, fixes, beside=None):
     return f"{either(sorted(fixes))} is in flight on it" if fixes else None
 
 
-def landing_facts(bolt, kit_name, work, head, at, due, unanswered, read_in, moved, pr, frees=None):
+def landing_facts(bolt, kit_name, work, head, at, due, unanswered, read_in, moved, pr):
     """The landing card's facts as cards.landing_card takes them, once the bolt reads proven by its kit (landing_unready):
     the bolt, its kit, its units and chores, the batch each unit was last read in (read_in), its head and when sluice
-    landed it there (at), how many landings main has had since the bolt last met it (moved), sluice's pull request
-    at the head (pr) or None, and, when its team holds another bolt that is proven too, what a yes frees it for (frees,
-    {team, next}, yes_frees) or None. None while a unit's latest change waits for a batch (due), or has been in one whose
+    landed it there (at), how many landings main has had since the bolt last met it (moved), and sluice's pull request
+    at the head (pr) or None. None while a unit's latest change waits for a batch (due), or has been in one whose
     card the user has not answered (unanswered, awaiting_answer), since a bolt lands only once each has been in a batch
     the user has answered (briefs.12); a chore is in no batch."""
     units = [n for n, kind, _ in work if kind == "unit"]
     if any(u in due or u in unanswered for u in units):
         return None
     return dict(bolt=bolt, kit=kit_name, units=units, chores=[n for n, kind, _ in work if kind == "chore"],
-                batches={u: read_in[u] for u in units if u in read_in}, head=head, at=at, moved=moved, pr=pr, frees=frees)
+                batches={u: read_in[u] for u in units if u in read_in}, head=head, at=at, moved=moved, pr=pr)
 
 
 def pull_of(sluice_from, repo):
@@ -2784,13 +2595,13 @@ def submit_queued(entries, bolt):
 def sent_back(entries):
     """Each bolt whose landing sluice sent back for the bolt's own content (landing_end) and whose sent-back landing
     still stands as sluice's record has it (rail-cards "A refused landing is held on its row", bolt-teams "A landing
-    sluice sent back is its team's fix"), from the run record's entries, oldest first: {bolt: {head, words, n}}, from
+    sluice sent back is the bolt's fix"), from the run record's entries, oldest first: {bolt: {head, words, n}}, from
     its last bolt.submit refused naming a head: the head submitted, the words it was refused with, sluice's verdict
     when it gave one (landing_said, recorded), and sluice's number for the submission, None when the entry names none.
     It stands through every bolt.submit after it that submitted nothing at its head, which leaves sluice's record of
     the sent-back landing as it was: a refusal of crew's own before anything was submitted, naming no head (a submit
     crew refused at that head among them), and a stop naming no submission of sluice's at that head, as a `wt submit`
-    that read nothing and submitted nothing (the box's 22:28Z stop of 2026-11-06, signal
+    that read nothing and submitted nothing (the Willdan box's 22:28Z stop of 2026-11-06, signal
     2026-11-06-wldn-ops-ea539623/01). Any other entry lifts it: a submission queued, left standing or landed, a stop
     naming a submission of its own, or one at another head. A decision of facts alone (code.7)."""
     out = {}
@@ -2822,7 +2633,7 @@ def stops(entries):
     the head that was submitted and the words for what stopped it, from each bolt's last bolt.submit entry when it is
     marked Outcome stopped and names its Head; a bolt whose last one landed or was refused, or that has none, is not in
     it, nor one whose stop names no head, which nothing of the bolt was submitted at, nor one whose landing sluice sent
-    back still stands (sent_back), which a stop that submitted nothing leaves its team's fix."""
+    back still stands (sent_back), which a stop that submitted nothing leaves the bolt's fix."""
     held = sent_back(entries)
     return {b: (e["Head"], e.get("Why") or "") for b, e in last_submits(entries).items()
             if e.get("Outcome") == "stopped" and e.get("Head") and not e.get("Refused") and b not in held}
@@ -2838,7 +2649,7 @@ def stopped_at(stopped, bolt, head):
 def refused_at(entries, bolt, head):
     """sluice's refusal of the bolt's landing at head, in the words it was recorded with, or None (rail-cards "A
     refused landing is held on its row"): its last bolt.submit was refused with head submitted; one refused at another
-    head, the bolt's head moved since by its team's fix, holds nothing."""
+    head, the bolt's head moved since by a fix on it, holds nothing."""
     return held_at(refusals(entries), bolt, head)
 
 
@@ -2885,7 +2696,7 @@ def work_said(bolt, sent, head, work):
     return ", ".join(said)
 
 
-# The words a take-main fix starts with (bolt_forecast's, and main-level ops's for a landing that conflicts): a fix in
+# The words a take-main fix starts with (the landing read's, and main-level ops's for a landing that conflicts): a fix in
 # flight with them holds its bolt's row as taking main first (rail-cards "A take-main fix holds its row as taking main
 # first").
 TAKE_MAIN = "Take main into the bolt"
@@ -2924,9 +2735,9 @@ def landing_rows(order, rows, held, stopped=None, takes_main=None, left=()):
     (stopped_at), which holds nothing (rail-cards "A landing sluice or its host stopped keeps its box"); or {bolt, box:
     False, why, facts}, held with no box: while its facts say it carries another bolt's work main lacks, or that what
     it carries can't be read (carries, carries_error; carries_said), whatever else holds it, so no landing card is raised
-    for it nor its row marked able to land (plan.8); for a fix in flight on it, in the fix's words, or for sluice's refusal of its
-    landing at its present head, until its team's fix moves the head, saying ops submits it again once that fix has
-    merged (bolt-teams "A landing sluice sent back is its team's fix"); or, marked takes_main, taking main first,
+    for it nor its row marked able to land (plan.8); for a fix in flight on it, in the fix's words, or for sluice's rejection of its
+    landing at its present head, the row saying the landing was rejected and the bolt is open for work, until a fix on
+    the bolt moves the head; or, marked takes_main, taking main first,
     forecast to conflict with main, or with only take-main fixes in flight (TAKE_MAIN), each named with its words; but a
     bolt the user left (left, left_now) marked takes_main keeps its box, its facts marked would_main, (main's short
     sha, [paths]), for its row to say it would take main first once ticked (rail-cards "A row the user left says
@@ -2945,12 +2756,11 @@ def landing_rows(order, rows, held, stopped=None, takes_main=None, left=()):
                             else f"held for a fix: {note} ({fix})" if note else f"held for {fix} until it merges or is dropped"
                             for fix, note in sorted(fixes.items()))
         elif at and (at.startswith(f["head"]) or f["head"].startswith(at)):
-            why = (f"held: sluice refused its landing at {f['head'][:7]}, and it waits for its team's fix: {words.rstrip('.')}; "
-                   "once that fix has merged, ops submits it again")
+            why = f"landing rejected at {f['head'][:7]}, open for work: it waits for a fix on the bolt: {words}"
         elif b in takes_main and b not in left:
             main, paths = takes_main[b]
-            why, main_first = (f"takes main first: forecast to conflict with main on {joined(list(paths))} at {main[:7]}; "
-                               f"{f.get('conductor') or 'its team'} takes main in by a fix"), True
+            why, main_first = (f"takes main first: forecast to conflict with main on {joined(list(paths))} at {main[:7]}, "
+                               "until a fix taking main in moves its head"), True
         else:
             stop = stopped_at(stopped, b, f["head"])
             marks = dict(**({"stopped": (stopped[b][0], stop)} if stop else {}),
@@ -3047,8 +2857,8 @@ def left_now(card, ticked, heads, recorded, stops):
 def left_of(entries, key, heads):
     """The bolts of a kit's landings card the user left, as the run record holds them (left_marks): the last set its
     raise recorded and each stop recorded since, kept only at the bolt's head now (heads, {bolt: head}); a tick on a
-    send, read by the raise that recorded the set, a moved head or a landing on the user's words ending one. Which a
-    conductor's wait and the rail read, neither seeing the card. {bolt: head7}."""
+    send, read by the raise that recorded the set, a moved head or a landing on the user's words ending one. Which the
+    rail reads, not seeing the card. {bolt: head7}."""
     recorded, stops = left_marks(entries, key)
     return {b: heads[b][:7] for b, h in list(recorded.items()) + stops if at_head(h, heads.get(b))}
 
@@ -3092,7 +2902,7 @@ def sent_left(sent, now, in_plan, refused, work=None):
     ticked}), in the order sent, which crew card read land/<kit> prints with or without a card open, so the send is read
     though its card closed before ops read it: each the plan still holds (in_plan) whose head now is read (now, {bolt:
     its head or None}), whose send stands there (send_stands, work bolt_work's between the two), and that sluice did not
-    refuse at its head now (refused, refusals), a refusal at the head sent holding nothing once its team's fix moved it;
+    refuse at its head now (refused, refusals), a refusal at the head sent holding nothing once a fix on it moved it;
     and beside them each it can't tell of, its head now unread or its work not compared, with why (read.1): (bolts,
     [(bolt, why)]). A decision of facts alone (code.7)."""
     work, out, unknown = work or {}, [], []
@@ -3158,8 +2968,8 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     ("close", outcome, then, standing) once none is still to land, the outcome saying what landed and where GitHub's
     main holds it, what was held and why, what was left and what reads proven since, then the bolts left when rows can
     land, for a new card that follows it, else None, then each ticked bolt held whose send still stands, (bolt, the
-    head they ticked), which the close keeps, saying so, for it to land on that send once its team's fix has only
-    taken main in; a send ticking none closes it at once, landing nothing. A bolt left on the last send is shown
+    head they ticked), which the close keeps, saying so, for it to land on that send once a fix on it has only taken
+    main in; a send ticking none closes it at once, landing nothing. A bolt left on the last send is shown
     unticked on the card that follows only while its head stands."""
     boxed = [r for r in rows if r["box"]]
     now = [(r["bolt"], r["facts"]["head"][:7]) for r in boxed]
@@ -3181,7 +2991,8 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
         said += [f"{b}'s head is now {h}" for b, h in shown if b in was and was[b][0] != h]
         said += [f"{b} {held[b]}" for b, _ in shown if b in was and b in taking and b not in took]
         said += [f"{b} can land again" for b, _ in shown if b in was and b not in taking and b in took]
-        said += [(f"{b} {held[b]}" if held[b].startswith("takes main first") else f"{b} is {held[b]}") if b in held
+        said += [(f"{b} {held[b]}" if held[b].startswith("takes main first") else f"{b}'s {held[b]}" if held[b].startswith("landing ")
+                  else f"{b} is {held[b]}") if b in held
                  else f"{b} no longer waits to land" for b, _, _ in heads if b not in dict(shown)]
         said = ([note] if note else []) + said
         if not said:
@@ -3214,7 +3025,7 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     said += [f"{b}'s last landing at {stopped[b][0][:7]} was stopped, nothing of the bolt's: {stopped[b][1].rstrip('.')}; it "
              "lands on your send once that is cleared." for b in lands if b in stopped]
     said += [f"Taking main in first, your send standing for it: {joined([b for b in landing if b in main_first])}."] if len(lands) < len(landing) else []
-    said += [f"Held: {b}, {held[b]}; your send stands for it: it lands once its team's fix has only taken main in and "
+    said += [f"Held: {b}, {held[b]}; your send stands for it: it lands once a fix on it has only taken main in and "
              "sluice has proven it, with nothing asked." if b in standing else
              f"Held: {b}, {held[b]}; {work_said(b, was[b], at[b], work.get(b))}, so a card asks for it again once it reads "
              "proven." for b in ticked if b in held and b not in landing]
@@ -3280,21 +3091,18 @@ def tree_paths(rc, out):
 
 def forecast_rows(fleet, label, kit, bolts, held=()):
     """The forecasts of a kit's landings card's rows (row_forecasts, held the bolts it is handed as taking main first by
-    the run record), made where the kit's first building team
-    (builder) has its main checkout: GitHub's main fetched there, a kit with no origin reading its own; each bolt read
+    the run record), made in the kit's folder where its work runs (kit_at): GitHub's main fetched there, a kit with no
+    origin reading its own; each bolt read
     where it lives (gather.bolt_at, plan.19), GitHub's copy when the policy in it names a remote for the bolt, else the
     host's, a bolt made before gives went through sluice; and git merge-tree of each onto main and onto each bolt above
     it. Returns ({bolt: [(with, paths)]}, {bolt: why}, at),
     why for each bolt whose forecast crew could not make, or that has one not made against another it could not read:
-    a branch on no ref it can read, a fetch or a git that failed, or no team building the kit, said and holding nothing
-    (read.1); at, the revision of main forecast against, {"main": <sha>}, the commit origin/main names after the fetch or
-    main for a kit with no origin, or None when the fetch or the read of it failed."""
-    t = builder(fleet, label, kit)
-    if not t:
-        return ({b: [("main", None)] for b in bolts}, {b: f"no team of {label} builds {kit}, so crew reads no checkout of it" for b in bolts},
-                None)
-    main, host = t["kit"]["main"], t["machine"]
+    a branch on no ref it can read, a fetch or a git that failed, or crew not telling where the kit's work runs, said
+    and holding nothing (read.1); at, the revision of main forecast against, {"main": <sha>}, the commit origin/main
+    names after the fetch or main for a kit with no origin, or None when the fetch or the read of it failed."""
     try:
+        t = kit_at(fleet, label, kit)
+        main, host = t["kit"]["main"], t["machine"]
         origin = origin_fetched(fleet, t, main)
         name = "refs/remotes/origin/main" if origin else "refs/heads/main"
         rc, sha = kit_git(fleet, t, main, "rev-parse", "--verify", "-q", f"{name}^{{commit}}", ok=(0, 1))
@@ -3321,8 +3129,8 @@ def forecast_rows(fleet, label, kit, bolts, held=()):
 
 
 def origin_fetched(fleet, t, main):
-    """Whether the kit's main checkout on the team's host (t) has an origin, GitHub, fetched there when it has; refused
-    in git's words when the fetch fails (plan.18)."""
+    """Whether the kit's folder on the host its work runs on (t) has an origin, GitHub, fetched there when it has;
+    refused in git's words when the fetch fails (plan.18)."""
     origin = kit_git(fleet, t, main, "remote", "get-url", "origin", ok=(0, 2))[0] == 0
     if origin:
         kit_git(fleet, t, main, "fetch", "-q", "origin")
@@ -3330,7 +3138,7 @@ def origin_fetched(fleet, t, main):
 
 
 def bolts_where(fleet, t, main, origin, bolts):
-    """Each bolt's head where it lives (gather.bolt_at, plan.19), read in the kit's main checkout on the team's host (t)
+    """Each bolt's head where it lives (gather.bolt_at, plan.19), read in the kit's folder on its host (t)
     once fetched (origin_fetched): GitHub's copy when the policy in it names a remote for the bolt, else the host's.
     Returns ({bolt: commit}, {bolt: why}), why for each on no ref crew can read there, or whose policy or git failed."""
     host, refs, why = t["machine"], {}, {}
@@ -3364,19 +3172,17 @@ def commits_listed(out):
 def bolt_work(fleet, label, kit, moves):
     """Each bolt's own work between the head the user sent and its head now (rail-cards "A ticked bolt's approval
     stands while its own work is unchanged", Decision 1), read where the kit's forecasts are made (forecast_rows), in
-    the kit's first building team's main checkout, GitHub's main fetched there once: a bolt's own work at a head being
+    the kit's folder where its work runs (kit_at), GitHub's main fetched there once: a bolt's own work at a head being
     its non-merge commits main lacks, what it gained is `git log --no-merges <now> ^<sent> ^<main>` and what it lost
     `<sent> ^<now> ^<main>`, main GitHub's, or a kit's own with no origin. moves, {bolt: (sent, head)}, head None for
     one read where the bolt lives (bolts_where). Returns {bolt: {head, gained, lost, why}}, gained and lost
-    [(sha, subject)], why set when crew could not tell, the fetch, the head sent or now, or git having failed, or no
-    team building the kit (read.1)."""
+    [(sha, subject)], why set when crew could not tell, the fetch, the head sent or now, or git having failed, or where
+    the kit's work runs (read.1)."""
     def told(head, why):
         return dict(head=head, gained=[], lost=[], why=why)
-    t = builder(fleet, label, kit)
-    if not t:
-        return {b: told(h, f"no team of {label} builds {kit}, so crew reads no checkout of it") for b, (_, h) in moves.items()}
-    main, host = t["kit"]["main"], t["machine"]
     try:
+        t = kit_at(fleet, label, kit)
+        main, host = t["kit"]["main"], t["machine"]
         origin = origin_fetched(fleet, t, main)
     except Refusal as e:
         return {b: told(h, str(e)) for b, (_, h) in moves.items()}
@@ -3413,34 +3219,36 @@ def batch_waits(units, due, unanswered):
 
 
 def land_held(fleet, label, bolt):
-    """The partition's plan, the bolt and the team holding it, as a landing reads them: the bolt None when the plan
-    holds none by that name, the team None when no team holds it. Refused when the plan can't be read (read.1)."""
+    """The partition's plan, the bolt and where its work runs (bolt_at), as a landing reads them: the bolt None when
+    the plan holds none by that name, where None when it is not started. Refused when the plan can't be read, or crew
+    can't tell where its work runs (read.1)."""
     plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so whether bolt {bolt} reads proven can't be told")
     b = plan.bolt(bolt)
-    return plan, b, bolt_team(fleet, b) if b else None
+    return plan, b, bolt_at(fleet, label, b) if b else None
 
 
 def land_facts(fleet, label, plan, b, t, fixes_hold=True):
-    """A held bolt's landing facts, read on the host of its team (t), so its row on its kit's landings card (land_row)
-    and its reading (crew card session) read the same bolt: (facts, None) once it reads proven (landing_unready,
-    landing_facts), the row's facts as cards.landings_card takes them with what the reading's writer needs beside them,
-    the team, its conductor, its host and where the bolt last met main (base); (None, why) while it does not. With
+    """A started bolt's landing facts, read on the host its work runs on (t, bolt_at), so its row on its kit's landings
+    card (land_row) and its reading (crew card session) read the same bolt: (facts, None) once it reads proven
+    (landing_unready, landing_facts), the row's facts as cards.landings_card takes them with what the reading's writer
+    needs beside them, its host, the kit's folder there (main), its repository as the plan names it (repo, for where its
+    diff is read whole) and where the bolt last met main (base); (None, why) while it does not. With
     fixes_hold False, a fix in flight on it does not keep it from reading proven, and the facts hold each such fix with
-    the words it started with ({fix: words or None}, fix_words; a bolt given through Flume's, its launch's brief,
-    runner.fixes_in_flight), the bolt's last landing sluice refused ((head, words),
+    the words it started with ({fix: its launch's brief}, runner.fixes_in_flight), the bolt's last landing sluice
+    refused ((head, words),
     refusals) or None, for landing_rows to hold its row by, and its last one sluice or its host stopped ((head, words),
     stops) or None, for its row to say. Refused when its kit can't be read (read.1)."""
     bolt = b.name()
-    st = stages_for(fleet, plan, held_by(plan, t["name"]) or [b])
+    st = stages_for(fleet, label, plan, [b])
     k, why = st.kit(b)
     not why or fail(f"bolt {bolt}'s kit could not be read: {why}")
     of = {u.name(): st.of(u.name()) for u in plan.work_of(bolt)}
     work = [(n, s.get("kind", "unit"), s["stage"]) for n, s in of.items()]
     facts = k["bolts"].get(bolt, {})
-    # A bolt given through Flume holds its fixes as Flume places, read from their launches and the runner's records,
-    # each with its brief for its words (Decision 10 of teams-cross-to-flume-as-their-bolts-land).
-    flume = runner.fixes_in_flight(*runner_facts(fleet, label), label, bolt) if crossed_bolt(plan, bolt) else None
-    fixes = sorted(flume) if flume is not None else fixes_in_flight(k.get("fixes", []), bolt)
+    # A started bolt holds its fixes as Flume places, read from their launches and the runner's records, each with its
+    # brief for its words (Decision 10 of teams-cross-to-flume-as-their-bolts-land).
+    flume = runner.fixes_in_flight(*runner_facts(fleet, label), bolt) if crossed_bolt(plan, bolt) else {}
+    fixes = sorted(flume)
     why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [], facts.get("beside"))
     if why:
         return None, why
@@ -3456,37 +3264,16 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     _, came = kit_git(fleet, t, main, "log", "-1", "--format=%(trailers:key=Sluice-From,valueonly)", head)
     crossed = crossed_changes(plan, st)  # a crossed unit's change, once landed on its bolt (Decision 13)
     due, unanswered = {u for u, *_ in due_changes(plan, entries, crossed)}, awaiting_answer(entries, crossed)
-    frees = frees_of(st, plan, t, bolt)
+    came = came.strip()
     card = landing_facts(bolt, t["kit"]["name"], work, head, facts.get("head_at"), due, unanswered, read_in, int(moved),
-                         pull_of(came.strip(), t["kit"]["repo"]),
-                         dict(team=t["name"], next=frees[1]) if frees and frees[0] == "frees" else None)
+                         pull_of(came, forge(fleet, t)) if pull_of(came, "") else None)
     if not card:
         return None, batch_waits([n for n, kind, _ in work if kind == "unit"], due, unanswered)
-    held = {} if fixes_hold else dict(fixes={f: flume[f] if flume is not None else fix_words(t, f) for f in fixes}, refusal=refusals(entries).get(bolt),
+    held = {} if fixes_hold else dict(fixes={f: flume[f] for f in fixes}, refusal=refusals(entries).get(bolt),
                                       stop=stops(entries).get(bolt))
     # Another bolt's work it carries, or why that can't be read (gather.carried_bolts), for landing_rows to hold it by (plan.8).
     carry = {x: facts[x] for x in ("carries", "carries_error") if facts.get(x)}
-    return dict(card, team=t["name"], conductor=f"{t['name']}-conductor", host=t["machine"], base=base, **held, **carry), None
-
-
-def fix_said(t, fix, words):
-    """The words a fix started with (crew fix's), kept on the team's host beside its stages file, never in the run
-    record (record.3), for its bolt's row on its kit's landings card to say while it holds it (land_facts); what can't
-    be written is said, and the fix stands."""
-    f = team_state(t) / "fix-words" / fix.replace("/", "--")
-    try:
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(words)
-    except OSError as e:
-        print(f"crew could not keep {fix}'s words for its bolt's landings row: {e.strerror or e}", file=sys.stderr)
-
-
-def fix_words(t, fix):
-    """The words a fix started with as fix_said kept them on the team's host, or None when none are kept."""
-    try:
-        return (team_state(t) / "fix-words" / fix.replace("/", "--")).read_text().strip() or None
-    except OSError:
-        return None
+    return dict(card, host=t["machine"], main=t["kit"]["main"], repo=t["kit"]["repo"], base=base, **held, **carry), None
 
 
 def landing_retry(why, fresh, fresh_why):
@@ -3542,7 +3329,7 @@ def landing_opened(fleet, label, plan, b, t, card, acts):
 
 
 def land_read(fleet, label, plan, b, t):
-    """A held bolt's row on its kit's landings card, read on its team's host (t) as land_facts reads it, a fix in flight
+    """A started bolt's row on its kit's landings card, read on its host (t) as land_facts reads it, a fix in flight
     on it holding its row rather than keeping it off the card: (row, None), the row as landing_rows gives it, a box,
     or held for a fix or for sluice's refusal of its landing at its present head (rail-cards, Decision 7), a box saying
     what stopped its last landing at that head; (None, why) while it is no row. Refused when its kit can't be read
@@ -3555,22 +3342,22 @@ def land_read(fleet, label, plan, b, t):
 
 
 def land_row(fleet, label, bolt, acts=None):
-    """crew _land-row <label> <bolt>: a bolt's row on its kit's landings card, on the host of the team holding it, where
-    its reading and its preview run (Decision 2): read as land_read reads it; a row that can land with its reading
+    """crew _land-row <label> <bolt>: a bolt's row on its kit's landings card, on the host its work runs on (bolt_at),
+    where its reading and its preview run (Decision 2): read as land_read reads it; a row that can land with its reading
     opened, or given again while it serves, twice if it must be, the second time on the landing read afresh
     (landing_opened), and what brings its preview up, or the one brought up from the card at its head, sluice asked for
     nothing (landing_preview); a held row, and a bolt that is no row, with its reading ended and its preview released,
     as a card's close ends them (row_card_close). Returns
     the row, {bolt, box, why, facts}, its facts carrying its reading's link or why it could not be opened and its
-    preview; or {bolt, why} while it is no row. Refused on any host but the team's, naming it, and when what it reads
+    preview; or {bolt, why} while it is no row. Refused on any host but the bolt's, naming it, and when what it reads
     can't be read (read.1)."""
     acts = acts or CardActs(fleet)
     plan, b, t = land_held(fleet, label, bolt)
     if not b:
         return dict(bolt=bolt, why=f"{label}'s plan holds no bolt {bolt}")
     if not t:
-        return dict(bolt=bolt, why=f"no team holds bolt {bolt}")
-    t["machine"] == acts.host() or fail(f"bolt {bolt}'s row is read on {t['machine']}, where {t['name']}, which holds it, runs")
+        return dict(bolt=bolt, why=f"bolt {bolt} is not started")
+    t["machine"] == acts.host() or fail(f"bolt {bolt}'s row is read on {t['machine']}, where the runner that took its work runs")
     row, why = land_read(fleet, label, plan, b, t)
     if row and row["box"]:
         facts = landing_opened(fleet, label, plan, b, t, row["facts"], acts)
@@ -3616,10 +3403,10 @@ def kit_card_state(acts, label, key, owner, card, entries):
 
 
 def said_heads(entries, left=()):
-    """The Heads of the forecasts and amendments the run record holds said (entries), which a conductor's wait and a
-    landings card's raise say once each: a forecast said while its bolt was left (Reached: left) counts only while the
-    bolt is still left (left, its name among them), so it holds back no take-main fix once the user ticks it (bolt-teams
-    "A waiting bolt's conflict with main tells its conductor the take-main fix")."""
+    """The Heads of the forecasts and amendments the run record holds said (entries), which a landings card's raise
+    says once each, one a conductor's wait said before counting as said: a forecast said while its bolt was left
+    (Reached: left) counts only while the
+    bolt is still left (left, its name among them), so the raise records it held once the user ticks it (main_told)."""
     return {e["Heads"] for e in entries if e.get("Act") in ("forecast", "amendment") and not e.get("Refused") and e.get("Heads")
             and (e.get("Reached") != "left" or next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None) in left)}
 
@@ -3630,39 +3417,26 @@ def left_said(bolt, main, paths):
     return f"{bolt}, which you left, would take main first: forecast to conflict with main on {joined(list(paths))} at {main[:7]}"
 
 
-def main_told(acts, label, plan, rows, found, at, entries, left=()):
-    """Each bolt the landings card's forecast found newly in conflict with main told to its conductor (bolt-teams "A
-    waiting bolt's conflict with main tells its conductor the take-main fix"): rows, {bolt: facts} of each whose
-    forecast against main names files (found, {bolt: paths}), at main's revision (at); told the take-main fix in the
-    words a conductor's wait gives (bolt_forecast), with --bolt while its team holds two bolts (teams.16), once for the
-    same bolt head and revision of main, whichever forecast recorded it first, read from the partition's run record and
-    this host's (entries, said_heads); recorded as the wait's forecast is, on bolt/<bolt> with its Heads and Paths, only
-    once the tell went through, so a tell that fails records nothing and the next raise tells it again (roles.4,
-    read.1). A bolt the user left (left) is told nothing: its forecast is recorded once as found while it is left
-    (Reached: left), and said in the sentence returned for the card's change note (left_said); those sentences."""
+def main_told(acts, label, rows, found, at, entries, left=()):
+    """Each bolt the landings card's forecast found newly in conflict with main held on its row (rail-cards "A row
+    forecast to conflict with main takes main first until a fix takes main in"): rows, {bolt: facts} of each whose forecast against main names
+    files (found, {bolt: paths}), at main's revision (at); recorded on bolt/<bolt> with its Heads and Paths, once for
+    the same bolt head and revision of main, whichever raise recorded it first, read from the partition's run record
+    and this host's (entries, said_heads), as found while held (Reached: held), so its row takes main first at every
+    raise at that head (main_conflict). Nobody is told and nothing is started: a fix taking main in is launched when
+    sluice refuses the bolt's landing for the conflict (take_main_launch), or by hand. A bolt the user left (left) is
+    recorded once as found while it is left (Reached: left), and said in the sentence returned for the card's change
+    note (left_said); those sentences."""
     done, said = said_heads(entries, left), []
     for b, f in rows.items():
-        if b in left:
-            heads = f"bolt/{b}@{f['head'][:7]} main@{at['main'][:7]}"
-            if heads not in done:
-                acts.emit(label, "forecast", [f"bolt/{b}"], why=f"bolt({b}): forecast to conflict with main", Heads=heads,
-                          Paths=" ".join(found[b]), Reached="left")
-                done.add(heads)
-                said.append(left_said(b, at["main"], found[b]))
-            continue
-        team = f["team"]
-        told = bolt_forecast(team, label, b, {"conflict": {"paths": found[b], "with": []}, "head": f["head"], "onto": at["main"]},
-                             done, len(held_by(plan, team)) > 1)
-        if not told:
-            continue
-        heads, paths, words = told
-        if not acts.tell(f"{team}-conductor", words):
-            print(f"card land/{f.get('kit', '')}: {team}-conductor was not told {b} takes main first, so it is told at the next raise",
-                  file=sys.stderr)
+        heads = f"bolt/{b}@{f['head'][:7]} main@{at['main'][:7]}"
+        if heads in done:
             continue
         acts.emit(label, "forecast", [f"bolt/{b}"], why=f"bolt({b}): forecast to conflict with main", Heads=heads,
-                  Paths=" ".join(paths), Reached="told")
+                  Paths=" ".join(found[b]), Reached="left" if b in left else "held")
         done.add(heads)
+        if b in left:
+            said.append(left_said(b, at["main"], found[b]))
     return said
 
 
@@ -3677,10 +3451,11 @@ def raise_landings(fleet, label, kit, acts=None, note=None, dead=False, pane=Non
     (acts.work, bolt_work), one whose work changed a row again; each that can land forecast against main and the rows
     above it (acts.forecast, forecast_rows); the bolts the user left (left_now) recorded as landing.left when they
     change, shown unticked on every card the raise posts, changes or follows with, each keeping its box though it
-    conflicts with main, told no take-main fix and said once in the change note when a forecast finds it so (main_told,
-    rail-cards "A bolt the user left stays left until they tick it"); each row taking main first beside one that can
-    land kept on the card unticked, saying why (card_rows, rail-cards "A row taking main first stays on the card"), so
-    its bolt taking main in and coming back changes the card in place; then what the card makes of them (landings_step):
+    conflicts with main and said once in the change note when a forecast finds it so (main_told, rail-cards "A bolt
+    the user left stays left until they tick it"), each other found so recorded held, telling no one (main_told); each
+    row taking main first beside one that can land kept on the card unticked, saying why (card_rows, rail-cards "A row
+    taking main first stays on the card"), so its bolt taking main in and coming back changes the card in place; then
+    what the card makes of them (landings_step):
     posted, changed in place with what changed, or the event's note first, followed when its form changed, left,
     withdrawn saying why, or closed with what landed, was held and was left, with how many rows can still land, a new
     card following it while any can,
@@ -3710,9 +3485,15 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so {kit}'s landings card is not raised")
     owner, key = f"{label}-ops", f"land/{kit}"
     got, unread = {}, set()
+    run = runner_facts(fleet, label)
     for b in plan.bolts():
-        t = bolt_team(fleet, b) if b.get("Repo") == kit else None
-        if not t:
+        if b.get("Repo") != kit or not started(b):
+            continue
+        t, why = bolt_taken(fleet, label, b, run)
+        if why:
+            print(f"card {key}: crew can't tell where bolt {b.name()} runs ({why}), so its row is left off", file=sys.stderr)
+            unread.add(b.name())
+        if not t:  # a bolt no runner has taken work of yet has nothing merged to land
             continue
         row, why = acts.land_row(label, b.name(), t["machine"])
         if row is None:
@@ -3764,8 +3545,8 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     found = {b: p for b, fs in forecast.items() for w, p in fs if w == "main" and p}
     takes = dict(recorded, **{b: (onto["main"][:7], p) for b, p in found.items()})
     rows = [landing_rows([r["bolt"]], {r["bolt"]: r["facts"]}, {}, takes_main=takes, left=left)[0] if r["box"] else r for r in rows]
-    # a bolt the user left is told no fix, and the card's change note says the first forecast that finds it in conflict
-    lefts = main_told(acts, label, plan, {r["bolt"]: r["facts"] for r in rows if r["bolt"] in found}, found, onto, whole + entries, left)
+    # each conflict found is recorded once, telling no one, and a bolt the user left is said in the card's change note
+    lefts = main_told(acts, label, {r["bolt"]: r["facts"] for r in rows if r["bolt"] in found}, found, onto, whole + entries, left)
     note = "; ".join(([note] if note else []) + lefts) or None
     boxed = [r["bolt"] for r in rows if r["box"]]
     for r in rows:
@@ -3775,8 +3556,11 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit}
     step = landings_step(rows, state, ticked, in_plan, landed, note, bool(pane), work)
-    t = builder(fleet, label, kit)
-    where = card_where(t["kit"] if t else {"main": str(pathlib.Path.home()), "repo": kit})
+    try:
+        t = kit_at(fleet, label, kit)
+    except Refusal:
+        t = None
+    where = card_where(card_kit(fleet, t, kit, {"main": str(pathlib.Path.home()), "repo": kit}))
     # the card's rows: each that can land, and each taking main first beside them, which says why (card_rows)
     shows = card_rows(rows)
     on = {r["bolt"] for r in shows}
@@ -3837,7 +3621,7 @@ def raise_landings_row(fleet, row, acts=None):
     """The rail's raise of a kit's landing row, land/<kit>, whose card is missing or lost (sweep_cards), or whose card
     this host's sign-in can't reach, handed that older copy as the row's dead: raise_landings of its kit; a row of a
     bolt's key, the form before a kit's card, is raised by none."""
-    kind = land_key(row.get("key"), partition_kits(fleet, row["label"]))
+    kind = land_key(row.get("key"), kits_read(fleet, row["label"]))
     return raise_landings(fleet, row["label"], kind[1], acts, dead=bool(row.get("dead"))) if kind and kind[0] == "kit" else None
 
 
@@ -3900,126 +3684,9 @@ def land_end(fleet, label, bolt):
             print(said)
 
 
-def landing_held(fleet, t, bolt, words):
-    """A fix started on the bolt holds its row on its kit's landings card (rail-cards "A fix in flight holds the card"):
-    its landing pull request drafted first, so no merge into the bolt lands it meanwhile (pull_hold, bolt-teams), what
-    crew could not read or mark said on standard error and the fix going on, since the fix is how the bolt is repaired
-    and its merge drafts it before it starts (merge_holds); then, on this, the team's host, any landing card of the
-    bolt's own its conductor still holds withdrawn with "held for a fix: <the fix's words>", the row's reading ended and
-    its preview released (land_end); then the kit's card changed on the partition's main machine, the row held with no
-    box, its note naming the fix's words (land_hand). The row has its box again once the bolt reads proven again."""
-    try:
-        said = pull_said(bolt, *pull_hold(fleet, t, bolt, "held"), True, t["kit"]["repo"])
-        if said:
-            print(said)
-    except Refusal as e:
-        print(f"{str(e).rstrip('.')}; the fix goes on, and its merge drafts it before it starts", file=sys.stderr)
-    owner, (_, outcome, reason) = f"{t['name']}-conductor", landing_act("fix", words=words)
-    for key in landing_card_keys(cards.host_entries(record, t["label"], crew.this_host()), bolt, owner):
-        row_card_close(fleet, t["label"], owner, key, outcome=outcome, reason=reason)
-    land_end(fleet, t["label"], bolt)
-    land_hand(fleet, t["label"], t["kit"]["name"], f"{bolt} is held for a fix: {words}")
-
-
-def merge_holds(fleet, t, bolt, what):
-    """A merge into the bolt, a unit's, a chore's or a fix's (what, its name for the words), holds the bolt's landing
-    pull request before it starts (bolt-teams): a ready one drafted (pull_hold, "held") and said, so the merge's move of
-    bolt/<bolt> submits nothing to main; when crew can't read or mark it, the merge does not start, naming the pull
-    request, or the repository it could not list, in gh's words (read.1)."""
-    try:
-        pull, act = pull_hold(fleet, t, bolt, "held")
-    except Refusal as e:
-        fail(f"{what} does not start: {e}")
-    said = pull_said(bolt, pull, act, True, t["kit"]["repo"])
-    if said:
-        print(said)
-
-
-def landing_after_merge(fleet, t, bolt):
-    """The merge's end, on the team's host: what it frees of the team (team_freed); then the raise of the kit's landings
-    card handed to the partition's main machine (land_hand), which puts the bolt on it once it reads proven, or changes
-    its row, its head moved, with what a yes now frees as its note. What crew can't read is said, and the merge
-    stands."""
-    plan = plan_of(fleet, t["label"])
-    if not plan or not plan.bolt(bolt) or plan.bolt(bolt).get("Team") != t["name"]:
-        return
-    note = None
-    try:
-        note = team_freed(fleet, t, plan, bolt)
-    except Refusal as e:
-        print(f"whether {t['name']} is free for its next bolt can't be told: {e}", file=sys.stderr)
-    land_hand(fleet, t["label"], plan.bolt(bolt).get("Repo") or t["kit"]["name"], note)
-
-
-def team_freed(fleet, t, plan, bolt):
-    """What a merge into a bolt frees of its team (teams.16), from one read of its kits: once the bolt reads proven for
-    a give and the team holds another that is proven too, the note the kit's landings card changes with, what a yes
-    now frees (frees_note), returned, else None; and once the team may take its next bolt and one is planned for it
-    (free_now), the partition's dispatchers that are up told so, as a landing tells them; a team due to cross to Flume
-    or back never, its give refused until it has (give_due)."""
-    held = held_by(plan, t["name"])
-    facts = proven_facts(stages_for(fleet, plan, held), plan, held)
-    proven = {f[0]: give_refusal(t["name"], [f]) is None for f in facts}
-    planned = next_planned(plan, t)
-    if free_now(give_due(plan, t) or give_refusal(t["name"], facts), planned):
-        tell_dispatchers(fleet, t["label"], f"{t['name']} can take its next bolt: bolt {bolt} reads proven. Give a free team its next bolt.")
-    if proven.get(bolt) and any(proven[b] for b in proven if b != bolt):
-        return frees_note(t["name"], planned)
-    return None
-
-
-def next_planned(plan, t):
-    """The bolt a give would hand the team now (to_give), by name, or None when none is planned for it."""
-    try:
-        return to_give(plan, None, t["name"], [k["name"] for k in crew.kits_of(t)], t["label"]).name()
-    except Refusal:
-        return None
-
-
-def free_now(refusal, planned):
-    """Whether a merge's end tells the dispatchers a team can take its next bolt (teams.16): the give would not be
-    refused (give_refusal) and a bolt is planned for the team (planned, its name or None)."""
-    return refusal is None and planned is not None
-
-
-def yes_frees(this, others, planned):
-    """What a yes to a bolt's landing frees of its team (teams.16), the one fact its rail row and its card share:
-    others, each bolt the team holds as (name, proven), this one left out; planned, the bolt a give would hand the team
-    (next_planned) or None. None when the team holds no other bolt, being free already; ("builds", it) while the other
-    is not proven, the team building it meanwhile; ("frees", planned) once it is, planned None saying nothing is
-    planned for the team."""
-    others = [(n, proven) for n, proven in others if n != this]
-    if not others:
-        return None
-    name, proven = others[0]
-    return ("frees", planned) if proven else ("builds", name)
-
-
-def frees_of(st, plan, t, bolt):
-    """yes_frees for a bolt of the team t, its other bolt read proven from the kits as read (st), as a give reads it."""
-    others = [x for x in held_by(plan, t["name"]) if x.name() != bolt]
-    return yes_frees(bolt, [(x.name(), give_refusal(t["name"], proven_facts(st, plan, [x])) is None) for x in others],
-                     next_planned(plan, t) if others else None)
-
-
-def frees_said(team, frees):
-    """The landing row's line for what a yes frees (yes_frees), or None."""
-    if not frees:
-        return None
-    kind, other = frees
-    if kind == "builds":
-        return f"{team} builds {other} meanwhile"
-    return f"a yes frees {team} for {other}" if other else f"a yes frees {team}, and nothing is planned for it"
-
-
-def frees_note(team, planned):
-    """The change note on a landing card whose yes now frees its team, its other bolt read proven (teams.16)."""
-    return f"A yes now frees {team} for {planned}" if planned else f"A yes now frees {team}, and nothing is planned for it"
-
-
 def landing_cards_closed(fleet, t, bolt, outcome, said=None, here=False):
     """At crew bolt land, on the team's host, once the partition's plan no longer holds the bolt (plan.16): any landing
-    card of the bolt's own its conductor still holds closed with outcome, its reading ended and its preview released
+    card of the bolt's own main-level ops still holds closed with outcome, its reading ended and its preview released
     (land_end); then the kit's landings card raised on the partition's main machine (land_hand), which closes it once
     every bolt the user ticked has landed or been held, naming where GitHub's main holds each. A landing on the user's
     word in ops's pane sends said in place of the outcome, and closes a card still waiting as answered there (here,
@@ -4030,7 +3697,7 @@ def landing_cards_closed(fleet, t, bolt, outcome, said=None, here=False):
         print(f"no landing card of bolt {bolt} is closed: " + (f"{t['label']}/main could not be read" if pl is None else
                                                                 f"{t['label']}/main still holds the bolt"))
         return
-    owner, (_, outcome, reason) = f"{t['name']}-conductor", landing_act("landed", words=outcome)
+    owner, (_, outcome, reason) = reading_owner(t["label"], f"land/{bolt}"), landing_act("landed", words=outcome)
     for key in landing_card_keys(cards.host_entries(record, t["label"], crew.this_host()), bolt, owner):
         row_card_close(fleet, t["label"], owner, key, outcome=outcome, reason=reason, said=said, here=here)
     land_end(fleet, t["label"], bolt)
@@ -4056,9 +3723,9 @@ def bolt_land(fleet, a, by=None, close_why=None):
     (landing_close), its bolt.land in the name of by, with close_why as its Why."""
     label, repo, tip, plan = locate(fleet, "Bolt", a.bolt, default_label(fleet, a))
     b = plan.bolt(a.bolt)
-    t = held = bolt_team(fleet, b)
+    t = held = bolt_at(fleet, label, b)
     if held and by is None and submit_queued(partition_entries(fleet, label), a.bolt):
-        # a landing queued and not yet read: its read on the team's host records it, and closes it when it landed
+        # a landing queued and not yet read: its read on the bolt's host records it, and closes it when it landed
         landing_read_on(fleet, t, label, a.bolt)
         fetch(*state_of(fleet, label), fresh=True)
         plan = plan_of(fleet, label)
@@ -4067,25 +3734,25 @@ def bolt_land(fleet, a, by=None, close_why=None):
         if not b:
             print(f"bolt {a.bolt} is closed: crew's read of its landing closed it")
             return
-        t = held = bolt_team(fleet, b)
+        t = held = bolt_at(fleet, label, b)
     units = [u.name() for u in plan.work_of(a.bolt)]
     if not held:
-        t = builder(fleet, label, b.get("Repo"))
-        why = unheld_refusal(a.bolt, units, b.get("Repo"), t, label)
+        t = main_kit(fleet, label, b.get("Repo"))
+        why = unheld_refusal(fleet, a.bolt, units, b.get("Repo"), t, label)
         not why or fail(why)
     # What main holds now, GitHub's after the command's one fetch (plan.18), read before which units landed, so a bolt
     # sluice has just landed reads landed with no wait for the fleet's timer; the landing records it (plan.14).
     said = host_run(fleet, t["machine"], MAIN, t["kit"]["main"])
     ref, head, why = kit.main_now(said, t["kit"]["name"], t["machine"])
     not why or fail(why)
-    st = stages_for(fleet, plan, [b]) if held else None
+    st = stages_for(fleet, label, plan, [b]) if held else None
     if held:
         stage_of = st.of
     else:
-        h = survey(fleet, [(t["name"], None)]).get(t["machine"]) or {"ok": False, "error": "it was not asked"}
+        h = survey(fleet, [(t, None)]).get(t["machine"]) or {"ok": False, "error": "it was not asked"}
         k = h["kits"].get(t["kit"]["main"]) if h["ok"] else None
         k = k if k and k.get("ok") else None
-        stage_of = unheld_stages(k, h.get("error") or f"{t['machine']} did not read {t['kit']['main']}", Stages(fleet, plan, {}).of,
+        stage_of = unheld_stages(k, h.get("error") or f"{t['machine']} did not read {t['kit']['main']}", Stages(fleet, plan, {}, label=label).of,
                                  [u.name() for u in plan.work_of(a.bolt) if is_chore(u)])
     # A bolt given through Flume has landed once main holds the commit each of its places landed at on the bolt
     # (Decision 12 of teams-cross-to-flume-as-their-bolts-land).
@@ -4097,7 +3764,7 @@ def bolt_land(fleet, a, by=None, close_why=None):
     why = land_refusal(a.bolt, units, stage_of, outside, label, hold, t["kit"]["name"])
     not why or fail(why)
     # The user's word to land, when it was given in ops's pane, and their words, kept where it was submitted (plan.16).
-    pane = pane_word_of(entries, a.bolt) if b.get("Team") else None
+    pane = pane_word_of(entries, a.bolt) if held else None
     kept = landing_word_read(label, a.bolt, pane[2]) if pane else None
     landed = landed_words(head, kit.said_of(said).get("SUBMISSION_GITHUB" if ref == "origin/main" else "SUBMISSION_OWN"))
     outcome, sent = pane_landed(landed, pane[0], pane[1], kept) if pane else (landed, None)
@@ -4116,17 +3783,16 @@ def bolt_land(fleet, a, by=None, close_why=None):
     spent = landing_time(fleet, t, plan, b, entries, datetime.datetime.now(datetime.timezone.utc)) if held else {}
     write(fleet, label, change, f"plan({a.bolt}): land the bolt", act="bolt.land", on=[f"bolt/{a.bolt}"],
           fields=dict(Repo=t["kit"]["name"], Head=head, **spent), by=by, why=close_why)
-    if b.get("Team"):
-        after = plan_of(fleet, label)
-        print(landed_line(a.bolt, t["kit"]["name"], head, t["name"], [x.name() for x in held_by(after, t["name"])] if after else None))
+    if held:
+        print(f"{a.bolt} has landed at {t['kit']['name']}'s {head[:7]}")
         if pane and kept is None:
             where = words_kept_where(pane[3], crew.this_host())
             print(f"the user's words to land {a.bolt} {where}: its landing card closes naming {pane[0]}'s pane and the time, without them")
-        tidy_after(fleet, t, f"bolt {a.bolt}", (a.bolt, outcome, sent, bool(pane)), units=units)
+        sweep_on(fleet, t, f"bolt {a.bolt}", (a.bolt, outcome, sent, bool(pane)), units=units)
         if pane:
             landing_word_drop(label, a.bolt)
     else:
-        print(f"{a.bolt} has landed at {t['kit']['name']}'s {head[:7]}; no team held it")
+        print(f"{a.bolt} has landed at {t['kit']['name']}'s {head[:7]}; it was never started")
 
 
 # A landing's submission (plan.16, record 0026), on the team's host, refused there when sluice's wt-submit, which
@@ -4147,7 +3813,7 @@ def bolt_land(fleet, a, by=None, close_why=None):
 # as the one who asked (plan.21), from the kit's main checkout, and empties crew-landing; an answer naming neither
 # empties it at once. The waiter ends with the Claude session that ran the landing, CLAUDE_PID as Claude Code gives it
 # (wait_session), its process looked at every ten seconds and the waiter ended once it is gone, reading nothing, so no
-# wait of crew's outlives its caller (teams.24), and the team's next read records the landing then (reap_landings); one
+# wait of crew's outlives its caller (teams.24), and the kit's next read records the landing then (reap_landings); one
 # run from a shell, or over ssh, which carries no CLAUDE_PID, runs to its outcome. It decides nothing (code.7): it prints, as
 # shell assignments, RC, the submission's exit; TIP, the bolt's tip that was submitted; OLD, the host's own main before,
 # empty when it has none; ID, the submission's number from sluice's JSON, and PULL, the pull request's, each empty when
@@ -4347,7 +4013,7 @@ def history_read(printed, bolt):
     it: (submissions, None), or (None, why) for a record that can't be read, or a print crew can't read (read.1)."""
     lines = (printed or "").splitlines()
     if len(lines) != 2:
-        return None, f"sluice's record of bolt/{bolt} and main was not printed whole on the team's host"
+        return None, f"sluice's record of bolt/{bolt} and main was not printed whole on the host where its work ran"
     out = []
     for branch, line in zip((f"bolt/{bolt}", "main"), lines):
         words = line.split(" ")
@@ -4364,9 +4030,9 @@ def history_read(printed, bolt):
     return out, None
 
 
-def landing_split(entries, plan_, b, host, kit_name, history, now):
+def landing_split(entries, plan_, b, host, kit_name, history, now, label=None):
     """The fields a held bolt's bolt.land entry records of its time (run-record "A bolt's landing entry records its time
-    by holder", plan.20), a decision of facts alone (code.7): Age, its whole minutes from its newest give to its
+    by holder", plan.20), a decision of facts alone (code.7): Age, its whole minutes from its newest start to its
     landing, and Split, those minutes by holder in HOLDERS' order, each named, `team 200, kit 0, team-or-kit 25, user
     125, hold 0, nobody 20`, made by the board's own rule (bolt_facts, bolt_time) from the partition's run record
     (entries) and sluice's record of the bolt's submissions (history, history_read's), each told one decided when sluice
@@ -4378,7 +4044,7 @@ def landing_split(entries, plan_, b, host, kit_name, history, now):
     told = max((x["told"] for x in subs or [] if x.get("branch") == "main" and x.get("state") == "landed" and x.get("told")), default=None)
     standing = [x for x in subs or [] if not x.get("told") and x.get("state") in STANDING]
     decided = [dict(x, decided=x.get("told"), started=x.get("started")) for x in subs or [] if x not in standing]
-    tm = time_at(bolt_facts(entries, plan_, b.name(), b.get("Team"), host, kit_name, (standing, None), (None, why) if why else (decided, None)),
+    tm = time_at(bolt_facts(entries, plan_, b.name(), label, host, kit_name, (standing, None), (None, why) if why else (decided, None)),
                  utc(told) if told else now)
     if "unknown" in tm:
         return {}
@@ -4386,13 +4052,14 @@ def landing_split(entries, plan_, b, host, kit_name, history, now):
 
 
 def landing_time(fleet, t, plan_, b, entries, now):
-    """A held bolt's Age and Split for its landing's entry (landing_split), sluice's record of its submissions read on
-    its team's host (HISTORY, history_read), the one process it starts there; {} when that can't be read."""
+    """A started bolt's Age and Split for its landing's entry (landing_split), sluice's record of its submissions read on
+    the host its work runs on (t, bolt_at; HISTORY, history_read), the one process it starts there; {} when that can't
+    be read."""
     try:
         history = history_read(host_run(fleet, t["machine"], HISTORY, t["kit"]["main"], b.name()), b.name())
     except Refusal as e:
         history = (None, str(e))
-    return landing_split(entries, plan_, b, t["machine"], t["kit"]["name"], history, now)
+    return landing_split(entries, plan_, b, t["machine"], t["kit"]["name"], history, now, t.get("label"))
 
 
 # A submission's states in sluice 0.36.4 (sluice-core records.rs, State): those it stands in, in the queue or a chain
@@ -4582,79 +4249,6 @@ def landing_blame(doc):
     return "stop", f"sluice's record has {n} in a state crew does not read: {cut(json.dumps(state), 60)}"
 
 
-def sent_back_of(doc):
-    """What failed of a landing sluice sent back for the bolt's own content (bolt-teams "A landing sluice sent back is
-    its team's fix"), from sluice's record of its submission alone (doc, a sluice/submission@1 as `sluice status <n>
-    --json` prints it, sluice 0.68.1 records.rs Submission, Tested and ConflictRecord), never from a check's words or
-    sluice's exit (read.2): when landing_blame has the record the bolt's, {n, head, conflict, checks, timed_out, paths,
-    withs, on}: its number and head, each None when the record names none; whether it is in conflict; the checks that
-    ran and failed, each named with its system and as flaky where the record says so; whether its run's time limit
-    ended it; the paths in conflict and the submissions it conflicts with; and main's revision it was tested on
-    (tested.on), None when the record names none, as for a conflict found before any test. None for a record of
-    anything else. A decision of facts alone (code.7)."""
-    if landing_blame(doc)[0] != "bolt":
-        return None
-    field = lambda d, k, of=str: d.get(k) if isinstance(d, dict) and isinstance(d.get(k), of) and d.get(k) else None
-    s = dict(n=doc["id"] if type(doc.get("id")) is int else None, head=field(doc, "head"), conflict=doc["state"] == "conflict",
-             checks=[], timed_out=False, paths=[], withs=[], on=field(doc.get("tested"), "on"))
-    if s["conflict"]:
-        c = doc.get("conflict")
-        s["paths"] = [p for p in field(c, "paths", list) or [] if isinstance(p, str) and p]
-        s["withs"] = [w["id"] for w in field(c, "with", list) or [] if isinstance(w, dict) and type(w.get("id")) is int]
-        return s
-    s["checks"] = [t["task"] + (f" ({t['system']})" if field(t, "system") else "") + (" (flaky)" if t.get("flaky") else "")
-                   for t in doc["failed"] if t.get("hash")]
-    s["timed_out"] = doc.get("result") == "timed out"
-    return s
-
-
-def sent_back_said(s):
-    """What failed of a landing sluice sent back (sent_back_of's s), in crew's words from sluice's record: `#1474 failed
-    tests:logic, tested on main at abc1234`, `#1440 in conflict with main on README.md, and with #1439`, or that its run
-    timed out."""
-    n = f"#{s['n']}" if s.get("n") else "its submission"
-    if s["conflict"]:
-        said = f"{n} in conflict with main" + (f" on {joined(s['paths'])}" if s["paths"] else "") + "".join(
-            f", and with #{w}" for w in s["withs"])
-    else:
-        what = ([f"failed {joined(s['checks'])}"] if s["checks"] else []) + (["timed out"] if s["timed_out"] else [])
-        said = f"{n} " + (" and ".join(what) or "failed")
-    return said + (f", tested on main at {s['on'][:7]}" if s.get("on") else "")
-
-
-def team_fix(bolt, s):
-    """The fix the team makes on a bolt whose landing sluice sent back (sent_back_of's s), as crew fix takes it: (its
-    name, its words). A conflict takes main into the bolt, its words starting TAKE_MAIN so its row reads as taking main
-    first, and its name take-main-<main's revision it was tested on>; a failed check is mended, named landing-<sluice's
-    number>; the conflict's named by the head sluice sent back, then its number, where the record names no test, and
-    the failure's by its head where it names no number. Its words hold no double quote, so the command that carries
-    them runs as printed."""
-    n, head = str(s.get("n") or ""), (s.get("head") or "")[:7]
-    tag = ((s.get("on") or "")[:7] or head or n) if s["conflict"] else (n or head)
-    name = f"{'take-main' if s['conflict'] else 'landing'}-{tag or 'sent-back'}"
-    said = sent_back_said(s).replace('"', "'")
-    words = (f"{TAKE_MAIN}: sluice's {said}" if s["conflict"] else f"Mend what sluice sent bolt/{bolt}'s landing back for: {said}")
-    return name, words
-
-
-def team_fix_said(bolt, team, s):
-    """The way on for a landing sluice sent back for the bolt's own content (bolt-teams "A landing sluice sent back is its
-    team's fix", sluice's C.5 crew row: a fix on the bolt's branch, merged into the bolt through sluice, then the
-    landing submitted again): what is the bolt's, the team's fix with the command that starts it (team_fix), the team
-    named (team, "" when crew does not know it, and then no command), and crew bolt submit once that fix has merged,
-    never a submission again at the head sluice sent back, which nothing of the bolt's has changed. s None, for a
-    refusal whose record crew could not read, names no command, since crew can't say what failed."""
-    who = f"{team}-conductor" if team else "its conductor"
-    if s is None:
-        how = f"{who} mends what sluice sent it back for by a fix it submits to the bolt"
-    else:
-        name, words = team_fix(bolt, s)
-        how = (f"a conflict is the bolt's, and {who} takes main into it" if s["conflict"] else
-               f"a failed check is the bolt's, and {who} mends it") + " by a fix it submits to the bolt" + (
-            f", crew fix {team} {name} \"{words}\" --bolt {bolt}" if team else "")
-    return f"{how}; once that fix has merged into bolt/{bolt}, crew bolt submit {bolt} submits the landing again at its new head."
-
-
 def verdict_of(doc):
     """sluice's verdict on a submission, from its record (doc, a sluice/submission@1 as sluice 0.36.4 prints and lists
     it, out in its state), in the words sluice's own report gives it (lib.rs report, detail): `#<n> conflict: <paths>`,
@@ -4791,10 +4385,10 @@ def left_standing(bolt, name, path, f, why=None, was=None):
             f"queued stands, its place {path} kept, and sluice status main says where it is.")
 
 
-def landing_said(bolt, name, host, said, before, marked="", sub=None, again=0, recorded=False, doc=None, beside="", team=""):
+def landing_said(bolt, name, host, said, before, marked="", sub=None, again=0, recorded=False, doc=None, beside=""):
     """What a landing's submission came to, as landing_end judges it: (landed, the words crew says to ops), or with
     recorded, (landed, the words its bolt.submit is recorded with)."""
-    landed, words, kept_as, _ = landing_end(bolt, name, host, said, before, marked, sub, again, doc, beside, team)
+    landed, words, kept_as, _ = landing_end(bolt, name, host, said, before, marked, sub, again, doc, beside)
     return landed, kept_as if recorded else words
 
 
@@ -4804,7 +4398,7 @@ def submit_again(bolt):
             f"submit {bolt} submits it again, with no new word.")
 
 
-def landing_end(bolt, name, host, said, before, marked="", sub=None, again=0, doc=None, beside="", team=""):
+def landing_end(bolt, name, host, said, before, marked="", sub=None, again=0, doc=None, beside=""):
     """What a landing's submission came to, from LANDED's report on the team's host and the commit main now was at
     before it (code.7): (landed, the words crew says to ops, the words its bolt.submit is recorded with, stopped).
     Main now is GitHub's after the landing's fetch for a kit with an origin, its own main for one with none
@@ -4817,13 +4411,11 @@ def landing_end(bolt, name, host, said, before, marked="", sub=None, again=0, do
     where it is. It is the bolt's, refused, only when sluice's record of the submission says so (landing_blame): the
     record the wait printed or sluice answered with at once (doc, wait_outcome, answer_record), or, when sluice itself
     failed, exiting 3, with the bolt's tip not on main now, its record in sluice's listing (sub, submission_of; again,
-    the times crew has waited on it again): a conflict or a check that ran is the team's to resolve by taking main into
-    the bolt by a submission to the bolt (plan.8), and ops tells the bolt's conductor why in sluice's verdict, SAID, or
-    its record's once sluice itself failed (sub's verdict), which is recorded, a conflict's paths among it (rail-cards
-    "A refused landing is held on its row"), else crew's words for why it did not land and where main is; and ops is
-    told the team's fix, what failed named from that record and the fix's command for the bolt's team (team, its name,
-    "" when crew does not know it), and that crew bolt submit submits the landing again once that fix has merged
-    (team_fix_said, bolt-teams "A landing sluice sent back is its team's fix"), never to submit it again as it is. Anything
+    the times crew has waited on it again): a conflict or a check that ran is the bolt's, held on its row and answered
+    as held_way says, crew launching the take-main fix for a conflict with what main has landed and ops starting the
+    fix of a failed check (Decision 6 of the-team-machinery-leaves, plan.8), and ops is told why in sluice's verdict,
+    SAID, or its record's once sluice itself failed (sub's verdict), which is recorded, a conflict's paths among it
+    (rail-cards "A refused landing is held on its row"), else crew's words for why it did not land and where main is. Anything
     else is stopped, nothing of the bolt's (rail-cards "A landing sluice or its host stopped keeps its box"): recorded
     with what stopped it, the record's words for it (landing_blame), sluice's verdict when it gave no record crew reads,
     or crew's for what it can't tell, and ops told to report it and submit the bolt again once it is cleared, with no
@@ -4888,9 +4480,9 @@ def landing_end(bolt, name, host, said, before, marked="", sub=None, again=0, do
     also = f" Beside its verdict, and not why it did not land, sluice said: {beside}." if beside else ""
     if blame == "bolt":
         told = f" sluice's verdict: {verdict}." if verdict else ""
-        way = team_fix_said(bolt, team, sent_back_of(sub if f["RC"] == "3" else doc))
-        return False, (f"bolt/{bolt} did not land: {why}{where}.{told} Tell the bolt's conductor why: {way}{also}{kept}"), (
-            verdict or f"bolt/{bolt} did not land: {why}{where}."), False
+        rec = sub if f["RC"] == "3" else doc
+        return False, (f"bolt/{bolt} did not land: {why}{where}.{told}{held_way(bolt, rec, landing_conflict(said, doc, sub))}"
+                       f"{also}{kept}"), (verdict or f"bolt/{bolt} did not land: {why}{where}."), False
     if cause:  # sluice's record says what stopped it
         told, kept_as = f"{cause.rstrip('.')}{where}", cause
     else:  # sluice gave no record crew reads: in its verdict, else crew's words
@@ -4899,6 +4491,103 @@ def landing_end(bolt, name, host, said, before, marked="", sub=None, again=0, do
         told, kept_as = f"{(verdict or crews).rstrip('.')}{where}", verdict or f"{crews}{where}"
     return (False, f"bolt/{bolt} did not land, and nothing of the bolt's stopped it: {told}.{submit_again(bolt)}{also}{kept}",
             kept_as, True)
+
+
+def held_way(bolt, rec, conflict):
+    """What crew tells ops of a landing refused for the bolt's own content, its row held on its kit's landings card
+    (landing_end; Decision 6 of the-team-machinery-leaves, plan.8), from sluice's record of the submission (rec) and the
+    conflict with what main has landed it was refused for (conflict, landing_conflict): such a conflict is taken in by
+    the fix crew's read of the refusal launches on the bolt (take_main_launch), ops starting nothing, and the user's send
+    still lands the bolt once that fix has moved its head; a conflict with a submission queued on main ahead of it is
+    waited out (teams.21); any other, a check that ran and failed or a run its time limit ended, is a fix on the bolt
+    ops starts with sluice's words, after which the bolt's row asks the user again. Names no team or conductor. A
+    decision of facts alone (code.7)."""
+    if conflict:
+        return (" A conflict with what main has landed is the bolt's: crew launches the fix that takes main into it and "
+                "holds the bolt on its row until that fix moves its head, so start nothing for it; once sluice is green at "
+                "the new head, the send that ticked it still lands it.")
+    if isinstance(rec, dict) and rec.get("state") == "conflict":
+        return (" It meets a submission queued on main ahead of it, which the bolt waits out rather than takes in: its row "
+                f"is held, and once that submission has landed or left main's queue, crew bolt submit {bolt} submits it "
+                "again on the send that stands.")
+    s = sent_back_of(rec)
+    if s:
+        name, words = bolt_fix(bolt, s)
+        return (f" A check that failed is the bolt's, {sent_back_said(s)}: its row is held for a fix on the bolt, which you "
+                f"start, crew fix {bolt} {name} \"{words}\"; once that fix has merged, the bolt's row asks the user again.")
+    return (" A check that failed is the bolt's: its row is held for a fix on the bolt, which you start with sluice's words, "
+            f"crew fix {bolt} <name> \"<sluice's words>\"; once that fix has merged, the bolt's row asks the user again.")
+
+
+def sent_back_of(doc):
+    """What failed of a landing sluice sent back for the bolt's own content (bolt-teams "A landing sluice sent back is
+    the bolt's fix"), from sluice's record of its submission alone (doc, a sluice/submission@1 as `sluice status <n>
+    --json` prints it, sluice 0.68.1 records.rs Submission, Tested and ConflictRecord), never from a check's words or
+    sluice's exit (read.2): when landing_blame has the record the bolt's, {n, head, conflict, checks, timed_out, paths,
+    withs, on}: its number and head, each None when the record names none; whether it is in conflict; the checks that
+    ran and failed, each named with its system and as flaky where the record says so; whether its run's time limit
+    ended it; the paths in conflict and the submissions it conflicts with; and main's revision it was tested on
+    (tested.on), None when the record names none, as for a conflict found before any test. None for a record of
+    anything else. A decision of facts alone (code.7)."""
+    if not isinstance(doc, dict) or landing_blame(doc)[0] != "bolt":
+        return None
+    field = lambda d, k, of=str: d.get(k) if isinstance(d, dict) and isinstance(d.get(k), of) and d.get(k) else None
+    s = dict(n=doc["id"] if type(doc.get("id")) is int else None, head=field(doc, "head"), conflict=doc["state"] == "conflict",
+             checks=[], timed_out=False, paths=[], withs=[], on=field(doc.get("tested"), "on"))
+    if s["conflict"]:
+        c = doc.get("conflict")
+        s["paths"] = [p for p in field(c, "paths", list) or [] if isinstance(p, str) and p]
+        s["withs"] = [w["id"] for w in field(c, "with", list) or [] if isinstance(w, dict) and type(w.get("id")) is int]
+        return s
+    s["checks"] = [t["task"] + (f" ({t['system']})" if field(t, "system") else "") + (" (flaky)" if t.get("flaky") else "")
+                   for t in doc.get("failed") or [] if isinstance(t, dict) and t.get("hash") and isinstance(t.get("task"), str)]
+    s["timed_out"] = doc.get("result") == "timed out"
+    return s
+
+
+def sent_back_said(s):
+    """What failed of a landing sluice sent back (sent_back_of's s), in crew's words from sluice's record: `#1474 failed
+    tests:logic, tested on main at abc1234`, `#1440 in conflict with main on README.md, and with #1439`, or that its run
+    timed out."""
+    n = f"#{s['n']}" if s.get("n") else "its submission"
+    if s["conflict"]:
+        said = f"{n} in conflict with main" + (f" on {joined(s['paths'])}" if s["paths"] else "") + "".join(
+            f", and with #{w}" for w in s["withs"])
+    else:
+        what = ([f"failed {joined(s['checks'])}"] if s["checks"] else []) + (["timed out"] if s["timed_out"] else [])
+        said = f"{n} " + (" and ".join(what) or "failed")
+    return said + (f", tested on main at {s['on'][:7]}" if s.get("on") else "")
+
+
+def bolt_fix(bolt, s):
+    """The fix ops starts on a bolt whose landing sluice sent back for a check that ran and failed, or a run its time
+    limit ended (sent_back_of's s), as crew fix takes it: (its name, its words), named landing-<sluice's number>, or by
+    the head sluice sent back where the record names no number; its words name what failed (sent_back_said) and hold
+    no double quote, so the command that carries them runs as printed. A conflict's fix is crew's own launch
+    (take_main_launch), named by main's revision, and none of this."""
+    tag = str(s.get("n") or "") or (s.get("head") or "")[:7] or "sent-back"
+    return f"landing-{tag}", f"Mend what sluice sent bolt/{bolt}'s landing back for: " + sent_back_said(s).replace('"', "'")
+
+
+def sent_back_way(bolt, s):
+    """The way on for a landing sluice sent back for the bolt's own content, at the head crew bolt submit would submit
+    again (bolt-teams "A landing sluice sent back is the bolt's fix", sluice's C.5 crew row: a fix on the bolt, merged
+    into it through sluice, then the landing submitted again), as held_way says it at the refusal: a conflict with what
+    main has landed is taken in by the fix crew launches on reading the refusal, ops starting nothing, and the send
+    that ticked it lands it once that fix has moved its head; a failed check is a fix ops starts, its command named
+    from sluice's record (bolt_fix), after which the bolt's row asks the user again; never a submission again at the
+    head sluice sent back, which nothing of the bolt's has changed. s None, for a record crew could not read, names no
+    fix's words, since crew can't say what failed. Names no team or conductor."""
+    if s and s["conflict"]:
+        return ("a conflict with what main has landed is the bolt's, and the fix crew launches on reading the refusal takes "
+                f"main into it, so start nothing for it; once that fix has merged into bolt/{bolt}, crew bolt submit {bolt} "
+                "submits the landing again at its new head, on the send that ticked it.")
+    if s:
+        name, words = bolt_fix(bolt, s)
+        return (f"a check that failed is the bolt's: start its fix, crew fix {bolt} {name} \"{words}\"; once that fix has "
+                f"merged into bolt/{bolt}, the bolt's row asks the user again.")
+    return (f"a fix on the bolt mends what sluice sent it back for, crew fix {bolt} <name> \"<sluice's words>\"; once that "
+            f"fix has merged into bolt/{bolt}, the bolt's row asks the user again.")
 
 
 def landing_conflict(said, doc=None, sub=None):
@@ -5001,10 +4690,11 @@ def pull_hold(fleet, t, bolt, want):
     (pull_act) and done (PULL_MARK); a kit that takes none, or has no origin, is asked nothing of GitHub. (the pull
     request or None, the act done or None); refused, marking nothing, when the policy or the pull requests can't be
     read (pull_unread), and when gh does not mark it (pull_said, read.1)."""
-    name, host, main, repo = t["kit"]["name"], t["machine"], t["kit"]["main"], t["kit"]["repo"]
+    name, host, main = t["kit"]["name"], t["machine"], t["kit"]["main"]
     text, ref, _ = kit.policy_said(host_run(fleet, host, POLICY, main, kit.DECLARATION), name, host)
     if ref != "origin/main" or not kit.takes_pulls(text, f"{name}'s {kit.DECLARATION} on {ref}"):
         return None, None
+    repo = forge(fleet, t)
     r = crew.on_machine(fleet, host, ["bash", "-c", PULL, "crew", repo, bolt])
     first, _, out = r.stdout.partition("\n")
     m = re.fullmatch(r"RC=(\d+)", first.strip())
@@ -5032,7 +4722,7 @@ def landing_unheld(fleet, t, bolt, *words):
         pull, act = pull_hold(fleet, t, bolt, "held")
     except Refusal as e:
         return [f"{str(e).rstrip('.')}. {w}" for w in words]
-    said = pull_said(bolt, pull, act, True, t["kit"]["repo"])
+    said = pull_said(bolt, pull, act, True, forge(fleet, t) if act else t["kit"]["repo"])
     return [f"{w.rstrip('.')}. {said}" if said else w for w in words]
 
 
@@ -5072,23 +4762,24 @@ def send_word_refusal(name, v):
                          "the user sends a fix of main on its kit's landings card or in main-level ops's pane")
 
 
-def submit_refusal(bolts, kits, teams):
+def submit_refusal(bolts, kits, hosts):
     """Why crew bolt submit submits nothing (rail-cards, Decision 6), or None, from facts alone: bolts, in the order
-    given; kits, {bolt: its kit}; teams, {bolt: the team holding it, or None}. A bolt named twice; bolts of two kits,
-    since one command lands one kit's bolts; a bolt no team holds, which has no branch to submit."""
+    given; kits, {bolt: its kit}; hosts, {bolt: the host its work runs on (bolt_at), or None for one not started}. A
+    bolt named twice; bolts of two kits, since one command lands one kit's bolts; a bolt not started, which has no
+    branch to submit."""
     twice = sorted({b for i, b in enumerate(bolts) if b in bolts[:i]})
     if twice:
         return f"crew bolt submit names {either(twice)} twice: each bolt lands once, in the order given"
     if len({kits[b] for b in bolts}) > 1:
         return ("crew bolt submit lands one kit's bolts at a time, and " + joined([f"{b} is {kits[b]}'s" for b in bolts])
                 + ": submit each kit's in a command of its own")
-    none = [b for b in bolts if not teams.get(b)]
-    return f"bolt {none[0]} is held by no team, so it has no branch to submit" if none else None
+    none = [b for b in bolts if not hosts.get(b)]
+    return f"bolt {none[0]} is not started, so it has no branch to submit" if none else None
 
 
 def submit_order(bolts, hosts):
     """When each bolt of crew bolt submit is submitted (Decision 6), from facts alone: bolts, in the order given;
-    hosts, {bolt: the host of the team holding it}. [(bolt, when)]: the first at once; each after it "queued", as soon
+    hosts, {bolt: the host its work runs on}. [(bolt, when)]: the first at once; each after it "queued", as soon
     as sluice has queued the one before, when both are on one host, whose sluice keeps one queue and lands them in the
     order submitted; "ended", only once the one before has its outcome, when it is on another, since each host's sluice
     keeps its own queue."""
@@ -5109,7 +4800,7 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     SUBMIT given its number and head, nothing submitted and its pull request left as it is, its last the number before
     it; one standing at another head is said, and the bolt submitted as before (landing_standing, standing_words); a
     queue that can't be read is said, and the bolt submitted as before. Before the queue, a landing sluice sent back
-    for the bolt's own content at the head it submits is refused, its team's fix (landing_sent_back), nothing submitted
+    for the bolt's own content at the head it submits is refused, the bolt's fix (landing_sent_back), nothing submitted
     and its pull request left as it is. Queued as a pull request, sluice
     answering with its number and no submission, or answered with an earlier submission (answered_before), whose exit
     is that one's and refuses nothing of this one, its ID is the submission sluice made for it, found in sluice's
@@ -5119,7 +4810,7 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     the pull request could not be readied, or the submission could not be made, in crew's, sluice's, gh's, git's or the
     host's words; refused before its submission ran, its pull request is left as it was. Once sluice has queued it and
     crew has its number, before any wait, it is recorded so (Decision 1): a bolt.submit marked Outcome queued, naming
-    the team holding it, sluice's number as Submission, the head submitted and main before, so any host knows which
+    sluice's number as Submission, the head submitted and main before, so any host knows which
     submission to read (landing_read); on the user's words in the caller's pane (frm, the transcript record bolt_submit
     read excerpt from), naming that record and the words' length, the words kept on this host then (landing_word_keep),
     since the landing's end may be read on another; one waited on again as it stands in sluice is recorded so too."""
@@ -5139,14 +4830,14 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     head, own = (decided["head"], copies["own"]) if decided["head"] else ("", "")
     path = f"{t['kit']['dir']}/places/land-{bolt}"
     at_head = head or (copies["own"] if copies.get("own") not in (None, "-") else None)
-    # A landing sluice sent back at the head this one submits is its team's fix: nothing submitted again until a fix
-    # has moved the head (bolt-teams "A landing sluice sent back is its team's fix").
-    refused = landing_sent_back(fleet, label, t, bolt, at_head)
-    if refused:
-        return dict(bolt=bolt, t=t, refused=refused)
     # A bolt that carries another bolt's work main lacks lands nothing, as a conflict holds it (plan.8): read from the
     # branches as GitHub holds them, after one fetch, at the head this landing submits.
     refused = landing_carries(fleet, t, bolt, at_head)
+    if refused:
+        return dict(bolt=bolt, t=t, refused=refused)
+    # A landing sluice sent back at the head this one submits is the bolt's fix: nothing submitted again until a fix
+    # has moved the head (bolt-teams "A landing sluice sent back is the bolt's fix").
+    refused = landing_sent_back(fleet, label, t, bolt, at_head)
     if refused:
         return dict(bolt=bolt, t=t, refused=refused)
     # The bolt's landing already standing in sluice, as after a session that submitted it ended: waited on again at
@@ -5174,7 +4865,8 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
                                             f"on {host}, so could not tell its submission from any made before it: {subs}")
     last = max((x["id"] for x in subs), default=0)
     try:  # its pull request live on the user's word, which this is (bolt-teams)
-        said = pull_said(bolt, *pull_hold(fleet, t, bolt, "live"), True, t["kit"]["repo"])
+        pull, act = pull_hold(fleet, t, bolt, "live")
+        said = pull_said(bolt, pull, act, True, forge(fleet, t) if act else t["kit"]["repo"])
     except Refusal as e:
         return dict(bolt=bolt, t=t, refused=f"bolt/{bolt} was not submitted: {e}")
     if said:
@@ -5200,18 +4892,19 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     return dict(bolt=bolt, t=t, before=before, path=path, **f, standing=standing, last=last)
 
 
-def sent_back_refusal(bolt, team, head, held, due):
+def sent_back_refusal(bolt, head, held, due):
     """Why crew bolt submit submits nothing of a bolt whose landing sluice sent back for its own content at the head it
-    would submit (bolt-teams "A landing sluice sent back is its team's fix"), a decision of facts alone (code.7), from
+    would submit (bolt-teams "A landing sluice sent back is the bolt's fix"), a decision of facts alone (code.7), from
     the refusal that stands at that head in the run record (held, sent_back's {head, words, n}) and what sluice's record
     of that submission, `sluice status <n> --json`, came to (due, landing_due's, None when the refusal names no
-    submission): the refusal's words, naming what failed from sluice's record (sent_back_said) and the team's fix with
-    its command and the landing's submit once that fix has merged (team_fix_said), never a submission again at a head
-    sluice sent back; where the record can't be read, the words the refusal was recorded with, why, and the fix with no
-    command (read.1). None when sluice's record has that submission in no state the bolt's content answers for, which
-    crew then submits as before, sluice's record being what holds its outcome."""
+    submission): the refusal's words, naming what failed from sluice's record (sent_back_said) and the way on with the
+    fix's command (sent_back_way), never a submission again at a head sluice sent back; where the record can't be read,
+    the words the refusal was recorded with, why, and the way on with no fix's words (read.1). None when sluice's
+    record has that submission in no state the bolt's content answers for, or in conflict only with a submission queued
+    on main ahead of it, which the bolt waits out and is submitted again at the same head (held_way, teams.21); crew
+    then submits as before, sluice's record being what holds its outcome."""
     s = sent_back_of(due[2]) if due and due[0] == "out" else None
-    if due and due[0] == "out" and s is None:
+    if due and due[0] == "out" and (s is None or s["conflict"] and s["withs"]):
         return None
     if s:
         said = f"sluice sent its landing back at {head[:7]}: {sent_back_said(s)}"
@@ -5220,33 +4913,15 @@ def sent_back_refusal(bolt, team, head, held, due):
         unread = (f" (crew can't read sluice's record of{n}: {due[1]})" if due and due[0] == "unread" else
                   f" (its record of{n} still has it {STANDING.get(due[1], due[1])})" if due else "")
         said = f"sluice sent its landing back at {head[:7]}, as the run record has it: {held['words'].rstrip('.')}{unread}"
-    return f"bolt/{bolt} was not submitted: {said}. It is its team's fix, not a stop: {team_fix_said(bolt, team, s)}"
-
-
-def carries_refusal(bolt, carries):
-    """crew bolt submit's words for a bolt it submits nothing of while it carries another bolt's work main lacks
-    (plan.8, carries_said), or None while it carries none. A decision of facts alone (code.7)."""
-    said = carries_said(carries)
-    return f"bolt/{bolt} was not submitted: it {said}" if said else None
-
-
-def landing_carries(fleet, t, bolt, head):
-    """Why crew bolt submit submits nothing of a bolt, or None: it carries another bolt's work main lacks at the head
-    this landing submits (head; the host's own bolt/<bolt> for a bolt kept on its host, which SUBMIT submits as it
-    stands), read from the branches as GitHub holds them after one fetch on the team's host (bolts_carried), as a
-    conflict holds a landing (plan.8); a read git refused is a refusal too, naming what could not be read (read.1)."""
-    try:
-        return carries_refusal(bolt, bolts_carried(fleet, t, bolt, head or f"refs/heads/bolt/{bolt}"))
-    except Refusal as e:
-        return f"bolt/{bolt} was not submitted: {e}"
+    return f"bolt/{bolt} was not submitted: {said}. It is the bolt's fix, not a stop: {sent_back_way(bolt, s)}"
 
 
 def landing_sent_back(fleet, label, t, bolt, head):
     """The refusal of a landing sluice sent back for the bolt's own content at head, the head crew bolt submit would
     submit (sent_back_refusal), or None: the refusal that stands at head in the partition's run record (sent_back), and,
-    when it names sluice's submission, sluice's record of it read on the team's host (SUBMISSION_STATUS, landing_due).
-    A run record crew can't read refuses the submission, since whether it was sent back can't be told (read.1); a head
-    crew can't tell, None, asks nothing."""
+    when it names sluice's submission, sluice's record of it read on the host the bolt's work runs on
+    (SUBMISSION_STATUS, landing_due). A run record crew can't read refuses the submission, since whether it was sent
+    back can't be told (read.1); a head crew can't tell, None, asks nothing."""
     if not head:
         return None
     try:
@@ -5259,13 +4934,78 @@ def landing_sent_back(fleet, label, t, bolt, head):
     if str(held.get("n") or "").isdigit():
         r = crew.on_machine(fleet, t["machine"], ["bash", "-c", SUBMISSION_STATUS, "crew", t["kit"]["main"], str(held["n"])])
         due = landing_due(int(held["n"]), r.returncode, r.stdout)
-    return sent_back_refusal(bolt, t["name"], head, held, due)
+    return sent_back_refusal(bolt, head, held, due)
+
+
+def carries_refusal(bolt, carries):
+    """crew bolt submit's words for a bolt it submits nothing of while it carries another bolt's work main lacks
+    (plan.8, carries_said), or None while it carries none. A decision of facts alone (code.7)."""
+    said = carries_said(carries)
+    return f"bolt/{bolt} was not submitted: it {said}" if said else None
+
+
+def landing_carries(fleet, t, bolt, head):
+    """Why crew bolt submit submits nothing of a bolt, or None: it carries another bolt's work main lacks at the head
+    this landing submits (head; the host's own bolt/<bolt> for a bolt kept on its host, which SUBMIT submits as it
+    stands), read from the branches as GitHub holds them after one fetch on the bolt's host (bolts_carried), as a
+    conflict holds a landing (plan.8); a read git refused is a refusal too, naming what could not be read (read.1)."""
+    try:
+        return carries_refusal(bolt, bolts_carried(fleet, t, bolt, head or f"refs/heads/bolt/{bolt}"))
+    except Refusal as e:
+        return f"bolt/{bolt} was not submitted: {e}"
+
+
+# What a bolt's tip carries of other bolts' work (plan.8, plan.19), for kit.carries_of and gather.carried_bolts, read in
+# its kit's main checkout with one fetch of main and every bolt from origin, pruning nothing, since a bolt's branch
+# GitHub deleted was in main and its line beyond main is empty: $3 the tip judged, $4 a branch it is judged beyond, or
+# empty for the bolt's own landing, which is all crew judges on this line, since Flume merges a place into its bolt.
+# READ with git's words when a fetch or a listing fails; else LANDING, yes for a landing; HOLDS, the commits the tip
+# holds beyond main now (and beyond $4); OWN, the tip's first-parent commits beyond main; and a LINE for each bolt, its
+# name and its first-parent commits beyond main, every bolt GitHub holds read there, and a bolt the host keeps with no
+# copy on GitHub read in the host's refs, a ref another command removed while it was read left out, as gone. Read from
+# the branches alone, never a commit's words.
+CARRIES = r"""main=$1 bolt=$2 tip=$3 into=${4:-}
+cd "$main" || exit 1
+now=refs/heads/main
+if git remote get-url origin >/dev/null 2>&1; then
+  if ! err=$(git fetch -q origin '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/bolt/*:refs/remotes/origin/bolt/*' 2>&1); then
+    echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0
+  fi
+  now=refs/remotes/origin/main
+fi
+read_out() { echo "READ=git could not list $1: $(printf '%s' "$2" | tr '\n' ' ')"; exit 0; }
+if [ -n "$into" ]; then h=$(git rev-list "$tip" "^$now" "^$into" 2>&1) || read_out "what $tip holds beyond $into" "$h"; echo LANDING=no
+else h=$(git rev-list "$tip" "^$now" 2>&1) || read_out "what $tip holds" "$h"; echo LANDING=yes; fi
+o=$(git rev-list --first-parent "$tip" "^$now" 2>&1) || read_out "$tip's own commits" "$o"
+echo "HOLDS=$(printf '%s' "$h" | tr '\n' ' ')"; echo "OWN=$(printf '%s' "$o" | tr '\n' ' ')"
+seen=" "
+for r in $(git for-each-ref --format='%(refname)' refs/remotes/origin/bolt/) $(git for-each-ref --format='%(refname)' refs/heads/bolt/); do
+  b=${r#refs/remotes/origin/bolt/}; b=${b#refs/heads/bolt/}
+  case "$seen" in *" $b "*) continue ;; esac
+  seen="$seen$b "
+  if ! l=$(git rev-list --first-parent "$r" "^$now" 2>&1); then
+    git rev-parse -q --verify "$r" >/dev/null || continue
+    read_out "bolt/$b's own commits" "$l"
+  fi
+  echo "LINE $b $(printf '%s' "$l" | tr '\n' ' ')"
+done
+"""
+
+
+def bolts_carried(fleet, t, bolt, tip, into=""):
+    """What a bolt's tip carries of other bolts' work (gather.carried_bolts), read on the bolt's host after one fetch
+    (CARRIES, kit.carries_of): {bolt: [its landings the tip holds]} beyond main that are not on the tip's own
+    first-parent line, and beyond into when given. Refused, naming what could not be read, when git could not fetch or
+    list it (read.1)."""
+    holds, lines, why = kit.carries_of(host_run(fleet, t["machine"], CARRIES, t["kit"]["main"], bolt, tip, into), bolt)
+    not why or fail(f"crew can't tell whether {tip} carries another bolt's work: {why}")
+    return gather.carried_bolts(holds, lines, bolt)
 
 
 def landing_queued(label, t, bolt, n, tip, before, frm=(), excerpt=None):
     """A landing's submission recorded as sluice has queued it, #n at tip with main before it (landing_submitted), and
     the user's words, when the word to land was theirs in the caller's pane, kept on this host (landing_word_keep)."""
-    record.emit(label, "bolt.submit", [f"bolt/{bolt}", f"team/{t['name']}"], frm=frm, why=f"bolt({bolt}): queued on main as #{n}",
+    record.emit(label, "bolt.submit", [f"bolt/{bolt}"], frm=frm, why=f"bolt({bolt}): queued on main as #{n}",
                 Outcome="queued", Submission=n, Head=tip, Base=before, Repo=t["kit"]["name"],
                 **(dict(Chars=len(excerpt)) if frm else {}))
     if frm:  # for crew bolt land to close its card with, wherever the landing's end is read
@@ -5447,7 +5187,7 @@ def landing_close_out(fleet, label, t, bolt, p, rc, said, doc, beside, again=0):
         if isinstance(sub, dict):  # its verdict, from its record in the listing, where it is out
             sub = dict(sub, verdict=verdict_printed(s.stdout, sub["id"]))
     landed, words, refused, stopped = landing_end(bolt, name, host, r.stdout, p["before"], sub=sub, again=again, doc=doc,
-                                                  beside=beside, team=t["name"])
+                                                  beside=beside)
     n = wait_again(sub, again) if tip else None
     if n is not None:
         print(words, flush=True)
@@ -5502,10 +5242,10 @@ def take_main_launch(fleet, label, t, bolt, conflict):
 
     def change(w):
         crossed_bolt(w.plan, bolt) or fail(f"bolt {bolt} is no longer given through Flume")
-        launched = runner.take_main(w.plan, requests_of(w).recs("Request"), bolt, crew.with_kit(t, w.bolt(bolt).get("Repo")), *conflict)
+        launched = runner.take_main(w.plan, requests_of(w).recs("Request"), bolt, label, *conflict)
         launched or fail(f"{on[0]} stands already, taking main in")
-        act, host, work, given = launched
-        seen.update(n=request(w, act, host, work, **given), host=host)
+        act, work, given = launched
+        seen.update(n=request(w, act, work, **given), repo=given["Repo"])
         w.subject = f"plan({bolt}): fix {name}"
         return []
     try:
@@ -5513,8 +5253,9 @@ def take_main_launch(fleet, label, t, bolt, conflict):
     except Refusal as e:
         print(f"crew launched no take-main fix for bolt {bolt}: {e}", file=sys.stderr)
         return
-    print(f"bolt {bolt} takes main first: the runner on {seen['host']} launches fix {bolt}--{name} (request {seen['n']}), "
-          f"taking origin/main at {conflict[0][:7]} into the bolt, and ops submits it again once sluice is green at its new head")
+    print(f"bolt {bolt} takes main first: fix {bolt}--{name} is launched in {seen['repo']} (request {seen['n']}) for the runner "
+          f"that keeps it, taking origin/main at {conflict[0][:7]} into the bolt, and ops submits it again once sluice is green "
+          "at its new head")
 
 
 def landing_pending(entries, bolt):
@@ -5531,18 +5272,90 @@ def landing_pending(entries, bolt):
     return None if any(e.get("Submission") == n and e.get("Outcome") != "queued" for e in mine[i + 1:]) else mine[i]
 
 
-def landing_team(fleet, plan, entries, bolt):
-    """The team a landing's read reads on: the one holding the bolt in the plan, else the one its last queued
-    submission names (On team/<name>), a read after a close by another; None for neither."""
+def landing_phase(entries, bolt):
+    """Where the bolt's landing stands in the run record (plan.8; bolt-teams "A landing queued holds its bolt's work"),
+    from the partition's entries, oldest first, each state its own: queued, {state, n, head}, while its last submission
+    sluice queued has no outcome recorded (landing_pending) and no earlier one of it was rejected; again, the same with
+    rejected, (its number or None, its head), the newest earlier submission of it sluice rejected; rejected, {state, n,
+    head, words}, once sluice rejected its newest submission for the bolt's own content, a conflict or a failed check,
+    recorded refused with the head submitted (landing_not_landed), until it is submitted again, its number None for one
+    sluice refused in its answer, standing through a later submit that submitted nothing at its head (sent_back); else
+    None: never submitted, landed, stopped by sluice or its host, nothing of the bolt's, or refused by crew before
+    anything was submitted, which names no head. queued and again hold the bolt's work
+    (landing_hold); rejected holds none. A decision of facts alone (code.7)."""
+    mine = [e for e in entries if e.get("Act") == "bolt.submit" and f"bolt/{bolt}" in (e.get("On") or [])]
+    rejected = lambda e: bool(e.get("Refused") and e.get("Head"))
+    q = landing_pending(entries, bolt)
+    if q is not None:
+        i = next(i for i, e in enumerate(mine) if e is q)
+        before = next((e for e in reversed(mine[:i]) if rejected(e)), None)
+        out = dict(state="again" if before else "queued", n=q["Submission"], head=q.get("Head") or "")
+        return dict(out, rejected=(before.get("Submission"), before["Head"])) if before else out
+    back = sent_back(entries).get(bolt)  # standing through a submit at its head that submitted nothing
+    if back:
+        return dict(state="rejected", n=back["n"], head=back["head"], words=back["words"])
+    return None
+
+
+def landing_phases(entries):
+    """Each bolt's landing as the run record holds it (landing_phase), for every bolt a bolt.submit names, from the
+    partition's entries, oldest first: {bolt: phase} for those whose landing is queued, again or rejected."""
+    named = {o[5:] for e in entries if e.get("Act") == "bolt.submit" for o in e.get("On") or [] if o.startswith("bolt/")}
+    return {b: p for b in sorted(named) for p in [landing_phase(entries, b)] if p}
+
+
+def rejected_said(n, head):
+    """A landing sluice rejected, as a line names it: by its number, else by the head it was submitted at."""
+    return f"#{n}" if n else f"its landing at {(head or '')[:7]}"
+
+
+def phase_said(phase, head, live=False):
+    """What a bolt's line says of its landing as the run record holds it (landing_phase), each state in words of its own
+    (bolt-teams "A landing queued holds its bolt's work"): queued, `landing queued as #<n>`, or nothing while sluice's
+    queue shows its landing standing (live), whose own state says it; again, `landing again as #<n>, after #<m> was
+    rejected`, the number left to sluice's state while live; rejected, while the bolt's head now (head) is the one
+    rejected, `landing #<m> rejected at <head>, open for work: <words>`, and nothing once a fix has moved it, the
+    rejection holding nothing (held_at); else None. A decision of facts alone (code.7)."""
+    if not phase:
+        return None
+    if phase["state"] == "queued":
+        return None if live else f"landing queued as #{phase['n']}"
+    if phase["state"] == "again":
+        after = f"after {rejected_said(*phase['rejected'])} was rejected"
+        return f"landing again, {after}" if live else f"landing again as #{phase['n']}, {after}"
+    if at_head(phase["head"], head):
+        return (f"landing {'#' + str(phase['n']) + ' ' if phase['n'] else ''}rejected at {phase['head'][:7]}, open for work: "
+                f"{phase['words']}")
+    return None
+
+
+def landing_hold(phase, bolt, what):
+    """Why work may not join a bolt whose landing is queued (plan.8; bolt-teams "A landing queued holds its bolt's work"),
+    from the run record's state of its landing (landing_phase), or None: while it is queued or landing again, what
+    would join it (what, `unit <u>`, `chore <c>` or `fix <bolt>--<f>`) is refused naming the landing, since sluice
+    lands the head it was given and work merged into the bolt meanwhile would be left out of main's landing; once
+    sluice has rejected it, or with no landing in flight, nothing is refused. A decision of facts alone (code.7)."""
+    if not phase or phase["state"] not in ("queued", "again"):
+        return None
+    landing = (f"is landing again as #{phase['n']}, after {rejected_said(*phase['rejected'])} was rejected"
+               if phase["state"] == "again" else f"has its landing queued on main as #{phase['n']}")
+    return (f"bolt {bolt} {landing}, so {what} does not join it until sluice decides: sluice lands the head it was given, "
+            "and work merged into the bolt meanwhile would be left out of main; put it on another bolt, or into this one "
+            "once sluice has rejected the landing")
+
+
+def landing_at(fleet, label, plan, entries, bolt):
+    """Where a landing's read reads (bolt_at): where the bolt's work runs while the plan holds it started, else, a read
+    after a close by another, where its launches ran (launched_at) in the kit its last queued submission names (Repo),
+    by its name now through the kit.rename entries among entries (kit_now); None for neither. Refused when crew can't
+    tell where its work runs (read.1)."""
     b = plan.bolt(bolt) if plan else None
-    t = bolt_team(fleet, b) if b else None
+    t = bolt_at(fleet, label, b) if b else None
     if t:
         return t
     q = next((e for e in reversed(entries) if e.get("Act") == "bolt.submit" and e.get("Outcome") == "queued"
               and f"bolt/{bolt}" in (e.get("On") or [])), None)
-    name = next((o[5:] for o in (q.get("On") or []) if o.startswith("team/")), None) if q else None
-    t = fleet["teams"].get(name) if name else None
-    return crew.with_kit(t, q["Repo"]) if t and q.get("Repo") else t
+    return launched_at(fleet, label, bolt, kit_now(q["Repo"], renames_in(entries))) if q and q.get("Repo") else None
 
 
 def landing_queued_last(entries, bolt):
@@ -5589,16 +5402,18 @@ def landing_kept(t, bolt, n):
 
 
 def landing_mark(t, bolt, n):
-    """Where the team's host keeps what its read said of a submission's outcome, once it recorded it (Decision 2): in
-    team state, keyed by the submission's number, so a later submission of the bolt is never taken for it."""
-    return team_state(t) / "landings" / f"{bolt}.{n}"
+    """Where the bolt's host keeps what its read said of a submission's outcome, once it recorded it (Decision 2): in
+    the partition's state there (landing_state), keyed by the submission's number, so a later submission of the bolt
+    is never taken for it."""
+    return landing_state(t) / "landings" / f"{bolt}.{n}"
 
 
 def landing_read(fleet, label, bolt):
     """crew _landing-read <label> <bolt>: the bolt's landing read from sluice's own record (plan.21, Decision 2), on the
-    team's host alone (code.3), refused on any other, naming it, one read of a bolt at a time there under a lock in team
-    state. Under it, the plan and the run record read afresh, the bolt's last queued submission taken from the run
-    record (landing_queued_last): when the team's host has kept what an earlier read said of it (landing_kept), that is
+    host its work runs on alone (landing_at, code.3), refused on any other, naming it, one read of a bolt at a time
+    there under a lock in the partition's state (landing_state). Under it, the plan and the run record read afresh, the
+    bolt's last queued submission taken from the run record (landing_queued_last): when the host has kept what an
+    earlier read said of it (landing_kept), that is
     said, and nothing read or recorded again; when an outcome of it is recorded with nothing kept here, or nothing is
     queued, what the run record holds is said (landing_recorded); else, the submission to record (landing_pending),
     sluice's record of it read in the kit's main checkout (SUBMISSION_STATUS,
@@ -5611,17 +5426,17 @@ def landing_read(fleet, label, bolt):
     (whether the bolt reads landed, what was said of its landing)."""
     pl = plan_of(fleet, label)
     pl is not None or fail(f"crew can't read bolt {bolt}'s landing: {label}/main could not be read")
-    t = landing_team(fleet, pl, partition_entries(fleet, label), bolt)
-    t or fail(f"no team holds bolt {bolt}, and no landing of it is queued in {label}'s run record, so it has no landing to read")
+    t = landing_at(fleet, label, pl, partition_entries(fleet, label), bolt)
+    t or fail(f"bolt {bolt} is not started, and no landing of it is queued in {label}'s run record, so it has no landing to read")
     here = crew.this_host()
-    t["machine"] == here or fail(f"bolt {bolt}'s landing is read on {t['machine']}, where {t['name']}, which holds it, runs, not on {here}")
+    t["machine"] == here or fail(f"bolt {bolt}'s landing is read on {t['machine']}, where the runner that took its work runs, not on {here}")
     name, main = t["kit"]["name"], t["kit"]["main"]
-    lock = team_state(t) / "landings" / f"{bolt}.lock"
+    lock = landing_state(t) / "landings" / f"{bolt}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     with open(lock, "w") as held:
-        # One read of a bolt at a time on its team's host, so an outcome is recorded once. Nothing run under it waits on
-        # a command that reads a landing, so no holder waits on itself: the close's tidy, crew _tidy --landed, reads none
-        # (reap).
+        # One read of a bolt at a time on its host, so an outcome is recorded once. Nothing run under it waits on a
+        # command that reads a landing, so no holder waits on itself: the close's kit read, crew _sweep --landed, reads
+        # none (kit_read).
         fcntl.flock(held, fcntl.LOCK_EX)
         fetch(*state_of(fleet, label), fresh=True)  # what a read before this one recorded and closed, which it waited on
         pl = plan_of(fleet, label)
@@ -5718,7 +5533,7 @@ def landing_read_cmd(fleet, a):
 
 
 def landing_read_on(fleet, t, label, bolt):
-    """The landing's read run on the team's host (code.3): in this process when that is this host, else crew
+    """The landing's read run on the bolt's host (t, bolt_at; code.3): in this process when that is this host, else crew
     _landing-read there as the one asking, what it said passed through; whether it read the bolt landed. A read
     refused is said, and reads it not landed."""
     if t["machine"] == crew.this_host():
@@ -5736,13 +5551,13 @@ def landing_read_on(fleet, t, label, bolt):
 def bolt_submit(fleet, a):
     """crew bolt submit <bolt>... [--excerpt "<the user's words>"] [--label L]: main-level ops's landing of one kit's
     bolts, in the order given (plan.16, record 0026, Decision 6): refused before anything is submitted when they are of
-    two kits, one is named twice, or one is held by no team (submit_refusal). With --excerpt, the word to land is the
+    two kits, one is named twice, or one is not started (submit_refusal). With --excerpt, the word to land is the
     user's own words in the caller's pane: read first in the caller's own session transcript on this host, and nothing
     submitted unless crew reads them as the user's (submit_word_refusal); each landed bolt's bolt.submit then names the
     transcript record they were read from and their length, never the words (record.3), and this host keeps the words
     for crew bolt land to close the landing card with (landing_word_keep). Without it, the word is the landing card's
     send. Each bolt's branch submitted to its kit's main through sluice from
-    a short-lived worktree on its team's host (landing_submitted), the next as soon as sluice has queued it when both
+    a short-lived worktree on the host its work runs on (bolt_at, landing_submitted), the next as soon as sluice has queued it when both
     are on one host, else once it has ended (submit_order); each then waited on in order, whether it landed read from
     main now, GitHub's after a fetch for a kit with an origin (landing_said, plan.18), and a landed bolt closed as it
     lands (landing_ended). Nothing is refused for a host's own main lagging GitHub's: sluice forms the landing on
@@ -5752,15 +5567,15 @@ def bolt_submit(fleet, a):
     (landing_unheld). A bolt that did not land is said in sluice's words, and the rest go on; it exits non-zero naming
     each that did not land. It moves no branch itself, and is run in the background and waited on to its end
     (code.9). Run in main-level ops's run (design Decision 12), it waits on no landing: each bolt is submitted once the
-    one before is queued, and each queued landing is left to its waiter on the team's host, which reads its outcome and
+    one before is queued, and each queued landing is left to its waiter on the bolt's host, which reads its outcome and
     asks the roles that run as their kinds, the waiter given no Claude session to end with, since the run's turn ends
     at once; it exits non-zero only for a bolt that did not land before it was queued."""
     bolts = list(a.bolt) if isinstance(a.bolt, list) else [a.bolt]
     label, _, _, plan = locate(fleet, "Bolt", bolts[0], default_label(fleet, a))
     CONTEXT["label"] = label
     held = {b: plan.bolt(b) or fail(f"{label}'s plan holds no bolt {b}: crew bolt submit lands one partition's bolts") for b in bolts}
-    teams = {b: bolt_team(fleet, held[b]) for b in bolts}
-    why = submit_refusal(bolts, {b: held[b].get("Repo") for b in bolts}, {b: t["name"] if t else None for b, t in teams.items()})
+    teams = {b: bolt_at(fleet, label, held[b]) for b in bolts}
+    why = submit_refusal(bolts, {b: held[b].get("Repo") for b in bolts}, {b: t["machine"] if t else None for b, t in teams.items()})
     not why or fail(why)
     words, frm = getattr(a, "excerpt", None), []
     if words is not None:
@@ -5792,7 +5607,7 @@ def bolt_leave(fleet, a):
     ops's pane is recorded as the user's words", rail-cards "A bolt stopped in ops's pane is shown as left"): the words
     read first in the caller's own session transcript on this host, as crew bolt submit --excerpt reads them, and
     nothing recorded unless crew reads them as the user's (pane_words, leave_word_refusal); refused too, recording
-    nothing, for a bolt the plan does not hold, one no team holds and one that does not read proven (land_read), which
+    nothing, for a bolt the plan does not hold, one not started and one that does not read proven (land_read), which
     have no landing to stop. Each bolt's stop recorded as a bolt.leave naming its head as its row reads it, the
     transcript record the words were read from and their length, none of the words (record.3); then each kit's landings
     card raised on the partition's main machine (land_hand), saying the bolts were stopped on the user's words, which
@@ -5802,7 +5617,7 @@ def bolt_leave(fleet, a):
     label, _, _, plan = locate(fleet, "Bolt", bolts[0], default_label(fleet, a))
     CONTEXT["label"] = label
     held = {b: plan.bolt(b) or fail(f"{label}'s plan holds no bolt {b}, so it has no landing to stop") for b in bolts}
-    teams = {b: bolt_team(fleet, held[b]) or fail(f"bolt {b} is held by no team, so it has no landing to stop") for b in bolts}
+    teams = {b: bolt_at(fleet, label, held[b]) or fail(f"bolt {b} is not started, so it has no landing to stop") for b in bolts}
     words = a.excerpt or ""
     words.strip() or fail("crew bolt leave needs the user's words: --excerpt \"<their words, as they wrote them>\"")
     frm = [pane_words(CardActs(fleet), words, lambda v: leave_word_refusal(", ".join(bolts), v))]
@@ -5829,58 +5644,17 @@ def group_of(u):
     return f"bolt/{u.get('Bolt')}" if u.get("Bolt") else f"queue/{u.get('Repo')}"
 
 
-def unit_stage(fleet, plan, name):
+def unit_stage(fleet, label, plan, name):
     u = plan.item(name)
     b = plan.bolt(u.get("Bolt")) if u.get("Bolt") else None
-    return (stages_for(fleet, plan, [b]) if b else Stages(fleet, plan, {})).of(name)
+    return (stages_for(fleet, label, plan, [b]) if b else Stages(fleet, plan, {}, label=label)).of(name)
 
 
-# A moved unit's place, or a chore's (its kind the fifth word), rebased from the bolt it leaves onto the bolt it moves
-# to, each read where it lives (the seventh and sixth words, bolt_upstream; plan.19), a bolt on GitHub fetched first,
-# never the host's copy, which lags and would carry the bolt it leaves into the one it joins (plan.8); its branch then
-# tracks the bolt it moves to; UNREBASE puts it back, tracking the bolt it left.
-REBASE = r"""cd "$1" || exit 1
-branch="$5/$4"
-for up in "$6" "$7"; do
-  case "$up" in origin/bolt/*)
-    git fetch -q origin "+refs/heads/${up#origin/}:refs/remotes/$up" >&2 || { echo "git could not fetch $up from GitHub" >&2; exit 4; } ;;
-  esac
-done
-orig=$(git rev-parse HEAD)
-if git rebase -q --onto "$6" "$7" "$branch" >/dev/null 2>&1; then
-  git branch -q --set-upstream-to="$6" "$branch"; echo "$orig"
-else
-  git rebase --abort >/dev/null 2>&1; exit 3
-fi
-"""
-UNREBASE = r"""cd "$1" && git reset -q --hard "$2" && git branch -q --set-upstream-to="$6" "$5/$4" """
-
-# Where a bolt lives, read in its kit's main checkout (BOLT_AT), for bolt_upstream.
+# Where a bolt lives, read in its kit's main checkout (BOLT_AT).
 BOLT_LIVES = r"""cd "$1" || exit 1
 bolt=$2 file=$3
 """ + BOLT_AT
 
-# Whether a bolt's branch on the remote its host's tip names holds that tip (plan.19), read in its kit's main checkout
-# with one fetch of it (plan.18), for kit.bolt_split: THERE=- when the remote has no bolt/<bolt>, READ with git's words
-# when it can't be asked or fetched, else LOCAL and THERE, the host's commit and the remote's, HELD, yes when the
-# host's tip is an ancestor of the remote's, and MERGES, the merges the host holds beyond it; and given the ref of the
-# work to merge ($4), CARRIED, yes when the host's tip is an ancestor of it.
-BOLT_SPLIT = r"""cd "$1" || exit 1
-bolt=$2 remote=$3 work=${4:-}
-l=$(git rev-parse --verify -q "refs/heads/bolt/$bolt^{commit}")
-err=$(git ls-remote --exit-code "$remote" "refs/heads/bolt/$bolt" 2>&1); rc=$?
-if [ $rc = 2 ]; then echo "THERE=-"; exit 0; fi
-if [ $rc != 0 ]; then echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0; fi
-if ! err=$(git fetch -q "$remote" "+refs/heads/bolt/$bolt:refs/remotes/$remote/bolt/$bolt" 2>&1); then
-  echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0
-fi
-there=$(git rev-parse --verify -q "refs/remotes/$remote/bolt/$bolt^{commit}")
-echo "LOCAL=$l"; echo "THERE=$there"
-git merge-base --is-ancestor "$l" "$there" 2>/dev/null; case $? in 0) echo "HELD=yes" ;; 1) echo "HELD=no" ;; esac
-echo "MERGES=$(git rev-list --count --merges "$there..$l" 2>/dev/null)"
-[ -n "$work" ] || exit 0
-git merge-base --is-ancestor "$l" "$work" 2>/dev/null; case $? in 0) echo "CARRIED=yes" ;; 1) echo "CARRIED=no" ;; esac
-"""
 
 # The bolt's two copies a landing reads (plan.19), in its kit's main checkout with $file the policy, with one fetch of
 # the bolt from origin (plan.18), for kit.land_copies: THERE=- when the kit has no origin or origin has no
@@ -5908,74 +5682,6 @@ echo "BEYOND=$(git rev-list --count --merges "$own..$there" 2>/dev/null)"
 """
 
 
-# What a tip carries of other bolts' work (plan.8, plan.19), for kit.carries_of and gather.carried_bolts, read in its kit's
-# main checkout with one fetch of main and every bolt from origin, pruning nothing, since a bolt's branch GitHub deleted
-# was in main and its line beyond main is empty: $3 the tip judged, $4 its bolt where it lives for a merge into it, or
-# empty for the bolt's own landing. READ with git's words when a fetch or a listing fails; else LANDING, yes for a
-# landing; HOLDS, the commits the tip holds beyond main now, and beyond its bolt for a merge; OWN, the tip's
-# first-parent commits beyond main; and a LINE for each bolt, its name and its first-parent commits beyond main, every
-# bolt GitHub holds read there, and a bolt the host keeps with no copy on GitHub read in the host's refs, a ref another
-# command removed while it was read left out, as gone. Read from the branches alone, never a commit's words.
-CARRIES = r"""main=$1 bolt=$2 tip=$3 into=${4:-}
-cd "$main" || exit 1
-now=refs/heads/main
-if git remote get-url origin >/dev/null 2>&1; then
-  if ! err=$(git fetch -q origin '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/bolt/*:refs/remotes/origin/bolt/*' 2>&1); then
-    echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0
-  fi
-  now=refs/remotes/origin/main
-fi
-read_out() { echo "READ=git could not list $1: $(printf '%s' "$2" | tr '\n' ' ')"; exit 0; }
-if [ -n "$into" ]; then h=$(git rev-list "$tip" "^$now" "^$into" 2>&1) || read_out "what $tip holds beyond $into" "$h"; echo LANDING=no
-else h=$(git rev-list "$tip" "^$now" 2>&1) || read_out "what $tip holds" "$h"; echo LANDING=yes; fi
-o=$(git rev-list --first-parent "$tip" "^$now" 2>&1) || read_out "$tip's own commits" "$o"
-echo "HOLDS=$(printf '%s' "$h" | tr '\n' ' ')"; echo "OWN=$(printf '%s' "$o" | tr '\n' ' ')"
-seen=" "
-for r in $(git for-each-ref --format='%(refname)' refs/remotes/origin/bolt/) $(git for-each-ref --format='%(refname)' refs/heads/bolt/); do
-  b=${r#refs/remotes/origin/bolt/}; b=${b#refs/heads/bolt/}
-  case "$seen" in *" $b "*) continue ;; esac
-  seen="$seen$b "
-  if ! l=$(git rev-list --first-parent "$r" "^$now" 2>&1); then
-    git rev-parse -q --verify "$r" >/dev/null || continue
-    read_out "bolt/$b's own commits" "$l"
-  fi
-  echo "LINE $b $(printf '%s' "$l" | tr '\n' ' ')"
-done
-"""
-
-
-def bolts_carried(fleet, t, bolt, tip, into=""):
-    """What a tip carries of other bolts' work (gather.carried_bolts), read on the team's host after one fetch (CARRIES,
-    kit.carries_of): {bolt: [its landings the tip holds]} beyond main, and beyond its bolt where it lives for a merge
-    into it (into); for the bolt's own landing (into empty), those that are not on the tip's own first-parent line.
-    Refused, naming what could not be read, when git could not fetch or list it (read.1)."""
-    holds, lines, why = kit.carries_of(host_run(fleet, t["machine"], CARRIES, t["kit"]["main"], bolt, tip, into), bolt)
-    not why or fail(f"crew can't tell whether {tip} carries another bolt's work: {why}")
-    return gather.carried_bolts(holds, lines, bolt)
-
-
-def merge_carried_refusal(kind, name, branch, bolt, up, carries):
-    """Why a merge into a bolt is refused while its branch carries another bolt's work that main and the bolt lack
-    (plan.8, bolts_carried), or None while it carries none: naming each bolt and its landings the branch holds, and the
-    way on, that work taken out of the branch, which is then built on its own bolt where it lives (up), or the merge
-    run once main holds that work, by that bolt's own landing. A decision of facts alone (code.7)."""
-    if not carries:
-        return None
-    whose = joined([f"bolt {b}" for b in sorted(carries)])
-    return (f"{kind} {name} does not merge into bolt/{bolt}: {branch} carries {carried_named(carries)}, which main and bolt/{bolt} lack; a "
-            f"{kind} builds on its own bolt alone, so take that work out of {branch}, building it on {up} alone, or merge "
-            f"once main holds that work, by the landing of {whose}")
-
-
-def merge_bolts(fleet, t, bolt, kind, name, branch):
-    """A unit's, chore's or fix's merge refused before its submission while its branch carries another bolt's work that
-    main and its bolt lack (plan.8, plan.19): read on the team's host after one fetch (bolts_carried), against its bolt
-    where it lives (bolt_upstream), worded by merge_carried_refusal; refused when it can't be read (read.1)."""
-    up = bolt_upstream(fleet, t, bolt)
-    why = merge_carried_refusal(kind, name, branch, bolt, up, bolts_carried(fleet, t, bolt, f"refs/heads/{branch}", up))
-    not why or fail(why)
-
-
 # Where a bolt lives (BOLT_LIVES), and AT_MAIN, the policy at the kit's main now as this host last fetched it, with no
 # fetch (plan.18): origin/main for a kit with an origin, else its own main, base64, or - when it holds none.
 BOLT_HOME = BOLT_LIVES + r"""now=refs/heads/main; if git remote get-url origin >/dev/null 2>&1; then now=refs/remotes/origin/main; fi
@@ -5996,11 +5702,13 @@ def bolt_local_said(bolt, lives, main_remote):
 
 
 def bolts_local_said(fleet, t, plan):
-    """The line a team's read says of each bolt the team holds that is local until it lands (bolt_local_said), read on
-    the team's host in each bolt's kit (BOLT_HOME); a bolt whose home crew can't read says nothing."""
+    """The line a kit's read says of each bolt whose work runs on its host (t, bolts_on) that is local until it lands
+    (bolt_local_said), read there in each bolt's kit (BOLT_HOME); a bolt whose home crew can't read says nothing."""
     out = []
-    for b in held_by(plan, t["name"]):
-        k = crew.with_kit(t, b.get("Repo"))
+    for b in bolts_on(fleet, t["label"], plan, t["machine"]):
+        k = known_at(fleet, t["label"], b)
+        if k is None:
+            continue
         r = crew.on_machine(fleet, k["machine"], ["bash", "-c", BOLT_HOME, "crew", k["kit"]["main"], b.name(), kit.DECLARATION])
         try:
             lives, main_remote = kit.bolt_home(r.stdout, b.name()) if r.returncode == 0 else (None, None)
@@ -6012,64 +5720,35 @@ def bolts_local_said(fleet, t, plan):
     return out
 
 
-def bolt_split_check(fleet, t, bolt, work=None):
-    """What a merge into the bolt reads of a split (plan.19), on the team's host in the kit's main checkout: where the
-    bolt lives (BOLT_LIVES), and when the host's own tip names a remote for it (kit.split_remote), that remote's copy
-    after one fetch (BOLT_SPLIT), and given the ref of the work to merge, whether it holds the host's tip; (remote,
-    kit.bolt_split's facts), or None when there is nothing to read, so a bolt whose tip names no remote fetches
-    nothing."""
-    remote = kit.split_remote(host_run(fleet, t["machine"], BOLT_LIVES, t["kit"]["main"], bolt, kit.DECLARATION), bolt)
-    if not remote:
-        return None
-    return remote, kit.bolt_split(host_run(fleet, t["machine"], BOLT_SPLIT, t["kit"]["main"], bolt, remote,
-                                           *([work] if work else [])), bolt)
-
-
-def bolt_upstream(fleet, t, bolt):
-    """The ref a place of the bolt tracks, read on the team's host where the bolt lives (kit.place_base, plan.19):
-    origin/bolt/<bolt> for a bolt on GitHub, bolt/<bolt> for one made before gives went through sluice."""
-    return kit.place_base(host_run(fleet, t["machine"], BOLT_LIVES, t["kit"]["main"], bolt, kit.DECLARATION), bolt)
-
-
 # ------------------------------------------------------------------------------------------ who writes what
 
 # The commands that write the plan directly, and the one role each agent crew started may use them in.
-PLAN_WRITES = {("bolt", "new"), ("bolt", "give"), ("bolt", "order"), ("bolt", "drop"), ("bolt", "land"), ("unit", "add"),
+PLAN_WRITES = {("bolt", "new"), ("bolt", "start"), ("bolt", "order"), ("bolt", "drop"), ("bolt", "land"), ("unit", "add"),
                ("unit", "split"), ("unit", "amend"), ("unit", "order"), ("unit", "after"), ("unit", "move"), ("unit", "drop"),
-               ("chore", "add"), ("chore", "order"), ("chore", "after"), ("chore", "move"), ("chore", "drop")}
+               ("chore", "add"), ("chore", "order"), ("chore", "after"), ("chore", "move"), ("chore", "drop"), ("kit", "rename")}
 
 
 def role(fleet, name):
-    """What an agent crew started is, from its name alone: (kind, its partition's label or its team), or ("user", None)
-    for no agent at all, or for the user's <user>@<host>, which a command run again on a team's host carries."""
+    """What an agent crew started is, from its name alone: (kind, its partition's label), or ("user", None) for no agent
+    at all, or for the user's <user>@<host>, which a command run again on another host carries."""
     if not name or "@" in name:
         return "user", None
     for label in fleet["partitions"]:
         for kind, n in (("planner", f"{label}-planner"), ("design", f"{label}-design"), ("main-ops", f"{label}-ops")):
             if name == n:
                 return kind, label
-        if name.startswith(f"{label}-dispatch-"):
-            return "dispatcher", label
         if name == f"{label}-operator" or name.startswith(f"{label}-operator-"):  # the latter, a host's before record 0035
             return "operator", label
-    for t in fleet["teams"]:
-        if name == f"{t}-conductor":
-            return "conductor", t
-        if name == f"{t}-ops" or re.fullmatch(rf"{re.escape(t)}-unit-[1-9][0-9]*", name):
-            return "team", t
     return "other", None
 
 
 def planner_of(fleet, kind, of):
-    label = fleet["teams"][of]["label"] if kind in ("conductor", "team") else of
-    return f"{label}-planner" if label in fleet["partitions"] else "the partition's planner"
+    return f"{of}-planner" if of in fleet["partitions"] else "the partition's planner"
 
 
 def may_write(fleet, key, a):
-    """Who writes the plan directly. The user writes everything. The planner changes it only by a proposal; a
-    conductor narrows, orders and sets dependencies within the bolt its team holds (checked once its unit is found),
-    and marks a unit of it amended by running construct again (run_check); the design agent queues; a dispatcher
-    gives bolts; the main level's ops lands them. A chore's commands are written by the same hands as the unit's of the
+    """Who writes the plan directly. The user writes everything. The planner changes it only by a proposal; the design
+    agent queues; the main level's ops lands bolts (roles.1). A chore's commands are written by the same hands as the unit's of the
     same name (plan.11). Any other plan write by an agent crew started is refused, naming the planner. A command that
     writes a request for a runner, crew answer and crew main fix, is its own row of the table (may_request), as crew
     fix is once it finds its bolt given through Flume (flume_fix). A role's run writes as its role (crew.caller)."""
@@ -6082,9 +5761,10 @@ def may_write(fleet, key, a):
     cmd, as_unit = " ".join(key), ("unit", key[1]) if key[0] == "chore" else key
     if kind == "planner":
         fail(f"the planner changes the plan through a proposal: crew plan propose, not crew {cmd}")
-    if ((kind == "conductor" and as_unit in (("unit", "split"), ("unit", "order"), ("unit", "after")))
-            or (kind == "design" and as_unit == ("unit", "add") and not a.bolt)
-            or (kind == "dispatcher" and key == ("bolt", "give")) or (kind == "main-ops" and key == ("bolt", "land"))):
+    if key == ("bolt", "start"):  # the user's choice of what runs (Decision 14 of the-team-machinery-leaves)
+        fail(f"{name} does not start a bolt: the user starts it, or approves {planner_of(fleet, kind, of)}'s proposal holding "
+             f"crew bolt start; tell {planner_of(fleet, kind, of)}, who proposes it")
+    if (kind == "design" and as_unit == ("unit", "add") and not a.bolt) or (kind == "main-ops" and key == ("bolt", "land")):
         return
     fail(f"{name} does not write the plan with crew {cmd}" + (" --bolt" if as_unit == ("unit", "add") and a.bolt else "")
          + f": tell {planner_of(fleet, kind, of)}, who proposes it")
@@ -6108,8 +5788,7 @@ def may_request(fleet, what):
     kind, of = role(fleet, name)
     if kind == "user" or kind in REQUESTERS[what]:
         return
-    label = fleet["teams"][of]["label"] if kind in ("conductor", "team") else of
-    first = REQUESTERS[what][0]
+    label, first = of, REQUESTERS[what][0]
     to = f"{label}-{'ops' if first == 'main-ops' else first}" if label in fleet["partitions"] else f"the partition's {ROLE_SAID[first].removeprefix('the ')}"
     fail(f"{name} does not run crew {what}: " + ", ".join(ROLE_SAID[r] for r in REQUESTERS[what]) + f" and the user do; tell {to}")
 
@@ -6123,11 +5802,12 @@ class Op:
     the subject and run-record entry of its write, what to prepare before the push with its undo (a unit's rebase),
     and what follows the push."""
 
-    def __init__(self, label, change, subject, act, on=(), frm=(), body="", prepare=None, after=None):
+    def __init__(self, label, change, subject, act, on=(), frm=(), body="", prepare=None, after=None, fields=None):
         self.label, self.change, self.subject, self.act, self.body = label, change, subject, act, body
         self.on, self.frm = list(on), list(frm)
         self.prepare, self.after = prepare, after
         self.added_on, self.added_frm = [], []
+        self.fields = fields if fields is not None else {}  # its entry's own fields, which its change may fill at the tip it is applied to
 
 
 class Reads:
@@ -6136,17 +5816,28 @@ class Reads:
     card reads none (Drawn)."""
     w = None  # the write a command inside a proposal is applied to; a command run directly reads the branch's tip
 
-    def stages(self, plan, bolts):
-        return stages_for(self.fleet, plan, bolts)
+    def stages(self, label, plan, bolts):
+        return stages_for(self.fleet, label, plan, bolts)
 
-    def stage(self, plan, name):
-        return unit_stage(self.fleet, plan, name)
+    def stage(self, label, plan, name):
+        return unit_stage(self.fleet, label, plan, name)
 
-    def free(self, label, kit, names):
+    def free(self, label, kit, names, kind="unit"):
+        """Each name is free for a unit or chore (kind) of the kit: no change or chore its main holds by it (name_free),
+        and no branch of Flume's standing where a launch of it would be made (branch_free)."""
         name_free(self.fleet, label, kit, names)
+        branch_free(self.fleet, label, kit, names, kind)
 
-    def first_open(self, plan, bolt):
-        return first_open(self.fleet, plan, bolt)
+    def first_open(self, label, plan, bolt):
+        return first_open(self.fleet, label, plan, bolt)
+
+    def start_checked(self, label, t, bolt):
+        return start_check(self.fleet, label, t, bolt)
+
+    def landing(self, w, bolt):
+        """The bolt's landing as the run record holds it at the tip the write is applied to (landing_phase), which work
+        joining it is checked against (landing_hold)."""
+        return landing_phase(w.entries(), bolt)
 
 
 class Direct(Reads):
@@ -6162,6 +5853,14 @@ class Direct(Reads):
 
     def kit(self, kit):
         return plan_for(self.fleet, kit, self.label)[0]
+
+    def kits(self, label):
+        """The partition's kits (partition_kits) as its branch holds them now."""
+        return kits_read(self.fleet, label)
+
+    def renames(self, label):
+        """The partition's renames of its kits (renames_read) as its branch holds them now."""
+        return renames_read(self.fleet, label)
 
 
 class Proposed(Reads):
@@ -6179,6 +5878,15 @@ class Proposed(Reads):
     def kit(self, kit):
         return plan_for(self.fleet, kit, self.label)[0]
 
+    def kits(self, label):
+        """The partition's kits (partition_kits) in the plan as the commands before this one leave it, with the landings
+        its branch holds at the write's tip."""
+        return kits_at(self.w.repo, self.w.tip, self.w.plan)
+
+    def renames(self, label):
+        """The partition's renames of its kits as the run record holds them at the write's tip (Write.renames)."""
+        return self.w.renames()
+
 
 class Drawn(Proposed):
     """What a command inside a proposal sees when the proposal's card is drawn: the plan as the commands before it have
@@ -6187,28 +5895,34 @@ class Drawn(Proposed):
     kits and checks them all."""
     UNREAD = {"stage": "unread", "worktree": None}
 
-    def stages(self, plan, bolts):
+    def stages(self, label, plan, bolts):
         return self
 
     def of(self, name):
         return dict(self.UNREAD)
 
-    def stage(self, plan, name):
+    def stage(self, label, plan, name):
         return dict(self.UNREAD)
 
-    def free(self, label, kit, names):
+    def free(self, label, kit, names, kind="unit"):
         for n in names:
             crew.NAME.match(n) or fail(f"a unit's or chore's name is lowercase words with dashes, not {n}")
 
-    def first_open(self, plan, bolt):
+    def first_open(self, label, plan, bolt):
         return next((u.name() for u in plan.work_of(bolt)), None)
 
+    def start_checked(self, label, t, bolt):
+        return None
 
-def first_open(fleet, plan, bolt):
+    def landing(self, w, bolt):
+        return None
+
+
+def first_open(fleet, label, plan, bolt):
     """The first unit or chore of a held bolt that has not merged into it: where work the bolt needs to land goes, ahead
     of what waits on it. None when every one has merged, or the bolt has none."""
     b = plan.bolt(bolt)
-    st = stages_for(fleet, plan, [b])
+    st = stages_for(fleet, label, plan, [b])
     return next((u.name() for u in plan.work_of(bolt) if st.of(u.name())["stage"] not in ("merged", "landed")), None)
 
 
@@ -6217,9 +5931,9 @@ def unblocking(ctx, plan, label, a, into):
     into that bolt, ahead of what waits on it, never into the queue or another bolt. Returns what it goes ahead of."""
     into == a.unblocks or fail(f"{a.unit} unblocks bolt {a.unblocks}, so it goes into that bolt, ahead of what waits on it, "
                                f"not into {f'bolt {into}' if into else 'the queue'}")
-    plan.bolt(a.unblocks).get("Team") or fail(f"{a.unit} unblocks bolt {a.unblocks}, which no team holds, so nothing waits on "
-                                              "it: --unblocks names a bolt in flight")
-    return ctx.first_open(plan, a.unblocks)
+    started(plan.bolt(a.unblocks)) or fail(f"{a.unit} unblocks bolt {a.unblocks}, which is not started, so nothing waits on "
+                                           "it: --unblocks names a bolt in flight")
+    return ctx.first_open(label, plan, a.unblocks)
 
 
 def kind_refusal(kind, cmd, sub, name):
@@ -6248,18 +5962,117 @@ def called(a):
     return f"chore {a.unit}" if a.cmd == "chore" else a.unit
 
 
+def kit_given(ctx, label, kit):
+    """The kit a plan command names by --repo as it writes it (Decision 4 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan): by its name now through the partition's renames (kit_now),
+    a proposal approved after a rename among them, its Do unchanged (plan.4); refused where the partition's main-level
+    host keeps a repository by the former name again (former_kept_said). Its change writes the name now at the tip it
+    is applied to (Write.renames)."""
+    now = kit_now(kit, ctx.renames(label))
+    if now != kit:
+        host = crew.partition_of(ctx.fleet, label)["machine"]
+        why = former_kept_said(kit, now, host, crew.kit_kept(ctx.fleet, host, kit))
+        not why or fail(why)
+    return now
+
+
 def op_bolt_new(ctx, a):
     label = ctx.kit(a.repo)
     crew.NAME.match(a.bolt) or fail(f"a bolt's name is lowercase words with dashes, not {a.bolt}")
-    why = kit_named(a.bolt, partition_kits(ctx.fleet, label), label)
+    kit_given(ctx, label, a.repo)
+    why = kit_named(a.bolt, ctx.kits(label), label)
     not why or fail(why)
+    seen = {}
 
     def change(w):
         w.plan.bolt(a.bolt) is None or fail(f"{label}/main already has bolt {a.bolt}")
-        r = Rec("Bolt", [("Bolt", a.bolt), ("Repo", a.repo), ("Goal", a.goal)] + [("Source", x) for x in a.source])
+        seen["repo"] = kit_now(a.repo, w.renames())
+        r = Rec("Bolt", [("Bolt", a.bolt), ("Repo", seen["repo"]), ("Goal", a.goal)] + [("Source", x) for x in a.source])
         w.plan.insert(r, before=w.bolt(a.before) if a.before else None)
         return [a.bolt]
-    return Op(label, change, f"plan({a.bolt}): add the bolt", "bolt.new", on=[f"bolt/{a.bolt}"])
+
+    def after(repo, sha):
+        said = former_said(a.repo, seen.get("repo", a.repo))
+        if said:
+            print(said)
+    return Op(label, change, f"plan({a.bolt}): add the bolt", "bolt.new", on=[f"bolt/{a.bolt}"], after=after)
+
+
+# The commit sluice made each started bolt's branch at in this process, and whether crew took it as it found it
+# (made_said), for what the start says after its write: an approval builds its ops again inside its write.
+MADE_BRANCH = {}
+
+
+def start_check(fleet, label, t, bolt):
+    """What a start checks on the host it makes the bolt's branch on (t, main_kit) before sluice makes it, every
+    refusal leaving the plan unchanged and no branch made: the host held (teams.19); no runner answering for the
+    partition, no <label>/runner/<host> branch (runner.runnerless), since nothing would take the bolt's work; and the
+    kit's policy at its main now and the host's sluice (give_check). The remote the branch is made on."""
+    h = crew.held_on(fleet, t["machine"])
+    not h or fail(crew.held_said(t["machine"], h))
+    repo, _ = state_of(fleet, label)
+    why = runner.runnerless(label, runner_tips(repo, label))
+    not why or fail(why)
+    text, ref, _, version = kit_policy(fleet, t)
+    return give_check(t["kit"]["name"], f"{t['kit']['main']}/{kit.DECLARATION}", ref, text, bolt, version, t["machine"])
+
+
+def op_bolt_start(ctx, a):
+    """crew bolt start <bolt>: the bolt's work started through Flume as a crossed team's give started it, with no team
+    (Decision 14 of the-team-machinery-leaves; plan.19, record 0026): bolt/<bolt> made by sluice on GitHub from the
+    kit's main, in the checkout the partition's main-level host keeps of the kit (main_kit), since no runner has taken
+    any of the bolt's work yet (the user's ruling of 2026-11-01), refused where it keeps none, with no worktree; then,
+    in one plan write, the bolt marked Path: flume and a launch of each of its units and chores appended in its
+    repository for the runner whose configuration names it to take (reach_places), starting no agent. A proposal may
+    hold it, and the user runs it directly (roles.1, may_write). Refused, with the plan unchanged and no branch made, for a bolt
+    started already and by start_check; in sluice's words when it makes no branch, but for a branch already on its
+    remote at main's tip with no commit of its own, as a start that failed after sluice made it leaves it, which the
+    start takes and goes on with (made_said). A plan write refused after sluice made the branch has sluice delete it
+    again (unstarted_said). A proposal's card reads no host (Drawn)."""
+    label, plan = ctx.locate("Bolt", a.bolt)
+    fleet, b = ctx.fleet, plan.bolt(a.bolt)
+    not started(b) or fail(f"bolt {a.bolt} is started already")
+    t = main_kit(fleet, label, b.get("Repo")) or fail(main_kit_said(fleet, label, b.get("Repo"), f"make bolt/{a.bolt}"))
+    remote = ctx.start_checked(label, t, a.bolt)
+    kit_name, main, host = t["kit"]["name"], t["kit"]["main"], t["machine"]
+    seen = {}
+
+    def prepare():
+        r = crew.on_machine(fleet, host, ["bash", "-c", BOLT_CREATE, "crew", main, a.bolt])
+        READ.drop_kit(host, main)
+        if r.stderr.strip():
+            print(r.stderr.strip(), file=sys.stderr)
+        found = None
+        if r.returncode == 2:  # sluice refused: a branch a start that did not finish left at main is taken as it stands
+            try:
+                found = kit.bolt_found(host_run(fleet, host, BOLT_FOUND, main, a.bolt, remote), a.bolt)
+            except Refusal as e:
+                found = {"read": str(e)}
+        made, adopted = made_said(a.bolt, kit_name, host, r.stdout, r.returncode, found, remote)
+        if adopted and found["own"]:
+            m = crew.on_machine(fleet, host, ["git", "-C", main, "config", f"branch.bolt/{a.bolt}.crew", "given"])
+            m.returncode == 0 or print(f"git could not mark bolt/{a.bolt} as crew's", file=sys.stderr)
+        MADE_BRANCH[a.bolt] = (made, adopted)
+
+        def undo():
+            d = crew.on_machine(fleet, host, ["bash", "-c", BOLT_DELETE, "crew", main, a.bolt, kit.DECLARATION])
+            READ.drop_kit(host, main)
+            print(unstarted_said(a.bolt, d.stdout, d.returncode), file=sys.stderr)
+        return undo
+
+    def change(w):
+        s = w.bolt(a.bolt)
+        not started(s) or fail(f"bolt {a.bolt} is started already")
+        s.set("Path", "flume")
+        seen["launched"] = reach_places(fleet, w, a.bolt)
+        return [a.bolt]
+
+    def after(repo, sha):
+        made, adopted = MADE_BRANCH.get(a.bolt, (None, False))
+        if made:
+            print(started_said(a.bolt, kit_name, remote, made, host, adopted))
+        print(launched_said(b.get("Repo"), a.bolt, seen.get("launched") or []))
+    return Op(label, change, f"plan({a.bolt}): start the bolt", "bolt.start", on=[f"bolt/{a.bolt}"], prepare=prepare, after=after)
 
 
 def op_bolt_order(ctx, a):
@@ -6283,13 +6096,6 @@ def op_bolt_order(ctx, a):
 
 def op_bolt_drop(ctx, a):
     label, plan = ctx.locate("Bolt", a.bolt)
-    team = bolt_team(ctx.fleet, plan.bolt(a.bolt))
-    if a.requeue and team:  # queued work has no worktree
-        st = ctx.stages(plan, [plan.bolt(a.bolt)])
-        for u in plan.work_of(a.bolt):
-            s, k = st.of(u.name()), kind_of(u)
-            s["stage"] != "unknown" or fail(f"cannot tell {k} {u.name()}'s stage: {s.get('why')}")
-            not s["worktree"] or fail(f"{k} {u.name()} has a worktree at {s['worktree']}, and a queued {k} has none")
 
     def change(w):
         b = w.bolt(a.bolt)
@@ -6309,28 +6115,51 @@ def op_bolt_drop(ctx, a):
 
     gone = [] if a.requeue else [u.name() for u in plan.work_of(a.bolt)]
 
-    def after(repo, sha):  # the bolt's branch asked of sluice there, after its worktrees (plan.19, bolt_branch_asked)
-        if team:
-            tidy_after(ctx.fleet, team, f"bolt {a.bolt}", dropped=a.bolt, units=gone)
+    def after(repo, sha):  # the bolt's branch asked of sluice where its work ran, after its worktrees (plan.19, bolt_branch_asked)
+        t, why = drop_at(ctx.fleet, label, plan.bolt(a.bolt))
+        if t:
+            sweep_on(ctx.fleet, t, f"bolt {a.bolt}", dropped=a.bolt, units=gone)
+        elif why:
+            print(f"sluice was asked no delete of bolt/{a.bolt}: {why}; it is deleted with sluice branch delete bolt/{a.bolt} "
+                  "--into main in a checkout of its kit")
     return Op(label, change, f"plan({a.bolt}): drop the bolt" + (", its units queued" if a.requeue else ""), "bolt.drop",
               on=[f"bolt/{a.bolt}"], body=a.reason, after=after)
 
 
+def drop_at(fleet, label, b):
+    """Where a dropped bolt's branch and crew's own place of it are swept (sweep_on), as (where, None), or (None, why):
+    where its work runs as the runner that took it reported (known_at); for a started bolt no runner has reported
+    taking work of, the checkout the partition's main-level host keeps of its kit, where its start made its branch
+    (main_kit; Decision 4 of the-team-machinery-leaves); (None, None) for a bolt never started, which has no branch."""
+    if not started(b):
+        return None, None
+    t = known_at(fleet, label, b)
+    if t:
+        return t, None
+    try:
+        t = main_kit(fleet, label, b.get("Repo"))
+    except Refusal as e:
+        return None, str(e)
+    return (t, None) if t else (None, main_kit_said(fleet, label, b.get("Repo"), f"ask sluice to delete bolt/{b.name()} there"))
+
+
 def op_unit_add(ctx, a):
     """crew unit add, and crew chore add (a.cmd), whose record is marked Kind: chore (plan.11): the same flags, the same
-    refusals and the same hands."""
+    refusals and the same hands. Work added to a bolt whose landing the run record has queued, or landing again, with no
+    outcome is refused naming the landing, as a move into it is (landing_hold, plan.8)."""
     k = a.cmd
     label = ctx.label
     if a.bolt:
         label, plan = ctx.locate("Bolt", a.bolt)
         kit = plan.bolt(a.bolt).get("Repo")
-        a.repo in (None, kit) or fail(f"bolt {a.bolt} is in {kit}, not {a.repo}")
+        a.repo in (None, kit) or kit_given(ctx, label, a.repo) == kit or fail(f"bolt {a.bolt} is in {kit}, not {a.repo}")
     else:
         a.repo or fail(f"a {k} goes in a bolt (--bolt) or in a repo's queue (--repo)")
-        label, kit, plan = ctx.kit(a.repo), a.repo, None
+        label = ctx.kit(a.repo)
+        kit, plan = kit_given(ctx, label, a.repo), None
     ahead = unblocking(ctx, plan, label, a, a.bolt) if getattr(a, "unblocks", None) else None
-    ctx.free(label, kit, [a.unit])
-    sources = list(a.source)
+    ctx.free(label, kit, [a.unit], k)
+    sources, seen = list(a.source), {}
     if a.signal:
         a.signal = signal_id(ctx.fleet, label, a.signal, ctx.w)  # a short id is routed, and sourced, by its full one
         sources.insert(0, f"signals/{a.signal}")
@@ -6340,15 +6169,18 @@ def op_unit_add(ctx, a):
         had is None or fail(f"{label}/main already has {kind_of(had)} {a.unit}")
         if a.bolt:
             w.bolt(a.bolt)
+            why = landing_hold(ctx.landing(w, a.bolt), a.bolt, f"{k} {a.unit}")
+            not why or fail(why)
         if a.signal:  # its one move, route, in the same commit, checked again on each replay
             move(ctx.fleet, label, w, a.signal, route_move(a.signal, f"{k}/{a.unit}"))
-        r = Rec("Unit", [("Unit", a.unit), ("Repo", kit)] + ([("Bolt", a.bolt)] if a.bolt else []) + ([("Kind", "chore")] if k == "chore" else [])
+        repo = seen["repo"] = w.bolt(a.bolt).get("Repo") if a.bolt else kit_now(a.repo, w.renames())
+        r = Rec("Unit", [("Unit", a.unit), ("Repo", repo)] + ([("Bolt", a.bolt)] if a.bolt else []) + ([("Kind", "chore")] if k == "chore" else [])
                 + [("Intent", a.intent)] + [("After", x) for x in a.after] + [("Source", x) for x in sources])
         before = a.before or ahead
         o = w.plan.item(before) if before else None
         if a.before:
             o = w.item(a.before)
-            o.get("Bolt") == a.bolt and o.get("Repo") == kit or fail(f"{kind_of(o)} {a.before} is not in {a.bolt or 'the queue of ' + kit}")
+            o.get("Bolt") == a.bolt and o.get("Repo") == repo or fail(f"{kind_of(o)} {a.before} is not in {a.bolt or 'the queue of ' + repo}")
         if o is not None:
             w.plan.insert(r, before=o)
         else:
@@ -6358,6 +6190,9 @@ def op_unit_add(ctx, a):
         return [a.bolt] if a.bolt else []
 
     def after(repo, sha):
+        said = former_said(a.repo, seen.get("repo", a.repo)) if a.repo else None
+        if said:
+            print(said)
         if a.signal:
             print(f"signal {a.signal} routed to {k}/{a.unit}, in the same commit")
             record.emit(label, "signal.move", [f"signals/{a.signal}", f"{k}/{a.unit}"], commit=[f"{repo}@{sha}"],
@@ -6366,20 +6201,9 @@ def op_unit_add(ctx, a):
               on=[f"{k}/{a.unit}", f"bolt/{a.bolt}" if a.bolt else f"queue/{kit}"], frm=[f"signals/{a.signal}"] if a.signal else [], after=after)
 
 
-def conductor_scope(ctx, plan, a):
-    """A conductor narrows, orders and sets dependencies only within the bolt its team holds, of units and chores alike."""
-    kind, team = role(ctx.fleet, crew.caller(ctx.fleet))
-    if ctx.direct and kind == "conductor":
-        b = plan.item(a.unit).get("Bolt")
-        b and plan.bolt(b).get("Team") == team or fail(
-            f"{team}-conductor writes only units and chores of the bolt {team} holds, and {a.unit} is in {f'bolt {b}' if b else 'the queue'}: "
-            f"tell {ctx.fleet['teams'][team]['label']}-planner")
-
-
 def op_unit_split(ctx, a):
     label, plan = the_work(ctx, a)
-    conductor_scope(ctx, plan, a)
-    s = ctx.stage(plan, a.unit)
+    s = ctx.stage(label, plan, a.unit)
     s["stage"] not in LATER or fail(f"unit {a.unit} is in {s['stage']}, so it is no longer split; add the remainder as a new unit instead (crew unit add)")
     s["stage"] != "unknown" or fail(f"cannot tell unit {a.unit}'s stage: {s.get('why')}")
     ctx.free(label, plan.unit(a.unit).get("Repo"), [n for n, _ in a.into])
@@ -6407,50 +6231,28 @@ def op_unit_split(ctx, a):
 
 
 def op_unit_amend(ctx, a):
-    """A unit's intent replaced. One that has a worktree has a change written for the old intent, so it is marked
-    amended, proposal/<n> inside an approval and intent when the user runs it, and once the write has landed the
-    amendment hands its construct to its team's host, in the name of whoever applied it (construct_hand): the command
-    answers once the host has it, and the host starts construct again, ending the unit's agent when it is past
-    construct, and tells the conductor what started or why nothing did (plan.15, code.9). A host that does not answer
-    is told to the conductor from here. Merged work is not amended, and a chore never is (plan.11)."""
+    """A unit's intent replaced. One of a started bolt reaches its place by the write's own requests (amend_place):
+    one whose place is launched has a change written for the old intent, so its construct is run again with the
+    amendment's words and it is marked amended, proposal/<n> inside an approval and intent when the user runs it
+    (bolt-plan "A unit's intent is amended through crew, its construct run again"); one whose launch is held or
+    unanswered has no place yet, and is launched anew carrying the amendment, unmarked. Merged work is not amended, and
+    a chore never is (plan.11)."""
     label, plan = the_work(ctx, a)
-    s = ctx.stage(plan, a.unit)
+    s = ctx.stage(label, plan, a.unit)
     s["stage"] not in ("merged", "landed") or fail(
         f"unit {a.unit} has " + ("merged into its bolt" if s["stage"] == "merged" else "landed on main")
         + ", so it is not amended: a defect in it is a fix, and new work is a new unit")
     s["stage"] != "unknown" or fail(f"cannot tell unit {a.unit}'s stage: {s.get('why')}")
     bolt = plan.unit(a.unit).get("Bolt")
-    # A unit of a bolt given through Flume has no worktree, conductor or construct of crew's: its place is reached by the
-    # write's own requests (amend_place).
-    team = bolt_team(ctx.fleet, plan.bolt(bolt)) if bolt and not crossed_bolt(plan, bolt) else None
-    mark = (f"proposal/{ctx.n}" if not ctx.direct else "intent") if s["worktree"] and team else None
+    mark = f"proposal/{ctx.n}" if not ctx.direct else "intent"
 
     def change(w):
         u = w.of(a)
         u.set("Intent", a.intent)
-        if mark:
+        if crossed_bolt(w.plan, u.get("Bolt")) and amend_place(ctx.fleet, w, u, mark) == "retry":
             u.set("Amended", mark)
-            if team:
-                w.quiet.add(team["name"])  # told below what to do, rather than the write's subject
-        if crossed_bolt(w.plan, u.get("Bolt")):
-            amend_place(ctx.fleet, w, u, "intent" if ctx.direct else f"proposal/{ctx.n}")
         return [bolt] if bolt else []
-
-    def after(repo, sha):
-        if not (mark and team):
-            return
-        by = f"proposal {ctx.n}" if not ctx.direct else "the user"
-        r = crew.on_machine(ctx.fleet, team["machine"],
-                            crew.crew_argv(ctx.fleet, team["machine"], *construct_again(team["name"], a.unit, s["stage"], by)))
-        said = (r.stdout + r.stderr).strip()
-        if said:
-            print(said)
-        if r.returncode:
-            why = (crew.unanswered(team["machine"], r)
-                   or ((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1].rstrip("."))
-            print(f"construct did not start on unit {a.unit}: {why}")
-            amend_tell(ctx.fleet, team["name"], *amend_told(a.unit, by, None, why))
-    return Op(label, change, f"plan({bolt or 'queue'}): amend {a.unit}", "unit.amend", on=[f"unit/{a.unit}"], after=after)
+    return Op(label, change, f"plan({bolt or 'queue'}): amend {a.unit}", "unit.amend", on=[f"unit/{a.unit}"])
 
 
 def amend_place(fleet, w, u, by):
@@ -6458,75 +6260,26 @@ def amend_place(fleet, w, u, by):
     (Decision 7 of teams-cross-to-flume-as-their-bolts-land, runner.amending), u already holding its new intent: once
     its place is launched, a retry of its construct with the amendment's words, as a construct run again on today's
     path is prompted (again_words), by the user or by proposal <n> with the planner's case; while its launch is held or
-    unanswered, that launch dropped and the unit launched anew carrying the amendment (reach_places). Refused when the
-    runner's records can't tell which, or its place has merged."""
+    unanswered, that launch dropped and the unit launched anew carrying the amendment (reach_places). Returns which,
+    "retry" or "again". Refused when the runner's records can't tell which, or its place has merged."""
     requests, work = requests_of(w).recs("Request"), runner.work_of(u)
     launch = runner.launch_of(requests, work)
-    reading = w.runner_of(launch.get("Host")) if launch is not None else None
     n = runner.number(launch.get("Request")) if launch is not None else None
-    read = (reading["why"] or True) if reading is not None else True
-    answer, place = ((reading.get("answers") or {}).get(n), (reading.get("places") or {}).get(n)) if reading is not None else (None, None)
-    how, why = runner.amending(work, launch, answer, place, read)
+    reading, unread = runner.taken(w.runners(), n) if launch is not None else (None, None)
+    answer, place = (reading["answers"].get(n), reading["places"].get(n)) if reading else (None, None)
+    how, why = runner.amending(work, launch, answer, place, unread or True)
     not why or fail(why)
     if how == "again":
         reach_places(fleet, w, u.get("Bolt"), again={work})
-        return
+        return how
     case = next((p.get("Case") for p in Plan(w.text("proposals.rec") or "").recs("Proposal")
                  if by == f"proposal/{p.get('Proposal')}"), None) if by.startswith("proposal/") else None
-    request(w, "retry", launch.get("Host"), work, Of=launch.get("Request"), Stage="construct",
-            Words=runner.brief(u) + again_words(by, case))
-
-
-def construct_again(team, unit, stage, by):
-    """The crew command an amendment runs on its team's host (plan.15, code.9): construct on the unit handed to that
-    host (construct_hand), in the name of what amended it (by), ending its agent where it stands when the unit is past
-    construct, since that agent works to the old intent; a construct still writing the change is not ended, and the
-    unit's corrections wait until it settles (briefs.5)."""
-    return ["_construct-again", team, unit, "--by", by] + (["--force"] if stage != "construct" else [])
-
-
-def amend_tell(fleet, team, text, unsaid):
-    """An amendment's word to its team's conductor (amend_told), or what crew says when the conductor is not up."""
-    conductor = f"{team}-conductor"
-    if not crew.tell(fleet, conductor, text):
-        print(f"{conductor} is not up: {unsaid}")
-
-
-# How long a handed construct's process has to name itself in its marker before crew takes it as never started.
-HAND_NAMED = 60
-
-
-def handed_state(unit, marker, alive, now):
-    """Where a construct an amendment handed to the team's host stands (plan.15), from its marker (None when nothing
-    was handed, or once it started), whether the process it names is alive, and the time now: (None, None) when nothing
-    is handed; ("failed", why) when it could not start; ("starting", what) while it starts, or for HAND_NAMED seconds
-    from the hand-off before its process has named itself; ("gone", what) when its process ended, or never named
-    itself, without saying either."""
-    if marker is None:
-        return None, None
-    if marker.get("failed"):
-        return "failed", f"construct did not start on unit {unit}: {marker['failed']}"
-    if alive or ("pid" not in marker and now - marker.get("at", 0) < HAND_NAMED):
-        return "starting", f"construct on unit {unit} is starting on this host, handed there by {marker.get('by', 'an amendment')}"
-    return "gone", (f"construct handed to this host for unit {unit} ended before it said whether it started (its words are in "
-                    f"{marker.get('log', 'its log')}): crew unit run {unit} construct runs it")
-
-
-def amend_told(unit, by, slot, why=None):
-    """What an amendment tells the conductor of the unit's team, and what crew says when the conductor is not up
-    (plan.15): construct runs again in the slot that started it, or did not start, and why."""
-    if slot:
-        return (f"Unit {unit}'s intent was amended by {by}, and construct runs again on it in {slot}: wait for it "
-                f"(crew unit wait {unit}); once it has committed, the unit goes on from its tasks.",
-                f"construct runs again on unit {unit} in {slot}")
-    return (f"Unit {unit}'s intent was amended by {by}, and construct did not start: {why}. Run it once it can "
-            f"(crew unit run {unit} construct); once it has committed, the unit goes on from its tasks.",
-            f"unit {unit} waits, amended, for construct to be run again")
+    request(w, "retry", work, Of=launch.get("Request"), Stage="construct", Words=runner.brief(u) + again_words(by, case))
+    return "retry"
 
 
 def op_unit_order(ctx, a):
     label, plan = the_work(ctx, a)
-    conductor_scope(ctx, plan, a)
     u0, k = plan.item(a.unit), a.cmd
 
     def change(w):
@@ -6549,7 +6302,6 @@ def op_unit_order(ctx, a):
 
 def op_unit_after(ctx, a):
     label, plan = the_work(ctx, a)
-    conductor_scope(ctx, plan, a)
     a.none or a.deps or fail("name the units or chores it comes after, or --none")
     u0, k = plan.item(a.unit), a.cmd
 
@@ -6582,36 +6334,9 @@ def op_unit_move(ctx, a):
         tb = plan.bolt(to) or fail(f"no bolt {to} in {label}/main of {state_of(ctx.fleet, label)[0]}")
         tb.get("Repo") == u.get("Repo") or fail(f"bolt {to} is in {tb.get('Repo')}; a {k} moves only between bolts of its own repo, {u.get('Repo')}")
     ahead = unblocking(ctx, plan, label, a, to) if getattr(a, "unblocks", None) else None
-    s = ctx.stage(plan, a.unit)
+    s = ctx.stage(label, plan, a.unit)
     s["stage"] not in ("merged", "landed") or fail(f"{k} {a.unit} has merged into {src}, so it can't move")
     s["stage"] != "unknown" or s.get("place_unread") or fail(f"cannot tell {k} {a.unit}'s stage: {s.get('why')}")
-    # Nothing moves work in flight from one path to the other (Decision 2 of teams-cross-to-flume-as-their-bolts-land).
-    not (s["worktree"] and crossed_bolt(plan, to)) or fail(
-        f"{k} {a.unit} has a place at {s['worktree']} on today's path, and bolt {to} is built through Flume, where nothing "
-        f"of today's path is carried: drop it (crew {k} drop {a.unit}) and add it to {to} again (crew {k} add)")
-    prepare = None
-    # A place that tracks a bolt crew cannot read is not rebased: it is left on the bolt it tracks, which the work has
-    # then left, so the tidy removes it and its next stage cuts its place from bolt/<to> (left_refusal).
-    if s["worktree"] and not s.get("place_unread"):
-        to or fail(f"{k} {a.unit} has a worktree at {s['worktree']}, and a queued {k} has none")
-        ft, tt = bolt_team(ctx.fleet, plan.bolt(src)), bolt_team(ctx.fleet, plan.bolt(to))
-        tt or fail(f"bolt {to} is held by no team, so it has no branch to rebase {a.unit} onto")
-        (ft["machine"], ft["kit"]["main"]) == (tt["machine"], tt["kit"]["main"]) or fail(
-            f"bolt {to} is built in {tt['kit']['main']} on {tt['machine']}, not in {a.unit}'s checkout; a {k} with a worktree moves only within it")
-
-        def prepare():
-            ups = {b: bolt_upstream(ctx.fleet, ft, b) for b in (src, to)}
-            r = crew.on_machine(ctx.fleet, ft["machine"], ["bash", "-c", REBASE, "crew", s["worktree"], src, to, a.unit, k, ups[to], ups[src]])
-            READ.drop_kit(ft["machine"], ft["kit"]["main"])
-            r.returncode != 3 or fail(f"rebasing {a.unit} onto bolt/{to} conflicts: the move is abandoned and the plan is unchanged")
-            r.returncode == 0 or fail(f"rebasing {a.unit} on {ft['machine']} failed: {r.stderr.strip()}")
-            orig = r.stdout.strip()
-
-            def undo():
-                crew.on_machine(ctx.fleet, ft["machine"], ["bash", "-c", UNREBASE, "crew", s["worktree"], orig, src, a.unit, k, ups[src]])
-                READ.drop_kit(ft["machine"], ft["kit"]["main"])
-            return undo
-
     def change(w):
         u = w.of(a)
         u.get("Bolt") == src or fail(f"{k} {a.unit} moved to {u.get('Bolt') or 'the queue'} meanwhile")
@@ -6621,6 +6346,8 @@ def op_unit_move(ctx, a):
         u.drop("After")
         if to:
             w.bolt(to)
+            why = landing_hold(ctx.landing(w, to), to, f"{k} {a.unit}")
+            not why or fail(why)
             u.set("Bolt", to, after="Repo")
         else:
             u.drop("Bolt")
@@ -6634,19 +6361,24 @@ def op_unit_move(ctx, a):
         return [b for b in (src, to) if b]
     kit = u.get("Repo")
     return Op(label, change, f"plan({to or 'queue'}): move {called(a)} from {src or 'the queue'}", f"{k}.move",
-              on=[f"{k}/{a.unit}", f"bolt/{to}" if to else f"queue/{kit}"], frm=[f"bolt/{src}" if src else f"queue/{kit}"], prepare=prepare)
+              on=[f"{k}/{a.unit}", f"bolt/{to}" if to else f"queue/{kit}"], frm=[f"bolt/{src}" if src else f"queue/{kit}"])
 
 
 def op_unit_drop(ctx, a):
+    """A unit or chore removed from the plan, and from each After naming it. One of a started bolt has its place dropped
+    by the write's own request (reach_places); Flume removes no branch holding work (flume 67), so a drop whose launch
+    stood says, as it prints and on its entry (Note), that Flume keeps the place's branch and the name stays taken while
+    it stands (runner.drop_kept_said), which a later add under the name is refused for (branch_free). crew removes no
+    branch and no unit's place."""
     label, plan = the_work(ctx, a)
     k = a.cmd
-    s = ctx.stage(plan, a.unit)
+    s = ctx.stage(label, plan, a.unit)
     s["stage"] not in ("merged", "landed") or fail(f"{k} {a.unit} has merged into its bolt, so it can't be dropped")
-    # A stage unknown only for its place is not merged: the drop goes, and the tidy after it removes that place.
+    # A stage unknown only for its place is not merged: the drop goes, and crew removes no place of it.
     s["stage"] != "unknown" or s.get("place_unread") or fail(f"cannot tell {k} {a.unit}'s stage: {s.get('why')}")
     u0 = plan.item(a.unit)
     bolt = u0.get("Bolt")
-    team = bolt_team(ctx.fleet, plan.bolt(bolt)) if bolt else None
+    fields = {}
 
     def change(w):
         u = w.of(a)
@@ -6654,27 +6386,66 @@ def op_unit_drop(ctx, a):
             if a.unit in o.all("After"):
                 o.fields = [(n, v) for n, v in o.fields if not (n == "After" and v == a.unit)]
         w.plan.remove(u)
+        fields.pop("Note", None)
         if crossed_bolt(w.plan, u.get("Bolt")):  # its place dropped, and each dependent's held launch made again without it
+            if runner.launch_of(requests_of(w).recs("Request"), runner.work_of(u)) is not None:
+                fields["Note"] = runner.drop_kept_said(k, a.unit, f"bolt/{u.get('Bolt')}")
             reach_places(ctx.fleet, w, u.get("Bolt"))
         return [bolt] if bolt else []
 
-    def after(repo, sha):
-        if team:
-            tidy_after(ctx.fleet, team, f"{k} {a.unit}")
-        elif s["worktree"]:
+    def after(repo, sha):  # the kit's read where the bolt runs, which closes it once landed (plan.21); crew removes no unit's place
+        t = known_at(ctx.fleet, label, plan.bolt(bolt)) if bolt else None
+        if t:
+            sweep_on(ctx.fleet, t, f"{k} {a.unit}")
+        if s["worktree"]:
             print(f"its worktree stays at {s['worktree']}, on {k}/{a.unit}")
+        if fields.get("Note"):
+            print(fields["Note"])
     return Op(label, change, f"plan({bolt or 'queue'}): drop {called(a)}", f"{k}.drop", on=[f"{k}/{a.unit}", group_of(u0)],
-              body=a.reason, after=after)
+              body=a.reason, after=after, fields=fields)
 
 
-# The fifteen commands a proposal may hold, each built the same way whether run directly or inside a proposal. A chore's
-# five are a unit's, the kind read from the command (plan.11).
+def op_kit_rename(ctx, a):
+    """crew kit rename <old> <new> (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan): the Repo of
+    every Bolt and Unit record naming old, by its name or forge address, set to new as given, in one commit, and nothing
+    else of the plan or of any other file: no record moved, no request appended, a started bolt left as it was. Its
+    entry, kit.rename, names the kit by its new name (On: kit/<name>) and the one it had (From: kit/<old>), with Repo
+    the new and Count the records renamed, the partition's record of the rename that crew reads what it never rewrites
+    through (kit_now); a rename of a kit only the landings name renames no record and still writes it. Refused, with
+    nothing written, by rename_refusal at the tip it is applied to (plan.1), against what the partition's main-level
+    host's spaces keep (crew.kit_kept), a hosts file crew can't read among them (read.1). A proposal may hold it, and the
+    user runs it directly (roles.1, may_write)."""
+    label, fleet = ctx.kit(a.old), ctx.fleet
+    host = crew.partition_of(fleet, label)["machine"]
+    listed = host in fleet["hosts"]
+    spaces = ([r for s in fleet["hosts"][host].get("sessions", {}).values() for r in s.get("repos") or []],
+              crew.kit_kept(fleet, host, a.old), crew.kit_kept(fleet, host, a.new)) if listed else None
+    fields = {}
+
+    def change(w):
+        why = rename_refusal(label, a.old, a.new, w.kits(), w.renames(), [b.name() for b in w.plan.bolts()], host, spaces)
+        not why or fail(why)
+        bolts, work = renamed_in(w.plan, a.old)
+        for r in bolts + work:
+            r.set("Repo", a.new)
+        w.renamed.append((a.old, a.new))
+        fields.update(Repo=a.new, Count=str(len(bolts) + len(work)))
+        return [b.name() for b in bolts]
+
+    def after(repo, sha):
+        print(f"{a.old} is {a.new} in {label}'s plan: {cards.plural(int(fields.get('Count') or 0), 'record')} renamed")
+    return Op(label, change, f"plan(kit): rename {a.old} {a.new}", "kit.rename", on=[f"kit/{a.new.split('/')[-1]}"],
+              frm=[f"kit/{a.old}"], after=after, fields=fields)
+
+
+# The commands a proposal may hold, each built the same way whether run directly or inside a proposal. A chore's five are
+# a unit's, the kind read from the command (plan.11).
 OPS = {
-    ("bolt", "new"): op_bolt_new, ("bolt", "order"): op_bolt_order, ("bolt", "drop"): op_bolt_drop,
+    ("bolt", "new"): op_bolt_new, ("bolt", "start"): op_bolt_start, ("bolt", "order"): op_bolt_order, ("bolt", "drop"): op_bolt_drop,
     ("unit", "add"): op_unit_add, ("unit", "split"): op_unit_split, ("unit", "amend"): op_unit_amend, ("unit", "order"): op_unit_order,
     ("unit", "after"): op_unit_after, ("unit", "move"): op_unit_move, ("unit", "drop"): op_unit_drop,
     ("chore", "add"): op_unit_add, ("chore", "order"): op_unit_order, ("chore", "after"): op_unit_after, ("chore", "move"): op_unit_move,
-    ("chore", "drop"): op_unit_drop,
+    ("chore", "drop"): op_unit_drop, ("kit", "rename"): op_kit_rename,
 }
 
 
@@ -6684,7 +6455,7 @@ def direct(key):
         op = OPS[key](Direct(fleet, a), a)
         undo = op.prepare() if op.prepare else None
         try:
-            sha = write(fleet, op.label, op.change, op.subject, op.body, act=op.act, on=op.on, frm=op.frm)
+            sha = write(fleet, op.label, op.change, op.subject, op.body, act=op.act, on=op.on, frm=op.frm, fields=op.fields)
         except Refusal:
             if undo:
                 undo()
@@ -6744,7 +6515,7 @@ class AskHeld(Exception):
 
 
 def rec_file(w, path, header):
-    """One of crew's recutils files on the flywheel as the write has it, its record descriptors in step with crew's
+    """One of crew's recutils files on the drive as the write has it, its record descriptors in step with crew's
     (in_step), or a new one when the branch has none yet."""
     pl = Plan(w.text(path) or header)
     in_step(pl, header)
@@ -6783,7 +6554,7 @@ def ask_lines(w, fleet, label, role, what, frm, names=None, key=None, words=None
 
 
 def ask_write(fleet, label, role, what, frm, names=None, key=None, words=None):
-    """An ask of the role in a commit of its own, where the act that makes it writes nothing to the flywheel's branch:
+    """An ask of the role in a commit of its own, where the act that makes it writes nothing to the drive's branch:
     its own write, its entry the ask's; or nothing, said, when asks.rec holds an ask with its key at the tip the write is
     applied to (ask_rec). Returns the commit, or None when nothing was written."""
     run, e = f"{label}-{role}", record.ask_entry(f"{label}-{role}", what, names, words)
@@ -6821,7 +6592,7 @@ def landed_asks(w, fleet, label, bolt, words):
 
 
 def unlanded_ask(fleet, label, bolt, kit_name, n, words):
-    """A landing that did not land (landing_not_landed), which writes nothing to the flywheel's branch, asks the
+    """A landing that did not land (landing_not_landed), which writes nothing to the drive's branch, asks the
     partition's main-level ops where it runs as its kind, in a commit of its own (design Decisions 5 and 12, role-runs
     "Main-level ops's landing from a run does not wait"): a `landed` ask from crew naming the bolt with sluice's words,
     keyed by the submission, submission/<kit>/<n>, so its outcome read twice asks once; a landing stopped with no
@@ -7107,13 +6878,15 @@ def role_open(fleet, a):
         print(f"the runner on {host} could not launch {run}'s last run: {r['words']}")
 
 
-def land_named(fleet, plan):
-    """The repositories a role's work may land in (runner.role_launch): those the teams file names, every partition's
-    blueprints repositories and every team's kits, as owner/name, and those the plan names as its bolts' and work's
-    Repo. Not a state repository, whose branches crew's own commands alone write (state.1)."""
+def land_named(fleet, label, kits):
+    """The repositories a role's work may land in (runner.role_launch), as owner/name: every partition's blueprints
+    repositories, which the teams file names, and the partition's kits (kits, partition_kits), a kit its plan names by
+    its name alone as the partition's main-level host keeps it (crew.kits_kept), where the role's work is launched. Not
+    a state repository, whose branches crew's own commands alone write (state.1)."""
     named = {b for p in fleet["partitions"].values() for b in p["blueprints"]}
-    named |= {k["repo"] for t in fleet["teams"].values() for k in crew.kits_of(t)}
-    return named | {r.get("Repo") for r in plan.bolts() + plan.work() if r.get("Repo")}
+    host = crew.partition_of(fleet, label)["machine"]
+    named |= {k["repo"] for k in crew.kits_kept(fleet, host, [k for k in kits if "/" not in k])}
+    return named | {k for k in kits if "/" in k}
 
 
 def role_land(fleet, a):
@@ -7138,11 +6911,12 @@ def role_land(fleet, a):
             fail(f"the brief {path} can't be read: {e.strerror or e}")
 
         def change(w):
-            launched, why = runner.role_launch(requests_of(w).recs("Request"), land_named(fleet, w.plan), label, role, host, stream,
+            launched, why = runner.role_launch(requests_of(w).recs("Request"), land_named(fleet, label, kits_at(w.repo, w.tip, w.plan)),
+                                               label, role, host, stream,
                                                a.repo, a.name, brief)
             not why or fail(why)
-            act, h, work, given = launched
-            seen.update(n=request(w, act, h, work, **given))
+            act, work, given = launched
+            seen.update(n=request(w, act, work, **given))
             return []
         write(fleet, label, change, f"land({run}): {a.name} in {a.repo}", act="role.land", on=on, fields={"Repo": a.repo})
     except Refusal as e:
@@ -7166,7 +6940,7 @@ PROPOSALS = """\
 %type: State enum open approved dropped
 %type: Opened,Closed date
 %mandatory: Proposal Case Do State Opened By
-%allowed: Proposal Case Do Agreed State Opened By Closed Reason Replaces Cleared
+%allowed: Proposal Case Do State Opened By Closed Reason Replaces Cleared
 """
 # The commands a proposal may hold.
 PROPOSABLE = tuple(OPS)
@@ -7188,7 +6962,7 @@ def refuse(said, recorded):
 
 def do_named(a):
     """A proposal's command as the run record holds it: the command and what it acts on, never its intent or reason."""
-    return f"{a.cmd} {a.sub} {a.bolt if a.cmd == 'bolt' else a.unit}"
+    return f"{a.cmd} {a.sub} " + (a.bolt if a.cmd == "bolt" else f"{a.old} {a.new}" if a.cmd == "kit" else a.unit)
 
 
 def do_args(label, do):
@@ -7211,7 +6985,7 @@ def do_args(label, do):
 
 
 def proposals(w):
-    """proposals.rec of the flywheel as the write has it, or a new one when the branch has none yet."""
+    """proposals.rec of the drive as the write has it, or a new one when the branch has none yet."""
     text = w.text("proposals.rec")
     return Plan(text if text is not None else PROPOSALS)
 
@@ -7227,6 +7001,8 @@ def objects(argvs):
     for a in argvs:
         if a.cmd == "bolt":
             out.append(f"bolt/{a.bolt}")
+        elif a.cmd == "kit":
+            out += [f"kit/{a.new.split('/')[-1]}", f"kit/{a.old}"]
         else:
             out.append(f"{a.cmd}/{a.unit}")
             out += [f"unit/{n}" for n, _ in getattr(a, "into", None) or []]
@@ -7239,14 +7015,15 @@ def objects(argvs):
 
 def summary(argvs):
     """A proposal's changes in a few words that name things and quote nothing anyone typed, for its subjects."""
-    words = {("bolt", "new"): lambda a: f"new bolt {a.bolt}", ("bolt", "order"): lambda a: f"order bolt {a.bolt}",
+    words = {("bolt", "new"): lambda a: f"new bolt {a.bolt}", ("bolt", "start"): lambda a: f"start bolt {a.bolt}",
+             ("bolt", "order"): lambda a: f"order bolt {a.bolt}",
              ("bolt", "drop"): lambda a: f"drop bolt {a.bolt}",
              ("unit", "add"): lambda a: f"add {a.unit} to " + (a.bolt or f"the {a.repo} queue"),
              ("unit", "split"): lambda a: f"split {a.unit}", ("unit", "amend"): lambda a: f"amend {a.unit}",
              ("unit", "order"): lambda a: f"order {a.unit}",
              ("unit", "after"): lambda a: f"set what {a.unit} comes after",
              ("unit", "move"): lambda a: f"move {a.unit} to " + ("the queue" if a.bolt == "queue" else a.bolt),
-             ("unit", "drop"): lambda a: f"drop {a.unit}"}
+             ("unit", "drop"): lambda a: f"drop {a.unit}", ("kit", "rename"): lambda a: f"rename kit {a.old} {a.new}"}
     # A chore's command is said as the unit's, its name as `chore <name>`.
     return ", ".join(words[("unit", a.sub)](argparse.Namespace(**dict(vars(a), unit=called(a)))) if a.cmd == "chore"
                      else words[(a.cmd, a.sub)](a) for a in argvs)
@@ -7255,19 +7032,21 @@ def summary(argvs):
 def touched_by(plan, argvs):
     """The bolts each of a proposal's commands touches, read from the plan and the commands alone (no kit is read): a
     unit's or chore's add's bolt; the bolt a unit or chore leaves and the one it joins; the bolt of a unit split, or of
-    a unit or chore ordered, given what it comes after, amended or dropped; the bolt of a bolt order or drop. A bolt new
-    touches none."""
+    a unit or chore ordered, given what it comes after, amended or dropped; the bolt of a bolt start, order or drop. A
+    bolt new touches none."""
     where = {u.name(): u.get("Bolt") for u in plan.work()}
     out = []
     for a in argvs:
         key, t = ("unit" if a.cmd == "chore" else a.cmd, a.sub), []
-        if key in (("bolt", "order"), ("bolt", "drop")):
+        if key in (("bolt", "start"), ("bolt", "order"), ("bolt", "drop")):
             t = [a.bolt]
             for u in [u for u, b in where.items() if b == a.bolt]:
                 if a.sub == "drop":
                     where[u] = None
         elif key == ("unit", "add"):
             t, where[a.unit] = [a.bolt], a.bolt
+        elif key == ("kit", "rename"):
+            t = [b.name() for b in renamed_in(plan, a.old)[0]]
         elif key == ("unit", "move"):
             to = None if a.bolt == "queue" else a.bolt
             t, where[a.unit] = [where.get(a.unit), to], to
@@ -7279,11 +7058,6 @@ def touched_by(plan, argvs):
                 where.pop(a.unit, None)
         out.append([b for b in t if b])
     return out
-
-
-def held_teams(plan, bolts):
-    """The teams holding, in a plan, any of the given bolts: their conductors agree to a proposal that touches them."""
-    return sorted({plan.bolt(b).get("Team") for b in bolts if plan.bolt(b) and plan.bolt(b).get("Team")})
 
 
 def flat(lists):
@@ -7370,7 +7144,7 @@ def proposal_label(fleet, a, n=None):
 
 
 def at_tip(fleet, label, n):
-    """The flywheel's branch at its tip, with proposal n: (repo, tip, plan, proposals, the proposal, its commands)."""
+    """The drive's branch at its tip, with proposal n: (repo, tip, plan, proposals, the proposal, its commands)."""
     repo, ref = state_of(fleet, label)
     tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
     w = Write(repo, label, tip, read(repo, ref, tip))
@@ -7400,13 +7174,15 @@ def record_refs(source, kit_repo):
     return list(dict.fromkeys((m.group(1) or kit_repo, int(m.group(2))) for m in RECORD_REF.finditer(source)))
 
 
-def record_items(fleet, label, plan, argvs):
+def record_items(fleet, label, plan, argvs, renames=()):
     """The records a proposal's new work names (plan-proposals, briefs.15): for each bolt its `bolt new`s create, then
     each unit or chore it makes new to a bolt or the queue (new_units), as the plan its commands leave holds them, each
     record its sources name (record_refs), as (kind, name, kit, repo, number): kit the record's kit as a refusal names
     it, the work's kit by its name, or <owner>/<name> when the record is another repository's, and repo the repository
-    it is read in, from the teams file (code.5). Work whose sources name a record and whose kit no team of the partition
-    builds is refused, since crew can't tell whose records they are (read.1)."""
+    it is read in, the work's kit as the partition's main-level host keeps it (main_kit; the user's ruling of
+    2026-11-01). A source naming the work's kit by a former name names the kit (renames, the partition's, kit_now),
+    its record read in the kit's checkout. Work whose sources name a record and whose kit that host keeps no checkout
+    of is refused, since crew can't tell whose records they are (read.1)."""
     work = [("bolt", a.bolt, plan.bolt(a.bolt)) for a in argvs if (a.cmd, a.sub) == ("bolt", "new")]
     work += [(kind_of(plan.item(u)) if plan.item(u) else "unit", u, plan.item(u)) for u in new_units(argvs)]
     out = []
@@ -7415,11 +7191,14 @@ def record_items(fleet, label, plan, argvs):
         if not sources:
             continue
         kit = r.get("Repo")
-        teams = kit_teams(fleet, kit, label)
-        teams or fail(f"{kind} {name} names a decision record, and no team of {label} builds {kit}, so crew can't tell whose it is")
-        k = next(k for k in crew.kits_of(teams[0]) if kit in (k.get("name"), k.get("repo")))
+        t = main_kit(fleet, label, kit)
+        t or fail(f"{kind} {name} names a decision record, and " + main_kit_said(fleet, label, kit, "tell whose it is"))
+        k = t["kit"]
         for s in sources:
-            out += [(kind, name, k["name"] if repo == k["repo"] else repo, repo, n) for repo, n in record_refs(s, k["repo"])]
+            for repo, n in record_refs(s, k["repo"]):
+                now = kit_now(repo, renames)
+                own = repo == k["repo"] or (now != repo and kit_in(now, [k["repo"]]))
+                out.append((kind, name, k["name"], k["repo"], n) if own else (kind, name, repo, repo, n))
     return list(dict.fromkeys(out))
 
 
@@ -7446,13 +7225,14 @@ def unaccepted(items, held):
     return "\n".join([UNACCEPTED, *lines, UNACCEPTED_AFTER]) if lines else None
 
 
-def proposal_records(fleet, label, scratch, argvs):
+def proposal_records(fleet, label, scratch, argvs, renames=()):
     """The records a proposal's new work names, read on each repository's main as GitHub holds it now (plan.18): the
-    items record_items finds in the plan its commands leave (scratch), and what each repository's main holds by each
+    items record_items finds in the plan its commands leave (scratch), a source's repository read through the
+    partition's renames (renames), and what each repository's main holds by each
     number, for unaccepted. Each repository is fetched once into crew's cache, held for the command (plan.12), its
     docs/adr/ listed at that tip and the one file by a number read; a main that can't be fetched, or a file that can't
     be read as text, gives why, naming it (read.1, read.2). Returns (items, held)."""
-    items, held = record_items(fleet, label, scratch.plan, argvs), {}
+    items, held = record_items(fleet, label, scratch.plan, argvs, renames), {}
     for repo in dict.fromkeys(i[3] for i in items):
         numbers = sorted({i[4] for i in items if i[3] == repo})
         try:
@@ -7483,7 +7263,7 @@ def proposal_records(fleet, label, scratch, argvs):
 
 def plan_propose(fleet, a):
     """crew plan propose <file> [--replaces <n>]: the planner's proposal, checked against the plan at the tip, written
-    open with the next number; the conductor of each bolt in flight it touches is told. Refused, with nothing written,
+    open with the next number, waiting on the user alone. Refused, with nothing written,
     when a bolt it creates, or a unit or chore it adds or moves into a bolt, names a decision record its main on GitHub
     does not hold accepted (proposal_records, unaccepted). Once it is written, crew raises its card in the planner's
     name, or, for a rewrite, changes its chain's card in place (raise_proposal_at)."""
@@ -7500,28 +7280,19 @@ def plan_propose(fleet, a):
         pl = proposals(w)
         n = next_proposal(pl)
         scratch = check_ops(fleet, label, w, argvs, n)
-        said = unaccepted(*proposal_records(fleet, label, scratch, argvs))
+        said = unaccepted(*proposal_records(fleet, label, scratch, argvs, w.renames()))
         not said or fail(said)
-        per = touched_by(w.plan, argvs)
         seen["old_by"] = open_proposal(pl, n, case, dos, agent(), datetime.date.today().isoformat(), a.replaces, label)
         w.replace("proposals.rec", pl.text())
         w.subject = f"plan(proposal {n}): propose: {summary(argvs)}"
         w.on += [f"proposal/{n}"] + objects(argvs) + ([f"proposal/{a.replaces}"] if a.replaces else [])
-        seen.update(n=n, per=per, w=w, held={b: w.plan.bolt(b).get("Team") for b in flat(per) if w.plan.bolt(b) and w.plan.bolt(b).get("Team")})
+        seen.update(n=n, w=w)
         return []
     write(fleet, label, change, "plan: propose", act="plan.propose")
-    n, held = seen["n"], seen["held"]
+    n = seen["n"]
     if a.replaces:
         print(f"proposal {a.replaces} is dropped, replaced by proposal {n}")
-    teams = sorted(set(held.values()))
-    for team in teams:
-        cmds = "; ".join(d for d, t in zip(dos, seen["per"]) if any(held.get(b) == team for b in t))
-        if not crew.tell(fleet, f"{team}-conductor", f"Proposal {n} would change your bolt: {cmds}. Read it with "
-                         f"crew plan proposed {n} --label {label}. Agree with crew plan agree {n} --label {label}, "
-                         f"or tell {label}-planner why not."):
-            print(f"{team}-conductor is not up: proposal {n} is written and waits for its agreement")
-    waits = [f"{t}-conductor" for t in teams] + ["the user"]
-    print(f"proposal {n} is open, waiting on " + ", then ".join(waits) + f": crew plan proposed {n} --label {label}")
+    print(f"proposal {n} is open, waiting on the user: crew plan proposed {n} --label {label}")
     if kind != "planner" and a.replaces and seen.get("old_by") == f"{label}-planner":
         tell_planner(fleet, label, f"Proposal {a.replaces} was replaced by proposal {n}, by {agent()}.")
     raise_proposal_at(fleet, label, seen["w"], n, "replace" if a.replaces else "propose")
@@ -7539,7 +7310,7 @@ def next_proposal(pl):
 
 def open_proposal(pl, n, case, dos, by, today, replaces=None, label=None):
     """Proposal n written open in proposals.rec (pl), its case and commands as given (plan.4); one it replaces, which
-    must be open, is dropped with the reason that it was replaced, and agreements stay with it. Returns who wrote the
+    must be open, is dropped with the reason that it was replaced. Returns who wrote the
     one replaced."""
     old_by = None
     if replaces:
@@ -7566,28 +7337,6 @@ def proposal_chain(pl, n):
         out.insert(0, back)
 
 
-def agreements_wanted(plan, argvs, p, n, kind, of, team=None, name=None):
-    """The teams whose agreement this caller records on proposal n, those it touches that have not agreed (plan.4): a
-    conductor's own team, which must hold a bolt the proposal touches; the user's, any team named, or every team the
-    proposal touches. Only a conductor or the user agrees."""
-    kind in ("conductor", "user") or fail(f"{name} does not agree to proposals: the conductor of a bolt a proposal touches agrees to it")
-    held = held_teams(plan, flat(touched_by(plan, argvs)))
-    if kind == "conductor":
-        of in held or fail(f"proposal {n} touches no bolt {of} holds" + (f": it touches the bolts of {', '.join(held)}" if held else ""))
-        want = [of]
-    else:
-        team is None or team in held or fail(f"proposal {n} touches no bolt {team} holds")
-        want = [team] if team else held
-    return [t for t in want if t not in p.all("Agreed")]
-
-
-def agreement_missing(plan, argvs, p, n):
-    """Why proposal n can't be approved yet, or None: the conductor of a bolt it touches, held now, has not agreed."""
-    missing = [t for t in held_teams(plan, flat(touched_by(plan, argvs))) if t not in p.all("Agreed")]
-    return (f"proposal {n} waits on the agreement of " + ", ".join(f"{t}-conductor" for t in missing) + f": crew plan agree {n}"
-            if missing else None)
-
-
 def closed_refusal(p, n):
     """Why proposal n can't be approved because it is closed, said with its reason and recorded without it (record.3),
     or None while it is open."""
@@ -7595,19 +7344,6 @@ def closed_refusal(p, n):
         return None
     state = f"proposal {n} is {p.get('State')}"
     return state + (f": {p.get('Reason')}" if p.get("Reason") else ""), state
-
-
-def agree_closed(p, n):
-    """What crew answers an agreement to proposal n with when the plan as it stands once the agreement is written
-    shows the proposal (p) closed: that it is closed and how, approved or dropped with its reason, and that crew raises
-    no card for it and changes none, since the agreement's write still showed it open and a card raised from that
-    would reach the user in the planner's name for a closed proposal (wldn's proposal 553 on 2026-10-24: swb-1 agreed
-    at 35d07471, the planner dropped it at bc2c3b1 four seconds on, and the agreement then posted its card again until
-    the rail's sweep withdrew it; signal 2026-10-24-swancloud-planner-04891322/01). None while it is open."""
-    why = closed_refusal(p, n)
-    if why is None:
-        return None
-    return why[0] + ("" if why[0][-1:] in ".!?" else ".") + " It is closed, so crew raises no card for it and changes none."
 
 
 def close(p, state, today, reason=None, cleared=()):
@@ -7623,56 +7359,10 @@ def close(p, state, today, reason=None, cleared=()):
         p.add("Cleared", u, after="Closed")
 
 
-def plan_agree(fleet, a):
-    """crew plan agree <n> [--team <team>]: the conductor's recorded agreement to a proposal that touches the bolt its
-    team holds; the user may agree for any team the proposal touches."""
-    label = proposal_label(fleet, a, a.n)
-    CONTEXT["label"] = label
-    name = crew.caller(fleet)
-    kind, of = role(fleet, name)
-    w0, _, p0, argvs = at_tip(fleet, label, a.n)
-    p0.get("State") == "open" or fail(f"proposal {a.n} is {p0.get('State')}, so there is nothing to agree to")
-    wanted = lambda w, p: agreements_wanted(w.plan, argvs, p, a.n, kind, of, a.team, name)
-    if not wanted(w0, p0):
-        print(f"proposal {a.n} already has the agreement" + (f" of {of}" if kind == "conductor" else " of every team it touches"))
-        return
-    seen = {}
-
-    def change(w):
-        pl = proposals(w)
-        p = proposal(pl, a.n, label)
-        p.get("State") == "open" or fail(f"proposal {a.n} is {p.get('State')}, so there is nothing to agree to")
-        new = wanted(w, p)
-        for t in new:
-            p.add("Agreed", t, after="Do")
-        w.replace("proposals.rec", pl.text())
-        w.subject = f"plan(proposal {a.n}): " + ", ".join(new) + " agree" + ("s" if len(new) == 1 else "")
-        w.on += [f"proposal/{a.n}"] + [f"team/{t}" for t in new]
-        seen.update(new=new, w=w)
-        return []
-    write(fleet, label, change, "plan: agree", act="plan.agree")
-    tell_planner(fleet, label, f"{', '.join(seen['new'])} agree{'s' if len(seen['new']) == 1 else ''} to proposal {a.n}.")
-    raise_agreed(fleet, label, a.n, seen["new"])
-
-
-def raise_agreed(fleet, label, n, agreed, acts=None):
-    """Proposal n's card once the agreements of the teams agreed are written (raise_proposal_at, agree), raised on the
-    plan as it stands, the branch's tip fetched anew: an approval or a drop can land between the agreement's write and
-    its raise, so a proposal the tip shows closed raises no card and changes none, and the agreement answers that it is
-    closed and how (agree_closed). The fetch is the one past the command's first (plan.12), as the sweep's raise makes
-    (raise_proposal). The card's id, or None."""
-    w = tip_write(fleet, label, fresh=True)
-    closed = agree_closed(proposal(proposals(w), n, label), n)
-    if closed:
-        print(closed)
-        return None
-    return raise_proposal_at(fleet, label, w, n, "agree", acts, agreed=agreed)
-
-
 def plan_approve(fleet, a):
     """crew plan approve <n> [--clear <unit>...]: the proposal's commands applied in order to the plan at the tip, and
-    the proposal closed as approved, in one commit; refused, with nothing changed, when a command no longer applies or
-    a conductor whose bolt it touches has not agreed. A rebase it prepares is undone if the approval is refused. With
+    the proposal closed as approved, in one commit; refused, with nothing changed, when a command no longer applies: it
+    waits on the user alone. A rebase it prepares is undone if the approval is refused. With
     --clear, the commands that concern only the units the user left out are not applied, a command left in that names
     one refuses the whole, and the proposal records each as Cleared (plan.3). Then crew closes the proposal's card with
     what was applied, and the planner is told it when someone else approved (raise_proposal_at)."""
@@ -7682,15 +7372,10 @@ def plan_approve(fleet, a):
     repo = w0.repo
     cleared = list(dict.fromkeys(getattr(a, "clear", None) or []))
 
-    def agreed(w, p):
-        why = agreement_missing(w.plan, argvs, p, a.n)
-        not why or fail(why)
-
     def opened(p):
         why = closed_refusal(p, a.n)
         not why or refuse(*why)
     opened(p0)
-    agreed(w0, p0)
     applied = kept(argvs, cleared, a.n)
     ops0 = apply_all(fleet, label, w0, applied, a.n)[0]  # checked at the tip, to know what to prepare
     undos, seen = [], {}
@@ -7703,7 +7388,6 @@ def plan_approve(fleet, a):
             pl = proposals(w)
             p = proposal(pl, a.n, label)
             opened(p)
-            agreed(w, p)
             ops, told = apply_all(fleet, label, w, applied, a.n)
             if cleared:  # a branch's proposals.rec keeps the descriptor it was made with, from before Cleared
                 in_step(pl, PROPOSALS)
@@ -7721,7 +7405,7 @@ def plan_approve(fleet, a):
         raise
     for op in seen["ops"]:
         record.emit(label, op.act, op.on + op.added_on, op.frm + op.added_frm + [f"proposal/{a.n}"], [f"{repo}@{sha}"],
-                    record.subject(op.subject))
+                    record.subject(op.subject), **op.fields)
         if op.after:
             op.after(repo, sha)
     print(f"proposal {a.n} is approved and applied" + (f", without {joined(cleared)}" if cleared else ""))
@@ -7776,37 +7460,41 @@ def asserted(text):
     return next((p for p in paras if not p.startswith(">")), None), next((p for p in paras if p.startswith(">")), None)
 
 
-def amendment(fleet, plan, a, alone=False):
+def amendment(fleet, label, plan, a, alone=False):
     """A unit amend as the user reads it: the unit's bolt, team and stage, its intent as it stands and as it would be,
     and what approval sets in motion. The stage is read from the unit's kit; alone, nothing is read but the plan, and
     only its first line is said."""
-    return amendment_lines(plan, a, None if alone or plan.unit(a.unit) is None else unit_stage(fleet, plan, a.unit))
+    return amendment_lines(plan, a, None if alone or plan.unit(a.unit) is None else unit_stage(fleet, label, plan, a.unit))
 
 
 def amendment_lines(plan, a, s):
     """What a proposal's page says of a unit amend: the unit's bolt and team, and, given its stage (s, None when the page
-    is drawn alone), its intent as it stands and as proposed and what approval sets in motion."""
+    is drawn alone), its intent as it stands and as proposed and what approval sets in motion: for a unit of a bolt given
+    through Flume, its construct retried with the new intent, or its launch not yet started dropped and launched anew
+    (reach_places), as the approval's own write does."""
     u = plan.unit(a.unit)
     if u is None:
         return [f"**Amend unit `{a.unit}`**, new in this proposal", f"Intent, as proposed:  {a.intent}"]
     b = u.get("Bolt")
-    team = plan.bolt(b).get("Team") if b else None
-    where = (f"bolt `{b}`" + (f" ({team})" if team else "")) if b else f"the queue of {u.get('Repo')}"
+    where = (f"bolt `{b}`" + (" (started)" if started(plan.bolt(b)) else "")) if b else f"the queue of {u.get('Repo')}"
     if s is None:
         return [f"**Amend unit `{a.unit}`** in {where}"]
     st = s["stage"]
     now = ("" if st == "queued" else f", its stage unknown ({s.get('why')})" if st == "unknown" else
            f", now in {st}" if st in ("construct", "planned", "code", "verify") else f", now {st}")
-    return [f"**Amend unit `{a.unit}`** in {where}{now}", f"Intent, as it stands: {u.get('Intent')}", f"Intent, as proposed:  {a.intent}",
-            f"On approval: construct runs again at once in {team}'s slot, and once that has committed the unit goes on from "
-            "its tasks with no approval asked, its revised change due for the next batch." if s["worktree"] and team else
-            "On approval: its intent is replaced; it has no change written yet, so nothing else changes."]
+    flume = s.get("flume")
+    then = ("On approval: its launch, which Flume has not started, is dropped and launched again carrying the new intent."
+            if flume and flume.get("stage") in ("launching", "waiting") else
+            "On approval: Flume runs its construct again with the new intent, and the unit goes on from its tasks with no "
+            "approval asked, its revised change due for the next batch." if flume and st != "unknown" else
+            "On approval: its intent is replaced; it has no change written yet, so nothing else changes.")
+    return [f"**Amend unit `{a.unit}`** in {where}{now}", f"Intent, as it stands: {u.get('Intent')}", f"Intent, as proposed:  {a.intent}", then]
 
 
 def describe(fleet, label, plan, p, alone=False, signal_of=None):
     """A proposal as the user reads it: each change in plain words, with what the user is comparing beside it (a unit's
-    intent and sources, the goal and team of the bolt it would join, an amended unit's intent before and after), and
-    who has yet to agree. alone, it reads nothing but the plan and the proposal: no kit for an amended unit's stage and
+    intent and sources, the goal of the bolt it would join and whether it is started, an amended unit's intent before
+    and after). alone, it reads nothing but the plan and the proposal: no kit for an amended unit's stage and
     no signal, as a proposal's card is drawn (plan.12). signal_of(id) gives a unit's signal as signal_text reads it."""
     signal_of = signal_of or (lambda sig: signal_text(fleet, label, sig))
     argvs = [do_args(label, d) for d in p.all("Do")]
@@ -7817,7 +7505,7 @@ def describe(fleet, label, plan, p, alone=False, signal_of=None):
         if b in new_bolts:
             return f"bolt `{b}` (new in this proposal)"
         r = plan.bolt(b)
-        return f"bolt `{b}`" + (f", held by {r.get('Team')}" if r and r.get("Team") else "")
+        return f"bolt `{b}`" + (", started" if started(r) else "")
 
     def goal_of(b):
         return new_bolts.get(b) or (plan.bolt(b).get("Goal") if plan.bolt(b) else None)
@@ -7832,6 +7520,8 @@ def describe(fleet, label, plan, p, alone=False, signal_of=None):
         if key == ("bolt", "new"):
             new_bolts[a.bolt] = a.goal
             lines = [f"**New bolt `{a.bolt}`** in {a.repo}", f"Goal: {a.goal}"] + [f"Source: {s}" for s in a.source]
+        elif key == ("bolt", "start"):
+            lines = [f"**Start bolt `{a.bolt}`**: its work launched through Flume", f"Goal: {goal_of(a.bolt)}"]
         elif key == ("bolt", "order"):
             where = "first" if a.first else "last" if a.last else f"before `{a.before}`"
             lines = [f"**Order bolt `{a.bolt}`** {where}", f"Goal: {goal_of(a.bolt)}"]
@@ -7863,7 +7553,7 @@ def describe(fleet, label, plan, p, alone=False, signal_of=None):
         elif key == ("unit", "split"):
             lines = [f"**Split unit `{a.unit}`**", f"Narrowed intent: {a.intent}"] + [f"New unit `{n}`: {i}" for n, i in a.into]
         elif key == ("unit", "amend"):
-            lines = amendment(fleet, plan, a, alone)
+            lines = amendment(fleet, label, plan, a, alone)
         elif key == ("unit", "order"):
             where = "first" if a.first else "last" if a.last else f"before `{a.before}`"
             lines = [f"**Order {noun} `{a.unit}`** {where}", f"{says}: {intent_of(a.unit)}"]
@@ -7871,12 +7561,16 @@ def describe(fleet, label, plan, p, alone=False, signal_of=None):
             lines = [f"**{noun.capitalize()} `{a.unit}` comes after** " + ("nothing" if a.none else ", ".join(f"`{d}`" for d in a.deps))]
         elif key == ("unit", "drop"):
             lines = [f"**Drop {noun} `{a.unit}`**", f"{says}: {intent_of(a.unit)}", f"Reason: {a.reason}"]
+        elif key == ("kit", "rename"):
+            bolts, work = renamed_in(plan, a.old)
+            lines = [f"**Rename kit `{a.old}`** to `{a.new}`, as its host renamed it",
+                     "Bolts: " + (", ".join(f"`{b.name()}`" + (" (started)" if started(b) else "") for b in bolts) or "none"),
+                     "Units and chores: " + (", ".join(f"`{u.name()}`" for u in work) or "none"),
+                     "On approval: each names the kit by its new name; nothing is dropped, added or launched again."]
         changes.append({"do": a.do, "lines": lines, "bolts": per[i]})
-    held = held_teams(plan, flat(per))
-    agreed = p.all("Agreed")
     return {"proposal": int(p.get("Proposal")), "state": p.get("State"), "by": p.get("By"), "opened": p.get("Opened"),
             "closed": p.get("Closed"), "reason": p.get("Reason"), "replaces": p.get("Replaces"), "case": p.get("Case"),
-            "changes": changes, "agreed": agreed, "waiting": [t for t in held if t not in agreed]}
+            "changes": changes, "waits": ["the user"] if p.get("State") == "open" else []}
 
 
 def code_span(text):
@@ -7904,15 +7598,12 @@ def page(d, label):
         out += [f"Closed {d['closed']}" + (f": {d['reason']}" if d["reason"] else "") + "."]
         return "\n".join(out).rstrip() + "\n"
     out += ["## Waiting on", ""]
-    out += [f"- {t}-conductor, to agree, or tell {label}-planner why not" for t in d["waiting"]]
-    if d["agreed"]:
-        out.append("- agreed: " + ", ".join(d["agreed"]))
     out.append("- the user, to approve it or say what to change")
     return "\n".join(out) + "\n"
 
 
 def open_proposals(fleet, labels, found=None):
-    """Each open proposal of the labels' flywheels, as describe() gives it, with its label and its chain's first
+    """Each open proposal of the labels' drives, as describe() gives it, with its label and its chain's first
     (proposal_chain), whose key its card is under. found, when given, is the plans already read, as plans() gives
     them: their tips are used, and a label it lacks is skipped."""
     rows = []
@@ -7934,7 +7625,7 @@ def open_proposals(fleet, labels, found=None):
 
 def plan_proposed(fleet, a):
     """crew plan proposed [<n>] [--label L] [--json] [--open]: the open proposals, or one as the user would read it.
-    Reads the flywheels' branches only, so any host can answer. With --open, one proposal's page is written to
+    Reads the drives' branches only, so any host can answer. With --open, one proposal's page is written to
     ~/.local/state/crew/proposals/<label>-<n>.md on this host, replacing any earlier copy, and opened in plannotator:
     beside the caller in herdr, inline in the terminal otherwise. The file is a copy for reading; nothing reads it back."""
     why = open_refusal(a.n, a.open, a.json)
@@ -7955,7 +7646,7 @@ def plan_proposed(fleet, a):
                 fail(f"plannotator-tui is not on this host's path; the proposal is written to {f}")
         print(json.dumps(d, indent=1) if a.json else page(d, label), end="" if not a.json else "\n")
         return
-    rows = [dict(d, waits=[f"{t}-conductor" for t in d["waiting"]] + ["the user"])
+    rows = [dict(d, waits=["the user"])
             for d in open_proposals(fleet, [label] if label else list(fleet["partitions"]))]
     if a.json:
         print(json.dumps(rows, indent=1))
@@ -7980,13 +7671,13 @@ def open_refusal(n, open_, as_json):
 # ------------------------------------------------------------------------------------------- a proposal's card
 
 def concerns(a):
-    """The unit a proposal's command concerns, its subject, or None for a bolt's command."""
-    return None if a.cmd == "bolt" else a.unit
+    """The unit a proposal's command concerns, its subject, or None for a bolt's or a kit's command."""
+    return None if a.cmd in ("bolt", "kit") else a.unit
 
 
 def names_units(a):
     """Every unit a proposal's command names: its subject and each unit it refers to."""
-    if a.cmd == "bolt":
+    if a.cmd in ("bolt", "kit"):
         return []
     out = [a.unit] + list(getattr(a, "after", None) or []) + ([a.before] if getattr(a, "before", None) else [])
     out += [n for n, _ in getattr(a, "into", None) or []] + list(getattr(a, "deps", None) or [])
@@ -8150,25 +7841,26 @@ def proposal_facts(fleet, label, w, n):
     """What proposal n's card is built from (record 0031 §5), as card_model reads it, from the write w as it left the
     branch and no kit (plan.12): the plan at the tip and as the proposal's commands leave it, applied to a copy as
     check_ops applies them; the proposal's number, state, case and commands, parsed; its chain's first, whose key the
-    card is under; the teams whose conductor has yet to agree; and no reading session. A closed proposal's facts hold
+    card is under; and no reading session. A closed proposal's facts hold
     no plan after it, and the builder refuses them."""
     pl = proposals(w)
     p = proposal(pl, n, label)
     argvs = [do_args(label, d) for d in p.all("Do")]
     after = check_ops(fleet, label, w, argvs, n, Drawn).plan if p.get("State") == "open" else w.plan
-    waiting = [t for t in held_teams(w.plan, flat(touched_by(w.plan, argvs))) if t not in p.all("Agreed")]
     return dict(n=n, first=proposal_chain(pl, n)[0], state=p.get("State"), case=p.get("Case"), before=w.plan,
-                after=after, argvs=argvs, waiting=waiting, session=None)
+                after=after, argvs=argvs, session=None)
 
 
 def named_kit(plan, argvs):
     """The kit of the first bolt or unit a proposal's commands name, in whose area its card is filed (briefs.11): a new
-    bolt's, or a unit's added to the queue, as the command gives it, else the plan's for the bolt or unit it names; None
-    when the plan names none of them."""
+    bolt's, or a unit's added to the queue, as the command gives it, a kit's rename's new name, else the plan's for the
+    bolt or unit it names; None when the plan names none of them."""
     for a in argvs:
         if a.cmd == "bolt":
             b = plan.bolt(a.bolt)
             repo = a.repo if a.sub == "new" else b.get("Repo") if b else None
+        elif a.cmd == "kit":
+            repo = a.new
         elif a.sub == "add":
             repo = a.repo or (plan.bolt(a.bolt).get("Repo") if a.bolt and plan.bolt(a.bolt) else None)
         else:
@@ -8192,9 +7884,9 @@ SWEPT = "Raised again as the plan stands"  # the change note of a proposal's car
 DROPPED = "Dropped on your note, nothing of it applied"
 
 
-def proposal_act(event, n, mine, was_mine=False, held=True, home=True, agreed=(), outcome=None, reason=None, by=None):
+def proposal_act(event, n, mine, was_mine=False, held=True, home=True, outcome=None, reason=None, by=None):
     """Which act proposal n's card takes at its event (record 0031 §1), from facts alone: ("post",) when it is
-    accepted, ("change", note) when it is rewritten (replace), a conductor agrees, the rail's sweep finds its card
+    accepted, ("change", note) when it is rewritten (replace), the rail's sweep finds its card
     missing or lost (sweep), or its reading opens after the card was raised without it (relink, reading_again),
     ("close", outcome, reason) when it is approved, or dropped, its card acked with DROPPED
     once the user answered it and withdrawn with the reason while it waits, or None when it has no card of
@@ -8213,11 +7905,10 @@ def proposal_act(event, n, mine, was_mine=False, held=True, home=True, agreed=()
         return ("change", SWEPT)
     if event == "relink":
         return ("change", RELINKED)
-    if event in ("replace", "agree"):
+    if event == "replace":
         if not held and not home:
             return ("skip",)
-        return ("change", f"Rewritten as proposal {n} after your note" if event == "replace" else
-                "No longer waits on " + either([f"{t}-conductor" for t in agreed]))
+        return ("change", f"Rewritten as proposal {n} after your note")
     return ("close", outcome, None) if event == "approve" else ("close", DROPPED, reason)
 
 
@@ -8234,7 +7925,7 @@ def chain_closed(pl, first):
 
 
 def tip_write(fleet, label, fresh=False):
-    """The flywheel's branch at its tip, as a write; with fresh, the tip fetched anew, the plan as it stands and not
+    """The drive's branch at its tip, as a write; with fresh, the tip fetched anew, the plan as it stands and not
     as this command first read it (fetch). None when the branch has no tip."""
     repo, ref = state_of(fleet, label)
     tip = fetch(repo, ref, fresh)
@@ -8278,14 +7969,14 @@ def raise_proposal(fleet, row, acts=None, event="sweep"):
     return None
 
 
-def raise_proposal_at(fleet, label, w, n, event, acts=None, agreed=(), outcome=None, reason=None, dead=False):
+def raise_proposal_at(fleet, label, w, n, event, acts=None, outcome=None, reason=None, dead=False):
     """Proposal n's card at its event (record 0031 §1, briefs.11), once the event's write is made (code.9), from the
     write w as it left the branch: the act proposal_act decides; the card built by the proposal's builder from
     proposal_facts, and posted, changed or closed by the act in the planner's name under its chain's key,
     proposal/<first>, filed in the area of the kit of the first bolt or unit its commands name. A rewrite whose card
     takes another form than the replaced proposal's (cards.proposal_form: a hold-to-approve, a choice, one list or
     lists), which update_request never changes, has the card followed as a card whose kind changed; a rewrite asks
-    anew, and follows a card the user answered, where an agreement or the sweep's raise leaves it as it is, its answer
+    anew, and follows a card the user answered, where the sweep's raise leaves it as it is, its answer
     going on to the approval (row_card_change); the card that follows says what the rewrite changed against the
     proposal it replaces (cards.proposal_since), and one that changes neither its commands nor its case is withheld,
     the user's answer standing (card_posted). With dead, an older copy this host can't reach standing, the card is
@@ -8298,10 +7989,10 @@ def raise_proposal_at(fleet, label, w, n, event, acts=None, agreed=(), outcome=N
     replaced = proposal(pl, int(p.get("Replaces")), label) if (p.get("Replaces") or "").isdigit() else None
     was = replaced.get("By") if replaced else None
     key = f"proposal/{proposal_chain(pl, n)[0]}"
-    near = event in ("replace", "agree")
+    near = event == "replace"
     act = proposal_act(event, n, p.get("By") == owner, was == owner,
                        held=near and cards.card_under(acts.entries(label), key, owner) is not None,
-                       home=acts.host() == part["machine"], agreed=agreed, outcome=outcome, reason=reason, by=p.get("By"))
+                       home=acts.host() == part["machine"], outcome=outcome, reason=reason, by=p.get("By"))
     if act is None:
         return None
     if act[0] == "skip":
@@ -8311,8 +8002,13 @@ def raise_proposal_at(fleet, label, w, n, event, acts=None, agreed=(), outcome=N
         if act[0] == "close":
             return row_card_close(fleet, label, owner, key, outcome=act[1], reason=act[2], acts=acts)
         facts = proposal_facts(fleet, label, w, n)
-        team = builder(fleet, label, named_kit(w.plan, facts["argvs"]))
-        where = card_where(team["kit"] if team else {"main": part["checkout"], "repo": part["blueprints"][0]})
+        kit_ = named_kit(w.plan, facts["argvs"])
+        try:  # where the kit's work runs, from the runners and requests the write read at its tip
+            t = kit_at(fleet, label, kit_, (launches_now(Plan(w.text("requests.rec") or runner.REQUESTS).recs("Request"), w.renames()),
+                                            w.runners())) if kit_ else None
+        except Refusal:
+            t = None
+        where = card_where(card_kit(fleet, t, kit_, {"main": part["checkout"], "repo": part["blueprints"][0]}))
         build = built_again(cards.proposal_card) if dead else cards.proposal_card
         if act[0] == "post":
             return row_card_post(fleet, label, owner, build, facts, where, acts)
@@ -8333,7 +8029,7 @@ SHORT_ID = re.compile(r"^[^/]+/[0-9]{2}$")  # a signal's short id, <capture>/<NN
 
 
 def signal_at(fleet, label, sig, w=None):
-    """Where a signal is: signals/<id>.md on the flywheel's branch (as the write w has it, else at the branch's tip),
+    """Where a signal is: signals/<id>.md on the drive's branch (as the write w has it, else at the branch's tip),
     else on main of the partition's first blueprints repo, where the daily pass writes meetings' and channels'. sig is
     its full id, <capture>/<NN>-<slug>, or its short form, <capture>/<NN>, which names the one signal of that capture
     numbered NN. (where, repo, tip, the signal's text, its full id), or None when it is in neither."""
@@ -8406,7 +8102,7 @@ def capture_of(sig):
 
 
 def move(fleet, label, w, sig, rec):
-    """A signal's one move, appended to the flywheel's moves.rec in the write w: refused when the signal is in
+    """A signal's one move, appended to the drive's moves.rec in the write w: refused when the signal is in
     neither of its homes, or already has its move. recfix checks the file before the commit, so a move the file's
     schema refuses writes nothing."""
     signal_at(fleet, label, sig, w) or no_signal(fleet, label, sig)
@@ -8433,7 +8129,7 @@ KINDS = ("constraint", "ask", "question", "commitment", "reaction")
 
 def signal_move(fleet, a):
     """Curation's five moves, each written through crew the way the route is: one move per signal, appended to
-    moves.rec on the flywheel's branch of its state repository, never merged. A short id is moved by its full one."""
+    moves.rec on the drive's branch of its state repository, never merged. A short id is moved by its full one."""
     label = default_label(fleet, a) or fail("which partition's signals? add --label " + "|".join(fleet["partitions"]))
     a.signal = signal_id(fleet, label, a.signal)
     rec, on = curation_move(a.signal, a.move, a.target, a.reason, datetime.date.today().isoformat(), agent())
@@ -8472,22 +8168,10 @@ def quoted(excerpt, position):
 
 
 def where_of(fleet, name, plan):
-    """Where an agent was working, read without asking it: its team, each bolt the team holds and, for a slot's stage,
-    the unit or fix its slot holds; the main level; None for an agent crew has no role for."""
-    kind, of = role(fleet, name)
-    if kind in ("planner", "design", "main-ops", "dispatcher", "operator"):
-        return "main level"
-    if kind not in ("conductor", "team"):
-        return None
-    out = [f"team {of}"] + [f"bolt {b.name()}" for b in held_by(plan, of)]
-    slot = re.fullmatch(rf"{re.escape(of)}-(unit-[1-9][0-9]*)", name)
-    if slot:
-        try:
-            held = crew.slot_of(fleet["teams"][of], slot.group(1))
-            out.append(f"fix {held['name'].rsplit('/', 1)[-1]}" if held["kind"] == "fix" else f"unit {held['name']}")
-        except Refusal:
-            pass
-    return ", ".join(out)
+    """Where an agent was working, read without asking it: the main level for a main-level role; None for an agent crew
+    has no role for."""
+    kind, _ = role(fleet, name)
+    return "main level" if kind in ("planner", "design", "main-ops", "operator") else None
 
 
 def bank(path, line):
@@ -8503,7 +8187,7 @@ def bank(path, line):
 
 
 def signal(fleet, a):
-    """A finding, as a capture and its signal under signals/ on the flywheel's branch, in the shape the blueprints'
+    """A finding, as a capture and its signal under signals/ on the drive's branch, in the shape the blueprints'
     signals/README.md gives. An agent quotes the words that show it, which are looked for in its own Claude transcript
     and graded (transcript.py), and a paraphrase is refused. Its capture is the one record that holds the excerpt,
     copied to this host's raw/ outside git; a second signal from that record joins the capture, and the same signal
@@ -8654,7 +8338,7 @@ def check_excerpt(fleet, name, a, excerpt, host):
     if elsewhere:
         return transcript.unverified(elsewhere), sid
     skip = [a.excerpt_file, str(pathlib.Path(a.excerpt_file).resolve())] if a.excerpt_file else []
-    return transcript.check(sid, excerpt, skip, stage_by(fleet, name)), sid
+    return transcript.check(sid, excerpt, skip), sid
 
 
 def session_here(sess, host):
@@ -8662,12 +8346,6 @@ def session_here(sess, host):
     host, or None: a session on another host is not."""
     shost, sid = sess.split(":", 1) if sess and ":" in sess else (host, sess)
     return sid, (f"session {sid} is on {shost}, not {host}" if sid and shost != host else None)
-
-
-def stage_by(fleet, name):
-    """The conductor whose stages a slot's agent runs, whose own prompts are the conductor's; None for any other."""
-    kind, of = role(fleet, name)
-    return f"{of}-conductor" if kind == "team" and re.fullmatch(rf"{re.escape(of)}-unit-[1-9][0-9]*", name) else None
 
 
 def capture_text(fleet, name, host, v, sid, key, cap, date, now, raw, plan, by=None):
@@ -8703,7 +8381,7 @@ def raw_of(cap_text):
 
 
 def capture_refusal(cap, files, here, banked):
-    """Why a program's capture does not land on the flywheel's branch (signals.6), or None. cap is its folder's name,
+    """Why a program's capture does not land on the drive's branch (signals.6), or None. cap is its folder's name,
     files the folder's files ({name: text}, None for anything that is not a readable file), here this host and banked
     whether the raw record its capture.md names is there on it. A capture is a name crew takes (code.4) holding
     capture.md and its signals, NN-<slug>.md, and nothing else, since raw material stays on its host (signals.3);
@@ -8757,7 +8435,7 @@ def capture_refusal(cap, files, here, banked):
 
 
 def capture_landing(cap, files, have, label):
-    """What a capture's landing writes on the flywheel's branch, {path: text}, from the folder's files and what the
+    """What a capture's landing writes on the drive's branch, {path: text}, from the folder's files and what the
     branch holds at each of their paths (have, {name: text or None}): each file the branch lacks; one it holds the same
     is passed over; one it holds otherwise refuses the landing, since captures and signals are never changed (signals.4).
     Already when there is nothing to write."""
@@ -8774,10 +8452,10 @@ def capture_landing(cap, files, have, label):
 
 def signal_land(fleet, a):
     """crew signal land <capture-dir>: a program's capture, a release adapter's or a deployer's, landed on the
-    flywheel's branch of the partition named, as recorded on this host and never forwarded (signals.2, signals.6): the
+    drive's branch of the partition named, as recorded on this host and never forwarded (signals.2, signals.6): the
     folder checked whole (capture_refusal), then its capture and signals written in one commit, the files the branch holds
     already passed over, and nothing written when it holds them all. Its raw record stays where the program banked it."""
-    label = default_label(fleet, a) or fail("which partition's flywheel? add --label " + "|".join(fleet["partitions"]))
+    label = default_label(fleet, a) or fail("which partition's drive? add --label " + "|".join(fleet["partitions"]))
     d = pathlib.Path(a.dir)
     d.is_dir() or fail(f"{a.dir} is no capture's folder")
     cap = d.resolve().name
@@ -8815,7 +8493,7 @@ def signal_land(fleet, a):
 
 def signal_show(fleet, a):
     """crew signal show <id>: the signal, by its full id or its short one, its capture's provenance in plain lines (the
-    excerpt's grade among them), and its move in each flywheel that reads it. Reads only the branches, so any host can
+    excerpt's grade among them), and its move in each drive that reads it. Reads only the branches, so any host can
     answer."""
     label = default_label(fleet, a)
     labels, errors, hit = [label] if label else list(fleet["partitions"]), {}, None
@@ -8833,7 +8511,7 @@ def signal_show(fleet, a):
     hit or fail(f"no signal {a.signal} on the branches of " + ", ".join(f"{l}/main" for l in labels)
                 + " or on main of their first blueprints repos" + "".join(f"; {l} could not be read: {e}" for l, e in errors.items()))
     found_in, (where, repo, tip, text, sig) = hit
-    # A signal in the state is its flywheel's alone; one in a blueprints repo is read by each flywheel it is first for.
+    # A signal in the state is its drive's alone; one in a blueprints repo is read by each drive it is first for.
     readers = [found_in] if where != "main" else [l for l in labels if crew.partition_of(fleet, l)["blueprints"][0] == repo]
     moves = []
     for l in readers:
@@ -8846,7 +8524,7 @@ def signal_show(fleet, a):
 
 def shown_signal(sig, where, repo, text, cap, moves):
     """crew signal show: where the signal is, its text, its capture's fields in plain lines (cap, its capture.md, None
-    when it has none), and its move in each flywheel that reads it (moves, [(label, its Move record or None)])."""
+    when it has none), and its move in each drive that reads it (moves, [(label, its Move record or None)])."""
     out = [f"signals/{sig}, on {where} of {repo}", "", text.rstrip(), ""]
     if cap is None:
         out.append(f"No capture.md beside it in {repo}.")
@@ -8860,82 +8538,11 @@ def shown_signal(sig, where, repo, text, cap, moves):
     return "\n".join(out)
 
 
-# ------------------------------------------------------------------------------------- what a unit's stage asks
+# ---------------------------------------------------------------------- a team's state and this host's run record
 
-def sh(**pairs):
-    return "\n".join(f"{k}={__import__('shlex').quote(str(v))}" for k, v in pairs.items())
-
-
-def team_of_unit(fleet, a):
-    """The team whose bolt holds a unit or chore, from its plan: crew unit run and wait, and crew chore run and wait, go
-    to that team's host."""
-    label, repo, _, plan = locate(fleet, "Unit", a.unit, default_label(fleet, a), "unit or chore")
-    t = crew.team_of(fleet, unit_team(plan, a.unit))
-    return bolt_team(fleet, plan.bolt(plan.item(a.unit).get("Bolt"))) or t
-
-
-def unit_team(plan, name):
-    """The team whose bolt holds a unit or chore, which runs its stages; refused for queued work or a bolt no team
-    holds."""
-    u = plan.item(name)
-    k = kind_of(u)
-    u.get("Bolt") or fail(f"{k} {name} is queued: move it into a bolt first (crew {k} move {name} <bolt>)")
-    return plan.bolt(u.get("Bolt")).get("Team") or fail(f"bolt {u.get('Bolt')} is held by no team yet: crew bolt give <team> {u.get('Bolt')}")
-
-
-def in_bolt(fleet, t, unit):
-    """Whether a unit or chore is in a bolt the team holds: what says so when it is, None when it is not, and refused
-    when the team's plan could not be read, since then nobody can tell."""
-    errors = {}
-    found = plans(fleet, [t["label"]], errors)
-    not errors or fail(f"can't tell whether {unit} is still in {t['name']}'s bolt: "
-                       + "; ".join(f"{k} could not be read: {v}" for k, v in errors.items()))
-    plan = found[0][3]
-    u = plan.item(unit) if plan else None
-    if u and u.get("Bolt") in {b.name() for b in held_by(plan, t["name"])}:
-        return f"{kind_of(u)} {unit} is in bolt {u.get('Bolt')}, which {t['name']} holds"
-    return None
-
-
-HEAD = r"""cd "$1" && git rev-parse HEAD"""
-# A dependent's place takes the head of each unmerged unit or chore it comes after, each given by its branch (unit/<name>
-# or chore/<name>), as it stands, while it holds nothing of its own beyond the bolt, given by the ref it is read at
-# (gather.bolt_read), and their work: printed as "<name>
-# <head>" for each it holds. A merge that conflicts is undone, the place put back where it was, and printed as "conflict
-# <name> <paths...>", exit 3. Each taking is a merge commit of its own, never a fast-forward, so the place's own work is
-# its first-parent line with no merges (a chore's, plan.11). Never a push, never a write to their branches.
-TAKE = r"""cd "$1" || exit 1
-unit=$2 at=$3; shift 3
-start=$(git rev-parse HEAD)
-refs=(); for b; do refs+=("refs/heads/$b"); done
-[ -z "$(git rev-list -n1 --no-merges HEAD --not "$at" "${refs[@]}")" ] || exit 0
-for b; do
-  a=${b#*/}
-  if ! git merge-base --is-ancestor "refs/heads/$b" HEAD; then
-    if ! git merge -q --no-ff --no-edit -m "chore($unit): build on $a as it stands" "refs/heads/$b" >/dev/null 2>&1; then
-      paths=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
-      git merge --abort >/dev/null 2>&1; git reset -q --keep "$start"
-      echo "conflict $a $paths"; exit 3
-    fi
-  fi
-  echo "$a $(git rev-parse --short=7 "refs/heads/$b")"
-done
-"""
-
-
-def mark_amended(fleet, label, unit, bolt, head):
-    """The plan marks a unit amended at the head construct starts again from, so its code, verify and merge wait until
-    what construct writes is committed (plan.6): a write whose act is unit.mark, its entry naming the unit and the head
-    (plan.2), on the branch before the construct starts, which names the write's commit on its own start. Returns the
-    write's commit. What the write says goes to standard error, as a write's does inside another command's work."""
-    def change(w):
-        u = w.unit(unit)
-        u.get("Bolt") == bolt or fail(f"unit {unit} moved to {u.get('Bolt') or 'the queue'} meanwhile")
-        u.set("Amended", head)
-        return [bolt]
-    with contextlib.redirect_stdout(sys.stderr):
-        return write(fleet, label, change, f"plan({bolt}): {unit} amended, construct runs again", act="unit.mark",
-                     on=[f"unit/{unit}", f"bolt/{bolt}"], fields={"Head": head})
+def landing_state(t):
+    """The partition's state folder on the host its bolt's work runs on (t, bolt_at): its landings' marks."""
+    return pathlib.Path.home() / f".local/state/crew/{t['label']}"
 
 
 def local_entries(label, days=30):
@@ -8949,356 +8556,7 @@ def local_entries(label, days=30):
     return sorted(out, key=lambda e: (e["At"], e["Id"]))
 
 
-def verified(label, unit, entries=None):
-    """Whether a unit or chore has delivered its verify since it was last constructed, from the run record of the host
-    its stages run on: a delivered verify end later than every construct start of it. Its one round of fixes after the
-    verify, a code stage, needs no verify again (teams.17); a chore has no construct, so any verify it delivered
-    counts."""
-    done = None
-    for e in entries if entries is not None else local_entries(label):
-        if e.get("Refused"):
-            continue
-        if e.get("Act") == "stage.start" and f"stage/{unit}/construct" in e["On"]:
-            done = False
-        elif e.get("Act") == "stage.end" and f"stage/{unit}/verify" in e["On"] and e.get("Ended") == "delivered":
-            done = True
-    return bool(done)
-
-
-# ------------------------------------------------------------------------------------------------- Touches
-
-WILD = re.compile(r"[*?]")
-
-
-def matches(entry, path):
-    """Whether a Touches entry, a path or glob relative to the kit's root, matches a path: * and ? within one part of
-    the path, ** across parts; a path with no wildcard matches itself and anything under it."""
-    entry = entry.strip()
-    entry = entry[2:] if entry.startswith("./") else entry
-    if not WILD.search(entry):
-        e = entry.rstrip("/")
-        return path == e or path.startswith(e + "/")
-    rx = "".join(".*" if part == "**" else "[^/]*" if part == "*" else "[^/]" if part == "?" else re.escape(part)
-                 for part in re.split(r"(\*\*|\*|\?)", entry))
-    return re.fullmatch(rx, path) is not None
-
-
-def overlaps(a, b):
-    """Whether two Touches entries overlap: one matches the other, or both are globs whose literal parts up to their
-    first wildcard are one the start of the other."""
-    if matches(a, b) or matches(b, a):
-        return True
-    if WILD.search(a) and WILD.search(b):
-        pa, pb = WILD.split(a, 1)[0], WILD.split(b, 1)[0]
-        return pa.startswith(pb) or pb.startswith(pa)
-    return False
-
-
-def declared(k, unit, why):
-    """A unit's Touches entries from its place as read, refused naming what is missing (read.1)."""
-    got = (k["places"].get(unit) or {}).get("touches") or {"missing": "crew could not read its proposal"}
-    "entries" in got or fail(f"unit {unit}'s {why} is refused: its change must declare what it touches, and {got['missing']}; "
-                             f"construct ends proposal.md with `## Touches` and a fenced list of paths or globs")
-    return got["entries"]
-
-
-def comes_after(after_of, a, b):
-    """Whether a comes after b through After at any depth (plan.13): after_of is each unit's or chore's After names."""
-    seen, todo = set(), list(after_of.get(a, ()))
-    while todo:
-        x = todo.pop()
-        if x == b:
-            return True
-        if x not in seen:
-            seen.add(x)
-            todo += after_of.get(x, ())
-    return False
-
-
-def ahead(order, after_of, a, b):
-    """Whether a is ahead of b in their bolt's merge order (teams.12, plan.13): b comes after a, at any depth; else,
-    unless a comes after b, a is earlier in the plan's order (order, the work's names as the file lists them). A unit's
-    dependents are never ahead of it, however the file lists them."""
-    if comes_after(after_of, b, a):
-        return True
-    return not comes_after(after_of, a, b) and order.index(a) < order.index(b)
-
-
-def bolt_order(plan, bolt):
-    """A bolt's work as ahead reads it: its names in the plan's order, and each one's After names."""
-    work = plan.work_of(bolt)
-    return [w.name() for w in work], {w.name(): w.all("After") for w in work}
-
-
-def overlapping(plan, st_all, k, unit, mine):
-    """What a unit's Touches overlap among the unmerged units ahead of it in its bolt's merge order that have a place
-    (ahead): the prompt's words for each, naming the entries and the other unit's change."""
-    out, bolt = [], plan.unit(unit).get("Bolt")
-    order, after_of = bolt_order(plan, bolt)
-    for o in plan.units_of(bolt):
-        if o.name() == unit or not ahead(order, after_of, o.name(), unit):
-            continue
-        pl = k["places"].get(o.name())
-        if not pl or st_all.of(o.name())["stage"] in ("merged", "landed") or "entries" not in (pl.get("touches") or {}):
-            continue
-        pairs = [(m, t) for m in mine for t in pl["touches"]["entries"] if overlaps(m, t)]
-        if pairs:
-            on = "; ".join(m if m == t else f"{m} against {t}" for m, t in pairs)
-            out.append(f"Its Touches overlap those of {o.name()}, ahead of it in the bolt and not merged, on {on}; "
-                       f"{o.name()}'s change is {pl['path']}/openspec/changes/{o.name()}/.")
-    return out
-
-
-def undeclared(fleet, t, at, unit, entries, deps=()):
-    """The paths a unit changed against its bolt, read at its ref (at, bolt_at_of), that no Touches entry matches, its
-    own change's folder aside. Only
-    the unit's own commits count: a dependent's place holds its After units' work as it stood, and a place that took a
-    sibling unit's work by a merge, to settle a forecast, holds that unit's commits behind the merge's second parent;
-    a path only their commits changed is theirs."""
-    main = t["kit"]["main"]
-    _, out = kit_git(fleet, t, main, "diff", "--name-only", f"{at}...unit/{unit}")
-    held = [f"refs/heads/unit/{d}" for d in deps if head_of(fleet, t, main, f"unit/{d}")]
-    _, mine = kit_git(fleet, t, main, "log", "--format=", "--name-only", "--no-merges", "--first-parent", f"unit/{unit}",
-                      "--not", at, *held)
-    return not_declared(out.splitlines(), set(mine.splitlines()), unit, entries)
-
-
-def not_declared(changed, mine, unit, entries):
-    """Of the paths a unit's place changed against its bolt, those its own commits changed (mine) that no Touches
-    entry matches, its own change's folder aside: what its verify is told it did not declare (teams.12)."""
-    own = f"openspec/changes/{unit}/"
-    return [p for p in changed if p and p in mine and not p.startswith(own) and not any(matches(e, p) for e in entries)]
-
-
-def took_from(st_all, k, u):
-    """The branches a dependent's place takes, as TAKE takes them: of each unit or chore it comes after that has not
-    merged and has a place, unit/<name> or chore/<name> (plan.13)."""
-    places = lambda d: (k or {}).get("chore_places" if st_all.of(d)["kind"] == "chore" else "places", {})
-    return [f"{st_all.of(d)['kind']}/{d}" for d in u.all("After") if st_all.of(d)["stage"] not in ("merged", "landed") and places(d).get(d)]
-
-
-def read_at(k, bolt):
-    """The ref a bolt is read at in its kit as gathered (gather.kit's at, gather.bolt_read): origin/bolt/<bolt> for a
-    bolt on GitHub, else the host's bolt/<bolt>; None when crew can't tell or the host has neither."""
-    return ((k or {}).get("bolts", {}).get(bolt) or {}).get("at")
-
-
-def bolt_at_of(k, bolt):
-    """read_at, refused when there is none, naming why (read.1): nothing is read from the host's copy in its place."""
-    f = (k or {}).get("bolts", {}).get(bolt) or {}
-    return f.get("at") or fail(f"crew can't read bolt/{bolt}: " + (f.get("error") or f"its kit holds neither bolt/{bolt} nor origin/bolt/{bolt}"))
-
-
-def take(fleet, t, place, unit, at, deps, kind="unit"):
-    """A dependent's place takes the head of each unmerged unit or chore it comes after with a place (deps, their
-    branches, took_from), as it stands, while it holds nothing of its own beyond its bolt, read at its ref (at,
-    bolt_at_of) (TAKE): the heads it holds, as "<name>@<head>"
-    words for the start of its construct, or of a chore's code. Refused, with the place as it was, when two of them
-    conflict."""
-    if not deps:
-        return ""
-    r = crew.on_machine(fleet, t["machine"], ["bash", "-c", TAKE, "crew", place, unit, at, *deps])
-    READ.drop_kit(t["machine"], t["kit"]["main"])
-    if r.returncode == 3:
-        _, other, *paths = r.stdout.strip().splitlines()[-1].split()
-        fail(f"{kind} {unit}'s place can't take {other}'s work with the rest it comes after: they conflict on {', '.join(paths)}; "
-             f"order what it comes after with crew {kind} after, then run " + ("code" if kind == "chore" else "construct") + " again")
-    r.returncode == 0 or fail(f"on {t['machine']}: " + ((r.stderr or r.stdout).strip() or f"exit {r.returncode}"))
-    return " ".join(f"{a}@{h}" for a, h in (l.split() for l in r.stdout.strip().splitlines() if l))
-
-
-def merge_command(bolt):
-    """How a unit, chore or fix merges into its bolt (teams.5, record 0026): only by a submission to sluice, sluice's
-    verdict its gate, made without waiting so that the agent waits on it with `sluice wait`, a call at a time, which no
-    capped command outlasts; sluice keeps the place, for crew to remove (plan.9). sluice queues and orders the
-    submissions, so several may wait at once."""
-    return f"sluice submit bolt/{bolt} --no-wait --json"
-
-
-def run_check(fleet, a):
-    """Whether a unit's stage may start, its place (made for construct), and the prompt the stage is sent, as facts for
-    the stage's start (run_unit_stage): PLACE, BOLT, PROMPT, AMENDED, FORECAST and TOOK. Construct
-    starts once each After unit has finished construct, never waiting on a merge (plan.13), and is run again at any
-    stage before merge; on a unit whose change is committed, or one already amended, it first marks the unit amended in
-    the plan at its head. Where that write is what marks the unit, only the conductor of the team holding its bolt, or
-    the user, makes it; on a unit whose intent was amended, which the user approved, anyone starts its construct, and
-    the prompt carries the amendment's words, read from the mark. Code starts once the change is committed, with no
-    review between; code, verify, settle and merge wait while the mark stands (plan.6). Merge waits until its verify
-    has delivered its report (record 0007) and each After unit has merged (teams.5), is refused while its bolt is split
-    (split_refusal, plan.19), and a unit carried onto its bolt inside another's merge, whose place is gone, has its
-    place made again from the bolt for its merge (teams.17), which holds the bolt's landing pull request first
-    (merge_holds); settle runs only for a unit that has delivered its verify.
-    crew chore run asks with --chore, and a chore's stages are chore_check's; a stage asked of the other kind is refused
-    naming it (plan.11)."""
-    label, repo, tip, plan = locate(fleet, "Unit", a.unit, default_label(fleet, a), "chore" if a.chore else "unit")
-    u = plan.item(a.unit)
-    CONTEXT["kind"] = kind_of(u)  # a refusal is recorded on the chore's objects, or the unit's
-    why = run_kind_refusal(kind_of(u), a.chore, a.unit, a.stage)
-    not why or fail(why)
-    if a.chore:
-        return chore_check(fleet, a, label, plan, u)
-    bolt = u.get("Bolt") or fail(f"unit {a.unit} is queued: move it into a bolt first")
-    t = bolt_team(fleet, plan.bolt(bolt))
-    st_all = Stages(fleet, plan, survey(fleet, [(t["name"], bolt, t["kit"]["name"])]))
-    s = st_all.of(a.unit)
-    st, place, mark = s["stage"], f"{t['kit']['dir']}/places/{a.unit}", u.get("Amended")
-    st != "unknown" or fail(f"cannot tell unit {a.unit}'s stage: {s.get('why')}")
-    why = left_refusal("unit", a.unit, bolt, s.get("left"))
-    not why or fail(why)
-    amended_at = ""
-    after = {d: st_all.of(d)["stage"] for d in u.all("After")}
-    why = stage_refusal(a.unit, bolt, a.stage, st, mark, after, role(fleet, crew.caller(fleet)), t["name"],
-                        s.get("open") or [], a.stage in ("settle", "merge") and st == "verify" and verified(label, a.unit),
-                        bool(a.words), chores={d for d in u.all("After") if is_chore(plan.item(d))},
-                        reports=team_state(t) / "reports")
-    if why:
-        refuse(*why) if isinstance(why, tuple) else fail(why)
-    why = landing_refusal("unit", a.unit, a.stage, bolt, *landing_now(t, bolt))
-    not why or fail(why)
-    if a.stage == "construct":
-        marking = bool(mark) or st in ("planned", "code", "verify")
-        # The amendment's words, from the mark, so whoever starts the construct sends the same prompt.
-        case = proposal(Plan(show(repo, tip, "proposals.rec") or PROPOSALS), mark.split("/", 1)[1], label).get("Case") \
-            if amended(mark) and mark != "intent" else None
-        _, kept = make_place(fleet, t, place, f"unit/{a.unit}", bolt)
-        if kept:  # a branch an earlier drop kept, which this unit builds on (record 0003)
-            print(f"{place} starts from the kept unit/{a.unit}, at {kept}")
-        k, _ = st_all.kit(plan.bolt(bolt))
-        deps = took_from(st_all, k, u)
-        took = take(fleet, t, place, a.unit, bolt_at_of(k, bolt) if deps else None, deps)
-        if marking:
-            head = s.get("head") or host_run(fleet, t["machine"], HEAD, place)
-            if head != mark:
-                amended_at = f"{repo}@{mark_amended(fleet, label, a.unit, bolt, head)}"
-        facts = dict(intent=u.get("Intent"), sources=u.all("Source"), again=again_words(mark, case))
-    elif a.stage == "code":
-        k, _ = st_all.kit(plan.bolt(bolt))
-        facts = dict(overlaps=overlapping(plan, st_all, k, a.unit, declared(k, a.unit, "code")))
-    elif a.stage == "verify":
-        k, _ = st_all.kit(plan.bolt(bolt))
-        got = (k["places"].get(a.unit) or {}).get("touches") or {}
-        facts = dict(loose=undeclared(fleet, t, bolt_at_of(k, bolt), a.unit, got.get("entries", []), u.all("After")), touches=got)
-    elif a.stage == "merge":
-        split = bolt_split_check(fleet, t, bolt)
-        why = split and split_refusal("unit", a.unit, bolt, t["machine"], *split)
-        not why or fail(why)
-        if not s.get("worktree"):  # carried onto the bolt inside another's merge, its place gone: made again from the bolt
-            make_place(fleet, t, place, f"unit/{a.unit}", bolt)
-        merge_carries(fleet, t, plan, st_all.kit(plan.bolt(bolt))[0], bolt, "unit", a.unit)
-        merge_bolts(fleet, t, bolt, "unit", a.unit, f"unit/{a.unit}")
-        merge_holds(fleet, t, bolt, f"unit {a.unit}'s merge into bolt/{bolt}")
-        facts = dict(bolt=bolt, merge=merge_command(bolt))
-    else:
-        facts = {}
-    # What reached the unit while no stage of it ran: forecasts, carried in this stage's prompt and named on its start.
-    ids, said = carried_forecasts(fleet, t, plan, st_all, bolt, a.unit)
-    prompt = stage_prompt(a.stage, a.unit, a.words, carried=said, **facts)
-    # A construct that marked the unit amended: the plan's commit, which the stage's start names.
-    return dict(PLACE=place, BOLT=bolt, PROMPT=prompt, AMENDED=amended_at, FORECAST=" ".join(ids),
-                TOOK=took if a.stage == "construct" else "")
-
-
-def merge_carries(fleet, t, plan, k, bolt, kind, name):
-    """A unit's or chore's merge refused before its submission while its branch holds another unit's change open that
-    its bolt does not hold archived (teams.17): read on the team's host, the branch's open changes in git and the bolt's
-    archived ones as gathered (k), decided by carried_in and worded by carried_refusal. Refused when either can't be
-    read (read.1)."""
-    k or fail(f"can't tell what {kind}/{name} carries into bolt/{bolt}: its kit on {t['machine']} was not read")
-    _, out = kit_git(fleet, t, t["kit"]["main"], "ls-tree", "-d", "--name-only", f"refs/heads/{kind}/{name}", "openspec/changes/")
-    opened = [l[len("openspec/changes/"):] for l in out.splitlines() if l.startswith("openspec/changes/")]
-    carried = carried_in(name, {u.name() for u in plan.units()}, opened, k["bolts"].get(bolt, {}).get("archived", []))
-    not carried or fail(carried_refusal(kind, name, bolt, carried, bolt_order(plan, bolt)[1]))
-
-
-def carried_in(name, units, opened, archived):
-    """The changes a unit's or chore's branch holds open (opened) that are another unit's of the plan (units) and that
-    its bolt does not hold archived (archived): what its merge would carry onto the bolt inside its own, which no merge
-    may (teams.17). A change that is no unit's, as one main has held open since before archives, is not counted."""
-    return sorted(c for c in opened if c != name and c in units and c not in archived)
-
-
-def carried_refusal(kind, name, bolt, carried, after_of):
-    """Why a merge is refused for the other units' changes its branch carries open (carried_in), naming each, and what
-    the conductor does: a unit that comes after this one (after_of, plan.13) has its work taken out of this branch,
-    since it merges later; any other merges first, its own merge archiving its change."""
-    both = lambda xs: xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
-    later = [c for c in carried if comes_after(after_of, c, name)]
-    first = [c for c in carried if c not in later]
-    return (f"{kind} {name} does not merge while {kind}/{name} holds the change" + ("" if len(carried) == 1 else "s")
-            + f" of {both(carried)} open, which "
-            f"bolt/{bolt} does not hold archived: no unit's change reaches a bolt inside another's merge; "
-            + "; ".join(([f"{both(later)} " + ("comes" if len(later) == 1 else "come") + f" after {name}: take that work "
-                          f"out of {kind}/{name} (crew {kind} run {name} code \"<what to take out>\")"] if later else [])
-                        + ([f"merge {both(first)} first, each one's own merge archiving its change (crew unit run <unit> merge)"
-                            if len(first) > 1 else f"merge {first[0]} first, its own merge archiving its change (crew unit run {first[0]} merge)"]
-                           if first else [])))
-
-
-def archives_owed(name, units, opened, ticked, specs):
-    """The archives a unit's merge makes itself before its own (teams.17, record 0006): while its branch holds its own
-    change open (opened), each other change it holds open that no unit of the plan has (units), every task ticked
-    (ticked, change: bool), whose deltas touch a capability its own change's do, or one such change's do (specs,
-    change: its capabilities), since openspec folds a delta only over the requirements the specs already hold. Another
-    unit's change is that unit's own merge's to archive (carried_in). [] once its own is archived."""
-    if name not in opened:
-        return []
-    can = {c for c in opened if c != name and c not in units and ticked.get(c)}
-    caps, owed = set(specs.get(name, ())), set()
-    while more := {c for c in can - owed if caps & set(specs.get(c, ()))}:
-        owed |= more
-        caps |= {cap for c in more for cap in specs.get(c, ())}
-    return sorted(owed)
-
-
-def archives_refusal(name, owed):
-    """Why a unit's merge does not stop short while its branch holds archives it can make itself (archives_owed),
-    naming each, and what it does instead: archives them, then its own, and submits."""
-    both = lambda xs: xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
-    one = len(owed) == 1
-    return (f"merge on {name} does not stop short for archives it can make: unit/{name} holds {both(owed)} open, "
-            + ("every task ticked, no unit's of the plan, and touching specs its change does" if one else
-               "each with every task ticked, no unit's of the plan, and touching specs its change does")
-            + "; a merge archives what its own archive needs first: archive " + ("it" if one else "each, oldest first,")
-            + " with `openspec archive <change> --yes`, committed as `docs(openspec): archive <change>`, then "
-            f"{name}'s own, and submit. If openspec refuses one of them, say so again with its words, and crew passes "
-            "it on")
-
-
-def merge_owes(fleet, t, name):
-    """The archives a unit's merge stage could make itself (archives_owed), read on the team's host: the plan's units,
-    and in git the changes its branch holds open, the tasks of each no unit of the plan has, and the capabilities each
-    one's deltas touch. Refused when either can't be read (read.1)."""
-    label = t["label"]
-    plan = plan_of(fleet, label) or fail(f"can't tell which archives the merge on {name} can make: {label}/main could not be read")
-    kt = unit_kit_team(fleet, label, t, name)
-    main, ref = kt["kit"]["main"], f"refs/heads/unit/{name}"
-    _, out = kit_git(fleet, kt, main, "ls-tree", "-r", "--name-only", ref, "openspec/changes/")
-    files = {}
-    for path in out.splitlines():
-        c, _, rest = path[len("openspec/changes/"):].partition("/")
-        if path.startswith("openspec/changes/") and rest and c != "archive":
-            files.setdefault(c, []).append(rest)
-    units = {u.name() for u in plan.units()}
-    specs = {c: {r.split("/")[1] for r in rs if r.startswith("specs/") and r.count("/") > 1} for c, rs in files.items()}
-    ticked = {}
-    for c in sorted(set(files) - units - {name}):
-        if "tasks.md" in files[c]:
-            _, text = kit_git(fleet, kt, main, "show", f"{ref}:openspec/changes/{c}/tasks.md")
-            tasks = gather.tasks_of(text)
-            ticked[c] = bool(tasks) and all(done for done, _ in tasks)
-    return archives_owed(name, units, sorted(files), ticked, specs)
-
-
-def run_kind_refusal(kind, chore, name, stage):
-    """Why a stage asked of a unit or chore is refused for its kind (plan.11), or None: crew unit run on a chore, which
-    has no construct and no settle, or crew chore run (chore) on a unit, said with the command that runs it."""
-    if kind == "chore" and not chore:
-        if stage in ("construct", "settle"):
-            return f"{name} is a chore, which has no {stage}: its stages are code, verify and merge (crew chore run {name} code)"
-        return f"{name} is a chore: crew chore run {name} {stage}"
-    if kind == "unit" and chore:
-        return f"{name} is a unit: crew unit run {name} {stage}"
-    return None
+# ---------------------------------------------------- a bolt's landing, its fixes and the tidy, on its host
 
 
 def landing_now(t, bolt):
@@ -9319,41 +8577,6 @@ def landing_now(t, bolt):
     except (OSError, ValueError):
         return path, True, False
     return path, True, True
-
-
-def landing_refusal(kind, name, stage, bolt, path, standing, alive):
-    """Why a unit's or chore's stage does not start while its bolt's landing is in flight (plan.8, record 0032 §3), or
-    None: sluice lands the head that was submitted, so work merged into the bolt meanwhile is left out of main's
-    landing and `crew bolt land` refuses until a second submission carries it. A construct, code or merge waits while
-    the landing's worktree stands on the bolt's branch with its process alive (landing_now); a verify or settle starts,
-    since it moves nothing toward the bolt, and so does every stage once sluice's outcome is in, landed or refused, so
-    the fix that takes main into a refused bolt is never held."""
-    if stage not in ("construct", "code", "merge") or not (standing and alive):
-        return None
-    return (f"bolt {bolt}'s landing is queued in sluice, submitted from {path}: {kind} {name}'s {stage} starts once it "
-            f"has landed or been refused, since what merges into bolt/{bolt} meanwhile is left out of main's landing")
-
-
-def split_refusal(kind, name, bolt, host, remote, f):
-    """Why a unit's, chore's or fix's merge is refused while its bolt is split (plan.19), or None: the host's tip names
-    remote for the bolt and that remote's bolt/<bolt> lacks it (f, kit.bolt_split), so sluice would form the merge
-    there and drop what the host holds; the landing, whose push makes the two one, is the way on. A copy that holds the
-    host's tip, or none at all, which sluice refuses itself, lets it through, and so does a fix whose head holds the
-    host's tip (carried), having taken the host copy's merges in, which sluice's merge on the remote's copy then drops
-    none of: the way on of a bolt whose two copies have diverged (landing_head). One crew could not read refuses
-    (read.1)."""
-    if f["read"]:
-        return f"crew can't tell whether bolt/{bolt} is split, so {kind} {name}'s merge waits: {f['read']}"
-    if f["there"] == "-" or f["held"] == "yes" or f.get("carried") == "yes":
-        return None
-    n = f["merges"]
-    lacks = f"{host}'s tip" if not n else f"{n} merge{'' if n == 1 else 's'} {host} holds"
-    carry = (f"; a fix that takes {host}'s merges in first (git merge bolt/{bolt} in its place) carries them, and merges"
-             if kind == "fix" else "")
-    return (f"bolt/{bolt} is split: its tip on {host}, {f['local'][:7]}, names {remote} for it, so sluice would form "
-            f"{kind} {name}'s merge on {remote}'s bolt/{bolt} at {f['there'][:7]}, which lacks {lacks}, and drop "
-            f"{'them' if n > 1 else 'it'}. The bolt takes no merge until it lands: its landing (crew bolt submit {bolt}, "
-            f"main-level ops's on the user's word) pushes {host}'s tip to {remote} and makes the two one{carry}")
 
 
 def landing_head(bolt, host, f):
@@ -9393,132 +8616,10 @@ def landing_head(bolt, host, f):
                           "lacks; the landing submits that tip, its push moving GitHub's branch forward"))
     return (f"bolt/{bolt} was not submitted: its two copies have diverged: {host}'s {own[:7]} holds {merges(f['lacks'])} "
             f"GitHub's {there[:7]} lacks, and GitHub's holds {merges(f['beyond'])} {host}'s lacks, so either submission "
-            f"would drop merges. The bolt is its branch on GitHub, so the way on is its team's: its conductor starts a fix "
-            f"(crew fix), whose place is cut from GitHub's head, that takes {host}'s merges in (git merge bolt/{bolt}) and "
-            f"merges into the bolt through sluice; the landing then submits GitHub's head, levelling {host}'s copy to it")
-
-
-def chore_check(fleet, a, label, plan, c):
-    """Whether a chore's stage may start (chore_refusal), its place (made at its first code, on chore/<name> from the
-    bolt, tracking it, and taking the head of each unmerged unit or chore it comes after, as a unit's construct's place
-    does, TOOK, plan.13), and the prompt the stage is sent (chore_prompt), as facts for the stage's start, as run_check
-    gives a unit's. A merge is refused while its bolt is split (split_refusal, plan.19) or a commit of its own lacks the
-    chore's trailer, which is how its merge and its landing are read (plan.11), and holds the bolt's landing pull
-    request before it starts (merge_holds)."""
-    bolt = c.get("Bolt") or fail(f"chore {a.unit} is queued: move it into a bolt first")
-    t = bolt_team(fleet, plan.bolt(bolt))
-    st_all = Stages(fleet, plan, survey(fleet, [(t["name"], bolt, t["kit"]["name"])]))
-    s = st_all.of(a.unit)
-    st, place = s["stage"], f"{t['kit']['dir']}/places/chore-{a.unit}"
-    st != "unknown" or fail(f"cannot tell chore {a.unit}'s stage: {s.get('why')}")
-    why = left_refusal("chore", a.unit, bolt, s.get("left"))
-    not why or fail(why)
-    after = {d: (st_all.of(d)["kind"], st_all.of(d)["stage"]) for d in c.all("After")}
-    why = chore_refusal(a.unit, bolt, a.stage, st, after, a.stage == "merge" and st == "verify" and verified(label, a.unit))
-    not why or fail(why)
-    why = landing_refusal("chore", a.unit, a.stage, bolt, *landing_now(t, bolt))
-    not why or fail(why)
-    merge = took = ""
-    if a.stage == "code":
-        _, kept = make_place(fleet, t, place, f"chore/{a.unit}", bolt)
-        if kept:  # a branch an earlier drop kept, which this chore builds on (record 0003)
-            print(f"{place} starts from the kept chore/{a.unit}, at {kept}")
-        k, _ = st_all.kit(plan.bolt(bolt))
-        deps = took_from(st_all, k, c)
-        took = take(fleet, t, place, a.unit, bolt_at_of(k, bolt) if deps else None, deps, "chore")
-    elif a.stage == "merge":
-        split = bolt_split_check(fleet, t, bolt)
-        why = split and split_refusal("chore", a.unit, bolt, t["machine"], *split)
-        not why or fail(why)
-        loose = untrailed(chore_commits(fleet, t, bolt_at_of(st_all.kit(plan.bolt(bolt))[0], bolt), a.unit), a.unit)
-        not loose or fail(f"chore {a.unit} merges only once every commit of its own beyond bolt/{bolt} carries `Chore: {a.unit}`, and "
-                          + ", ".join(f"{sha} ({subject})" for sha, subject in loose) + (" does" if len(loose) == 1 else " do")
-                          + f" not: run its code again to add the trailer (crew chore run {a.unit} code)")
-        merge_carries(fleet, t, plan, st_all.kit(plan.bolt(bolt))[0], bolt, "chore", a.unit)
-        merge_bolts(fleet, t, bolt, "chore", a.unit, f"chore/{a.unit}")
-        merge_holds(fleet, t, bolt, f"chore {a.unit}'s merge into bolt/{bolt}")
-        merge = merge_command(bolt)
-    prompt = chore_prompt(a.stage, a.unit, c.get("Intent"), a.words, bolt, merge)
-    return dict(PLACE=place, BOLT=bolt, PROMPT=prompt, AMENDED="", FORECAST="", TOOK=took)
-
-
-def left_refusal(kind, name, bolt, left):
-    """Why no stage of a unit or chore starts while a place it has left stands at its path (left, as Stages.of marks a
-    place tracking another bolt, kept from a drop or a move), or None: its stage cuts its place from bolt/<bolt>
-    (make_place), never builds on that one, which the team's read before the stage removes when it is clean, its branch
-    kept and built on when it holds work of its own (tidy_over, plan.10, record 0003); one the read kept, saying why, or
-    left for a slot that holds it, waits for a hand."""
-    if not left:
-        return None
-    return (f"{kind} {name}'s place {left['path']} tracks bolt/{left['bolt']}, which it has left for bolt/{bolt}, and still "
-            f"stands: crew's tidy removes it only when it is clean, unlocked and no slot or run holds it, and once it is gone "
-            f"{name}'s stage cuts its place from bolt/{bolt}")
-
-
-def chore_refusal(name, bolt, stage, st, after, delivered_verify):
-    """Why a chore's stage may not start, or None when it may (plan.11, plan.13, teams.5): stage is the one asked, st
-    the chore's stage read from its kit, after each After unit's or chore's (kind, stage), delivered_verify whether its
-    verify has delivered (verified). None runs on merged or landed work; code waits until each it comes after has
-    something committed to build on, never a merge (built_on), and runs on a ready, coding or verified chore; verify
-    once its place holds a commit of its own; merge once its verify has delivered, a fix round after it calling for no
-    other (teams.17), and each it comes after has merged."""
-    if stage not in ("code", "verify", "merge"):
-        return f"a chore has no {stage}: its stages are code, verify and merge (crew chore run {name} code)"
-    if st in ("merged", "landed"):
-        return (f"chore {name} has " + ("merged into its bolt" if st == "merged" else "landed on main")
-                + ": a defect in it is a fix (crew fix), and new maintenance a new chore")
-    if st == "waiting":
-        unbuilt = [d for d, (k, x) in after.items() if not built_on(k, x)]
-        return (f"chore {name} is waiting: it comes after " + ", ".join(unbuilt) + (", which has" if len(unbuilt) == 1 else ", which have")
-                + " nothing committed to build on yet")
-    if stage == "code":
-        return None
-    if st == "ready":
-        return f"chore {name} has not been coded yet: crew chore run {name} code"
-    if st != "verify":
-        return (f"chore {name} has nothing committed beyond bolt/{bolt} yet: "
-                + ("verify waits for its code" if stage == "verify" else "it merges once its code is committed and its verify has delivered"))
-    if stage == "merge" and not delivered_verify:
-        return f"chore {name} merges once its verify has delivered: crew chore run {name} verify"
-    ahead = [d for d, (_, x) in after.items() if stage == "merge" and x not in ("merged", "landed")]
-    return f"chore {name} merges after " + ", ".join(ahead) + f", not yet merged into bolt/{bolt}" if ahead else None
-
-
-def chore_prompt(stage, name, words_of, words="", bolt="", merge=""):
-    """The prompt a chore's stage is sent (plan.11): code is told the chore and its words, `Chore <name>: <words>`,
-    verify checks them, `Verify chore <name>: <words>`, and merge says how it merges into its bolt, as a unit's does;
-    the conductor's or the user's words after the stage's own."""
-    w = f" {words}" if words else ""
-    if stage == "code":
-        return f"Chore {name}: {words_of}{w}"
-    if stage == "verify":
-        return f"Verify chore {name}: {words_of}{w}"
-    return f"Merge {name} into bolt/{bolt}: {merge}{w}"
-
-
-# How a chore's own commits beyond its bolt are read: its first-parent line with no merges, so the work it took of what it
-# comes after, merged in by TAKE, is not its own; each commit ended by NUL and its fields split by SOH, which no subject
-# or name holds: its short sha, its subject, and the names its `Chore:` trailers give, joined by commas, as git parses them.
-CHORE_LOG = ("log", "--reverse", "--first-parent", "--no-merges", "-z", "--abbrev=7",
-             "--format=%h%x01%s%x01%(trailers:key=Chore,valueonly,separator=%x2c)")
-
-
-def chore_commits(fleet, t, at, chore):
-    """Each commit of the chore's own on chore/<chore> beyond its bolt, read at its ref (at, bolt_at_of), oldest first,
-    read on the team's host (chore_log)."""
-    return chore_log(kit_git(fleet, t, t["kit"]["main"], *CHORE_LOG, f"{at}..refs/heads/chore/{chore}")[1])
-
-
-def chore_log(out):
-    """CHORE_LOG's output as [(short sha, subject, [the names its Chore: trailers give])]."""
-    fields = (r.split("\x01") for r in out.split("\0") if r.strip())
-    return [(f[0].strip(), f[1], [n.strip() for n in f[2].split(",") if n.strip()]) for f in fields if len(f) == 3]
-
-
-def untrailed(commits, chore):
-    """The commits of a chore's branch beyond its bolt (chore_commits) that carry no `Chore: <chore>` trailer, as
-    (short sha, subject): what a merge is refused for, since the bolt and main are read for the trailer (plan.11)."""
-    return [(sha, subject) for sha, subject, names in commits if chore not in names]
+            f"would drop merges. The bolt is its branch on GitHub, so the way on is a fix on the bolt, which you start, "
+            f"crew fix {bolt} <name> \"<words>\", its words asking it to take {host}'s merges in (git merge bolt/{bolt} "
+            f"there); Flume submits it to the bolt through sluice, and the landing then submits GitHub's head, levelling "
+            f"{host}'s copy to it")
 
 
 def again_words(mark, case=None):
@@ -9532,308 +8633,157 @@ def again_words(mark, case=None):
     return ""
 
 
-def stage_prompt(stage, unit, words="", intent="", sources=(), again="", overlaps=(), loose=(), touches=None, bolt="",
-                 merge="", carried=()):
-    """The prompt a unit's stage is sent, the user's or conductor's words after the stage's own: construct proposes the
-    change from the intent and its sources, with an amendment's words; code applies it, told each Touches it overlaps
-    of an unmerged unit ahead of it; verify verifies it, told each path it changed and did not declare; settle names
-    what reached it; merge says how the unit merges into its bolt. What reached the unit while no stage of it ran is
-    carried at the end."""
-    w = f" {words}" if words else ""
-    if stage == "construct":
-        prompt = f"/opsx:propose {unit} {intent}" + (" Sources: " + "; ".join(sources) + "." if sources else "") + again + w
-    elif stage == "code":
-        prompt = f"/opsx:apply {unit}{w}" + "".join(" " + x for x in overlaps)
-    elif stage == "verify":
-        touches = touches or {}
-        prompt = f"/opsx:verify {unit}{w}" + (
-            (" Changed and not declared in its Touches: " + ", ".join(loose) + "."
-             + ("" if "entries" in touches else f" Its change declares no Touches: {touches.get('missing')}.")) if loose else "")
-    elif stage == "settle":
-        prompt = f"Settle {unit}:{w}"
-    else:
-        prompt = f"Merge {unit} into bolt/{bolt}: {merge}{w}"
-    return prompt + "".join(" " + x for x in carried)
+def started(b):
+    """Whether a bolt's work is started, by crew bolt start or a crossed team's give before it: marked Path: flume
+    (Decision 14 of the-team-machinery-leaves); a bolt in flight is a started one."""
+    return b is not None and b.get("Path") == "flume"
 
 
-def stage_refusal(unit, bolt, stage, st, mark, after, caller, team, open_tasks, delivered_verify, has_words, chores=(),
-                  reports="its team's reports folder"):
-    """Why a unit's stage may not start, or None when it may (plan.6, plan.13, teams.5): stage is the one asked, st the
-    unit's stage read from its place, mark its Amended mark, after each After unit's stage, caller the asker's (kind,
-    team), team the name of the team holding its bolt, open_tasks the titles of its tasks still open, delivered_verify
-    whether its verify has delivered its report since its change was last written (verified). A refusal that
-    quotes typed text is (what is said, what the run record holds), else one string. Construct waits on its After
-    units' construct, is never run on merged or landed work, and on a committed or amended unit is run again only by
-    its conductor or the user, unless the user's approved amendment asked for it; every other stage waits while the
-    mark stands; code needs the change committed; verify every task ticked; settle a delivered verify and what reached
-    the unit; merge a verified unit, one whose verify delivered its report, named with the folder it is saved in
-    (reports) when it did not (record 0007), whose After units have merged. chores names the After that are chores,
-    whose code a unit's construct waits on as it waits on a unit's change (plan.13)."""
-    if stage == "construct":
-        if st == "waiting":
-            deps = [d for d, x in after.items() if d not in chores and not built_on("unit", x)]
-            uncoded = [d for d, x in after.items() if d in chores and not built_on("chore", x)]
-            return (f"unit {unit} is waiting: it comes after "
-                    + "; and ".join(([", ".join(deps) + ", whose change is not committed yet"] if deps else [])
-                                    + ([f"chore {', '.join(uncoded)}, whose code has not delivered yet"] if uncoded else [])))
-        if st in ("merged", "landed"):
-            return (f"unit {unit} has " + ("merged into its bolt" if st == "merged" else "landed on main")
-                    + ": a defect in it is a fix (crew fix), and a new need is a new unit")
-        marking = bool(mark) or st in ("planned", "code", "verify")
-        if marking and not amended(mark) and caller[0] != "user" and tuple(caller) != ("conductor", team):
-            return (f"unit {unit} is in {st}, so construct run again marks it amended: a plan write only {team}-conductor "
-                    "or the user makes")
+def bolt_launches(requests, bolt):
+    """Every launch of a bolt's work, on its branch, dropped or not, in requests.rec's order: what the runners that took
+    them report where the bolt's work runs by (runner.where)."""
+    return [r for r in requests if r.get("Act") == "launch" and r.get("Base") == f"bolt/{bolt}"]
+
+
+def kit_of(repo, folder):
+    """A kit as crew reads and acts in it on its host (bolt_at): its name, its repository as the plan names it (repo),
+    and its folder there (folder), where git runs and crew's landing place goes, <folder>/places/land-<bolt>, as Flume's
+    status of a place the runner took names its repository (runner.where)."""
+    return {"name": repo.split("/")[-1], "repo": repo, "main": folder, "dir": folder}
+
+
+def bolt_at(fleet, label, b, run=None):
+    """Where a started bolt's work runs, read and landed, as the runner that took it reported (the user's ruling of
+    2026-11-01; Decision 4 of the-team-machinery-leaves; runner.where): {"label", "machine", "stream", "kit" (kit_of)},
+    the host whose runner took the newest of its launches taken, the stream and the kit's folder there as Flume's status
+    of its places names them; None for a bolt not started (started) or naming no kit. crew looks up no kit's host.
+    Refused when no runner has reported taking its work yet, crew can't tell which did, or the runner that did has
+    carried no place naming the kit's folder (read.1). run, the partition's requests and runners as runner_facts reads
+    them, read when not given."""
+    if not started(b) or not b.get("Repo"):
         return None
-    if st in ("amended", "construct") and mark:
-        return f"unit {unit} was amended and " + (f"construct has not been run again (crew unit run {unit} construct)" if st == "amended"
-                                                  else "its change is being written again, and has not been committed")
-    if stage == "code":
-        if st not in ("planned", "code", "verify"):
-            return f"unit {unit} is in {st}: " + ("code waits until its change is committed" if st == "construct" else "it has no change to code yet")
+    return launched_at(fleet, label, b.name(), b.get("Repo"), run)
+
+
+def bolt_taken(fleet, label, b, run=None):
+    """Where a started bolt's work runs (bolt_at), as (where, None); (None, None) while no runner has taken any of its
+    own work and every runner was read, so nothing of it has merged through Flume to land; or (None, why) when crew
+    can't tell (read.1)."""
+    requests, reads = run or runner_facts(fleet, label)
+    if runner.where(reads, bolt_launches(requests, b.name()), f"bolt {b.name()}", b.get("Repo") or "") == (None, None):
+        return None, None
+    try:
+        return bolt_at(fleet, label, b, (requests, reads)), None
+    except Refusal as e:
+        return None, str(e)
+
+
+def launched_at(fleet, label, bolt, repo, run=None):
+    """Where a bolt's work ran, as bolt_at gives it, from its launches, which requests.rec keeps once the bolt has left
+    the plan, its kit (repo) as the plan or its landing named it (a landing read after the bolt's close, landing_at); and,
+    while no runner has taken any of the bolt's own work, where the runner that took its kit's work reported the kit
+    (kit_at), since the bolt is read and landed in the kit's folder there; and where the runner that took the bolt's
+    work has carried no place of it, every launch refused, as one for a change the bolt already holds is, the kit's folder
+    on that runner's host as its places of the kit's other work name it (kit_at), never another host's."""
+    requests, reads = run or runner_facts(fleet, label)
+    at, why = runner.where(reads, bolt_launches(requests, bolt), f"bolt {bolt}", repo)
+    not why or fail(why)
+    if at is None:
+        return kit_at(fleet, label, repo, (requests, reads))
+    if not at["dir"]:
+        try:
+            k = kit_at(fleet, label, repo, (requests, reads))
+        except Refusal:
+            k = None
+        if k and k["machine"] == at["host"]:
+            return dict(k, stream=at["stream"] or k["stream"])
+    at["dir"] or fail(f"the runner on {at['host']} took bolt {bolt}'s work and has carried no place of it yet, so crew can't "
+                      f"tell where it keeps {repo} there")
+    return {"label": label, "machine": at["host"], "stream": at["stream"], "kit": kit_of(repo, at["dir"])}
+
+
+def known_at(fleet, label, b, run=None):
+    """Where a started bolt's work runs (bolt_at), or None for one not started, or whose host crew can't tell, which its
+    stages' reads name (Stages.kit)."""
+    try:
+        return bolt_at(fleet, label, b, run)
+    except Refusal:
         return None
-    if stage == "verify":
-        if st == "code":
-            n = len(open_tasks)
-            return (f"unit {unit} is in code, with these tasks still open: " + "; ".join(open_tasks),
-                    f"unit {unit} is in code, with {n} task{'' if n == 1 else 's'} still open")  # titles are typed text
-        return None if st == "verify" else f"unit {unit} is in {st}: verify waits until every task is ticked"
-    if stage == "settle":
-        if not (st == "verify" and delivered_verify):
-            return (f"unit {unit} is in {st}" + (", and has not delivered its verify" if st == "verify" else "")
-                    + ": settle runs only for a unit that has delivered its verify and waits to merge")
-        return None if has_words else f"settle {unit} with what reached it: crew unit run {unit} settle \"<the forecast or the amendment>\""
-    if st != "verify":
-        return f"unit {unit} is in {st}: it merges once every task is ticked and verify has run"
-    if not delivered_verify:
-        return (f"unit {unit} merges only once its verify has delivered its report, and no verify since its change was "
-                f"last written has: no report verify-{unit}-<YYYYMMDD-HHMM>.md was delivered from {reports} "
-                f"(crew unit run {unit} verify)")
-    ahead = [d for d, x in after.items() if x not in ("merged", "landed")]
-    return f"unit {unit} merges after " + ", ".join(ahead) + f", not yet merged into bolt/{bolt}" if ahead else None
 
 
-def amended_units(fleet, t):
-    """The line a team's conductor is greeted with, or sent on crew resume, naming each unit of its bolt whose stage is
-    amended, which no construct has run on since: "" when there is none. When the plan or the bolt's kit cannot be read
-    it says so, rather than name no unit (read.1), and the greeting still goes out."""
-    CONTEXT["label"] = t["label"]
-    errors, names, unread = {}, [], []
-    found = plans(fleet, [t["label"]], errors)
-    unread += [f"{k} could not be read: {v}" for k, v in errors.items()]
-    plan = found[0][3] if found else None
-    held = held_by(plan, t["name"]) if plan else []
-    if held:
-        st = stages_for(fleet, plan, held)  # one survey of the team's host (plan.12)
-        for b in held:
-            for u in plan.units_of(b.name()):
-                s = st.of(u.name())
-                if s["stage"] == "amended":
-                    names.append(u.name())
-                elif s["stage"] == "unknown" and s.get("why") and s["why"] not in unread:
-                    unread.append(s["why"])
-    return amended_said(names, unread)
+def bolt_host(fleet, label, b, runs):
+    """The host a started bolt's work runs on (known_at) from the partition's runners as a read holds them (runs, {label:
+    (requests, readings)}, rail_runs), None for one not started, one whose partition the read holds no runners of, or
+    one whose host crew can't tell; reading nothing (code.7)."""
+    return (known_at(fleet, label, b, runs[label]) or {}).get("machine") if started(b) and label in (runs or {}) else None
 
 
-def amended_said(names, unread):
-    """What a conductor brought back is told of its bolt's units that wait amended with no construct running (plan.15):
-    each named, or that crew could not read whether any does, on one line; "" for none."""
-    said = []
-    if len(names) == 1:
-        said.append(f"Unit {names[0]} was amended and no construct runs on it: run construct on it now "
-                    f"(crew unit run {names[0]} construct).")
-    elif names:
-        said.append(f"Units {', '.join(names)} were amended and no construct runs on them: run construct on each now "
-                    "(crew unit run <unit> construct).")
-    if unread:
-        why = " ".join("; ".join(unread).split())  # one line, though git's own words may span several
-        said.append(f"crew could not read whether a unit of your bolt waits amended ({why}): read crew bolts.")
-    return " ".join(said)
+def bolts_on(fleet, label, plan, host, run=None):
+    """The started bolts of a partition's plan whose work runs on a host (known_at), in the plan's order: what that host
+    reads and lands of the partition's bolts."""
+    run = run or runner_facts(fleet, label)
+    return [b for b in plan.bolts() if (known_at(fleet, label, b, run) or {}).get("machine") == host]
 
 
-def bolt_team(fleet, b):
-    """The team holding a bolt, as it works on it: with the bolt's kit as its kit, since a team may hold several
-    (record 0035); None when no team of the teams file holds it. Refused when the team builds no kit by the bolt's."""
-    t = fleet["teams"].get(b.get("Team")) if b else None
-    return crew.with_kit(t, b.get("Repo")) if t and b.get("Repo") else t
+def kit_at(fleet, label, kit, run=None):
+    """Where a kit's work runs, as the runner that took it reported (the user's ruling of 2026-11-01; runner.where): of
+    every launch of the partition's work in the kit's repository, by its name or forge address (kit_in), the host whose
+    runner took the newest taken, and the kit's folder there, as bolt_at gives a bolt's; where its landings card's rows
+    are forecast and read. Refused when no runner has reported taking any of the kit's work, crew can't tell which did,
+    or where it keeps the kit (read.1)."""
+    requests, reads = run or runner_facts(fleet, label)
+    at, why = runner.where(reads, runner.kit_launches(requests, kit), kit, kit)
+    not why or fail(why)
+    at or fail(f"no runner has reported taking {kit}'s work yet, so crew can't tell where it runs")
+    at["dir"] or fail(f"the runner on {at['host']} took {kit}'s work and has carried no place of it yet, so crew can't tell "
+                      f"where it keeps {kit} there")
+    return {"label": label, "machine": at["host"], "stream": at["stream"], "kit": kit_of(kit, at["dir"])}
 
 
-def held_repo(fleet, t):
-    """The kit of the bolt a team builds (team_building), from its plan; None when it holds none. Refused when the plan
-    can't be read, or which of two bolts it builds can't be told."""
-    repo, ref = state_of(fleet, t["label"])
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {t['label']}")
-    plan = read(repo, ref, tip)
-    built = team_building(fleet, plan, t)
-    return plan.bolt(built).get("Repo") if built else None
+def card_kit(fleet, t, kit, home):
+    """The kit a card of it is asked from and filed under (card_where): its folder where its work runs (t, kit_at), with
+    its forge address (forge); home, the kit as the card names it when crew can't tell where its work runs or its forge
+    address, t None."""
+    if t is None:
+        return home
+    try:
+        return dict(t["kit"], repo=forge(fleet, t))
+    except Refusal:
+        return dict(t["kit"], repo=home["repo"])
 
 
-def at_work(fleet, name):
-    """A team by name as it works on the bolt it holds (crew.held_team)."""
-    return crew.held_team(fleet, crew.team_of(fleet, name))
-
-
-def unit_kit_team(fleet, label, t, unit):
-    """A team as it worked on a unit: with the kit of the unit's bolt as its kit, read from the plan, for a team that
-    holds several kits; a team of one kit as it is. Refused when the plan can't be read or holds no such unit."""
-    if len(crew.kits_of(t)) < 2:
-        return t
-    plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so the kit of {unit}'s bolt can't be told")
+def unit_at(fleet, label, unit):
+    """Where a unit's work ran, as its bolt's (bolt_at), read from the plan. Refused when the plan can't be read, holds
+    no such unit, or its bolt is not started or crew can't tell where its work runs."""
+    plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so where {unit} was built can't be told")
     u = plan.item(unit) or fail(f"{label}/main holds no unit {unit}")
     b = plan.bolt(u.get("Bolt")) if u.get("Bolt") else None
-    (b and b.get("Repo")) or fail(f"{unit} is in no bolt of {label}/main, so the kit {t['name']} built it in can't be told")
-    return crew.with_kit(t, b.get("Repo"))
+    b or fail(f"{unit} is in no bolt of {label}/main, so where it was built can't be told")
+    return bolt_at(fleet, label, b) or fail(f"bolt {b.name()} is not started, so {unit} was built nowhere crew can read")
 
 
-def bolt_of_team(fleet, t):
-    """The bolt a team builds (team_building), from its plan; refused when it holds none, the plan can't be read, or
-    which of two bolts it builds can't be told."""
-    repo, ref = state_of(fleet, t["label"])
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {t['label']}")
-    return team_building(fleet, read(repo, ref, tip), t) or fail(f"{t['name']} holds no bolt: crew bolt give {t['name']}")
-
-
-def fix_bolt(team, held, named, slotted, name):
-    """The bolt a fix is of (teams.3, teams.16), from facts: held, the bolts the team holds, by name; named, the one
-    --bolt names, or None; slotted, the fixes the team's slots hold (fix/<bolt>/<name>). The bolt named, refused when
-    the team does not hold it; else the bolt of the fix by that name a slot holds, refused when one of each bolt does;
-    else the one bolt held, refused when it holds none, or two, which a new fix names with --bolt."""
-    if named:
-        named in held or fail(f"{team} holds no bolt {named}: it holds " + (" and ".join(held) or "none"))
-        return named
-    mine = [b for b in held if f"fix/{b}/{name}" in slotted]
-    len(mine) < 2 or fail(f"fix {name} is in flight on {' and '.join(mine)}: name its bolt with --bolt")
+def batch_unit_at(fleet, label, bolt, unit, run=None):
+    """Where a batch's unit was built (review-batches; the user's ruling of 2026-11-01): where the bolt its entry names
+    (<unit>:<bolt>@<commit>) ran its work, as the runner that took it reported, the kit from its launches (launched_at),
+    so a bolt that has left the plan is still read; and, for an entry written before a batch named its bolt, whose
+    middle name is a team's, where the plan's bolt of the unit runs (unit_at). Refused when crew can't tell."""
+    requests, reads = run or runner_facts(fleet, label)
+    mine = bolt_launches(requests, bolt)
     if mine:
-        return mine[0]
-    held or fail(f"{team} holds no bolt: crew bolt give {team}")
-    len(held) < 2 or fail(f"{team} holds {' and '.join(held)}: name the fix's bolt with --bolt")
-    return held[0]
+        return launched_at(fleet, label, bolt, mine[-1].get("Repo"), (requests, reads))
+    return unit_at(fleet, label, unit)
 
 
-def fix_place(fleet, t, place, fix, bolt):
-    """A fix's place made from the team's bolt, tracking it, and refused unless it is on the fix's own branch made
-    from that bolt (teams.3, read.4). A place that could not be made ready is no refusal, since a fix is how a bolt is
-    repaired (record 0028): what failed is returned, for the fix's agent to be told; None once it is ready."""
-    unready, _ = make_place(fleet, t, place, fix, bolt, unready=True)
-    why = own_place(place, *place_branch(fleet, t, place), fix, bolt)
-    not why or fail(why)
-    return unready
-
-
-def fix_prompt(words, place, unready=None):
-    """The prompt a fix's agent starts with: the fix's words, and when its place could not be made ready, what failed
-    (kit.unready_said), so it knows what it stands in (teams.3, record 0028)."""
-    return f"Fix: {words}" + (f" {kit.unready_said(place, unready)}" if unready else "")
-
-
-def fix_in_slot(held, bolt, name, kdir):
-    """What crew fix <name> acts on, from the team's slots file's lines (held): the slot holding fix/<bolt>/<name>, or
-    the fix/<name> it was given before a fix's name held its bolt, with the branch and place that slot recorded; else
-    no slot, and the branch and place a new fix of the bolt gets (teams.3)."""
-    for want in (f"fix/{bolt}/{name}", f"fix/{name}"):
-        for f in held:
-            if len(f) >= 4 and f[2] == want:
-                return f[0], f[2], f[3]
-    return None, f"fix/{bolt}/{name}", f"{kdir}/places/fix-{bolt}--{name}"
-
-
-def leftover(fix, place, team, place_there, branch_there):
-    """Why a new fix is refused, or None (read.4): its place or its branch is already there, and no slot of the team
-    holds it, so crew would be taking over what it did not make for this fix."""
-    if place_there:
-        return f"{fix} already has a place at {place} that no slot of {team} holds: name this fix differently"
-    if branch_there:
-        return f"{fix} already has a branch that no slot of {team} holds, though no place at {place}: name this fix differently"
-    return None
-
-
-def own_place(place, on, up, branch, bolt, does="starts a fix"):
-    """Why a fix's place is not its own, or None (teams.3): it must be on the fix's branch (on: the one it is on, or is
-    rebasing when a merge stopped partway through its rebase) made from the team's bolt (up: that branch's upstream,
-    bolt/<bolt> or, for a bolt on GitHub, origin/bolt/<bolt>, gather.bolt_of). does is what crew does only in a fix's
-    own place: starts or drops a fix."""
-    if on == branch and gather.bolt_of(up) == bolt:
-        return None
-    return f"{place} is on {on or 'no branch'}, made from {up or 'no bolt'}, not {branch} from bolt/{bolt}: crew {does} only in its own place"
-
-
-def fix_drop_why(fix, bolt, team, slot, place_there, branch_there, merged):
-    """Why crew fix <name> --drop is refused, or None (teams.3, record 0028): the fix has merged into its bolt, so what
-    it changed is the bolt's and a new fix undoes it; or no slot, place or branch of the team holds it."""
-    if merged:
-        return f"{fix} has merged into bolt/{bolt}, so it is not dropped: what it changed is the bolt's, and a new fix undoes it"
-    if not (slot or place_there or branch_there):
-        return f"{team} has no fix {fix}: no slot, place or branch holds it"
-    return None
-
-
-def place_branch(fleet, t, place):
-    """What a place is on, read on the team's host: its branch, or the one it is rebasing when a merge stopped partway
-    through its rebase, and that branch's upstream."""
-    _, on = kit_git(fleet, t, place, "branch", "--show-current", ok=(0, 128))
-    for d in ("rebase-merge", "rebase-apply"):
-        if not on:
-            _, at = kit_git(fleet, t, place, "rev-parse", "--path-format=absolute", "--git-path", f"{d}/head-name", ok=(0, 128))
-            try:
-                on = pathlib.Path(at).read_text().strip() if at else ""
-            except OSError:
-                on = ""
-    on = on[len("refs/heads/"):] if on.startswith("refs/heads/") else on
-    _, up = kit_git(fleet, t, place, "for-each-ref", "--format=%(upstream:short)", f"refs/heads/{on}", ok=(0, 128)) if on else (0, "")
-    return on, up
-
-
-def fix_cmd(fleet, a):
-    """What crew fix decides before its stage, a.mode start, merge, drop or wait: the fix's bolt (BOLT, fix_bolt, by
-    a.bolt while the team holds two) and its kit (REPO), the fix (FIX), its place (PLACE) and the slot holding it, if
-    any (SLOT); for a merge, how it merges into the bolt (MERGE), by a submission to sluice as a unit's does, the bolt's
-    landing pull request held first (merge_holds); for a drop, its branch when it is there (BRANCH). A name crew does
-    not mint, a team holding no bolt, and a fix not in flight are refused; a new fix whose branch or place is
-    already there (fix.start), a merge from a place not the fix's own or into a split bolt (fix.merge, split_refusal,
-    plan.19), and a drop of a merged fix, of one
-    nothing holds or of a place not the fix's own (fix.drop) are refused and recorded (teams.3, teams.5, record
-    0028)."""
-    t = at_work(fleet, a.team)
-    crew.NAME.match(a.name) or fail("a fix is named with lowercase words and dashes")
-    CONTEXT["label"] = t["label"]
-    repo, ref = state_of(fleet, t["label"])
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {t['label']}")
-    plan = read(repo, ref, tip)
-    f = team_state(t) / "slots"
-    lines = [l.split() for l in (f.read_text().splitlines() if f.exists() else []) if l.strip()]
-    bolt = fix_bolt(t["name"], [b.name() for b in held_by(plan, t["name"])], getattr(a, "bolt", None),
-                    [l[2] for l in lines if len(l) >= 3], a.name)
-    t = crew.with_kit(t, plan.bolt(bolt).get("Repo"))  # a fix of a bolt in another of the team's kits is made in that kit
-    slot, fix, place = fix_in_slot(lines, bolt, a.name, t["kit"]["dir"])
-    a.mode in ("start", "drop") or slot or fail(f"{t['name']} has no fix {a.name} in flight")
-    said = dict(BOLT=bolt, FIX=fix, PLACE=place, SLOT=slot or "", REPO=plan.bolt(bolt).get("Repo") or "")
-    act = {"start": "fix.start", "merge": "fix.merge", "drop": "fix.drop"}.get(a.mode)
-    try:
-        if a.mode == "start" and not slot:
-            why = leftover(fix, place, t["name"], os.path.exists(place),
-                           kit_git(fleet, t, t["kit"]["main"], "rev-parse", "--verify", "-q", f"refs/heads/{fix}", ok=(0, 1))[0] == 0)
-            not why or fail(why)
-        elif a.mode == "merge":
-            why = own_place(place, *place_branch(fleet, t, place), fix, bolt)
-            not why or fail(why)
-            split = bolt_split_check(fleet, t, bolt, f"refs/heads/{fix}")
-            why = split and split_refusal("fix", a.name, bolt, t["machine"], *split)
-            not why or fail(why)
-            merge_bolts(fleet, t, bolt, "fix", a.name, fix)
-            merge_holds(fleet, t, bolt, f"{fix}'s merge into bolt/{bolt}")
-            said["MERGE"] = merge_command(bolt)
-        elif a.mode == "drop":
-            main, there = t["kit"]["main"], os.path.exists(place)
-            branch = kit_git(fleet, t, main, "rev-parse", "--verify", "-q", f"refs/heads/{fix}", ok=(0, 1))[0] == 0
-            why = fix_drop_why(fix, bolt, t["name"], slot, there, branch, branch and gather.fix_merged(main, fix, bolt))
-            not why or fail(why)
-            why = there and own_place(place, *place_branch(fleet, t, place), fix, bolt, "drops a fix")
-            not why or fail(why)
-            said["BRANCH"] = fix if branch else ""
-    except Refusal as e:
-        if act:
-            record.emit(t["label"], act, [f"fix/{bolt}/{a.name}", f"bolt/{bolt}"], refused=str(e))
-        raise
-    return said
+def forge(fleet, t):
+    """A kit's forge address, <owner>/<name>, for GitHub's pull requests: the plan's Repo where it names one, else read
+    from the origin remote of its folder on its host (t, bolt_at), refused when that names no GitHub repository (read.1)."""
+    repo = t["kit"]["repo"]
+    if "/" in repo:
+        return repo
+    _, url = kit_git(fleet, t, t["kit"]["main"], "config", "--get", "remote.origin.url")  # as configured, before any insteadOf
+    m = re.search(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$", url)
+    m or fail(f"{t['kit']['name']}'s origin in {t['kit']['main']} on {t['machine']} is {url}, which names no GitHub repository")
+    return m.group(1)
 
 
 def kit_git(fleet, t, where, *args, ok=(0,)):
@@ -9843,16 +8793,6 @@ def kit_git(fleet, t, where, *args, ok=(0,)):
     r.returncode in ok or fail(f"git {args[0]} in {where} on {t['machine']} failed: "
                                + ((r.stderr or r.stdout).strip() or f"exit {r.returncode}"))
     return r.returncode, r.stdout.strip()
-
-
-def head_of(fleet, t, where, ref):
-    """The commit a branch of the kit is at, or None when there is no such branch."""
-    rc, out = kit_git(fleet, t, where, "rev-parse", "--verify", "-q", f"refs/heads/{ref}^{{commit}}", ok=(0, 1))
-    return out if rc == 0 and out else None
-
-
-# What keeps a worktree from moving, by the file its git dir holds while it is in progress.
-IN_PROGRESS = (("rebase-merge", "a rebase"), ("rebase-apply", "a rebase"), ("MERGE_HEAD", "a merge"), ("CHERRY_PICK_HEAD", "a cherry-pick"))
 
 
 def plan_of(fleet, label):
@@ -9865,177 +8805,42 @@ def plan_of(fleet, label):
         return None
 
 
-def slot_stages(fleet, t):
-    """Each slot of the team on this host that holds a unit or fix: what it holds and that work's stage, read from the
-    kit and the plan, with its tasks done and total where its change has a task list. Work that has neither landed nor
-    merged is dropped when the plan was read and has no such unit, or no bolt the fix's branch tracks; a unit the plan
-    has outside every bolt the team holds, queued again or moved to another bolt, has left."""
-    path = pathlib.Path.home() / f".local/state/{t['name']}-team/slots"
-    held = [l.split() for l in (path.read_text().splitlines() if path.exists() else []) if l.strip()]
-    if not held:
-        return []
-    k = survey(fleet, [(t["name"], None)]).get(t["machine"], {})
-    kit = k.get("kits", {}).get(t["kit"]["main"], {}) if k.get("ok") else {}
-    plan = plan_of(fleet, t["label"])
-    marks = {u.name(): u.get("Amended") for u in plan.units() if u.get("Amended")} if plan else {}
-    bolts = {b.name() for b in held_by(plan, t["name"])} if plan else set()
-    return [dict(slot=slot, kind=kind, name=name, place=place, **dict(zip(("stage", "counts", "carried"), slot_stage(kind, name, kit, plan, bolts, marks))))
-            for slot, kind, name, place in held]
-
-
-def slot_stage(kind, name, kit, plan, bolts, marks):
-    """The stage of the work a slot holds, and its tasks done and total where its change has a task list (teams.1):
-    read from the kit as gathered (kit, unread unless ok) and the plan (None when it could not be read), bolts the
-    names of those the team holds, marks the plan's Amended marks. A fix reads its stage from its branch's facts, its
-    place's or, its place gone, its branch's (fix_stage); a unit or a chore has landed, merged into its bolt, been
-    dropped from the plan, left the team's bolts, or reads its stage from its place. A unit has merged once its bolt
-    holds its change archived; one whose change the bolt holds open, carried there inside another unit's merge, reads
-    its stage from its place, or the bolt's change when its place is gone, with a third value, True, for carried
-    (teams.17)."""
-    if not kit.get("ok"):
-        return "unknown", None
-    if kind == "fix":
-        f = next((f for f in kit["fixes"] if f["fix"] == name), None) or kit.get("fix_branches", {}).get(name)
-        return (fix_stage(f, bool(plan.bolt(f["bolt"])) if plan and f["bolt"] else None) if f else "none"), None
-    if kind == "chore":
-        pl = kit.get("chore_places", {}).get(name)
-        bolt = (pl or {}).get("bolt") or (plan.chore(name).get("Bolt") if plan and plan.chore(name) else None)
-        if name in kit.get("chores", []):
-            return "landed", None
-        if bolt and name in kit["bolts"].get(bolt, {}).get("chores", []):
-            return "merged", None
-        if plan and not plan.chore(name):
-            return "dropped", None
-        if plan and plan.chore(name).get("Bolt") not in bolts:
-            return "left", None
-        return (chore_stage(name, bolt, kit, pl)[0] or "none") if pl else "none", None
-    pl = kit["places"].get(name)
-    if name in kit["main"]:
-        return "landed", None
-    bolt = (pl or {}).get("bolt") or (plan.unit(name).get("Bolt") if plan and plan.unit(name) else None)
-    if bolt and name in kit["bolts"].get(bolt, {}).get("archived", []):
-        return "merged", None
-    if plan and not plan.unit(name):
-        return "dropped", None
-    if plan and plan.unit(name).get("Bolt") not in bolts:
-        return "left", None
-    carried = kit["bolts"].get(bolt, {}).get("open", {}) if bolt else {}
-    pl = pl or (carried_place(carried[name]) if name in carried else None)
-    if pl:
-        return (place_stage(pl, marks.get(name)), "{}/{}".format(*pl["tasks"]) if pl["tasks"] else None) + ((True,) if name in carried else ())
-    return "none", None
-
-
-def fix_stage(f, planned):
-    """A fix's stage from its branch's facts as gather reads them (gather.fix_facts) and whether its bolt is planned
-    (True, False, or None when the plan could not be read or the fix tracks no bolt) (teams.1): landed once the kit's
-    main holds its own work, its tip and it has moved, as a unit reads landed once main holds its change; merged once
-    its bolt holds it; with its bolt in no plan, landed when main holds its tip, else dropped; else in flight. With the
-    plan unread nothing is read dropped or landed by the plan (read.1)."""
-    if f["on_main"] and f["moved"]:
-        return "landed"
-    if f["merged"]:
-        return "merged"
-    if planned is False:
-        return "landed" if f["on_main"] else "dropped"
-    return "fix"
-
-
-@contextlib.contextmanager
-def silenced():
-    """Standing for a step bash ran with its output thrown away and its failure ignored (`>/dev/null 2>&1 || true`): what
-    it and the processes it starts write goes nowhere, and a refusal or error in it is dropped."""
-    sys.stdout.flush(), sys.stderr.flush()
-    saved = os.dup(1), os.dup(2)
-    null = os.open(os.devnull, os.O_WRONLY)
-    try:
-        os.dup2(null, 1), os.dup2(null, 2)
-        yield
-    except Exception:
-        pass
-    finally:
-        sys.stdout.flush(), sys.stderr.flush()
-        os.dup2(saved[0], 1), os.dup2(saved[1], 2)
-        for fd in (null, *saved):
-            os.close(fd)
-
-
-def tidy(fleet, a):
-    """Each worktree crew made in the team's kit checkout, on this host, whose work is over and that no slot holds:
-    removed with its branch, saying the commit the branch was at, a unit's, chore's or fix's branch kept, named and
-    recorded instead when git cherry finds work on it its bolt, or main once the bolt has landed or is gone, lacks
-    (branch_gone, plan.10); or kept and named, with its branch, while it is locked or has uncommitted changes. The
-    removal first releases the place through sluice, `sluice release --worktree <place>`, which runs the kit's policy's
-    release command, ends what its runs left running and frees its ports, so what sluice stood up for it goes too; one
-    sluice does not release, its release command having failed, is kept and named with its branch in sluice's words,
-    and the next read tries it again (release_kept, plan.9). Then it goes through the kit's own `wt remove`, run from
-    the kit's main checkout and leaving the branch to crew, so the kit's remove hooks run; one wt refuses, a hook having
-    failed or waiting for the user's approval on this host, one wt leaves standing, or with no wt on this host's path, is
-    kept and named with its branch, and the next read tries it again; when crew can't read from wt that it left the branch
-    alone, the branch is kept and said. crew made it when it is directly in <kit>/bolts/ on bolt/<its folder>, or
-    detached there, a bolt given before record 0026, or directly in <kit>/places/ on unit/<its folder>, on
-    chore/<name> in chore-<name>, on bolt/<bolt> in land-<bolt>, or on a fix/ branch, a unit's, chore's or fix's place
-    only when it stands at crew's own path for its work and this host's run record holds the work's start (crews_place,
-    host_made), read once and only when such a place is listed; one under <kit>/places/ that is not is a stranger, named
-    each time and left to whoever made it (stranger_said), and while the record can't be read no such place is judged,
-    saying so; nothing else is touched. While its
-    bolt lasts, a bolt's worktree still on its branch is detached at the bolt's tip when it is clean, its branch then
-    marked as crew's, and named as kept on the branch while it is not (bolt_detach, plan.18). A worktree the tidy would
-    detach or remove is left as it is, named, while sluice's overview lists a run in it, or can't be read, read once and
-    only then (run_kept, plan.9; sluice ADR 0024). The landing's place, which
-    git could not remove after its submission or a stopped landing left, goes with its bolt, kept and named while its
-    submission is still with sluice (landing_now), and leaves the bolt's branch to be judged in the same read. A bolt's
-    branch crew marked, which no worktree holds, goes once no plan has the bolt, a landed bolt's only when main holds
-    every commit of it, being kept, named and recorded otherwise (bolt_branch_gone, record 0003), and any other, a
-    dropped bolt's among them, only by sluice's delete, which keeps it, marked dropped, named and recorded, while main
-    lacks its tip, and is asked again once main holds it (bolt_branch_asked, plan.19); crew's marks are read
-    once, before the worktrees are judged, so each place of a landed bolt is judged against main, and a mark whose branch
-    sluice's delete removed is unset then, saying nothing (marks_gone, plan.19). At a landing (a.landed, the bolt), the
-    landing's place gone, sluice is asked to delete the bolt's branch before it is judged (land_delete). A fix's branch
-    no worktree and no slot holds goes once main or its bolt holds its tip (fix_branches_over). The worktrees are listed
-    before the slots and plans are read: a plan has a bolt, a unit or a fix's bolt, and a slot is taken, before crew
-    makes the worktree, so whatever is listed was planned or held by then. Nothing is removed when a plan the kit's work
-    goes in can't be read. Once a worktree is removed, the command's next step reads the kit again. Returns the paths of
-    the worktrees it removed, for the entry of the act in whose command it ran to name (plan.9)."""
-    t = at_work(fleet, a.team)
+def tidy(fleet, t, landed=None):
+    """The sweep of what crew made in the kit's checkout, on this host (bolt-teams "crew removes only its own
+    worktrees", plan.9, plan.19): each landing's place, <kit>/places/land-<bolt> on bolt/<bolt>, which git could not
+    remove after its submission or a stopped landing left, goes once no plan has its bolt, kept and named while its
+    submission is still with sluice (landing_now), while it is locked or has uncommitted changes, or while sluice's
+    overview lists a run in it, read once and only then (run_kept); its removal first releases it through sluice,
+    `sluice release --worktree <place>`, a release that failed keeping it in sluice's words (release_kept), and then
+    goes through the kit's own `wt remove`, so its remove hooks run, one wt refuses or leaves standing kept and named,
+    and the bolt's branch it held is judged below. A bolt's branch crew marked, which no worktree holds, goes once no
+    plan has the bolt, a landed bolt's only when main holds every commit of it, being kept, named and recorded otherwise
+    (bolt_branch_gone, record 0003), and any other, a dropped bolt's among them, only by sluice's delete, which keeps
+    it, marked dropped, named and recorded, while main lacks its tip, and is asked again once main holds it
+    (bolt_branch_asked, plan.19); crew's marks are read once, before the worktrees are judged, and a mark whose branch
+    sluice's delete removed is unset then, saying nothing (marks_gone). At a landing (landed, the bolt), the landing's
+    place gone, sluice is asked to delete the bolt's branch before it is judged (land_delete). Every other worktree, a
+    place of Flume's among them, is left alone. Nothing is removed when a plan the kit's work goes in can't be read.
+    Once a worktree is removed, the command's next step reads the kit again. Returns the paths of the worktrees it
+    removed."""
     main, kdir, kit = os.path.realpath(t["kit"]["main"]), os.path.realpath(t["kit"]["dir"]), t["kit"]["name"]
     trees = gather.worktrees(main)
-    held = set()  # each slot's name and place, of every team of this host building in this checkout
-    for o in fleet["teams"].values():
-        if o["machine"] == crew.this_host() and os.path.realpath(o["kit"]["main"]) == main:
-            f = pathlib.Path.home() / f".local/state/{o['name']}-team/slots"
-            for slot, kind, name, place in (l.split()[:4] for l in (f.read_text().splitlines() if f.exists() else []) if len(l.split()) >= 4):
-                held |= {name, os.path.realpath(place)}
-    errors, labels = {}, sorted({o["label"] for o in kit_teams(fleet, kit)})
-    found = plans(fleet, labels, errors)
-    errors.update({f"{l}/main of {repo}": f"{repo} has no {l}/main yet" for l, repo, tip, _ in found if not tip})
+    # every partition's plan, since any may hold a bolt of the kit (partition_kits); one not started holds none
+    errors = {}
+    found = plans(fleet, sorted(fleet["partitions"]), errors)
     if errors:
         print(unread_plans(errors))
         return []
-    bolts = {b.name() for *_, p in found for b in p.bolts() if b.get("Repo") == kit}
-    units = {u.name(): u.get("Bolt") for *_, p in found for u in p.units() if u.get("Repo") == kit}
-    chores = {u.name(): u.get("Bolt") for *_, p in found for u in p.chores() if u.get("Repo") == kit}
+    bolts = {b.name() for *_, p in found if p for b in p.bolts() if b.get("Repo") == kit}
     now = gather.now_ref(gather.has_origin(main))  # the kit's main now, as Stages reads it (plan.18)
-    ups, on_main = gather.upstreams(main), set(gather.changes(main, now))
-    dropped, marks = fixes_dropped(main), bolt_marks(main)
+    marks = bolt_marks(main)
     unmark_gone(main, marks)
-    merged_now = []  # the bolt branches main now holds the tip of, read once and only for a dropped bolt's or a legacy one's
+    merged_now = []  # the bolt branches main now holds the tip of, read once and only for a dropped bolt's
 
     def in_main():
         if not merged_now:
             merged_now.append(bolt_merged(main, now))
         return merged_now[0]
-    fixes = gather.fix_facts(main, sorted({b for b in ups if b.startswith("fix/")}), ups, now)  # each fix branch's, read once
-
-    def up_landed(branch):  # whether the bolt the branch tracks, the host's or GitHub's, is marked landed (record 0003)
-        bolt = gather.bolt_ref(ups.get(branch, ""))[0]
-        return bool(bolt) and marks.get(f"bolt/{bolt}") == "landed"
-    chores_on = {}  # each branch's chores, read once each and only for a chore's place
-
-    def chores_of(ref):
-        if ref not in chores_on:
-            chores_on[ref] = set(gather.chores(main, now if ref == "main" else f"refs/heads/{ref}"))
-        return chores_on[ref]
     freed = set()  # the branches of the landings' places removed here
     overview = {}  # the runs sluice's overview lists, by canonical path, read once and only for a worktree that would go
 
@@ -10046,46 +8851,22 @@ def tidy(fleet, a):
             overview.update(runs={os.path.realpath(k): v for k, v in (runs or {}).items()},
                             why=why or (None if runs is not None else f"it is not the {OVERVIEW} sluice 0.36.4 prints"))
         return run_kept(overview["runs"].get(os.path.realpath(p)), overview["why"])
-    made = {}  # the work this host's run record holds a start of, read once and only for a place under places/
-
-    def made_here():
-        if not made:
-            made["works"], made["why"] = host_made(labels)
-            if made["why"]:
-                print(f"no unit's, chore's or fix's place is removed: {made['why']}")
-        return made["works"]
-    removed = []  # the places removed here, for the entry of the act whose command this is (plan.9)
+    removed = []  # the places removed here
     for w in trees:
         path, branch = w["path"], w.get("branch") or ""
-        known = made_here() if place_work(branch, kdir)[0] else None
-        if crews_place(path, branch, kdir, known) is False:
-            print(stranger_said(path, branch, kdir, crew.this_host()))
+        crews = tidy_over(path, branch, kdir, bolts)
+        if crews is None or not crews[1] or not os.path.isdir(path):
             continue
-        crews = tidy_over(path, branch, kdir, ups.get(branch, ""), bolts, units, on_main,
-                          lambda bolt: gather.archived(main, f"bolt/{bolt}"), fixes.get, chores, chores_of, dropped, known)
-        if crews is None:
-            continue
-        name, over = crews
-        if not os.path.isdir(path):
-            continue
+        over = crews[1]
 
         def status(p=path):
             r = subprocess.run(["git", "-C", p, "status", "--porcelain"], capture_output=True, text=True, env=gitenv())
             return r.returncode, r.stdout, r.stderr
-        detach = bolt_detach(path, branch, kdir, over, w.get("locked"), status, lambda p=path: run_in(p))
-        if detach:
-            print(bolt_detached(main, path, branch) if detach[0] else f"{path} is kept on {branch}: {detach[1]}")
-            continue
-        if not over or name in held or path in held:
-            continue
-        landing = branch.startswith("bolt/") and name == f"land-{branch[5:]}"  # the landing's place (tidy_over)
-        why = kept_why(over, w.get("locked"), None if w.get("locked") else status(), lambda p=path: run_in(p),
-                       landing and landing_now(t, branch[5:])[2])
-        held_too = f", and {branch} with it" if branch else ""  # a bolt's worktree the tidy detached holds no branch
+        why = kept_why(over, w.get("locked"), None if w.get("locked") else status(), lambda p=path: run_in(p), landing_now(t, branch[5:])[2])
         if why:
-            print(f"{path} is kept{held_too}: {why}")
+            print(f"{path} is kept, and {branch} with it: {why}")
             continue
-        kept = f"{path} is kept{held_too}: {over}, and "
+        kept = f"{path} is kept, and {branch} with it: {over}, and "
         # sluice holds the release to the time limit its policy gives a run, as the kit's remove hooks run to their end
         unreleased = release_kept(*sluice_read(main, "release", "--worktree", path, timeout=None))
         if unreleased:
@@ -10106,62 +8887,28 @@ def tidy(fleet, a):
             print(kept + "the kit's wt remove exited 0 and left it there")
             continue
         removed.append(path)
-        if not branch:
-            print(f"{path} is removed: {over}")
-            continue
         if not wt_left_branch(r.stdout, path):
             print(f"{path} is removed, and {branch} is kept: crew could not read what wt remove said of the branch")
             continue
-        if landing:  # the bolt's branch goes below, by crew's mark, now that no worktree holds it
-            print(f"{path} is removed: {over}")
-            freed.add(branch)
-            continue
-        if branch.startswith(("unit/", "chore/", "fix/")):  # judged by git cherry (plan.10)
-            print(branch_gone(t, main, branch, ups.get(branch, ""), now, path, "it was dropped" if branch in dropped else over,
-                              up_landed(branch)))
-            continue
-        mark = marks.get(branch)  # a legacy bolt's worktree, its branch judged by its mark
-        print(bolt_branch_gone(t, main, branch, mark, now, bolts, False, mark == "dropped" and branch in in_main(), path)
-              or f"{path} is removed: {over}")
+        print(f"{path} is removed: {over}")
+        freed.add(branch)  # the bolt's branch goes below, by crew's mark, now that no worktree holds it
     # A bolt is a branch with no worktree (record 0026): each one crew made, by its mark, goes once no plan has the bolt
     # and no worktree holds it, a landed bolt's only when main holds every commit of it, and any other by sluice's delete,
     # a dropped bolt's kept while main lacks its tip (plan.19); a deletion sluice's guard refuses, while a submission to
     # it waits, is kept and named.
     worked = {w.get("branch") for w in trees} - freed
-    if getattr(a, "landed", None):  # the land's delete, asked now that the landing's place is gone (plan.19)
-        b = f"bolt/{a.landed}"
+    if landed:  # the land's delete, asked now that the landing's place is gone (plan.19)
+        b = f"bolt/{landed}"
         holder = next((w["path"] for w in trees if w.get("branch") == b), None) if b in worked else None
-        print(land_delete(t, main, a.landed, holder))
+        print(land_delete(t, main, landed, holder))
         unmark_gone(main, marks)
         if marks.get(b) != "landed":  # asked of sluice once, here: only a landed mark is judged again below
             marks.pop(b, None)
-    for branch in sorted(dropped - worked - held):  # a dropped fix's branch no worktree holds, its place gone already
-        print(branch_gone(t, main, branch, ups.get(branch, ""), now, landed=up_landed(branch)))
-    for branch, why in fix_branches_over(fixes, held | worked, dropped, bolts):
-        sha = subprocess.run(["git", "-C", main, "rev-parse", "--short", "--verify", "-q", f"refs/heads/{branch}"],
-                             capture_output=True, text=True, env=gitenv()).stdout.strip()
-        r = subprocess.run(["git", "-C", main, "branch", "-q", "-D", branch], capture_output=True, text=True, env=gitenv())
-        print(f"{branch} is removed: {why}; it was at {sha}" if r.returncode == 0 else f"{branch} is kept: {r.stderr.strip()}")
     for branch, mark in sorted(marks.items()):
         said = bolt_branch_gone(t, main, branch, mark, now, bolts, branch in worked, mark == "dropped" and branch in in_main())
         if said:
             print(said)
     return removed
-
-
-def host_made(labels):
-    """The work this host's run record holds a start of for the labels (made_works), every day's file read, since a
-    place standing on the host may be as old as its first entry (plan.9): (works, None), or (None, why) when a file could
-    not be read, so no place is judged on a guess (read.1)."""
-    host, entries = crew.this_host(), []
-    for label in labels:
-        d = record.ROOT / label / "runs" / host
-        try:
-            for f in sorted(d.glob("*.rec")):
-                entries += record.parse(f.read_text())
-        except OSError as e:
-            return None, f"{host}'s run record at {d} could not be read: {e.strerror or e}"
-    return made_works(entries), None
 
 
 def bolt_marks(main):
@@ -10200,25 +8947,6 @@ def marks_gone(marks, have):
     return sorted(b for b in marks if b not in have)
 
 
-def fixes_dropped(main):
-    """The fix branches of a kit checkout their conductor dropped (record 0028), by the mark crew fix --drop sets in
-    the kit's git config, branch.<fix>.crew dropped, which git drops with the branch."""
-    out = gather.run(["git", "config", "--get-regexp", r"^branch\.fix/.*\.crew$"], main) or ""
-    return {k[len("branch."):-len(".crew")] for k, _, v in (l.partition(" ") for l in out.splitlines()) if v == "dropped"}
-
-
-def branch_target(kind, up, up_exists, up_landed, main_ref):
-    """What a branch whose place goes is compared with by git cherry (plan.10, record 0003), from plain facts: a unit's,
-    a chore's or a fix's bolt, the branch it tracks (up), while that branch exists (up_exists) and is not marked landed
-    (up_landed), else the kit's main now (main_ref, gather.now_ref), the only place its work could have arrived once its
-    bolt has landed or been dropped, since a landed bolt can hold what main lacks, and a fix's bolt goes with its
-    landing (teams.3); None for a fix tracking no bolt, which keeps it (record 0028). Whether the bolt exists is read
-    apart from the upstream, which git still names once the branch is gone."""
-    if kind == "fix" and not up:
-        return None
-    return up if up and up_exists and not up_landed else main_ref
-
-
 def branch_kept(target, cherry):
     """Why a branch is kept when its place goes (plan.10, record 0003, record 0028), with how many commits it holds whose
     patch its target lacks, for the run record, None when git could not count them; or None when it goes: git cherry
@@ -10235,33 +8963,6 @@ def branch_kept(target, cherry):
     n = sum(1 for l in out.splitlines() if l.startswith("+"))
     return (f"it holds {n} commit{'' if n == 1 else 's'} whose patch {named} lacks (git cherry), the user's to keep or "
             "delete", n) if n else None
-
-
-def branch_gone(t, main, branch, up, now, path=None, over="it was dropped", landed=False):
-    """A unit's, chore's or fix's branch once no worktree is on it, its place (path) removed now or before, its work
-    over (over): compared by git cherry, in the kit's main checkout, with its bolt (up, the branch it tracks) while
-    that branch stands and is not marked landed (landed), else with the kit's main now (now), a fix tracking no bolt
-    with nothing (branch_target); deleted when it holds nothing its target lacks, else kept and named, a dropped fix's
-    mark unset, so the user's from then on (branch_kept, plan.10, record 0003), and recorded once on the team's host as
-    branch.kept, from its bolt, bolt/<bolt> whichever of its refs it tracks, when it was compared with it or the bolt has
-    landed, since no later read reaches a branch no worktree is on. What crew says of it (branch_said)."""
-    git = lambda *a: subprocess.run(["git", "-C", main, *a], capture_output=True, text=True, env=gitenv())
-    kind = branch.split("/", 1)[0]
-    sha = git("rev-parse", "--short", "--verify", "-q", f"refs/heads/{branch}").stdout.strip()
-    ref = gather.bolt_ref(up)[1] or f"refs/heads/{up}"  # the host's bolt/<bolt> or GitHub's origin/bolt/<bolt>
-    target = branch_target(kind, up, bool(up) and git("rev-parse", "--verify", "-q", ref).returncode == 0, landed, now)
-    r = git("cherry", target, branch) if target else None
-    kept = branch_kept(target, r and (r.returncode, r.stdout, r.stderr))
-    if kept:
-        why, n = kept
-        git("config", "--unset", f"branch.{branch}.crew")
-        why = kept_record(f"bolt {gather.bolt_ref(up)[0]} has landed", target, kept) if landed else over if n else f"{over}, and {why}"
-        bolt = gather.bolt_ref(up)[0]  # recorded as the bolt, whichever of its refs the branch tracks (plan.19)
-        record.emit(t["label"], "branch.kept", [branch, f"team/{t['name']}"], [f"bolt/{bolt}"] if bolt and (target == up or landed) else [],
-                    why=why, Head=sha, Count=n)
-        return branch_said(branch, path, sha, over, kept)
-    r = git("branch", "-q", "-D", branch)
-    return branch_said(branch, path, sha, over, None, (r.stderr.strip() or f"exit {r.returncode}") if r.returncode else None)
 
 
 def branch_said(branch, path, sha, over, kept, refused=None):
@@ -10294,22 +8995,6 @@ def kept_record(over, target, kept):
 def ref_named(ref):
     """A ref as crew names it to the user: origin/main for refs/remotes/origin/main, a branch by its name."""
     return ref.split("/", 2)[-1] if ref.startswith("refs/") else ref
-
-
-def fix_branches_over(facts, held, dropped, bolts):
-    """Each fix branch no worktree holds whose work is over, for the tidy to remove (teams.3, plan.10), from each one's
-    facts (facts, gather.fix_facts, by branch): of those no slot or worktree holds (held, the slots' names and places
-    and the worktrees' branches) and their conductor did not drop (dropped, which branch_gone judges), each whose
-    stage reads landed or merged (fix_stage, its bolt planned when it is in bolts), so main or its bolt holds its tip
-    and nothing is lost; [(branch, why its work is over)] in name order. Any other is left as it is and not named."""
-    out = []
-    for branch, f in sorted(facts.items()):
-        if branch in held or branch in dropped:
-            continue
-        stage = fix_stage(f, f["bolt"] in bolts if f["bolt"] else None)
-        if stage in ("landed", "merged"):
-            out.append((branch, "it has landed on main" if stage == "landed" else f"it has merged into bolt/{f['bolt']}"))
-    return out
 
 
 def bolt_branch_over(bolt, bolts, worktree):
@@ -10360,7 +9045,7 @@ def bolt_branch_gone(t, main, branch, mark, now, bolts, worktree, in_main, path=
     sha = git("rev-parse", "--short", "--verify", "-q", f"refs/heads/{branch}").stdout.strip()
     if kept:
         git("config", "--unset", f"branch.{branch}.crew")
-        record.emit(t["label"], "branch.kept", [branch, f"team/{t['name']}"], [branch], why=kept_record(over, now, kept),
+        record.emit(t["label"], "branch.kept", [branch], [branch], why=kept_record(over, now, kept),
                     Head=sha, Count=kept[1])
         return branch_said(branch, path, sha, over, kept)
     r = git("branch", "-q", "-D", branch)
@@ -10383,7 +9068,7 @@ def bolt_branch_asked(t, main, bolt, mark):
         git = lambda *a: subprocess.run(["git", "-C", main, *a], capture_output=True, text=True, env=gitenv())
         if git("rev-parse", "--verify", "-q", f"refs/heads/{branch}").returncode == 0:
             git("config", f"branch.{branch}.crew", "dropped")
-        record.emit(t["label"], "branch.kept", [branch, f"team/{t['name']}"], [branch],
+        record.emit(t["label"], "branch.kept", [branch], [branch],
                     why=f"bolt {bolt} was dropped, and main does not hold its tip (sluice)", Head=h["tip"])
     return dropped_said(bolt, t["machine"], r.returncode, r.stdout, r.stderr, again)
 
@@ -10393,135 +9078,15 @@ def bolt_merged(main, now):
     return set((gather.run(["git", "for-each-ref", f"--merged={now}", "--format=%(refname:short)", "refs/heads/bolt/"], main) or "").split())
 
 
-def bolt_detach(path, branch, kdir, over, locked, status, run):
-    """Whether the tidy detaches a bolt's worktree from before record 0026 at its bolt's tip, so that no worktree of
-    crew's holds a bolt branch (plan.9, plan.18): None for any worktree but one directly in <kit>/bolts/ on bolt/<its
-    folder> while its bolt lasts (over, None), one whose bolt is over going as any finished worktree does; else (True,
-    None) when it is clean, or (False, why it stays on the branch) when it is locked, git status (status(), read only
-    then: exit, output, error) says it has uncommitted changes, git cannot read it, or, once it is clean, sluice's
-    overview lists a run in it or can't be read (run(), run_kept's words or None, read only then), which is said on
-    every read until it is clean and no run is in it."""
-    if over or os.path.dirname(path) != os.path.join(kdir, "bolts") or branch != f"bolt/{os.path.basename(path)}":
-        return None
-    if locked:
-        return False, "it is locked, and crew detaches it at the bolt's tip once it is not"
-    code, out, err = status()
-    if code:
-        return False, f"git cannot read its status ({err.strip()}), so crew cannot tell it may detach it at the bolt's tip"
-    if out.strip():
-        return False, ("it has uncommitted changes, which are the user's to keep or discard, and crew detaches it at the "
-                       "bolt's tip once it is clean")
-    ran = run()
-    if ran:
-        return False, f"{ran}, and crew detaches it at the bolt's tip once no run is in it"
-    return True, None
-
-
-def bolt_detached(main, path, branch):
-    """A clean bolt's worktree from before record 0026 detached at its bolt's tip (bolt_detach), `git switch --detach`
-    in it, its files as they were; the bolt's branch then marked as crew's in the kit's git config, as a branch the give
-    makes is (BOLT_CREATE), so it goes with the bolt once no worktree holds it (bolt_branch_over). What crew says of it,
-    or why git refused."""
-    git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True, env=gitenv())
-    r = git("-C", path, "switch", "-q", "--detach")
-    if r.returncode:
-        return f"{path} is kept on {branch}: git could not detach it ({' '.join(r.stderr.split()) or f'exit {r.returncode}'})"
-    git("-C", main, "config", f"branch.{branch}.crew", "given")
-    sha = git("-C", path, "rev-parse", "--short", "HEAD").stdout.strip()
-    return f"{path} is detached at {branch}'s tip, {sha}, so no worktree holds the bolt's branch"
-
-
-def place_work(branch, kdir):
-    """The work a branch of crew's names and the place crew makes for it (plan.9, plan.11, teams.3): unit/<u> at
-    <kit>/places/<u>, chore/<c> at <kit>/places/chore-<c>, fix/<bolt>/<name> at <kit>/places/fix-<bolt>--<name>; (None,
-    None) for any other branch."""
-    kind, _, name = branch.partition("/")
-    bolt, _, fix = name.partition("/")
-    places = os.path.join(kdir, "places")
-    if kind in ("unit", "chore") and crew.NAME.match(name):
-        return branch, os.path.join(places, name if kind == "unit" else f"chore-{name}")
-    if kind == "fix" and crew.NAME.match(bolt) and crew.NAME.match(fix):
-        return branch, os.path.join(places, f"fix-{bolt}--{fix}")
-    return None, None
-
-
-def made_works(entries):
-    """The work a host's run record holds a start of (plan.9): each unit's and chore's a stage.start names, unit/<u> or
-    chore/<c>, and each fix's a fix.start names, fix/<bolt>/<name>, a refused start among them, since make_place can
-    refuse after it made the place and a refusal is an entry (record.1)."""
-    return {o for e in entries for o in e.get("On") or []
-            if (e.get("Act") == "stage.start" and o.startswith(("unit/", "chore/"))) or (e.get("Act") == "fix.start" and o.startswith("fix/"))}
-
-
-def crews_place(path, branch, kdir, made):
-    """Whether a worktree directly under <kit>/places/ on a unit/, chore/ or fix/ branch is a place crew made (plan.9):
-    True when it stands at crew's own path for the work its branch names (place_work) and this host's run record holds
-    that work's start (made, made_works'), never from its folder's or its branch's name alone; False for a stranger;
-    None for any other worktree, and for every one while the record could not be read (made None, read.1)."""
-    work, own = place_work(branch, kdir)
-    if not work or os.path.dirname(path) != os.path.join(kdir, "places") or made is None:
-        return None
-    return path == own and work in made
-
-
-def stranger_said(path, branch, kdir, host):
-    """What the tidy says of a worktree under <kit>/places/ that is not crew's (crews_place), each time it sees one: left
-    to whoever made it (plan.9, read.4), and why: it is not at crew's place for its branch's work, or the run record of
-    host, the one it stands on, holds no start of that work."""
-    work, own = place_work(branch, kdir)
-    why = f"crew's place for {work} is {own}" if path != own else f"{host}'s run record holds no start of {work}"
-    return f"{path} is not crew's, and is left to whoever made it: {why}"
-
-
-def tidy_over(path, branch, kdir, up, bolts, units, on_main, archived_of, fix_of, chores=(), chores_of=None, dropped=(), made=frozenset()):
-    """Whether a worktree is one crew made, and whether its work is over (plan.9): None for one crew did not make; else
-    (the name a slot holds its work by, why its work is over or None while it goes on). crew made it when it is
-    directly in <kit>/bolts/ on bolt/<its folder>, or detached there, as the tidy leaves it (bolt_detach), on bolt/<bolt>
-    in <kit>/places/land-<bolt>, the landing's place (bolt_submit), or when it is a place crew made (crews_place, made):
-    at <kit>/places/<unit> on unit/<unit>, <kit>/places/chore-<name> on chore/<name>, or <kit>/places/fix-<bolt>--<name>
-    on fix/<bolt>/<name> made from a bolt (up, its upstream, bolt/<bolt> or origin/bolt/<bolt>: gather.bolt_ref), and
-    this host's run record holds the work's start. A bolt's is over once no plan has the bolt (bolts), and so is its
-    landing's, which the landing ends (plan.19); a unit's once it has landed on main (on_main), merged into its bolt
-    (archived_of(bolt)), no plan has it (units, each unit's bolt by its name, None for one queued) or it has left the
-    bolt its place tracks (left_over), merged meaning its bolt holds its change archived (archived_of(bolt), teams.17),
-    never while the bolt holds it open; a chore's once main's or its bolt's history holds its trailer (chores_of(ref)),
-    no plan has it (chores, each chore's bolt by its name) or it has left that bolt; a fix's once it has landed on main
-    or merged into its bolt (fix_stage, on its branch's facts, fix_of(branch)), its conductor dropped it (its branch in
-    dropped, record 0028) or no plan has its bolt."""
-    folder, bolt = os.path.basename(path), gather.bolt_of(up)
-    if os.path.dirname(path) == os.path.join(kdir, "bolts") and branch in (f"bolt/{folder}", ""):
-        return None, None if folder in bolts else f"bolt {folder} is in no plan"
+def tidy_over(path, branch, kdir, bolts):
+    """Whether a worktree is crew's own, and whether its work is over (plan.9, bolt-teams "crew removes only its own
+    worktrees"): None for any but a landing's place, <kit>/places/land-<bolt> on bolt/<bolt> (bolt_submit), the one
+    worktree crew makes, every place of Flume's and every other worktree left alone; else (its folder's name, why it is
+    over once no plan has the bolt, which its landing ends, or None while one does)."""
+    folder = os.path.basename(path)
     if os.path.dirname(path) == os.path.join(kdir, "places") and branch.startswith("bolt/") and folder == f"land-{branch[5:]}":
         return folder, None if branch[5:] in bolts else f"bolt {branch[5:]} is in no plan"
-    if not crews_place(path, branch, kdir, made):
-        return None
-    if branch.startswith("chore/"):
-        name = branch[6:]
-        return name, (f"chore {name} has landed on main" if name in chores_of("main") else
-                      f"chore {name} has merged into bolt/{bolt}" if bolt and name in chores_of(f"bolt/{bolt}") else
-                      left_over("chore", name, bolt, chores[name]) if name in chores else f"chore {name} is in no plan")
-    if branch == f"unit/{folder}":
-        return folder, (f"unit {folder} has landed on main" if folder in on_main else
-                        f"unit {folder} has merged into bolt/{bolt}" if bolt and folder in archived_of(bolt) else
-                        left_over("unit", folder, bolt, units[folder]) if folder in units else f"unit {folder} is in no plan")
-    bolt = gather.bolt_ref(up)[0]  # a fix's, from either form of the bolt it tracks
-    if bolt:
-        stage = fix_stage(fix_of(branch), bolt in bolts)
-        return branch, (f"{branch} has landed on main" if stage == "landed" else
-                        f"{branch} has merged into bolt/{bolt}" if stage == "merged" else
-                        f"{branch} was dropped" if branch in dropped else
-                        None if bolt in bolts else f"bolt {bolt}, which {branch} was made from, is in no plan")
     return None
-
-
-def left_over(kind, name, bolt, now):
-    """Why a unit's or chore's place is over once the plan holds it in another bolt than the one its place tracks
-    (bolt), or in the queue (now, None there), as a slot's work is once it has left its team's bolt (teams.1): its work
-    for that bolt is over, and a stage of its name cuts its place from the bolt it is in now (left_refusal). None while
-    it is in that bolt, or when its place tracks no bolt crew can name, which it never removes on a guess (read.1)."""
-    if not bolt or bolt == now:
-        return None
-    return f"{kind} {name} has left bolt/{bolt} for " + (f"bolt/{now}" if now else "the queue")
 
 
 def unread_plans(errors):
@@ -10614,1129 +9179,60 @@ def wt_left_branch(out, path):
         return False
 
 
-# ------------------------------------------------------------------------------------------ a stage's end
-
-def team_state(t):
-    """The team's state folder on its host: its slots, panes, stages, reports, waits and stop-shorts."""
-    return pathlib.Path.home() / f".local/state/{t['name']}-team"
+# ------------------------------------------------ a kit's read after a landing or a drop, and a bolt's conflict with main
 
 
-def started(eid):
-    """When a stage began: the UTC second at the front of its start entry's id, or None when the id holds none."""
+def kit_sweep(fleet, a):
+    """crew _sweep <label> <kit> --dir <folder> [--landed <bolt> --outcome <words> [--said <words>] [--here]] [--units
+    <unit>...], on the host a bolt's work runs on, which a landing or a drop hands it to with the kit's folder there
+    (sweep_on, bolt_at, code.3): the kit's read there (kit_read), reading no landing after a landing (--landed), whose
+    close may hold a landing's lock while it waits on this."""
+    here = crew.this_host()
+    arrived(fleet, here)
+    kit_read(fleet, {"label": a.label, "machine": here, "stream": None, "kit": kit_of(a.kit, a.dir)}, a.landed, a.outcome,
+             a.said, a.here, a.units)
+
+
+def kit_read(fleet, t, landed=None, outcome=None, said=None, here=False, units=()):
+    """A kit's read on the host a bolt's work runs on, in the kit's folder there (t, bolt_at), which a landing or a drop
+    asks for there (sweep_on): the landing of each started bolt of the kit
+    that may have an outcome or a close nothing recorded read (reap_landings), but by the read a landing's close asks
+    for (landed, the bolt), which reads none: crew bolt land waits on that read, and a landing read's close of a bolt
+    runs under the bolt's landing lock (landing_read), so a landing read there would wait on a lock its own caller
+    holds, its bolt's when the plan is read below the close, its bolt.land entry not yet on the branch (read.5), or
+    another bolt's whose read waits on its own close in turn; that bolt was read by the act that closed it, and the
+    kit's next read reads the rest (plan.21); then the sweep of crew's own landing
+    places and marked bolt branches, at a landing (landed, the bolt) having sluice delete the bolt's branch once the
+    landing's place is gone (tidy, land_delete); then each bolt of it that is local until it lands said, once
+    (bolts_local_said, plan.19); what the units of a bolt that landed or was dropped (units) recorded as made, kept here
+    for its batch's card, removed (made_drop); and after a landing, the bolt's card closed here with the outcome
+    (landing_cards_closed). What any of them refuses is said on standard error."""
+    if not landed:  # a landing's read reads no landing: its caller may hold a landing's lock (landing_read)
+        reap_landings(fleet, t["label"])
     try:
-        return datetime.datetime.strptime(eid[:16], "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
-    except (TypeError, ValueError):
-        return None
-
-
-class Owed:
-    """A stage crew owes an end, from its line in the team's stages file: <slot> <unit, chore, fix branch or bolt>
-    <stage> <start entry id> <object>. A unit's stages are construct, code, verify, settle and merge; a chore's, code,
-    verify and merge, its object chore/<name> (plan.11); a fix's, fix and merge, its name its branch and its object
-    fix/<bolt>/<name>. A line ops's proof of a bolt left, stage proof in the slot ops, from before a bolt's proof was
-    its verification (record 0025), is owed nothing and dropped when read (stage_ends)."""
-
-    def __init__(self, t, fields):
-        self.t, self.fields = t, list(fields)
-        self.slot, self.name, self.stage, self.eid, self.obj = (self.fields + [""] * 5)[:5]
-        self.agent = f"{t['name']}-{self.slot}"
-        self.start = started(self.eid)
-        self.proof = self.stage == "proof"
-        self.fix = self.name.startswith("fix/")
-        self.chore = self.obj.startswith("chore/")
-        self.kind = "chore" if self.chore else "unit"
-
-    def branch(self):
-        """The branch whose head an end names: the unit's, the chore's or the fix's."""
-        return self.name if self.fix else f"{self.kind}/{self.name}"
-
-    def phrase(self):
-        """The stage as the wait names it."""
-        if self.fix:
-            return f"fix {self.obj or self.name}" if self.stage == "fix" else f"{self.stage} of {self.obj or self.name}"
-        return f"{self.stage} on {'chore ' if self.chore else ''}{self.name}"
-
-    def on(self):
-        if self.fix:
-            return [self.obj or self.name, f"agent/{self.agent}"]
-        return [f"stage/{self.name}/{self.stage}", f"{self.kind}/{self.name}", f"agent/{self.agent}"]
-
-    def why(self, ended):
-        how = "stopped short" if ended == "short" else "ended"
-        if self.fix:
-            return f"fix({self.name.rsplit('/', 1)[-1]}): {self.stage} {how}"
-        return f"{self.kind}({self.name}): {self.stage} {how}"
-
-
-def short_head(main, ref):
-    return (gather.run(["git", "rev-parse", "--short", "--verify", "-q", ref], main) or "").strip()
-
-
-def committed_at(main, ref):
-    """When a branch's head was committed, in UTC, or None."""
-    at = gather.head_at(main, ref)
-    try:
-        return datetime.datetime.fromisoformat(at).astimezone(datetime.timezone.utc) if at else None
-    except ValueError:
-        return None
-
-
-def ticks(main, rev, unit):
-    """A unit's tasks at a commit, done and total, read from the commit and not the working tree, by the reading every
-    other reader of a unit's tasks uses (gather.tasks_of)."""
-    tasks = gather.tasks_of(gather.run(["git", "show", f"{rev}:openspec/changes/{unit}/tasks.md"], main) or "")
-    return sum(done for done, _ in tasks), len(tasks)
-
-
-def newest_saved(t, pattern, name, since):
-    """The newest file in the team's reports folder that the pattern names for name, modified at or after since."""
-    best = None
-    folder = team_state(t) / "reports"
-    for f in (folder.iterdir() if folder.is_dir() else []):
-        m = pattern.match(f.name)
-        try:
-            at = f.stat().st_mtime if m and m.group(1) == name else None
-        except OSError:
-            continue
-        if at is not None and at >= since.timestamp() and (best is None or at > best[0]):
-            best = (at, f)
-    return best[1] if best else None
-
-
-def bolt_of_unit(fleet, t, main, unit, kind="unit"):
-    """The bolt a unit's or chore's branch was made from and merges into, from its upstream; else the bolt the team
-    builds (team_building)."""
-    bolt = gather.bolt_of(gather.upstreams(main).get(f"{kind}/{unit}"))
-    if bolt:
-        return bolt
-    plan = plan_of(fleet, t["label"])
-    return team_building(fleet, plan, t) if plan else None
-
-
-def merge_bolt(plan, team, name):
-    """The bolt a unit's or chore's merge look reads, from the plan as it stands: the one the plan places it in now,
-    held by the team whose wait looks, and that bolt's kit, (bolt, repo, None); else (None, None, why). Never the bolt
-    its branch was cut from, which it may since have left, nor another team's, neither of which can hold its merge."""
-    u = plan.item(name)
-    if u is None:
-        return None, None, f"the plan holds no {name}"
-    b = plan.bolt(u.get("Bolt")) if u.get("Bolt") else None
-    if b is None:
-        return None, None, f"the plan places {name} in no bolt"
-    if b.get("Team") != team:
-        return None, None, f"the plan places {name} in bolt {b.name()}, which {team} does not hold"
-    return b.name(), b.get("Repo"), None
-
-
-def deliverable(fleet, t, o, place=None):
-    """What an owed stage has delivered since it began, read on the team's host: (its object, what the wait says of
-    it), or (None, what is missing), as delivered judges the facts deliverable_facts reads."""
-    return delivered(o, deliverable_facts(fleet, t, o, place))
-
-
-def deliverable_facts(fleet, t, o, place=None):
-    """What delivered judges an owed stage by, read on the team's host, only what its stage asks: the newest verify
-    report saved since it began; for a merge, the bolt it merges into, a fix's from its name and a unit's or chore's
-    from the plan as each look reads it (merge_bolt), or why there is none crew can read (unplaced), whether that bolt
-    holds it, a unit's change archived too, and its head, read in the bolt's kit where the bolt is read
-    (gather.bolt_read) once its GitHub is fetched, or why it could not be fetched (fetch) or read (unread); for a
-    chore's code, its own newest commit and when it was committed; else the branch's head and when it was committed, a
-    code stage's ticks at that head, and, for a construct with a commit since it began, whether its planning is
-    complete. The head is read once and the rest read at that commit, never at the branch again: an agent that commits
-    between the reads would pair one commit's time or ticks with another's sha."""
-    main, f = t["kit"]["main"], {}
-    if o.start is None:
-        return f
-    if o.stage == "verify":
-        f["saved"], f["folder"] = newest_saved(t, gather.REPORT, o.name, o.start), team_state(t) / "reports"
-        return f
-    if o.stage == "merge":
-        if o.fix:
-            f["bolt"] = o.obj.split("/")[1] if o.obj.count("/") == 2 else None
-        else:
-            errors = {}
-            found = plans(fleet, [t["label"]], errors)
-            p = found[0][3] if found else None
-            f["bolt"], repo, f["unplaced"] = merge_bolt(p, t["name"], o.name) if p else (
-                None, None, "; ".join(f"{k} could not be read: {v}" for k, v in errors.items()) or f"{t['label']} has no plan yet")
-            try:
-                main = crew.with_kit(t, repo)["kit"]["main"] if repo else main
-            except Refusal as e:
-                f["bolt"], f["unplaced"] = None, str(e)
-        if f["bolt"]:
-            # Each look fetches GitHub first: sluice lands the merge there, and moves neither the host's copy nor its
-            # tracking ref when it pushes as its app (plan.19).
-            why = gather.fetched(main)
-            if why:
-                f["fetch"] = why
-                return f
-            ref, why = gather.bolt_read(main, f["bolt"])
-            if not ref:
-                f["unread"] = why or f"this host has neither bolt/{f['bolt']} nor origin/bolt/{f['bolt']}"
-                return f
-            f["holds"] = (gather.fix_merged(main, o.name, f["bolt"], ref) if o.fix else
-                          o.name in gather.chores(main, ref) if o.chore else o.name in gather.changes(main, ref))
-            if not (o.fix or o.chore):
-                f["archived"] = o.name in gather.archived(main, ref)
-            f["bolt_head"] = short_head(main, ref)
-        return f
-    if o.chore:  # its own newest commit: what its place took of what it comes after is not its code (plan.13)
-        bolt = bolt_of_unit(fleet, t, main, o.name, "chore")
-        head, at = gather.own_head(main, o.branch(), bolt) if bolt else (None, None)
-        try:
-            f["head"], f["at"] = head, datetime.datetime.fromisoformat(at).astimezone(datetime.timezone.utc) if at else None
-        except ValueError:
-            f["head"], f["at"] = head, None
-        return f
-    f["head"] = short_head(main, f"refs/heads/{o.branch()}")
-    at = f["head"] or f"refs/heads/{o.branch()}"
-    f["at"] = committed_at(main, at)
-    if o.fix or o.stage == "settle":
-        return f
-    if o.stage == "code":
-        f["ticks"] = ticks(main, at, o.name)
-        return f
-    if f["head"] and f["at"] is not None and f["at"] >= o.start:
-        place = place or f"{t['kit']['dir']}/places/{o.name}"
-        planned = gather.planned(f"{place}/openspec/changes/{o.name}", place)
-        if planned is None:
-            status = gather.run(["openspec", "status", "--change", o.name, "--json"], place)
-            try:
-                planned = bool(json.loads(status).get("isPlanningComplete")) if status else False
-            except (ValueError, AttributeError):
-                planned = False
-        f["planned"] = planned
-    return f
-
-
-def delivered(o, f):
-    """What an owed stage has delivered, judged from deliverable_facts (teams.4): (its object, what the wait says of
-    it), or (None, what is missing). construct: a commit on the unit's branch since the start, with its planning
-    complete; code: a commit since the start, every task ticked at the head, or the commit alone where the head has no
-    task list; verify: a report for the unit saved since
-    the start, its lack named with the folder crew reads; settle: a commit on the unit's branch since the start
-    (teams.14); merge: the bolt holding the unit's change archived, which its merge does first (teams.17), the chore's
-    trailer or the fix's commits; a fix, and a chore's code: a commit on its branch since the start (record 0007). A
-    start crew can't read delivers nothing."""
-    if o.start is None:
-        return None, f"no start crew can read in its entry {o.eid}"
-    if o.stage == "verify":
-        saved, folder = f.get("saved"), f.get("folder")
-        if saved:
-            return f"report/{saved.name}", f"the report is {saved}"
-        return None, f"no report verify-{o.name}-<YYYYMMDD-HHMM>.md saved in {folder} since it began" if folder else "no report saved"
-    if o.stage == "merge":
-        bolt, head = f.get("bolt"), f.get("bolt_head")
-        if not bolt:
-            return None, "no bolt crew can read for it" + (f": {f['unplaced']}" if f.get("unplaced") else "")
-        if f.get("fetch"):
-            return None, f"can't fetch bolt/{bolt} from GitHub: {f['fetch']}"
-        if f.get("unread"):
-            return None, f"can't read bolt/{bolt}: {f['unread']}"
-        if f.get("holds") and f.get("archived") is False:
-            return None, f"bolt/{bolt} holds its change open: its merge did not archive it first"
-        return (f"bolt/{bolt}@{head}", f"bolt/{bolt} holds it at {head}") if f.get("holds") and head else (None, f"bolt/{bolt} not yet holding it")
-    head, at = f.get("head"), f.get("at")
-    fresh = bool(head) and at is not None and at >= o.start
-    if o.fix or o.chore:
-        return (f"{o.obj or o.name}@{head}", f"its branch is at {head}") if fresh else (None, "nothing committed since it began")
-    if o.stage == "settle":
-        return (f"unit/{o.name}@{head}", f"its branch is at {head}, ready to merge") if fresh else (None, "nothing committed since it began")
-    if o.stage == "code":
-        done, total = f.get("ticks") or (0, 0)
-        if fresh and total and done == total:
-            return f"unit/{o.name}@{head}", f"every task is ticked ({done}/{total}) at {head}"
-        if fresh and not total:  # no task list: its commits deliver it, as a fix round's do (teams.4)
-            return f"unit/{o.name}@{head}", f"its branch is at {head}, with no task list at its head"
-        return None, f"{done} of {total} tasks ticked at its head" if total and done < total else "no commit since it began"
-    if not fresh:
-        return None, "nothing committed"
-    return (f"unit/{o.name}@{head}", f"its change is committed at {head}") if f.get("planned") else (None, "its planning not complete")
-
-
-@contextlib.contextmanager
-def stages_file(t, shared=False):
-    """The team's stages file under its lock (teams.9), as its lines split into fields. Under the exclusive lock the
-    caller may change the list, and what it leaves is written back."""
-    path = team_state(t) / "stages"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
-    with open(path, "r+") as f:
-        fcntl.flock(f, fcntl.LOCK_SH if shared else fcntl.LOCK_EX)
-        lines = [l.split() for l in f.read().splitlines() if l.strip()]
-        before = [list(l) for l in lines]
-        yield lines
-        if not shared and lines != before:
-            f.seek(0)
-            f.truncate()
-            f.write("".join(" ".join(l) + "\n" for l in lines))
-
-
-def record_end(fleet, t, o, ended, delivered=None, late=False, now=None):
-    """One owed stage's stage.end: how it ended (delivered, short or stopped), what it delivered, and the stage, tasks
-    and head crew then reads from the kit. now is slot_stages' answer when the caller has it."""
-    main = t["kit"]["main"]
-    s = (now if now is not None else {x["slot"]: x for x in slot_stages(fleet, t)}).get(o.slot, {})
-    result, tasks = s.get("stage", "unknown"), s.get("counts")
-    record.emit(t["label"], "stage.end", o.on(), why=o.why(ended), Result=result, Tasks=tasks,
-                Head=short_head(main, f"refs/heads/{o.branch()}"), Ended=ended, Delivered=delivered,
-                Observed="late" if late else None)
-
-
-def unmark(fleet, t, o):
-    """Once an amended unit's construct has delivered, its mark stops counting, and crew removes it from the plan in a
-    write that carries the construct's end (plan.6). A mark that still waits for construct, one set again meanwhile, or
-    a write that fails is said on standard error and changes nothing else: the mark no longer counts either way."""
-    if o.fix or o.stage != "construct":
-        return
-    plan = plan_of(fleet, t["label"])
-    u = plan.unit(o.name) if plan else None
-    mark = u.get("Amended") if u else None
-    if not mark or amended(mark):
-        return
-
-    def change(w):
-        v = w.unit(o.name)
-        v.get("Amended") == mark or fail(f"unit {o.name} was marked again since its construct ended")
-        v.drop("Amended")
-        w.quiet.add(t["name"])  # its conductor learns the end from its wait, not from this write
-        return [v.get("Bolt")] if v.get("Bolt") else []
-    try:
-        # An act of its own, unit.unmark, whose entry its commit names and the write records (plan.2, read.5).
-        with contextlib.redirect_stdout(sys.stderr):
-            write(fleet, t["label"], change, f"plan({u.get('Bolt')}): {o.name} constructed again, its mark cleared", act="unit.unmark",
-                  on=[f"unit/{o.name}", f"stage/{o.name}/construct"] + ([f"bolt/{u.get('Bolt')}"] if u.get("Bolt") else []),
-                  fields={"Head": mark})
+        tidy(fleet, t, landed)
     except Refusal as e:
-        print(f"unit {o.name}'s Amended mark is left in the plan, and no longer counts: {e}", file=sys.stderr)
-
-
-def end_owed(fleet, t, o, ended, delivered=None, then=None):
-    """Record an owed stage's end and remove its line, under the stages file's lock, unless another command recorded
-    it first. then(lines) runs under the same lock once the end is recorded. Returns whether this call recorded it."""
-    with stages_file(t) as lines:
-        i = next((i for i, l in enumerate(lines) if l[3:4] == [o.eid]), None)
-        if i is None:
-            return False
-        record_end(fleet, t, o, ended, delivered)
-        del lines[i]
-        if then:
-            then(lines)
-    return True
-
-
-def stage_ends(fleet, a):
-    """Record the end of each stage the team's stages file owes, once each, under its lock. With --ending, the slot's
-    or ops's stage whose agent is about to be ended: delivered when its deliverable exists, else stopped. Otherwise each
-    one whose deliverable exists and whose agent is not working, observed late by the command that reads the team; a
-    quiet stage that has delivered nothing stays owed. A slot's line whose slot no longer holds its unit or fix is
-    dropped without an entry, and so is a line ops's proof left (record 0025)."""
-    t = at_work(fleet, a.team)
-    held = {l.split()[0]: l.split() for l in (team_state(t) / "slots").read_text().splitlines() if l.strip()} \
-        if (team_state(t) / "slots").exists() else {}
-    with stages_file(t) as lines:
-        keep, ended = [], []
-        for l in lines:
-            o = Owed(t, l)
-            if a.slot and o.slot != a.slot:
-                keep.append(l)
-                continue
-            if o.proof or o.slot not in held or held[o.slot][2] != o.name:
-                continue
-            if a.ending:
-                got, _ = deliverable(fleet, t, o, held.get(o.slot, [None] * 4)[3])
-                ended.append((o, "delivered" if got else "stopped", got))
-            elif crew.agent_status(fleet, o.agent, fresh=False) != "working":
-                got, _ = deliverable(fleet, t, o, held.get(o.slot, [None] * 4)[3])
-                (ended.append((o, "delivered", got)) if got else keep.append(l))
-            else:
-                keep.append(l)
-        now = {s["slot"]: s for s in slot_stages(fleet, t)} if ended else {}
-        for o, how, got in ended:
-            record_end(fleet, t, o, how, got, late=how == "delivered", now=now)
-        lines[:] = keep
-    for o, how, _ in ended:
-        if how == "delivered":
-            unmark(fleet, t, o)
-
-
-# ----------------------------------------------------------------------------------- what reaches a unit
-
-def merge_tree(main, ours, theirs, base=None):
-    """The paths git merge-tree forecasts in conflict when theirs is merged into ours, from their merge base or from
-    the base given (git 2.40+), [] for a clean merge, or None when git can't tell. It writes objects and no ref."""
-    r = subprocess.run(["git", "-C", main, "merge-tree", "--write-tree", "--name-only", "--no-messages",
-                        *([f"--merge-base={base}"] if base else []), ours, theirs], capture_output=True, text=True, env=gitenv())
-    if r.returncode == 0:
-        return []
-    if r.returncode != 1:
-        return None
-    paths = []
-    for line in r.stdout.split("\n")[1:]:
-        if not line:
-            break
-        if line not in paths:
-            paths.append(line)
-    return paths
-
-
-def git_holds(main, commit, head):
-    """Whether head holds commit, by git merge-base --is-ancestor in the kit's main checkout: True or False, None when
-    git can't tell (forecast_base)."""
-    r = subprocess.run(["git", "-C", main, "merge-base", "--is-ancestor", commit, head], capture_output=True, text=True, env=gitenv())
-    return {0: True, 1: False}.get(r.returncode)
-
-
-def shared_beyond(main, ours, theirs, bolt):
-    """Whether ours and theirs share a commit their bolt (its head) lacks, read in the kit's main checkout: one of
-    their merge bases is not in the bolt (forecast_base). None when git can't tell, or the bolt's head is not known."""
-    if not bolt:
-        return None
-    r = subprocess.run(["git", "-C", main, "merge-base", "--all", ours, theirs], capture_output=True, text=True, env=gitenv())
-    if r.returncode == 1 and not r.stdout.strip():
-        return False
-    if r.returncode != 0:
-        return None
-    r = subprocess.run(["git", "-C", main, "rev-list", "-n1", *r.stdout.split(), "--not", bolt],
-                       capture_output=True, text=True, env=gitenv())
-    return bool(r.stdout.strip()) if r.returncode == 0 else None
-
-
-def case_of(text):
-    """A proposal's Why, and the lead sentence of each of its What Changes items, in its own words."""
-    sections, cur = {}, None
-    for line in (text or "").splitlines():
-        m = re.match(r"^##\s+(.*?)\s*$", line)
-        if m:
-            cur = sections.setdefault(m.group(1).lower(), [])
-        elif cur is not None:
-            cur.append(line)
-    why = " ".join(l.strip() for l in sections.get("why", []) if l.strip())
-    items = [re.split(r"(?<=[.!?])\s", m.group(1).strip(), maxsplit=1)[0]
-             for m in (re.match(r"^\s*[-*]\s+(.*)$", l) for l in sections.get("what changes", [])) if m]
-    return why, items
-
-
-def change_words(main, kdir, k, bolt, unit):
-    """Where another unit's change is, and its Why and What Changes as its proposal words them: read in its place while
-    it has one, else on the bolt, where it is read (gather.bolt_read)."""
-    pl = k["places"].get(unit)
-    if pl:
-        path = f"{pl['path']}/openspec/changes/{unit}/"
-        try:
-            text = pathlib.Path(path, "proposal.md").read_text()
-        except OSError:
-            text = None
-    else:
-        path, at = f"{kdir}/bolts/{bolt}/openspec/changes/{unit}/", read_at(k, bolt)
-        text = gather.run(["git", "show", f"{at}:openspec/changes/{unit}/proposal.md"], main) if at else None
-    why, items = case_of(text)
-    return (f"{unit}'s change is {path}." + (f" Its Why: {why}" if why else "")
-            + (" What it changes: " + " ".join(items) if items else ""))
-
-
-def forecast_words(t, k, bolt, unit, other, paths, left_out=()):
-    """What a forecast says to the later unit: the conflicting paths, how to resolve them keeping both intents, and the
-    other unit's change, or, for a conflict with the bolt, how to rebase (rebase_words, left_out the After units' work
-    a dependent's rebase left out) and the change of each unit merged since the unit's place was made (teams.13)."""
-    main, kdir, on = t["kit"]["main"], t["kit"]["dir"], ", ".join(paths)
-    if other == f"bolt/{bolt}":
-        at = read_at(k, bolt)
-        base = gather.run(["git", "merge-base", at, f"unit/{unit}"], main) if at else None
-        since = [c for c in gather.changes(main, at) if c not in (gather.changes(main, base.strip()) if base else [])] if at else []
-        return (f"Your branch is forecast to conflict with bolt/{bolt} on {on}. {rebase_words(bolt, left_out, at)}, resolve "
-                "each conflict keeping both changes' intents, run the tests those paths affect, and commit."
-                + "".join(" Merged since your place was made: " + change_words(main, kdir, k, bolt, c) for c in since))
-    return (f"Your merge after {other}, ahead of you in the bolt and not merged, is forecast to conflict on {on}. You merge "
-            f"after it: take its work into your place (git merge unit/{other}), resolve each conflict keeping both changes' "
-            f"intents, run the tests those paths affect, and commit. " + change_words(main, kdir, k, bolt, other))
-
-
-def rebase_words(bolt, left_out=(), at=None):
-    """How a unit is told to rebase its place onto its bolt, where the bolt is read (at, gather.bolt_read): a bolt on
-    GitHub, origin/bolt/<bolt>, fetched first, since the place's own copy of it is as the host last fetched it; else the
-    host's bolt/<bolt>. Onto the bolt alone; or, for a dependent whose rebase at its After units' merge left their work
-    out as its place took it (left_out, <unit>@<head> words), from the upstream crew's own rebase used, a commit whose
-    parents are the bolt and those heads (ONTO), so it meets no conflict on their files. That commit has no ref, and
-    nothing keeps it: the words give the command that makes it again, from the bolt as it then stands and heads the
-    place holds (plan.13)."""
-    ref = at or f"bolt/{bolt}"
-    fetch = "git fetch origin && " if ref.startswith("origin/") else ""
-    if not left_out:
-        return f"Rebase your place onto the bolt ({fetch}git rebase {ref})"
-    names, heads = zip(*(w.split("@", 1) for w in left_out))
-    work = f"{names[0]}'s work" if len(names) == 1 else f"the work of {', '.join(names[:-1])} and {names[-1]}"
-    parents = " ".join(f"-p {h}" for h in (ref,) + heads)
-    return (f"Rebase your place onto the bolt, leaving out {work} as your place took it, which the bolt holds as merged "
-            f"({fetch}git rebase --onto {ref} $(git commit-tree {parents} -m upstream '{ref}^{{tree}}'))")
-
-
-def amendment_words(t, k, bolt, after):
-    """What an amended After unit says to its dependent: that it was constructed again, and its revised change."""
-    return (f"{after}, which you come after, was constructed again, and you are not held for it: build on its revised "
-            "change, keeping yours true to it. Your place holds its work as it stood when your place was made, and is "
-            f"rebased onto the bolt once it merges. " + change_words(t["kit"]["main"], t["kit"]["dir"], k, bolt, after))
-
-
-def owed_by_unit(t):
-    """The stages the team's stages file owes, by the unit or fix each is of."""
-    with stages_file(t, shared=True) as lines:
-        return {Owed(t, l).name: Owed(t, l) for l in lines if not Owed(t, l).proof}
-
-
-def deliver(fleet, t, entries, unit, stage, words):
-    """How a forecast or an amendment reaches a unit, once (teams.12): told, while a stage of it is owed and its agent is
-    up and not working; as a settle stage, when it has delivered its verify and waits to merge; else carried in its next
-    stage's prompt. None while its stage's agent is working, or when telling it or starting its settle failed, so the
-    next wait tries again."""
-    o = owed_by_unit(t).get(unit)
-    status = crew.agent_status(fleet, o.agent, fresh=False) if o else None
-    way = reach_way(bool(o), status, stage, stage == "verify" and verified(t["label"], unit, entries))
-    if way == "told":
-        return "told" if crew.tell(fleet, o.agent, words) else None
-    if way == "settle":
-        try:  # in this process, on the team's host, as crew unit run starts it; what it says is not the wait's
-            with contextlib.redirect_stdout(io.StringIO()):
-                run_unit_stage(fleet, crew.Team(fleet, t), unit, "settle", words)
-        except (Refusal, Stopped) as e:
-            print(f"crew could not start {unit}'s settle stage" + (f": {e}" if isinstance(e, Refusal) else ""), file=sys.stderr)
-            return None
-        return "settle"
-    return way
-
-
-def reach_way(owed, status, stage, verified):
-    """How a forecast or an amendment reaches a unit, once (teams.12, teams.14): not yet while the agent of the stage it
-    owes is working; told to that agent while it is up; as a settle stage when the unit has delivered its verify and
-    waits to merge (verified); else carried in its next stage's prompt."""
-    if owed and status == "working":
-        return None
-    if owed and status:
-        return "told"
-    return "settle" if stage == "verify" and verified else "prompt"
-
-
-# A dependent's place rebased onto its bolt, given by the ref it is read at (gather.bolt_read): printed "rebased" when
-# it moved, nothing when it was already there; a
-# rebase that conflicts is aborted, the place as it was, and printed "conflict <paths...>", exit 3. The heads given
-# after the bolt, of merged After units as the place took them, are left out with the bolt's commits: the rebase
-# replays what is beyond both, from a commit with no ref whose parents are the bolt and those heads.
-ONTO = r"""cd "$1" || exit 1
-at=$2; shift 2
-git merge-base --is-ancestor "$at" HEAD && exit 0
-upstream=$at
-if [ $# -gt 0 ]; then
-  parents=(-p "$upstream"); for h; do parents+=(-p "$h"); done
-  upstream=$(git commit-tree "${parents[@]}" -m "crew: the bolt and the heads taken" "$upstream^{tree}") || exit 1
-fi
-if git rebase -q --onto "$at" "$upstream" >/dev/null 2>&1; then echo rebased; exit 0; fi
-paths=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
-git rebase --abort >/dev/null 2>&1
-echo "conflict $paths"; exit 3
-"""
-
-
-def landed_at(main, bolt, unit, kind="unit", at=None):
-    """The commit on a bolt that brought a unit's change there, the first that holds its folder, or a chore's work, the
-    first carrying its trailer (plan.11), read where the bolt is read (at, else gather.bolt_read); None when it holds
-    none or the bolt can't be read. A unit lands on its bolt in sluice's merge commit with its change already archived
-    (teams.17, record 0026), so the bolt's own side never held the folder: --full-history follows the merge's other
-    parent, which git's default simplification prunes."""
-    at = at or gather.bolt_read(main, bolt)[0]
-    if not at:
-        return None
-    where = ([f"--grep=^Chore: {unit}$", at] if kind == "chore" else ["--full-history", at, "--", f"openspec/changes/{unit}"])
-    out = gather.run(["git", "log", "--format=%H", "--reverse", *where], main)
-    return (out or "").split("\n")[0].strip() or None
-
-
-def clean(path):
-    """Whether a worktree has nothing uncommitted and nothing in progress, as plan.9 reads a worktree crew may move."""
-    st = subprocess.run(["git", "-C", path, "status", "--porcelain"], capture_output=True, text=True, env=gitenv())
-    if st.returncode or st.stdout.strip():
-        return False
-    for f, _ in IN_PROGRESS:
-        at = subprocess.run(["git", "-C", path, "rev-parse", "--path-format=absolute", "--git-path", f], capture_output=True,
-                            text=True, env=gitenv()).stdout.strip()
-        if at and os.path.exists(at):
-            return False
-    return True
-
-
-def rebase_dependents(fleet, t, plan, st, say):
-    """Each unmerged unit or chore of the team's bolt with a place, one of whose After units or chores has merged since
-    its place last met the bolt, is rebased onto the bolt, only while its agent is not working and its place is clean
-    (teams.2, plan.9): the bolt's commits drop out of it, and so does each merged After's work as its place took it
-    (rebase_leaves_out, from the run record's Took). A unit's rebase that conflicts is aborted, the place as it was, and
-    returned to reach the dependent as a conflict does, with what it left out: [(bolt, unit, paths, <after>@<head>
-    words)]; a chore's is said, since no forecast reaches a chore, and its merge meets it. say(text) reports what was
-    done or left."""
-    main, out, entries = t["kit"]["main"], [], None
-    owed = owed_by_unit(t)
-    for b in held_by(plan, t["name"]):
-        k, _ = st.kit(b)
-        at = read_at(k, b.name()) if k else None
-        if not at:
-            continue
-        for u in plan.work_of(b.name()):
-            kind = kind_of(u)
-            pl = (k.get("chore_places", {}) if kind == "chore" else k["places"]).get(u.name())
-            if not pl or st.of(u.name())["stage"] in ("merged", "landed", "unknown"):
-                continue
-            merged = [a for a in u.all("After") if st.of(a)["stage"] in ("merged", "landed")]
-            due = [a for a in merged if (lambda c: c and subprocess.run(["git", "-C", main, "merge-base", "--is-ancestor", c, f"refs/heads/{kind}/{u.name()}"],
-                                                                       env=gitenv()).returncode != 0)(landed_at(main, b.name(), a, st.of(a)["kind"], at))]
-            if not due:
-                continue
-            o = owed.get(u.name())
-            waits = rebase_waits(u.name(), b.name(), due, o and crew.agent_status(fleet, o.agent, fresh=False), lambda: clean(pl["path"]), pl["path"])
-            if waits:
-                say(waits)
-                continue
-            entries = local_entries(t["label"]) if entries is None else entries
-            branch = f"refs/heads/{kind}/{u.name()}"
-            holds = lambda head: subprocess.run(["git", "-C", main, "merge-base", "--is-ancestor", head, branch], env=gitenv(),
-                                                stderr=subprocess.DEVNULL).returncode == 0
-            left_out = rebase_leaves_out(due, took_heads(u.name(), entries), holds)
-            r = subprocess.run(["bash", "-c", ONTO, "crew", pl["path"], at, *(w.split("@", 1)[1] for w in left_out)],
-                               capture_output=True, text=True, env=gitenv())
-            READ.drop_kit(t["machine"], main)
-            if r.returncode == 3 and kind == "chore":
-                say(f"rebasing chore {u.name()} onto bolt/{b.name()} conflicts on {', '.join(r.stdout.strip().split()[1:])}: its place "
-                    "is as it was, and its merge meets the conflict")
-            elif r.returncode == 3:
-                out.append((b.name(), u.name(), r.stdout.strip().split()[1:], left_out))
-                say(f"rebasing {u.name()} onto bolt/{b.name()} conflicts: its place is as it was, and it is told")
-            elif r.returncode:
-                say(f"{u.name()} was not rebased onto bolt/{b.name()}: " + ((r.stderr or r.stdout).strip() or f"exit {r.returncode}"))
-            elif r.stdout.strip() == "rebased":
-                record.emit(t["label"], f"{kind}.rebase", [f"{kind}/{u.name()}", f"bolt/{b.name()}"], frm=[f"{st.of(a)['kind']}/{a}" for a in due],
-                            why=f"{kind}({u.name()}): rebase onto bolt/{b.name()}, now that {', '.join(due)} merged")
-                say(f"{u.name()} is rebased onto bolt/{b.name()}, now that {', '.join(due)} merged")
-    return out
-
-
-def rebase_leaves_out(due, took, holds):
-    """Each of a dependent's merged After units (due) whose head its place took (took, {after unit: head}) and still
-    holds (holds(head)), as <unit>@<head>, in due's order: its rebase onto the bolt leaves their work out as it took it,
-    since the bolt holds that work as it merged, rewritten since by a rebase or a settle (plan.13). [] when it took none
-    or holds none of them, and it is rebased onto the bolt alone."""
-    return [f"{a}@{took[a]}" for a in due if took.get(a) and holds(took[a])]
-
-
-def rebase_waits(unit, bolt, due, status, is_clean, path):
-    """Why a dependent whose After units (due) have merged is not rebased onto its bolt yet, or None when it is
-    rebased now: its agent is working, or its place is not clean (is_clean(), read only when its agent is not)."""
-    if status == "working":
-        return f"{unit} waits to be rebased onto bolt/{bolt}, now that {', '.join(due)} merged: its agent is working"
-    if not is_clean():
-        return f"{unit} waits to be rebased onto bolt/{bolt}, now that {', '.join(due)} merged: {path} has uncommitted changes or work in progress"
-    return None
-
-
-def rebase_and_tidy(fleet, t, landed=None):
-    """The end of a team's read: each dependent whose After unit has merged is rebased (rebase_dependents), a conflict
-    waiting for the conductor's next wait, which tells the dependent; then the team's tidy runs, whether or not the
-    rebase was refused, at a landing (landed, the bolt) having sluice delete the bolt's branch once the landing's place
-    is gone (land_delete); then each bolt the team holds that is local until it lands is said, once (bolts_local_said,
-    plan.19). What any of them refuses is said on standard error. Returns the paths the tidy removed."""
-    plan = None
+        print(e, file=sys.stderr)
     try:
         plan = plan_of(fleet, t["label"])
-        if plan:
-            rebase_dependents(fleet, t, plan, stages_for(fleet, plan, held_by(plan, t["name"])), print)
+        for line in bolts_local_said(fleet, t, plan) if plan else []:
+            print(line)
     except Refusal as e:
         print(e, file=sys.stderr)
-    removed = []
-    try:
-        removed = tidy(fleet, argparse.Namespace(team=t["name"], landed=landed))
-    except Refusal as e:
-        print(e, file=sys.stderr)
-    try:
-        for said in bolts_local_said(fleet, t, plan) if plan else []:
-            print(said)
-    except Refusal as e:
-        print(e, file=sys.stderr)
-    return removed
-
-
-def amendments(t, plan, st, entries):
-    """For each dependent with a place, each After unit constructed again since the dependent's construct took its
-    head (amended_afters), git telling whether the head the dependent took already holds the new one."""
-    holds = lambda held, head: subprocess.run(["git", "-C", t["kit"]["main"], "merge-base", "--is-ancestor", head, held],
-                                              env=gitenv()).returncode == 0
-    return amended_afters(held_by(plan, t["name"]), plan, lambda n: st.of(n)["stage"], entries, holds)
-
-
-def amended_afters(bolts, plan, stage_of, entries, holds):
-    """For each unmerged dependent of the bolts, each After unit constructed again since the dependent's construct took
-    its head: [(bolt, dependent, after unit, its new head)], from the run record's entries. A construct whose head the
-    dependent already holds (holds(the head it took, the new head)), such as one recorded late, is no amendment."""
-    out = []
-    for b in bolts:
-        for u in plan.units_of(b.name()):
-            if stage_of(u.name()) in ("merged", "landed", "unknown") or not u.all("After"):
-                continue
-            starts = construct_starts(u.name(), entries)
-            if not starts:
-                continue
-            since = (starts[0]["At"], starts[0]["Id"])
-            took = took_heads(u.name(), entries)
-            for a in u.all("After"):
-                ends = [e for e in entries if e.get("Act") == "stage.end" and f"stage/{a}/construct" in e["On"]
-                        and e.get("Ended") == "delivered" and (e["At"], e["Id"]) > since]
-                head = (ends[-1].get("Delivered") or "").rpartition("@")[2] if ends else ""
-                held = took.get(a)
-                if head and head != held and not (held and holds(held, head)):
-                    out.append((b.name(), u.name(), a, head))
-    return out
-
-
-def construct_starts(unit, entries):
-    """A unit's construct starts that were not refused, from the run record's entries, in their order."""
-    return [e for e in entries if e.get("Act") == "stage.start" and f"stage/{unit}/construct" in e["On"] and not e.get("Refused")]
-
-
-def took_heads(unit, entries):
-    """The head of each unit or chore it comes after that a unit's construct, or a chore's code, took into its place,
-    from those starts' Took (<name>@<sha7> words), the latest taking of each: {name: head}. A start recorded before
-    Took existed, or one whose place already held work of its own, took none."""
-    starts = [e for e in entries if e.get("Act") == "stage.start" and not e.get("Refused")
-              and any(o in e["On"] for o in (f"stage/{unit}/construct", f"stage/{unit}/code"))]
-    return dict(w.split("@", 1) for e in starts for w in (e.get("Took") or "").split() if "@" in w)
-
-
-def reach(fleet, t):
-    """On each of the conductor's waits, before it waits: for each unmerged unit of the team's bolt with a place, git
-    merge-tree on the team's host forecasts its merge with the bolt and with each unmerged unit ahead of it in the file's
-    order, writing no ref, a later unit's with one ahead of it from the newest of that one's work it holds, read from
-    git (forecast_base), none for a unit holding the other's head; a unit that
-    conflicts with the bolt resolves that first, and is forecast against the units ahead of it once it is clean with
-    the bolt. A conflict is a forecast for the later unit, recorded once for a pair of
-    heads (`forecast`, with both heads, the paths and how it reached the unit) and reaching it once (deliver). The
-    earlier unit is told nothing, and the forecast orders neither: a settle that takes the other's work does, and an
-    order of crew's own whose settle found nothing to change is lifted, both before the forecasts (settle_orders,
-    plan.13). What crew can't read or write here is said on standard error, and the wait goes on (teams.12). Then each
-    bolt the team holds is forecast against its kit's main (teams.21); returns [(bolt, head)] for each such forecast
-    said, the head the one it is of, for the wait's answer (forecasts_after)."""
-    label, main = t["label"], t["kit"]["main"]
-    plan = plan_of(fleet, label)
-    if plan is None:
-        print(f"no forecast: {label}'s plan could not be read", file=sys.stderr)
-        return []
-    bolts = held_by(plan, t["name"])
-    with READ.fresh():
-        st = stages_for(fleet, plan, bolts)
-    say = lambda text: print(text, file=sys.stderr)
-    met = rebase_dependents(fleet, t, plan, st, say)
-    if met:
-        with READ.fresh():
-            st = stages_for(fleet, plan, bolts)
-    ordered = settle_orders(fleet, t, plan, st)
-    for text in ordered:
-        say(text)
-    if ordered:  # the forecasts read the plan as crew's own orders left it
-        plan = plan_of(fleet, label) or plan
-        bolts = held_by(plan, t["name"])
-        st = stages_for(fleet, plan, bolts)
-    entries = local_entries(label)
-    # The bolts the user left on their kits' landings cards (left_of), read from the partition's run record on its branch
-    # (read.5) and this host's entries it does not hold yet, which no fix is given for (bolt_forecast); while the branch
-    # can't be read, no bolt's forecast against main is said, since whether its fix is due can't be told (read.1).
-    left, unread_left = set(), None
-    try:
-        whole = partition_entries(fleet, label)
-    except Refusal as e:
-        whole, unread_left = [], str(e)
-    ids = {e["Id"] for e in whole if e.get("Id")}
-    whole += [e for e in entries if not e.get("Id") or e["Id"] not in ids]
-    for b in bolts:
-        k, _ = st.kit(b)
-        if k and left_of(whole, f"land/{b.get('Repo') or t['kit']['name']}", {b.name(): k["bolts"].get(b.name(), {}).get("head")}):
-            left.add(b.name())
-    done = said_heads(whole, left)
-    for bolt, name, paths, left_out in met:
-        k, _ = st.kit(plan.bolt(bolt))
-        pl = (k or {"places": {}})["places"].get(name)
-        bhead = (k or {"bolts": {}})["bolts"].get(bolt, {}).get("head")
-        heads = f"{name}@{(pl or {}).get('head', '')[:7]} bolt/{bolt}@{(bhead or '')[:7]}"
-        if not pl or not bhead or heads in done:
-            continue
-        way = deliver(fleet, t, entries, name, st.of(name)["stage"],
-                      forecast_words(t, k, bolt, name, f"bolt/{bolt}", paths, left_out))
-        if way:
-            record.emit(label, "forecast", [f"unit/{name}", f"bolt/{bolt}"], why=f"unit({name}): rebase onto bolt/{bolt} conflicts",
-                        Heads=heads, Paths=" ".join(paths), Reached=way, Took=" ".join(left_out))
-            done.add(heads)
-    for bolt, name, a, ahead in amendments(t, plan, st, entries):
-        heads = f"{name} {a}@{ahead}"
-        if heads in done:
-            continue
-        k, _ = st.kit(plan.bolt(bolt))
-        if not k:
-            continue
-        way = deliver(fleet, t, entries, name, st.of(name)["stage"], amendment_words(t, k, bolt, a))
-        if way:
-            record.emit(label, "amendment", [f"unit/{name}", f"unit/{a}"], why=f"unit({name}): {a} was constructed again",
-                        Heads=heads, Reached=way)
-            done.add(heads)
-    for b in bolts:
-        k, why = st.kit(b)
-        if not k:
-            print(f"no forecast for {b.name()}: {why}", file=sys.stderr)
-            continue
-        live = [(u.name(), k["places"][u.name()]["head"], u.all("After")) for u in plan.units_of(b.name())
-                if k["places"].get(u.name()) and k["places"][u.name()].get("head")
-                and st.of(u.name())["stage"] not in ("merged", "landed", "unknown")]
-        took = {name: took_heads(name, entries) for name, _, _ in live}
-        bhead = k["bolts"].get(b.name(), {}).get("head")
-        due, unread = forecasts_due(live, b.name(), bhead, lambda o, h, base: merge_tree(main, o, h, base),
-                                    lambda c, h: git_holds(main, c, h), lambda h, o: shared_beyond(main, h, o, bhead),
-                                    done, took, bolt_order(plan, b.name())[1])
-        for name, other in unread:
-            print(f"no forecast of {name} against {other}: git could not read them", file=sys.stderr)
-        for name, other, paths, heads in due:
-            way = deliver(fleet, t, entries, name, st.of(name)["stage"], forecast_words(t, k, b.name(), name, other, paths))
-            if way:
-                record.emit(label, "forecast", [f"unit/{name}", other if other.startswith("bolt/") else f"unit/{other}"],
-                            why=f"unit({name}): forecast to conflict with {other}", Heads=heads, Paths=" ".join(paths), Reached=way)
-                done.add(heads)
-    # The bolt itself against its kit's main and what is queued there, by sluice's forecast (teams.21), each said kept
-    # with the head it is of, for the wait's answer (forecasts_moved).
-    forecast = []
-    for b in bolts:
-        k, _ = st.kit(b)
-        if not k:
-            continue  # said above
-        if unread_left:
-            say(f"no forecast of bolt/{b.name()} against main is said: crew can't tell whether the user left it on its kit's "
-                f"landings card: {unread_left}")
-            continue
-        checked, kept = bolt_check(k["team"]["kit"], b.name())
-        if kept:
-            say(kept)
-        doc, why = bolt_forecast_read(*checked)
-        if why:
-            said = unread_said(b.name(), k["bolts"].get(b.name(), {}).get("head"), why, done)
-            if said:
-                heads, words = said
-                say(words)
-                if heads:
-                    record.emit(label, "forecast", [f"bolt/{b.name()}"], why=f"bolt({b.name()}): no forecast against main",
-                                Heads=heads, Reached="wait")
-                    done.add(heads)
-            continue
-        head = bolt_said(fleet, t, b, doc, done, len(bolts) > 1, say, b.name() in left)
-        if head:
-            forecast.append((b.name(), head))
-    return forecast
-
-
-def bolt_said(fleet, t, b, doc, done, two, say, left=False):
-    """What a conductor's wait does with sluice's forecast of a bolt against main (teams.21), doc as bolt_forecast_read
-    gives it: said once (bolt_forecast) and recorded on bolt/<bolt> with its Heads and Paths; and a conflict with what
-    main has landed, meeting no submission queued there, changes the kit's landings card at once (land_hand), so the
-    bolt's row takes main first without waiting for main to move again (bolt-teams "A wait's forecast conflict with main
-    changes the kit's landings card"); one with a queued submission hands nothing. For a bolt the user left (left), a
-    conflict with what main has landed gives no fix and is recorded as found while it is left (Reached: left), its card
-    changed with a note saying it would take main first (left_said), since its row keeps its box (landing_rows).
-    Returns the bolt's head the forecast it said is of, for the wait's answer to say whether it still stands
-    (forecasts_moved), or None when it said nothing."""
-    told = bolt_forecast(t["name"], t["label"], b.name(), doc, done, two, left)
-    if not told:
-        return None
-    heads, paths, words = told
-    say(words)
-    landed = "#" not in heads
-    record.emit(t["label"], "forecast", [f"bolt/{b.name()}"], why=f"bolt({b.name()}): forecast to conflict with main",
-                Heads=heads, Paths=" ".join(paths), Reached="left" if left and landed else "wait")
-    done.add(heads)
-    if landed:  # a waiting bolt's with no note of its own: the card changes only when the bolt's row does
-        land_hand(fleet, t["label"], b.get("Repo") or t["kit"]["name"], note=left_said(b.name(), doc["onto"], paths) if left else None)
-    return doc["head"]
-
-
-# The time sluice's forecast of a bolt against main is given on a conductor's wait, by its branch name or from a place
-# on it: `submit --check` fetches from the remote before it forecasts, which took 10 to 24 seconds in deneb's slow bursts
-# of 2026-10-28, so a minute and not a wait's POLL (swancloud-design, 2026-10-29). One that runs out is said and recorded
-# as unread (unread_said), never as no conflict (read.1).
-FORECAST_BOUND = 60
-
-
-def sluice_check(main, bolt):
-    """`sluice submit main --check --head bolt/<bolt> --json` run in the kit's main checkout on this host, which needs
-    no worktree on the bolt's branch (sluice's ADR 0039), given FORECAST_BOUND seconds: (its exit, its output, its
-    standard error), the exit None when it could not be run or did not answer in time, the error then its why."""
-    try:
-        r = subprocess.run(["sluice", "submit", "main", "--check", "--head", f"bolt/{bolt}", "--json"], cwd=main,
-                           capture_output=True, text=True, timeout=FORECAST_BOUND)
-    except FileNotFoundError:
-        return None, "", "this host has no sluice on its path"
-    except subprocess.TimeoutExpired:
-        return None, "", f"it did not answer within {FORECAST_BOUND} seconds"
-    except OSError as e:
-        return None, "", str(e)
-    return r.returncode, r.stdout, r.stderr
-
-
-# What a conductor's wait reads of a bolt before sluice forecasts it (plan.19), in its kit's main checkout with no fetch
-# (plan.18), $bolt and $file its arguments: TIP, the commit of the host's own bolt/<bolt>, or - when it has none; AT_TIP,
-# the policy ($file) at that commit, base64, or - when it holds none, as sluice reads a branch's policy; and TRACKED, the
-# remotes this host holds a tracking ref of the branch from, as it last fetched them.
-BOLT_TIP = r"""cd "$1" || exit 1
-bolt=$2 file=$3
-tip=$(git rev-parse --verify -q "refs/heads/bolt/$bolt^{commit}") || tip=-
-echo "TIP=$tip"
-if [ "$tip" != - ] && text=$(git show "$tip:$file" 2>/dev/null); then
-  echo "AT_TIP=$(printf '%s\n' "$text" | base64 | tr -d '\n')"
-else echo "AT_TIP=-"; fi
-echo "TRACKED=$(git for-each-ref --format='%(refname)' "refs/remotes/*/bolt/$bolt" | sed -n "s|^refs/remotes/\([^/]*\)/bolt/$bolt\$|\1|p" | tr '\n' ' ')"
-"""
-
-# A legacy bolt's forecast from a place on it (plan.19, forecast_way), in its kit's main checkout: a worktree already on
-# bolt/<bolt> is a place on it, the landing's while its submission is with sluice (bolt_submit) or a bolt's own from
-# before record 0026 the tidy kept on its branch, and is read as it stands; else crew makes its own at the path given,
-# on the branch with no checkout, since sluice reads only its head, and removes it once sluice has answered, as it does
-# one a forecast that was stopped left there. Nothing moves the branch. Prints NOSLUICE when the host has no sluice,
-# making nothing; PLACE, the worktree sluice forecast from, or - with WHY, git's words, when none could be made; RC and
-# SAID, sluice's exit and its answer, base64; and KEPT, crew's own place when git could not remove it, with WHY.
-FORECAST_PLACE = r"""main=$1 path=$2 bolt=$3
-cd "$main" || exit 1
-command -v sluice >/dev/null || { echo "NOSLUICE=yes"; exit 0; }
-on=$(git worktree list --porcelain | awk -v want="branch refs/heads/bolt/$bolt" '/^worktree /{w = substr($0, 10)} $0 == want {print w; exit}')
-made=
-if [ -z "$on" ]; then
-  if ! why=$(git worktree add -q --no-checkout "$path" "bolt/$bolt" 2>&1); then
-    printf 'PLACE=-\nWHY=%s\n' "$(printf '%s' "$why" | tr '\n' ' ')"; exit 0
-  fi
-  on=$path made=yes
-elif [ -d "$path" ] && [ "$(cd "$on" && pwd -P)" = "$(cd "$path" && pwd -P)" ]; then made=yes; fi
-said=$(sluice submit main --check --worktree "$on" --json); rc=$?
-echo "PLACE=$on"; echo "RC=$rc"; echo "SAID=$(printf '%s' "$said" | base64 | tr -d '\n')"
-if [ -n "$made" ] && ! why=$(git worktree remove --force "$path" 2>&1); then
-  printf 'KEPT=%s\nWHY=%s\n' "$path" "$(printf '%s' "$why" | tr '\n' ' ')"
-fi
-"""
-
-
-def script_here(script, *args, timeout=None):
-    """A bash script run on this host with its arguments: (its exit, its output, its standard error), the exit None when
-    it could not be run or did not answer within timeout seconds, POLL when not given, the error then its why."""
-    timeout = timeout or POLL
-    try:
-        r = subprocess.run(["bash", "-c", script, "crew", *args], capture_output=True, text=True, timeout=timeout, env=gitenv())
-    except subprocess.TimeoutExpired:
-        return None, "", f"it did not answer within {timeout} seconds"
-    except OSError as e:
-        return None, "", str(e)
-    return r.returncode, r.stdout, r.stderr
-
-
-def forecast_way(bolt, said):
-    """How sluice forecasts a bolt against its kit's main on a conductor's wait (plan.19, teams.21), from what BOLT_TIP
-    printed: ("place", None) for a legacy bolt, kept in the host's own refs (TIP), whose tip's policy (AT_TIP) names a
-    remote for its branch (kit.bolt_remote) that this host holds no tracking ref of it from (TRACKED), since sluice
-    reads a branch by its name where that policy routes it and finds such a bolt absent there until its landing pushes
-    it; ("branch", None) for any other, read by its branch name; (None, why) when what was printed can't be read, or
-    the policy at the tip is not TOML (read.1, read.2)."""
-    f = kit.said_of(said)
-    if not {"TIP", "AT_TIP", "TRACKED"} <= set(f):
-        return None, f"crew can't read where bolt/{bolt}'s tip routes it from: {(said or '').strip()[:200] or 'nothing'}"
-    if f["TIP"] == "-":
-        return "branch", None
-    try:
-        text = None if f["AT_TIP"] == "-" else base64.b64decode(f["AT_TIP"], validate=True).decode()
-        remote = kit.bolt_remote(text, f"bolt/{bolt}", f"{kit.DECLARATION} at bolt/{bolt}")
-    except ValueError as e:  # binascii.Error and UnicodeDecodeError are both
-        return None, f"crew can't read bolt/{bolt}'s {kit.DECLARATION} as it was sent: {e}"
-    except Refusal as e:
-        return None, str(e)
-    return ("place" if remote and remote not in f["TRACKED"].split() else "branch"), None
-
-
-def place_checked(bolt, said, err):
-    """What FORECAST_PLACE came to, as sluice_check gives a forecast by name: ((sluice's exit, its answer, the standard
-    error), the line naming crew's own place when git could not remove it, or None), the exit None with its why when the
-    host has no sluice, no place on the bolt could be made, or what was printed is not FORECAST_PLACE's (read.1,
-    read.2). A place left on the bolt's branch would refuse its landing's worktree, so it is named every wait until the
-    next forecast removes it."""
-    f = kit.said_of(said)
-    if "NOSLUICE" in f:
-        return (None, "", "this host has no sluice on its path"), None
-    if f.get("PLACE") == "-":
-        return (None, "", f"no place on bolt/{bolt} could be made to forecast it from: "
-                          f"{' '.join(f.get('WHY', '').split()) or 'git said nothing'}"), None
-    try:
-        code, out = int(f["RC"]), base64.b64decode(f["SAID"], validate=True).decode()
-    except (KeyError, ValueError):
-        return (None, "", f"crew can't read what the forecast from a place on bolt/{bolt} came to: "
-                          f"{(said or '').strip()[-200:] or 'nothing'}"), None
-    kept = (f"{f['KEPT']} is kept on bolt/{bolt}, git refusing to remove it: {' '.join(f.get('WHY', '').split()) or 'git said nothing'}. "
-            "crew removes it at the next forecast; while it stands, the bolt's landing cannot make its worktree"
-            if f.get("KEPT") else None)
-    return (code, out, err), kept
-
-
-def bolt_check(team_kit, bolt):
-    """sluice's forecast of a bolt against its kit's main, on this host, the team's (teams.21): read by its branch name
-    (sluice_check), or from a place on it (FORECAST_PLACE, <kit>/places/forecast-<bolt>) for a legacy bolt whose tip
-    names a remote that holds no branch of it (forecast_way, plan.19), either given FORECAST_BOUND seconds. (sluice's
-    exit, its answer, its standard error), as sluice_check gives them, and the line naming crew's own place when git
-    could not remove it, or None."""
-    main = team_kit["main"]
-    code, out, err = script_here(BOLT_TIP, main, bolt, kit.DECLARATION)
-    if code is None:
-        return (None, "", err), None
-    way, why = forecast_way(bolt, out) if code == 0 else (None, f"crew can't read where bolt/{bolt}'s tip routes it: "
-                                                               f"{(err or out).strip()[-200:] or f'exit {code}'}")
-    if why:
-        return (None, "", why), None
-    if way == "branch":
-        return sluice_check(main, bolt), None
-    code, out, err = script_here(FORECAST_PLACE, main, f"{team_kit['dir']}/places/forecast-{bolt}", bolt, timeout=FORECAST_BOUND)
-    if code is None:
-        return (None, "", err), None
-    if code:
-        return (None, "", f"crew could not read {main} to forecast bolt/{bolt} from a place on it: "
-                          f"{(err or out).strip()[-200:] or f'exit {code}'}"), None
-    return place_checked(bolt, out, err)
-
-
-def bolt_forecast_read(code, out, err):
-    """sluice's forecast of a bolt against main, as sluice_check gives it: (the document, None), or (None, why it can't
-    be read). sluice exits 0 when the bolt merges with no conflict and 2 when it would conflict, printing
-    {"conflict": null or {"paths", "with"}, "head", "onto", "ahead"}; a refusal is an error document; a sluice older
-    than the forecast of a branch refuses `--head` on standard error. Every field read is checked (read.2)."""
-    if code is None:
-        return None, err
-    try:
-        doc = json.loads(out)
-    except ValueError:
-        doc = None
-    if isinstance(doc, dict) and "conflict" in doc and code in (0, 2):
-        c = doc["conflict"]
-        if not isinstance(doc.get("head"), str) or not isinstance(doc.get("onto"), str):
-            return None, "its answer names no head or no revision of main"
-        if c is not None and not (isinstance(c, dict) and isinstance(c.get("paths"), list) and c["paths"]
-                                  and all(isinstance(x, str) for x in c["paths"]) and isinstance(c.get("with", []), list)):
-            return None, "its conflict names no paths"
-        return doc, None
-    if isinstance(doc, dict) and isinstance(doc.get("error"), dict) and isinstance(doc["error"].get("message"), str):
-        return None, f"it exited {code}: {doc['error']['message']}"
-    if "--head" in err:
-        return None, "this host's sluice can't forecast a branch no worktree holds (sluice submit --check --head), which a newer sluice can"
-    line = next((l.strip() for l in err.splitlines() if l.strip()), "")
-    return None, f"it exited {code}" + (f": {line}" if line else "")
-
-
-def bolt_forecast(team, label, bolt, doc, done, two=False, left=False):
-    """What the forecast of a bolt against its kit's main tells the conductor, once (teams.21): doc as
-    bolt_forecast_read gives it, done the Heads already recorded (said_heads). None when the bolt merges with no
-    conflict onto main and everything queued there, or when the same forecast, for the same bolt head, revision of main
-    and submissions queued on main it meets, was said; else (heads, paths, words). A conflict with what main has landed
-    is taken into the bolt now, by the fix the conductor starts when main-ops says a landing conflicts (plan.8), but in
-    a bolt the user left on its kit's landings card (left), which takes nothing in until they tick it, when crew tells
-    the fix (bolt-teams "A bolt the user left"); one with a submission queued on main is waited out, since that
-    submission may yet fail and leave the queue. While the team holds two bolts (two), the fix's command names its bolt
-    (teams.16). The words name the bolt's head the forecast is of, so they are never read as a later head's."""
-    c = doc.get("conflict")
-    if not c:
-        return None
-    paths = c["paths"]
-    met = [w for w in c.get("with") or [] if isinstance(w, dict) and isinstance(w.get("id"), int)]
-    heads = f"bolt/{bolt}@{doc['head'][:7]} main@{doc['onto'][:7]}" + "".join(f" #{w['id']}" for w in met)
-    if heads in done:
-        return None
-    on, at = ", ".join(paths), doc["head"][:7]
-    if not met and left:
-        return heads, paths, (
-            f"bolt/{bolt} at {at}, which the user left on its kit's landings card, is forecast to conflict with main on "
-            f"{on}. Take nothing in while it is left: crew tells you the take-main fix once they tick it.")
-    if not met:
-        return heads, paths, (
-            f"bolt/{bolt} at {at} is forecast to conflict with main on {on}: main has landed work on them since the bolt took it. "
-            f"Take main into the bolt now, while the conflict is small, by a fix as when {label}-ops says a landing "
-            f'conflicts: crew fix {team} take-main-{doc["onto"][:7]} "Take main into the bolt: it is forecast to conflict '
-            f'on {on}"' + (f" --bolt {bolt}" if two else ""))
-    who = ", ".join(f"#{w['id']}" + (f" ({w['from']['worktree']})" if isinstance(w.get("from"), dict)
-                                     and isinstance(w["from"].get("worktree"), str) else "") for w in met)
-    return heads, paths, (
-        f"bolt/{bolt} at {at} is forecast to conflict on {on} with {who}, queued on main ahead of it. Take nothing in for it: "
-        "it may yet fail and leave the queue, and crew forecasts the bolt again when main or its queue moves.")
-
-
-def unread_said(bolt, bolt_head, why, done):
-    """What a wait says when sluice could not forecast the bolt against main: once for the bolt's head (heads, the
-    words), or every wait when the head is not known (None, the words); None once said (read.1)."""
-    heads = f"bolt/{bolt}@{bolt_head[:7]}" if bolt_head else None
-    if heads and heads in done:
-        return None
-    return heads, f"no forecast of bolt/{bolt} against main: {why}"
-
-
-def forecasts_moved(said, now):
-    """What a wait's answer says of the forecasts of its bolts against main that it said as it began (said, [(bolt,
-    head)], each head the one sluice forecast), from where each bolt stands as the wait ends (now, {bolt: (head, None)},
-    or (None, why) when crew can't read it): a forecast is the bolt's at the head it was made of alone, so for each bolt
-    that moved from that head while the wait waited, that the forecast is of that head and not of the bolt now, nothing
-    is taken in for it and the next wait forecasts the bolt where it stands (teams.21); for each whose head crew can't
-    read, that it can't tell whether the bolt still stands there, and why (read.1); nothing for a bolt still at the
-    head forecast, whose forecast stands as said. A decision of facts alone (code.7)."""
-    out = []
-    for bolt, head in said:
-        at, why = now.get(bolt) or (None, "crew did not read it")
-        if why:
-            out.append(f"crew can't tell whether bolt/{bolt} still stands at {head[:7]}, the head this wait forecast against "
-                       f"main as it began: {why}. Read its head before you take anything in for that forecast; your next "
-                       "wait forecasts the bolt where it stands.")
-        elif not (at.startswith(head) or head.startswith(at)):
-            out.append(f"bolt/{bolt} moved from {head[:7]} to {at[:7]} while this wait waited, so the forecast against main "
-                       f"it said as it began is of {head[:7]}, not of the bolt now: take nothing in for it. Your next wait "
-                       f"forecasts bolt/{bolt} at {at[:7]}.")
-    return out
-
-
-def forecast_heads_now(fleet, t, said):
-    """Where each bolt a wait forecast as it began stands as it ends (forecasts_moved), read where it lives after a
-    fetch, as a decision of the moment reads a bolt (plan.18, plan.19): {bolt: (head, None)}, or (None, why) for each
-    crew can't read, the plan or the kit among them (read.1)."""
-    bolts = [b for b, _ in said]
-    try:
-        plan = plan_of(fleet, t["label"])
-        if plan is None:
-            return {b: (None, f"{t['label']}'s plan could not be read") for b in bolts}
-        held = [b for b in held_by(plan, t["name"]) if b.name() in bolts]
-        st = stages_for(fleet, plan, held, fetch=True)
-    except Refusal as e:
-        return {b: (None, str(e)) for b in bolts}
-    out = {}
-    for b in bolts:
-        if b not in {h.name() for h in held}:
-            out[b] = (None, f"{t['name']} no longer holds bolt {b}")
-            continue
-        k, why = st.kit(plan.bolt(b))
-        head = (k or {"bolts": {}})["bolts"].get(b, {}).get("head")
-        out[b] = (head, None) if head else (None, why or f"bolt/{b} has no branch where it lives")
-    return out
-
-
-def forecasts_after(fleet, t, said):
-    """Said on standard error as a wait answers, before its answer: each forecast it said as it began that is no longer
-    the bolt's (forecasts_moved), its bolts read where they stand now (forecast_heads_now); nothing read when it said
-    none."""
-    if not said:
-        return
-    for words in forecasts_moved(said, forecast_heads_now(fleet, t, said)):
-        print(words, file=sys.stderr)
+    dropped = made_drop(t["label"], list(units))
+    if dropped:
+        print(dropped)
+    if landed:
+        landing_cards_closed(fleet, t, landed, outcome or "", said, here)
 
 
 def main_conflict(entries, bolt, head):
     """The conflict with what main has landed the run record holds for a bolt at its present head (rail-cards "A row
-    forecast to conflict with main takes main first", teams.21), from the entries, oldest first: the latest forecast,
+    forecast to conflict with main takes main first until a fix takes main in", teams.21), from the entries, oldest first: the latest forecast,
     not refused, on bolt/<bolt> alone, at the head (its Heads beginning bolt/<bolt>@<head7> main@), meeting no submission
-    queued on main (no #<n> in its Heads) and naming its Paths, a conductor's wait's or a landings card's raise's: (main's
-    short sha, [paths]); None for none, one at a head the bolt has moved from, one met only queued, and the form a wait
-    records when sluice could not forecast (unread_said), which names no paths."""
+    queued on main (no #<n> in its Heads) and naming its Paths, a landings card's raise's or a conductor's wait's from
+    before: (main's short sha, [paths]); None for none, one at a head the bolt has moved from, one met only queued, and
+    the form a wait recorded when sluice could not forecast, which names no paths."""
     if not head:
         return None
     at = f"bolt/{bolt}@{head[:7]} main@"
@@ -11746,237 +9242,6 @@ def main_conflict(entries, bolt, head):
                 and (e.get("Heads") or "").startswith(at) and (e.get("Paths") or "").split()):
             return words[1][len("main@"):], e["Paths"].split()
     return None
-
-
-def forecasts_due(live, bolt, bolt_head, conflicts, holds, shared, done, took, after_of=None):
-    """The forecasts a conductor's wait makes for a bolt (teams.12): live is each unmerged unit with a place, in the
-    plan's order, as (name, head, its After units); conflicts(theirs, ours, base) the paths git merge-tree forecasts in
-    conflict when theirs is merged into ours, from base or, when it is None, their merge base, [] for none, None when
-    git can't tell. Each unit is forecast against the bolt, then against each unit ahead of it in the bolt's merge order
-    (ahead, through after_of, the bolt's work's After names, the live units' own when none is given) once it is clean
-    with the bolt, the later unit taking the forecast, so a unit is never forecast against one that comes after it; one
-    already made for the same heads (done) is not made again. Against a unit ahead of it, a unit is forecast only on
-    what each adds beyond the newest of the other's work it holds, read from git (forecast_base, with holds and shared,
-    plan.13): nothing when it holds the other's head, and from the head of the other its place took (took, {unit:
-    {other: head}}) only while git finds nothing newer of the other's that both hold. Returns the forecasts as (unit,
-    other, paths, heads), none of which orders the two (plan.13, teams.12), and the pairs git could not read."""
-    due, unread = [], []
-    order = [name for name, _, _ in live]
-    after_of = after_of if after_of is not None else {name: after for name, _, after in live}
-    for name, head, _ in live:
-        others = ([(f"bolt/{bolt}", bolt_head)] if bolt_head else []) + [
-            (o, h) for o, h, _ in live if o != name and ahead(order, after_of, o, name)]
-        for other, ohead in others:
-            base = (False, None) if other.startswith("bolt/") else \
-                forecast_base(head, ohead, took.get(name, {}).get(other), holds, shared)
-            if base is None:
-                unread.append((name, other))
-                continue
-            held, base = base
-            if held:
-                continue
-            paths = conflicts(ohead, head, base)
-            if paths is None:
-                unread.append((name, other))
-                continue
-            if not paths:
-                continue
-            heads = f"{name}@{head[:7]} {other}@{ohead[:7]}"
-            if heads not in done:
-                due.append((name, other, paths, heads))
-            if other.startswith("bolt/"):
-                break  # it meets the bolt first: the units ahead are forecast once it is clean with the bolt
-    return due, unread
-
-
-def forecast_base(head, ohead, taken, holds, shared):
-    """How a later unit at head is forecast against an unmerged unit ahead of it at ohead: from the newest of the
-    other's work the later unit holds, read from git and never from a commit's words (plan.13, teams.12). holds(commit,
-    head) says whether head holds commit; shared(head, ohead) whether the two share a commit their bolt lacks, work of
-    the other's both hold; each answers None when git can't tell. taken is the head of the other its place took (Took),
-    or None.
-
-    A later unit that holds the other's head holds all of its work, as a merge in its place or a settle leaves it: it is
-    forecast nothing, so no settle starts (wldn, atl-1, 2026-11-07, signal 2026-11-07-atl-1-conductor-d88c52fa/01). It is
-    forecast from the head its place took only while it still holds that head, the other's line no longer does, its
-    rebase or settle having rewritten it, and the two share nothing newer of the other's: that rewritten work, which the
-    later unit carries as it took it, is then no conflict of its. Otherwise from their merge base, which git takes at
-    the newest commit both hold, the head the place took or one merged since. Returns (True, None) for a later unit
-    holding the other's head, else (False, base), base the taken head or None for their merge base; None when git
-    can't tell."""
-    held = holds(ohead, head)
-    if held is None:
-        return None
-    if held:
-        return True, None
-    if not taken:
-        return False, None
-    kept, still = holds(taken, head), holds(taken, ohead)
-    if kept is None or still is None:
-        return None
-    if not kept or still:
-        return False, None
-    beyond = shared(head, ohead)
-    if beyond is None:
-        return None
-    return False, (None if beyond else taken)
-
-
-# The subject crew wrote an After with at a forecast, before a forecast stopped ordering two units (plan.13): crew's
-# own words, matched whole, so an order a wait wrote then is read as crew's.
-FORECAST_ORDER = re.compile(r"^plan\([a-z0-9][a-z0-9-]*\): ([a-z0-9][a-z0-9-]*) after ([a-z0-9][a-z0-9-]*), forecast to conflict$")
-
-
-def forecast_ordered(e):
-    """The pair a unit.after entry's subject says a forecast ordered before this was a settle's (FORECAST_ORDER), as
-    (unit, other), or None."""
-    m = FORECAST_ORDER.match(e.get("Why") or "")
-    return m.groups() if m else None
-
-
-def forecast_orders(after_of, unmerged, entries, holds):
-    """Which pairs of a bolt's unmerged units crew puts in order, and which orders of its own it lifts (plan.13,
-    teams.12, teams.14), from the run record's entries (oldest first), each unit's After names as the plan holds them
-    (after_of) and the bolt's unmerged units. A pair is (unit, other) of a forecast entry on unit/<unit> and
-    unit/<other>, both unmerged. crew's writes for a pair are its unit.after entries on unit/<unit> with After: <other>,
-    made on a settle, or with the subject a forecast wrote before (FORECAST_ORDER); its lifts, those with Lifted:
-    <other>. holds(unit, other, head) says whether the unit's branch holds the other's work, head being the other's as
-    the pair's latest forecast recorded it, or None, and answers None when git can't tell, which orders and lifts
-    nothing for the pair (read.1); it is asked only of a pair a settle's end may decide.
-
-    A pair is ordered when the plan does not put the unit after the other, a settle of the unit delivered after a
-    forecast for the pair and after crew's latest record for it, the branch holds the other's work, crew has never
-    written the pair's order on a settle, and crew's latest record for the pair is not a write: a write the plan no
-    longer holds was lifted by someone else, and stays lifted. A pair is lifted when the plan puts the unit after the
-    other, crew's latest record for it is a write, the unit's latest settle end since that write stopped short with no
-    settle of it delivered since, and the branch does not hold the other's work. An order set by hand or by a proposal
-    is no write of crew's, and is never lifted. Returns (to order, to lift), each [(unit, other, the id of the settle
-    end that decided it)], in the order of the pairs' first forecasts."""
-    key = lambda e: (e["At"], e["Id"])
-    pairs = []
-    for e in entries:
-        on = e.get("On") or []
-        if e.get("Act") == "forecast" and not e.get("Refused") and len(on) > 1 and on[0].startswith("unit/") and on[1].startswith("unit/"):
-            pair = (on[0][5:], on[1][5:])
-            if pair not in pairs and pair[0] in unmerged and pair[1] in unmerged:
-                pairs.append(pair)
-    order, lift = [], []
-    for unit, other in pairs:
-        forecasts = [e for e in entries if e.get("Act") == "forecast" and not e.get("Refused")
-                     and (e.get("On") or [])[:2] == [f"unit/{unit}", f"unit/{other}"]]
-        records = [e for e in entries if e.get("Act") == "unit.after" and not e.get("Refused") and f"unit/{unit}" in (e.get("On") or [])
-                   and (e.get("After") == other or e.get("Lifted") == other or forecast_ordered(e) == (unit, other))]
-        ends = [e for e in entries if e.get("Act") == "stage.end" and not e.get("Refused") and f"stage/{unit}/settle" in (e.get("On") or [])]
-        latest = records[-1] if records else None
-        written = latest is not None and latest.get("Lifted") != other
-        since = key(latest) if latest else None
-        head = next((w.split("@", 1)[1] for w in reversed((forecasts[-1].get("Heads") or "").split()) if w.startswith(f"{other}@")), None)
-        if comes_after(after_of, unit, other):
-            later = [e for e in ends if since is None or key(e) > since]
-            if written and other in after_of.get(unit, ()) and later and later[-1].get("Ended") == "short" \
-                    and not any(e.get("Ended") == "delivered" for e in later) and holds(unit, other, head) is False:
-                lift.append((unit, other, later[-1]["Id"]))
-            continue
-        if written or any(e.get("After") == other for e in records):
-            continue
-        settled = [e for e in ends if e.get("Ended") == "delivered" and key(e) > key(forecasts[0]) and (since is None or key(e) > since)]
-        if settled and holds(unit, other, head) is True:
-            order.append((unit, other, settled[-1]["Id"]))
-    return order, lift
-
-
-def settle_orders(fleet, t, plan, st, unit=None):
-    """What forecast_orders says for the unmerged units of the team's bolts, or for one unit, written: each pair put in
-    order or lifted in a write of its own in the waiting conductor's name (roles.1, state.1), the conductor told
-    nothing by it, since its wait says it. Whether the unit's branch holds the other's work is read with git on the
-    team's host (branch_holds). A write refused, or a pair git can't read, is said on standard error, and the next wait
-    decides again. Returns what the writes did, a sentence each."""
-    main, label, said, entries = t["kit"]["main"], t["label"], [], None
-    for b in held_by(plan, t["name"]):
-        order_of, after_of = bolt_order(plan, b.name())
-        if unit is not None and unit not in order_of:
-            continue
-        unmerged = {n for n in order_of if st.of(n)["stage"] not in ("merged", "landed", "unknown")}
-        entries = local_entries(label) if entries is None else entries
-        order, lift = forecast_orders(after_of, unmerged, entries, lambda u, o, head: branch_holds(main, u, o, head))
-        for u, o, settle in order + lift:
-            if unit is not None and u != unit:
-                continue
-            lifted = (u, o, settle) in lift
-            try:
-                with contextlib.redirect_stdout(sys.stderr):
-                    order_write(fleet, t, b.name(), u, o, settle, lifted)
-            except Refusal as e:
-                print(f"{u} is not {'lifted from after' if lifted else 'put after'} {o}: {e}", file=sys.stderr)
-                continue
-            said.append(f"{u} no longer comes after {o}: its settle found nothing to change" if lifted else
-                        f"{u} now comes after {o}, whose work its settle took: it merges after {o}")
-    return said
-
-
-def branch_holds(main, unit, other, head):
-    """Whether unit/<unit> holds the other's work (plan.13): its head as a forecast recorded it (head), or unit/<other>'s
-    head now, read with git in the kit's main checkout. None, said on standard error, when git can't tell."""
-    branch, why = f"refs/heads/unit/{unit}", None
-    for h in (head, f"refs/heads/unit/{other}"):
-        if not h:
-            continue
-        r = subprocess.run(["git", "-C", main, "merge-base", "--is-ancestor", h, branch], capture_output=True, text=True, env=gitenv())
-        if r.returncode == 0:
-            return True
-        if r.returncode != 1:
-            why = why or (r.stderr.strip() or f"git exited {r.returncode}")
-    if why:
-        print(f"crew can't tell whether unit/{unit} holds {other}'s work, so it neither orders nor lifts them: {why}", file=sys.stderr)
-        return None
-    return False
-
-
-def order_write(fleet, t, bolt, unit, other, settle, lift):
-    """crew's own order of a unit after another a forecast found it in conflict with, or its lift (plan.13): one write in
-    the waiting conductor's name, the unit.after entry naming the other as After or Lifted and the settle end that
-    decided it. The change removes or adds only that one After name."""
-    def change(w):
-        v = w.unit(unit)
-        w.unit(other)
-        v.get("Bolt") == bolt or fail(f"unit {unit} moved to {v.get('Bolt') or 'the queue'} meanwhile")
-        if lift:
-            other in v.all("After") or fail(f"unit {unit} no longer comes after {other}")
-            v.fields = [(n, x) for n, x in v.fields if not (n == "After" and x == other)]
-        else:
-            other not in v.all("After") or fail(f"unit {unit} already comes after {other}")
-            v.add("After", other, after="Intent")
-        w.quiet.add(t["name"])  # its conductor learns it from its wait, not from this write
-        return [bolt]
-    subject = (f"plan({bolt}): {unit} no longer after {other}, its settle found nothing to change" if lift else
-               f"plan({bolt}): {unit} after {other}, its settle took {other}'s work")
-    return write(fleet, t["label"], change, subject, act="unit.after", on=[f"unit/{unit}", f"bolt/{bolt}"],
-                 fields={"Lifted" if lift else "After": other, "Settle": settle})
-
-
-def carried_forecasts(fleet, t, plan, st_all, bolt, unit):
-    """The forecasts and amendments waiting to reach a unit in its next stage's prompt: this host's entries for it that
-    reached it by prompt and that no stage start of it has carried since. Returns their ids and their words."""
-    waiting = waiting_for(unit, local_entries(t["label"]))
-    if not waiting:
-        return [], []
-    k, _ = st_all.kit(plan.bolt(bolt))
-    other = lambda e: e["On"][1][5:] if e["On"][1].startswith("unit/") else e["On"][1]
-    return [e["Id"] for e in waiting], [amendment_words(t, k, bolt, other(e)) if e["Act"] == "amendment" else
-                                        forecast_words(t, k, bolt, unit, other(e), (e.get("Paths") or "").split(),
-                                                       (e.get("Took") or "").split()) for e in waiting]
-
-
-def waiting_for(unit, entries):
-    """The forecasts and amendments that reached a unit by its next prompt and that no stage start of it has carried
-    yet (its Forecast field naming their ids), from the run record's entries, oldest first. A forecast against the bolt
-    is dropped once a newer one against the bolt was made for the unit, however that one reached it: the bolt it was
-    read against has moved, and the newer one says how the unit meets the bolt now (teams.12)."""
-    taken = {i for e in entries if e.get("Act") == "stage.start" and f"unit/{unit}" in e["On"] for i in (e.get("Forecast") or "").split()}
-    mine = [e for e in entries if e.get("Act") in ("forecast", "amendment") and e["On"][:1] == [f"unit/{unit}"]]
-    newest = {e["On"][1]: e["Id"] for e in mine if e["Act"] == "forecast" and e["On"][1].startswith("bolt/")}
-    return [e for e in mine if e.get("Reached") == "prompt" and e["Id"] not in taken
-            and newest.get(e["On"][1], e["Id"]) == e["Id"]]
 
 
 # ------------------------------------------------------------------------------------------------- the wait
@@ -12008,130 +9273,20 @@ def session_ended(pid):
     return False
 
 
-def handed(t, slot, eid):
-    """The words a stop-short of this stage handed to its wait (needs/<slot>, its first line the stage's start entry
-    id), taken: the file goes once read. None when there are none for this stage."""
-    f = team_state(t) / "needs" / slot
-    try:
-        first, _, words = f.read_text().partition("\n")
-    except OSError:
-        return None
-    if first.strip() != eid:
-        return None
-    f.unlink(missing_ok=True)
-    return words
-
-
-def session_transcript(info):
-    """The transcript of the agent's own session, from herdr's item for it: (its path, None), or (None, what crew could
-    not read)."""
-    sess = info.get("agent_session")
-    sid = sess.get("value") if isinstance(sess, dict) else None
-    if not isinstance(sid, str) or not sid:
-        return None, "herdr names no session for it"
-    path = transcript.find(sid)
-    return (path, None) if path else (None, f"no transcript for its session {sid}")
-
-
 def background(info):
     """What an agent's own session says it still waits on: (the background tasks it started and has not been told are
     over, when its transcript last wrote, None), or (None, None, what crew could not read)."""
-    path, why = session_transcript(info)
-    if why:
-        return None, None, why
+    sess = info.get("agent_session")
+    sid = sess.get("value") if isinstance(sess, dict) else None
+    if not isinstance(sid, str) or not sid:
+        return None, None, "herdr names no session for it"
+    path = transcript.find(sid)
+    if path is None:
+        return None, None, f"no transcript for its session {sid}"
     pending = transcript.pending(path)
     if pending is None:
         return None, None, f"its transcript {path} can't be read"
     return pending, transcript.last_at(path), None
-
-
-def turn_of(info):
-    """When the agent's own session says its turn ended, with nothing sent to it since (transcript.turn_over), or None
-    while a turn goes on or crew can't read it."""
-    path, _ = session_transcript(info)
-    return transcript.turn_over(path) if path else None
-
-
-def stuck_report(fleet, t, o, info):
-    """What a wait reads of an agent it finds stuck, in that look and only then (teams.4, record 0007), for stuck_said:
-    its last words since the stage began, from its own transcript (transcript.last_words), and the commits along its
-    branch's first parent in the kit's main checkout on the team's host, a chore's its own beyond its bolt, read at
-    the ref the bolt is read at, as its deliverable's own head is (gather.own_head, plan.11), with the branch's head;
-    each as what crew could not read where it could not, which the report says and still stands (read.1)."""
-    path, why = session_transcript(info)
-    words = why or transcript.last_words(path, o.start)
-    if words is None:
-        words = f"its transcript {path} can't be read"
-    main, ref = t["kit"]["main"], f"refs/heads/{o.branch()}"
-    base, commits = None, None
-    if o.chore:
-        bolt = bolt_of_unit(fleet, t, main, o.name, "chore")
-        base, why = gather.bolt_read(main, bolt) if bolt else (None, f"crew can't tell which bolt {o.branch()} was made from")
-        if not base:
-            commits = why or f"this host has neither bolt/{bolt} nor origin/bolt/{bolt}"
-    if commits is None:
-        commits = gather.since(main, ref, base)
-        if commits is None:
-            commits = f"git could not read {o.branch()} in {main}"
-    return {"words": words, "commits": commits, "head": short_head(main, ref) or None, "where": path}
-
-
-def ended_turn(o, status, pending, over):
-    """Whether a verify's agent has ended its turn since the stage began with nothing of its own still running (record
-    0007, teams.4): herdr reads it idle or done, it waits on no background task of its own (pending, read and empty),
-    and its session's turn ended since the stage began (over, turn_of). A verify ends only at its report, so one whose
-    agent has ended so with none saved has not ended, and its wait says so then, never stuck by its clock."""
-    return o.stage == "verify" and status in ("idle", "done") and pending == [] and over is not None \
-        and o.start is not None and over >= o.start
-
-
-def quiet_verdict(now, stuck, pending, last, unread, seen_quiet, seen_working):
-    """Whether a quiet agent is stuck (teams.4), and what it is doing as the wait says it: (True, "quiet for <n>
-    minutes") or (False, what it does). One waiting on background tasks of its own is never stuck. Else its clock
-    starts at its transcript's last record, or when the wait first saw it quiet when that can't be read (unread), and
-    never before the wait last saw it working; it is stuck once that clock reaches the limit."""
-    if pending:
-        return False, f"is waiting on {len(pending)} background task{'' if len(pending) == 1 else 's'} of its own"
-    quiet = now - max(x for x in ((seen_quiet if unread or not last else last), seen_working) if x)
-    if quiet >= stuck:
-        return True, f"quiet for {minutes(quiet)}"
-    return False, f"has been quiet for {minutes(quiet)}, under the limit of {minutes(stuck)}"
-
-
-def minutes(td):
-    m = max(0, int(td.total_seconds() // 60))
-    return f"{m} minute{'' if m == 1 else 's'}"
-
-
-def last_end(t, agent):
-    """The newest stage.end this host recorded for an agent, or None."""
-    runs = record.ROOT / t["label"] / "runs" / crew.this_host()
-    found = []
-    for f in sorted(runs.glob("*.rec"))[-3:] if runs.is_dir() else []:
-        found += [e for e in record.parse(f.read_text()) if e.get("Act") == "stage.end" and not e.get("Refused")
-                  and f"agent/{agent}" in e["On"]]
-    return max(found, key=lambda e: (e["At"], e["Id"])) if found else None
-
-
-def ended_said(t, agent):
-    """What a wait says of a stage whose end was recorded by something other than itself, from the run record."""
-    return ended_words(t["name"], agent, last_end(t, agent))
-
-
-def ended_words(team, agent, e):
-    """What a wait says of a stage that has ended, from the newest stage.end recorded for its agent (e), or None when
-    there is none: which stage, and how it ended."""
-    if not e:
-        return f"{agent} owes no stage's end, and none is recorded for it on this host"
-    stage = next((o.split("/") for o in e["On"] if o.startswith("stage/")), None)
-    fix = next((o for o in e["On"] if o.startswith("fix/")), None)
-    m = re.match(r"^[a-z]+\([^)]*\): (\S+) ", e.get("Why") or "")
-    what = (f"{stage[2]} on {stage[1]}" if stage and len(stage) > 2 else
-            (f"fix {fix}" if not m or m.group(1) == "fix" else f"{m.group(1)} of {fix}") if fix else "its stage")
-    how = {"delivered": f"{agent} delivered {e.get('Delivered')}" + (" (observed late)" if e.get("Observed") == "late" else ""),
-           "short": f"{agent} stopped short, and {team}-conductor was told what it needs",
-           "stopped": f"crew ended {agent} before it delivered"}.get(e.get("Ended"), f"{agent} reached {e.get('Result', 'unknown')}")
-    return f"{what} has ended: {how}"
 
 
 # What a wait reads of sluice beyond the refs (record 0032, point 4): `sluice overview --json`, and `sluice status
@@ -12140,123 +9295,6 @@ def ended_words(team, agent, e):
 # submission, which the overview lists only while it is in a chain, and a conflict is recorded 0 to 3 seconds after
 # its submission (5 of 6 on mac-studio's crew, swancloud and sluice logs, 2026-10-17), inside a wait's look.
 OVERVIEW, SUBMISSION = "sluice/overview@1", "sluice/submission@1"
-OUTCOMES = ("conflict", "blamed")
-
-
-def overview_facts(doc):
-    """The facts a wait reads of `sluice overview --json`, as sluice 0.18.0 prints it: the document's schema is
-    sluice/overview@1, and each of its branches[] names its branch and its records' version, an integer that moves
-    on every write to them; its submissions[] are those still in a chain, each with its id and from.path, the absolute
-    path of the worktree it came from, absent where sluice's driver had none; its recent[] holds its last landed,
-    blamed and conflict log lines as written, a conflict naming its id and paths, a blame its id and combination, each
-    its at. Returns (each branch's version, each listed submission's path or None, each conflict and blamed line as
-    (branch, line, its at)), or None when the document is not one sluice 0.18.0 prints."""
-    if not isinstance(doc, dict) or doc.get("schema") != OVERVIEW or not isinstance(doc.get("branches"), list):
-        return None
-    versions, paths, outcomes = {}, {}, []
-    for b in doc["branches"]:
-        if not isinstance(b, dict) or not isinstance(b.get("branch"), str) or type(b.get("version")) is not int \
-                or not isinstance(b.get("submissions"), list) or not isinstance(b.get("recent"), list):
-            return None
-        versions[b["branch"]] = b["version"]
-        for s in b["submissions"]:
-            came = s.get("from") if isinstance(s, dict) else None
-            if type(s.get("id") if isinstance(s, dict) else None) is int and isinstance(came, dict):
-                paths[s["id"]] = came.get("path") if isinstance(came.get("path"), str) else None
-        for r in b["recent"]:
-            at = sluice_at(r.get("at")) if isinstance(r, dict) else None
-            if at and r.get("event") in OUTCOMES and type(r.get("id")) is int:
-                outcomes.append((b["branch"], r, at))
-    return versions, paths, outcomes
-
-
-def sluice_at(at):
-    """A time sluice writes (2026-10-17T16:04:11Z), in UTC, or None when it holds none."""
-    try:
-        return datetime.datetime.fromisoformat(at).astimezone(datetime.timezone.utc) if isinstance(at, str) else None
-    except ValueError:
-        return None
-
-
-def submission_from(doc):
-    """Where a submission came from, as `sluice status <id> --json` prints it in sluice 0.18.0 (sluice/submission@1):
-    its from.path, or None when its record names none, a pull request's or one written before sluice 0.12.0. Raises
-    ValueError, naming what it read, when the document is no submission."""
-    came = doc.get("from") if isinstance(doc, dict) and doc.get("schema") == SUBMISSION else None
-    if not isinstance(came, dict):
-        raise ValueError(f"it printed no {SUBMISSION}")
-    return came.get("path") if isinstance(came.get("path"), str) else None
-
-
-def overview_due(outcomes, place, since, paths, told):
-    """Of an overview's conflict and blamed lines (overview_facts), those that are the stage's: recorded since it began,
-    not yet told, and of a submission whose path (paths, by id, as the wait has learned them) is the stage's place.
-    Returns them as (key, branch, line), and the ids of lines since it began whose path the wait has not learned."""
-    due, ask = [], []
-    for branch, r, at in outcomes:
-        key = f"{branch} {r['event']} #{r['id']} {r['at']}"
-        if at < since or key in told:
-            continue
-        if r["id"] not in paths:
-            if r["id"] not in ask:
-                ask.append(r["id"])
-        elif paths[r["id"]] == place:
-            due.append((key, branch, r))
-    return due, ask
-
-
-def overview_look(seen, doc, why, place, since, status):
-    """One look of a wait at sluice's overview on the team's host. seen is what the wait keeps between its looks ({}
-    at its start); doc the overview as read, or None with why it could not be read; place the stage's place as git
-    names it; since when the stage began; status(id) reads `sluice status <id> --json`, (the document, None) or (None,
-    why). A look whose branches' versions are all as the last look saw them reads nothing more. Else it learns the path
-    of every submission the overview lists, asks status once of each conflict or blamed line since the stage began
-    whose path it has not learned, and returns the lines that are the stage's, as (branch, line), each once a wait,
-    with what to say on standard error: that the overview can't be read and the wait goes on by refs alone, once a
-    wait (read.1), and each submission whose place crew could not read."""
-    facts = overview_facts(doc) if doc is not None else None
-    if facts is None:
-        if seen.get("unread"):
-            return [], []
-        seen["unread"] = True
-        return [], [f"sluice's overview can't be read ({why or f'it is not the {OVERVIEW} sluice 0.18.0 prints'}): "
-                    "the wait goes on by refs alone, and says nothing of a conflict or a failed check sluice finds"]
-    versions, learned, outcomes = facts
-    if versions == seen.get("versions"):
-        return [], []
-    seen["versions"] = versions
-    paths, told, notes = seen.setdefault("paths", {}), seen.setdefault("told", set()), []
-    paths.update(learned)
-    due, ask = overview_due(outcomes, place, since, paths, told)
-    for sid in ask:
-        sub, why = status(sid)
-        try:
-            paths[sid] = None if why else submission_from(sub)
-        except ValueError as e:
-            why = str(e)
-        if why:  # never asked again: a line crew can't place is no line of the stage's
-            paths[sid] = None
-            notes.append(f"crew can't tell whether sluice's #{sid} came from this stage's place: "
-                         f"sluice status {sid} --json: {why}")
-    if ask:
-        due, _ = overview_due(outcomes, place, since, paths, told)
-    told.update(key for key, _, _ in due)
-    return [(branch, r) for _, branch, r in due], notes
-
-
-def sluice_words(r):
-    """A conflict or blamed line as sluice's own overview says it: `conflict #2 on shared.txt`, `blamed #3 on
-    3d44d6b`."""
-    if r["event"] == "conflict":
-        paths = [p for p in r.get("paths") or [] if isinstance(p, str)] if isinstance(r.get("paths"), list) else []
-        return f"conflict #{r['id']}" + (f" on {', '.join(paths)}" if paths else "")
-    combination = r.get("combination")
-    return f"blamed #{r['id']}" + (f" on {combination[:7]}" if isinstance(combination, str) and combination else "")
-
-
-def sluice_said(o, agent, branch, r):
-    """What a wait tells the conductor of a conflict or blame sluice recorded for the stage's submission."""
-    return f"{o.phrase()}: sluice says of {agent}'s submission to {branch}: {sluice_words(r)}; the wait goes on until the stage ends"
 
 
 def sluice_read(main, *args, timeout=POLL):
@@ -12282,460 +9320,11 @@ def sluice_read(main, *args, timeout=POLL):
         return None, "it printed no JSON"
 
 
-def stage_wait(fleet, a):
-    """Wait on the stage a slot's agent, or ops, owes, until it ends at its deliverable, stops short, is stuck, its agent
-    is gone, a verify's agent has ended its turn with no report (ended_turn), the timeout passes, or the session that
-    started the wait has ended (wait_session), and print the answer that says which, a stuck one carrying what the
-    agent last wrote and what its branch holds since the stage began, read in the look that finds it stuck
-    (stuck_report). A delivered end is recorded here; nothing else is. The wait holds waits/<slot>.lock for its
-    life, so crew needs knows a wait is there to hand its words to. A unit's settle that ends delivered or short orders
-    or lifts its unit's forecast orders, and its line says so (settle_said). Each look also reads sluice's overview,
-    and says at once, before that line, each conflict or blame sluice records for a submission from the stage's place
-    (overview_look). Its answer says first each forecast of a bolt against main it said as it began that is no longer
-    the bolt's, the bolt having moved from the head forecast while it waited (forecasts_after)."""
-    t = at_work(fleet, a.team)
-    agent = f"{t['name']}-{a.slot}"
-    (team_state(t) / "waits").mkdir(parents=True, exist_ok=True)
-    lock = open(team_state(t) / "waits" / f"{a.slot}.lock", "w")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        fail(f"a wait on {agent}'s stage is already running: its answer is the one to read")
-    forecast = before_waiting(fleet, t)
-    held = {l.split()[0]: l.split() for l in (team_state(t) / "slots").read_text().splitlines() if l.strip()} \
-        if (team_state(t) / "slots").exists() else {}
-    with stages_file(t, shared=True) as lines:
-        o = next((Owed(t, l) for l in lines if l[0] == a.slot), None)
-    if o is None:
-        print(ended_said(t, agent))
-        return
-    o.start or fail(f"crew can't tell when {o.phrase()} began: its start entry's id, {o.eid}, holds no time it reads")
-    place = held.get(a.slot, [None] * 4)[3]
-    deadline, session = time.monotonic() + a.timeout / 1000, wait_session()
-    stuck = datetime.timedelta(milliseconds=a.stuck)
-    seen_quiet = seen_working = None
-    sluice_seen, here, main = {}, os.path.realpath(place) if place else None, t["kit"]["main"]
-    unread_made, made_dirs = set(), {}  # what crew could not read of what the stage made, said once; its git directory
-
-    def made():  # what a unit's stage records as made, kept at each look and at its end (made_look)
-        if here and o.kind == "unit" and not o.fix and o.stage in UNIT_STAGES:
-            made_look(fleet, t, o, place, unread_made, made_dirs)
-    with READ.fresh():  # each look reads the plan and the kit afresh
-        while True:
-            made()
-            if here:  # what refs can't give: a conflict or a failed check sluice records for the place's submission
-                doc, why = sluice_read(main, "overview")
-                outcomes, notes = overview_look(sluice_seen, doc, why, here, o.start, lambda sid: sluice_read(main, "status", str(sid)))
-                for note in notes:
-                    print(note, file=sys.stderr)
-                for branch, r in outcomes:
-                    print(sluice_said(o, agent, branch, r), flush=True)
-            with stages_file(t, shared=True) as lines:
-                words = handed(t, a.slot, o.eid)
-                owed = any(l[3:4] == [o.eid] for l in lines)
-            info = crew.agent_get(fleet, agent) if words is None and owed else None
-            status = info.get("agent_status") if info else None
-            got, missing = deliverable(fleet, t, o, place) if words is None and owed and status != "working" else (None, None)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            quiet, over, report = (False, "is working", None), False, None
-            if status == "working":
-                seen_working = now
-            elif info is not None and not got:
-                seen_quiet = seen_quiet or now
-                pending, last, unread = background(info)
-                quiet = (*quiet_verdict(now, stuck, pending, last, unread, seen_quiet, seen_working), unread)
-                over = ended_turn(o, status, pending, turn_of(info) if o.stage == "verify" and pending == [] else None)
-                if quiet[0] and not over:  # what it said and did, read before it is called stuck
-                    report = stuck_report(fleet, t, o, info)
-            remaining = deadline - time.monotonic()
-            how, said = look(o, agent, a.timeout, words, owed, info is None, got, missing, quiet, remaining <= 0, over, report,
-                             session_ended(session))
-            if how:  # once more at the stage's end, before a merge's tidy removes the place
-                made()
-            if how == "ended":
-                forecasts_after(fleet, t, forecast)
-                print(ended_said(t, agent))
-                return
-            then = []
-            if how == "delivered":
-                if not end_owed(fleet, t, o, "delivered", got):
-                    continue
-                unmark(fleet, t, o)
-                then = after_delivery(o.stage, o.fix)
-            if how in ("delivered", "short") and o.stage == "settle" and not o.fix and not o.chore:
-                said = settle_said(fleet, t, o.name, said)
-            if how:
-                forecasts_after(fleet, t, forecast)
-                print(said, flush=True)
-                after_answer(fleet, t, then, got)
-                return
-            time.sleep(min(POLL, remaining))
-
-
-def before_waiting(fleet, t):
-    """What each wait of a conductor's does before it waits: its units' merges forecast (reach), then the partition's
-    batch reckoned (batch_reckoned), so a bolt whose last unit merged reaches the planner on every wait until it is
-    told, whatever the merge's own end did (briefs.12). What crew can't read of either is said on standard error, and
-    neither keeps the other, or the wait, from going on. Returns the forecasts of its bolts against main it said, as
-    reach gives them, for its answer (forecasts_after)."""
-    try:
-        forecast = reach(fleet, t)
-    except Refusal as e:
-        print(f"no forecast: {e}", file=sys.stderr)
-        forecast = []
-    batch_reckoned(fleet, t)
-    return forecast
-
-
-def after_answer(fleet, t, then, got):
-    """What a wait does once it has said a stage delivered, each of after_delivery's acts in its order: "batch", the
-    partition's batch reckoned (batch_reckoned); "landing", the merge's end for the bolt it merged into, got being
-    bolt/<bolt>@<head> (landing_after_merge); "tidy", the team's read (reap), what it could not remove said on standard
-    error."""
-    for act in then:
-        if act == "batch":
-            batch_reckoned(fleet, t)
-        elif act == "landing":
-            landing_after_merge(fleet, t, got.split("@")[0][len("bolt/"):])
-        elif act == "tidy":
-            try:
-                reap(fleet, on_team_host(fleet, t))
-            except Refusal as e:
-                print(f"its place is not removed yet: {e}; the team's next read removes it", file=sys.stderr)
-
-
-def after_delivery(stage, fix):
-    """What crew does once a stage a wait watched has delivered, in this order (briefs.12, plan.16): "batch", reckon
-    whether a batch is due (batch_check), after a construct's change, not a fix's, which is due itself, and after a
-    merge, whose last unit merged makes a batch due at once for the bolt's units in none; "landing", raise or change the
-    bolt's landing card, after a merge, which moved the bolt's head; "tidy", the team's read (reap), after a merge, so
-    the slot is freed and the place and its branch removed as the merge lands rather than at the conductor's next read
-    (teams.1, plan.9). A bolt whose last unit merged left no wait to reckon its batch, since its conductor waits on
-    nothing more (every-deploy-has-its-live-card and every-host-reaches-every-other-by-its-tailnet-name on 2026-10-19,
-    every unit merged and the planner never told, for two hours), and no read to remove its places. A merge's batch
-    comes before its landing, so the landing card's hand, which may refuse, never keeps it (wldn's awb-1, 2026-10-27:
-    proven at 01:59Z with two units in no batch, and none reckoned due until one was started by hand at 12:18Z)."""
-    return (["batch"] if stage == "construct" and not fix else []) + (["batch", "landing", "tidy"] if stage == "merge" else [])
-
-
-def batch_reckoned(fleet, t):
-    """batch_check at a wait's start and at its end, the team's bolts read where they live after a fetch, as a decision
-    of the moment reads them (plan.18, plan.19); what crew can't read said on standard error, the wait standing."""
-    try:
-        batch_check(fleet, t, fetch=True)
-    except Refusal as e:
-        print(f"no batch reckoned: {e}", file=sys.stderr)
-
-
-def settle_said(fleet, t, unit, said):
-    """A unit's settle ended, delivered or short: crew's own order of it after a unit a forecast found it in conflict
-    with, or that order's lift, written now (settle_orders), and the wait's answer with a sentence for each. What crew
-    can't read is said on standard error, and the next wait decides again."""
-    try:
-        plan = plan_of(fleet, t["label"])
-        if plan is None:
-            print(f"{t['label']}'s plan could not be read, so {unit}'s settle orders nothing yet", file=sys.stderr)
-            return said
-        more = settle_orders(fleet, t, plan, stages_for(fleet, plan, held_by(plan, t["name"])), unit)
-    except Refusal as e:
-        print(f"{unit}'s settle orders nothing yet: {e}", file=sys.stderr)
-        return said
-    if not more:
-        return said
-    said = said.rstrip()
-    return " ".join([said if said.endswith(".") else f"{said}."] + [f"{x}." for x in more])
-
-
-# What a stuck report lists of a branch's commits, and how many characters of the agent's last words it quotes.
-STUCK_COMMITS, STUCK_WORDS = 10, 2000
-
-
-def report_time(at, day):
-    """A time as a stuck report says it, in UTC: 23:06Z on the day given, the stage's start's, else in full."""
-    at = at.astimezone(datetime.timezone.utc)
-    return at.strftime("%H:%MZ") if at.date() == day else at.strftime("%Y-%m-%dT%H:%MZ")
-
-
-def stuck_said(o, agent, doing, missing, unread, words, commits, branch, head, start, where=None):
-    """What a wait says of a stage it finds stuck (teams.4, record 0007), read before anyone is asked: the stuck line,
-    with what crew could not read of the agent's own work (unread); then what the stage's branch holds since it began,
-    from the commits gather.since gave, (short sha, committer time, subject) newest first, or a string saying what crew
-    could not read, those committed before start left out, at most STUCK_COMMITS listed and the rest counted, or that it
-    holds none, naming its head; then the agent's last words since the stage began, words as transcript.last_words gave
-    them, (text, at), ("", None) for none written, or a string saying what crew could not read, each line quoted and a
-    longer message cut at STUCK_WORDS characters on a line's end, with how many more are in the transcript at where.
-    Nothing read is judged here: the conductor reads it."""
-    day = start.astimezone(datetime.timezone.utc).date()
-    out = [f"{agent} is stuck in {o.phrase()}: {doing}, with {missing} and nothing it needs said through crew"
-           + (f"; crew could not read whether it waits on work of its own ({unread})" if unread else "") + "."]
-    if isinstance(commits, str):
-        out.append(f"crew could not read what {branch} holds since it began: {commits}.")
-    else:
-        made = []
-        for sha, at, subject in commits:
-            try:
-                t = utc(at)
-            except ValueError:
-                continue
-            if t and t >= start:
-                made.append(f"  {sha} {report_time(t, day)} {subject}")
-        if made:
-            out.append(f"Since it began, {branch} holds {len(made)} commit{'' if len(made) == 1 else 's'}, newest first:")
-            out += made[:STUCK_COMMITS] + ([f"  and {len(made) - STUCK_COMMITS} more"] if len(made) > STUCK_COMMITS else [])
-        else:
-            out.append(f"Since it began, {branch} holds no commit; " + (f"its head is {head}." if head else "crew could not read its head."))
-    if isinstance(words, str):
-        out.append(f"crew could not read its last words: {words}.")
-    elif not words[0]:
-        out.append("It has written nothing since the stage began.")
-    else:
-        text, at = words
-        cut = text
-        if len(text) > STUCK_WORDS:
-            end = text.rfind("\n", 0, STUCK_WORDS + 1)
-            cut = text[:end] if end > 0 else text[:STUCK_WORDS]
-        out.append(f"Its last words, at {report_time(at, day)}:")
-        out += [f"  > {line}".rstrip() for line in cut.splitlines()]
-        if cut != text:
-            out.append(f"  ({len(text) - len(cut)} more characters in {where or 'its transcript'})")
-    return "\n".join(out)
-
-
-def look(o, agent, timeout, words, owed, gone, got, missing, quiet, out_of_time, over=False, report=None,
-         orphaned=False):
-    """One look of a wait at the stage o its agent owes, as facts (teams.4): the words a stop-short handed it, whether
-    the stage is still owed, whether the agent is gone, what it delivered (got, and missing: what the wait says of the
-    deliverable, or of what it lacks), quiet, (stuck, what the agent is doing, what crew could not read of it), over,
-    whether a verify's agent has ended its turn with nothing of its own running (ended_turn): with no report, the
-    verify has not ended, and the wait says so then, never calling it stuck (record 0007), report, what the wait read
-    of a stuck agent, its last words, its branch's commits and head and where its transcript is (stuck_report),
-    without which no stage is called stuck, and orphaned, whether the session that started the wait has ended
-    (session_ended): a wait that would look again, or has run out of time, then ends with it, recording nothing
-    (teams.24). Returns how the wait ends and the line it prints, "ended" when something else recorded the end, or
-    (None, what the agent is doing) to look again."""
-    if words is not None:
-        return "short", f"{agent} stopped short in {o.phrase()}. It needs: {words}"
-    if not owed:
-        return "ended", None
-    if got:
-        return "delivered", f"{agent} delivered {o.phrase()}: {missing}"
-    if gone:
-        return "gone", f"{agent} is no longer running: {o.phrase()} delivered nothing and said nothing it needs"
-    if over:
-        return "unended", (f"{agent} ended its turn in {o.phrase()} with {missing}: the verify has not ended, since a "
-                           "verify ends only at its report; nothing is recorded")
-    stuck, doing, unread = quiet
-    if stuck:
-        report is not None or fail(f"crew found {agent} stuck in {o.phrase()} with nothing read of what it said or did")
-        return "stuck", stuck_said(o, agent, doing, missing, unread, report["words"], report["commits"], o.branch(),
-                                   report["head"], o.start, report.get("where"))
-    if orphaned:
-        return "orphaned", f"{ENDED_WITH}: {o.phrase()} is still running, {agent} {doing}; nothing is recorded yet"
-    if out_of_time:
-        return "running", f"{o.phrase()} is still running after the wait's {timeout} ms: {agent} {doing}; nothing is recorded yet"
-    return None, doing
-
-
-def owed_of(t, slot, lines, held):
-    """The stage a slot's agent owes an end, from the stages file's lines and the slots file's (held, by slot), as crew
-    needs reads it: refused when it owes none, or the slot now holds other work than the stage's."""
-    owed = [Owed(t, l) for l in lines if l[0] == slot and held.get(slot, [None] * 3)[2] == l[1]]
-    return owed or fail(f"{t['name']}-{slot} runs no stage crew is waiting on")
-
-
-def stage_needs(fleet, a):
-    """crew needs: the caller's stage ends short, recorded with Ended short and never the words (record.3), and the
-    words go to the conductor: to the wait running on the stage when there is one, through needs/<slot>, else in a
-    tell marked as from the agent (roles.4); then its agent's end is handed on (short_hand), so the stage is ended in
-    fact. Only the agent of a stage crew owes an end may say it. A unit's merge that stops short while its branch holds
-    archives it can make itself (merge_owes) is refused once in the stage, naming them, so no stopped merge reaches the
-    conductor for work its own stage does (teams.17, roles.3); told, it says so again only when openspec refuses one
-    of them, and that stop-short is passed on, its agent's end handed on with it."""
-    t = at_work(fleet, a.team)
-    agent, conductor = f"{t['name']}-{a.slot}", f"{t['name']}-conductor"
-    a.words.strip() or fail('say what you need: crew needs "<what you tried and what you need>"')
-    held = {l.split()[0]: l.split() for l in (team_state(t) / "slots").read_text().splitlines() if l.strip()} \
-        if (team_state(t) / "slots").exists() else {}
-    needs = team_state(t) / "needs" / a.slot
-    owed = []
-
-    def hand(lines):
-        needs.parent.mkdir(parents=True, exist_ok=True)
-        tmp = needs.with_name(f".{a.slot}.new")
-        tmp.write_text(f"{owed[0].eid}\n{a.words}")
-        tmp.replace(needs)
-
-    with stages_file(t, shared=True) as lines:
-        owed += owed_of(t, a.slot, lines, held)
-    o = owed[0]
-    told = needs.with_name(f".{a.slot}.archives")
-    if o.stage == "merge" and o.kind == "unit" and not o.fix and not (told.exists() and told.read_text().strip() == o.eid):
-        archives = merge_owes(fleet, t, o.name)
-        if archives:
-            told.parent.mkdir(parents=True, exist_ok=True)
-            told.write_text(f"{o.eid}\n")
-            fail(archives_refusal(o.name, archives))
-    end_owed(fleet, t, o, "short", then=hand) or fail(f"{agent} runs no stage crew is waiting on")
-    # The words are the wait's once it takes the file; when no wait holds its lock, or the one there ends without
-    # taking them, they are told. A wait takes the file only while it holds the lock, so a free lock with the file
-    # still there means nobody will.
-    told = f"{agent} stopped short in {o.phrase()}. It needs: {a.words}"
-    give_up, waits = time.monotonic() + 6 * POLL, team_state(t) / "waits" / f"{a.slot}.lock"
-    said, to = f"{o.phrase()} is ended, stopped short: {conductor}'s wait has what you need", sys.stdout
-    while needs.exists():
-        waits.parent.mkdir(parents=True, exist_ok=True)
-        with open(waits, "a") as lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                free = True
-            except OSError:
-                free = False
-            if (free or time.monotonic() > give_up) and needs.exists():
-                needs.unlink(missing_ok=True)
-                if crew.tell(fleet, conductor, told, sender=agent):
-                    said = f"{o.phrase()} is ended, stopped short: {conductor} is told what you need"
-                else:
-                    said, to = (f"{o.phrase()} is ended, stopped short, and {conductor} could not be told what you need: "
-                                "say it in your last message"), sys.stderr
-                break
-        time.sleep(1)
-    print(f"{said}. {short_hand(fleet, t, a.slot, o)}", file=to)
-
-
-SHORT_GRACE = 30  # looks, a second apart, the agent of a stage that stopped short has to end its turn before crew ends it
-
-
-def short_path(t, slot):
-    """The mark of a slot whose stage stopped short (crew needs), there until its agent is ended or found gone: the
-    stage's start entry id, then the Claude session that said it."""
-    return team_state(t) / "short" / slot
-
-
-@contextlib.contextmanager
-def short_lock(t, slot):
-    """The slot's lock while the agent of its stage that stopped short is looked at and ended, held by crew _end-short
-    and by the slot's next start (short_taken), so neither ends an agent the other started."""
-    f = short_path(t, slot).with_name(f"{slot}.lock")
-    f.parent.mkdir(parents=True, exist_ok=True)
-    with open(f, "a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        yield
-
-
-def short_marked(t, slot):
-    """The Claude session a slot's mark names as the one whose stage stopped short, or None with no mark."""
-    try:
-        lines = short_path(t, slot).read_text().split("\n")
-    except OSError:
-        return None
-    return lines[1].strip() if len(lines) > 1 else ""
-
-
-def agent_facts(info):
-    """Whether an agent is up, herdr's status of it and the Claude session it runs, from its item (crew.agent_get),
-    the status and the session None when herdr gives none (read.2)."""
-    if not isinstance(info, dict):
-        return False, None, None
-    status, sid = info.get("agent_status"), info.get("agent_session")
-    sid = sid.get("value") if isinstance(sid, dict) else None
-    return True, status if isinstance(status, str) else None, sid if isinstance(sid, str) and sid else None
-
-
-def short_end(marked, up, status, session, looked, grace=SHORT_GRACE):
-    """What crew does with the agent of a slot whose stage stopped short (record 0007), from the Claude session that
-    said it (marked), whether an agent is up in the slot, herdr's status of it and the session it runs, and how many
-    looks crew has given it: "gone" with none up; "other" when it runs another session than the one that stopped
-    short, which is left be; "unread" when, past the grace, crew still can't read its status or which session it runs,
-    so it ends none (read.1); "end" once it has stopped working, or still works past the grace, since its stage is over
-    and nothing it does now is the stage's; else "wait", for its turn to end."""
-    if not up:
-        return "gone"
-    if status is None or session is None:
-        return "wait" if looked < grace else "unread"
-    if session != marked:
-        return "other"
-    return "end" if status != "working" or looked >= grace else "wait"
-
-
-def short_said(agent, how):
-    """What crew says of the agent of a stage that stopped short once short_end has decided."""
-    return {"end": f"{agent} is ended: its stage stopped short", "gone": f"{agent} is no longer up",
-            "other": f"{agent} runs another session than the one that stopped short: crew leaves it be",
-            "unread": f"crew could not read which session {agent} runs, so it ends none"}[how]
-
-
-def short_over(team, slot, how):
-    """short_end's decision acted on, under the slot's lock: the agent ended when "end", its exit's question answered
-    and what it still runs stopped, since that was its stage's (Agents.stop's over); the mark then gone, as it goes for
-    an agent gone, running another session or unread. None, or what crew says of an agent it could not end, whose mark
-    stays for the slot's next start."""
-    if how == "end":
-        why = team.stop(slot, over=True)
-        if why:
-            return why
-    short_path(team.t, slot).unlink(missing_ok=True)
-    return None
-
-
-def short_hand(fleet, t, slot, o):
-    """crew needs' last act on a slot's stage (record 0007): the slot marked with the asker's Claude session
-    (short_path), and the end of its agent handed to crew _end-short, a process of its own on this host that outlives
-    this command (code.9); what crew needs then says of the session. A stage of ops's ends no session, and an asker
-    whose session crew can't read is marked by none and ended by none (read.1)."""
-    if not slot.startswith("unit-"):
-        return "End your turn."
-    host, _, sid = (record.session() or "").partition(":")
-    if host != crew.this_host() or not sid:
-        return "crew could not read which Claude session this is, so it ends none: end your turn."
-    mark = short_path(t, slot)
-    with short_lock(t, slot):
-        tmp = mark.with_name(f".{slot}.new")
-        tmp.write_text(f"{o.eid}\n{sid}\n")
-        tmp.replace(mark)
-    argv = ["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "crew"), "_end-short", t["name"], slot]
-    try:
-        with open(mark.with_name(f"{slot}.log"), "a") as out:
-            subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
-    except OSError as e:
-        return f"crew could not hand this session's end on ({e}): end your turn, and the slot's next start ends it."
-    return "crew ends this session once your turn ends: end it now."
-
-
-def short_taken(fleet, team, slot):
-    """Before a stage starts in a slot (run_stage): the agent of the slot's stage that stopped short, still up in its
-    session, ended at once, working or not, its grace the start's to cut short (short_end), under the slot's lock, so
-    the conductor's next start neither waits on it nor needs --force. None, or what crew says of an agent it could not
-    end."""
-    with short_lock(team.t, slot):
-        marked = short_marked(team.t, slot)
-        if marked is None:
-            return None
-        return short_over(team, slot, short_end(marked, *agent_facts(crew.agent_get(fleet, team.agent_of(slot))), SHORT_GRACE))
-
-
-def end_short(fleet, a):
-    """crew _end-short <team> <slot>, handed by crew needs to a process of its own on the team's host (short_hand): the
-    agent of the slot's stage that stopped short ended as a stage's agent is ended for the next (teams.2), once it has
-    ended its turn or SHORT_GRACE looks have passed (short_end), so no agent goes on after its needs as if its stage
-    stood and the conductor's next start finds the slot free. Each look is under the slot's lock, as the next start's
-    is (short_taken); a mark that start took first leaves nothing to end."""
-    t = at_work(fleet, a.team)
-    team = on_team_host(fleet, t)
-    agent = team.agent_of(a.slot)
-    for looked in range(SHORT_GRACE + 1):
-        with short_lock(t, a.slot):
-            marked = short_marked(t, a.slot)
-            if marked is None:
-                print(f"{agent}'s mark is gone: the slot's next start took it")
-                return
-            how = short_end(marked, *agent_facts(crew.agent_get(fleet, agent)), looked)
-            if how != "wait":
-                print(short_over(team, a.slot, how) or short_said(agent, how))
-                return
-        crew.nap(1)
-
-
 # ------------------------------------------------------------------------------ a team's commands, one process each
+
+def sh(**pairs):
+    return "\n".join(f"{k}={__import__('shlex').quote(str(v))}" for k, v in pairs.items())
+
 
 def forwarded(fleet, machine):
     """A team's or a main level's command runs on the host its agents run on (code.3). On another host this process says
@@ -12760,14 +9349,6 @@ def arrived(fleet, machine):
     record.session()
 
 
-def on_team_host(fleet, t, force=False):
-    """A team's command where it runs (arrived), with the team's state folder there."""
-    arrived(fleet, t["machine"])
-    team = crew.Team(fleet, t, force)
-    team.ensure()
-    return team
-
-
 def not_held(label=None, act=None, on=()):
     """A command that would start an agent refused while this host is held (teams.19): said, and for an act that moves
     work recorded refused (stopped); nothing when it is not held."""
@@ -12780,28 +9361,6 @@ def not_held(label=None, act=None, on=()):
     fail(said)
 
 
-def crossing_path(fleet, t):
-    """A team's path (runner.path_of) where it may have crossed to Flume: None for a team whose setting is off, which
-    has not crossed, with nothing read; else read from its plan, a branch not started holding no bolt of it, and
-    refused, naming what could not be read, when the plan can't be (read.1)."""
-    if t["flume"] is False:
-        return None
-    errors = {}
-    found = plans(fleet, [t["label"]], errors)
-    not errors or fail(f"can't tell whether {t['name']} has crossed to Flume: "
-                       + "; ".join(f"{k} could not be read: {v}" for k, v in errors.items()))
-    return runner.path_of(found[0][3] or Plan(""), t)
-
-
-def not_crossed(fleet, t, what):
-    """crew <what> of a team refused at once when the team has crossed to Flume, before any pane or slot is read
-    (runner.crossed_refusal; Decision 15 of teams-cross-to-flume-as-their-bolts-land, teams.2): a crossed team runs no
-    conductor, ops or slot, its work running in Flume places on its host."""
-    path = crossing_path(fleet, t)
-    why = path and runner.crossed_refusal(t["name"], path, t["flume"], t["machine"], what)
-    not why or fail(why)
-
-
 def stopped(label, act, on, said):
     """A team's command refused: said on standard error, recorded as the act refused (record.1), and stopped."""
     print(said, file=sys.stderr)
@@ -12809,475 +9368,168 @@ def stopped(label, act, on, said):
     raise Stopped(1)
 
 
-def ending(fleet, t):
-    """What ends a slot's stage still owed an end as its agent is ended: delivered when its
-    deliverable is there, else stopped (stage_ends), what that says and any failure of it dropped."""
-    def end(role):
-        with silenced():
-            stage_ends(fleet, argparse.Namespace(team=t["name"], slot=role, ending=True))
-    return end
-
-
-def reap(fleet, team, landed=None, freed=None):
-    """A team's read on its host (teams.1, record.5): the end of each stage that delivered with nobody waiting recorded,
-    late; each slot freed whose unit or fix has merged into its bolt, been dropped from the plan or left the team's
-    bolt, once its agent is not working, a slot lent to a fix given back to the work it was lent from (crew.reaped);
-    the landing of each bolt the team holds that may have an outcome or a close nothing recorded read (reap_landings),
-    but by the tidy a landing's close asks for (landed, the bolt), which reads none: crew bolt land waits on that tidy,
-    and a read's close of a bolt runs under the bolt's landing lock (landing_read), so a landing read there would wait
-    on a lock its own caller holds, its bolt's when the plan is read below the close or another bolt's whose read
-    waits on its own tidy in turn; that bolt was read by the act that closed it, and the team's next read reads the
-    rest; then each dependent whose After unit has merged rebased, and the worktrees whose work is over removed, at a
-    landing the bolt's branch deleted by sluice after them (rebase_and_tidy). Each slot.free, the read's
-    own and those its command held back (freed), is written once the tidy has run, naming the place it removed of the
-    slot's work (freed_recorded, plan.9)."""
-    t, freed, removed = team.t, [] if freed is None else freed, []
-    try:
-        if team.owes():
-            with silenced():
-                stage_ends(fleet, argparse.Namespace(team=t["name"], slot=None, ending=False))
-        try:
-            held = slot_stages(fleet, t)
-        except Refusal:
-            held = []
-        for s in held:
-            how, said = crew.reaped(team.agent_of(s["slot"]), t["name"], s["name"], s["stage"], team.status(s["slot"]),
-                                    (team.lent(s["slot"]) or [None] * 3)[2])
-            if how == "free":
-                why = team.free(s["slot"], ending(fleet, t), held=freed)
-                if why:
-                    print(why, file=sys.stderr)
-                    continue
-            if said:
-                print(said)
-        if not landed:  # a landing's tidy reads no landing: its caller may hold a landing's lock (landing_read)
-            reap_landings(fleet, t)
-        removed = rebase_and_tidy(fleet, t, landed)
-    finally:
-        freed_recorded(freed, removed)
-
-
-def freed_recorded(freed, removed):
-    """Each slot.free a command held back until its tidy ran (freed, crew.Team.free's), written now, naming in Paths
-    the place of the slot's work when the tidy removed it (removed, its paths), since a removal is recorded on the entry
-    of the act in whose command it happens (plan.9); a removal no slot.free names is said in the tidy's output alone."""
-    gone = {os.path.realpath(p) for p in removed}
-    for label, on, why, place in freed:
-        record.emit(label, "slot.free", on, why=why, Paths=place if place and os.path.realpath(place) in gone else None)
-
-
 def landing_read_due(now, stages, marked):
-    """Whether a team's read runs the landing's read of a bolt it holds (plan.21, Decision 3), from facts alone
+    """Whether the rail's sweep, or a kit's read, runs the landing's read of a bolt whose work runs on its host
+    (plan.21, Decision 3), from facts alone
     (code.7): now, what this host holds of the bolt's landing (landing_now, (path, standing, alive)); stages, the stage
     of each unit and chore the plan holds in it; marked, whether the kit's git config marks its branch landed
     (LANDED_MARK). When its landing's worktree stands with its waiter not alive, sluice's outcome of a queued landing may
     be in with nothing recorded; when every unit and chore of it reads landed, or, with none left, its branch is marked
-    landed, it may have landed with a close refused. Neither reads nothing, so an idle team's read is unchanged
+    landed, it may have landed with a close refused. Neither reads nothing, so an idle sweep's read is unchanged
     (plan.12)."""
     _, standing, alive = now
     return bool(standing and not alive) or (all(s == "landed" for s in stages) if stages else marked)
 
 
 def landing_marked(t, bolt):
-    """Whether the bolt's branch is marked landed in its kit's git config on this host, the team's (LANDED_MARK)."""
+    """Whether the bolt's branch is marked landed in its kit's git config on this host, the bolt's (t, LANDED_MARK)."""
     r = subprocess.run(["git", "-C", t["kit"]["main"], "config", "--get", f"branch.bolt/{bolt}.crew"], capture_output=True,
                        text=True, env=gitenv())
     return r.stdout.strip() == "landed"
 
 
-def reap_landings(fleet, t):
-    """The team's read of its bolts' landings (plan.21, Decision 3): each bolt the team holds whose landing may have an
-    outcome or a close nothing recorded (landing_read_due) read in this process, on the team's host (landing_read); a
-    read refused said and raised no further. A plan that can't be read reads none."""
-    pl = plan_of(fleet, t["label"])
-    bolts = held_by(pl, t["name"]) if pl else []
-    of = stages_for(fleet, pl, bolts).of if bolts else None
-    for b in bolts:
-        stages = [of(u.name())["stage"] for u in pl.work_of(b.name())]
-        if landing_read_due(landing_now(crew.with_kit(t, b.get("Repo")) if b.get("Repo") else t, b.name()), stages,
-                            not stages and landing_marked(t, b.name())):
+def landings_judged(fleet, label, plan, sv, runs):
+    """The landings each host's card sweep reads (reap_judged), from the rail's read and reading nothing (code.7):
+    {host: [{bolt, kit, dir, stages}]}, each started bolt of the partition under the host its work runs on as the read
+    holds it (known_at), with its kit's folder there and the stage of each unit and chore the plan holds in it (Stages),
+    so a sweep reads no plan or kit of its own (plan.12); none where the read holds no runners of the partition."""
+    if label not in (runs or {}):
+        return {}
+    of, out = Stages(fleet, plan, sv, runs, label).of, {}
+    for b in plan.bolts():
+        t = known_at(fleet, label, b, runs[label]) if started(b) else None
+        if t:
+            out.setdefault(t["machine"], []).append(dict(bolt=b.name(), kit=t["kit"]["name"], dir=t["kit"]["dir"],
+                                                         stages=[of(u.name())["stage"] for u in plan.work_of(b.name())]))
+    return out
+
+
+def reap_landings(fleet, label):
+    """A kit's read of the partition's landings on this host after a landing or a drop (kit_read): each started bolt
+    whose work runs here (bolts_on), with the stages of its units and chores, read by reap_judged. A plan or runners
+    that can't be read read none."""
+    pl = plan_of(fleet, label)
+    try:
+        run = runner_facts(fleet, label)
+    except Refusal:
+        return
+    bolts = bolts_on(fleet, label, pl, crew.this_host(), run) if pl else []
+    of = stages_for(fleet, label, pl, bolts).of if bolts else None
+    reap_judged(fleet, label, [dict(bolt=b.name(), kit=t["kit"]["name"], dir=t["kit"]["dir"],
+                                    stages=[of(u.name())["stage"] for u in pl.work_of(b.name())])
+                               for b in bolts for t in [known_at(fleet, label, b, run)] if t])
+
+
+def reap_judged(fleet, label, landings):
+    """The read of a partition's landings on this host (plan.21; bolt-teams "A landing nothing recorded is read by the
+    rail's sweep" of the-team-machinery-leaves), which the rail's sweep (card_sweep, from the rail's read,
+    landings_judged) and a kit's read (reap_landings) run: of each bolt given, {bolt, kit, dir, stages}, whose landing
+    may have an outcome or a close nothing recorded, or refused (landing_read_due), read in this process
+    (landing_read), so a refused close is tried again at each sweep until it is lifted; a read refused said and raised
+    no further."""
+    for g in landings:
+        t = {"label": label, "machine": crew.this_host(), "kit": kit_of(g["kit"], g["dir"])}
+        if landing_read_due(landing_now(t, g["bolt"]), g["stages"], not g["stages"] and landing_marked(t, g["bolt"])):
             try:
-                landing_read(fleet, t["label"], b.name())
+                landing_read(fleet, label, g["bolt"])
             except Refusal as e:
                 print(e, file=sys.stderr)
 
 
-def free_elsewhere(fleet, t, unit):
-    """A unit moved from another team's bolt leaves that team's slot (teams.1): each other team of this host whose slot
-    holds it frees that slot."""
-    for o in sorted(fleet["teams"].values(), key=lambda o: o["name"]):
-        if o["name"] == t["name"] or o["machine"] != crew.this_host():
-            continue
-        other = crew.Team(fleet, o)
-        slot = other.holding(unit)
-        if slot:
-            why = other.free(slot, ending(fleet, o))
-            print(why, file=sys.stderr) if why else print(f"{other.agent_of(slot)} is free")
-
-
-def run_stage(fleet, team, slot, stage, prompt, act, what, obj, on, **extra):
-    """A unit's or a fix's stage started fresh in its slot (teams.2, teams.15): the slot's agent ended, the stage's
-    agent started, and its prompt sent, taken or sent again. The start is recorded as act, with extra's fields, and its
-    end is owed in the stages file. A prompt the agent never took, or one crew can't tell it took, starts no stage: the
-    start is recorded refused, no end is owed, the slot and its idle agent stay, and the command stops saying how to
-    run the stage again. An agent whose stage stopped short is ended working or not (short_taken)."""
-    why = short_taken(fleet, team, slot) or team.stop(slot, ending(fleet, team.t))
-    if why:
-        stopped(team.label, act, on, why)
-    if not team.start(slot, stage):
-        raise Stopped(1)
-    agent = team.agent_of(slot)
-    try:
-        how, why = crew.send_taken(fleet, agent, prompt)
-        said = None if how == "taken" else crew.never_started(agent, stage, what, obj, team.name, how, why)
-    except Refusal as e:
-        said = str(e)
-    if said:
-        stopped(team.label, act, on, said)
-    eid = record.emit(team.label, act, on, why=f"{obj.split('/')[0]}({what.rsplit('/', 1)[-1]}): start {stage}", **extra)
-    if eid:
-        with stages_file(team.t) as lines:
-            lines.append([slot, what, stage, eid, obj])
-
-
-def run_unit_stage(fleet, team, unit, stage, words="", kind="unit"):
-    """A unit's stage, or a chore's (kind, plan.11), started in its slot on the team's host (teams.1, teams.2, plan.6):
-    refused, and recorded so, while the team is down, when every slot is in flight or its own is lent to a fix
-    (teams.1), and for a construct whose slot's agent works unless forced, each before the plan can be written, so an
-    amended unit whose construct can't start keeps its mark and reads amended; an agent whose stage stopped short works for nothing, and is ended first (short_taken).
-    The team's read frees first what is over, and a slot another team of this host holds the unit in. Whether the stage may start, the place and the stage's prompt are run_check's, a chore's chore_check's,
-    its start run_stage's. It stops (Stopped), or is refused (Refusal), having said and recorded why."""
-    t, label = team.t, team.label
-    on = [f"stage/{unit}/{stage}", f"{kind}/{unit}"]
-    if team.down():
-        stopped(label, "stage.start", on, crew.down_said(t["name"]))
-    not_held(label, "stage.start", on)
-    reap(fleet, team)
-    free_elsewhere(fleet, t, unit)
-    try:
-        slot, taken = team.take(kind, unit, f"{t['kit']['dir']}/places/" + (f"chore-{unit}" if kind == "chore" else unit))
-    except Refusal as e:
-        print(e, file=sys.stderr)
-        record.emit(label, "stage.start", on, refused=str(e))  # every slot in flight, or its own lent to a fix
-        raise Stopped(1)
-    agent = team.agent_of(slot)
-    why = short_taken(fleet, team, slot)  # its stage is over, so a construct is not refused for its working
-    if why:
-        if taken:
-            team.drop("slots", slot)
-        stopped(label, "stage.start", on + [f"agent/{agent}"], why)
-    if stage == "construct" and not team.force and team.status(slot) == "working":
-        if taken:
-            team.drop("slots", slot)
-        stopped(label, "stage.start", on + [f"agent/{agent}"], crew.working_said(agent))
-    try:
-        facts = run_check(fleet, argparse.Namespace(unit=unit, stage=stage, words=words, label=None, chore=kind == "chore"))
-    except Refusal as e:
-        if taken:
-            team.drop("slots", slot)
-        record.emit(label, "stage.start", [f"{CONTEXT.get('kind', kind)}/{unit}", f"stage/{unit}/{stage}"],
-                    refused=getattr(e, "recorded", None) or str(e))
-        raise
-    team.slot_pane(slot, facts["PLACE"])
-    # A construct that marked the unit amended says so, naming the mark's commit, whose own unit.mark entry the commit
-    # names (plan.2); the forecasts its prompt carries are named on its start, so none is carried twice; and the heads of
-    # the units it comes after that a construct's new place took.
-    extra = dict(Amended="yes", commit=[facts["AMENDED"]]) if facts["AMENDED"] else {}
-    extra.update(Forecast=facts["FORECAST"], Took=facts["TOOK"])
-    run_stage(fleet, team, slot, stage, facts["PROMPT"], "stage.start", unit, f"{kind}/{unit}", on + [f"agent/{agent}"], **extra)
-    print(f"{agent} has " + ("chore " if kind == "chore" else "") + f"{unit}: {stage}, in {facts['PLACE']}")
-
-
-def unit_run(fleet, a):
-    """crew unit run <unit> construct|code|verify|settle|merge ["<words>"] [--force], or crew chore run <chore>
-    code|verify|merge (--chore), on the host of the team whose bolt holds it: its stage started there (run_unit_stage),
-    refused while a construct an amendment handed there is starting (handed_state), whose wait is crew unit wait, and
-    a construct, code or merge refused while its bolt's landing is in flight (landing_refusal); refused at once for a
-    team crossed to Flume, which has no slots (not_crossed)."""
-    t = team_of_unit(fleet, a)
-    not_crossed(fleet, t, f"{'chore' if a.chore else 'unit'} run {a.unit}")
-    team = on_team_host(fleet, t, a.force)
-    state, said = construct_handed_state(t, a.unit)
-    state != "starting" or fail(f"{said}: crew unit wait {a.unit} waits for it")
-    if state:
-        handed_path(t, a.unit).unlink(missing_ok=True)  # this run is the one that starts it now
-    run_unit_stage(fleet, team, a.unit, a.stage, a.words, "chore" if a.chore else "unit")
-
-
-def unit_wait(fleet, a):
-    """crew unit wait <unit> [--timeout <ms>] [--stuck <ms>], on the host of the team whose bolt holds the unit: first,
-    while a construct an amendment handed there is starting, its start (handed_state), saying why when it did not
-    start; then the wait on the stage the slot holding it owes (stage_wait), within what is left of the timeout, whose
-    merge look reads the bolt the plan places the unit in at each look (merge_bolt). Either ends with the session that
-    started it (session_ended). Refused at once for a team crossed to Flume, which has no slots (not_crossed)."""
-    t = team_of_unit(fleet, a)
-    not_crossed(fleet, t, f"unit wait {a.unit}")
-    team = on_team_host(fleet, t)
-    until, session = time.monotonic() + a.timeout / 1000, wait_session()
-    state, said = construct_handed_state(t, a.unit)
-    while state == "starting" and time.monotonic() < until and not session_ended(session):
-        time.sleep(1)
-        state, said = construct_handed_state(t, a.unit)
-    if state == "starting":
-        print(f"{ENDED_WITH}: {said}" if session_ended(session) else f"{said}, past the wait's timeout: wait again")
-        return
-    if state:
-        handed_path(t, a.unit).unlink(missing_ok=True)
-        fail(said)
-    slot = team.holding(a.unit) or fail(f"no slot of {t['name']} holds {a.unit}")
-    left = max(int((until - time.monotonic()) * 1000), 0)
-    stage_wait(fleet, argparse.Namespace(team=t["name"], slot=slot, timeout=left, stuck=a.stuck))
-
-
-def handed_path(t, unit):
-    """The marker of a construct an amendment handed to the team's host (construct_hand): there from the hand-off until
-    the construct starts, holding who handed it, the process starting it once that has named itself, and why it did
-    not start when it could not."""
-    return team_state(t) / "handed" / unit
-
-
-def construct_handed_state(t, unit):
-    """handed_state, read on the team's host from the unit's marker and whether its process is alive."""
-    try:
-        marker = json.loads(handed_path(t, unit).read_text())
-    except (OSError, ValueError):
-        marker = None
-    alive = False
-    if marker and marker.get("pid"):
-        try:
-            os.kill(int(marker["pid"]), 0)
-            alive = True
-        except (OSError, ValueError):
-            alive = False
-    return handed_state(unit, marker, alive, time.time())
-
-
-def construct_hand(fleet, a):
-    """crew _construct-again <team> <unit> --by <by> [--force], run by an amendment on its team's host (plan.15,
-    code.9). A team taken down starts nothing: the start is recorded refused, and the conductor told, at once. Else the
-    construct is handed to a process of its own on this host (--handed), which outlives this command: its marker is
-    written (handed_path), and this command answers. The handed process, one at a time on a team, runs construct
-    again (run_unit_stage), its agent ended first when forced, then clears the marker, or writes why it did not start
-    into it, and tells the conductor what started or why nothing did; crew unit wait waits for it."""
-    t = at_work(fleet, a.team)
-    team = on_team_host(fleet, t, a.force)
-    if a.handed:
-        return construct_handed(fleet, team, a)
-    if team.down():
-        why = crew.down_said(t["name"])
-        record.emit(team.label, "stage.start", [f"stage/{a.unit}/construct", f"unit/{a.unit}"], refused=why)
-        print(f"construct did not start on unit {a.unit}: {why}")
-        amend_tell(fleet, t["name"], *amend_told(a.unit, a.by, None, why))
-        return
-    mark = handed_path(t, a.unit)
-    mark.parent.mkdir(parents=True, exist_ok=True)
-    log = mark.parent / f"{a.unit}.log"
-    mark.write_text(json.dumps({"by": a.by, "log": str(log), "at": time.time()}))
-    argv = ["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "crew"), "_construct-again",
-            t["name"], a.unit, "--by", a.by, "--handed"] + (["--force"] if a.force else [])
-    try:
-        with open(log, "w") as out:
-            subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
-    except OSError as e:
-        mark.unlink(missing_ok=True)
-        fail(f"construct could not be handed on {t['machine']}: {e}")
-    print(f"construct on unit {a.unit} is handed to {t['machine']}, where it starts again: {t['name']}-conductor is told "
-          f"what started, and crew unit wait {a.unit} waits for it")
-
-
-def construct_handed(fleet, team, a):
-    """The handed construct (construct_hand), in its own process on the team's host."""
-    t, mark = team.t, handed_path(team.t, a.unit)
-    try:
-        marker = json.loads(mark.read_text())
-    except (OSError, ValueError):
-        marker = {"by": a.by}
-    mark.write_text(json.dumps({**marker, "pid": os.getpid()}))
-    out, err, why = io.StringIO(), io.StringIO(), None
-    with open(team_state(t) / "handed" / ".lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)  # one handed construct at a time on a team, as one approval's were in turn
-        try:
-            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                run_unit_stage(fleet, team, a.unit, "construct")
-        except Refusal as e:
-            why = str(e)
-        except Stopped:
-            why = (err.getvalue().strip().splitlines() or ["it stopped"])[-1]
-        except Exception as e:  # said in the log, and to the conductor and the wait as any other
-            import traceback
-            traceback.print_exc()
-            why = f"{type(e).__name__}: {e}"
-        finally:
-            print(out.getvalue() + err.getvalue(), end="")
-            if why:
-                why = why.rstrip(".")
-                mark.write_text(json.dumps({**marker, "failed": why}))
-            else:
-                mark.unlink(missing_ok=True)
-    m = re.search(rf"^(\S+) has {re.escape(a.unit)}: construct, in ", out.getvalue(), re.M)
-    amend_tell(fleet, t["name"], *amend_told(a.unit, a.by, (m.group(1) if m else f"a slot of {t['name']}") if not why else None, why))
-
-
-def fix_run(fleet, a):
-    """crew fix <team> <name> "<what is wrong>" | --merge | --drop | --wait, on the team's host (teams.3, teams.5,
-    plan.8): the team's read first, but for a wait or a drop, which reads the team last (fix_drop); then what fix_cmd
-    decides. A new fix takes a slot, one lent when every slot is in flight and one holds work that waits, its agent not
-    running and no stage of it owed (teams.1, teams.3, record 0045), the start naming that work; is refused and
-    recorded when no slot can be taken or lent, or its place is not its own; and starts as a code stage, in a place
-    that could not be made ready as in one that could, its agent told what failed (record 0028); a merge starts as a
-    merge stage, a submission of the fix to the bolt through sluice; a wait waits on the stage the fix's slot owes
-    (stage_wait). A wait is refused at once for a team crossed to Flume, which has no slots (not_crossed)."""
-    t = at_work(fleet, a.team)
-    if flume_fix(fleet, t, a):
-        return
-    if a.mode == "wait":
-        not_crossed(fleet, t, f"fix {t['name']} {a.name} --wait")
-    team = on_team_host(fleet, t, a.force)
-    if a.mode not in ("wait", "drop"):
-        not_held()
-        reap(fleet, team)
-    said = fix_cmd(fleet, argparse.Namespace(team=t["name"], name=a.name, mode=a.mode, bolt=a.bolt))
-    slot, fix, place, bolt = said["SLOT"], said["FIX"], said["PLACE"], said["BOLT"]
-    if said["REPO"] and crew.with_kit(t, said["REPO"]) is not t:  # the fix's bolt is in another of the team's kits
-        t = crew.with_kit(t, said["REPO"])
-        team = crew.Team(fleet, t, a.force)
-    obj = f"fix/{bolt}/{a.name}"
-    on = [obj, f"bolt/{bolt}"]
-    if a.mode == "wait":
-        return stage_wait(fleet, argparse.Namespace(team=t["name"], slot=slot, timeout=a.timeout, stuck=a.stuck))
-    if a.mode == "drop":
-        return fix_drop(fleet, team, said, on)
-    unready = lent = None
-    if a.mode == "start":
-        taken = False
-        if not slot:  # a new fix never takes over a branch or place that is already there (fix_cmd)
-            with stages_file(t, shared=True) as lines:
-                owed = {l[0] for l in lines}
-            try:
-                slot, taken = team.take("fix", fix, place, owed)
-            except Refusal as e:
-                print(e, file=sys.stderr)
-                record.emit(team.label, "fix.start", on, refused=str(e))
-                raise Stopped(1)
-            lent = team.lent(slot) if taken else None
-        try:
-            unready = fix_place(fleet, t, place, fix, bolt)
-        except Refusal as e:
-            if taken:
-                team.give_back(slot)
-            stopped(team.label, "fix.start", on, str(e))
-    team.slot_pane(slot, place)
-    agent = team.agent_of(slot)
-    if a.mode == "merge":
-        run_stage(fleet, team, slot, "merge", f"Merge {fix} into bolt/{bolt}: {said['MERGE']}", "fix.merge", fix, obj, on + [f"agent/{agent}"])
-        print(f"{agent} has {fix}: merge, in {place}")
-    else:
-        if unready:
-            print(f"{unready.splitlines()[0].rstrip(':')}; {agent} starts on the fix all the same, told what failed")
-        if lent:
-            print(crew.lent_said(t["name"], slot, lent[2], fix))
-        waits = [crew.held_object(lent[1], lent[2])] if lent else []
-        run_stage(fleet, team, slot, "fix", fix_prompt(a.words, place, unready), "fix.start", fix, obj, on + [f"agent/{agent}"] + waits)
-        fix_said(t, fix, a.words)
-        print(f"{agent} has {fix}: code, in {place}")
-        landing_held(fleet, t, bolt, a.words)
-
-
-def flume_fix(fleet, t, a):
-    """crew fix of a team's bolt given through Flume (Decision 10 of teams-cross-to-flume-as-their-bolts-land), on the
-    asking host, since it is a plan write and starts nothing there: a new fix is a launch of Flume's fix kind on the
-    bolt's branch (runner.fix_launch), its bolt's landing held while it is in flight (land_hand, land_facts); --drop a
-    drop of its launch (runner.fix_drop_refusal); --merge and --wait refused, Flume submitting the place and telling
-    its end itself (runner.fix_flume_refusal). The bolt is found as a fix's is (fix_bolt), a fix in flight by its name
-    among the launches standing. Each is recorded as fix.start, fix.merge or fix.drop, refused or done (teams.3).
-    Returns False, having written nothing, for a fix of a bolt given on today's path, which fix_cmd and its stage run
-    on the team's host."""
-    CONTEXT["label"] = label = t["label"]
-    repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
-    plan = read(repo, ref, tip)
-    held = held_by(plan, t["name"])
-    if not any(b.get("Path") == "flume" for b in held):
-        return False
+def fix(fleet, a):
+    """crew fix <bolt> <name> "<what is wrong>" | --drop [--label L]: a fix of a started bolt as a Flume place of the fix
+    kind on its branch (Decision 15 of the-team-machinery-leaves, record 0049 part 4), the planner's or main-level
+    ops's (may_request), a plan write on the asking host that starts nothing there: a new fix a launch on the bolt's
+    branch in its repository, for a runner whose configuration names it to take, in the stream its host maps it to (the user's
+    ruling of 2026-11-01; runner.fix_launch), the bolt's landing held while it is in
+    flight (land_hand, land_facts), and refused while the run record has the bolt's landing queued or landing again
+    with no outcome, naming it, open again once sluice has rejected it (landing_hold); --drop a drop of its launch
+    (runner.fix_drop_refusal). Flume submits the place and
+    tells its end itself, so crew fix has no merge and no wait. Recorded as fix.start or fix.drop, done or refused
+    (teams.3)."""
     crew.NAME.match(a.name) or fail("a fix is named with lowercase words and dashes")
-    requests = Plan(show(repo, tip, "requests.rec") or runner.REQUESTS).recs("Request")
-    bolt = fix_bolt(t["name"], [b.name() for b in held], a.bolt, [r.get("Work") for r in runner.standing(requests)], a.name)
-    if not crossed_bolt(plan, bolt):
-        return False
-    t = crew.with_kit(t, plan.bolt(bolt).get("Repo"))
-    on, act, seen = [f"fix/{bolt}/{a.name}", f"bolt/{bolt}"], {"start": "fix.start", "merge": "fix.merge", "drop": "fix.drop"}.get(a.mode), {}
+    mode = "drop" if a.drop else "start"
+    (a.words is not None) != a.drop or fail('crew fix takes the fix\'s words or --drop: crew fix <bolt> <name> "<words>" | --drop')
+    label, repo, tip, plan = locate(fleet, "Bolt", a.bolt, default_label(fleet, a))
+    on, act, seen = [f"fix/{a.bolt}/{a.name}", f"bolt/{a.bolt}"], f"fix.{mode}", {}
     try:
         may_request(fleet, "fix")
-        a.mode not in ("merge", "wait") or fail(runner.fix_flume_refusal(a.mode, t["name"], bolt, a.name))
+        mode == "drop" or (a.words or "").strip() or fail(f'crew fix needs what is wrong: crew fix {a.bolt} {a.name} "<words>"')
 
         def change(w):
-            seen.update(fix_flume(w, t, bolt, a.mode, a.name, a.words))
+            seen.update(fix_flume(fleet, w, a.bolt, mode, a.name, a.words))
             return []
-        write(fleet, label, change, f"plan({bolt}): fix {a.name}", act=act, on=on)
+        write(fleet, label, change, f"plan({a.bolt}): fix {a.name}", act=act, on=on)
     except Refusal as e:
-        if act:
-            record.emit(label, act, on, refused=str(e))
+        record.emit(label, act, on, refused=str(e))
         raise
-    if a.mode == "drop":
-        print(f"fix/{bolt}/{a.name} is dropped (request {seen['n']}): the runner on {seen['host']} drops its place")
-        return True
-    print(f"the runner on {seen['host']} launches fix {bolt}--{a.name} on bolt/{bolt} (request {seen['n']}) in stream "
-          f"{seen['stream']}, and crew bolts shows its place; {bolt}'s landing waits until it has merged or been dropped")
-    land_hand(fleet, label, t["kit"]["name"], f"{bolt} is held for a fix: {a.words}")
-    return True
+    if mode == "drop":
+        print(f"fix/{a.bolt}/{a.name} is dropped (request {seen['n']}): {took(seen['host'])} drops its place")
+        return
+    print(f"fix {a.bolt}--{a.name} is launched on bolt/{a.bolt} in {seen['repo']} (request {seen['n']}) for a runner whose "
+          f"configuration names it to take, and crew bolts shows its place; {a.bolt}'s landing waits until it has merged or been dropped")
+    land_hand(fleet, label, plan.bolt(a.bolt).get("Repo"), f"{a.bolt} is held for a fix: {a.words}")
 
 
-def fix_flume(w, t, bolt, mode, name, words):
-    """crew fix's change to a write for a fix on a bolt given through Flume (flume_fix), each fact read again at the tip
-    it is applied to (plan.1): the bolt still the team's and given through Flume; then a new fix's launch appended
-    (runner.fix_launch), or for --drop its launch's drop (runner.fix_drop_refusal), its stage read from the runner's
-    records as the write reads them. Returns what it asked, {n, host, stream}."""
-    b = w.bolt(bolt)
-    b.get("Team") == t["name"] or fail(f"bolt {bolt} is held by {b.get('Team') or 'no team'}, not {t['name']}, since the fix was asked")
-    crossed_bolt(w.plan, bolt) or fail(f"bolt {bolt} is not given through Flume, so its fix is not a Flume place")
+def took(host):
+    """The runner a request's words name: the one on its host where crew read which took the launch (Write.taker),
+    else the runner that took it."""
+    return f"the runner on {host}" if host else "the runner that took it"
+
+
+def fix_flume(fleet, w, bolt, mode, name, words):
+    """crew fix's change to a write (fix), each fact read again at the tip it is applied to (plan.1): the bolt started,
+    marked Path: flume; then a new fix's launch appended in the bolt's repository (runner.fix_launch), refused while the
+    run record at that tip has the bolt's landing queued or landing again (landing_phase, landing_hold), or for --drop its
+    launch's drop (runner.fix_drop_refusal), its stage read from the runner that took it as the write reads them.
+    Returns what it asked, {n, host, repo}: host, the runner's that took the launch dropped, where crew can tell."""
+    crossed_bolt(w.plan, bolt) or fail(f"bolt {bolt} has not been started, so a fix of it has no Flume place to run in")
     requests, work = requests_of(w).recs("Request"), f"fix/{bolt}/{name}"
     if mode == "drop":
         launch = runner.launch_of(requests, work)
-        s = runner.piece_stage(requests, w.runner_of(launch.get("Host")), launch) if launch is not None else None
-        why = runner.fix_drop_refusal(t["name"], work, launch, s)
+        s = runner.piece_stage(requests, w.runners(), launch) if launch is not None else None
+        why = runner.fix_drop_refusal(f"bolt {bolt}", work, launch, s)
         not why or fail(why)
         w.subject = f"plan({bolt}): drop fix {name}"
-        return dict(n=request(w, "drop", launch.get("Host"), work, Of=launch.get("Request")), host=launch.get("Host"), stream=launch.get("Stream"))
-    launched, why = runner.fix_launch(w.plan, requests, bolt, t, name, words)
+        return dict(n=request(w, "drop", work, Of=launch.get("Request")), host=w.taker(launch), repo=launch.get("Repo"))
+    why = landing_hold(landing_phase(w.entries(), bolt), bolt, f"fix {bolt}--{name}")
     not why or fail(why)
-    act, host, work, given = launched
+    launched, why = runner.fix_launch(w.plan, requests, bolt, w.label, name, words)
+    not why or fail(why)
+    act, work, given = launched
     w.subject = f"plan({bolt}): fix {name}"
-    return dict(n=request(w, act, host, work, **given), host=host, stream=given["Stream"])
+    return dict(n=request(w, act, work, **given), host=None, repo=given["Repo"])
 
 
 def main_fix(fleet, a):
-    """crew main fix <kit> <name> "<the failure's words>" | --drop | --send [--excerpt "<the user's words>"] [--team
-    <team>] [--label L]: a fix of a kit's red main as a Flume place on main (Decision 11 of
-    teams-cross-to-flume-as-their-bolts-land, state.3), main-level ops's or the user's on reading main's checks red after
-    a landing (may_request), a plan write on the asking host that starts nothing there: a launch of Flume's fix kind on
-    main, its submission held for the user's send and main-level ops its recipient, on the host of the crossed team
-    building the kit (runner.main_fixer, runner.main_fix_launch), refused naming state.3's way, a bolt of one chore
-    proposed first among the planned, where no crossed team builds it or no runner answers on its host; --drop a drop of
+    """crew main fix <kit> <name> "<the failure's words>" | --drop | --send [--excerpt "<the user's words>"] [--label
+    L]: a fix of a kit's red main as a Flume place on main (Decision 11 of teams-cross-to-flume-as-their-bolts-land,
+    Decision 15 of the-team-machinery-leaves, state.3), main-level ops's or the user's on reading main's checks red
+    after a landing (may_request), a plan write on the asking host that starts nothing there: a launch of Flume's fix
+    kind on main, its submission held for the user's send and main-level ops its recipient, in the kit's repository for
+    a runner whose configuration names it to take in the stream its host maps it to (the user's ruling of 2026-11-01;
+    runner.main_fix_launch), refused naming state.3's way, a bolt of one chore proposed first among the planned, where
+    no runner answers for the partition; --drop a drop of
     its launch (runner.fix_drop_refusal); --send, ops's on the user's send of the kit's landings row, the retry of its
     submission once its code has delivered and the submission waits held, made once (runner.send_refusal), the user's
     words with --excerpt read first in the caller's own transcript as crew bolt submit reads them (pane_words), nothing
     sent unless crew reads them as the user's, and without it the word being the row's send (plan.16, roles.2). The
-    kit's partition is the one whose teams build it, --label choosing. Recorded as fix.start, fix.drop or fix.merge on
+    kit's partition is the one whose plan or landings name it (partition_kits), --label choosing. Recorded as fix.start, fix.drop or fix.merge on
     fix/main/<kit>/<name>, done or refused, a send's naming the transcript record the words were read from and their
     length, none of the words (record.3)."""
     mode = "drop" if a.drop else "send" if a.send else "start"
     (a.words is not None) + a.drop + a.send == 1 or fail(
         'crew main fix takes the failure\'s words, --drop or --send: crew main fix <kit> <name> "<words>" | --drop | --send')
     a.excerpt is None or mode == "send" or fail("--excerpt carries the user's words a fix of main is sent on, with --send")
-    a.team is None or mode == "start" or fail("--team chooses the host a fix of main is launched on, and a drop or a send finds its launch")
     crew.NAME.match(a.name) or fail("a fix is named with lowercase words and dashes")
     label = default_label(fleet, a)
-    builders = kit_teams(fleet, a.kit, label)
-    labels = sorted({t["label"] for t in builders})
-    labels or fail(f"no team {f'of {label} ' if label else ''}builds {a.kit}, so crew has no main of it to fix")
-    len(labels) == 1 or fail(f"{a.kit} is built in {' and '.join(labels)}: add --label")
+    labels = [l for l in ([label] if label else sorted(fleet["partitions"])) if kit_in(a.kit, kits_read(fleet, l))]
+    labels or fail((f"{label} plans no work of {a.kit} and records no landing of it" if label else
+                    f"no partition plans work of {a.kit} or records a landing of it") + ", so crew has no main of it to fix")
+    len(labels) == 1 or fail(f"{a.kit} is planned in {' and '.join(labels)}: add --label")
     CONTEXT["label"] = label = labels[0]
-    kit_name = builders[0]["kit"]["name"]
+    kit_name = a.kit.split("/")[-1]
+    repo = next(k for k in kits_read(fleet, label) if kit_in(a.kit, [k]))
     on, act, seen = [f"fix/main/{kit_name}/{a.name}"], {"start": "fix.start", "drop": "fix.drop", "send": "fix.merge"}[mode], {}
     frm, fields = [], {}
     try:
@@ -13287,223 +9539,68 @@ def main_fix(fleet, a):
             frm, fields = [pane_words(CardActs(fleet), a.excerpt, lambda v: send_word_refusal(a.name, v))], {"Chars": len(a.excerpt)}
 
         def change(w):
-            seen.update(main_fix_change(fleet, w, kit_name, a.name, mode, a.words, a.team))
+            seen.update(main_fix_change(fleet, w, repo, a.name, mode, a.words))
             return []
         write(fleet, label, change, f"plan(main): fix {a.name} of {kit_name}", act=act, on=on, frm=frm, fields=fields)
     except Refusal as e:
         record.emit(label, act, on, frm, refused=str(e))
         raise
     if mode == "drop":
-        print(f"fix main--{a.name} of {kit_name}'s main is dropped (request {seen['n']}): the runner on {seen['host']} drops its place")
+        print(f"fix main--{a.name} of {kit_name}'s main is dropped (request {seen['n']}): {took(seen['host'])} drops its place")
         return
     if mode == "send":
-        print(f"fix main--{a.name} of {kit_name}'s main is sent on the user's word (request {seen['n']}): the runner on {seen['host']} "
+        print(f"fix main--{a.name} of {kit_name}'s main is sent on the user's word (request {seen['n']}): {took(seen['host'])} "
               "submits it to main through sluice")
         return
-    print(f"the runner on {seen['host']} launches fix main--{a.name} on {kit_name}'s main (request {seen['n']}) in stream {seen['stream']}, "
-          f"its submission held for the user's send: once its code has delivered, {kit_name}'s landings row carries it")
+    print(f"fix main--{a.name} is launched on {kit_name}'s main in {repo} (request {seen['n']}) for a runner whose configuration "
+          f"names it to take, its submission held for the user's send: once its code has delivered, {kit_name}'s landings row carries it")
 
 
-def main_fix_change(fleet, w, kit, name, mode, words, team):
+def main_fix_change(fleet, w, repo, name, mode, words):
     """crew main fix's change to a write (main_fix), each fact read again at the tip it is applied to (plan.1): for a
-    new fix, the crossed team on whose host it runs (runner.main_fixer), that host's runner answering, and the launch
-    appended (runner.main_fix_launch); for --drop, its launch's drop (runner.fix_drop_refusal); for --send, the retry of
-    its submission (runner.send_refusal); each stage read from the runner's records as the write reads them. Returns
-    what it asked, {n, host, stream}."""
-    requests, work = requests_of(w).recs("Request"), f"fix/main/{kit}/{name}"
+    new fix, a runner answering for the partition and the launch appended in the kit's repository (repo, as the
+    partition's kits name it; runner.main_fix_launch); for --drop, its launch's drop (runner.fix_drop_refusal); for
+    --send, the retry of its submission (runner.send_refusal); each stage read from the runner that took it as the write
+    reads them. A fix launched under a former name of the kit is found under it, its launch read through the partition's
+    renames (main_fix_work), so its kit's landings row's send reaches it. Returns what it asked, {n, host}: host, the
+    runner's that took the launch, where crew can tell."""
+    kit = repo.split("/")[-1]
+    requests = requests_of(w).recs("Request")
+    work = f"fix/main/{kit}/{name}" if mode == "start" else main_fix_work(launches_now(requests, w.renames()), kit, name)
     if mode == "send":
         launch = runner.launch_of(requests, work)
-        reading = w.runner_of(launch.get("Host")) if launch is not None else None
-        s, sent = (runner.piece_stage(requests, reading, launch), runner.sent_of(requests, reading, launch)) if launch is not None else (None, None)
+        reads = w.runners()
+        s, sent = (runner.piece_stage(requests, reads, launch), runner.sent_of(requests, reads, launch)) if launch is not None else (None, None)
         why = runner.send_refusal(work, launch, s, sent)
         not why or fail(why)
         w.subject = f"plan(main): send fix {name} of {kit}"
-        return dict(n=request(w, "retry", launch.get("Host"), work, Of=launch.get("Request"), Submission=True), host=launch.get("Host"),
-                    stream=launch.get("Stream"))
+        return dict(n=request(w, "retry", work, Of=launch.get("Request"), Submission=True), host=w.taker(launch))
     if mode == "drop":
         launch = runner.launch_of(requests, work)
-        s = runner.piece_stage(requests, w.runner_of(launch.get("Host")), launch) if launch is not None else None
+        s = runner.piece_stage(requests, w.runners(), launch) if launch is not None else None
         why = runner.fix_drop_refusal(kit, work, launch, s)
         not why or fail(why)
         w.subject = f"plan(main): drop fix {name} of {kit}"
-        return dict(n=request(w, "drop", launch.get("Host"), work, Of=launch.get("Request")), host=launch.get("Host"),
-                    stream=launch.get("Stream"))
-    named, why = runner.main_fixer(w.plan, fleet["teams"], w.label, kit, team)
+        return dict(n=request(w, "drop", work, Of=launch.get("Request")), host=w.taker(launch))
+    launched, why = runner.main_fix_launch(w.plan, requests, w.label, repo, name, words, bool(w.runners()))
     not why or fail(why)
-    t = crew.with_kit(fleet["teams"][named], kit)
-    launched, why = runner.main_fix_launch(w.plan, requests, w.label, t, name, words, w.runner_of(t["machine"])["tip"] is not None)
-    not why or fail(why)
-    act, host, work, given = launched
+    act, work, given = launched
     w.subject = f"plan(main): fix {name} of {kit}"
-    return dict(n=request(w, act, host, work, **given), host=host, stream=given["Stream"])
+    return dict(n=request(w, act, work, **given), host=None)
 
 
-def fix_drop(fleet, team, said, on):
-    """crew fix <team> <name> --drop, once fix_cmd let it (teams.3, record 0028): the fix's slot freed, or given back to
-    the work it was lent from (teams.1), its agent ended when one is up, a working one only with --force (teams.2); its
-    branch marked dropped in the kit's git config (fixes_dropped); the drop recorded; then the team's read, whose tidy
-    removes its place and its branch as a dropped unit's go, keeping a branch with commits beyond the bolt, named
-    (plan.9, plan.10)."""
-    t, slot, fix, freed = team.t, said["SLOT"], said["FIX"], []
-    if slot:
-        agent, back = team.agent_of(slot), (team.lent(slot) or [None] * 3)[2]
-        on = on + [f"agent/{agent}"]
-        why = team.free(slot, ending(fleet, t), held=freed)
-        not why or stopped(team.label, "fix.drop", on, why)
-        print(f"{agent} is given back to {back}: {fix} is dropped" if back else f"{agent} is free: {fix} is dropped")
-    try:
-        if said["BRANCH"]:
-            kit_git(fleet, t, t["kit"]["main"], "config", f"branch.{fix}.crew", "dropped")
-        record.emit(team.label, "fix.drop", on)
-    except BaseException:
-        freed_recorded(freed, [])
-        raise
-    reap(fleet, team, freed=freed)
+def main_fix_work(requests, kit, name):
+    """The work a fix of a kit's main is launched as, fix/main/<kit>/<name> as requests.rec names it (requests, read
+    through the partition's renames, launches_now): the newest launch of a fix of main by that name whose Repo names
+    the kit, by its name now, which a fix launched before the kit's rename names by its former name; else as the kit
+    names it now."""
+    return next((r.get("Work") for r in reversed(requests) if r.get("Act") == "launch"
+                 and (r.get("Work") or "").startswith("fix/main/") and r.get("Work").split("/", 3)[3:] == [name]
+                 and kit_in(kit, [r.get("Repo") or ""])), f"fix/main/{kit}/{name}")
 
-
-def team_status(fleet, a):
-    """crew status <team>, on the team's host: the team's read (reap); then its conductor and ops, each with its pane,
-    its state as herdr lists it, and its context, compactions and start read from its transcript (crew.context_of);
-    each slot with its pane, its agent's state and what it holds (crew.holds_said); the work waiting in each slot lent
-    to a fix (crew.lent_said, teams.1); each unit of the team's bolt carried onto it inside another unit's merge that
-    no slot holds, its merge owed (carried_units, teams.17); and, while the team holds two bolts, the one it builds and
-    the one that waits to land (two_held_said, teams.16)."""
-    t = at_work(fleet, a.team)
-    team = on_team_host(fleet, t, a.force)
-    reap(fleet, team)
-    print(crew.status_row(f"{t['name']}@{t['machine']}", "pane", "state", "context", "pct", "compacts", "started", "holds"))
-    window = int(os.environ.get("WINDOW") or 1000000)
-    for role in ("conductor", "ops"):
-        pane = team.pane(role)
-        st, cells = team.status(role), ("-",) * 4
-        if st:
-            sess = (team.herdr.agent(pane) or {}).get("agent_session")
-            sid = sess.get("value") if isinstance(sess, dict) else None
-            found = sorted(pathlib.Path.home().glob(f".claude*/projects/*/{sid}.jsonl")) if isinstance(sid, str) and sid else []
-            try:
-                if found:
-                    with open(found[0], encoding="utf-8", errors="replace") as f:
-                        cells = crew.context_of(f, window)
-            except OSError:
-                pass
-        print(crew.status_row(team.agent_of(role), pane or "-", st or "not up", *cells, ""))
-    try:
-        held = {s["slot"]: s for s in slot_stages(fleet, t)}
-    except Refusal:
-        held = {}
-    for slot in team.slots:
-        holds = crew.holds_said(held.get(slot), team.held(slot))
-        print(crew.status_row(team.agent_of(slot), team.pane(slot) or "-", (team.status(slot) or "not up") if holds else "free",
-                              "-", "-", "-", "-", holds))
-    for line in team.lines("lent"):
-        if len(line) > 2:
-            print(crew.lent_said(t["name"], line[0], line[2], (team.held(line[0]) or [None] * 3)[2] or "a fix"))
-    try:
-        for unit, bolt, stage in carried_units(fleet, t, {s["name"] for s in held.values()}):
-            print(crew.carried_said(unit, bolt, stage))
-    except Refusal as e:
-        print(e, file=sys.stderr)
-    built, waiting, unread = team_holds(fleet, t)
-    if unread:
-        print(f"which bolts {t['name']} holds can't be told: {unread}", file=sys.stderr)
-    elif waiting:
-        print(two_held_said(t["name"], built, waiting))
-
-
-def two_held_said(team, built, waiting):
-    """What crew status says of a team holding two bolts (teams.16): the one it builds and the one that waits to land."""
-    return f"{team} builds {built}; {waiting} waits to land"
-
-
-def carried_units(fleet, t, slotted):
-    """Each unit of the bolts the team holds whose change its bolt holds open, carried there inside another unit's
-    merge, that no slot holds (slotted, the names the slots hold): (unit, bolt, stage), its merge owed (teams.17)."""
-    plan = plan_of(fleet, t["label"])
-    bolts = held_by(plan, t["name"]) if plan else []
-    st = stages_for(fleet, plan, bolts) if bolts else None
-    return [(u.name(), b.name(), st.of(u.name())["stage"]) for b in bolts for u in plan.units_of(b.name())
-            if st.of(u.name()).get("carried") and u.name() not in slotted]
-
-
-def team_tidy(fleet, a):
-    """crew _tidy <team> [--landed <bolt> --outcome <words> [--said <words>] [--here]], on the team's host: the team's
-    read (reap), which a plan
-    write that ends work asks for there, and crew rebuild runs once its agents are ended, reading no landing after a
-    landing (--landed), whose close may hold a landing's lock while it waits on this; the conductor's and ops's
-    panes told the branch they work for now, none once the bolt has landed or been dropped, and each whose session
-    carries the old one handed its restart at its next stop (teams.19, teams.20); after a landing, the bolt's branch
-    deleted by sluice once the landing's place is gone (land_delete, plan.19), and its card closed there with the words
-    (landing_cards_closed); and what the units of a bolt that landed or was dropped (--units) recorded as made, kept
-    here for its batch's card, removed (made_drop). Once the landing or drop leaves the team crossed to Flume, each of
-    its standing agents up is handed its end (runner.cross_due), given once it is idle (hold.renew), and when none is up
-    and its crossing is not yet recorded (runner.cross_close), each is handed to hold.renew all the same, which finds it
-    down and closes the crossing (hold.close_crossing), its roles having gone down by a host's hold or another hand; a
-    team whose plan can't be read is handed none, said (read.1)."""
-    t = at_work(fleet, a.team)
-    team = on_team_host(fleet, t, a.force)
-    reap(fleet, team, a.landed)
-    said = made_drop(t["label"], a.units)
-    if said:
-        print(said)
-    import hold  # hold imports this module
-    due = set(team.hint_standing(crew.team_bolt(t)))
-    try:
-        path = crossing_path(fleet, t)
-    except Refusal as e:
-        path = None
-        print(f"{e}; none of its agents is handed an end", file=sys.stderr)
-    if path:
-        up = [r for r in team.standing if team.status(r)]
-        ends = runner.cross_due(path, up)
-        try:
-            if runner.cross_close(path, up, hold.crossing_recorded(t["label"], t["name"])):
-                ends = team.standing
-        except Refusal as e:
-            print(f"{e}; {t['name']}'s crossing to Flume is not closed", file=sys.stderr)
-        due |= {team.agent_of(r) for r in ends}
-    for name in sorted(due):
-        hold.hand(name)
-    if a.landed:
-        landing_cards_closed(fleet, t, a.landed, a.outcome or "", a.said, a.here)
-
-
-def unit_free(fleet, a):
-    """crew unit free <unit> [--team <team>]: a slot still holding a unit no longer in its team's bolt freed now (teams.1),
-    rather than at the read after its agent settles, its agent ended and the worktrees whose work is over removed; with
-    no team named, the team of this host whose slot holds it. Refused while the unit is in the team's bolt, which a drop
-    frees, or while its place has uncommitted changes, which are the user's; refused at once for a team crossed to
-    Flume, which has no slots (not_crossed)."""
-    if a.team:
-        t = at_work(fleet, a.team)
-    else:
-        mine = [o for n, o in sorted(fleet["teams"].items()) if o["machine"] == crew.this_host()]
-        t = next((o for o in mine if crew.Team(fleet, o).holding(a.unit)), None) or fail(
-            f"no team on this host holds {a.unit} in a slot; name its team: crew unit free {a.unit} --team <team>")
-    not_crossed(fleet, t, f"unit free {a.unit}")
-    team = on_team_host(fleet, t, a.force)
-    slot = team.holding(a.unit) or fail(f"no slot of {t['name']} holds {a.unit}")
-    said = in_bolt(fleet, t, a.unit)
-    not said or fail(f"{said}: drop it with crew {said.split()[0]} drop, which frees its slot")
-    path = (team.held(slot) + [""] * 4)[3]
-    if os.path.isdir(path) and subprocess.run(["git", "-C", path, "status", "--porcelain"], capture_output=True, text=True, env=gitenv()).stdout.strip():
-        fail(f"{path} has uncommitted changes: they are the user's to keep or discard before the slot is freed")
-    freed, removed = [], []
-    try:
-        why = team.free(slot, ending(fleet, t), held=freed)
-        not why or fail(why)
-        print(f"{team.agent_of(slot)} is free")
-        try:
-            removed = tidy(fleet, argparse.Namespace(team=t["name"]))
-        except Refusal as e:
-            print(e, file=sys.stderr)
-    finally:
-        freed_recorded(freed, removed)
-
-
-# ------------------------------------------------------------- the standing agents' commands, one process each
 
 def greeting(fleet, agents, roles):
-    """Each agent outside a team that a command started or brought back is greeted (teams.7), side by side, so one
+    """Each agent of a main level that a command started or brought back is greeted (teams.7), side by side, so one
     waiting on a question holds back no other; a greeting that can't be sent fails nothing. Returns the greetings, for
     the command to wait on before it ends (greeted)."""
     import threading
@@ -13525,256 +9622,6 @@ def greeted(greetings):
         th.join()
 
 
-def greet_team(fleet, t, roles, bolt=None, notice="", outcome=None):
-    """Each of a team's roles a command greets (crew.greeted_roles), side by side, so neither waits on the other
-    (teams.7): the conductor told to read where its bolt stands and carry on, before anyone asks it anything, the
-    greeting opening with the notice of its restart when there is one, then the bolt a give has just given it, or both
-    its bolts when the give was beside one waiting to land (conductor_bolts), else, when its team holds two, the bolt it
-    builds and the one waiting to land with its landing card and fixes (conductor_bolts, teams.16), and the units of
-    its bolts that wait amended, for it to start their construct (plan.15); ops told who it is, the bolt its team holds,
-    and to wait to be told. What each is told is read before either is sent; a greeting that can't be sent fails
-    nothing, and outcome, when given, is filled once each is sent or given up on with whether it was taken, by role, as
-    a give's notice carried by a restart's greeting reads it (hold.renew). Returns the greetings, for the command to
-    wait on before it ends (greeted)."""
-    import threading
-    sends = []
-    if "conductor" in roles:
-        said = [notice]
-        try:
-            said += ([conductor_bolts(fleet, t) or f"Your team now holds the bolt {bolt}."] if bolt
-                     else [conductor_bolts(fleet, t), amended_units(fleet, t)])
-        except Refusal as e:
-            said.append(f"Your team now holds the bolt {bolt}." if bolt else f"crew could not read what your team holds ({e}): read crew bolts.")
-        first = " ".join(x for x in said if x)
-        sends.append(("conductor", lambda first=first: crew.greet(fleet, t["name"], first=f"{first} " if first else "")))
-    if "ops" in roles:
-        try:
-            held, waiting, unread = (bolt, None, None) if bolt else team_holds(fleet, t)
-        except Refusal as e:
-            held, waiting, unread = None, None, str(e)
-        sends.append(("ops", lambda: crew.greet_ops(fleet, t["name"], held, unread, waiting=waiting)))
-
-    def send(role, greet):
-        try:
-            taken = greet()
-        except Refusal as e:
-            taken = False
-            print(e, file=sys.stderr)
-        if outcome is not None:
-            outcome[role] = bool(taken)
-    out = [threading.Thread(target=send, args=s) for s in sends]
-    for th in out:
-        th.start()
-    return out
-
-
-def conductor_bolts(fleet, t):
-    """What a team's conductor started afresh is told of the two bolts its team holds (two_bolts_said), read on the
-    team's host, where its cards are: "" when it holds one or none."""
-    plan = plan_of(fleet, t["label"])
-    if plan is None or len(held_by(plan, t["name"])) < 2:
-        return ""
-    new = team_building(fleet, plan, t)
-    old = waiting_bolt(plan, t["name"], new)
-    k, why = stages_for(fleet, plan, [plan.bolt(old)]).kit(plan.bolt(old))
-    fixes = [f.rsplit("/", 1)[-1] for f in fixes_in_flight(k.get("fixes", []), old)] if k else None  # fix/<bolt>/<name>
-    return two_bolts_said(t["name"], new, old, plan.bolt(old).get("Repo") or t["kit"]["name"], t["label"], fixes, why)
-
-
-def two_bolts_said(team, new, old, kit, label, fixes, unread=None):
-    """What a conductor started afresh while its team holds two bolts is told first (teams.16): the bolt it builds
-    (new), the one that waits to land (old), a row of its kit's landings card, main-level ops's, that crew tells it when
-    the user sends that bolt's reading and crew card read then gives the notes, with no wait to start (teams.24), and
-    each fix in flight on it (fixes, by the name crew fix takes), with how to wait on it; when its kit could not be read
-    (unread), that, rather than name no fix (read.1)."""
-    said = (f"Your team now builds the bolt {new}. Bolt {old} waits to land, a row of {kit}'s landings card, {label}-ops's: "
-            f"crew tells you when the user sends land/{old}'s reading, and crew card read land/{old} then gives its notes.")
-    if unread:
-        said += f" crew could not read its fixes ({unread}): read crew status {team}."
-    for f in fixes or []:
-        said += f" Fix {f} is in flight on it: wait on it with crew fix {team} {f} --wait --bolt {old}."
-    return said
-
-
-def team_holds(fleet, t):
-    """The bolt a team builds (team_building), for its ops's greeting, or None when it holds none, and the bolt that
-    waits to land beside it, or None; and what crew could not read of its plan or of which bolt it builds, else None,
-    which the greeting says rather than name no bolt (read.1)."""
-    CONTEXT["label"] = t["label"]
-    errors = {}
-    found = plans(fleet, [t["label"]], errors)
-    plan = found[0][3] if found else None
-    built = None
-    if plan:
-        try:
-            built = team_building(fleet, plan, t)
-        except Refusal as e:
-            errors[f"which bolt {t['name']} builds"] = str(e)
-    return (built, waiting_bolt(plan, t["name"], built) if built else None,
-            "; ".join(f"{k} could not be read: {v}" for k, v in errors.items()) or None)
-
-
-def picked(team, roles):
-    """The standing roles a command names, or all of them (crew.roles_picked); a role there is none of stops it, said,
-    with exit 2."""
-    try:
-        return crew.roles_picked(roles, team.standing)
-    except Refusal as e:
-        print(e, file=sys.stderr)
-        raise Stopped(2)
-
-
-def started_all(team):
-    """Each standing role of a team started fresh: the roles started. One that can't start stops the command."""
-    for role in team.standing:
-        if not team.start(role):
-            raise Stopped(1)
-    return list(team.standing)
-
-
-def team_cmd(fleet, a):
-    """crew up|close|rebuild|restart|resume|clear|down <team>, on the team's host, one process (code.7): the team's
-    conductor and ops started, brought back, cleared or ended there (teams.2, teams.6, teams.7), each act recorded
-    (record.1). close and rebuild end every agent, working or not. Every act but close is refused at once for a team
-    crossed to Flume, which runs no standing agent (not_crossed); close still closes what its crossing left."""
-    t = at_work(fleet, a.team)
-    if a.act != "close":
-        not_crossed(fleet, t, f"{a.act} {t['name']}")
-    team = on_team_host(fleet, t, a.force or a.act in ("close", "rebuild"))
-    end, name = ending(fleet, t), t["name"]
-    if a.act in ("up", "rebuild", "restart", "resume"):
-        not_held()
-    if a.act == "up":
-        for role in team.standing:
-            not team.status(role) or fail(crew.already_up_said(team.agent_of(role), name))
-        team.mark(down=False)
-        team.panes()
-        started = started_all(team)
-        team.record("team.up", f"team({name}): up", started)
-        greeted(greet_team(fleet, t, crew.greeted_roles("up", started, team.fresh)))
-    elif a.act == "close":
-        team.teardown(end)
-        team.mark(down=True)
-        team.record("team.close", f"team({name}): close", team.ended)
-        print(f"{name} is closed")
-    elif a.act == "rebuild":  # a slot whose work is over, its agent ended with the rest, is freed rather than kept
-        team.teardown(end)
-        reap(fleet, team)
-        team.mark(down=False)
-        team.panes()
-        started = started_all(team)
-        team.record("team.rebuild", f"team({name}): rebuild", started)
-        greeted(greet_team(fleet, t, crew.greeted_roles("rebuild", started, team.fresh)))
-    elif a.act == "restart":
-        roles, stopped_ = picked(team, a.roles), []
-        team.mark(down=False)
-        for role in roles:
-            why = team.stop(role, end)
-            print(why, file=sys.stderr) if why else stopped_.append(role)
-        team.panes()
-        for role in stopped_:
-            if not team.start(role):
-                raise Stopped(1)
-            team.record("agent.restart", f"team({name}): restart {role}", [role])
-        greeted(greet_team(fleet, t, crew.greeted_roles("restart", stopped_, team.fresh, a.greet)))
-    elif a.act == "resume":
-        roles, back = picked(team, a.roles), []
-        team.mark(down=False)
-        team.panes()
-        for role in roles:
-            if team.status(role):
-                print(f"{team.agent_of(role)} is already up")
-                continue
-            if team.start(role, "resume"):
-                team.record("agent.resume", f"team({name}): resume {role}", [role])
-            else:
-                print(f"{team.agent_of(role)} did not come back with its conversation; starting it fresh")
-                if not team.start(role):
-                    raise Stopped(1)
-                team.record("agent.start", f"team({name}): start {role}", [role])
-            back.append(role)
-        # resume greets only what it had to start fresh: a conductor it brought back with its conversation is sent, as
-        # crew's notice, the units of its bolt that wait amended
-        greet = crew.greeted_roles("resume", back, team.fresh)
-        line = amended_units(fleet, t) if "conductor" in back and "conductor" not in greet else ""
-        if line:
-            crew.tell(fleet, f"{name}-conductor", line)
-        greeted(greet_team(fleet, t, greet))
-    elif a.act == "clear":
-        role = picked(team, a.roles[:1])[0]
-        agent, pane = team.agent_of(role), team.pane(role)
-        why = crew.clear_refusal(agent, team.status(role), team.force)
-        not why or fail(why)
-        r = team.herdr.run("agent", "prompt", pane, "/clear")
-        r.returncode == 0 or fail((r.stderr or "").strip() or f"herdr could not send /clear to {agent}")
-        crew.nap(2)
-        if not team.give_name(pane, agent):
-            raise Stopped(1)
-        team.record("agent.clear", f"team({name}): clear {role}", [role])
-        print(f"{agent} cleared")
-    else:
-        for role in (*team.standing, *team.slots):
-            why = team.stop(role, end)
-            if why:
-                print(why, file=sys.stderr)
-        team.mark(down=True)
-        team.record("team.down", f"team({name}): down", team.ended)
-        print(f"{name} is down; its panes are still there.")
-
-
-def needs_cmd(fleet, a):
-    """crew needs "<what you need>", run by a stage's agent: its team and slot read from its own
-    name (crew.stage_agent), on the team's host, where its stage ends short (stage_needs)."""
-    who = record.who()
-    found = crew.stage_agent(list(fleet["teams"]), who)
-    if not found:
-        print(f"{who} runs no stage crew is waiting on", file=sys.stderr)
-        raise Stopped(1)
-    a.team, a.slot = found
-    on_team_host(fleet, crew.team_of(fleet, a.team))
-    stage_needs(fleet, a)
-
-
-def dispatch_up(fleet, label):
-    """This host's dispatcher of a partition started when it is not up, in a workspace of its own, recorded: its Agents
-    and the roles started, for the caller to greet."""
-    not_held()
-    d = crew.standing(fleet, "dispatch", label)
-    d.ensure()
-    d.mark(down=False)
-    d.panes()
-    started = d.start_standing()
-    d.record("main.up", f"main({label}): up {d.agent_of('dispatcher')}", started)
-    return d, started
-
-
-def dispatch_cmd(fleet, a):
-    """crew _dispatch up|down|status <label>: this host's dispatcher of the partition, started and greeted, ended, or
-    listed, as crew main runs it on each host its teams run on."""
-    if a.act == "up":
-        greeted(greeting(fleet, *dispatch_up(fleet, a.label)))
-        return
-    d = crew.standing(fleet, "dispatch", a.label)
-    d.ensure()
-    name = d.agent_of("dispatcher")
-    if a.act == "down":
-        why = d.stop("dispatcher")
-        if why:
-            print(why, file=sys.stderr)
-        d.mark(down=True)
-        d.record("main.down", f"main({a.label}): down {name}", d.ended)
-        print(f"{name} is down")
-    else:
-        print("%-34s %-8s %s" % (name, d.pane("dispatcher"), d.status("dispatcher") or "not up"))
-
-
-def elsewhere(fleet, host, *argv):
-    """crew on another host, run as the one asking (crew_argv) and never prompting (code.3): its process, its output
-    this command's."""
-    return subprocess.Popen(["ssh", "-o", "BatchMode=yes", fleet["hosts"][host]["ssh"], shlex.join(crew.crew_argv(fleet, host, *argv))],
-                            stdin=subprocess.DEVNULL)
-
-
 def moved_role(fleet, label, ms):
     """What refuses a main level's up while one of its roles' agents still runs in a session the role no longer stands
     in, its pane recorded there, so up would start it a second time in its own: None when none does."""
@@ -13789,7 +9636,7 @@ def moved_role(fleet, label, ms):
 
 def kinds_up(fleet, label, ms):
     """What crew main up does for the roles its partition runs as its kind, none of which it starts or greets (design
-    Decision 14, main-level "The main level is one herdr workspace"): roles.rec on the flywheel's branch written to
+    Decision 14, main-level "The main level is one herdr workspace"): roles.rec on the drive's branch written to
     match the teams file where anything is due (asks.roles_due), in a commit of its own, the record of a role that
     stands again removed though none runs as its kind now (role-runs "The planner stands again"); and a standing agent
     of such a role still up ended and its tab closed, or, while it works, left and said so. With none running as its
@@ -13851,7 +9698,7 @@ def kind_said(stream, waiting, run, now):
 
 def kinds_said(fleet, label):
     """What crew main status says of each role the partition runs as its kind, {role: words} (kind_said): read from
-    asks.rec on the flywheel's branch (asks.pending) and the runner's records on the main level's host
+    asks.rec on the drive's branch (asks.pending) and the runner's records on the main level's host
     (runner_facts, runner.role_run), a host whose runner can't be read named for each role and the rest still said
     (read.3)."""
     p = crew.partition_of(fleet, label)
@@ -13868,18 +9715,16 @@ def kinds_said(fleet, label):
 
 
 def main_cmd(fleet, a):
-    """crew main up|down|status <label>, on the main level's host: its design agent, planner, ops and operator, one tab
-    each in the <label> workspace of the session each runs in (record 0035), started and greeted, ended, or listed; and
-    the dispatcher on each host the partition's teams run on, that host's own, side by side, so one waiting on a
-    question holds back no other host's. A dispatcher that fails fails main up once the rest are up. Up refuses while a
-    role's agent still runs in a session it no longer stands in (moved_role), which down ends."""
+    """crew main up|down|status <label>, on the main level's host: its standing roles, of its design agent, planner, ops
+    and operator, one tab each in the <label> workspace of the session each runs in (record 0035), started and greeted,
+    ended, or listed, and nothing else; no dispatcher is started anywhere. Up refuses while a role's agent still runs in
+    a session it no longer stands in (moved_role), which down ends."""
     p = crew.partition_of(fleet, a.label)
     arrived(fleet, p["machine"])
     ms = crew.mains(fleet, a.label, a.force)
     for m in ms:
         m.ensure()
-    here, label = crew.this_host(), p["label"]
-    hosts = crew.partition_hosts(fleet, label)
+    label = p["label"]
     if a.act == "up":
         not_held()
         moved = moved_role(fleet, label, ms)
@@ -13892,22 +9737,10 @@ def main_cmd(fleet, a):
             started = m.start_standing()
             m.record("main.up", f"main({label}): up", started)
             started_in.append((m, started))
-        rc, greetings, away = 0, [], [(h, elsewhere(fleet, h, "_dispatch", "up", label)) for h in hosts if h != here]
-        if here in hosts:
-            try:
-                greetings += greeting(fleet, *dispatch_up(fleet, label))
-            except Refusal as e:
-                print(e, file=sys.stderr)
-                rc = 1
-            except Stopped as e:
-                rc = e.code
+        greetings = []
         for m, started in started_in:
             greetings += greeting(fleet, m, started)
-        for _, proc in away:
-            rc = proc.wait() or rc
         greeted(greetings)
-        if rc:
-            raise Stopped(rc)
     elif a.act == "down":
         for m in ms:
             # Every agent its panes file names, a role that stood here before its partition named it a session apart
@@ -13919,22 +9752,12 @@ def main_cmd(fleet, a):
             m.mark(down=True)
             m.record("main.down", f"main({label}): down", m.ended)
         print(f"{label}'s main level is down; its panes are still there.")
-        for host in hosts:
-            if host == here:
-                dispatch_cmd(fleet, argparse.Namespace(act="down", label=label))
-            elif elsewhere(fleet, host, "_dispatch", "down", label).wait():
-                raise Stopped(1)
     else:
         for m in ms:
             for role in m.standing:
                 print("%-34s %-8s %-14s %s" % (m.agent_of(role), m.pane(role), m.session, m.status(role) or "not up"))
         for role, said in kinds_said(fleet, label).items():
             print("%-34s %-8s %-14s %s" % (f"{label}-{role}", "-", "-", said))
-        for host in hosts:
-            if host == here:
-                dispatch_cmd(fleet, argparse.Namespace(act="status", label=label))
-            elif elsewhere(fleet, host, "_dispatch", "status", label).wait():
-                print(f"{label}-dispatch-{host}  {host} did not answer")
 
 
 def review_cmd(fleet, a):
@@ -13942,7 +9765,14 @@ def review_cmd(fleet, a):
     for the batch of changes due, in a review tab of the main level's workspace beside the planner, and sent its batch as
     its prompt, the start recorded; with --wait, the wait for its summary, which records the batch, and then its agent
     ended and its tab closed. Refused while a reviewer still reviews, or the main level is not up. A partition that
-    runs its reviewer as its kind is asked the batch instead (review_asked)."""
+    runs its reviewer as its kind is asked the batch instead (review_asked).
+
+    The batch is sent taken or sent again (teams.15, crew.send_taken): one the reviewer did not take at the second
+    sending leaves nothing typed, its start recorded refused and the command refused; one crew can't tell it took is
+    recorded started, saying so. A reviewer up but idle that took no batch, with no summary written since its last
+    start, is ended, the end recorded (review.end) and said, and the batch's reviewer started afresh; one at work, at a
+    question or that took its batch is refused, since crew review takes no --force and a working agent is ended only
+    with one (teams.2); and --wait on a reviewer that took no batch refuses, naming crew review (reviewer_up_said)."""
     p = crew.partition_of(fleet, a.label)
     arrived(fleet, p["machine"])
     if crew.role_stream(fleet, p["label"], "reviewer") is not False:
@@ -13951,6 +9781,10 @@ def review_cmd(fleet, a):
     m.ensure()
     label, agent = p["label"], m.agent_of("reviewer")
     if a.wait:
+        up = reviewer_up(fleet, label, m)
+        if up and up[0] == "afresh":
+            fail(f"{agent} took no batch, so no summary is coming: crew review {label} ends it and starts the batch's "
+                 "reviewer afresh")
         summary = review_wait(fleet, argparse.Namespace(label=label, timeout=a.timeout))
         why = m.stop("reviewer")
         if why:
@@ -13963,18 +9797,77 @@ def review_cmd(fleet, a):
         print(f"batch summary: {summary}")
         return
     not_held()
-    not m.status("reviewer") or fail(f"{agent} is still reviewing a batch: crew review {label} --wait waits for its summary")
+    up = reviewer_up(fleet, label, m)
+    not up or up[0] == "afresh" or fail(up[1])
     m.get("layout", crew.ws_key(label)) or fail(f"{label}'s main level is not up in session {m.session}: crew main up {label}")
     b = review_start(fleet, argparse.Namespace(label=label))
+    if up:
+        why = m.stop("reviewer")
+        not why or fail(f"{why}: crew starts no reviewer over it")
+        m.record("review.end", f"review({label}): end {agent}, which took no batch", ["reviewer"])
+        print(up[1])
     if not m.herdr.live(m.pane("reviewer")):  # the tab is kept in the layout, so the batch's end closes it
         made = m.tab(label, "review", m.cwd, "reviewer")
         m.put("layout", "tab:review", made["tab"]["tab_id"])
     if not m.start("reviewer"):
         raise Stopped(1)
-    m.herdr.run("agent", "prompt", m.pane("reviewer"), b["PROMPT"])
-    record.emit(label, "review.start", [f"batch/{b['N']}", f"agent/{agent}"] + [f"unit/{u}" for u in b["NAMES"].split()],
-                why=f"batch({b['N']}): start review", Batch=b["N"], Units=b["UNITS"])
-    print(f"{agent} is reviewing batch {b['N']} of {label}, into {b['FILE']}: crew review {label} --wait waits for it")
+    n, on = b["N"], [f"batch/{b['N']}", f"agent/{agent}"] + [f"unit/{u}" for u in b["NAMES"].split()]
+    how, why = crew.send_taken(fleet, agent, b["PROMPT"])
+    afresh = f"crew review {label} ends it and starts the batch's reviewer afresh"
+    if how == "never":
+        said = crew.untaken_said(agent, f"batch {n}", how, why)
+        record.emit(label, "review.start", on, why=f"batch({n}): start review", refused=said, Batch=n, Units=b["UNITS"])
+        fail(f"{said}; once it is idle, {afresh}")
+    record.emit(label, "review.start", on, why=f"batch({n}): start review", Batch=n, Units=b["UNITS"])
+    if how == "unread":
+        print(f"{crew.untaken_said(agent, f'batch {n}', how, why)}; crew review {label} --wait waits for its summary, and "
+              f"should {agent} sit idle having taken none, {afresh}", file=sys.stderr)
+        print(f"batch {n} of {label} is recorded started, into {b['FILE']}: crew review {label} --wait waits for it")
+        return
+    print(f"{agent} is reviewing batch {n} of {label}, into {b['FILE']}: crew review {label} --wait waits for it")
+
+
+def reviewer_up_said(label, agent, status, asking, took, written):
+    """What crew review does with its partition's reviewer when herdr reads it up (teams.2, teams.15), from facts alone
+    (code.7): herdr's status of it, whether it waits on a question in its pane, whether its session received a batch
+    (True, False, or what crew could not read of that) and whether a summary was written since its last start.
+    ("afresh", words): it sits idle or done, at no question, having received no batch and written no summary, so
+    nothing of a batch is lost by ending it, and crew ends it and starts the batch's reviewer afresh. ("refuse",
+    words) otherwise: one at work, or that took its batch or wrote a summary, is still reviewing, ended by the wait at
+    its summary; one at a question waits on the user; and one crew can't read is never ended on a guess (read.1)."""
+    still = f"{agent} is still reviewing a batch: crew review {label} --wait waits for its summary"
+    if status == "blocked" or (asking and status in ("idle", "done")):
+        return "refuse", f"{agent} is waiting on a question in its pane: answer it there; crew ends no reviewer at a question"
+    if status not in ("idle", "done") or took is True or written:
+        return "refuse", still
+    if took is not False:
+        return "refuse", f"crew can't tell whether {agent} took a batch: {took}; it is left as it is"
+    return "afresh", f"{agent} sat {status} having taken no batch and written no summary: crew ends it and starts the batch's reviewer afresh"
+
+
+# How every batch a standing reviewer is sent opens (review_prompt), which its transcript holds once it took one.
+REVIEW_OPENS = "Review batch"
+
+
+def reviewer_up(fleet, label, m):
+    """reviewer_up_said's (how, words) for the partition's reviewer, m's, when herdr reads it up, else None: read from
+    herdr's reading of it and its session's transcript, where it took a batch once it holds REVIEW_OPENS (crew.Pane, as
+    send_taken reads it), and whether a summary was written since its last start on this host, taken or not."""
+    if not m.status("reviewer"):
+        return None
+    agent = m.agent_of("reviewer")
+    pane = crew.Pane(fleet, agent)
+    status, asking, sid, unread = pane.reading()
+    got = unread or (pane.received(sid, 0, REVIEW_OPENS) if sid else "crew found no session for it")
+    took = got if isinstance(got, str) else got.get("received") if isinstance(got.get("received"), bool) else (
+        f"crew's reading of its transcript on {pane.host} gave no answer crew reads")
+    start = next((e for e in reversed(local_entries(label, BATCH_DAYS))
+                  if e.get("Act") == "review.start" and (e.get("Batch") or "").isdigit()), None)
+    try:
+        mtime = batch_file(label, start["Batch"]).stat().st_mtime if start else None
+    except OSError:
+        mtime = None
+    return reviewer_up_said(label, agent, status, asking, took, batch_written(start, mtime))
 
 
 CONSOLE_TABS = ("shell", "flow", "rail", "board")
@@ -14086,45 +9979,44 @@ def retire_operator(fleet, label):
 
 
 def revive_cmd(fleet, a):
-    """crew revive, after a restart: on this host, each team's, main level's in each of its sessions, and dispatcher's
-    standing role whose pane came back with no agent in it, or dead, closed and opened again in its layout first (crew.revived,
-    teams.2), picked up from its last conversation, a team's conductor greeted, and its ops when it had none to pick up
-    (crew.greeted_roles), and every agent brought back outside a team greeted; one taken down with crew down stays
-    down. What can't be revived is said, and the rest still are. Nothing is revived while this host is held (teams.19):
-    crew go revives it."""
+    """crew revive, after a restart: on this host, each main level's standing role, in each of its sessions, whose pane
+    came back with no agent in it, or dead, closed and opened again in its layout first (crew.revived, teams.2), picked
+    up from its last conversation and greeted; one taken down with crew main down stays down. What can't be revived is
+    said, and the rest still are. Nothing is revived while this host is held (teams.19): crew go revives it."""
     not_held()
     greetings = []
-    every = [(kind, scope, a) for kind, scope in crew.here(fleet)
-             for a in ([None] if kind == "team" else crew.mains(fleet, scope) if kind == "main" else [crew.standing(fleet, kind, scope)])]
-    for kind, scope, agents in every:
-        try:
-            agents = agents or crew.Team(fleet, crew.team_of(fleet, scope))
-            if not agents.lines("panes"):
-                continue
-            if agents.down():
-                print(f"{scope} was taken down; it stays down")
-                continue
-            if kind == "team":
-                not_crossed(fleet, agents.t, f"revive {scope}")
-            back, ways = [], {r: crew.revived(agents.herdr.item(agents.pane(r)), agents.status(r)) for r in agents.standing}
-            if "dead" in ways.values():
-                agents.panes()
-            for role in agents.standing:
-                if not ways[role]:
-                    continue
-                if ways[role] == "empty":
-                    crew.nap(10)
-                    if agents.status(role, fresh=True):  # herdr may still be resuming it
-                        continue
-                if not agents.start(role, "resume"):
-                    continue
-                agents.record("agent.resume", f"{kind}({scope}): resume {agents.agent_of(role)}", [role])
-                back.append(role)
-            greetings += (greet_team(fleet, agents.t, crew.greeted_roles("revive", back, agents.fresh)) if kind == "team"
-                          else greeting(fleet, agents, back))
-        except Refusal as e:
-            print(e, file=sys.stderr)
+    for label in crew.here(fleet):
+        for agents in crew.mains(fleet, label):
+            greetings += revive_main(fleet, label, agents)
     greeted(greetings)
+
+
+def revive_main(fleet, label, agents):
+    """One session of a main level revived (revive_cmd): the greetings it set going."""
+    try:
+        if not agents.lines("panes"):
+            return []
+        if agents.down():
+            print(f"{label} was taken down; it stays down")
+            return []
+        back, ways = [], {r: crew.revived(agents.herdr.item(agents.pane(r)), agents.status(r)) for r in agents.standing}
+        if "dead" in ways.values():
+            agents.panes()
+        for role in agents.standing:
+            if not ways[role]:
+                continue
+            if ways[role] == "empty":
+                crew.nap(10)
+                if agents.status(role, fresh=True):  # herdr may still be resuming it
+                    continue
+            if not agents.start(role, "resume"):
+                continue
+            agents.record("agent.resume", f"main({label}): resume {agents.agent_of(role)}", [role])
+            back.append(role)
+        return greeting(fleet, agents, back)
+    except Refusal as e:
+        print(e, file=sys.stderr)
+        return []
 
 
 # ----------------------------------------------------------------------------------------------- crew bolts
@@ -14134,9 +10026,18 @@ def bolts_view(fleet, a):
     labels = [label] if label else list(fleet["partitions"])
     errors = {}
     found = plans(fleet, labels, errors)
-    held = [(b.get("Team"), b.name(), b.get("Repo")) for _, _, _, p in found if p for b in p.bolts() if b.get("Team") and a.bolt in (None, b.name())]
+    runs = rail_runs(found)
+    held = [(t, b.name()) for l, _, _, p in found if p and l in runs for b in p.bolts() if started(b) and a.bolt in (None, b.name())
+            for t in [known_at(fleet, l, b, runs[l])] if t]
+    logs = {}  # each partition's run record, its bolts' landings read from it (landing_phase), or why it can't be read
+    for l, _, _, p in found:
+        if p:
+            try:
+                logs[l] = partition_entries(fleet, l)
+            except Refusal as e:
+                logs[l] = str(e)
     # Each kit's GitHub fetched once on its host before it is read: what has merged into a bolt is on GitHub (plan.19).
-    data = bolts_data(fleet, labels, found, survey(fleet, held, fetch=True), errors, a.bolt, sent=bolts_sent_back(fleet, labels, found))
+    data = bolts_data(fleet, labels, found, survey(fleet, held, fetch=True), errors, a.bolt, runs, logs)
     if a.bolt and not any(b for p in data["partitions"] for pl in p["plans"] for b in pl["bolts"]):
         fail(f"no bolt {a.bolt} in the plans of " + ", ".join(labels))
     if a.json:
@@ -14147,16 +10048,27 @@ def bolts_view(fleet, a):
         sys.exit("\n".join(errors.values()))
 
 
+def line_branches(name, kind):
+    """The branches a bolt's line submits to the bolt from (code.7): its Flume place's, `<kind>/<name>` as Flume names a
+    place's branch, change/<u> for a unit, chore/<c> for a chore and fix/<bolt>--<f> for a fix (runner.reach, fix_launch;
+    tests/py/flume-0.3.6), and crew's own from before teams left, unit/<u> and a fix's fix/<bolt>/<f>. A fix's line is
+    named by its work, fix/<bolt>/<f>."""
+    if kind == "fix":
+        bolt, _, f = name[len("fix/"):].partition("/")
+        return [name, f"fix/{bolt}--{f}"]
+    return [f"change/{name}", f"unit/{name}"] if kind == "unit" else [f"chore/{name}"]
+
+
 def submission_rows(submissions, bolt, lines):
     """Whose line of a bolt's row each submission standing in sluice's queue is (bolt-teams "A submission's number is
     on its bolt's row from the submit", teams.22), a decision of facts alone (code.7): from the kit's submissions as the
     gather reads them (gather.submissions_of), the bolt, and its lines, [(name, kind)], kind unit, chore or fix, a fix
-    named by its branch, fix/<bolt>/<f>. On bolt/<bolt>, a submission from unit/<u>, chore/<c> or a fix's branch is that
-    line's; on main, one from bolt/<bolt>, or from a pull request, pull/<n>, opened from it, is the bolt's landing.
-    Returns ({name: {id, state}}, {id, state, head} or None), the newest of a line's when it has two, as a resubmission
-    from one worktree replaces the first; a submission naming no line of the plan, a hand submission, is no line's."""
-    branch = {"unit": "unit/{}", "chore": "chore/{}", "fix": "{}"}
-    of = {branch[kind].format(name): name for name, kind in lines}
+    named by its work, fix/<bolt>/<f>. On bolt/<bolt>, a submission from one of a line's branches (line_branches), its
+    Flume place's or crew's own from before, is that line's; on main, one from bolt/<bolt>, or from a pull request,
+    pull/<n>, opened from it, is the bolt's landing. Returns ({name: {id, state}}, {id, state, head} or None), the
+    newest of a line's when it has two, as a resubmission from one worktree replaces the first; a submission naming no
+    line of the plan, a hand submission, is no line's."""
+    of = {b: name for name, kind in lines for b in line_branches(name, kind)}
     rows, landing = {}, None
     for x in sorted(submissions or [], key=lambda x: x["id"]):
         if x["branch"] == f"bolt/{bolt}" and x.get("worktree") in of:
@@ -14174,60 +10086,44 @@ def standing_said(sub):
     return f"#{sub['id']}" + (f" {words}" if words else "")
 
 
-def bolts_sent_back(fleet, labels, found):
-    """Each partition's landings sluice sent back that still stand (sent_back), for crew bolts: {label: {bolt: {head,
-    words, n}}}, or {label: why} for a partition whose run record can't be read, which crew bolts says (read.1); a
-    partition with no plan read is not asked."""
-    out = {}
-    for l in labels:
-        if not any(pl == l and plan for pl, _, _, plan in found):
-            continue
-        try:
-            out[l] = sent_back(partition_entries(fleet, l))
-        except Refusal as e:
-            out[l] = str(e)
-    return out
-
-
-def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, sent=None):
+def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None):
     """What crew bolts shows, from the plans read (found) and the survey of the hosts holding their bolts (sv): each
-    partition's plans, each bolt with its team, host, state, verification (sluice's verdict on its last landing, as
+    partition's plans, each bolt with the host its work runs on as the runner that took it reported (bolt_at), state, verification (sluice's verdict on its last landing, as
     kit.verification reads it, for a bolt whose kit was read), units and chores in build order with their kinds and
     stages read from the kits, and fixes, each with the number and state of its merge standing in sluice's queue on
     the bolt's branch (submission), the bolt's landing standing on its kit's main (landing), and, when the queue could
-    not be read on the team's host, why (submissions_error), no line then given a submission (submission_rows,
-    teams.22); and the queue; the hosts that did not answer and the plans that could not be read. Each held bolt says
-    its team's path (path_facts), and a bolt given through Flume its units' and chores' stages and its fixes' from the
+    not be read on its host, why (submissions_error), no line then given a submission (submission_rows,
+    teams.22); and the queue; the hosts that did not answer and the plans that could not be read. Each started bolt says
+    the Flume stream its work runs in, as Flume's status of its places names it (stream), and a bolt given through Flume its units' and chores' stages and its fixes' from the
     runner's records (Stages.crossed, Stages.fixes), each with stage_of's answer (flume), no worktree and no submission
     of crew's, and the runners that could not be read, which hide that work alone (runners_unread; Decisions 8 and 14
     of teams-cross-to-flume-as-their-bolts-land), read once for the command (runs, as Stages takes them, read when
-    first needed where not given). Each held bolt whose landing sluice sent back at its head now still stands so (sent,
-    bolts_sent_back's, by partition) carries it as sent_back, {head, words, submission}, its team's fix (bolt-teams "A
-    landing sluice sent back is its team's fix"), and a partition whose run record can't be read is named in
-    sent_back_unread with why. With bolt, that bolt alone."""
-    data = {"partitions": [], "unreachable": {h: v["error"] for h, v in sv.items() if not v["ok"]}, "unread": errors, "runners_unread": {},
-            "sent_back_unread": {l: why for l, why in (sent or {}).items() if isinstance(why, str)}}
+    first needed where not given). Each started bolt carries its head and its landing as its partition's run record
+    holds it (logs, {label: entries, or why they can't be read}; landing_phase), queued, again or rejected, each its
+    own state (landing_record), and a partition whose record can't be read says why (record_error). With bolt, that
+    bolt alone."""
+    data = {"partitions": [], "unreachable": {h: v["error"] for h, v in sv.items() if not v["ok"]}, "unread": errors, "runners_unread": {}}
     for l in labels:
-        part = {"label": l, "plans": []}
+        log = (logs or {}).get(l)
+        part = {"label": l, "plans": [], **({"record_error": log} if isinstance(log, str) else {})}
         for pl, repo, tip, plan in found:
             if pl != l:
                 continue
             if not plan:
                 part["plans"].append({"repo": repo, "plan": None, "bolts": [], "queue": []})
                 continue
-            st = Stages(fleet, plan, sv, runs)
+            st = Stages(fleet, plan, sv, runs, pl)
             bolts = []
             for b in plan.bolts():
                 if bolt not in (None, b.name()):
                     continue
-                t = bolt_team(fleet, b)
+                t = st.at(b)[0] if started(b) else None
                 k, _ = st.kit(b) if t else (None, None)
                 units = [dict(unit=u.name(), kind=kind_of(u), after=u.all("After"), sources=u.all("Source"), **{
                     x: st.of(u.name())[x] for x in ("stage", "tasks", "worktree")}, flume=st.of(u.name()).get("flume"))
                     for u in plan.work_of(b.name())]
-                crossed = t and b.get("Path") == "flume"
-                fixes = [dict(fix=f["fix"], worktree=f["path"], merged=f["merged"]) for f in (k["fixes"] if k else []) if f["bolt"] == b.name()] \
-                    if not crossed else [dict(fix=w, worktree=None, merged=s["stage"] in ("merged", "landed"), flume=s) for w, _, s in st.fixes(b)]
+                crossed = started(b)
+                fixes = [dict(fix=w, worktree=None, merged=s["stage"] in ("merged", "landed"), flume=s) for w, _, s in st.fixes(b)] if crossed else []
                 silent = st.unread(b) if crossed else None
                 if silent:
                     data["runners_unread"][silent[0]] = silent[1]
@@ -14236,16 +10132,13 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, sent=None
                 unread = (k or {}).get("submissions_error")
                 rows, landing = submission_rows(None if unread else (k or {}).get("submissions"), b.name(),
                                                 [(u["unit"], u["kind"]) for u in units] + [(f["fix"], "fix") for f in fixes])
-                back = (sent or {}).get(l)
-                back = back.get(b.name()) if isinstance(back, dict) and t else None
-                back = dict(head=back["head"], words=back["words"], submission=back["n"]) if back and at_head(back["head"], bk.get("head")) else None
                 for x in units + fixes:
                     x["submission"] = rows.get(x.get("unit") or x.get("fix"))
-                bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"), team=b.get("Team"),
-                                  host=t["machine"] if t else None, state=st.bolt_state(b), verification=verified, units=units, fixes=fixes,
-                                  landing=landing, sent_back=back, submissions_error=unread, given=b.get("Path"),
-                                  path=path_facts(plan, t) if t else None, carries=bk.get("carries") or {},
-                                  carries_error=bk.get("carries_error")))
+                bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"),
+                                  host=st.host(b) if crossed else None, state=st.bolt_state(b), verification=verified, units=units, fixes=fixes,
+                                  landing=landing, submissions_error=unread, given=b.get("Path"), stream=t["stream"] if t else None,
+                                  head=bk.get("head"), landing_record=landing_phase(log, b.name()) if crossed and isinstance(log, list) else None,
+                                  carries=bk.get("carries") or {}, carries_error=bk.get("carries_error")))
             queue = [] if bolt else [dict(unit=u.name(), kind=kind_of(u), repo=u.get("Repo"), stage="queued", sources=u.all("Source"))
                                      for u in plan.queue()]
             part["plans"].append({"repo": repo, "plan": tip, "bolts": bolts, "queue": queue})
@@ -14254,14 +10147,13 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, sent=None
 
 
 def bolts_text(data):
-    """crew bolts as text: each plan's branch and tip, each bolt with its repo, team and state and its landing standing
+    """crew bolts as text: each plan's branch and tip, each bolt with its repo, host and state and its landing standing
     in sluice, `landing #<n> <state>` (standing_said), that its submissions can't be read on its host and why, once,
     when they can't, its verification when its kit was read, and each unit with its stage, tasks, its merge standing in
     sluice, `#<n> <state>`, and place, each chore among them with `chore` before its stage, each fix with its merge, the
-    queue by repo with each unit's and chore's sources, and each host that did not answer. A held bolt whose landing
-    sluice sent back at its head says so, `landing: sent back at <head>, its team's fix: <sluice's words>`, and that crew
-    bolt submit submits it again once that fix has merged; a run record that can't be read is named. A held bolt's team's path is
-    on its head line (runner.path_said), and a crossed piece's line says its stage as the runner's records give it, its
+    queue by repo with each unit's and chore's sources, and each host that did not answer. A started bolt's host and
+    stream are on its head line (runner.stream_said), with its landing as the run record holds it, queued, again or
+    rejected, each in words of its own (phase_said), and a crossed piece's line says its stage as the runner's records give it, its
     Flume place in its place's stead and what goes with its stage after (runner.piece_said); each runner that could not
     be read is named, the stages of the work it runs unknown (Decision 14 of teams-cross-to-flume-as-their-bolts-land)."""
     lines = []
@@ -14272,16 +10164,14 @@ def bolts_text(data):
                 continue
             lines.append(f"{p['label']}/main {pl['plan'][:7]}  {pl['repo']}")
             for b in pl["bolts"]:
-                who = (f"{b['team']} @ {b['host']}" if b["team"] else "no team") + (
-                    f", {runner.path_said(b['path'])}" if b.get("path") and runner.path_said(b["path"]) else "")
-                lines.append(f"{b['bolt']}  {b['repo']}  {who}  {b['state']}"
+                who = (f"@ {b['host']}" if b["host"] else "not started" if not b.get("given") else "where it runs can't be told") + (
+                    f", {runner.stream_said(b['stream'])}" if b.get("stream") else "")
+                record_said = phase_said(b.get("landing_record"), b.get("head"), live=bool(b.get("landing")))
+                lines.append(f"{b['bolt']}  {b['repo']}  {who}  {b['state']}" + (f"  {record_said}" if record_said else "")
                              + (f"  landing {standing_said(b['landing'])}" if b.get("landing") else ""))
                 carry = carries_said(b.get("carries"), b.get("carries_error"))
                 if carry:
                     lines.append(f"  landing: held: {carry}")
-                if b.get("sent_back"):
-                    lines.append(f"  landing: sent back at {b['sent_back']['head'][:7]}, its team's fix: {b['sent_back']['words'].rstrip('.')}; "
-                                 f"once that fix has merged, crew bolt submit {b['bolt']} submits it again")
                 if b.get("submissions_error"):
                     lines.append(f"  submissions: can't be read on {b['host']}: {b['submissions_error']}")
                 if b.get("verification"):
@@ -14310,12 +10200,12 @@ def bolts_text(data):
                 for u in (x for x in pl["queue"] if x["repo"] == r):
                     queued = "chore queued" if u.get("kind") == "chore" else "queued"
                     lines.append(f"  {u['unit']:<40} {queued:<12} {', '.join(u['sources'])}".rstrip())
+        if p.get("record_error"):
+            lines.append(f"{p['label']}'s run record can't be read ({p['record_error']}): no bolt's landing is said from it")
     for h, why in data["unreachable"].items():
         lines.append(f"{h} did not answer ({why}): the stages of its bolts are unknown")
     for what, why in data.get("runners_unread", {}).items():
         lines.append(f"{what} can't be read ({why}): the stages of the work crossed to Flume there are unknown")
-    for l, why in data.get("sent_back_unread", {}).items():
-        lines.append(f"{l}'s run record can't be read ({why}): which landings sluice sent back is unknown")
     return "\n".join(lines)
 
 
@@ -14330,11 +10220,10 @@ def flume_place(s):
 HOLDERS = ("team", "kit", "team_or_kit", "user", "hold", "nobody")
 HOLDER_SAID = {"team_or_kit": "team or kit"}  # a holder as its line names it, where its key is not its words
 UNSPLIT = "team or kit: sluice keeps no start of its checks"  # why minutes are the team's or the kit's, said once
-STALLED = 5  # minutes nobody has held a bolt before its row says it is stalled (teams.23's measure)
 
 
 def bolt_time(start, end, stages, submissions, cards, holds):
-    """Where a held bolt's time went (plan.20, record 0044), a decision of facts alone (code.7): from its newest give
+    """Where a started bolt's time went (plan.20, record 0044), a decision of facts alone (code.7): from its newest start
     (start) to end, the time now or its landing, cut at every start and end the facts hold, each piece going to the
     first holder that applies: the team while a stage of its work runs other than a merge; the kit while one of its
     submissions is under test, from the start of its checks to its decision; the team or the kit, unsplit
@@ -14349,8 +10238,7 @@ def bolt_time(start, end, stages, submissions, cards, holds):
     [{submitted, started, decided, state, what, worktree}], worktree the branch it came from, one with no submit, a
     decision alone, placing no minute; cards [{at, until, key}] and holds [{at, until, what}], every time aware and an
     end of None running to end (the design's Decision 3). Returns {age, shares: {holder: minutes}, now: {holder, what,
-    since}, stalled} in whole minutes, since the time the holder at end began to hold the bolt, and stalled once nobody
-    has held it for STALLED minutes."""
+    since}} in whole minutes, since the time the holder at end began to hold the bolt."""
     facts = []
 
     def put(a, b, rank, holder, what):
@@ -14396,18 +10284,18 @@ def bolt_time(start, end, stages, submissions, cards, holds):
         if h != holder:
             break
         since = a
-    return {"age": age, "shares": shares, "now": {"holder": holder, "what": what, "since": since},
-            "stalled": holder == "nobody" and (end - since).total_seconds() >= STALLED * 60}
+    return {"age": age, "shares": shares, "now": {"holder": holder, "what": what, "since": since}}
 
 
-def bolt_facts(entries, plan, bolt, team, host, kit_name, submissions, decided, unread=None):
-    """What a held bolt's time is split from (bolt_time), read from what crew already keeps, a decision of facts alone
+def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided, unread=None):
+    """What a started bolt's time is split from (bolt_time), read from what crew already keeps, a decision of facts alone
     (code.7): the partition's run record (entries, oldest first, read from its branch, read.5) and sluice's submissions
     of the kit as its overview gave them, those standing as the gather or the follower's watch read them (submissions,
     gather.submissions_of's (list, why)) and those decided (decided, (list, why)): what the follower kept of each from
     its submit to its decision (board.kept_submissions), or, with no follower, those the overview's recent events name
     (gather.decided_in), or at a landing sluice's record of the bolt's submissions read once (landing_split). The start
-    is the bolt's newest give not refused. Its stages are each stage.start of a unit or chore of the bolt's, and each
+    is the run record's newest entry not refused that made the bolt's branch, bolt.start or an older crew's bolt.give
+    (the-team-machinery-leaves Decision 11). Its stages are each stage.start of a unit or chore of the bolt's, and each
     fix.start and fix.merge of a fix of it, fix/<bolt>/<f>, not refused, to the next stage.end naming the same stage and
     agent, or running yet, a merge told by its stage/<u>/merge or by fix.merge, each with its work, the unit's, chore's
     or fix's branch. Its submissions are those submission_rows gives the bolt's lines and its landing, a merge into
@@ -14418,17 +10306,18 @@ def bolt_facts(entries, plan, bolt, team, host, kit_name, submissions, decided, 
     left out. Its cards are each card posted and not yet closed, a card lost to its owner and posted again
     under its key counting as one, that is the bolt's: under land/<bolt>; a batch's holding a unit of it; a proposal's
     whose plan.propose names the bolt or its work, or one of its chain does; its kit's landings card, land/<kit>, from
-    the end of its last merge on; a question an agent of the team holding it asked since the give; or one whose post
-    names the bolt or its work. Its holds are its team's host's, each host.hold to its host.go, what for being who held
-    the host (the one hold crew records, the design's Decision 4). Returns {start, stages, submissions, cards, holds}
-    as bolt_time takes them, or {unknown: why} when the give or the run record can't be read, and {unknown: why,
-    start} when the give is read and the submissions are not, or one gives no time it was submitted or decided, so no
-    share is guessed (read.1)."""
+    the end of its last merge on; a question its partition's planner, main-level ops or design agent (label's) asked
+    since its start; or one whose post names the bolt or its work. Its holds are those of the host its work runs on,
+    each host.hold to its host.go, what for being who held the host (the one hold crew records, the design's Decision
+    4). Returns {start, stages, submissions, cards, holds} as bolt_time takes them, or {unknown: why} when the start or
+    the run record can't be read, and {unknown: why, start} when the start is read and the submissions are not, or one
+    gives no time it was submitted or decided, so no share is guessed (read.1)."""
     if unread:
         return {"unknown": "its age can't be told: " + "; ".join(f"{k} could not be read ({v})" for k, v in unread.items())}
-    give = next((e for e in reversed(entries) if e.get("Act") == "bolt.give" and not e.get("Refused") and f"bolt/{bolt}" in (e.get("On") or [])), None)
+    give = next((e for e in reversed(entries) if e.get("Act") in ("bolt.start", "bolt.give") and not e.get("Refused")
+                 and f"bolt/{bolt}" in (e.get("On") or [])), None)
     if give is None:
-        return {"unknown": f"its age can't be told: the run record of the last {BATCH_DAYS} days holds no give of it"}
+        return {"unknown": f"its age can't be told: the run record of the last {BATCH_DAYS} days holds no start of it"}
     start = utc(give["At"])
     work = {f"{kind_of(u)}/{u.name()}" for u in plan.work_of(bolt)}
     units, fixes = {o.split("/", 1)[1] for o in work}, f"fix/{bolt}/"
@@ -14475,10 +10364,12 @@ def bolt_facts(entries, plan, bolt, team, host, kit_name, submissions, decided, 
     landings = {str(e.get("Submission")) for e in entries if e.get("Act") == "bolt.submit" and e.get("Outcome") == "queued"
                 and e.get("Submission") and f"bolt/{bolt}" in (e.get("On") or [])}
 
+    mine = {b for o in work for b in line_branches(o.split("/", 1)[1], "chore" if o.startswith("chore/") else "unit")}
+
     def of_bolt(x):
         w = x.get("worktree") or ""
         if x.get("branch") == f"bolt/{bolt}":
-            return w in work or w.startswith(fixes)
+            return w in mine or w.startswith((fixes, f"fix/{bolt}--"))
         return x.get("branch") == "main" and (w == f"bolt/{bolt}" or (w.startswith("pull/") and x.get("pull_head") == f"bolt/{bolt}")
                                               or str(x.get("id")) in landings)
     gate = {}
@@ -14508,7 +10399,7 @@ def bolt_facts(entries, plan, bolt, team, host, kit_name, submissions, decided, 
                 named.add(ps[0])
     named = {first(p) for p in named}
     held_units = {f"batch/{n}": [u for u, *_ in us] for n, _, us in batches(entries)}
-    asking = (f"{team}-conductor", f"{team}-ops")
+    asking = tuple(f"{label}-{r}" for r in ("planner", "ops", "design")) if label else ()  # the askers (ASKERS), by name
     open_, lost, spans, key_of = {}, {}, [], {}
     for e in entries:
         act, card = e.get("Act"), e.get("Card")
@@ -14543,8 +10434,7 @@ def bolt_facts(entries, plan, bolt, team, host, kit_name, submissions, decided, 
             mine, at = last_merge is not None, max(at, last_merge or at)
         else:
             mine = (key == f"land/{bolt}" or key.startswith(f"land/{bolt}/") or ours(c["on"])
-                    or (card_kind(key or None) == "question" and at >= start
-                        and (c["by"] in asking or re.fullmatch(rf"{re.escape(team)}-unit-[0-9]+", c["by"] or "") is not None)))
+                    or (card_kind(key or None) == "question" and at >= start and c["by"] in asking))
         if mine:
             cards_.append({"at": at, "until": c["until"], "key": c["key"]})
 
@@ -14574,11 +10464,11 @@ def span(m):
 
 
 def time_said(tm, now):
-    """A held bolt's time as its head line on the board and its land line on the rail end with it (the design's
+    """A started bolt's time as its head line on the board and its land line on the rail end with it (the design's
     Decision 5 of a-bolts-row-shows-its-age-and-who-holds-it): its age, each holder's minutes in HOLDERS' order but a
     holder that held none, and who holds it now and since when, the card's key for the user, the submission for the
-    kit, the stage for the team, what the hold is for, or that it is stalled once nobody has held it STALLED minutes,
-    `3h 05m: team 2h 10m, kit 12m, user 40m; user since 14:02, batch/12`; minutes crew can't split named `team or kit`,
+    kit, the stage for the team, what the hold is for, or nobody, with no word of a stall (teams.23 retires with
+    the-team-machinery-leaves), `3h 05m: team 2h 10m, kit 12m, user 40m; user since 14:02, batch/12`; minutes crew can't split named `team or kit`,
     and why, once (UNSPLIT); or why it can't be told, after its age once that is known (time_at)."""
     if "unknown" in tm:
         return (f"{span(tm['age'])}; " if "age" in tm else "") + tm["unknown"]
@@ -14586,19 +10476,19 @@ def time_said(tm, now):
     n = tm["now"]
     since = utc(n["since"]) if isinstance(n["since"], str) else n["since"]
     at = f"{since.astimezone():%H:%M}" if since.astimezone().date() == now.astimezone().date() else f"{since.astimezone():%Y-%m-%d %H:%M}"
-    who = (f"stalled since {at}" if tm["stalled"] else f"held since {at}: {n['what']}" if n["holder"] == "hold" else
+    who = (f"held since {at}: {n['what']}" if n["holder"] == "hold" else
            f"nobody since {at}" if n["holder"] == "nobody" else f"{HOLDER_SAID.get(n['holder'], n['holder'])} since {at}, {n['what'] or 'a question'}")
     return span(tm["age"]) + (f": {shares}" if shares else "") + f"; {who}" + (f"; {UNSPLIT}" if tm["shares"]["team_or_kit"] else "")
 
 
 def held_time(fleet, entries, unread, plan_, b, k, now):
-    """A held bolt's time to now, as its rows carry it (plan.20): bolt_time's split of bolt_facts' facts, read from the
+    """A started bolt's time to now, as its rows carry it (plan.20): bolt_time's split of bolt_facts' facts, read from the
     partition's run record (entries, oldest first, and unread, its branches that could not be read) and its kit as the
     gather or the host's follower last read it (k, Stages.kit's), its submissions standing and decided as the overview
     gave them and the follower kept them, a kit not read or either not read saying why; since as ISO 8601, so the board's JSON carries it, and the words
     its lines end with (time_said). The board and the rail each call it at the time they draw, from the same read, so
     the two never differ for one bolt and a redraw from a kept read ages it reading nothing."""
-    t = fleet["teams"].get(b.get("Team")) or {}
+    t = (k or {}).get("at") or {}  # where its work runs (Stages.kit)
 
     def pair(key, what):
         if not (k or {}).get("ok"):
@@ -14606,7 +10496,7 @@ def held_time(fleet, entries, unread, plan_, b, k, now):
         if k.get(f"{key}_error"):
             return None, k[f"{key}_error"]
         return (k[key], None) if isinstance(k.get(key), list) else (None, f"{what} was not read")
-    facts = bolt_facts(entries, plan_, b.name(), b.get("Team"), t.get("machine"), b.get("Repo") or ((k or {}).get("kit") or {}).get("name"),
+    facts = bolt_facts(entries, plan_, b.name(), t.get("label"), t.get("machine"), b.get("Repo") or ((k or {}).get("kit") or {}).get("name"),
                        pair("submissions", "sluice's queue"), pair("decided", "what sluice's overview names decided"), unread)
     tm = time_at(facts, now)
     if "now" in tm:
@@ -14615,8 +10505,8 @@ def held_time(fleet, entries, unread, plan_, b, k, now):
 
 
 def time_at(facts, end):
-    """A held bolt's time to end, from its facts (bolt_facts): bolt_time's split, or, when the facts can't be told,
-    {unknown: why}, with its age in minutes once its give was read."""
+    """A started bolt's time to end, from its facts (bolt_facts): bolt_time's split, or, when the facts can't be told,
+    {unknown: why}, with its age in minutes once its start was read."""
     if "unknown" in facts:
         return {"unknown": facts["unknown"], **({"age": int(max(0.0, (end - facts["start"]).total_seconds()) // 60)} if facts.get("start") else {})}
     return bolt_time(facts["start"], end, facts["stages"], facts["submissions"], facts["cards"], facts["holds"])
@@ -14638,7 +10528,8 @@ def batch_file(label, n):
 
 
 def units_of_batch(e):
-    """A review entry's units, in order, as (unit, team, commit)."""
+    """A review entry's units, in order, as (unit, the name between, commit): the unit's bolt, or in an entry written
+    before a batch named its bolt, the team its work ran with, read as written (Decision 8 of the-team-machinery-leaves)."""
     return [m.groups() for m in (UNIT_AT.match(w) for w in (e.get("Units") or "").split()) if m]
 
 
@@ -14656,7 +10547,7 @@ def unread_batches(repo, missing):
 
 
 def batches(entries):
-    """The partition's review batches, oldest first: (number, when, [(unit, team, commit)])."""
+    """The partition's review batches, oldest first: (number, when, [(unit, its bolt or old team, commit)])."""
     return [(int(e["Batch"]), e["At"], units_of_batch(e)) for e in entries
             if e.get("Act") == "review.batch" and not e.get("Refused") and (e.get("Batch") or "").isdigit()]
 
@@ -14707,7 +10598,7 @@ def crossed_changes(plan, st):
     construct has delivered and whose place is still in code is not yet read."""
     out = {}
     for b in plan.bolts():
-        if not (b.get("Team") and b.get("Path") == "flume"):
+        if not started(b):
             continue
         k, _ = st.kit(b)
         archived = ((k or {}).get("bolts", {}).get(b.name()) or {}).get("archived", [])
@@ -14816,16 +10707,17 @@ def awaiting_answer(entries, crossed=None):
 
 
 def due_changes(plan, entries, crossed=None):
-    """Each change due for the user's review, in the plan's order: a unit of a bolt a team holds whose last delivered
-    construct left a commit no batch has held it at, as (unit, team, commit, when it was constructed); a unit of a bolt
-    given through Flume once its change has landed on its bolt (crossed, crossed_changes)."""
+    """Each change due for the user's review, in the plan's order: a unit of a started bolt (started) whose latest
+    change, its place's landing on its bolt (crossed, crossed_changes) or a construct an older crew ran, left a commit
+    no batch has held it at, as (unit, its bolt, commit, when) (review-batches "A unit is batched once its change has
+    landed on its bolt")."""
     latest = latest_changes(entries, crossed)
     held = {(u, sha) for _, _, us in batches(entries) for u, _, sha in us}
     out = []
     for u in plan.units():
         b = plan.bolt(u.get("Bolt")) if u.get("Bolt") else None
-        if b and b.get("Team") and u.name() in latest and (u.name(), latest[u.name()][0]) not in held:
-            out.append((u.name(), b.get("Team"), *latest[u.name()]))
+        if started(b) and u.name() in latest and (u.name(), latest[u.name()][0]) not in held:
+            out.append((u.name(), b.name(), *latest[u.name()]))
     return out
 
 
@@ -14858,46 +10750,32 @@ def batch_due(due, entries, setting, now, bolts):
     return why
 
 
-def batch_reckoners(found, teams):
-    """The teams the rail's sweep reckons a batch for (briefs.12), wherever it runs: for each partition whose plan was
-    read, each team of the teams file holding a bolt of it, on any host, in the plan's order, as {label: [team]}; a
-    partition is reckoned by its first team until one tells its planner (reckon_batches). A batch due by the
-    partition's clock, or at once for a bolt whose units have all merged, so reaches the planner when no conductor
-    waits on anything (2026-10-19: two bolts merged two hours with no batch begun), and from a rail on another host
-    than the team's (wldn's awb-1, 2026-10-27: proven ten hours with its units in no batch, the sweep reckoning only
-    its own host's teams)."""
-    out = {}
-    for label, _, _, pl in found:
-        if not pl:
-            continue
-        held = [n for n in dict.fromkeys(b.get("Team") for b in pl.bolts() if b.get("Team")) if n in teams]
-        if held:
-            out[label] = held
-    return out
+def batch_reckoners(fleet, found, here):
+    """The partitions the rail's sweep on this host (here) reckons a batch for (briefs.12; review-batches "A batch is
+    reckoned at the rail's sweep on the main level's host" of the-team-machinery-leaves): each whose plan was read and
+    whose main level runs here, in the order found, so each is reckoned once, on one host. A batch due by the partition's
+    clock, or at once for a bolt whose units have all merged, so reaches the planner with no agent waiting on anything
+    (2026-10-19: two bolts merged two hours with no batch begun)."""
+    return [label for label, _, _, pl in found if pl and fleet["partitions"][label]["machine"] == here]
 
 
 def reckon_batches(fleet, found, read=None, skip=()):
-    """The rail's sweep reckons each partition's batch for every team holding a bolt of it (batch_reckoners,
-    batch_check), each team's kits read on its own host as survey reads them, as that host last fetched them (plan.18),
-    stopping at the first of its teams that tells the planner, since a batch is told once; what crew can't read is said
-    on standard error and the rail read stands. With read, the rail read's, the plan, the run record and the stages are
-    taken from it and nothing is read again, as the host's follower reckons at every refresh, its read kept; a partition
-    in skip, one the follower told at its read's tip already (batch_told), is not reckoned. Returns each partition a
-    batch was due for, with whether its planner was told, {label: told}."""
+    """The rail's sweep reckons each partition's batch on its main level's host, this one (batch_reckoners, batch_check),
+    once, since a batch is told once; what crew can't read is said on standard error and the rail read stands. With read, the rail read's, the plan, the run record and the stages are taken from it and
+    nothing is read again, as the host's follower reckons at every refresh, its read kept; a partition in skip, one the
+    follower told at its read's tip already (batch_told), is not reckoned. Returns each partition a batch was due for,
+    with whether its planner was told, {label: told}."""
     told = {}
-    for label, names in batch_reckoners(found, fleet["teams"]).items():
+    for label in batch_reckoners(fleet, found, crew.this_host()):
         if label in skip:
             continue
-        for name in names:
-            try:
-                said = batch_check(fleet, fleet["teams"][name], read)
-            except Refusal as e:
-                print(f"no batch reckoned for {name}: {e}", file=sys.stderr)
-                break
-            if said is not None:
-                told[label] = said
-            if said:
-                break
+        try:
+            said = batch_check(fleet, label, read)
+        except Refusal as e:
+            print(f"no batch reckoned for {label}: {e}", file=sys.stderr)
+            continue
+        if said is not None:
+            told[label] = said
     return told
 
 
@@ -14910,18 +10788,14 @@ def batch_told(told, found, tick):
     return {label for label, _, tip, _ in found if tip and label in told and told[label][0] == tip and (told[label][1] or not tick)}
 
 
-def batch_check(fleet, t, read=None, fetch=False):
-    """On each wait of a conductor of the partition, at the end of a construct or a merge it waited on
-    (after_delivery), and on the rail's sweep (reckon_batches): the changes due across the partition, counted from the run
-    record, make a batch due at the partition's setting, `every` of them or `hours` since its last batch with at least
-    one due, or at once when the team's bolt has every unit merged and some unit's latest change has been in no batch.
-    crew then tells the partition's planner once, `batch.due` in the run record, until the next batch is delivered
-    (briefs.12). Read afresh, the bolts given through Flume are read with the team's own before the due changes are
-    counted, and with none, only the team's bolts with a unit due once they are, each where it lives, each kit's GitHub
-    fetched first with fetch (stages_for). What crew can't read is said on standard error, and the wait goes on. With
-    read, a rail read, the plan, the run record and the stages are its, read nothing again (the host's follower's, every
-    refresh, Decision 8 of a-rail-refresh-after-no-change-reads-nothing). Returns whether it told the planner."""
-    label = t["label"]
+def batch_check(fleet, label, read=None):
+    """On the rail's sweep on the partition's main level's host (reckon_batches): the changes due across the partition,
+    counted from the run record, make a batch due at the partition's setting, `every` of them or `hours` since its last
+    batch with at least one due, or at once when a started bolt has every unit merged and some unit's latest change has
+    been in no batch. crew then tells the partition's planner once, `batch.due` in the run record, until the next batch
+    is delivered (briefs.12). With read, a rail read, the plan, the run record and the stages are its, read nothing
+    again (the host's follower's, every refresh, Decision 8 of a-rail-refresh-after-no-change-reads-nothing). Returns
+    whether it told the planner, None when no batch is due; refused when crew can't read the run record (read.1)."""
     setting = fleet["partitions"][label]["review"]
     if read is not None:
         plan = next((p for l, _, _, p in read["found"] if l == label), None)
@@ -14935,22 +10809,16 @@ def batch_check(fleet, t, read=None, fetch=False):
         if plan is None:
             return
         entries = partition_entries(fleet, label)
-    # A crossed unit's change is read once it has landed on its bolt, from the runner's records and its kit (Decision 13
-    # of teams-cross-to-flume-as-their-bolts-land), so every bolt given through Flume is read with the team's own.
-    held, crossing = held_by(plan, t["name"]), [b for b in plan.bolts() if b.get("Team") and b.get("Path") == "flume"]
-    if read is not None:
-        st = Stages(fleet, plan, read["sv"], read.get("runs")) if held or crossing else None
-    else:
-        st = stages_for(fleet, plan, held + [b for b in crossing if b not in held], fetch=fetch) if crossing else None
+    # A started unit's change is read once it has landed on its bolt, from the runner's records and its kit (Decision 13
+    # of teams-cross-to-flume-as-their-bolts-land).
+    crossing = [b for b in plan.bolts() if started(b)]
+    st = (Stages(fleet, plan, read["sv"], read.get("runs"), label) if read is not None else
+          stages_for(fleet, label, plan, crossing)) if crossing else None
     due = due_changes(plan, entries, crossed_changes(plan, st) if crossing else None)
     if not due or told_since_last_batch(entries):
         return
-    waiting = [(b, [u for u, *_ in due if plan.unit(u).get("Bolt") == b.name()]) for b in held]
-    ripe = [(b, us) for b, us in waiting if us]
-    if st is None and ripe:
-        st = stages_for(fleet, plan, [b for b, _ in ripe], fetch=fetch)
     bolts = [(b.name(), bool(plan.work_of(b.name())) and all(st.of(u.name())["stage"] in ("merged", "landed") for u in plan.work_of(b.name())),
-              us) for b, us in ripe]
+              [u for u, *_ in due if plan.unit(u).get("Bolt") == b.name()]) for b in crossing]
     why = batch_due(due, entries, setting, datetime.datetime.now(datetime.timezone.utc), bolts)
     if not why:
         return
@@ -14964,19 +10832,19 @@ def batch_check(fleet, t, read=None, fetch=False):
 
 
 def batch_due_said(label, due, why):
-    """What the planner is told when a batch is due (briefs.12): the changes due, by unit and team, why, and how to start
+    """What the planner is told when a batch is due (briefs.12): the changes due, by unit and bolt, why, and how to start
     and wait for its reviewer, whose summary raises the batch's card."""
-    return (f"A batch of {label}'s changes is due: " + ", ".join(f"{u} ({team})" for u, team, *_ in due) + "; " + "; ".join(why)
+    return (f"A batch of {label}'s changes is due: " + ", ".join(f"{u} ({bolt})" for u, bolt, *_ in due) + "; " + "; ".join(why)
             + f". Start its reviewer with crew review {label}, and wait for the summary with crew review {label} --wait, which "
             "raises the batch's card and its reading session in your name.")
 
 
-def reading_command(fleet, label, team, sha, unit, archived=False):
-    """How the reviewer, on the main level's host, reads a unit's change at a commit in its kit on the team's host, the
-    kit of the unit's bolt (unit_kit_team); a crossed unit's change archived at the commit of its bolt that holds it
-    (archived; Decision 13 of teams-cross-to-flume-as-their-bolts-land), its folder found under the archive first."""
-    t, here = unit_kit_team(fleet, label, fleet["teams"][team], unit), fleet["partitions"][label]["machine"]
-    pre = "" if t["machine"] == here else f"ssh -o BatchMode=yes {t['ssh']} "
+def reading_command(fleet, label, bolt, sha, unit, archived=False):
+    """How the reviewer, on the main level's host, reads a unit's change at a commit in its kit where its bolt's work
+    ran (batch_unit_at); a started unit's change archived at the commit of its bolt that holds it (archived; Decision 13
+    of teams-cross-to-flume-as-their-bolts-land), its folder found under the archive first."""
+    t, here = batch_unit_at(fleet, label, bolt, unit), fleet["partitions"][label]["machine"]
+    pre = "" if t["machine"] == here else f"ssh -o BatchMode=yes {fleet['hosts'].get(t['machine'], {}).get('ssh') or t['machine']} "
     folder = f"openspec/changes/{unit}/"
     if archived:
         folder = "<folder>/"
@@ -14988,7 +10856,7 @@ def reading_command(fleet, label, team, sha, unit, archived=False):
 
 def review_start(fleet, a):
     """The batch the partition's reviewer is started for: its number (N), the file it writes (FILE), its units as
-    <unit>:<team>@<commit> (UNITS) and by name (NAMES), and its prompt (PROMPT), naming each change, its team, its kit
+    <unit>:<bolt>@<commit> (UNITS) and by name (NAMES), and its prompt (PROMPT), naming each change, its bolt, its kit
     and host, and how to read it at its commit. Refused when no change is due."""
     p = crew.partition_of(fleet, a.label)
     label = p["label"]
@@ -14998,23 +10866,26 @@ def review_start(fleet, a):
     plan = read(repo, ref, tip)
     entries = partition_entries(fleet, label)
     # A crossed unit's change is read on GitHub's bolt after a fetch, at the commit holding it archived (Decision 13).
-    crossing = [b for b in plan.bolts() if b.get("Team") and b.get("Path") == "flume"]
-    crossed = crossed_changes(plan, stages_for(fleet, plan, crossing, fetch=True)) if crossing else {}
+    crossing = [b for b in plan.bolts() if started(b)]
+    crossed = crossed_changes(plan, stages_for(fleet, label, plan, crossing, fetch=True)) if crossing else {}
     due = due_changes(plan, entries, crossed)
     due or fail(f"no change of {label} is due for a batch: every unit's latest change has been in one")
-    n = 1 + max([int(e["Batch"]) for e in entries if e.get("Act") in ("review.start", "review.batch") and (e.get("Batch") or "").isdigit()] or [0])
+    # A start refused for its batch not taken is no batch (review_cmd), so the next start takes its number.
+    n = 1 + max([int(e["Batch"]) for e in entries if e.get("Act") in ("review.start", "review.batch") and not e.get("Refused")
+                 and (e.get("Batch") or "").isdigit()] or [0])
     f = batch_file(label, n)
     prompt = review_prompt(fleet, label, n, f, due, crossed)
-    return dict(N=n, FILE=f, UNITS=" ".join(f"{u}:{team}@{sha}" for u, team, sha, _ in due), NAMES=" ".join(u for u, *_ in due),
+    return dict(N=n, FILE=f, UNITS=" ".join(f"{u}:{bolt}@{sha}" for u, bolt, sha, _ in due), NAMES=" ".join(u for u, *_ in due),
                 PROMPT=prompt)
 
 
 def review_prompt(fleet, label, n, f, due, crossed=()):
-    """What batch n's reviewer is sent: the changes due, each with its team, kit, host and commit and how to read it
-    there, a crossed unit's archived at that commit (crossed, by name), and the file its summary goes to."""
-    return (f"Review batch {n} of {label}, {len(due)} change{'' if len(due) == 1 else 's'}, and write its summary to {f}. "
-            + " ".join(f"{u} ({team}, {unit_kit_team(fleet, label, fleet['teams'][team], u)['kit']['name']} on {fleet['teams'][team]['machine']}, at {sha}): "
-                       f"{reading_command(fleet, label, team, sha, u, u in crossed)}." for u, team, sha, _ in due))
+    """What batch n's reviewer is sent: the changes due, each with its bolt, kit, host and commit and how to read it
+    there, a started unit's archived at that commit (crossed, by name), and the file its summary goes to."""
+    at = {u: batch_unit_at(fleet, label, bolt, u) for u, bolt, *_ in due}
+    return (f"{REVIEW_OPENS} {n} of {label}, {len(due)} change{'' if len(due) == 1 else 's'}, and write its summary to {f}. "
+            + " ".join(f"{u} ({bolt}, {at[u]['kit']['name']} on {at[u]['machine']}, at {sha}): "
+                       f"{reading_command(fleet, label, bolt, sha, u, u in crossed)}." for u, bolt, sha, _ in due))
 
 
 def review_wait(fleet, a):
@@ -15028,9 +10899,10 @@ def review_wait(fleet, a):
     label = crew.partition_of(fleet, a.label)["label"]
     CONTEXT["label"] = label
     entries = local_entries(label, BATCH_DAYS)
-    starts = [e for e in entries if e.get("Act") == "review.start" and not e.get("Refused") and (e.get("Batch") or "").isdigit()]
-    starts or fail(f"no batch of {label} has been started: crew review {label} starts one")
-    s = starts[-1]
+    tried = [e for e in entries if e.get("Act") == "review.start" and (e.get("Batch") or "").isdigit()]
+    tried or fail(f"no batch of {label} has been started: crew review {label} starts one")
+    s = tried[-1]
+    not s.get("Refused") or fail(f"batch {s['Batch']} of {label} was not started: {s['Refused']}; crew review {label} starts it again")
     n, f = int(s["Batch"]), batch_file(label, s["Batch"])
     if any(e.get("Act") == "review.batch" and e.get("Batch") == s["Batch"] for e in entries):
         if not cards.card_under(cards.host_entries(record, label, crew.this_host()), f"batch/{n}", f"{label}-planner"):
@@ -15151,7 +11023,7 @@ HEADING = re.compile(r"^\s*(?:#{1,6}\s+(.+?)[\s#]*|\*\*([^*]+)\*\*(.{0,60}))$")
 
 def summary_paragraph(summary, unit):
     """The paragraph the reviewer opened a unit's section of a batch's summary with, as its brief has it write one
-    section per unit headed by the unit's name and its team: the first paragraph under the first heading that names the
+    section per unit headed by the unit's name and its bolt: the first paragraph under the first heading that names the
     unit, a Markdown heading or a short line in bold; None when no heading names it, or a heading follows it at once."""
     named = re.compile(rf"(?<![a-z0-9-]){re.escape(unit)}(?![a-z0-9-])")
     out, found = [], False
@@ -15189,7 +11061,7 @@ def batch_subjects(plan):
 def batch_facts(n, entries, summary, subjects):
     """Batch n's card's facts, as cards.batch_card takes them (record 0031 §5), from the run record's entries on the main
     level's host, oldest first, and the reviewer's summary: n, the batch before it, and each unit in the batch's order
-    with its team, the commit the batch read it at, what it is about (subjects, else its name in words) and the
+    with its bolt (units_of_batch, an older entry's team read as written), the commit the batch read it at, what it is about (subjects, else its name in words) and the
     paragraph the reviewer opened its section with, or a line saying the summary has none. None while the batch's point
     has not come or has passed: the run record holds no batch n, its summary is not there (None), its key is closed
     (batch_closed), the last card act under it a close, but as lost to its owner, or the batch waits on nothing
@@ -15202,9 +11074,9 @@ def batch_facts(n, entries, summary, subjects):
     if key in batch_closed(entries) or key in batch_settled(entries):
         return None
     previous = max((m for m, _, _ in batches(entries) if m < n), default=None)
-    units = [dict(unit=u, team=team, commit=sha, subject=subjects.get(u) or u.replace("-", " "),
+    units = [dict(unit=u, bolt=bolt, commit=sha, subject=subjects.get(u) or u.replace("-", " "),
                   paragraph=summary_paragraph(summary, u) or f"The reviewer's summary has no section for {u}.")
-             for u, team, sha in units_of_batch(held[-1])]
+             for u, bolt, sha in units_of_batch(held[-1])]
     return dict(n=n, previous=previous, units=units, link=None)
 
 
@@ -15226,18 +11098,17 @@ def batch_read(fleet, label, n, acts):
 
 
 def batch_made(fleet, label, facts, acts):
-    """Each unit of a batch's card given what its stages recorded as made (made), read from the copies kept on its
-    team's host, and the previews brought up from the card there (up, by the made thing's name), through acts.made, one
-    read a host (crew _made, code.3; design Decision 4). A host that does not answer, and a unit whose team the teams
-    file does not name, is said on standard error, its units carrying none this raise (read.3); nothing is refused,
-    since the batch stands, and a host is read only for its own kits' places' facts (read.5)."""
+    """Each unit of a batch's card given what its stages recorded as made (made), read from the copies kept on the host
+    its bolt's work ran on (batch_unit_at), and the previews brought up from the card there (up, by the made thing's
+    name), through acts.made, one read a host (crew _made, code.3; design Decision 4). A host that does not answer, and
+    a unit whose host crew can't tell, is said on standard error, its units carrying none this raise (read.3); nothing is
+    refused, since the batch stands, and a host is read only for its own kits' places' facts (read.5)."""
     n, by = facts["n"], {}
     for u in facts["units"]:
-        t = fleet["teams"].get(u["team"])
-        if t:
-            by.setdefault(t["machine"], []).append(u["unit"])
-        else:
-            print(f"batch {n}'s card carries nothing {u['unit']} made: its team {u['team']} is not in the teams file", file=sys.stderr)
+        try:
+            by.setdefault(batch_unit_at(fleet, label, u["bolt"], u["unit"])["machine"], []).append(u["unit"])
+        except Refusal as e:
+            print(f"batch {n}'s card carries nothing {u['unit']} made: {e}", file=sys.stderr)
     for host, names in sorted(by.items()):
         try:
             got = acts.made(label, host, names, f"batch/{n}")
@@ -15252,7 +11123,7 @@ def batch_made(fleet, label, facts, acts):
 
 def raise_batch(fleet, row, acts=None, note=None):
     """A batch's raise (record 0031 §1, briefs.12), for its rail row, of which it reads the label and the key: once the
-    reviewer's summary is there, its one card, asked in the planner's name, filed in the kit of its first unit's team,
+    reviewer's summary is there, its one card, asked in the planner's name, filed in the kit of its first unit whose bolt crew can place (batch_unit_at),
     its reading session started by the act, and posted through row_card_change, so a card the planner holds that
     Pending You no longer finds is recorded lost and posted again saying its older copy is dead, and one it holds is
     changed with note, by default that crew could not find its earlier copy, RELINKED when its reading opened after it
@@ -15274,14 +11145,20 @@ def raise_batch(fleet, row, acts=None, note=None):
         return None
     if not facts:
         return None
-    t = next((fleet["teams"][u["team"]] for u in facts["units"] if u["team"] in fleet["teams"]), None)
+    t, whys = None, []
+    for u in facts["units"]:
+        try:
+            t = batch_unit_at(fleet, label, u["bolt"], u["unit"])
+            break
+        except Refusal as e:
+            whys.append(str(e))
     if not t:
-        print(f"batch {n}'s card is not raised: none of its units' teams is in the teams file, so it has no kit to be filed in",
-              file=sys.stderr)
+        print(f"batch {n}'s card is not raised: crew can't tell where any of its units was built, so it has no kit to be filed "
+              f"in: {'; '.join(whys)}", file=sys.stderr)
         return None
     build = built_again(cards.batch_card) if row.get("dead") else cards.batch_card
     return row_card_change(fleet, label, owner, build, facts, note or "Raised again: crew could not find its earlier copy",
-                           card_where(t["kit"]), acts)
+                           card_where(card_kit(fleet, t, t["kit"]["name"], t["kit"])), acts)
 
 
 def built_saying(build, said):
@@ -15361,11 +11238,12 @@ def rail_record(fleet, found, props, crossed=None):
     "closed": card keys closed, "posts": batch card keys posted, "due": units whose latest change no batch has held,
     "unanswered": {unit: the batch} whose card the user has not answered that holds its latest change}}, the last two
     None for a partition whose branch could not be read, since then they can't be told; the rail's rows for the
-    operations; the entries the operations are read from, {label: entries}, the ops entries of the main level's host
-    and the landings, oldest first, which the board's Operation lane reads (ops.environments); and every entry read,
+    operations; the entries the operations are read from, {label: entries}, the ops entries of the main level's host,
+    the landings and the kits' renames, oldest first, which the board's Operation lane reads (ops.environments); and
+    every entry read,
     {label: entries}, oldest first, which the sweep (sweep_cards) and the board's design band read. crossed, each
     partition's crossed units' changes, {label: crossed_changes'}, which its due and unanswered units count."""
-    times, cards, unread, landings, gives, held, deploys, opses, logs = {}, [], {}, [], {}, {}, [], {}, {}
+    times, cards, unread, landings, held, deploys, opses, logs = {}, [], {}, [], {}, [], {}, {}
     today = datetime.datetime.now(datetime.timezone.utc).date()
     fresh = utc(f"{today - datetime.timedelta(days=CARD_DAYS)}T00:00:00Z")
     for l, _, _, plan in [f for f in found if f[3]]:
@@ -15379,25 +11257,24 @@ def rail_record(fleet, found, props, crossed=None):
         times.update(r["times"])
         cards += r["cards"]
         landings += r["landings"]
-        gives.update(r["gives"])
         held[l] = r["held"]
         import ops  # ops.py imports nothing of this module
         mine = [e for e in entries if (e.get("Act") or "").startswith("ops.") and e.get("Host") == fleet["partitions"][l]["machine"]]
         deploys += [dict(r, at=utc(r["at"]), doc=None) for r in ops.rows(fleet, l, mine)]
-        opses[l] = sorted(mine + [e for e in entries if e.get("Act") == "bolt.land"], key=lambda e: (e["At"], e["Id"]))
-    return times, cards, unread, landings, gives, held, deploys, opses, logs
+        opses[l] = sorted(mine + [e for e in entries if e.get("Act") in ("bolt.land", "kit.rename")], key=lambda e: (e["At"], e["Id"]))
+    return times, cards, unread, landings, held, deploys, opses, logs
 
 
 def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
     """What the rail reads of one partition's run record entries, as rail_record gives it: when each proposal was
     proposed, the cards open (posted since fresh and not closed, the same owner's newer card under a key replacing its
-    older, lost to it), the landings, the team each bolt was last given to, and what the batches hold, the due units
+    older, lost to it), the landings, and what the batches hold, the due units
     None while its branch could not be read (missing), as are the units whose latest change waits on the user's
     answer to its batch's card (awaiting_answer). A close refused leaves its card open; a card's close as lost to its
     owner ends that card but not its row, whose card is posted again under its key; and a batch's key is closed while
     its last card act is a close (batch_closed), so a batch card posted again after a close keeps its row, or once its
     batch waits on nothing (batch_settled), whose words are held as settled. crossed, as due_changes takes it."""
-    times, posted, closed, landings, gives = {}, {}, set(), [], {}
+    times, posted, closed, landings = {}, {}, set(), []
     for e in entries:
         act = e.get("Act")
         if act == "plan.propose" and not e.get("Refused"):
@@ -15419,19 +11296,15 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
             if bolt:
                 landings.append(dict(label=l, bolt=bolt, units=[o.split("/", 1)[1] for o in e["On"] if o.startswith(("unit/", "chore/"))], at=utc(e["At"]),
                                      by=e.get("By"), host=e.get("Host")))
-        elif act == "bolt.give" and not e.get("Refused"):
-            bolt = next((o[5:] for o in e["On"] if o.startswith("bolt/")), None)
-            team = next((o[5:] for o in e["On"] if o.startswith("team/")), None)
-            if bolt and team:
-                gives[(l, bolt)] = team
     settled = batch_settled(entries)
     closed = {k for k in closed if not k.startswith("batch/")} | batch_closed(entries) | set(settled)  # a batch card posted again reopens its row
     held = dict(batches=batches(entries), closed=closed, settled=settled, posts=batch_posts(entries),
                 due=None if missing else {u for u, *_ in due_changes(plan, entries, crossed)},
                 unanswered=None if missing else awaiting_answer(entries, crossed), refused=refusals(entries), stopped=stops(entries),
+                phases=landing_phases(entries),
                 forecasts=[e for e in entries if e.get("Act") == "forecast"],
                 left=[e for e in entries if e.get("Act") in ("landing.left", "bolt.leave", "bolt.submit")])
-    return dict(times=times, cards=list(posted.values()), landings=landings, gives=gives, held=held)
+    return dict(times=times, cards=list(posted.values()), landings=landings, held=held)
 
 
 def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
@@ -15439,23 +11312,27 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
     record holds (held, as rail_record reads it), and the kits as surveyed: each row's group, its partition, its card
     key, the time it began to wait (shown as a date alone when that is all that is known), what it is, its commands, and
     the document its card asks the user to read: ("page", label, n) for a proposal, ("batch", label, n) for a batch
-    card, whose units, their teams and the commits the batch read them at the row holds too, None for a landing. A
+    card, whose units and the commits the batch read them at the row holds too, each unit named with its bolt, None for
+    a landing. A
     proposal's row is keyed by its chain's card, proposal/<first>, the first proposal it was rewritten from. A
     verify report is no row: its findings are fixed in one round with no card (teams.17). A batch is one row, keyed
     batch/<n>, holding every unit, until its card closes or it waits on nothing (batch_settled); a batch posted as cards
     of five before a batch was one card is a row for each card posted, keyed batch/<n>-<k>, until it closes or the units
-    it holds wait on nothing. Each kit with a bolt a team holds whose every unit has merged is one landing row, keyed
-    land/<kit>, main-level ops's (record 0031 as amended 2026-10-23), naming each such bolt in the plan's order with its
-    team, what a yes frees of it and what it waits on (bolts, each {bolt, team, host, can}): a bolt can land only once
+    it holds wait on nothing. Each kit with a started bolt whose every unit has merged is one landing row, keyed
+    land/<kit>, main-level ops's (record 0031 as amended 2026-10-23), naming each such bolt in the plan's order with
+    the host its work runs on and what it waits on (bolts, each {bolt, host, at, can, line}): a bolt can land only once
     its verification is green, sluice's verdict on its last landing (kit.verification, record 0025), every unit's latest
     change has been in a batch whose card the user has answered, no fix is in flight on it, sluice did not refuse its
     landing at its head (refusals, held's refused) and the run record holds no conflict with main forecast at its head
     (main_conflict, held's forecasts); until then its line says which units no batch has held, which batches wait on the
-    user's answer, the fix, sluice's words, or that it takes main first (briefs.12), or for a bolt the user left on the
+    user's answer, the fix, that its landing was rejected and the bolt is open for work, in sluice's words, or that it
+    takes main first (briefs.12); a bolt whose landing the run record has queued, or landing again, with no outcome
+    (held's phases, landing_phase) says so and that no work joins it until sluice decides, and is no bolt that can land
+    (bolt-teams "A landing queued holds its bolt's work"), or for a bolt the user left on the
     kit's landings card (left_of, held's left), that it takes main first once ticked (crew-rail "A left bolt's land line
     says it would take main first once ticked"). A bolt given through Flume is a row's on the same terms, its pieces' stages
     and its fixes in flight read from the runner's records (Stages, runner.fixes_on), and each bolt's line says its
-    team's path after its host (runner.path_said; Decision 14 of teams-cross-to-flume-as-their-bolts-land), its team's
+    team's stream after its host (runner.stream_said; Decision 14 of teams-cross-to-flume-as-their-bolts-land), its team's
     Flume stream where another's says nothing of slots. A kit's row carries too, ahead of its bolts, each fix of its main whose
     code has delivered and whose submission waits held (runner.main_fixes_waiting, from each partition's requests and
     runners, runs, {label: (requests, readings)}, as rail_runs reads them; Decision 11 of
@@ -15466,8 +11343,6 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
     for d in props:
         l, n = d["label"], d["proposal"]
         what = [f"proposal {n} ({l}), by {d['by']}: {d['case'].splitlines()[0][:70]}"]
-        if d["waiting"]:
-            what.append("still needs the agreement of " + ", ".join(f"{t}-conductor" for t in d["waiting"]))
         at = times.get((l, f"proposal/{n}"))
         rows.append(dict(group="proposals", label=l, key=f"proposal/{d.get('first') or n}", at=at or utc(f"{d['opened']}T00:00:00Z"),
                          date=None if at else d["opened"], what=what, doc=("page", l, n),
@@ -15484,23 +11359,22 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                 k = key.partition("-")[2]
                 card = f", card {k} of {-(-len(units) // 5)}" if k else ""
                 rows.append(dict(group="batches", label=l, key=key, at=utc(at), doc=("batch", l, n),
-                                 units=[u for u, *_ in part], teams={u: team for u, team, _ in part},
-                                 commits={u: sha for u, _, sha in part},
-                                 what=[f"batch {n} ({l}){card}: " + ", ".join(f"{u} ({team})" for u, team, _ in part)],
+                                 units=[u for u, *_ in part], commits={u: sha for u, _, sha in part},
+                                 what=[f"batch {n} ({l}){card}: " + ", ".join(f"{u} ({bolt})" for u, bolt, _ in part)],
                                  cmds=([("open", opener(fleet, main, here, f))] if f else [])
                                  + [("answer", f'crew tell {l}-planner "On batch {n}: "')]))
     for l, _, _, plan in found:
         if not plan:
             continue
-        st, kits = Stages(fleet, plan, sv, runs), {}
+        st, kits = Stages(fleet, plan, sv, runs, l), {}
         for b in plan.bolts():
-            if not b.get("Team"):
+            if not started(b):
                 continue
             k, _ = st.kit(b)
             if not k:
                 continue
-            team, host = k["team"]["name"], k["host"]
-            path = runner.path_said(path_facts(plan, k["team"]))
+            host = k["host"]
+            path = runner.stream_said(k["at"]["stream"])
             units = plan.work_of(b.name())
             stages = [st.of(u.name())["stage"] for u in units]
             at, head = k["bolts"].get(b.name(), {}).get("head_at"), k["bolts"].get(b.name(), {}).get("head")
@@ -15509,7 +11383,6 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             due, waits = held.get(l, {}).get("due"), held.get(l, {}).get("unanswered") or {}
             outside = [u.name() for u in units if due is not None and u.name() in due]
             unread = sorted({waits[u.name()] for u in units if u.name() in waits})
-            said = [x for x in [frees_said(team, frees_of(st, plan, k["team"], b.name()))] if x]
             bk = k["bolts"].get(b.name(), {})
             state, verdict = kit.verification(head, bk.get("verdict"), bk.get("beside"))
             if state != "green":  # a bolt's proof is its verification (record 0025, tests.5)
@@ -15520,34 +11393,35 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                 lands = ([f"lands once {either(outside)} " + ("has" if len(outside) == 1 else "have") + " been in a batch, which is due for them"]
                          if outside else []) + ([f"lands once you have answered batch{'' if len(unread) == 1 else 'es'} "
                                                  f"{joined([str(n) for n in unread])}"] if unread else [])
-            # A bolt given through Flume holds its fixes as Flume places, read from the runner's records (Decision 10).
-            fixes = fixes_in_flight(k.get("fixes", []), b.name()) if b.get("Path") != "flume" else \
-                sorted(w for w, _, s in st.fixes(b) if s["stage"] not in ("merged", "landed", "dropped"))
+            # A started bolt holds its fixes as Flume places, read from the runner's records (Decision 10).
+            fixes = sorted(w for w, _, s in st.fixes(b) if s["stage"] not in ("merged", "landed", "dropped")) if b.get("Path") == "flume" else []
             refused = held_at(held.get(l, {}).get("refused") or {}, b.name(), head)
             stop = stopped_at(held.get(l, {}).get("stopped") or {}, b.name(), head)
             conflict = main_conflict(held.get(l, {}).get("forecasts") or [], b.name(), head)
+            phase = (held.get(l, {}).get("phases") or {}).get(b.name())
             kit_name = b.get("Repo") or k["kit"]["name"]
             bk = k["bolts"].get(b.name(), {})
             carry = carries_said(bk.get("carries"), bk.get("carries_error"))
-            if not lands and carry:  # another bolt's work it carries holds it as a conflict does (plan.8)
+            if phase and phase["state"] in ("queued", "again"):  # submitted and not yet decided: its work held (landing_hold)
+                lands = [f"{phase_said(phase, head)}: no unit, chore or fix joins it until sluice decides"]
+            elif not lands and carry:  # another bolt's work it carries holds it as a conflict does (plan.8)
                 lands = [f"held: {carry}"]
-            elif not lands and fixes:  # a fix started on the bolt holds its landing (landing_held)
+            elif not lands and fixes:  # a fix started on the bolt holds its landing
                 lands = [f"lands once {either(sorted(fixes))} has merged or been dropped"]
-            elif not lands and refused:  # sluice refused its landing at this head (refused_at)
-                lands = [f"held: sluice refused its landing at {head[:7]}, until its team's fix moves its head: {refused.rstrip('.')}; "
-                         f"once that fix has merged, {l}-ops submits it again"]
+            elif not lands and refused:  # sluice rejected its landing at this head (refused_at), the bolt open for work
+                lands = [f"landing rejected at {head[:7]}, open for work: it lands again once a fix moves its head: {refused}"]
             elif not lands and conflict and left_of(held.get(l, {}).get("left") or [], f"land/{kit_name}", {b.name(): head}):
                 lands = [f"left by the user: takes main first once ticked, forecast to conflict with main on {joined(conflict[1])}"]
             elif not lands and conflict:  # forecast at this head to conflict with what main holds (main_conflict)
-                lands = [f"takes main first: forecast to conflict with main on {joined(conflict[1])}, until its team's "
-                         "take-main fix moves its head"]
+                lands = [f"takes main first: forecast to conflict with main on {joined(conflict[1])}, until a fix "
+                         "taking main in moves its head"]
             can = ["can land"] + ([f"its last landing at {head[:7]} was stopped, nothing of the bolt's: {stop.rstrip('.')}; "
                                    f"{l}-ops submits it again once that is cleared"] if stop else [])  # stopped_at, holding nothing
             kits.setdefault(kit_name, []).append(
-                dict(bolt=b.name(), team=team, host=host, at=at, can=not lands, line=f"{b.name()}, {team} on {host}"
-                     + (f", {path}" if path else "") + ": " + "; ".join(said + (lands or can))))
+                dict(bolt=b.name(), host=host, at=at, can=not lands, line=f"{b.name()}, on {host}"
+                     + (f", {path}" if path else "") + ": " + "; ".join(lands or can)))
         waiting = {}
-        for f in runner.main_fixes_waiting(*(runs or {}).get(l, ([], {})), l):
+        for f in runner.main_fixes_waiting(*(runs or {}).get(l, ([], {}))):
             waiting.setdefault(f["kit"], []).append(f)
         for kit_name in list(kits) + [k_ for k_ in waiting if k_ not in kits]:
             bolts, fixes = kits.get(kit_name, []), [main_fix_line(l, kit_name, f) for f in waiting.get(kit_name, [])]
@@ -15557,7 +11431,7 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                     + (", in the plan's order" if bolts else "") + f"; {l}-ops lands them"] + [f["line"] for f in fixes] + [x["line"] for x in bolts]
             rows.append(dict(group="land", label=l, key=f"land/{kit_name}", at=min([utc(x["at"]) for x in bolts] + [f["at"] for f in fixes]),
                              doc=None, what=what, cmds=[("answer", f'crew tell {l}-ops "Land {", ".join(can)}."')] if can else [],
-                             bolts=[{k_: x[k_] for k_ in ("bolt", "team", "host", "can")} for x in bolts],
+                             bolts=[{k_: x[k_] for k_ in ("bolt", "host", "can")} for x in bolts],
                              fixes=[{k_: f[k_] for k_ in ("fix", "host", "can", "send")} for f in fixes]))
     return rows
 
@@ -15610,12 +11484,12 @@ def question_cards(cards, unread):
     return sorted((c for c in cards if card_kind(c["key"]) == "question" and not unjudged(unread, c)), key=lambda c: (c["at"], c["card"]))
 
 
-def stray_cards(fleet, found, sv, rows, cards, unread, logs=None):
+def stray_cards(fleet, found, sv, rows, cards, unread, logs=None, runs=None):
     """The open cards under a row's key that match no row, oldest first: never a decision record's (record_cards) nor
     a question (question_cards), nor a deploy's whose word stands, from each partition's entries (logs), which the
     deploy's end closes (ops.word_stands). A card is left out when whether it has a row can't be known: its partition's
     record could not be read from its branch, so its close may not have been read, or it is a land card of a bolt whose
-    team's host did not answer. A verify report's card, posted before its row went (teams.17), matches none."""
+    host did not answer (runs, the read's runners, rail_runs). A verify report's card, posted before its row went (teams.17), matches none."""
     import ops  # its decision of a deploy's card alone
     plans_, rowed, out = {l: p for l, _, _, p in found if p}, {(r["label"], r["key"]) for r in rows}, []
     for c in cards:
@@ -15623,22 +11497,22 @@ def stray_cards(fleet, found, sv, rows, cards, unread, logs=None):
             continue
         if ops.word_stands(c["key"], (logs or {}).get(c["label"], [])):
             continue
-        if c["key"] and blind_land(fleet, plans_[c["label"]], sv, c["key"]):
+        if c["key"] and blind_land(fleet, c["label"], plans_[c["label"]], sv, c["key"], runs):
             continue
         out.append(c)
     return sorted(out, key=lambda c: (c["at"], c["card"]))
 
 
-def blind_land(fleet, plan, sv, key):
-    """Whether a card's key is a landing's whose row can't be told, since the host of a team holding its bolt, or for a
-    kit's landings card, land/<kit>, a bolt of the kit, did not answer."""
+def blind_land(fleet, label, plan, sv, key, runs=None):
+    """Whether a card's key is a landing's whose row can't be told, since the host its bolt's work runs on (bolt_host),
+    or for a kit's landings card, land/<kit>, a bolt of the kit's, did not answer."""
     m = re.match(r"land/([a-z0-9][a-z0-9-]*)", key)
     if not m:
         return False
-    down = lambda b: (lambda t: bool(t) and t["machine"] in sv and not sv[t["machine"]]["ok"])(bolt_team(fleet, b))
+    down = lambda b: (lambda h: bool(h) and h in sv and not sv[h]["ok"])(bolt_host(fleet, label, b, runs))
     if plan.bolt(m.group(1)):
         return down(plan.bolt(m.group(1)))
-    return any(down(b) for b in plan.bolts() if b.get("Repo") == m.group(1) and b.get("Team"))
+    return any(down(b) for b in plan.bolts() if b.get("Repo") == m.group(1) and started(b))
 
 
 # How long crew leaves a card, or a row's card, whose last post or close Pending You refused before the sweep tries it
@@ -15646,19 +11520,24 @@ def blind_land(fleet, plan, sv, key):
 CARD_RETRY = 600
 
 
-def row_gone(key, entries, kits=(), kit_of=None):
+def row_gone(key, entries, kits=(), kit_of=None, renames=None):
     """Why a row's card has no row now, from the run record's entries, oldest first: (outcome, None) when the event
     that ends its row was recorded, so its card is closed with what was done, a proposal applied, a bolt landed or a
     batch answered in a main-level pane, in whose and when (pane_answered); else (None, reason), its card withdrawn
     with why, a proposal or a bolt dropped among them, and a batch that waits on nothing with the words of crew's close
     (batch_settled). A kit's landings card, land/<kit> (kits, the partition's kits' names), that nothing waits to land
-    on its main; and a landing card of a bolt's own, from before a kit's card, whose bolt its kit's landing row names
-    (kit_of, {bolt: its kit}), that it is now a row of its kit's landings card (rail-cards "A bolt's own landing card
-    gives way to its kit's")."""
+    on its main; one under a former name of a kit (renames, the partition's, renames_in of the entries unless given;
+    kit_now), that the kit is renamed and its landings are rows of land/<new>, never a gone bolt's card (rail-cards "A
+    kit's landings card follows its rename"); and a landing card of a bolt's own, from before a kit's card, whose bolt
+    its kit's landing row names (kit_of, {bolt: its kit}), that it is now a row of its kit's landings card (rail-cards
+    "A bolt's own landing card gives way to its kit's")."""
     kind, _, rest = (key or "").partition("/")
     thing, _, head = rest.partition("/")
     if kind == "land" and not head and thing in kits:
         return None, f"nothing waits to land on {thing}'s main"
+    now = kit_now(thing, renames_in(entries) if renames is None else renames).split("/")[-1] if kind == "land" and not head else thing
+    if now != thing:
+        return None, f"{thing} is renamed {now}: its landings are rows of land/{now}"
 
     def last(on, *acts):
         return next((e["Act"] for e in reversed(entries) if e.get("Act") in acts and not e.get("Refused") and on in (e.get("On") or [])), None)
@@ -15684,28 +11563,40 @@ def row_gone(key, entries, kits=(), kit_of=None):
                   "verify": "a verify report has no card, its findings fixed in one round"}.get(kind, "its row is gone")
 
 
-def record_settled(key, entries, kits=()):
+def record_now(obj, renames):
+    """A decision record's object, record/<kit>/<number>, by its kit's name now (kit_now; Decision 5 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan), so a record's card or entry under a former name of its kit
+    is the record's under the new; any other object as it is."""
+    m = re.fullmatch(r"record/([^/]+)/(\d{4})", obj or "")
+    return f"record/{kit_now(m.group(1), renames).split('/')[-1]}/{m.group(2)}" if m and renames else obj
+
+
+def record_settled(key, entries, kits=(), renames=None):
     """The outcome a decision record's card closes with, under its key in either form (cards.row_object, kits as it
-    takes them), from the run
+    takes them), its kit read by its name now as the record's entries are (record_now; renames, the partition's,
+    renames_in of the entries unless given), from the run
     record's entries, oldest first: the record's last status crew record recorded, "Accepted at <commit>" or "Rejected
     at <commit>" as crew record closes it, the commit left out when the entry names none; None while it is proposed,
     or none is recorded."""
-    obj = cards.row_object(key or "", kits)
+    renames = renames_in(entries) if renames is None else renames
+    obj = record_now(cards.row_object(key or "", kits), renames)
     last = next((e for e in reversed(entries) if obj and e.get("Act") in ("record.proposed", "record.accepted", "record.rejected")
-                 and not e.get("Refused") and obj in (e.get("On") or [])), None)
+                 and not e.get("Refused") and obj in [record_now(o, renames) for o in e.get("On") or []]), None)
     if not last or last["Act"] == "record.proposed":
         return None
     commit = next((c.rsplit("@", 1)[-1][:7] for c in last.get("Commit") or [] if "@" in c), None)
     return last["Act"].split(".")[1].capitalize() + (f" at {commit}" if commit else "")
 
 
-def record_proposed(key, entries):
-    """A decision record's last record.proposed entry, done, under its key in either form (cards.row_object), from the
-    run record's entries, oldest first: its State says whether the user settled it in the pane, its Form whether its
-    card offered alternatives; None when crew record recorded it proposed nowhere."""
-    obj = cards.row_object(key or "")
+def record_proposed(key, entries, renames=None):
+    """A decision record's last record.proposed entry, done, under its key in either form (cards.row_object), its kit
+    by its name now as the entries' are (record_now; renames as record_settled takes them), from the run record's
+    entries, oldest first: its State says whether the user settled it in the pane, its Form whether its card offered
+    alternatives; None when crew record recorded it proposed nowhere."""
+    renames = renames_in(entries) if renames is None else renames
+    obj = record_now(cards.row_object(key or ""), renames)
     return next((e for e in reversed(entries) if obj and e.get("Act") == "record.proposed" and not e.get("Refused")
-                 and obj in (e.get("On") or [])), None)
+                 and obj in [record_now(o, renames) for o in e.get("On") or []]), None)
 
 
 def refused_lately(entries, now, key=None, card=None):
@@ -15785,7 +11676,7 @@ def proposals_held(found):
 
 
 def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, planner=(None, None), design=(None, None), kits=(),
-                 kit_of=None):
+                 kit_of=None, renames=None, labels=None):
     """What the rail's read does with one partition's cards, of those posted on this host (here), the only ones its
     sign-in reaches: each row's card whose row is gone, to close with why (row_gone), but a land card whose row can't
     be told (blind, the bolts whose team's host did not answer) and a proposal's card on a plan read older than it
@@ -15793,7 +11684,8 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     proposal maybe still open; each question, whose asker herdr is asked for; and
     each row's card with its row, which Pending You is asked whether it still finds; a deploy's card whose word stands
     left for the deploy's end to close (ops.word_stands); and each decision record's card, under either key form,
-    whose record crew record has recorded accepted or rejected since, to close with its status (record_settled). Then
+    whose record crew record has recorded accepted or rejected since, to close with its status (record_settled), a
+    card key's kit read by its name now through the partition's renames (renames, renames_in of entries unless given). Then
     each row in record 0031's
     form with no card open on any host, whose owner runs here (owners, {row key: (owner, host)}), to post through its
     kind's raise; but each row whose owner runs here and whose owner's newest card under its key this host's sign-in
@@ -15811,17 +11703,27 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     once: none is under its key yet, and the user's answer has not closed it (batch_closed). And each row's card of a
     batch, batch/<n>, a proposal, proposal/<n>, or a kit's landings, land/<kit>, that the run record shows standing
     without its reading, or a row's of it, last posted, changed or tried CARD_RETRY seconds ago or more
-    (reading_unread), to try its reading again. Returns {gone: [(card, outcome, reason)], questions: [card], held: [(card, row)], none: [row], again: [(row,
-    older card)], settled: [(key, why)], unread: [(card, row)]}."""
+    (reading_unread), to try its reading again. Before all of it, each card of crew's six (cards.row_object names its
+    key) whose owner left the fleet, a partition role's name whose label is none of the teams file's labels now
+    (cards.role_left), to withdraw in its owner's name with the words that say so (cards.left_said), and none judged
+    so with no labels handed; such a card cards no row, so its row is posted in its owner's name as a row with none.
+    Returns {gone: [(card, outcome, reason)], questions: [card], held: [(card, row)], none: [row], again: [(row, older
+    card)], settled: [(key, why)], unread: [(card, row)], left_fleet: [(card, words)]}."""
     import ops  # its decision of a deploy's card alone
     rowed = {r["key"]: r for r in rows}
-    out = {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [], "unread": []}
+    out = {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [], "unread": [], "left_fleet": []}
+
+    def left(c):  # a card of crew's own whose owner left the fleet (cards.role_left)
+        return labels is not None and bool(cards.row_object(c["key"] or "")) and cards.role_left(c["by"], labels)
     for c in cards_:
         kind = card_kind(c["key"])
         if c["host"] != here:
             continue
-        if kind == "record":
-            settled = record_settled(c["key"], entries)
+        if left(c):
+            if not refused_lately(entries, now, card=c["card"]):
+                out["left_fleet"].append((c, cards.left_said(c["by"], c["key"], ops.word_stands(c["key"], entries))))
+        elif kind == "record":
+            settled = record_settled(c["key"], entries, renames=renames)
             if settled and not refused_lately(entries, now, card=c["card"]):
                 out["gone"].append((c, settled, None))
         elif kind == "question":
@@ -15832,8 +11734,8 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
                 out["unread"].append((c, rowed[c["key"]]))
         elif (not (c["key"].startswith("land/") and c["key"].split("/")[1] in blind) and not refused_lately(entries, now, card=c["card"])
               and not ops.word_stands(c["key"], entries) and not older_than_card(c["key"], proposed)):
-            out["gone"].append((c, *row_gone(c["key"], entries, kits, kit_of)))
-    carded = {c["key"] for c in cards_}
+            out["gone"].append((c, *row_gone(c["key"], entries, kits, kit_of, renames)))
+    carded = {c["key"] for c in cards_ if not left(c)}  # a card in a name that left the fleet cards no row
     mine = [r for r in rows if cards.row_object(r["key"]) and (owners.get(r["key"]) or (None, None))[1] == here
             and not refused_lately(entries, now, key=r["key"])]
     for r in mine:
@@ -15845,8 +11747,8 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     if design[1] == here:
         posted = (e.get("Key") for e in entries if e.get("Act") == "card.post" and e.get("By") == design[0])
         for key in dict.fromkeys(k for k in posted if re.fullmatch(r"record/[a-z0-9][a-z0-9-]*/\d{4}", k or "")):
-            last = record_proposed(key, entries)
-            if (not last or record_settled(key, entries) or last.get("State") == "settled in the pane"
+            last = record_proposed(key, entries, renames)
+            if (not last or record_settled(key, entries, renames=renames) or last.get("State") == "settled in the pane"
                     or refused_lately(entries, now, key=key)):
                 continue
             older = cards.stranded(entries, key, design[0], here)
@@ -15874,10 +11776,11 @@ def stranded_said(entries, card, owner, new):
     return (f"lost to {owner}" if state == "lost" else f"held on {host}, which this host's sign-in does not reach") + f": posted again as {new}"
 
 
-def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None):
-    """End the card sessions crew started, and release the landings' previews it asked for, whose card is closed or
-    whose row is gone, on every host of each partition
-    whose plan was read, its main machine and each team's: one crew card sweep --label <label> on each (code.3), handed
+def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None, runs=None):
+    """End the card sessions crew started, release the landings' previews it asked for, whose card is closed or whose
+    row is gone, and read the landings nothing recorded, on every host of each partition whose plan was read, its main
+    machine and each its runners answer on as the read read them (runs, hosts_of): one crew card sweep --label <label>
+    on each (code.3), handed
     as live every row key less each the record holds as closed with no card open under it (batched, what the batches
     hold as rail_record reads it, {label: {batches, closed, due}}), and as blind the key prefixes it can't judge, batch/
     while the record could not be read from its branch, when no key is taken out for being closed either (read.1). A host the survey
@@ -15892,8 +11795,9 @@ def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None):
             continue
         readings = {f"land/{b['bolt']}" for r in rows if r["label"] == l and r["group"] == "land" for b in r.get("bolts", []) if b["can"]}
         rowed = {r["key"] for r in rows if r["label"] == l} | readings  # each row's, and each landing row's reading and preview
-        judged = json.dumps(sweep_judgment(l, rowed, cards, unread.get(l), batched.get(l, {}), readings))
-        for h in sorted({crew.partition_of(fleet, l)["machine"], *crew.partition_hosts(fleet, l)}):
+        judgment, landings = sweep_judgment(l, rowed, cards, unread.get(l), batched.get(l, {}), readings), landings_judged(fleet, l, plan, sv, runs)
+        for h in hosts_of(fleet, l, runs):
+            judged = json.dumps(dict(judgment, landings=landings[h]) if landings.get(h) else judgment)
             if only is not None and h not in only[l]:
                 continue
             if h in sv and not sv[h]["ok"]:
@@ -15946,14 +11850,15 @@ def sweep_judgment(label, rowed, cards, unread, batched, readings=()):
 def rail_runs(found):
     """What the rail reads of each partition's runners, once for its read, for the stages of its crossed work (Stages)
     and the fixes of main its landings rows carry (rail_rows, runner.main_fixes_waiting): {label: (requests.rec's
-    records at the tip the read found, its runners as read beside it, runners)}, for each partition whose plan holds a
-    bolt given through Flume or whose requests hold a fix of main standing; a partition with neither reads no runner."""
+    records at the tip the read found, read through the partition's renames there (launches_now), its runners as read
+    beside it, runners)}, for each partition whose plan holds a bolt given through Flume or whose requests hold a fix of
+    main standing; a partition with neither reads no runner."""
     out = {}
     for l, repo, tip, p in found:
         rq = Plan(show(repo, tip, "requests.rec") or runner.REQUESTS).recs("Request") if p and tip else []
         if any((r.get("Work") or "").startswith("fix/main/") for r in runner.standing(rq)) or (
                 p and any(b.get("Path") == "flume" for b in p.bolts())):
-            out[l] = (rq, runners(repo, l))
+            out[l] = (launches_now(rq, renames_at(repo, tip)), runners(repo, l))
     return out
 
 
@@ -15978,9 +11883,11 @@ def landings_moved(cards_, mains, kept):
 def rail_read(fleet, labels, board=False, sweep=False):
     """Everything the rail is made from, in one read of the labels' plans, proposals, kits and run record: the plans
     found and the errors of those that could not be read, the survey, the open proposals, the cards, the branches whose
-    record could not be read, the landings and gives, the operations' entries, every entry read, and the rows. The survey
-    is of each host holding a bolt; with board, of every team of the labels, with the bolt it holds or none, and its
-    dev servers, slots and explorations too, for the board (board.py), from which the rail's text is made as well.
+    record could not be read, the landings and gives, the operations' entries, every entry read, each partition's kits
+    (kits_at, the repositories its plan and its landings name) and its renames of them (renames_at), and the rows. The survey is of each host where a
+    started bolt's work runs, as the runner that took it reported (known_at); with board, of each kit's checkout on its
+    partition's main-level host too (main_kit), and the explorations on each kit's main there, for the board
+    (board.py), from which the rail's text is made as well.
     With sweep, once the rows are made, the cards on this host are swept under its sign-in (sweep_cards), against the
     proposals the plans read hold (proposals_held), the cards read then being those open once it acted, each kit's
     landings card main moved under is raised again (sweep_moved), and the card sessions whose card is closed or whose row is gone are
@@ -15989,16 +11896,19 @@ def rail_read(fleet, labels, board=False, sweep=False):
     plan (runs, rail_runs), for the stages of its crossed work and the changes its batches count (crossed_changes)."""
     errors = {}
     found = plans(fleet, labels, errors)
-    held = [(b.get("Team"), b.name(), b.get("Repo")) for _, _, _, p in found if p for b in p.bolts() if b.get("Team")]
-    if board:
-        held += [(t, None) for l in labels for t in crew.partition_of(fleet, l)["teams"]]
+    runs = rail_runs(found)  # each partition's runners, read once beside its plan for its crossed work (plan.12)
+    held = [(t, b.name()) for l, _, _, p in found if p and l in runs for b in p.bolts() if started(b)
+            for t in [known_at(fleet, l, b, runs[l])] if t]
+    kits = {l: kits_at(repo, tip, p) for l, repo, tip, p in found}
+    renames = {l: renames_at(repo, tip) for l, repo, tip, p in found}
+    if board:  # the explorations on each kit's main, read in the checkout its partition's main-level host keeps of it
+        held += [(t, None) for l, ks in kits.items() for k in ks for t in [main_kit_read(fleet, l, k)] if t]
     sv = survey(fleet, held, board=board)
     props = open_proposals(fleet, [l for l, _, _, p in found if p], found)
-    runs = rail_runs(found)  # each partition's runners, read once beside its plan for its crossed work (plan.12)
-    crossed = {l: crossed_changes(p, Stages(fleet, p, sv, runs)) for l, _, _, p in found if p and l in runs}
-    times, cards_, unread, landings, gives, batched, deploys, opses, logs = rail_record(fleet, found, props, crossed)
+    crossed = {l: crossed_changes(p, Stages(fleet, p, sv, runs, l)) for l, _, _, p in found if p and l in runs}
+    times, cards_, unread, landings, batched, deploys, opses, logs = rail_record(fleet, found, props, crossed)
     read = dict(found=found, errors=errors, sv=sv, props=props, times=times, cards=cards_, unread=unread, landings=landings,
-                gives=gives, ops=opses, logs=logs, batched=batched, runs=runs,
+                ops=opses, logs=logs, batched=batched, runs=runs, kits=kits, renames=renames,
                 rows=rail_rows(fleet, found, sv, props, times, batched, runs) + deploys)
     if sweep:
         read["proposed"] = proposals_held(found)
@@ -16009,9 +11919,9 @@ def rail_read(fleet, labels, board=False, sweep=False):
             k.listed = askers_listed(fleet, askers_asked(fleet, read, crew.this_host(), now))
         read["swept"] = sweep_cards(fleet, read, answers=k.cards if k is not None else None, listed=k.listed if k is not None else None)
         read["cards"] = swept_cards(read["cards"], read["swept"], crew.this_host(), datetime.datetime.now(datetime.timezone.utc),
-                                    {l: partition_kits(fleet, l) for l, *_ in found})
+                                    read["kits"])
         read["moved"] = sweep_moved(fleet, read)
-        read["ended"], read["unchecked"] = sweep_sessions(fleet, found, sv, read["rows"], read["cards"], unread, batched)
+        read["ended"], read["unchecked"] = sweep_sessions(fleet, found, sv, read["rows"], read["cards"], unread, batched, runs=runs)
         read["told"] = reckon_batches(fleet, found, read)
     return read
 
@@ -16031,9 +11941,7 @@ def rail_text(fleet, labels, read, now):
     wait, how long ago that was, what it is, each bolt's line of a kit's landing row ending with the bolt's age and who
     held its time (land_times), the commands that answer it, and its card key with whether a card is open for it,
     whose and its id, by which its owner asks Pending You for it, or, with none open, the words of the refusal of its
-    last post, oldest first; then each bolt a team holds whose conductor was not told of its give, with when its notice
-    was refused, the team and crew's words of why, which say how it is told (untold_gives, teams.7); then the questions
-    the asking roles put to the user, each with its key, which names it,
+    last post, oldest first; then the questions the asking roles put to the user, each with its key, which names it,
     its asker and its age, since no entry holds a card's words (record.3); then each card act of an agent's whose reply
     crew could not read (unread_card_acts); then the decision records waiting on the user, each the design
     agent's open card for one, with when it was asked and by whom, and no command, since the card is where it is
@@ -16048,7 +11956,7 @@ def rail_text(fleet, labels, read, now):
     the host at once)."""
     read = labels_of(read, labels)
     found, rows, cards_, here = read["found"], read["rows"], read["cards"], crew.this_host()
-    holding = {fleet["teams"][b.get("Team")]["machine"] for _, _, _, p in found if p for b in p.bolts() if b.get("Team") in fleet["teams"]}
+    holding = {h for l, _, _, p in found if p for b in p.bolts() for h in [bolt_host(fleet, l, b, read.get("runs"))] if h}
     sv = {h: v for h, v in read["sv"].items() if h in holding}
     swept = read.get("swept") or {"done": [], "unswept": []}
     logs = read.get("logs") or {}
@@ -16074,12 +11982,6 @@ def rail_text(fleet, labels, read, now):
             lines += [f"    {'card:':<8}{r['key']}, open, asked by {c['by']} ({c['card']})" for c in cards_
                       if (c["label"], c["key"]) == (r["label"], r["key"])] or [
                 f"    {'card:':<8}{r['key']}, none open" + (f"; its last post was refused: {refused}" if refused else "")]
-    untold = untold_gives(found, logs)
-    if untold:
-        lines += ["", "gives whose conductor was not told:"]
-    for l, b, team, n in untold:
-        at = utc(n["at"]) if n.get("at") else None
-        lines.append((f"  {at.astimezone():%Y-%m-%d %H:%M}  {age(at, now):<7}  " if at else "  ") + f"{b} ({l}), given to {team}: {n['words']}")
     questions = question_cards(cards_, read["unread"])
     if questions:
         lines += ["", "questions waiting on you:"]
@@ -16097,7 +11999,7 @@ def rail_text(fleet, labels, read, now):
         lines += ["", "decision records waiting on you:"]
     for c in records:
         lines.append(when(c) + f"{c['key']} ({c['label']}), asked by {c['by']} on {c['host']}")
-    stray = stray_cards(fleet, found, sv, rows, cards_, read["unread"], logs)
+    stray = stray_cards(fleet, found, sv, rows, cards_, read["unread"], logs, read.get("runs"))
     if stray:
         lines += ["", "open cards whose row is gone:"]
     for c in stray:
@@ -16130,21 +12032,6 @@ def rail_text(fleet, labels, read, now):
     return "\n".join(lines)
 
 
-def untold_gives(found, logs):
-    """Each bolt a team holds on today's path whose conductor is still untold of its give (notice_unsent), as the rail
-    says it until something tells it (teams.7): (label, bolt, team, notice_unsent's), in each partition's plan order,
-    from the plans read (found) and each partition's run record (logs, {label: entries}). A bolt given through Flume has
-    no conductor to tell. A decision of facts alone (code.7)."""
-    out = []
-    for l, _, _, plan_ in found:
-        for b in plan_.bolts() if plan_ else []:
-            team = b.get("Team")
-            n = notice_unsent(logs.get(l, []), b.name(), team) if team and b.get("Path") != "flume" else None
-            if n:
-                out.append((l, b.name(), team, n))
-    return out
-
-
 def land_times(fleet, read, r, now):
     """The time of each bolt a kit's landing row names, in its order, as its land line ends with it (crew-rail "A bolt's
     land line shows its age and who held its time", plan.20): held_time's words at now, from the read's run record and
@@ -16153,7 +12040,7 @@ def land_times(fleet, read, r, now):
     plan_ = next((p for l, _, _, p in read["found"] if l == r["label"] and p), None)
     if plan_ is None:
         return []
-    st, out = Stages(fleet, plan_, read["sv"]), []
+    st, out = Stages(fleet, plan_, read["sv"], read.get("runs"), r["label"]), []
     for x in r.get("bolts", []):
         b = plan_.bolt(x["bolt"])
         out.append(held_time(fleet, (read.get("logs") or {}).get(r["label"], []), read["unread"].get(r["label"], {}), plan_, b,
@@ -16239,7 +12126,7 @@ CARD_GRACE = 120  # seconds a session is left alone after it starts, since the r
 
 
 # The roles that ask the user a question of their own on a card, by the kind role() gives them (record 0031, briefs.11).
-ASKERS = ("conductor", "planner", "main-ops", "design")
+ASKERS = ("planner", "main-ops", "design")
 # The first part of every key crew raises a card under: a rail row's, a decision record's, and a verify report's,
 # which no row has had since teams.17. No agent's question takes one (crews_key).
 CREWS = {"proposal": "a proposal's card is crew's, raised by crew plan propose and closed at its approval or drop",
@@ -16260,10 +12147,10 @@ def crews_key(key):
     return kind if kind in CREWS else None
 
 
-def card_refusal(fleet, name, label, tool, key):
+def card_refusal(fleet, name, label, tool, key, kits=()):
     """Whether a crew agent's Pending You call may go through (briefs.11, record 0031): None to let it, else the
     refusal's words. The user's own name is never checked. A card's post, change or close is a question's, the agent's
-    own, only from a conductor, the planner, main-level ops or the design agent (ASKERS), and never under crew's own
+    own, only from the planner, main-level ops or the design agent (ASKERS), and never under crew's own
     key (crews_key). A post's key is its idempotencyKey, judged by its form alone, with or without the partition's
     @<label>, :<n> or the fill of a short key (cards.post_key), and no plan read. A change or a close carries a request id and no key, so its key is
     the one this host's run record holds the card under, crew's raises and the agents' own posts alike, read locally
@@ -16273,33 +12160,26 @@ def card_refusal(fleet, name, label, tool, key):
     answered card under a verify report's key, verify/<unit>/<stamp>, a row form crew no longer raises (teams.17),
     which a conductor posted before it and no event of crew's closes, the same departure: its post, change or
     withdrawal there is refused (signal 2026-10-19-crw-2-conductor-2bec975e/01). An area is made only under
-    create-area:<owner>/<kit> for a kit the agent's team builds or, for the main level, a kit of any team of its
-    partition, read from the teams file. Everything else passes: a question's form, and its key but crew's, are its
-    asker's. A decision of the role, the call and the key alone (code.7)."""
+    create-area:<owner>/<kit> for one of the asker's partition's kits (kits, partition_kits, the repositories its plan
+    and its landings name, by name or forge address: a kit named in the plan by name alone takes any owner, since crew
+    keeps no registry of repositories). Everything else passes: a question's form, and its key but crew's, are its
+    asker's. A decision of the role, the call, the key and the partition's kits alone (code.7)."""
     kind, of = role(fleet, name)
     if kind == "user":
         return None
     what = "an area" if tool == "create_area" else "a card"
-    cmd = f"{crew.HOME}/plugin/bin/crew"
     if kind not in ASKERS:
-        if kind == "team":
-            left = (f"Tell {of}-conductor what you wait on with `{cmd} tell`." if name == f"{of}-ops"
-                    else f"Say what you need with `{cmd} needs`, and your conductor gets it and asks if it must.")
-        elif kind == "dispatcher":
-            left = f"Ask through {of}-planner with `{cmd} tell`."
-        elif kind == "operator":
-            left = "The user is in your pane: ask them there."
-        else:
-            left = "Tell the partition's operator what you wait on, as your brief says."
-        return (f"crew refuses {what} from {name}: only a conductor, the planner, main-level ops and the design agent ask "
-                f"the user on a card. {left}")
+        left = ("The user is in your pane: ask them there." if kind == "operator" else
+                "Tell the partition's operator what you wait on, as your brief says.")
+        return (f"crew refuses {what} from {name}: only the planner, main-level ops and the design agent ask the user on a "
+                f"card. {left}")
     if tool == "create_area":
-        teams = [of] if kind == "conductor" else crew.partition_of(fleet, label)["teams"]
-        mine = sorted({f"create-area:{fleet['teams'][t]['kit']['repo']}" for t in teams})
-        if key in mine:
+        m = re.fullmatch(r"create-area:([^/\s]+)/([^/\s]+)", key or "")
+        if m and (m.group(0).split(":", 1)[1] in kits or m.group(2) in kits):
             return None
+        mine = [f"create-area:{k}" if "/" in k else f"create-area:<owner>/{k}" for k in sorted(kits)]
         return (f"crew refuses an area under {key}: " + (f"{name} makes a kit's area only under {either(mine)}." if mine
-                else f"no kit's area is {name}'s to make."))
+                else f"no kit's area is {name}'s to make: {label}'s plan and landings name no kit."))
     crews = crews_key(key)
     old = (kind == "planner" and tool in ("cancel_request", "ack_answer") and old_batch(key)
            or tool == "ack_answer" and old_verify(key))
@@ -16341,19 +12221,19 @@ def card_of(fleet, a, unit_needed=True):
     return label, CARDS / label / a.key / a.unit if old and a.unit else CARDS / label / a.key
 
 
-def session_refusal(key, label, main, here, team=None, kits=()):
+def session_refusal(key, label, main, here, host=None, kits=()):
     """Why a card key's session is not started or waited on here, before its row is read: a batch card's one session
     runs on the partition's main level's host (main), where its summary is written and its card raised; a bolt's
-    reading, land/<bolt>, on the host of the team holding the bolt (team), where its kit's main checkout is; a kit's
-    landings card, land/<kit> (kits, the partition's kits' names, land_key), has no reading of its own, each of its
-    rows having its bolt's."""
+    reading, land/<bolt>, on the host its work runs on (host, bolt_at), where the runner that took it keeps its kit; a
+    kit's landings card, land/<kit> (kits, the partition's kits' names, land_key), has no reading of its own, each of
+    its rows having its bolt's."""
     kind = land_key(key, kits)
     if kind and kind[0] == "kit":
         return (f"{key} is {kind[1]}'s landings card, {label}-ops's, which has no reading of its own: each of its rows "
-                f"has its bolt's, land/<bolt>, on the host of the team holding the bolt")
-    if key.startswith("land/") and team != here:
-        return (f"{key}'s reading session runs on {team}, the host of the team holding its bolt, where its kit's main "
-                f"checkout is: run crew card session {key} there")
+                f"has its bolt's, land/<bolt>, on the host its work runs on")
+    if key.startswith("land/") and host != here:
+        return (f"{key}'s reading session runs on {host}, the host its bolt's work runs on, where the runner that took it "
+                f"keeps its kit: run crew card session {key} there")
     if key.startswith("batch/") and not old_batch(key) and main != here:
         return (f"{key}'s reading session runs on {main}, where {label}'s main level writes the batch's summary: run crew card "
                 f"session {key} there")
@@ -16438,7 +12318,7 @@ def card_row(fleet, label, key):
     props = open_proposals(fleet, [label], found) if kind == "proposal" and plan else []
     batched = {}
     if kind == "batch" and plan:
-        _, _, unread, _, _, batched, *_ = rail_record(fleet, found, [])
+        _, _, unread, _, batched, *_ = rail_record(fleet, found, [])
         not unread.get(label) or fail(f"crew can't tell whether {key}'s card is still open: "
                                       + "; ".join(f"{h} did not answer" for h in sorted(unread[label])))
     row = next((r for r in rail_rows(fleet, found, sv, props, {}, batched) if r["key"] == key), None)
@@ -16465,9 +12345,9 @@ def card_session(fleet, a, acts=None):
     (proposal_reads), and refused for any other, whose card holds it whole. Either is opened by reading_again, so a
     start anew is recorded and the planner's card, while it waits on the user, changed to carry the link, and a card
     the user has answered left as it is. An old batch card's, batch/<n>-<k>, is one
-    session for each unit it holds, on that unit's whole change as its Markdown files, started on the host the teams
-    file names for the unit's team (code.3) and refused for a unit the card does not hold. A landing's, land/<bolt>, is
-    one session on what the bolt brings to main, on the host of the team holding it (land_session). Refused for a key
+    session for each unit it holds, on that unit's whole change as its Markdown files, started on the host its work ran
+    on (batch_at, code.3) and refused for a unit the card does not hold. A landing's, land/<bolt>, is one session on
+    what the bolt brings to main, on the host its work runs on (land_session). Refused for a key
     with no row, a document crew can't read whole, and a link that would open only on this host."""
     label, d = card_of(fleet, a)
     if a.key.startswith("land/"):
@@ -16492,8 +12372,7 @@ def card_session(fleet, a, acts=None):
         reading_again(fleet, label, a.key, acts, said)
         return
     a.unit in row["units"] or fail(f"{a.key} holds {either(row['units'])}, not {a.unit}: its sessions are its units'")
-    t = fleet["teams"].get(row["teams"][a.unit]) or fail(f"{a.unit}'s team {row['teams'][a.unit]} is not in the teams file")
-    t = unit_kit_team(fleet, label, t, a.unit)
+    t = batch_at(fleet, label, a.key, a.unit)
     if t["machine"] != here:
         return forward_card(fleet, t, a, label)
     # A crossed unit's change is read archived at the commit of its bolt the batch read it at (Decision 13).
@@ -16525,30 +12404,30 @@ def card_waiting(got):
 
 def land_session(fleet, label, key, acts=None, say=None):
     """crew card session land/<bolt>: the bolt's one reading session, on what it brings to main at its head, on the host
-    of the team holding it and refused elsewhere, naming it, while it is a row of its kit's landings card that can land,
+    its work runs on (bolt_at) and refused elsewhere, naming it, while it is a row of its kit's landings card that can land,
     read from the same facts as its row (land_read) and opened as its row's raise opens it (reading_open), its link
     printed, or said by say(link, decided) when given. The try, from the row's read on, is recorded as one card.reading
-    entry on the bolt in its conductor's name, done when the session started anew and refused with crew's message when
-    the bolt is no row that can land or the reading could not open, a session given again recording nothing (record.1),
-    nor a refusal before the try. When it started the session anew, none running, or the run record shows the kit's
+    entry on the bolt in main-level ops's name (reading_owner), done when the session started anew and refused with
+    crew's message when the bolt is no row that can land or the reading could not open, a session given again
+    recording nothing (record.1), nor a refusal before the try. When it started the session anew, none running, or the run record shows the kit's
     card standing without a row's reading (kit_unread), the kit's card is raised on the partition's main machine with
     the new link's note (land_hand), changed in place while it waits on the user and left as it is once they answered
     it (card-sessions "A landing's session follows the bolt's head"). Refused for land/<kit>, which has no reading of
-    its own, a bolt the plan does not hold, one no team holds, and one that is no row that can land, saying what it
+    its own, a bolt the plan does not hold, one not started, and one that is no row that can land, saying what it
     waits on or why it is held (card-sessions "A bolt that is no row"). As reading_open returns it: its link, whether
     the user decided in it, and whether it was started anew; a refusal of the try, recorded, is raised again."""
     acts = acts or CardActs(fleet)
-    kits = partition_kits(fleet, label)
+    kits = kits_read(fleet, label)
     why = session_refusal(key, label, fleet["partitions"][label]["machine"], acts.host(), None, kits)
     if why and land_key(key, kits)[0] == "kit":
         fail(why)
     bolt = key.split("/", 1)[1]
     plan, b, t = land_held(fleet, label, bolt)
     b or fail(f"{label}'s plan holds no bolt {bolt}, so {key} has no reading")
-    t or fail(f"bolt {bolt} is held by no team, so it is no row of its kit's landings card, and it has no reading")
+    t or fail(f"bolt {bolt} is not started, so it is no row of its kit's landings card, and it has no reading")
     why = session_refusal(key, label, fleet["partitions"][label]["machine"], acts.host(), t["machine"], kits)
     not why or fail(why)
-    owner, obj, kit = f"{t['name']}-conductor", cards.row_object(key, kits), b.get("Repo") or t["kit"]["name"]
+    owner, obj, kit = reading_owner(label, key), cards.row_object(key, kits), b.get("Repo") or t["kit"]["name"]
     try:
         row, why = land_read(fleet, label, plan, b, t)
         row or fail(f"{bolt} is no row of {kit}'s landings card, so it has no reading: {why}")
@@ -16749,7 +12628,7 @@ def reading_open(fleet, label, key, facts):
     serves (session_open): a batch's, batch/<n>, on its folder, the reviewer's summary and every unit's change at the
     commit the batch read it at (facts' units), and refused but on the partition's main level's host; a landing's,
     land/<bolt>, on what the bolt brings to main at its head (landing_write), in the head's own folder, and refused but
-    on the host of the team holding the bolt (facts' host), a session of the key on another head ended first; a long
+    on the host its work runs on (facts' host), a session of the key on another head ended first; a long
     proposal's on its page, as crew plan proposed <n> prints it, a session of the key serving an older page of its
     chain ended first. As session_open returns it: its link, whether the user decided in it before it ended, and
     whether it was started anew; a Refusal says why it could not open."""
@@ -16757,7 +12636,7 @@ def reading_open(fleet, label, key, facts):
     why = session_refusal(key, label, fleet["partitions"][label]["machine"], crew.this_host(), facts.get("host"))
     not why or fail(why)
     if key.startswith("batch/"):
-        units = [(u["unit"], u["team"], u["commit"]) for u in facts["units"]]
+        units = [(u["unit"], u["bolt"], u["commit"]) for u in facts["units"]]
         return session_open(d, f"{key}'s session", lambda: batch_folder_write(fleet, label, facts["n"], units))
     if key.startswith("land/"):
         folder = d / facts["head"][:7]
@@ -16803,7 +12682,7 @@ def change_folder(fleet, t, unit, into, at=None):
     (at; Decision 13 of teams-cross-to-flume-as-their-bolts-land), else as the kit's main holds it now, open or
     archived, read by ref after a fetch (MAIN, plan.18), never from the main checkout's files, which the fleet's timer
     moves minutes behind: its Markdown written into the folder into (change_written)."""
-    k = survey(fleet, [(t["name"], None)]).get(t["machine"], {})
+    k = survey(fleet, [(t, None)]).get(t["machine"], {})
     kit = k.get("kits", {}).get(t["kit"]["main"], {}) if k.get("ok") else {}
     kit.get("ok") or fail(f"{t['kit']['main']} on {t['machine']} could not be read: {kit.get('error') or k.get('error')}")
     pl = kit["places"].get(unit)
@@ -16852,14 +12731,14 @@ def change_written(main, ref, unit, into):
 
 
 def landing_write(fleet, f, folder):
-    """Write a landing's reading afresh into folder, its head's, on the host of the team holding the bolt, from the
-    landing's facts (land_facts): each unit's change as the kit holds it at the bolt's head, open or archived
+    """Write a landing's reading afresh into folder, its head's, on the host the bolt's work runs on, in the kit's folder
+    there, from the landing's facts (land_facts, its host and main): each unit's change as the kit holds it at the bolt's head, open or archived
     (change_held), and the bolt's diff against main from where it last met main (base) to its head, less
     openspec/changes/, whose Markdown the units' files show whole, named and ordered by landing_reading, the diff in as
     many files as plannotator's limit for one file asks (diff_parts), each written as the UTF-8 it was measured in.
     Every file is read before any is written: what crew can't read refuses, naming it, and nothing is written (read.1).
     Returns the files' paths, in order."""
-    t = crew.with_kit(fleet["teams"][f["team"]], f["kit"])
+    t = {"label": None, "machine": f["host"], "kit": kit_of(f.get("repo") or f["kit"], f["main"])}
     main, head = t["kit"]["main"], f["head"]
     changes = []
     for u in f["units"]:
@@ -16901,20 +12780,28 @@ def batch_folder(label, n):
 
 # A change's Markdown files at a commit in a kit, run on the team's host: each file's path under the change, then its
 # content as git holds it, each ended by NUL, which no Markdown file holds.
+# A unit's change at a commit, open, else archived (as change_held finds it): a unit given through Flume is batched once
+# its change is archived on its bolt (crossed_changes), at the commit that holds it so.
 CHANGE_AT = r"""set -eo pipefail
 main=$1 sha=$2 unit=$3
 cd "$main"
 git cat-file -e "$sha^{commit}" 2>/dev/null || { echo "$sha is not a commit of $main" >&2; exit 1; }
-git ls-tree -r -z --name-only "$sha" -- "openspec/changes/$unit/" | while IFS= read -r -d '' p; do
-  case $p in *.md) printf '%s\0' "${p#"openspec/changes/$unit/"}"; git cat-file blob "$sha:$p"; printf '\0' ;; esac
+folder=openspec/changes/$unit
+if [ -z "$(git ls-tree -d --name-only "$sha" "$folder")" ]; then
+  folder=$(git ls-tree -d --name-only "$sha" openspec/changes/archive/ | grep -E "^openspec/changes/archive/[0-9]{4}-[0-9]{2}-[0-9]{2}-$unit\$" | sort | tail -n 1 || true)
+fi
+[ -n "$folder" ] || exit 0
+git ls-tree -r -z --name-only "$sha" -- "$folder/" | while IFS= read -r -d '' p; do
+  case $p in *.md) printf '%s\0' "${p#"$folder/"}"; git cat-file blob "$sha:$p"; printf '\0' ;; esac
 done
 """
 
 
 def change_at(fleet, t, unit, sha):
     """A unit's change as read at a commit in its kit's main checkout on its team's host, over ssh when that host is
-    another (code.3), as the reviewer reads it (reading_command): its Markdown files, [(path under the change,
-    content)], in the order of its reading. Refused naming the unit, the host and what failed (read.1)."""
+    another (code.3), as the reviewer reads it (reading_command), open, else archived (CHANGE_AT): its Markdown files,
+    [(path under the change, content)], in the order of its reading. Refused naming the unit, the host and what failed
+    (read.1)."""
     r = crew.on_machine(fleet, t["machine"], ["bash", "-c", CHANGE_AT, "crew", t["kit"]["main"], sha, unit])
     why = unread_change(t, unit, sha, r.returncode, r.stderr)
     not why or fail(why)
@@ -16934,7 +12821,7 @@ def unread_change(t, unit, sha, code, stderr):
 
 def batch_folder_write(fleet, label, n, units):
     """Write batch n's folder afresh, on the main level's host, from the batch the run record holds, its units in the
-    batch's order as (unit, team, the commit the batch read it at): 00-summary.md, the reviewer's summary as written,
+    batch's order as (unit, its bolt, the commit the batch read it at): 00-summary.md, the reviewer's summary as written,
     then for the k-th unit each Markdown file of its change at that commit, named <kk>-<unit>-<its path under the
     change, / as ->, so each file plannotator shows by its name alone names its unit. Every file is read before any is
     written: what crew can't read refuses, naming it, and nothing is written (read.1). Returns the files' paths, in that
@@ -16945,9 +12832,8 @@ def batch_folder_write(fleet, label, n, units):
     except OSError as e:
         fail(f"crew can't read batch {n}'s summary {f}: {e.strerror or e}")
     out = [("00-summary.md", summary)]
-    for k, (u, team, sha) in enumerate(units, 1):
-        t = unit_kit_team(fleet, label, fleet["teams"].get(team) or fail(f"{u}'s team {team} is not in the teams file"), u)
-        out += [(f"{k:02d}-{u}-{p.replace('/', '-')}", text) for p, text in change_at(fleet, t, u, sha)]
+    for k, (u, bolt, sha) in enumerate(units, 1):
+        out += [(f"{k:02d}-{u}-{p.replace('/', '-')}", text) for p, text in change_at(fleet, batch_unit_at(fleet, label, bolt, u), u, sha)]
     folder = batch_folder(label, n)
     folder.mkdir(parents=True, exist_ok=True)
     for old in folder.iterdir():
@@ -16962,14 +12848,14 @@ def landing_reading(bolt, kit, head, units, chores, changes, diff, whole):
     """A landing's reading, the files its one session opens as one review, in order, each (name, text) (card-sessions,
     briefs.9): 00-<bolt>.md, a page naming the bolt, its kit and its head, the units and chores that land, one a line,
     and saying that the reading lands nothing, approving the card being the word to land, and that what the user sends
-    from it reaches the bolt's conductor as notes on the card, a note naming a defect holding the landing for a fix;
+    from it reaches main-level ops as notes on the card, a note naming a defect holding the landing for a fix;
     then for the k-th unit each Markdown file of its change as the head holds it, named <kk>-<unit>-<its path under the
     change, / as ->, in a change's reading order (change_order), as a batch's folder names them; then the bolt's diff
     against main, numbered after the last unit, as text, which plannotator opens beside Markdown in one review where it
     refuses a .diff (plannotator 0.28.23): <nn>-<bolt>-diff.txt, or, when it passes the most plannotator opens in one
     file, its parts (diff_parts), <nn>-<bolt>-diff-<k>-of-<m>.txt, the page saying how many. A file whose own change
     passes that most is in no part: the page names each such file with its size, how many there are, and where to read
-    them whole, GitHub's compare view of the bolt's base against its head and the git command on the team's host
+    them whole, GitHub's compare view of the bolt's base against its head and the git command on the kit's host
     (sluice core.43's shape for a request's commits past the forge's limit). changes: [(unit, [(path under the change,
     text)])] in the plan's order; diff: the diff's text; whole: where the diff is read whole, the kit's GitHub repo
     (owner/name), the commit the diff is from (base), and the kit's main checkout and host."""
@@ -16978,8 +12864,8 @@ def landing_reading(bolt, kit, head, units, chores, changes, diff, whole):
     lines += [f"- {u}" for u in units] + [f"- {c} (chore)" for c in chores]
     lines += ["", "This reading lands nothing: approving the landing card is the word to land, and its Approve here lands "
                   "nothing.", "",
-              "What you send from it reaches the bolt's conductor as notes on the landing card, and a note naming a "
-              "defect holds the landing for a fix.", "",
+              "What you send from it reaches main-level ops as notes on the landing card, and a note naming a defect "
+              "holds the landing for a fix.", "",
               "After this page come each unit's change as the bolt holds it, then what the bolt changes against main, "
               "from where it last met main to its head, less its change folders, shown whole before it."]
     if len(parts) > 1:
@@ -17053,8 +12939,8 @@ def diff_parts(diff, most=PLANNOTATOR_MOST):
 
 
 def forward_card(fleet, t, a, label):
-    """An old batch card's command for one of its units, run on the host the teams file names for that unit's team
-    (code.3), as the one asking here; its output passed on, and its failure this command's."""
+    """An old batch card's command for one of its units, run on the host its work ran on (t, batch_at; code.3), as the
+    one asking here; its output passed on, and its failure this command's."""
     r = crew.on_machine(fleet, t["machine"], crew.crew_argv(fleet, t["machine"], "card", a.sub, a.key, a.unit, "--label", label))
     sys.stdout.write(r.stdout)
     sys.stderr.write(r.stderr)
@@ -17062,9 +12948,9 @@ def forward_card(fleet, t, a, label):
         sys.exit(r.returncode)
 
 
-def batch_team(fleet, label, key, unit):
-    """The team of a unit a batch card holds, from the batch in the run record, whether or not the card is still open:
-    every unit of the batch for batch/<n>, the k-th five for batch/<n>-<k>."""
+def batch_at(fleet, label, key, unit):
+    """Where a unit a batch card holds was built (batch_unit_at), from the batch in the run record, whether or not the
+    card is still open: every unit of the batch for batch/<n>, the k-th five for batch/<n>-<k>."""
     n = int(key.split("/")[1].split("-")[0])
     entries = partition_entries(fleet, label)
     for m, _, units in batches(entries):
@@ -17072,8 +12958,8 @@ def batch_team(fleet, label, key, unit):
             part = card_part(key, units)
             names = [u for u, *_ in part]
             names or fail(f"batch {n} of {label} has no card {key.partition('-')[2]}")
-            team = next((tm for u, tm, _ in part if u == unit), None) or fail(f"{key} holds {either(names)}, not {unit}")
-            return unit_kit_team(fleet, label, fleet["teams"].get(team) or fail(f"{unit}'s team {team} is not in the teams file"), unit)
+            between = next((m for u, m, _ in part if u == unit), None) or fail(f"{key} holds {either(names)}, not {unit}")
+            return batch_unit_at(fleet, label, between, unit)
     fail(f"{label}'s run record holds no batch {n}")
 
 
@@ -17170,13 +13056,14 @@ def reading_read(key, got, decided, answered=None, held=False, recorded=True):
 
 
 def read_outcome(notes):
-    """A batch card's close once the user has read the batch (review-batches): with no notes, or the notes that go to
-    the units' teams, counted when crew can count them (None when it cannot)."""
+    """A batch card's close once the user has read the batch (review-batches): with no notes, or the notes the planner
+    hands on to their units' work (Decision 6 of the-team-machinery-leaves), counted when crew can count them (None when
+    it cannot)."""
     if notes == 0:
         return "Read; no notes"
     if notes is None:
-        return "Read; its notes sent to their teams"
-    return f"Read; {notes} note{'' if notes == 1 else 's'} sent to {'its team' if notes == 1 else 'their teams'}"
+        return "Read; its notes for their units"
+    return f"Read; {notes} note{'' if notes == 1 else 's'} for {'its unit' if notes == 1 else 'their units'}"
 
 
 def waited(name, decided, recorded, gone=False):
@@ -17317,7 +13204,7 @@ def card_end(fleet, a):
         return
     names = [a.unit] if a.unit else card_units(fleet, label, a.key)
     for u in names:
-        t = batch_team(fleet, label, a.key, u)
+        t = batch_at(fleet, label, a.key, u)
         if t["machine"] != crew.this_host():
             forward_card(fleet, t, argparse.Namespace(**dict(vars(a), unit=u)), label)
         else:
@@ -17343,7 +13230,7 @@ def card_held(label, who, key):
         f"{who} holds no open card under {key} on {crew.this_host()}")
 
 
-def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=()):
+def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=(), gone=None):
     """What crew card read land/<kit> prints beside the answer once the user sent the kit's landings card (rail-cards
     "An answer wakes the owner"): the bolts they ticked in the card's order (ticked_of, heads its rows as card_heads
     gives them), and the one crew bolt submit that lands them in that order, or that none was ticked, so nothing lands;
@@ -17353,45 +13240,83 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     it (main-level "Ops lands a bolt on a send that still stands"). Each ticked bolt the run record holds forecast to
     conflict with main at the head the card showed (main_first, main_conflict) is left out of it too, said to take main
     first with the user's send standing for it (rail-cards "Ticking a left bolt that conflicts with main starts its
-    take-main fix"). Each bolt it lands whose last landing sluice or its host stopped (stopped, {bolt: (head, words)},
-    stops) is said with what stopped it and the head it was at, the same submit landing it once that is cleared
-    (rail-cards "Checks that never ran")."""
-    ticked, earlier, stopped = ticked_of(got, heads), list(earlier), stopped or {}
-    lands = [b for b in ticked or [] if b not in main_first]
+    take-main fix"). Each ticked bolt that landed since the card was posted or left the plan (gone, ticked_gone) is said
+    so and left out of it, so a send some of whose bolts landed gives the rest alone (main-level "Ops lands a bolt on a
+    send that still stands"). Each bolt it lands whose last landing sluice or its host stopped (stopped, {bolt: (head,
+    words)}, stops) is said with what stopped it and the head it was at, the same submit landing it once that is
+    cleared (rail-cards "Checks that never ran")."""
+    ticked, earlier, stopped, gone = ticked_of(got, heads), list(earlier), stopped or {}, gone or {}
+    lands = [b for b in ticked or [] if b not in main_first and b not in gone]
     lines = [f"  can't tell whether the user's earlier send still lands {b}: {why}" for b, why in unknown]
     lines += [f"  to land on the user's send of an earlier card: {joined(earlier)}"] if earlier else []
     if ticked == []:
         lines += ["  no bolt ticked on this card: nothing of it lands" if earlier else "  no bolt ticked: nothing lands"]
     elif lands:
         lines += [f"  to land, in the card's order: {joined(lands)}"]
-    lines += [f"  {b} takes main first: its team takes main in by a fix, and the user's send stands for it"
-              for b in ticked or [] if b in main_first]
+    lines += [f"  {b} takes main first until a fix taking main in moves its head, and the user's send stands for it"
+              for b in ticked or [] if b in main_first and b not in gone]
+    lines += [f"  {b} {gone[b]} since the card was posted, so it is no bolt to land" for b in ticked or [] if b in gone]
     both = earlier + lands
     lines += [f"  {b}'s last landing at {stopped[b][0][:7]} was stopped, nothing of the bolt's: {stopped[b][1].rstrip('.')}; "
               "once that is cleared, the submit below lands it on the user's send" for b in both if b in stopped]
     return lines + ([f"  lands them: crew bolt submit {' '.join(both)} --label {label}"] if both else [])
 
 
-def main_firsts(fleet, label, entries, heads, kit=None, acts=None):
-    """The bolts of a kit's landings card the run record holds forecast to conflict with main at the head the card
-    showed (main_conflict), heads its rows as card_heads gives them: read from the partition's branch (read.5) and this
-    host's entries (entries) it does not hold yet. A branch that can't be read is said, and this host's alone read.
-    Each such bolt is read where it lives now, by one acts.work where the kit's (kit's) forecasts are made (bolt_work),
-    and takes main first only while it still stands at that head or the record holds a conflict at the head it moved
-    to: one whose take-main fix moved it since lands on the send that ticked it (rail-cards "A send stands for a
-    ticked bolt taking main in"); one whose head now crew can't read still takes main first (read.1)."""
+def send_entries(fleet, label, entries):
+    """The run record a read of a kit's landings card's send judges its ticked bolts by: the partition's branch
+    (read.5) and this host's entries (entries) it does not hold yet. A branch that can't be read is said, and this
+    host's alone read."""
     try:
         whole = partition_entries(fleet, label)
     except Refusal as e:
-        print(f"crew reads only this host's run record for which ticked bolt takes main first: {e}", file=sys.stderr)
+        print(f"crew reads only this host's run record for what the user's send lands: {e}", file=sys.stderr)
         whole = []
     ids = {e["Id"] for e in whole if e.get("Id")}
-    whole = whole + [e for e in entries if not e.get("Id") or e["Id"] not in ids]
+    return whole + [e for e in entries if not e.get("Id") or e["Id"] not in ids]
+
+
+def main_firsts(whole, heads, now=None):
+    """The bolts of a kit's landings card the run record (whole, send_entries) holds forecast to conflict with main at
+    the head the card showed (main_conflict), heads its rows as card_heads gives them. With now, {bolt: its head now
+    where it lives, or None}, as bolt_work reads each such bolt where the kit's forecasts are made, one takes main
+    first only while it still stands at that head or the record holds a conflict at the head it moved to: one whose
+    take-main fix moved it since lands on the send that ticked it (rail-cards "A send stands for a ticked bolt taking
+    main in"); one whose head now crew can't read still takes main first (read.1). A decision of facts alone (code.7)."""
     shown = {b: h for b, h, _ in heads if main_conflict(whole, b, h)}
-    if not shown or not kit:
+    if now is None:
         return set(shown)
-    now = {b: (w or {}).get("head") for b, w in (acts or CardActs(fleet)).work(label, kit, {b: (h, None) for b, h in shown.items()}).items()}
     return {b for b, h in shown.items() if not now.get(b) or at_head(h, now[b]) or main_conflict(whole, b, now[b])}
+
+
+def firsts_now(fleet, label, kit, whole, heads, acts=None):
+    """The bolts of a kit's landings card that still take main first at the card's read (main_firsts): each the run
+    record holds forecast to conflict with main at the head the card showed, read where it lives now by one acts.work
+    where the kit's forecasts are made (bolt_work)."""
+    shown = main_firsts(whole, heads)
+    if not shown:
+        return shown
+    worked = (acts or CardActs(fleet)).work(label, kit, {b: (h, None) for b, h, _ in heads if b in shown})
+    return main_firsts(whole, heads, {b: (w or {}).get("head") for b, w in worked.items()})
+
+
+def landed_since(entries, card):
+    """The bolts the run record (entries) holds landed since a landings card was posted: each bolt/<bolt> of a
+    bolt.submit that landed (Outcome landed) or a bolt.land, not refused, at or after the card's first entry, its post
+    or a change; none when the record holds no entry of the card. A decision of facts alone (code.7)."""
+    since = min((e["At"] for e in entries if e.get("Card") == card and e.get("At") and not e.get("Refused")), default=None)
+    if since is None:
+        return set()
+    return {o[5:] for e in entries if not e.get("Refused") and (e.get("At") or "") >= since
+            and (e.get("Act") == "bolt.land" or (e.get("Act") == "bolt.submit" and e.get("Outcome") == "landed"))
+            for o in e.get("On") or [] if o.startswith("bolt/")}
+
+
+def ticked_gone(ticked, in_plan, landed):
+    """Of the bolts the user ticked on a kit's landings card (ticked, ticked_of), each that no longer lands on it, with
+    why: landed since the card was posted (landed, landed_since), as the bolts of a group landing sluice took are while
+    another it refused takes main in, or no longer in the plan (in_plan, the plan's bolts of the kit): {bolt: "landed"
+    or "left the plan"}. A decision of facts alone (code.7)."""
+    return {b: "landed" if b in landed else "left the plan" for b in ticked or [] if b in landed or b not in in_plan}
 
 
 def landings_earlier(fleet, label, kit, key, who, entries, heads, acts=None):
@@ -17431,21 +13356,22 @@ def card_read(fleet, a):
     Pending You: its status, whose turn it is, and on the asker's turn the user's answer and words; for a kit's
     landings card, land/<kit>, the bolts they ticked in the card's order and the crew bolt submit that lands them,
     those an earlier send still lands, whose card closed as this one followed it, first (landings_earlier,
-    landing_lines), each whose last landing sluice or its host stopped said with what stopped it (stops), and with no
+    landing_lines), each ticked bolt that landed since the card was posted or left the plan said so and left out of it
+    (ticked_gone), the plan read for it, and refused naming it when it can't be (read.1), each whose last landing sluice or its host stopped said with what stopped it (stops), and with no
     card of the kit open, those alone (landings_unopened). A kit's landings card the user sent is raised first, here on
     the partition's main machine (land_hand), what it says on standard error, so the send is acted on at once: a bolt
-    ticked that was left and conflicts with main is held taking main first and its conductor told the take-main fix,
+    ticked that was left and conflicts with main is held taking main first, recorded so and nobody told (main_told),
     and the bolts the read gives to land leave out each the run record holds so (main_firsts). An approval the user
     declined is then closed with their words, and the close recorded (record 0031 §1), with what they answered in
     crew's words (cards.answer_said); nothing else is. A key with a reading gives what the user sent in it too
     (reading_read), since nothing of crew's waits on it (teams.24): a batch's, batch/<n>, its card and its reading
     together, closing the card and recording the batch read (batch_card_read); a bolt's reading, land/<bolt>, its
-    decision alone, to the bolt's conductor (land_reading_read), unless the caller holds a card of the bolt's own under
+    decision alone, to main-level ops (land_reading_read), unless the caller holds a card of the bolt's own under
     the key, as a conductor posted one before a kit had its landings card, which is read as any card; a long
     proposal's, its reading's decision after the card's answer, a decided one set aside."""
     import cards
     label, who = card_asker(fleet, a)
-    kind = land_key(a.key, partition_kits(fleet, label))
+    kind = land_key(a.key, kits_read(fleet, label))
     if re.fullmatch(r"batch/\d+", a.key):
         return batch_card_read(fleet, label, a.key, who, a.json)
     if (kind and kind[0] == "bolt" and re.fullmatch(r"land/[a-z0-9][a-z0-9-]*", a.key)
@@ -17472,18 +13398,24 @@ def card_read(fleet, a):
         heads = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and e.get("Heads")
                                  and not e.get("Refused")), None))
         earlier, unknown = landings_earlier(fleet, label, kind[1], a.key, who, entries, heads) if kind and kind[0] == "kit" else ([], [])
-        first = main_firsts(fleet, label, entries, heads, kind[1]) if kind and kind[0] == "kit" and ticked_of(got, heads) else set()
+        ticked = ticked_of(got, heads) if kind and kind[0] == "kit" else None
+        first, gone = set(), {}
+        if ticked:  # what the send still lands: no bolt taking main first, landed since or gone from the plan
+            whole = send_entries(fleet, label, entries)
+            plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so which bolts {a.key}'s send still lands can't be told")
+            first = firsts_now(fleet, label, kind[1], whole, heads)
+            gone = ticked_gone(ticked, {b.name() for b in plan.bolts() if b.get("Repo") == kind[1]}, landed_since(whole, card))
         d = CARDS / label / a.key
         reads = a.key.startswith("proposal/") and d.is_dir()
         decided = card_result(d) if reads else None
         r = reading_read(a.key, got, decided) if reads else dict(lines=[], aside=False)
         print("\n".join(cards.answer_lines(a.key, card, got)
-                        + (landing_lines(label, got, heads, earlier, unknown, stops(entries), first)
+                        + (landing_lines(label, got, heads, earlier, unknown, stops(entries), first, gone)
                            if kind and kind[0] == "kit" else []) + r["lines"]))
         if r["aside"]:
             reading_decided(d, decided)
     if words is not None:
-        record.emit(label, "card.close", [cards.row_object(a.key, partition_kits(fleet, label)) or f"agent/{who}"], Card=card,
+        record.emit(label, "card.close", [cards.row_object(a.key, kits_read(fleet, label)) or f"agent/{who}"], Card=card,
                     Key=a.key, State="declined", Outcome=cards.declined_outcome(words), Answer=cards.answer_said(got))
         print(f"card {a.key}: {card} closed, as the user declined it")
 
@@ -17550,22 +13482,21 @@ def batch_card_read(fleet, label, key, who, as_json=False, acts=None):
 
 
 def land_reading_read(fleet, label, key, who, as_json=False, acts=None):
-    """crew card read land/<bolt>: the bolt's conductor's read of its landing's reading, on the host of the team holding
-    the bolt, once crew tells it the user sent it (card-sessions "The session's decision reaches the owner as the card's
-    answer"), what reading_read gives: its annotations word for word as notes on the bolt's row of its kit's landings
-    card, an approval as landing nothing, the card's approval being the word to land, the decision then set aside so
-    the next crew card session starts the reading anew (reading_decided); nothing sent, that it waits on the user,
-    nothing forgotten or ended. The conductor holds no card under the key: the kit's landings card, main-level ops's, is
-    left as it is. Refused for a bolt the plan does not hold or no team holds, off its team's host, and to any agent
-    but its conductor."""
+    """crew card read land/<bolt>: main-level ops's read of a bolt's landing's reading (reading_owner), on the host its
+    work runs on (bolt_at), once crew tells it the user sent it (card-sessions "The session's decision reaches the
+    owner as the card's answer"), what reading_read gives: its annotations word for word as notes on the bolt's row of
+    its kit's landings card, an approval as landing nothing, the card's approval being the word to land, the decision
+    then set aside so the next crew card session starts the reading anew (reading_decided); nothing sent, that it
+    waits on the user, nothing forgotten or ended. The kit's landings card, ops's own under land/<kit>, is left as it
+    is. Refused for a bolt the plan does not hold or not started, off its host, and to any agent but ops."""
     acts = acts or CardActs(fleet)
-    kits, bolt = partition_kits(fleet, label), key.split("/", 1)[1]
+    kits, bolt = kits_read(fleet, label), key.split("/", 1)[1]
     _, b, t = land_held(fleet, label, bolt)
     b or fail(f"{label}'s plan holds no bolt {bolt}, so {key} has no reading")
-    t or fail(f"bolt {bolt} is held by no team, so it is no row of its kit's landings card, and it has no reading")
+    t or fail(f"bolt {bolt} is not started, so it is no row of its kit's landings card, and it has no reading")
     why = session_refusal(key, label, fleet["partitions"][label]["machine"], acts.host(), t["machine"], kits)
     not why or fail(why)
-    owner = f"{t['name']}-conductor"
+    owner = reading_owner(label, key)
     "@" in who or who == owner or fail(f"{key}'s reading is {owner}'s to read, not {who}'s")
     d = CARDS / label / key
     decided = card_result(d) if d.is_dir() else None
@@ -17640,9 +13571,10 @@ def settled_refusal(n, kit, v):
 
 
 def answer_said(n, by, words):
-    """What crew card answer tells the planner when the operator recorded the answer (review-batches, "Notes reach the
-    unit's conductor"): the batch, whose pane, and the user's words whole, to send on as a batch's notes."""
-    return (f'Batch {n} was answered in {by}\'s pane: "{words}". Send each unit\'s part to its conductor, as you send a '
+    """What crew card answer tells the planner when the operator recorded the answer (review-batches; Decision 6 of
+    the-team-machinery-leaves, a batch's notes the planner's to hand on): the batch, whose pane, and the user's words
+    whole, to hand on as a batch's notes."""
+    return (f'Batch {n} was answered in {by}\'s pane: "{words}". Hand each unit\'s part on to its work, as you hand on a '
             "batch's notes.")
 
 
@@ -17683,7 +13615,7 @@ def batch_answer(fleet, a, acts=None):
               else f"card {key}: no card of it is held on any host")
     if kind == "operator":
         if acts.tell(owner, answer_said(n, who, words)):
-            print(f"{owner} was told the user's words, to send each unit's part to its conductor")
+            print(f"{owner} was told the user's words, to hand each unit's part on to its work")
         else:
             print(f"crew could not tell {owner} the user's words, and batch {n} stands answered: tell {owner} them "
                   "yourself with crew tell, as the user wrote them")
@@ -18202,13 +14134,13 @@ def preview_target(key, thing, carried, unread=None):
 
 def rows_previewed(fleet, label, rows):
     """Which of a kit's landings card's rows carry a preview (rail-cards "A thing the card does not carry"), each read
-    at the head the card recorded it at, in its kit's main checkout on its team's host (head_previewed), sluice asked
+    at the head the card recorded it at, in its kit's folder on its host (bolt_at, head_previewed), sluice asked
     for nothing: ({bolt: None} for each whose kit's policy declares one, {bolt: why} for each that can't be read, a
-    bolt no team holds among them, read.1). rows: [(bolt, head, left)], as card_heads gives them."""
+    bolt not started among them, read.1). rows: [(bolt, head, left)], as card_heads gives them."""
     carried, unread = {}, {}
     for bolt, head, _ in rows:
         _, _, t = land_held(fleet, label, bolt)
-        declared, why = head_previewed(fleet, t, head) if t else (None, f"no team holds bolt {bolt}")
+        declared, why = head_previewed(fleet, t, head) if t else (None, f"bolt {bolt} is not started")
         if why:
             unread[bolt] = why
         elif declared:
@@ -18241,9 +14173,9 @@ def card_preview(fleet, a, acts=None):
     and the planner's for batch/<n> (preview_owner, preview_caller): on the partition's main machine, where the card is,
     the thing read from what the card carries (preview_target), a landings row's bolt as its last post or change
     recorded its rows, one whose kit's policy at that head declares a preview (rows_previewed) or, with --done, any, a
-    batch line's <unit>/<name> of a unit of the batch; then on the host of the team holding the
-    thing's work (code.3), through acts.preview_up, its preview brought up through sluice, or with --done released, and
-    the card changed in place (card_preview_here). Refused for any other key, caller or thing, asking sluice nothing."""
+    batch line's <unit>/<name> of a unit of the batch; then on the host the thing's work runs on (preview_at, code.3),
+    through acts.preview_up, its preview brought up through sluice, or with --done released, and the card changed in
+    place (card_preview_here). Refused for any other key, caller or thing, asking sluice nothing."""
     acts = acts or CardActs(fleet)
     label = default_label(fleet, a) or fail("crew card runs as the card's partition: run it as a crew agent, or add --label")
     owner = preview_owner(a.key, label, acts.kits(label))
@@ -18259,32 +14191,41 @@ def card_preview(fleet, a, acts=None):
                                 and not e.get("Refused")), None)) if card else []
         carried, unread = ({b: None for b, _, _ in rows}, {}) if a.done else rows_previewed(fleet, label, rows)
         preview_target(a.key, a.thing, carried, unread)
-        _, b, t = land_held(fleet, label, a.thing)
-        t or fail(f"bolt {a.thing} is held by no team, so nothing of {label}'s brings its preview up")
-        team = t["name"]
     else:
         n = int(a.key.split("/")[1])
         units = next((us for m, _, us in batches(entries) if m == n), None)
         units is not None or fail(f"{label}'s run record on this host holds no batch {n}")
         unit, _, name = a.thing.partition("/")
-        teams = {u: tm for u, tm, _ in units}
         name or fail(f"a batch's line is named <unit>/<name>, as its card names it, not {a.thing}")
-        preview_target(a.key, unit, {u: None for u in teams})
-        team = teams[unit]
-        team in fleet["teams"] or fail(f"{unit}'s team {team} is not in the teams file")
-    return acts.preview_up(fleet["teams"][team]["machine"], label, a.key, a.thing, team, a.done)
+        preview_target(a.key, unit, {u: None for u, _, _ in units})
+    return acts.preview_up(preview_at(fleet, label, a.key, a.thing, entries)["machine"], label, a.key, a.thing, a.done)
 
 
-def card_preview_here(fleet, label, key, thing, team, done):
-    """crew _card-preview <label> <key> <thing> <team> [--done], on the host of the team holding the thing's work:
+def preview_at(fleet, label, key, thing, entries=None):
+    """Where a card's thing is brought up (card_preview, card_preview_here): a landings row's bolt where its work runs
+    (land_held, bolt_at), a batch line's <unit>/<name> where its unit was built (batch_unit_at), the batch read from the
+    run record (entries, the partition's when not given). Refused when crew can't tell (read.1)."""
+    if key.startswith("land/"):
+        _, b, t = land_held(fleet, label, thing)
+        b or fail(f"{label}'s plan holds no bolt {thing}, so nothing of {label}'s brings its preview up")
+        return t or fail(f"bolt {thing} is not started, so nothing of {label}'s brings its preview up")
+    n, unit = int(key.split("/")[1]), thing.split("/", 1)[0]
+    units = next((us for m, _, us in batches(entries if entries is not None else partition_entries(fleet, label)) if m == n), None)
+    units is not None or fail(f"{label}'s run record holds no batch {n}")
+    between = next((m for u, m, _ in units if u == unit), None) or fail(f"batch {n} holds no unit {unit}")
+    return batch_unit_at(fleet, label, between, unit)
+
+
+def card_preview_here(fleet, label, key, thing, done):
+    """crew _card-preview <label> <key> <thing> [--done], on the host the thing's work runs on (preview_at):
     with done, the preview crew brought up of it released (preview_release) and the card changed in place to carry
     what brings it up again, one it brought up of none changing nothing; else its branch and revision read
     (preview_target), a landings row's bolt branch and head as its row reads now (land_read), refused with sluice asked
     nothing where its kit's policy at that head declares no preview or can't be read (head_previewed), a batch line's as
     the unit's copy holds it (made_kept), its preview brought up (preview_ask) and the card changed in place with a note
     saying whether it is up, coming up or could not be (asked_note). What it did, printed."""
-    t = at_work(fleet, team)
-    t["machine"] == crew.this_host() or fail(f"{thing}'s preview is brought up on {t['machine']}, where {team} runs")
+    t = preview_at(fleet, label, key, thing)
+    t["machine"] == crew.this_host() or fail(f"{thing}'s preview is brought up on {t['machine']}, where its work runs")
     if done:
         r = preview_recorded(label, key, thing)
         said, released = preview_release(label, key, thing)
@@ -18296,11 +14237,9 @@ def card_preview_here(fleet, label, key, thing, team, done):
             preview_changed(fleet, label, key, f"{thing}: Its preview of {r['head'][:7]} is put away")
         return
     if key.startswith("land/"):
-        plan, b, held = land_held(fleet, label, thing)
-        (b and held) or fail(f"bolt {thing} is held by no team of {label}'s plan")
-        row, why = land_read(fleet, label, plan, b, held)
+        plan, b, _ = land_held(fleet, label, thing)
+        row, why = land_read(fleet, label, plan, b, t)
         row or fail(f"{thing} is no row of {key} now: {why}")
-        t = crew.with_kit(held, row["facts"]["kit"]) if row["facts"].get("kit") else held
         head = row["facts"]["head"]
         declared, why = head_previewed(fleet, t, head)
         why is None or fail(f"whether {thing} has a preview at {head[:7]} can't be told, so nothing is brought up: {why}")
@@ -18308,7 +14247,6 @@ def card_preview_here(fleet, label, key, thing, team, done):
         branch, revision = preview_target(key, thing, {thing: (f"bolt/{thing}", head)})
     else:
         unit = thing.split("/", 1)[0]
-        t = unit_kit_team(fleet, label, t, unit)
         carried = {f"{unit}/{m['name']}": (m["branch"], m["revision"]) for _, ls in made_kept(label, unit)
                    for m in map(cards.made_line, ls) if not m.get("unread") and "address" not in m and "branch" in m and "revision" in m}
         branch, revision = preview_target(key, thing, carried)
@@ -18320,8 +14258,8 @@ def card_preview_here(fleet, label, key, thing, team, done):
 
 
 def card_preview_cmd(fleet, a):
-    """crew _card-preview: card_preview_here, handed to the team's host by crew card preview (code.3)."""
-    card_preview_here(fleet, a.label, a.key, a.thing, a.team, a.done)
+    """crew _card-preview: card_preview_here, handed to the thing's host by crew card preview (code.3)."""
+    card_preview_here(fleet, a.label, a.key, a.thing, a.done)
 
 
 # ------------------------------------------------------------------------------------- a landing's words, kept
@@ -18370,13 +14308,10 @@ def landing_word_drop(label, bolt):
 # -------------------------------------------------------------------------------------- what a stage made, kept
 
 # What a unit's stages recorded as made (rail-cards "A batch's card carries what each unit's stages recorded as made"),
-# kept by the conductor's wait on the team's host, as the run wrote it, so the lines outlive the place's tidy
-# (bolt-teams "The conductor's wait keeps a copy of what each stage made"): ~/.local/state/crew/made/<label>/<unit>/
-# <stage>.jsonl, a line a thing, under the stage that was running when the wait first saw it, gone when the unit's bolt
-# lands or is dropped. Until crew runs stages through Flume, which renders the file's path into a stage's prompt, a
-# run's lines are read from made.jsonl in its place's own git directory (record 0043, the stopgap roles.5 names).
+# as a conductor's wait kept it on the team's host, so the lines outlive the place's tidy: ~/.local/state/crew/made/
+# <label>/<unit>/<stage>.jsonl, a line a thing, gone when the unit's bolt lands or is dropped. crew keeps no new lines,
+# since it waits on no stage; what a Flume place made reaches crew once the runner reports it (record 0043).
 MADE = pathlib.Path.home() / ".local/state/crew/made"
-MADE_FILE = "made.jsonl"
 UNIT_STAGES = ("construct", "code", "verify", "settle", "merge")
 
 
@@ -18396,16 +14331,6 @@ def made_file(path):
         fail(f"{path} can't be read: {getattr(e, 'strerror', None) or e}")
 
 
-def made_read(fleet, t, place, dirs=None):
-    """What the stage running in a place has recorded as made, its made.jsonl in the place's own git directory (design
-    Decision 1), read on the team's host: its lines (made_file); refused naming what could not be read. dirs, when
-    given, keeps each place's git directory once git has named it, so a wait asks git once."""
-    dirs = {} if dirs is None else dirs
-    if place not in dirs:
-        dirs[place] = pathlib.Path(kit_git(fleet, t, place, "rev-parse", "--absolute-git-dir")[1])
-    return made_file(dirs[place] / MADE_FILE)
-
-
 def made_kept(label, unit):
     """The lines kept for a unit on this host, by stage, [(stage, [line])], in the order its stages run; refused
     naming a copy that can't be read."""
@@ -18415,28 +14340,6 @@ def made_kept(label, unit):
     return [(s, made_file(d / f"{s}.jsonl")) for s in stages]
 
 
-def made_new(kept, lines):
-    """The lines of a place's made.jsonl the wait keeps now (bolt-teams "The conductor's wait keeps a copy of what each
-    stage made"), from facts alone (code.7): each line no stage of the unit has kept (kept, as made_kept gives it), once,
-    in the order the run wrote them."""
-    seen, out = {l for _, ls in kept for l in ls}, []
-    for l in lines:
-        if l not in seen:
-            seen.add(l)
-            out.append(l)
-    return out
-
-
-def made_keep(label, unit, stage, lines):
-    """Lines appended to the unit's copy under stage on this host, each as the run wrote it."""
-    if not lines:
-        return
-    d = MADE / label / unit
-    d.mkdir(parents=True, exist_ok=True)
-    with open(d / f"{stage}.jsonl", "a", encoding="utf-8") as f:
-        f.write("".join(f"{l}\n" for l in lines))
-
-
 def made_drop(label, units):
     """The copies of the units removed from this host, once their bolt has landed or been dropped: what it said."""
     import shutil
@@ -18444,51 +14347,6 @@ def made_drop(label, units):
     for u in gone:
         shutil.rmtree(MADE / label / u, ignore_errors=True)
     return f"removed what {joined(gone)} recorded as made, kept for {'its' if len(gone) == 1 else 'their'} batch's card" if gone else None
-
-
-def batch_open(entries, unit):
-    """The batch whose card carries the unit's made lines while it waits on the user, from the run record's entries,
-    oldest first: the newest batch holding the unit, while its card is neither closed (batch_closed) nor its batch
-    settled (batch_settled); None otherwise. A card the user answered is left as it is by the raise itself
-    (row_card_change)."""
-    n = max((m for m, _, units in batches(entries) if any(u == unit for u, *_ in units)), default=None)
-    if n is None or f"batch/{n}" in batch_closed(entries) or f"batch/{n}" in batch_settled(entries):
-        return None
-    return n
-
-
-def made_look(fleet, t, o, place, said, dirs=None):
-    """One look of the conductor's wait at what a unit's stage has recorded as made (bolt-teams "The conductor's wait
-    keeps a copy of what each stage made"): the place's lines read, each new one kept under the stage running now
-    (made_new, made_keep), and, when one was, the card of the batch holding the unit raised on the partition's main
-    machine with a note naming it (batch_hand) while the card is open (batch_open). What crew can't read is said on
-    standard error, once for the same words (said, a set the wait keeps), and the wait goes on, keeping what it copied
-    before. dirs, the wait's own, keeps the place's git directory once git has named it (made_read)."""
-    label = t["label"]
-    try:
-        new = made_new(made_kept(label, o.name), made_read(fleet, t, place, dirs=dirs))
-        made_keep(label, o.name, o.stage, new)
-    except Refusal as e:
-        why = f"what {o.name}'s {o.stage} made is not kept yet: {e}"
-        if why not in said:
-            said.add(why)
-            print(why, file=sys.stderr)
-        return
-    if not new:
-        return
-    try:
-        n = batch_open(partition_entries(fleet, label), o.name)
-    except Refusal as e:
-        print(f"{o.name} recorded {joined([made_name(l) for l in new])}, and no batch's card is changed: {e}", file=sys.stderr)
-        return
-    if n is not None:
-        batch_hand(fleet, label, n, f"{o.name} recorded {joined([made_name(l) for l in new])}")
-
-
-def made_name(line):
-    """A made line's name, as a change note names it, or that crew could not read it."""
-    m = cards.made_line(line)
-    return "a line crew could not read" if m.get("unread") else m["name"]
 
 
 def made_cmd(fleet, a):
@@ -18595,13 +14453,19 @@ class CardActs:
         return preview_release_row(label, key.split("/", 1)[1]) if key.startswith("land/") else None
 
     def release_previews(self, label, key):
-        """Every preview brought up from a batch's card released as it closes, on each host of its units' teams
-        (crew _preview-release, code.3; design Decision 7), here when this is the host: what each said, or None. A host
-        that does not answer is said, the rail's sweep releasing it later."""
+        """Every preview brought up from a batch's card released as it closes, on each host its units' bolts' work ran
+        on (batch_unit_at), where they were brought up (crew _preview-release, code.3; design Decision 7), here when
+        this is the host: what each said, or None. A host that does not answer, and a unit whose host crew can't tell,
+        is said, the rail's sweep releasing it later."""
         n = int(key.split("/")[1].split("-")[0])
-        teams = {tm for m, _, us in batches(self.entries(label)) if m == n for _, tm, _ in us}
-        said = []
-        for host in sorted({self.fleet["teams"][tm]["machine"] for tm in teams if tm in self.fleet["teams"]}):
+        units = [(u, between) for m, _, us in batches(self.entries(label)) if m == n for u, between, _ in us]
+        said, hosts = [], set()
+        for u, between in units:
+            try:
+                hosts.add(batch_unit_at(self.fleet, label, between, u)["machine"])
+            except Refusal as e:
+                said.append(f"{key}'s previews of {u} are not released yet, the rail's sweep releasing them: {e}")
+        for host in sorted(hosts):
             if host == crew.this_host():
                 said.append(preview_release_card(label, key))
                 continue
@@ -18623,12 +14487,12 @@ class CardActs:
         if r.returncode:
             sys.exit(r.returncode)
 
-    def preview_up(self, host, label, key, thing, team, done):
-        """A card's thing brought up or put away on the host of the team holding its work (card_preview_here): here when
-        this is the host, else by crew _card-preview there (forward)."""
+    def preview_up(self, host, label, key, thing, done):
+        """A card's thing brought up or put away on the host its work runs on (card_preview_here): here when this is the
+        host, else by crew _card-preview there (forward)."""
         if host == crew.this_host():
-            return card_preview_here(self.fleet, label, key, thing, team, done)
-        return self.forward(host, ["_card-preview", label, key, thing, team, *(["--done"] if done else [])])
+            return card_preview_here(self.fleet, label, key, thing, done)
+        return self.forward(host, ["_card-preview", label, key, thing, *(["--done"] if done else [])])
 
     def made(self, label, host, units, key):
         """What the units recorded as made, kept on host, and the previews brought up there from the card under key,
@@ -18659,7 +14523,7 @@ class CardActs:
     def kits(self, label):
         """The names of the kits the partition's teams build, which tell a kit's landings card's key from a bolt's
         (cards.row_object)."""
-        return partition_kits(self.fleet, label)
+        return kits_read(self.fleet, label)
 
     def partition(self, label):
         """The partition's run record from BATCH_DAYS back, read from its branch (partition_entries), refused naming
@@ -18809,8 +14673,9 @@ def built_fields(b):
     """A built card's post or change entry's own fields: Unread, why its reading could not open (unopened), crew's own
     message (record.3), left out when it opened or the card links none; and Heads, a kit's landings card's rows as
     <bolt>@<head>, :left after one the user cleared on their last send (cards.landings_card), which its next raise reads
-    (landings_step)."""
-    return ({"Unread": b["unread"]} if b.get("unread") else {}) | ({"Heads": " ".join(b["heads"])} if b.get("heads") else {})
+    (landings_step); and Form, a deploy card's boxes (cards.deploy_form), which its next raise reads (cards.form_asked)."""
+    return (({"Unread": b["unread"]} if b.get("unread") else {}) | ({"Heads": " ".join(b["heads"])} if b.get("heads") else {})
+            | ({"Form": b["form"]} if b.get("form") else {}))
 
 
 def asked_of(b):
@@ -18927,11 +14792,11 @@ def unopened(b, why):
     """A built card whose reading session could not open, raised all the same (briefs.9): its summary saying so after
     its first paragraph, cut again to Pending You's budget, saying that crew tries it again when the rail is read
     (sweep_cards) and naming crew card session <key> as how its owner starts it, the card then carrying its link
-    (briefs.13: the owner's act, nothing for the user to run), a landing's the bolt's conductor, a batch's and a long
+    (briefs.13: the owner's act, nothing for the user to run), a landing's main-level ops, a batch's and a long
     proposal's the planner; its details opening with why, where the link would be; and why kept on the built card
     (unread), for its post's or change's entry in the run record."""
     key = b["key"]
-    owner = "the bolt's conductor" if key.startswith("land/") else "the planner"
+    owner = "main-level ops" if key.startswith("land/") else "the planner"
     said = (f"Its reading could not be opened on the tailnet: crew tries it again when the rail is read, and {owner} "
             f"starts it with crew card session {key}; this card then carries its link.")
     first, _, rest = b["card"]["summary"].partition("\n\n")
@@ -19028,7 +14893,7 @@ def row_card_change(fleet, label, owner, build, facts, note, where, acts=None, k
                 state = cards.ended(got)
                 how = cards.revision(got, kind_changed, "questions" in b["card"], anew is not None)
             if lost is None and how == "follow":
-                tool, args, state = cards.close_call(got, card, owner, outcome=cut(note, 120))
+                tool, args, state = cards.close_call(got, card, owner, outcome=cut(note, cards.NOTE))
                 _, lost = py.answer(tool, args)
             elif lost is None and how == "change":
                 change = dict(cards.change_args(b["card"], note), requestId=card, name=owner,
@@ -19256,12 +15121,11 @@ def record_card_close(fleet, label, owner, obj, outcome, acts=None):
 
 
 def record_kit(fleet, label, name):
-    """The kit of a partition's teams named name, read from the teams file alone (code.5); refused naming the kits it
-    takes."""
-    kits = {k["name"]: k for t in crew.partition_of(fleet, label)["teams"] for k in crew.kits_of(fleet["teams"][t])}
-    name in kits or fail(f"crew record takes a kit of {label}'s, " + (f"{either(sorted(kits))}, not {name}." if kits else
-                                                                     f"and no team of {label} builds one."))
-    return kits[name]
+    """The kit a design agent's record is in, by name, as the partition's main-level host keeps it (main_kit; the user's
+    ruling of 2026-11-01), where its design agent runs and its records are read, a kit's first records coming before
+    its first bolt; refused where that host keeps none."""
+    t = main_kit(fleet, label, name) or fail(main_kit_said(fleet, label, name, "read its records"))
+    return t["kit"]
 
 
 def record_read(fleet, label, kit_, number, status, alternatives=None):
@@ -19271,7 +15135,7 @@ def record_read(fleet, label, kit_, number, status, alternatives=None):
     where, the commit, its subject), where as card_where gives it for the checkout; refused when the checkout, main,
     the one file or the status it holds can't be read (read.1)."""
     here, k, n = crew.this_host(), record_kit(fleet, label, kit_), f"{number:04d}"
-    checkout = crew.kept_on(fleet, here, k["repo"]) or fail(f"no session of {here} keeps {k['repo']}, so crew can't read its records")
+    checkout = k["main"]
 
     def git(*args):
         r = subprocess.run(["git", "-C", checkout, *args], capture_output=True, text=True)
@@ -19295,8 +15159,8 @@ def record_read(fleet, label, kit_, number, status, alternatives=None):
 def record_status(fleet, a):
     """crew record <kit> <number> --proposed|--accepted|--rejected [--settled-in-pane --excerpt "<words>"]
     [--alternatives <file>] [--label L]: the design agent's record at each turn of its status (briefs.15, record 0031
-    §1). The kit is one of the partition's teams', read from the teams file alone (code.5); the record is read as
-    record_read reads it, where the partition's main level runs. A status its file does not hold there is refused,
+    §1). The kit is one the partition's main-level host keeps (record_kit); the record is read as record_read reads
+    it, in that checkout, where the partition's main level runs. A status its file does not hold there is refused,
     naming what it holds, and so is an alternatives file crew can't read, with nothing recorded. Else record.<status>
     is recorded on record/<kit>/<number> with that commit; then --proposed raises the record's card in the design
     agent's name, or changes the one it holds, naming the commit, unless --settled-in-pane says the user said yes in
@@ -19393,17 +15257,20 @@ class SweepActs(CardActs):
     def now(self):
         return datetime.datetime.now(datetime.timezone.utc)
 
-    def main_at(self, label, kit, sv):
-        """The revision of main the rail's survey (sv) read a kit at in its builder's main checkout (gather.kit's
-        main_at), as last fetched (plan.18): (sha, None), or (None, why) when no team builds it, its host did not
-        answer or its read names none. A builder holding no bolt is not in the rail's survey, and is surveyed alone."""
-        t = builder(self.fleet, label, kit)
-        if not t:
-            return None, f"no team of {label} builds {kit}"
+    def main_at(self, label, kit, sv, runs):
+        """The revision of main the rail's survey (sv) read a kit at in its folder where its work runs (gather.kit's
+        main_at), as the runner that took the kit's newest work reported it (kit_at, from the partition's runners as
+        the read holds them, runs), where its landings card's rows are forecast, as last fetched (plan.18): (sha,
+        None), or (None, why) when crew can't tell where the kit's work runs, its host did not answer or its read
+        names none. A kit the rail's survey did not read is surveyed alone."""
+        try:
+            t = kit_at(self.fleet, label, kit, (runs or {}).get(label))
+        except Refusal as e:
+            return None, str(e)
         host, main = t["machine"], t["kit"]["main"]
         v = sv.get(host)
         if v is None or (v["ok"] and main not in v["kits"]):
-            v = survey(self.fleet, [(t["name"], None, kit)]).get(host) or {"ok": False, "error": "it was not read"}
+            v = survey(self.fleet, [(t, None)]).get(host) or {"ok": False, "error": "it was not read"}
         if not v["ok"]:
             return None, f"{host} did not answer ({v['error']})"
         k = v["kits"].get(main) or {}
@@ -19470,8 +15337,9 @@ def sweep_judgments(fleet, read, here, now):
     """The judgments the rail's sweep of the cards acts on, made on this host (here) at now from a read (rail_read):
     each partition's whose plan was read and whose run record was read from its branch, [(label, owners, planner, j)],
     j as sweep_judged gives it, owners each row's owner by its key with each decision record's row the design agent's,
-    planner the batches' owner; and each partition it can't judge with why, [{label, why}], its run record unread. A
-    decision on plain facts (code.7)."""
+    planner the batches' owner, each land/ key told a kit's from a bolt's by the partition's kits the read holds, and
+    each card's owner judged against the teams file's labels now, for a role that left the fleet; and
+    each partition it can't judge with why, [{label, why}], its run record unread. A decision on plain facts (code.7)."""
     unswept, judged = [], []
     down = {h for h, v in read["sv"].items() if not v["ok"]}
     for l, _, _, pl in read["found"]:
@@ -19484,24 +15352,27 @@ def sweep_judgments(fleet, read, here, now):
             continue
         rows = [r for r in read["rows"] if r["label"] == l]
         owners = {r["key"]: row_owner(fleet, pl, r) for r in rows}
-        blind = {b.name() for b in pl.bolts() if (fleet["teams"].get(b.get("Team")) or {}).get("machine") in down}
+        blind = {b.name() for b in pl.bolts() if bolt_host(fleet, l, b, read.get("runs")) in down}
         blind |= {b.get("Repo") for b in pl.bolts() if b.name() in blind and b.get("Repo")}  # a kit's card, a bolt of it unread
         planner = row_owner(fleet, pl, dict(label=l, group="batches", key=None))
         design = (f"{l}-design", fleet["partitions"][l]["machine"])
         j = sweep_judged(here, rows, [c for c in read["cards"] if c["label"] == l], read["logs"].get(l, []), owners, blind,
-                         read["proposed"].get(l), now, planner, design, partition_kits(fleet, l),
-                         {x["bolt"]: r["key"].split("/", 1)[1] for r in rows if r["group"] == "land" for x in r.get("bolts", [])})
+                         read["proposed"].get(l), now, planner, design, read["kits"][l],
+                         {x["bolt"]: r["key"].split("/", 1)[1] for r in rows if r["group"] == "land" for x in r.get("bolts", [])},
+                         (read.get("renames") or {}).get(l), labels=set(fleet["partitions"]))
         judged.append((l, dict(owners, **{r["key"]: design for r, _ in j["again"] if r["group"] == "records"}), planner, j))
     return judged, unswept
 
 
 def cards_asked(fleet, read, here, now):
     """The cards the rail's sweep asks Pending You whether it still finds, of the judgments it would act on
-    (sweep_judgments): each card of a row that is gone, each held with its row and each question, each once, in order.
+    (sweep_judgments): each card of a row that is gone, each held with its row, each question and each whose role left
+    the fleet, each once, in order.
     The host's follower asks after them on its clock's tick (cards_fetched) and none when there are none. A decision
     on plain facts (code.7)."""
     judged, _ = sweep_judgments(fleet, read, here, now)
-    return list(dict.fromkeys(c["card"] for _, _, _, j in judged for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"]))
+    return list(dict.fromkeys(c["card"] for _, _, _, j in judged for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"]
+                              + [c for c, _ in j["left_fleet"]]))
 
 
 def askers_asked(fleet, read, here, now):
@@ -19543,7 +15414,10 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     is gone with why (sweep_judged, row_gone), a proposal's only on the plan as this read holds it (read["proposed"],
     proposals_held), at or past the commit its card was raised at (older_than_card), and each decision record's card,
     under either key form, at the record's status
-    (record_settled), withdraws each question whose asker's pane herdr lists with no agent in it, naming the asker,
+    (record_settled), withdraws each card of crew's whose owner left the fleet in its owner's name, saying so and how
+    whoever holds its work now raises it again (sweep_judged's left_fleet, cards.left_said), the card alone, since its
+    row's reading and previews are the partition's still and end with the row (card_closed, sweep_sessions),
+    withdraws each question whose asker's pane herdr lists with no agent in it, naming the asker,
     and leaves one whose asker's pane it can't read, saying why (SweepActs.listed, read.1), posts again
     through its kind's raise each row's card Pending You no longer finds, and posts through its kind's raise each row's
     card that has none; a lost card of a kind with no raise is recorded lost, for its owner to raise again with the
@@ -19579,7 +15453,8 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
             judged.append((l, owners, j))
     if not judged:
         return out
-    asked = list(dict.fromkeys(c["card"] for _, _, j in judged for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"]))
+    asked = list(dict.fromkeys(c["card"] for _, _, j in judged for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"]
+                               + [c for c, _ in j["left_fleet"]]))
     found, error = answers if answers is not None else cards_fetched(fleet, asked, acts)
     if error is not None:
         out["unswept"] += [dict(label=l, why=error) for l, _, _ in judged]
@@ -19610,6 +15485,19 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
                 did(l, c["key"], c["card"], c["by"], "closed" if outcome else "withdrawn", outcome or reason)
             else:
                 did(l, c["key"], c["card"], c["by"], "left", "its close did not go through, as said above")
+        for c, words in j["left_fleet"]:  # only the card goes: its row's reading and previews are the partition's still
+            if c["card"] not in found:
+                continue
+            if cards.lost(found[c["card"]][1]):
+                card_lost(acts, l, c["by"], c["key"], c["card"], found[c["card"]][1])
+                did(l, c["key"], c["card"], c["by"], "lost", f"{c['by']} left the fleet, so nobody posts it again in that name")
+                continue
+            shut = card_closed(acts, l, c["by"], c["key"], None, words)
+            if shut:
+                did(l, c["key"], c["card"], c["by"], "withdrawn", words)
+            else:
+                did(l, c["key"], c["card"], c["by"], "left", "its close did not go through, as said above" if shut is False else
+                    "no card of its owner's is held open under its key on this host, or Pending You no longer finds it, as said above")
         for c in j["questions"]:
             if c["card"] not in found:
                 continue
@@ -19677,7 +15565,7 @@ def sweep_moved(fleet, read, acts=None):
     """The rail read's raise of each kit's landings card main moved under (rail-cards "Main moves under an open card"),
     once its sweep acted, on the partition's main machine alone, where main-level ops's cards are: for each partition
     whose plan was read, each landings card open on this host in ops's name (land/<kit>), the revision of main the
-    survey read its kit at in its builder's checkout, as last fetched with no fetch of its own (SweepActs.main_at,
+    survey read its kit at where its work runs, as last fetched with no fetch of its own (SweepActs.main_at,
     plan.18), and the one its rows were last forecast against (CardActs.kept_main) are compared (landings_moved), and
     each card main moved under is raised again (SweepActs.raise_kit), which fetches GitHub's main and forecasts its
     rows there; a card main has not moved under is fetched for and raised by none. A raise refused is said, and the read
@@ -19688,10 +15576,10 @@ def sweep_moved(fleet, read, acts=None):
     for l, _, _, pl in read["found"]:
         if not pl or crew.partition_of(fleet, l)["machine"] != here:
             continue
-        kits = partition_kits(fleet, l)
+        kits = read["kits"][l]
         open_ = [(l, kit) for c in read["cards"] if c["label"] == l and c["host"] == here and c["by"] == f"{l}-ops"
                  for kind, kit in [land_key(c["key"], kits) or (None, None)] if kind == "kit"]
-        mains = {c: acts.main_at(l, c[1], read["sv"]) for c in dict.fromkeys(open_)}
+        mains = {c: acts.main_at(l, c[1], read["sv"], read.get("runs")) for c in dict.fromkeys(open_)}
         kept = {c: acts.kept_main(*c) for c in mains}
         due, unread = landings_moved(open_, {c: m for c, (m, _) in mains.items()}, kept)
         out["unread"] += [dict(label=l, kit=c[1], why=mains[c][1]) for c in unread]
@@ -19720,7 +15608,8 @@ def card_folder(rel):
 
 def card_sweep(fleet, a, acts=None):
     """crew card sweep --label L: the rail's, run on each host of the partition with its judgment on standard input as
-    JSON, {"live": [card keys], "blind": [key prefixes]}. It ends, through end_session, each session crew recorded on
+    JSON, {"live": [card keys], "blind": [key prefixes], "landings": [{bolt, kit, dir, stages}]}, its landings given
+    only to a host a started bolt's work runs on (landings_judged). It ends, through end_session, each session crew recorded on
     this host for the partition whose key is in no live entry and starts with no blind prefix, once it is at least two
     minutes old by its own start against this host's clock and its folder's lock is free (crew card session holds it
     while it starts one). Then it releases, through preview_release, each preview crew recorded on this host for a
@@ -19728,7 +15617,9 @@ def card_sweep(fleet, a, acts=None):
     asked (preview_dead). Then it acts on each reading of a live key the user sent and nobody has read (readings_sent):
     a batch's sent with no words is recorded read as the planner's read records it (sweep_wordless), and every other
     reading's owner is told once, the mark written only once the tell went through (sweep_told), since nothing of
-    crew's waits on a reading (teams.24). It prints, as a JSON list, each session, preview and reading it acted on: its
+    crew's waits on a reading (teams.24). Then it reads each landing the judgment names, of a bolt whose work runs
+    here as the rail read it, that may have an outcome or a close nothing recorded (reap_judged), what that says on
+    standard error. It prints, as a JSON list, each session, preview and reading it acted on: its
     key, its unit (a batch card's) or null, what it said, whether it sent SIGTERM or released the preview, and, for a
     reading, sent. A folder with no session.json, or whose path is no card key's, is left alone, and a record it can't
     read is kept and said (read.1, read.4)."""
@@ -19739,9 +15630,12 @@ def card_sweep(fleet, a, acts=None):
         j = json.loads(sys.stdin.read())
     except ValueError:
         j = None
-    (isinstance(j, dict) and set(j) == {"live", "blind"}
-     and all(isinstance(j[k], list) and all(isinstance(x, str) for x in j[k]) for k in j)) or fail(
-        'crew card sweep reads the rail\'s judgment on standard input as {"live": [card keys], "blind": [key prefixes]}')
+    (isinstance(j, dict) and {"live", "blind"} <= set(j) <= {"live", "blind", "landings"}
+     and all(isinstance(j[k], list) and all(isinstance(x, str) for x in j[k]) for k in ("live", "blind"))
+     and all(isinstance(g, dict) and set(g) == {"bolt", "kit", "dir", "stages"} and all(isinstance(g[k], str) for k in ("bolt", "kit", "dir"))
+             and isinstance(g["stages"], list) and all(isinstance(x, str) for x in g["stages"]) for g in j.get("landings", []))) or fail(
+        'crew card sweep reads the rail\'s judgment on standard input as {"live": [card keys], "blind": [key prefixes], '
+        '"landings": [{"bolt", "kit", "dir", "stages"}]}, its landings optional')
     live, blind, root = set(j["live"]), tuple(j["blind"]), CARDS / label
     now, out = datetime.datetime.now(datetime.timezone.utc), []
     for f in sorted(root.rglob("session.json")) if root.is_dir() else []:
@@ -19806,6 +15700,8 @@ def card_sweep(fleet, a, acts=None):
         said = (sweep_wordless if step == "record" else sweep_told)(fleet, label, key, acts)
         if said:
             out.append(dict(key=key, unit=None, said=said, ended=False, sent=True))
+    with contextlib.redirect_stdout(sys.stderr):  # the landings read here (plan.21), its words beside the sweep's list
+        reap_judged(fleet, label, j.get("landings", []))
     print(json.dumps(out))
 
 
@@ -19846,16 +15742,11 @@ def readings_due(readings):
     return due
 
 
-def reading_owner(fleet, label, key):
-    """Who reads a key's reading (card-sessions): the planner a batch's and a long proposal's, the bolt's conductor a
-    bolt's, land/<bolt>, the team holding it read from the plan (land_held); refused when no team holds the bolt or the
-    plan can't be read."""
-    if not key.startswith("land/"):
-        return f"{label}-planner"
-    bolt = key.split("/", 1)[1]
-    _, b, t = land_held(fleet, label, bolt)
-    (b and t) or fail(f"bolt {bolt} is held by no team of {label}'s plan, so nobody reads its reading")
-    return f"{t['name']}-conductor"
+def reading_owner(label, key):
+    """Who reads a key's reading (card-sessions): the planner a batch's and a long proposal's, main-level ops a bolt's,
+    land/<bolt>, as the owner of its kit's landings card (Decision 6 of the-team-machinery-leaves). A decision of the
+    key alone (code.7)."""
+    return f"{label}-ops" if key.startswith("land/") else f"{label}-planner"
 
 
 def sweep_told(fleet, label, key, acts):
@@ -19864,10 +15755,7 @@ def sweep_told(fleet, label, key, acts):
     read and holding no word of the user's (roles.6), and the reading marked told, told.json beside its result, only
     once the tell went through; a tell refused, the owner not up among it, leaves it untold for the next refresh, so
     delivery is at least once. What it did, in words."""
-    try:
-        owner = reading_owner(fleet, label, key)
-    except Refusal as e:
-        return f"the user sent its reading, and crew can't tell whom to tell: {e}"
+    owner = reading_owner(label, key)
     why = io.StringIO()
     try:
         with contextlib.redirect_stderr(why):
@@ -19991,6 +15879,12 @@ def parser(cls=argparse.ArgumentParser, only=None):
     v.add_argument("work")
     v.add_argument("words")
     v.add_argument("--label")
+    v = sub.add_parser("fix")
+    v.add_argument("bolt")
+    v.add_argument("name")
+    v.add_argument("words", nargs="?")
+    v.add_argument("--drop", action="store_true")
+    v.add_argument("--label")
     ro = sub.add_parser("role").add_subparsers(dest="sub", required=True)
     ro.add_parser("start")
     v = ro.add_parser("end")
@@ -20010,7 +15904,6 @@ def parser(cls=argparse.ArgumentParser, only=None):
     v.add_argument("--drop", action="store_true")
     v.add_argument("--send", action="store_true")
     v.add_argument("--excerpt")
-    v.add_argument("--team")
     v.add_argument("--label")
     ca = sub.add_parser("card").add_subparsers(dest="sub", required=True)
     for c in ("session", "wait", "end"):
@@ -20054,9 +15947,9 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("--source", action="append", default=[])
     x.add_argument("--before")
     x.add_argument("--label")
-    x = bo.add_parser("give")
-    x.add_argument("team")
-    x.add_argument("bolt", nargs="?")
+    x = bo.add_parser("start")
+    x.add_argument("bolt")
+    x.add_argument("--label")
     x = bo.add_parser("order")
     x.add_argument("bolt")
     g = x.add_mutually_exclusive_group(required=True)
@@ -20159,6 +16052,11 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("reason")
     x.add_argument("--label")
 
+    x = sub.add_parser("kit").add_subparsers(dest="sub", required=True).add_parser("rename")
+    x.add_argument("old", type=kit_name)
+    x.add_argument("new", type=kit_name)
+    x.add_argument("--label")
+
     pp = sub.add_parser("plan").add_subparsers(dest="sub", required=True)
     x = pp.add_parser("propose")
     x.add_argument("file")
@@ -20169,10 +16067,6 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("--label")
     x.add_argument("--json", action="store_true")
     x.add_argument("--open", action="store_true")
-    x = pp.add_parser("agree")
-    x.add_argument("n", type=int)
-    x.add_argument("--team")
-    x.add_argument("--label")
     x = pp.add_parser("approve")
     x.add_argument("n", type=int)
     x.add_argument("--clear", nargs="+", action="extend", default=[], metavar="UNIT")
@@ -20210,23 +16104,8 @@ def parser(cls=argparse.ArgumentParser, only=None):
     g.add_argument("--excerpt-file", help="a file holding them, for words the shell would mangle")
     x.add_argument("--label")
 
-    # The commands on a team and on a partition's main level, each one process on the host its agents run on (bash crew
+    # The commands on a partition's main level and on a kit's host, each one process on the host it acts on (bash crew
     # runs them, and forwards them when one names another host).
-    x = sub.add_parser("_status")
-    x.add_argument("team")
-    x.add_argument("--force", action="store_true")
-    x = sub.add_parser("_unit-run")
-    x.add_argument("unit")
-    x.add_argument("stage", choices=("construct", "code", "verify", "settle", "merge"))
-    x.add_argument("words", nargs="?", default="")
-    x.add_argument("--chore", action="store_true", help="crew chore run asks: the name is a chore's")
-    x.add_argument("--force", action="store_true")
-    x = sub.add_parser("_construct-again")
-    x.add_argument("team")
-    x.add_argument("unit")
-    x.add_argument("--by", required=True)
-    x.add_argument("--handed", action="store_true", help="the handed construct's own process")
-    x.add_argument("--force", action="store_true")
     x = sub.add_parser("_preview")
     x.add_argument("label")
     x.add_argument("key")
@@ -20240,7 +16119,6 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("label")
     x.add_argument("key")
     x.add_argument("thing")
-    x.add_argument("team")
     x.add_argument("--done", action="store_true")
     x = sub.add_parser("_landing-read")
     x.add_argument("label")
@@ -20263,53 +16141,19 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("label")
     x.add_argument("n", type=int)
     x.add_argument("--note")
-    x = sub.add_parser("_unit-wait")
-    x.add_argument("unit")
-    x.add_argument("--timeout", type=int, default=3600000)
-    x.add_argument("--stuck", type=int, default=900000)
-    x = sub.add_parser("_fix-run")
-    x.add_argument("team")
-    x.add_argument("name")
-    x.add_argument("mode", choices=("start", "merge", "drop", "wait"))
-    x.add_argument("words", nargs="?", default="")
-    x.add_argument("--bolt")
-    x.add_argument("--timeout", type=int, default=3600000)
-    x.add_argument("--stuck", type=int, default=900000)
-    x.add_argument("--force", action="store_true")
-    x = sub.add_parser("_tidy")
-    x.add_argument("team")
-    x.add_argument("--force", action="store_true")
+    x = sub.add_parser("_sweep")
+    x.add_argument("label")
+    x.add_argument("kit")
+    x.add_argument("--dir", required=True)
     x.add_argument("--landed")
     x.add_argument("--outcome")
     x.add_argument("--units", nargs="+", default=[])
     x.add_argument("--said")
     x.add_argument("--here", action="store_true")
-    x = sub.add_parser("_notice")
-    x.add_argument("team")
-    x.add_argument("bolt")
-    x = sub.add_parser("_unit-free")
-    x.add_argument("unit")
-    x.add_argument("--team")
-    x.add_argument("--force", action="store_true")
-    x = sub.add_parser("_team")
-    x.add_argument("act", choices=("up", "close", "rebuild", "restart", "resume", "clear", "down"))
-    x.add_argument("team")
-    x.add_argument("roles", nargs="*")
-    x.add_argument("--force", action="store_true")
-    x.add_argument("--no-greet", dest="greet", action="store_false")
-    x = sub.add_parser("_needs")
-    x.add_argument("words")
-    x.set_defaults(team=None, slot=None)
-    x = sub.add_parser("_end-short")
-    x.add_argument("team")
-    x.add_argument("slot")
     x = sub.add_parser("_main")
     x.add_argument("act", choices=("up", "down", "status"))
     x.add_argument("label")
     x.add_argument("--force", action="store_true")
-    x = sub.add_parser("_dispatch")
-    x.add_argument("act", choices=("up", "down", "status"))
-    x.add_argument("label")
     x = sub.add_parser("_review")
     x.add_argument("label")
     x.add_argument("--wait", action="store_true")
@@ -20329,69 +16173,61 @@ COMMANDS = {
     ("state", "init"): state_init, ("bolts", None): bolts_view, ("rail", None): rail_view,
     ("card", "preview"): card_preview, ("card", "session"): card_session, ("card", "wait"): card_wait, ("card", "end"): card_end, ("card", "sweep"): card_sweep,
     ("card", "read"): card_read, ("card", "answer"): batch_answer,
-    ("record", None): record_status, ("answer", None): answer, ("main", "fix"): main_fix,
+    ("record", None): record_status, ("answer", None): answer, ("fix", None): fix, ("main", "fix"): main_fix,
     ("role", "start"): role_start, ("role", "end"): role_end, ("role", "open"): role_open, ("role", "land"): role_land,
-    ("bolt", "new"): direct(("bolt", "new")), ("bolt", "give"): bolt_give, ("bolt", "order"): direct(("bolt", "order")), ("bolt", "drop"): direct(("bolt", "drop")),
+    ("bolt", "new"): direct(("bolt", "new")), ("bolt", "start"): direct(("bolt", "start")), ("bolt", "order"): direct(("bolt", "order")), ("bolt", "drop"): direct(("bolt", "drop")),
     ("bolt", "land"): bolt_land, ("bolt", "submit"): bolt_submit, ("bolt", "leave"): bolt_leave,
     ("unit", "add"): direct(("unit", "add")), ("unit", "split"): direct(("unit", "split")), ("unit", "amend"): direct(("unit", "amend")),
     ("unit", "order"): direct(("unit", "order")), ("unit", "after"): direct(("unit", "after")),
     ("unit", "move"): direct(("unit", "move")), ("unit", "drop"): direct(("unit", "drop")),
     ("chore", "add"): direct(("chore", "add")), ("chore", "order"): direct(("chore", "order")), ("chore", "after"): direct(("chore", "after")),
     ("chore", "move"): direct(("chore", "move")), ("chore", "drop"): direct(("chore", "drop")),
-    ("_status", None): team_status, ("_unit-run", None): unit_run, ("_unit-wait", None): unit_wait, ("_fix-run", None): fix_run,
-    ("_construct-again", None): construct_hand, ("_preview", None): preview_handed,
+    ("kit", "rename"): direct(("kit", "rename")),
+    ("_preview", None): preview_handed,
     ("_preview-release", None): preview_release_cmd, ("_card-preview", None): card_preview_cmd,
     ("_land-row", None): land_row_cmd, ("_land-card", None): land_card_cmd, ("_landing-read", None): landing_read_cmd,
     ("_made", None): made_cmd, ("_batch-card", None): batch_card_cmd,
-    ("_tidy", None): team_tidy, ("_notice", None): given_noticed, ("_unit-free", None): unit_free,
-    ("_team", None): team_cmd, ("_main", None): main_cmd, ("_dispatch", None): dispatch_cmd,
+    ("_sweep", None): kit_sweep, ("_main", None): main_cmd,
     ("_review", None): review_cmd, ("review-delivered", None): review_delivered, ("_console", None): console_cmd, ("_revive", None): revive_cmd,
     ("_answered", None): card_answered,
     ("signal", None): signal, ("signal-move", None): signal_move,
     ("signal-show", None): signal_show, ("signal-land", None): signal_land,
-    ("_needs", None): needs_cmd, ("_end-short", None): end_short,
-    ("plan", "propose"): plan_propose, ("plan", "proposed"): plan_proposed, ("plan", "agree"): plan_agree,
+    ("plan", "propose"): plan_propose, ("plan", "proposed"): plan_proposed,
     ("plan", "approve"): plan_approve, ("plan", "drop"): plan_drop, ("plan", "answer"): plan_answer,
 }
-# The commands on a team and on a main level, each one process on the host its agents run on.
-TEAM_COMMANDS = {(c, None) for c in ("_status", "_unit-run", "_unit-wait", "_fix-run", "_construct-again", "_tidy", "_notice", "_unit-free",
-                                      "_team", "_needs", "_end-short", "_main", "_dispatch", "_review", "_console", "_revive")}
+# The commands on a main level and on a kit's host, each one process on the host it acts on.
+HOST_COMMANDS = {(c, None) for c in ("_sweep", "_main", "_review", "_console", "_revive")}
 # The act a command that moves work records, done or refused. A command that only reads records nothing.
 ACTS = {
-    ("state", "init"): "state.init", ("bolt", "new"): "bolt.new", ("bolt", "give"): "bolt.give", ("bolt", "order"): "bolt.order",
+    ("state", "init"): "state.init", ("bolt", "new"): "bolt.new", ("bolt", "start"): "bolt.start", ("bolt", "order"): "bolt.order",
     ("bolt", "drop"): "bolt.drop", ("bolt", "land"): "bolt.land", ("bolt", "submit"): "bolt.submit", ("bolt", "leave"): "bolt.leave",
     ("unit", "add"): "unit.add", ("unit", "split"): "unit.split",
     ("unit", "amend"): "unit.amend",
     ("unit", "order"): "unit.order", ("unit", "after"): "unit.after", ("unit", "move"): "unit.move", ("unit", "drop"): "unit.drop",
     ("chore", "add"): "chore.add", ("chore", "order"): "chore.order", ("chore", "after"): "chore.after", ("chore", "move"): "chore.move",
-    ("chore", "drop"): "chore.drop",
+    ("chore", "drop"): "chore.drop", ("kit", "rename"): "kit.rename",
     ("signal", None): "capture", ("signal-move", None): "signal.move", ("signal-land", None): "capture",
-    ("_needs", None): "stage.end",
-    ("plan", "propose"): "plan.propose", ("plan", "agree"): "plan.agree", ("plan", "approve"): "plan.approve",
+    ("plan", "propose"): "plan.propose", ("plan", "approve"): "plan.approve",
     ("plan", "drop"): "plan.drop", ("answer", None): "stage.answer",
 }
 
 
 def named(a):
     """The objects a command names on its command line: a refusal's entry names those. A unit or chore is named by
-    its kind: the command's, crew chore run's, or the plan's, once a stage's check has read it (CONTEXT["kind"])."""
-    kind = "chore" if a.cmd == "chore" or getattr(a, "chore", False) else CONTEXT.get("kind") or "unit"
+    its command's kind."""
+    kind = "chore" if a.cmd == "chore" else "unit"
     out = [f"{kind}/{a.unit}"] if getattr(a, "unit", None) else []
-    if getattr(a, "unit", None) and getattr(a, "stage", None):
-        out.append(f"stage/{a.unit}/{a.stage}")
     for bolt in (a.bolt if isinstance(getattr(a, "bolt", None), list) else [getattr(a, "bolt", None)]):  # crew bolt submit names several
         if bolt and bolt != "queue":
             out.append(f"bolt/{bolt}")
-    if getattr(a, "team", None):
-        out.append(f"team/{a.team}")
-    if a.cmd == "_needs":
-        out.append(f"agent/{a.team}-{a.slot}")
     if a.cmd == "signal-move":
         out.append(f"signals/{a.signal}")
     if a.cmd == "signal-land" and crew.NAME.match(pathlib.Path(a.dir).name):
         out.append(f"signals/{pathlib.Path(a.dir).name}")
     if a.cmd == "state":
         out.append(f"plan/{a.label}")
+    if a.cmd == "kit":
+        out.append(f"kit/{a.old}")
     if a.cmd == "plan" and getattr(a, "n", None) is not None:
         out.append(f"proposal/{a.n}")
     if a.cmd == "answer" and CONTEXT.get("work"):  # the work as requests name it, once its launch was found
@@ -20402,8 +16238,6 @@ def named(a):
 def refused(fleet, a, key, e):
     """A refused command that would have moved work, in its partition's run record, with crew's reason."""
     label = CONTEXT.get("label") or getattr(a, "label", None) or crew.caller_label(fleet)
-    if not label and getattr(a, "team", None) in fleet["teams"]:
-        label = fleet["teams"][a.team]["label"]
     if label in fleet["partitions"]:
         record.emit(label, ACTS[key], named(a), refused=getattr(e, "recorded", None) or str(e))
 
@@ -20418,7 +16252,7 @@ def main(argv):
     args = ap.parse_args(argv)
     fleet = crew.load()
     key = (args.cmd, getattr(args, "sub", None))
-    if key in TEAM_COMMANDS:  # one process says what each of its steps did, in the order they did it
+    if key in HOST_COMMANDS:  # one process says what each of its steps did, in the order they did it
         sys.stdout.reconfigure(line_buffering=True)
     try:
         may_write(fleet, key, args)

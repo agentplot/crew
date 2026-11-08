@@ -172,7 +172,7 @@ FALSE = dict.fromkeys(("design", "planner", "reviewer", "ops", "operator"), Fals
 
 
 def madswan(**flume):
-    return {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints", "afterthought/flywheel-web"], "roles": {},
+    return {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints", "afterthought/boomdrive-web"], "roles": {},
             "flume": dict(FALSE, **flume)}
 
 
@@ -190,8 +190,8 @@ class TestRoleRecords:
     def test_a_runs_model_is_its_definitions_after_the_teams_files_override(self):
         """role-runs, An override: wldn sets roles.planner.model; main-ops's override is read for ops."""
         wldn = dict(madswan(planner="wldn-main", ops="wldn-main"), label="wldn", machine="chuck-herdr-alpha",
-                    roles={"planner": {"model": "claude-opus-5-5[1m]"}, "main-ops": {"effort": "max"}})
-        assert (asks.role_record(wldn, "planner", PLANNER)["Model"], asks.role_record(wldn, "planner", PLANNER)["Effort"]) == ("claude-opus-5-5[1m]", "xhigh")
+                    roles={"planner": {"model": "claude-opus-5-5"}, "main-ops": {"effort": "max"}})
+        assert (asks.role_record(wldn, "planner", PLANNER)["Model"], asks.role_record(wldn, "planner", PLANNER)["Effort"]) == ("claude-opus-5-5", "xhigh")
         assert (asks.role_record(wldn, "ops", OPS)["Model"], asks.role_record(wldn, "ops", OPS)["Effort"]) == ("claude-opus-5-5[1m]", "max")
         assert asks.role_record(madswan(planner="m"), "planner", PLANNER)["Model"] == "claude-opus-5-5[1m]"
         assert asks.definition_of("ops") == "main-ops" and asks.definition_of("design") == "design"
@@ -270,7 +270,7 @@ class TestWaitsOn:
         assert [w[1] for w in asks.waits_on("madswan/planner", reqs, places)] == ["3", "12"]
 
 
-MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "teams": {}, "hosts": {}}
+MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
 
 
 @pytest.fixture
@@ -345,7 +345,6 @@ class TestWrite:
         monkeypatch.setattr(plan, "read", lambda repo, ref, tip: plan.Plan(""))
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: None)
         monkeypatch.setattr(plan, "land", lambda repo, ref, path, make: made.append(make("t" * 40)) or "c" * 40)
-        monkeypatch.setattr(plan, "notify", lambda fleet, seen, subject: None)
         monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, **f: emitted.append((act, on, eid, f)))
         monkeypatch.setattr(plan, "agent", lambda: "madswan-ops")
 
@@ -421,7 +420,7 @@ Began: 2026-10-31T10:01:00Z
 
 
 class Branch:
-    """madswan's flywheel branch as a role command sees it: its files, each write applied to them, and the entries each
+    """madswan's drive branch as a role command sees it: its files, each write applied to them, and the entries each
     write emitted."""
 
     def __init__(self, files):
@@ -429,7 +428,7 @@ class Branch:
 
 
 def on_branch(monkeypatch, fleet, files):
-    """madswan's flywheel branch in memory holding files, each write of a command on deneb applied to it and each
+    """madswan's drive branch in memory holding files, each write of a command on deneb applied to it and each
     entry it emitted kept (Branch)."""
     import crew
     import plan
@@ -448,7 +447,6 @@ def on_branch(monkeypatch, fleet, files):
         b.writes.append(msg)
         return "c" * 40
     monkeypatch.setattr(plan, "land", land)
-    monkeypatch.setattr(plan, "notify", lambda fleet, seen, subject: None)
     monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, by=None, **f:
                         b.entries.append((act, list(on), why, f)))
     monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: ([], {}))
@@ -463,7 +461,7 @@ def in_run(monkeypatch, tmp_path):
     import crew
     import plan
     import record
-    fleet = {"partitions": {"madswan": madswan(planner="madswan-main")}, "teams": {}, "hosts": {}}
+    fleet = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
     monkeypatch.setenv("FLUME_PLACE", "/home/u/.local/state/flume/places/crew-planner--madswan")
     b = on_branch(monkeypatch, fleet, {"asks.rec": TAKEN})
     monkeypatch.setattr(crew, "brief", lambda fleet, scope, role, self_name="": f"the {role} brief of {scope} for {self_name}")
@@ -485,7 +483,7 @@ def end(b, report, words):
 
 
 def fleet_of(p):
-    return {"partitions": {"madswan": p}, "teams": {}, "hosts": {}}
+    return {"partitions": {"madswan": p}, "hosts": {}}
 
 
 def roles_held(p):
@@ -774,7 +772,7 @@ def opening(monkeypatch):
     standing: madswan's branch in memory and deneb's runner as a case sets it (reads)."""
     import getpass
     import plan
-    fleet = {"partitions": {"madswan": madswan(design="madswan-main", planner="madswan-main")}, "teams": {}, "hosts": {}}
+    fleet = {"partitions": {"madswan": madswan(design="madswan-main", planner="madswan-main")}, "hosts": {}}
     b = on_branch(monkeypatch, fleet, {})
     monkeypatch.delenv("CREW_LABEL", raising=False)
     monkeypatch.setattr(getpass, "getuser", lambda: "chuck")
@@ -847,13 +845,19 @@ CREW_KIT = {"name": "crew", "repo": "afterthought/crew", "dir": "/w/crew", "main
 @pytest.fixture
 def landing(monkeypatch, tmp_path):
     """A command run in madswan's design agent's run on deneb (FLUME_PLACE crew-design--madswan), the design agent
-    running as its kind, with swancloud's crw-4 building afterthought/crew, a kit the teams file names for another
-    partition; its writes applied to madswan's branch in memory, and a brief over two lines in a file."""
+    running as its kind, madswan's plan naming crew by its name alone as a bolt's kit, which deneb, the main level's
+    host, keeps as afterthought/crew, and swancloud's blueprints those of another partition; its writes applied to
+    madswan's branch in memory, and a brief over two lines in a file."""
+    import plan
     swancloud = dict(madswan(), label="swancloud", blueprints=["afterthought/blueprints"])
     fleet = {"partitions": {"madswan": madswan(design="madswan-main"), "swancloud": swancloud},
-             "teams": {"crw-4": {"name": "crw-4", "label": "swancloud", "kits": [CREW_KIT], "kit": CREW_KIT, "flume": False}}, "hosts": {}}
+             "hosts": {"deneb": {"sessions": {"madswan": {"dir": "/w", "repos": [CREW_KIT["repo"]]}}}}}
     monkeypatch.setenv("FLUME_PLACE", RUN_PLACE)
     b = on_branch(monkeypatch, fleet, {})
+    monkeypatch.setattr(plan, "read", lambda repo, ref, tip: plan.Plan(
+        plan.HEADER.replace("%rec: Unit", "Bolt: tools\nRepo: crew\nGoal: g\n\n%rec: Unit")))
+    monkeypatch.setattr(plan, "landings_at", lambda repo, tip: [])
+    monkeypatch.setattr(plan, "renames_at", lambda repo, tip: [])
     b.brief = tmp_path / "record-0053.md"
     b.brief.write_text("Write docs/adr/0053-roles-run-as-kinds.md with this text whole:\n# 53. Roles run as kinds\n")
     return b
@@ -895,16 +899,16 @@ class TestLand:
     def test_a_blueprints_repository_or_one_the_plan_names_is_named_and_requests_follow_those_held(self, landing, monkeypatch):
         import plan
         monkeypatch.setattr(plan, "read", lambda repo, ref, tip: plan.Plan(
-            plan.HEADER.replace("%rec: Unit", "Bolt: b\nRepo: agentplot/flywheel-web\nGoal: g\n\n%rec: Unit")))
+            plan.HEADER.replace("%rec: Unit", "Bolt: b\nRepo: agentplot/boomdrive-web\nGoal: g\n\n%rec: Unit")))
         land(landing, "afterthought/blueprints", "record-0054")
-        land(landing, "agentplot/flywheel-web", "diagram-the-method")
+        land(landing, "agentplot/boomdrive-web", "diagram-the-method")
         assert [(r["Request"], r["Repo"], r["Work"]) for r in requested(landing)] == [
-            ("1", "afterthought/blueprints", "role/design/record-0054"), ("2", "agentplot/flywheel-web", "role/design/diagram-the-method")]
+            ("1", "afterthought/blueprints", "role/design/record-0054"), ("2", "agentplot/boomdrive-web", "role/design/diagram-the-method")]
 
     @pytest.mark.parametrize("repo, why", [
         ("afterthought/crew-state", "^crew names no repository afterthought/crew-state: a role's work lands in a blueprints repository "
-                                    "or a kit the teams file names, or a repository the plan names, and it names afterthought/blueprints, "
-                                    "afterthought/crew, afterthought/flywheel-web$"),
+                                    "the teams file names or a kit the partition's plan or landings name, and it names "
+                                    "afterthought/blueprints, afterthought/boomdrive-web, afterthought/crew$"),
         ("crew", "^a repository is named by its forge address, <owner>/<name>, which the runner resolves to its clone, not crew$")])
     def test_a_repository_crew_does_not_name_is_refused_writing_nothing_and_the_refusal_is_recorded(self, landing, repo, why):
         """role-runs, A role's work that lands: "A repository neither the teams file nor the plan names SHALL be refused"."""

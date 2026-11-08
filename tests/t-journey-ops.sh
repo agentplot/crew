@@ -10,9 +10,10 @@
 # take, or an agent's held for the user's word, a rail row whose card crew raises one at a time, each following the
 # one before, changes in place when its step is recorded again with new words, printing the line that adopts it
 # either way, and closes when it is marked; an offer on a host not signed in stands with no card; main-level ops posts
-# no card under an operations row's key, crew's, and asks under a key of its own; quiet reads the host's agents and
-# test slots; and an ops command run away from the partition's main level runs there, an offer carrying its files'
-# text and a step its text. Which offer is open, the word, each step's latest state, the rows and their words, each
+# no card under an operations row's key, crew's, and asks under a key of its own; quiet reads the Flume places the
+# partition's runner on the host carries working, and its test slots; an ops command run away from the partition's main level runs there, an offer carrying its files'
+# text and a step its text; and a step the deploy waits on is first on its offer's card, a box to tick, the deployer's
+# record of it has no card of its own, and the word is the card's send with it ticked. Which offer is open, the word, each step's latest state, the rows and their words, each
 # card's facts, whether it is posted or changed, which step's card is raised, what a step recorded again or an offer
 # handed again changes, and what a forwarded offer or step carries are logic cases (tests/py/test_ops.py); each step
 # here checks a command's wiring once.
@@ -127,7 +128,8 @@ step1=$(grep -o 'card op/mac-studio/1: req_stub-[0-9]*' <<<"$out" | cut -d' ' -f
 deploy_card=$(runs | grep -B1 -A3 '^Key: deploy/mac-studio$' | grep '^Card: ' | tail -1 | cut -d' ' -f2)
 eq "$(jq -c '[.idempotencyKey, .kind, .intent, .follows, .action.where, .action.steps[0].command, .action.done]' <<<"$(py_arg post_request)")" \
   "[\"op/mac-studio/1@swancloud\",\"action\",\"do\",\"$deploy_card\",\"a terminal on mac-studio\",\"launchctl kickstart -k gui/501/herdr\",\"herdr answers herdr status.\"]"
-expect_ok dep step mac-studio --to "$s2" --key restart-teams/1 --state handed --doer dispatcher --agent swancloud-dispatch-mac-studio --when quiet
+expect_fail "invalid choice: 'dispatcher'" dep step mac-studio --to "$s2" --key restart-teams/1 --state handed --doer dispatcher --when quiet
+expect_ok dep step mac-studio --to "$s2" --key restart-teams/1 --state handed --doer main-ops --agent swancloud-ops --when quiet
 printf "Restart crew's teams.\n- why: It ends a stage mid-unit.\n" > "$T/held.txt"
 expect_ok dep step mac-studio --to "$s2" --key restart-crew/1 --state waiting --doer main-ops --agent swancloud-ops --when quiet --held --text "$T/held.txt"
 has "$out" "card op/mac-studio/1 is open: the next step's card is raised when it closes"
@@ -227,12 +229,13 @@ held() { [[ -e $T/held ]]; }; until_ok held || fail "the test slot was never hel
 rc=0; out=$(dep quiet mac-studio 2>&1) || rc=$?
 kill "$holder"; wait "$holder" 2>/dev/null || true
 eq "$rc" "1"; has "$out" "1 of crew's tests are running on mac-studio"
-p=$(as mac-studio herdr --session wldn-5 workspace create --cwd / --label atl-1 | jq -r .result.root_pane.pane_id)
-as mac-studio herdr --session wldn-5 stub agent "$p" atl-1-unit-2 >/dev/null
-as mac-studio herdr --session wldn-5 stub status atl-1-unit-2 working >/dev/null
-rc=0; out=$(dep quiet mac-studio 2>&1) || rc=$?
-eq "$rc" "1"; has "$out" "atl-1-unit-2 is working"
-ok "quiet answers whether the host's teams have a stage working or a test running"
+# A place of the partition's whose code is begun on mac-studio, as the runner there carries Flume's status of it.
+ws=$(remote WilldanGroup/crew-state) place=/w/places/change--map-one
+runner_writes mac-studio 1 "$place" "{\"status\":{\"places\":[{\"place\":\"$place\",\"phase\":\"live\",\"current\":\"code\",\"stages\":[{\"name\":\"code\",\"state\":\"begun\"}]}]}}"
+expect_ok crew ops quiet chuck-herdr-alpha --label wldn
+rc=0; out=$(crew ops quiet mac-studio --label wldn 2>&1) || rc=$?
+eq "$rc" "1"; has "$out" "change--map-one is working"
+ok "quiet answers whether a place of the partition has a stage working on the host, as its runner there carries Flume's status, or a test running there"
 
 : > "$CREW_TEST_LOG"
 expect_ok crew ops offer "$box" --label wldn --from none --to "$s1" --notes "$T/notes.md" --steps "$T/steps.txt"
@@ -242,7 +245,32 @@ eq "$(cat "$(home_of "$box")/.local/state/crew/wldn/ops/$box/$s1/notes.md")" "$(
 eq "$(cat "$(home_of "$box")/.local/state/crew/wldn/ops/$box/$s1/steps.txt")" "$(cat "$T/steps.txt")"
 eq "$(acts mac-studio wldn ops.offer)" "0"
 expect_fail "no word is given for a deploy of $box" crew ops word "$box" --label wldn
-expect_ok crew ops step "$box" --label wldn --key restart-teams/1 --state handed --doer dispatcher --text "$T/held.txt"
+expect_ok crew ops step "$box" --label wldn --key restart-teams/1 --state handed --doer main-ops --text "$T/held.txt"
 has "$(grep "ssh $box .*ops step" "$CREW_TEST_LOG")" "--text -"; lacks "$(grep "ssh $box" "$CREW_TEST_LOG")" "$T/held.txt"
 eq "$(runs "$box" wldn | grep -c "^Text: Restart crew's teams. - why: It ends a stage mid-unit.$")" "1"
 ok "an ops command run away from the partition's main level is run there, an offer carrying its files' text and a step its text"
+
+# A step the deploy waits on (swancloud record 0038, record 0059), handed marked before by the deployer.
+printf "step\t1\tuser\tbefore\tmacbook-pro\tThe job points at deneb, which holds no repository until the disk is there.\tMove the Archives disk from mac-studio to deneb.\nstep\t2\tuser\t\tmacbook-pro\tOnly you hold the vault.\trotate the kanidm admin password\n" > "$T/before.txt"
+: > "$CREW_TEST_LOG"
+expect_ok dep offer macbook-pro --from none --to "$s1" --steps "$T/before.txt"
+eq "$(jq -c '[.kind, .highStakes, [.options[].id], .artifacts[0].title, .artifacts[1].title, .artifacts[2].title]' <<<"$(py_arg post_request)")" \
+  '["multi",true,["before:1","deploy"],"Before the deploy: 1 step, yours","What'"'"'s in it","After the deploy: 1 step, 1 yours"]'
+eq "$(runs | grep -B12 -A12 '^Key: deploy/macbook-pro$' | grep -c '^Form: boxes$')" "1"
+printf 'Move the Archives disk\nfrom mac-studio to deneb.\n' > "$T/move.txt"
+: > "$CREW_TEST_LOG"
+expect_ok dep step macbook-pro --to "$s1" --key 9c1f0e2a7b3d --state waiting --doer user --text "$T/move.txt"
+has "$out" "step 9c1f0e2a7b3d: the deploy of macbook-pro offered waits on it, so it is ticked on deploy/macbook-pro's card"
+eq "$(py_calls | grep -c '^post_request ')" "0"
+eq "$(runs | grep -B12 -A12 '^Key: 9c1f0e2a7b3d$' | grep -c '^When: before$')" "1"
+expect_ok crew rail --label swancloud
+has "$out" "once the step of yours it waits on is ticked on it"; lacks "$out" "yours to do: Move the Archives disk"
+expect_fail 'the deploy of macbook-pro to aaaaaaa waits on your step 1 ("Move the Archives disk from mac-studio to deneb."), not ticked' \
+  dep approve macbook-pro --to "$s1"
+rc=0; dep word macbook-pro >/dev/null 2>&1 || rc=$?; eq "$rc" "1"
+expect_ok dep approve macbook-pro --to "$s1" --ticked 1
+has "$out" "the deploy of macbook-pro to ${s1:0:7} is approved, its step 1 recorded done"
+expect_ok dep word macbook-pro; eq "$out" "$s1"
+expect_ok dep steps macbook-pro --json
+eq "$(jq -r '[.[] | "\(.key) \(.state)"] | join(", ")' <<<"$out")" "9c1f0e2a7b3d done"
+ok "a step the deploy waits on is first on its offer's card, a box to tick beside the deploy's; the deployer's record of it is marked and has no card of its own; an approval with it open is refused naming it, and the card's send with it ticked records it done and gives the word"

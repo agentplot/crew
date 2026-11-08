@@ -21,20 +21,21 @@ def asked(ap, argv):
 
 class TestAsked:
     @pytest.mark.parametrize("argv, prog", [
-        (["bolt", "give", "swb-1", "--help"], "crew bolt give"),
+        (["bolt", "start", "tenant-environments", "--help"], "crew bolt start"),
         (["bolt", "--help"], "crew bolt"),
         (["bolts", "-h"], "crew bolts"),
+        (["fix", "tenant-environments", "tidy", "--help"], "crew fix"),
         (["answer", "tenant-environments--tidy", "--help"], "crew answer"),
         (["signal-move", "x", "attach", "--help"], "crew signal move"),
         (["review-delivered", "--help"], "crew review delivered"),
-        (["_needs", "--", "--help"], "crew _needs"),
-        (["_unit-run", "a", "code", "--", "-h"], "crew _unit-run"),
+        (["kit", "rename", "a", "b", "-h"], "crew kit rename"),
+        (["_sweep", "wldn", "switchboard-kit", "--dir", "/k", "--help"], "crew _sweep"),
     ], ids=lambda v: " ".join(v) if isinstance(v, list) else v)
     def test_the_flag_asks_for_the_usage_of_the_deepest_command_its_words_name(self, argv, prog):
         assert asked(plan.parser(), argv) == prog
 
     def test_a_run_that_builds_only_its_command_asks_the_same(self):
-        assert asked(plan.parser(only="bolt"), ["bolt", "give", "swb-1", "--help"]) == "crew bolt give"
+        assert asked(plan.parser(only="bolt"), ["bolt", "start", "tenant-environments", "--help"]) == "crew bolt start"
 
     @pytest.mark.parametrize("argv, prog", [
         (["plan", "approve", "three", "--help"], "crew plan approve"),
@@ -45,10 +46,10 @@ class TestAsked:
         assert asked(plan.parser(), argv) == prog
 
     @pytest.mark.parametrize("argv", [
-        ["_needs", "--", "--help with which table holds tenants"],
+        ["fix", "tenant-environments", "tidy", "--help with which table holds tenants"],
         ["answer", "tenant-environments--tidy", "--helpful"],
-        ["_needs", "--", "-hx"],
-        ["bolt", "give", "help"],
+        ["answer", "tenant-environments--tidy", "-hx"],
+        ["bolt", "start", "help"],
         ["bolts"],
     ], ids=" ".join)
     def test_a_word_that_is_not_exactly_the_flag_is_a_word(self, argv):
@@ -70,11 +71,13 @@ class TestAnswered:
         monkeypatch.setattr(crew, "load", lambda *a, **k: pytest.fail("the teams file was read for a usage"))
 
     @pytest.mark.parametrize("main, argv, prog", [
-        (plan.main, ["_needs", "--", "--help"], "crew _needs"),
-        (plan.main, ["_fix-run", "swb-1", "tidy", "start", "--", "--help"], "crew _fix-run"),
+        (plan.main, ["fix", "tenant-environments", "tidy", "--help"], "crew fix"),
+        (plan.main, ["bolt", "start", "tenant-environments", "--help"], "crew bolt start"),
         (plan.main, ["signal", "move", "x", "attach", "-h"], "crew signal move"),
+        (plan.main, ["review", "delivered", "--help"], "crew review delivered"),
         (board.main, ["board", "--help"], "crew board"),
         (board.main, ["_follow", "--help"], "crew _follow"),
+        (board.main, ["_views", "wldn", "-h"], "crew _views"),
         (hold.main, ["_go", "--help"], "crew _go"),
         (ops.main, ["offer", "dev", "--help"], "crew ops offer"),
         (record.main, ["trace", "unit/a", "--help"], "crew trace"),
