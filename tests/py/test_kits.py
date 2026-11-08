@@ -302,3 +302,59 @@ class TestBeforeARunnerTookIt:
         assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/d/madswan/crew/main", "/d/agentplot/flume/main"]
         assert crew.kits_on(self.FLEET, "madswan", "deneb", fetch=True) == ["/d/madswan/crew/main", "/d/agentplot/flume/main"]
         assert asked == [("madswan", False), ("madswan", True)]
+
+
+class TestInTheRunnersCopy:
+    """drive-state, A kit in the runner's copy (record 0061; Decision 5 of a-kept-repositorys-folder-is-the-runners-container):
+    on the host its teams file is for, a repository the file names is kept at its `dir` and `checkout`, whether or not a
+    space lists it, by its address or its name alone; every other host's kits are its spaces', as before."""
+    SPACES = dict(TestBeforeARunnerTookIt.SPACES, deneb={"sessions": {
+        "madswan": {"dir": "/d/madswan", "repos": ["afterthought/blueprints", "afterthought/swancloud"]},
+        "madswan-2": {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/sluice", "agentplot/flume"]}}})
+    NAMED = {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"},
+             "agentplot/weir": {"dir": "/r/agentplot/weir", "checkout": "/v/agentplot/weir"}}
+    FLEET = dict(FLEET, hosts=SPACES, repositories={"host": "deneb", "named": NAMED})
+
+    def test_a_kit_the_file_names_is_its_container_and_view_by_its_name_or_its_forge_address(self):
+        for kit in ("crew", "agentplot/crew"):
+            assert plan.main_kit(self.FLEET, "madswan", kit)["kit"] == {
+                "name": "crew", "repo": "agentplot/crew", "dir": "/r/agentplot/crew", "main": "/v/agentplot/crew"}
+        assert plan.main_kit(self.FLEET, "madswan", "sluice")["kit"] == {
+            "name": "sluice", "repo": "agentplot/sluice", "dir": "/d/agentplot/sluice", "main": "/d/agentplot/sluice/main"}
+
+    def test_a_repository_the_file_names_and_no_space_keeps_is_kept(self):
+        """drive-state, A repository the file names and no space keeps."""
+        assert plan.main_kit(self.FLEET, "madswan", "weir")["kit"]["main"] == "/v/agentplot/weir"
+        import crew
+        assert crew.kept_on(self.FLEET, "deneb", "agentplot/weir") == "/v/agentplot/weir"
+        assert crew.kept_on(self.FLEET, "deneb", "agentplot/crew") == "/v/agentplot/crew"
+
+    def test_another_host_keeps_its_spaces_folders(self):
+        """drive-state, Another host's kit: deneb's file names deneb's repositories alone."""
+        import crew
+        fleet = dict(self.FLEET, partitions={"madswan": {"label": "madswan", "machine": "alpha"}})
+        assert plan.main_kit(fleet, "madswan", "crew")["kit"] == {
+            "name": "crew", "repo": "afterthought/crew", "dir": "/a/willdan/crew", "main": "/a/willdan/crew/main"}
+        assert crew.kit_kept(fleet, "alpha", "weir") is None
+        assert crew.kept_on(fleet, "alpha", "agentplot/crew") is None
+
+    def test_one_name_for_two_repositories_across_the_file_and_the_spaces_is_refused_naming_both(self):
+        """drive-state, One name, two repositories."""
+        fleet = dict(self.FLEET, repositories={"host": "deneb", "named": {
+            "agentplot/blueprints": {"dir": "/r/agentplot/blueprints", "checkout": "/v/agentplot/blueprints"}}})
+        with pytest.raises(plan.Refusal, match="^deneb's teams file and spaces keep agentplot/blueprints and afterthought/blueprints "
+                                               "by the name blueprints, so crew can't tell which is meant$"):
+            plan.main_kit(fleet, "madswan", "blueprints")
+        assert plan.main_kit(fleet, "madswan", "agentplot/blueprints")["kit"]["main"] == "/v/agentplot/blueprints"
+        assert plan.main_kit(fleet, "madswan", "afterthought/blueprints")["kit"]["main"] == "/d/madswan/blueprints/main"
+
+    def test_the_main_levels_kit_folders_are_the_files_checkouts(self, monkeypatch):
+        import crew
+        monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/crew", "flume", "weir"])
+        assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/v/agentplot/crew", "/d/agentplot/flume/main", "/v/agentplot/weir"]
+
+    def test_a_fleet_that_names_none_keeps_its_spaces_folders(self):
+        import crew
+        assert crew.kept(dict(self.FLEET, repositories={}), "deneb")[2] == {
+            "name": "crew", "repo": "agentplot/crew", "dir": "/d/agentplot/crew", "main": "/d/agentplot/crew/main"}
+        assert crew.kept(TestBeforeARunnerTookIt.FLEET, "deneb") == crew.kept(dict(TestBeforeARunnerTookIt.FLEET, repositories={}), "deneb")
