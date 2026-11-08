@@ -30,6 +30,7 @@ Rules this change relies on:
 - `docs.2`: README, the crew skill and the usage header change together.
 - `tests.4`, `tests.11`, `tests.12`: each decision has its case in the logic tier and each git read its case in the contract tier. One end-to-end case proves the command's wiring. The stub sluice lands a pull request's submission as sluice does.
 - Crew record 0056, decision 2: crew reads a bolt's places from what the work's tools hold.
+- Crew record 0062: reading a bolt's landing from sluice's landing commits on main is a stopgap under `roles.5`, the user's choice of 2026-11-08. The record names this change, and retires its reading in the change that follows Boomdrive's `the-runner-carries-each-places-end` onto every host crew serves.
 
 It touches the areas of:
 - `plan.md` (`plugin/lib/plan.py`, `plugin/lib/gather.py`);
