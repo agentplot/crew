@@ -604,8 +604,8 @@ def flume_facts(status, place):
 
 
 def stage_of(work, launch, answer, place, read, after=()):
-    """A crossed piece's stage (Decision 8), from plain facts: work, as requests name it (unit/<u>, chore/<c>,
-    fix/<bolt>/<name>, fix/main/<kit>/<name>); launch, its newest launch not dropped (launch_of), None for none;
+    """A crossed piece's stage (Decision 8), from plain facts: work, as requests name it (bolt/<bolt>, unit/<u>,
+    chore/<c>, fix/<bolt>/<name>, fix/main/<kit>/<name>); launch, its newest launch not dropped (launch_of), None for none;
     answer, the runner's answer to that launch, None while it has none; place, the runner's record of the place it
     launched (host_read's), None while it has none; read, True when its host's runner branch was read, else why not;
     after, the work its launch's After names (after_work). Returns {"stage", and what goes with it}: unknown, with why,
@@ -618,12 +618,18 @@ def stage_of(work, launch, answer, place, read, after=()):
     words, once its stage stopped short asking or found work; stalled, or else waits, with Flume's words and why, while
     it waits on its caller, the submission held among them; submitted, with sluice's number; its stage, with sluice's
     words, once sent back after a failed or conflicting submission; else its current stage. Each names its place, and
-    a stage of a change its tasks, ticked and in all."""
+    a stage of a change its tasks, ticked and in all. A bolt's base place, bolt/<bolt>, is read as a piece of its own
+    for the bolt's own row (crew-lands-each-bolt-through-flumes-base-place, Decision 3): unlaunched, with the runner's
+    words, while its launch is unanswered, held or refused (refused then marked); live while its place is, since it has
+    no stage, its landing read apart (landing_of); and landed, dropped or unknown as any piece's."""
     if read is not True:
         return {"stage": "unknown", "why": read}
     if launch is None:
         return {"stage": "unknown", "why": f"{work} has no launch in requests.rec"}
     n, outcome = launch.get("Request"), answer.get("Outcome") if answer is not None else None
+    if work.startswith("bolt/") and outcome in (None, "held", "refused"):
+        return dict({"stage": "unlaunched"}, **({"words": answer.get("Words")} if answer is not None and answer.get("Words") else {}),
+                    **({"refused": True} if outcome == "refused" else {}))
     if answer is None:
         return {"stage": "launching"}
     if outcome == "held" and not launch.all("After"):
@@ -655,6 +661,8 @@ def stage_of(work, launch, answer, place, read, after=()):
         return dict(res, stage="unknown", why=(
             f"{said} says its work is {f['over']}, and a place of a kind that lands ends landed or dropped" if f["over"] else
             f"{said} gives phase {f['phase']}, which crew does not read" if f["phase"] else f"{said} gives no phase crew reads"))
+    if work.startswith("bolt/"):
+        return dict(res, stage="live")
     if f["state"] == "waiting_for_room":
         return dict(res, stage="queued", of=f["current"])
     if f["waiting"] == "answer":
@@ -672,6 +680,34 @@ def stage_of(work, launch, answer, place, read, after=()):
     if f["send_backs"] and f["verdict"] in ("failed", "conflict"):
         return dict(res, stage=f["current"], words=f["verdict_words"], sent_back=f["send_backs"], verdict=f["verdict"])
     return dict(res, stage=f["current"])
+
+
+def legacy_said(bolt):
+    """What every view says of a started bolt with no launch of bolt/<bolt> (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 9): sluice made its branch before bolts were base places, and it lands under the crew that started it."""
+    return f"{bolt} was started before bolts were base places and lands under the crew that started it"
+
+
+def base_said(s):
+    """A bolt's base place's stage (stage_of of bolt/<bolt>) as its head line says it, or "" while it reads live or has
+    landed, when its landing says the rest (landing_of): unlaunched with the runner's words, refused or held, or that no
+    runner has answered it yet; launching while the runner has carried none of Flume's status of it; dropped; or why
+    crew can't tell."""
+    st = s.get("stage")
+    first = (s.get("words") or "").strip().splitlines()[0] if (s.get("words") or "").strip() else ""
+    if st == "legacy":
+        return s.get("words") or ""
+    if st == "unlaunched":
+        return ("its base place is unlaunched: " + ("the runner refused its launch" if s.get("refused") else
+                "the runner holds its launch" if first else "no runner has answered its launch yet")
+                + (f": {first}" if first else "") + ("; crew bolt start runs it again" if s.get("refused") else ""))
+    if st == "launching":
+        return "its base place is launching"
+    if st == "dropped":
+        return "its base place is dropped"
+    if st == "unknown":
+        return f"can't tell its base place: {s.get('why')}"
+    return ""
 
 
 def place_branch(work):

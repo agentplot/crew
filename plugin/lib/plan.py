@@ -1501,6 +1501,23 @@ class Stages:
         res.update(stage=s["stage"], tasks=s.get("tasks"), flume=s, **({"why": s["why"]} if s.get("why") else {}))
         return res
 
+    def base(self, bolt):
+        """A started bolt's base place's stage (runner.stage_of of bolt/<bolt>; crew-lands-each-bolt-through-flumes-base-place,
+        Decisions 3 and 9), from its newest launch not dropped as the runner that took it answers it (runner.piece_stage):
+        unlaunched with the runner's words while it is not launched; legacy, with runner.legacy_said's words, for a bolt
+        with no launch of its own, started before bolts were base places; unknown where its partition's runners can't be
+        read; None for a bolt not started."""
+        if not started(bolt):
+            return None
+        run = self.runner(self.label)
+        if isinstance(run, str):
+            return {"stage": "unknown", "why": f"crew can't read {self.label}'s requests or runners: {run}"}
+        requests, reads = run
+        launch = runner.launch_of(requests, f"bolt/{bolt.name()}")
+        if launch is None:
+            return {"stage": "legacy", "words": runner.legacy_said(bolt.name())}
+        return runner.piece_stage(requests, reads, launch)
+
     def fixes(self, bolt):
         """Each fix standing on a started bolt, in requests.rec's order, as (its work, fix/<bolt>/<name>, its launch, its
         stage as stage_of gives it), read as its units and chores are; none where the partition's runners can't be
@@ -8692,9 +8709,9 @@ def started(b):
 
 
 def bolt_launches(requests, bolt):
-    """Every launch of a bolt's work, on its branch, dropped or not, in requests.rec's order: what the runners that took
-    them report where the bolt's work runs by (runner.where)."""
-    return [r for r in requests if r.get("Act") == "launch" and r.get("Base") == f"bolt/{bolt}"]
+    """Every launch of a bolt's work, its base place's and each on its branch, dropped or not, in requests.rec's order:
+    what the runners that took them report where the bolt's work runs by (runner.where)."""
+    return [r for r in requests if r.get("Act") == "launch" and (r.get("Base") == f"bolt/{bolt}" or r.get("Work") == f"bolt/{bolt}")]
 
 
 def kit_of(repo, folder):
@@ -10171,7 +10188,7 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                 bk = (k or {}).get("bolts", {}).get(b.name()) or {}
                 verified = dict(zip(("state", "said"), st.verification(b, bk.get("head")))) if k and bk.get("exists") else None
                 bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"),
-                                  host=st.host(b) if crossed else None, state=st.bolt_state(b), verification=verified, units=units, fixes=fixes,
+                                  host=st.host(b) if crossed else None, state=st.bolt_state(b), base=st.base(b), verification=verified, units=units, fixes=fixes,
                                   given=b.get("Path"), stream=t["stream"] if t else None,
                                   head=bk.get("head"), landing_record=landing_phase(log, b.name()) if crossed and isinstance(log, list) else None,
                                   carries=bk.get("carries") or {}, carries_error=bk.get("carries_error")))
@@ -10203,6 +10220,9 @@ def bolts_text(data):
                     f", {runner.stream_said(b['stream'])}" if b.get("stream") else "")
                 record_said = phase_said(b.get("landing_record"), b.get("head"))
                 lines.append(f"{b['bolt']}  {b['repo']}  {who}  {b['state']}" + (f"  {record_said}" if record_said else ""))
+                base = runner.base_said(b.get("base") or {})
+                if base:
+                    lines.append(f"  {base}")
                 carry = carries_said(b.get("carries"), b.get("carries_error"))
                 if carry:
                     lines.append(f"  landing: held: {carry}")
