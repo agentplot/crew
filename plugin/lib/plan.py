@@ -3863,7 +3863,7 @@ def landings_previews(fleet, label, kit, rows, hosts, unread, run):
     if gone:
         things = joined(sorted({r.get("Work")[len("bolt/"):] for r in gone}))
         try:
-            preview_written(fleet, label, key, things, gone, done=True, made=[])
+            preview_written(fleet, label, key, things, gone, done=True, made=[], by=f"{label}-ops")
             released = {r.get("Work")[len("bolt/"):]: r.get("Revision") for r in gone}
             print(f"card {key}: put away " + "; ".join(f"{r.get('Work')[len('bolt/'):]}'s preview of {r.get('Revision')[:7]} on "
                                                        f"{r.get('Host')}" for r in gone))
@@ -14215,13 +14215,13 @@ def preview_shown_said(thing, p):
                                    f": {p['why']}" if p.get("why") else "")
 
 
-def preview_written(fleet, label, key, thing, asks, done, made):
+def preview_written(fleet, label, key, thing, asks, done, made, by=None):
     """One plan write of a card's preview requests (Decision 6 of a-cards-preview-is-asked-of-the-runner; state.1,
     plan.1): for each of asks, a bring-up, or with done its done, naming its host, work, repository, branch and
     revision (runner.preview_fields); the facts read again at the tip it is applied to, so a bring-up whose ask now
     stands there, or a done whose ask stands no more, is refused, writing nothing. Its entry is card.preview on each
-    work, the card's key and asked or done (record.1), holding no words (record.3). Each request's number appended to
-    made."""
+    work, the card's key and asked or done (record.1), holding no words (record.3), in the name of by, the card's
+    owner, for a done crew writes of its own as a row or card ends. Each request's number appended to made."""
     state = "done" if done else "asked"
 
     def change(w):
@@ -14239,7 +14239,7 @@ def preview_written(fleet, label, key, thing, asks, done, made):
         return []
     how = "put away" if done else "asked"
     write(fleet, label, change, f"plan(card): preview of {thing} {how} from {key}", act="card.preview",
-          on=sorted({r.get("Work") for r in asks}), fields={"Key": key, "State": state})
+          on=sorted({r.get("Work") for r in asks}), fields={"Key": key, "State": state}, by=by)
 
 
 def preview_thing(fleet, label, key, thing, owner, done, acts):
@@ -15004,7 +15004,8 @@ def batch_previews_put_away(fleet, label, owner, key, acts):
         asks = {k: r for k, r in runner.previews_standing(requests, reads).items() if r.get("Work") in {f"unit/{u}" for u in units}}
         gone = runner.previews_put_away(asks, set(), held)
         if gone:
-            preview_written(fleet, label, key, joined(sorted({r.get("Work")[len("unit/"):] for r in gone})), gone, done=True, made=[])
+            preview_written(fleet, label, key, joined(sorted({r.get("Work")[len("unit/"):] for r in gone})), gone, done=True, made=[],
+                            by=owner)
             print(f"card {key}: put away " + "; ".join(f"{r.get('Work')[len('unit/'):]}'s preview of {r.get('Revision')[:7]} on "
                                                        f"{r.get('Host')}" for r in gone))
     except Refusal as e:
@@ -15868,7 +15869,8 @@ def sweep_previews(fleet, read, acts=None):
         for key, rs in sorted(by.items()):
             things = joined(sorted({r.get("Work").split("/", 1)[1] for r in rs}))
             try:
-                preview_written(fleet, l, key, things, rs, done=True, made=[])
+                preview_written(fleet, l, key, things, rs, done=True, made=[],
+                                by=f"{l}-ops" if key.startswith("land/") else f"{l}-planner")
                 said = "put away, its card or row gone"
             except Refusal as e:
                 said = f"not put away yet, the next read trying again: {e}"

@@ -25,7 +25,7 @@ Build the groups in order. Sync the tests' venv once before the first check: `de
 
 ## 4. End to end
 
-- [ ] 4.1 On the stubs, a landings row's preview is asked by a request, listed once the runner reports it, said failed, put away by the user's done and by the landing's raise, with no sluice preview command run (design Decisions 6 to 8; Task notes 4.1). Verify `tests/suite t-journey-land` ends with "0 failed".
+- [x] 4.1 On the stubs, a landings row's preview is asked by a request, listed once the runner reports it, said failed, put away by the user's done and by the landing's raise, with no sluice preview command run (design Decisions 6 to 8; Task notes 4.1). Verify `tests/suite t-journey-land` ends with "0 failed".
 
 ## 5. The briefs and the docs
 
