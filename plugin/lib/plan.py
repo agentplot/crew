@@ -1914,8 +1914,8 @@ def main_held(name, machine, said):
 def sweep_on(fleet, t, what, landed=None, dropped=None, units=()):
     """The kit's read after a landing or a drop of one of its bolts (kit_read, code.3), on the host its work runs on and
     in the kit's folder there (t, bolt_at): run in this process when that is this host, else crew _sweep there as the
-    one asking, saying what it did: each landing of the kit's bolts nothing recorded read
-    (reap_landings, plan.21), the sweep of crew's own landing place and marked branch of the bolt, and, after a landing,
+    one asking, saying what it did: each landing of the kit's bolts nothing recorded read, but after a landing
+    (reap_landings, plan.21, kit_read), the sweep of crew's own landing place and marked branch of the bolt, and, after a landing,
     the bolt's landing card closed there with the words (landing_cards_closed) and its branch deleted by sluice once the
     landing's place is gone (land_delete, plan.19), landed being (bolt, the outcome recorded, what Pending You is sent in
     its place or None, whether the user answered it in a conversation); after a drop (dropped, the bolt), its branch
@@ -5208,7 +5208,10 @@ def landing_read(fleet, label, bolt):
     lock = landing_state(t) / "landings" / f"{bolt}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     with open(lock, "w") as held:
-        fcntl.flock(held, fcntl.LOCK_EX)  # one read of a bolt at a time on its host, so an outcome is recorded once
+        # One read of a bolt at a time on its host, so an outcome is recorded once. Nothing run under it waits on a
+        # command that reads a landing, so no holder waits on itself: the close's kit read, crew _sweep --landed, reads
+        # none (kit_read).
+        fcntl.flock(held, fcntl.LOCK_EX)
         fetch(*state_of(fleet, label), fresh=True)  # what a read before this one recorded and closed, which it waited on
         pl = plan_of(fleet, label)
         pl is not None or fail(f"crew can't read bolt {bolt}'s landing: {label}/main could not be read")
@@ -8956,7 +8959,8 @@ def wt_left_branch(out, path):
 def kit_sweep(fleet, a):
     """crew _sweep <label> <kit> --dir <folder> [--landed <bolt> --outcome <words> [--said <words>] [--here]] [--units
     <unit>...], on the host a bolt's work runs on, which a landing or a drop hands it to with the kit's folder there
-    (sweep_on, bolt_at, code.3): the kit's read there (kit_read)."""
+    (sweep_on, bolt_at, code.3): the kit's read there (kit_read), reading no landing after a landing (--landed), whose
+    close may hold a landing's lock while it waits on this."""
     here = crew.this_host()
     arrived(fleet, here)
     kit_read(fleet, {"label": a.label, "machine": here, "stream": None, "kit": kit_of(a.kit, a.dir)}, a.landed, a.outcome,
@@ -8966,13 +8970,19 @@ def kit_sweep(fleet, a):
 def kit_read(fleet, t, landed=None, outcome=None, said=None, here=False, units=()):
     """A kit's read on the host a bolt's work runs on, in the kit's folder there (t, bolt_at), which a landing or a drop
     asks for there (sweep_on): the landing of each started bolt of the kit
-    that may have an outcome or a close nothing recorded read (reap_landings); then the sweep of crew's own landing
+    that may have an outcome or a close nothing recorded read (reap_landings), but by the read a landing's close asks
+    for (landed, the bolt), which reads none: crew bolt land waits on that read, and a landing read's close of a bolt
+    runs under the bolt's landing lock (landing_read), so a landing read there would wait on a lock its own caller
+    holds, its bolt's when the plan is read below the close, its bolt.land entry not yet on the branch (read.5), or
+    another bolt's whose read waits on its own close in turn; that bolt was read by the act that closed it, and the
+    kit's next read reads the rest (plan.21); then the sweep of crew's own landing
     places and marked bolt branches, at a landing (landed, the bolt) having sluice delete the bolt's branch once the
     landing's place is gone (tidy, land_delete); then each bolt of it that is local until it lands said, once
     (bolts_local_said, plan.19); what the units of a bolt that landed or was dropped (units) recorded as made, kept here
     for its batch's card, removed (made_drop); and after a landing, the bolt's card closed here with the outcome
     (landing_cards_closed). What any of them refuses is said on standard error."""
-    reap_landings(fleet, t["label"])
+    if not landed:  # a landing's read reads no landing: its caller may hold a landing's lock (landing_read)
+        reap_landings(fleet, t["label"])
     try:
         tidy(fleet, t, landed)
     except Refusal as e:

@@ -1558,6 +1558,33 @@ class TestTheLandingsRead:
         assert plan.landing_read(self.F, "wldn", "b") == (True, "bolt/b landed on k's main at bbbbbbb")
         assert self.closed == [] and self.ran == []
 
+    def test_a_close_whose_kit_read_reads_the_plan_below_it_finishes_while_the_read_holds_the_bolts_lock(self, monkeypatch):
+        """bolt-teams "A close's kit read reads the plan from before the close" (wldn, 2026-11-06, landings #1394 and
+        #1395): the read holds landings/b.lock while crew bolt land's code closes b, and the close has the kit's read run
+        on the host b's work runs on, this one, in this process (sweep_on, kit_read). A landing read there finds b due,
+        as a read of the plan below the close does while the close's bolt.land entry has not reached the branch
+        (read.5), and reads it with the lock's file opened afresh, as reap_landings does. The read finishes within a
+        bound, its kit read reading no landing, and records the outcome once and closes b once."""
+        import threading
+        read, swept, reaped = [], [], []
+        monkeypatch.setattr(plan, "reap_landings", lambda fleet, label: reaped.append(label) or plan.landing_read(fleet, label, "b"))
+        monkeypatch.setattr(plan, "tidy", lambda fleet, t, landed=None: swept.append(landed))
+        monkeypatch.setattr(plan, "bolts_local_said", lambda fleet, t, pl: [])
+        monkeypatch.setattr(plan, "landing_cards_closed", lambda fleet, t, bolt, outcome, said=None, here=False: None)
+
+        def close(fleet, a, **k):  # crew bolt land's code: its write, then the kit's read, which reads the plan below it
+            self.closed.append((a.bolt, k))
+            plan.sweep_on(fleet, self.T, f"bolt {a.bolt}", landed=(a.bolt, "landed", None, False))
+            self.plan.bolts_.discard(a.bolt)
+        monkeypatch.setattr(plan, "bolt_land", close)
+        self.outs = [self.record_of("landed", landed_as=NEW), ran_as(0, said(0, github=NEW)), ran_as(0, "MARKED=yes\n")]
+        reading = threading.Thread(target=lambda: read.append(plan.landing_read(self.F, "wldn", "b")), daemon=True)
+        reading.start()
+        reading.join(60)  # milliseconds of work: a read still running after a minute waits on its own lock
+        assert not reading.is_alive(), "the landing's read waits on its own lock, held while its close's kit read runs"
+        assert read == [(True, "bolt/b landed on k's main at bbbbbbb: now crew bolt land b.")] and swept == ["b"] and reaped == []
+        assert [a for a, _, f in self.emitted if a == "bolt.submit"] == ["bolt.submit"] and [b for b, _ in self.closed] == ["b"]
+
 
 class TestWhoReads:
     """Decision 3: the team's read runs the landing's read of a bolt whose landing worktree stands with no waiter alive,
