@@ -157,8 +157,9 @@ class TestBoltRequests:
             "launch 2 of unit/a names Kind crew/bolt, which is a bolt's base place's alone, of bolt/<bolt>")
 
     def test_a_kind_recfix_does_not_hold_is_named_by_recfix_not_here(self):
-        """Kind is a regexp in the descriptor, since recutils' enum takes no slash (Decision 3)."""
-        assert "%type: Kind regexp /^(change|chore|fix|crew\\/bolt)$/" in runner.REQUESTS
+        """Kind is a regexp in the descriptor, since recutils' enum takes no slash, delimited by #, since recutils ends a
+        regexp at its delimiter's next occurrence, escaped or not (Decision 3; tests/contract/test_recfix.py)."""
+        assert "%type: Kind regexp #^(change|chore|fix|crew/bolt)$#" in runner.REQUESTS
         assert "%type: Act enum launch retry drop priority land" in runner.REQUESTS
 
     def test_its_pieces_follow_it_naming_no_after_on_it(self):

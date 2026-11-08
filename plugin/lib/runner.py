@@ -61,7 +61,7 @@ REQUESTS = """\
 %key: Request
 %type: Request,Of,After,Priority int
 %type: Act enum launch retry drop priority land
-%type: Kind regexp /^(change|chore|fix|crew\\/bolt)$/
+%type: Kind regexp #^(change|chore|fix|crew/bolt)$#
 %type: Hold enum submission
 %type: Submission bool
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/

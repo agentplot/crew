@@ -168,6 +168,24 @@ def test_requests_of_every_act_pass_and_the_descriptor_refuses_what_it_does_not_
             plan.checked({"requests.rec": text.replace(right + "\n", wrong + "\n", 1)})
 
 
+def test_a_bolts_base_place_launch_and_its_land_pass_and_a_kind_the_regexp_does_not_hold_is_refused():
+    """requests.rec holding a launch of Kind crew/bolt and a land of it passes recfix --check under crew's descriptor,
+    whose Kind is a regexp since recutils' enum takes no slash, and whose Act takes land (runner.REQUESTS;
+    crew-lands-each-bolt-through-flumes-base-place, Decision 3; bolt-teams "The requests file holds a bolt's launch and
+    its land"); a kind the regexp does not hold, crew/bolt's version among them, and an act no enum holds are refused."""
+    bolt = plan.Rec("Request", runner.request_fields(1, "launch", "bolt/b", dict(
+        Repo="afterthought/crew", Kind="crew/bolt", Name="b", Base="main", Priority=2, Intent="madswan/b", Recipient="madswan/ops"),
+        "2026-11-08T12:00:00Z", "madswan-ops"))
+    land = plan.Rec("Request", runner.request_fields(3, "land", "bolt/b", dict(Of=1), "2026-11-08T13:00:00Z", "madswan-ops"))
+    text = requests_text(bolt, launch_rec(2, "unit/a"), land)
+    plan.checked({"requests.rec": text})
+    assert [(r.get("Act"), r.get("Kind")) for r in plan.Plan(text).recs("Request")] == [
+        ("launch", "crew/bolt"), ("launch", "change"), ("land", None)]
+    for right, wrong in (("Kind: crew/bolt", "Kind: crew/bolt@1"), ("Kind: crew/bolt", "Kind: flume/bolt"), ("Act: land", "Act: merge")):
+        with pytest.raises(Refusal, match="^requests.rec fails recfix --check"):
+            plan.checked({"requests.rec": text.replace(right + "\n", wrong + "\n", 1)})
+
+
 def test_a_runners_branch_files_pass_by_their_descriptors_and_an_outcome_they_do_not_allow_is_refused():
     """What a runner writes on <label>/runner/<host>, as crew reads it (runner.RUNNER, ANSWERS, PLACES, RUNS; plan.runners
     checks each by recfix before host_read reads it): the runner's record, an answer per request, a place whose Status
@@ -207,7 +225,9 @@ def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_
 
     def start(w):
         w.plan.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "afterthought/crew"), ("Goal", "Start."), ("Path", "flume")]))
-        assert launch_of_a(w) == 1
+        act, work, given = runner.bolt_launch(w.plan, "b", state.LABEL)
+        assert plan.request(w, act, work, **given) == 1
+        assert launch_of_a(w) == 2
         return []
     sha = plan.write(state.fleet, state.LABEL, start, "plan(b): start the bolt", act="bolt.start", on=["bolt/b"])
     assert state.git("rev-parse", ref) == sha and state.git("rev-list", "--count", f"{before}..{sha}") == "1"
@@ -215,11 +235,12 @@ def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_
     eid, = state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).split()
     assert entries == [("bolt.start", [f"{state.REPO}@{sha}"], eid)]
     held = state.git("show", f"{sha}:requests.rec")
-    assert held.startswith(runner.REQUESTS.split("\n")[0]) and "Request: 1\nAct: launch\nWork: unit/a\n" in held
+    assert held.startswith(runner.REQUESTS.split("\n")[0]) and "Request: 1\nAct: launch\nWork: bolt/b\n" in held
+    assert "Request: 2\nAct: launch\nWork: unit/a\n" in held
 
     for change, said in ((lambda w: launch_of_a(w, Stream="madswan"), "names a Host or a Stream"),
                          (lambda w: launch_of_a(w, Priority="high"), "^requests.rec fails recfix --check"),
-                         (lambda w: w.replace("requests.rec", w.text("requests.rec").replace("Name: a", "Name: b")), "request 1 would be changed")):
+                         (lambda w: w.replace("requests.rec", w.text("requests.rec").replace("Name: a", "Name: c")), "request 2 would be changed")):
         with pytest.raises(Refusal, match=said):
             plan.write(state.fleet, state.LABEL, lambda w: change(w) and [], "plan: ask again", act="bolt.start")
         assert state.git("rev-parse", ref) == sha

@@ -16,7 +16,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 ## 2. The requests a bolt takes
 
 - [x] 2.1 `requests.rec` takes a launch of `bolt/<bolt>` of `Kind: crew/bolt` on `main` with no brief and no After, a fix on a bolt started before this release, and a `land` naming a bolt's or a fix of main's launch, and crew's rules refuse each other shape naming its field (design Decisions 3 and 4; Task notes 2.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py'` exits 0.
-- [ ] 2.2 `recfix --check` passes a `requests.rec` holding a `crew/bolt` launch and a land under crew's descriptor (design Decision 3; Task notes 2.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/contract/test_recfix.py'` exits 0.
+- [x] 2.2 `recfix --check` passes a `requests.rec` holding a `crew/bolt` launch and a land under crew's descriptor (design Decision 3; Task notes 2.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/contract/test_recfix.py'` exits 0.
 
 ## 3. A start launches the base place
 
