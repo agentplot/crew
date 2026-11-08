@@ -4,6 +4,8 @@ runner.fix_launch), dropped by --drop (runner.fix_drop_refusal), merged and wait
 bolt's landing while it is in flight (runner.fixes_in_flight), and merged once a landing on its bolt names its place's
 branch (runner.built_on_bolt). That the command writes the launch and starts no agent is the crossed path's journey's
 (t-journey-cross)."""
+import re
+
 import pytest
 
 from facts import FactsWrite, flume_plan, madswan_fleet, ran
@@ -25,8 +27,8 @@ class TestAFixOfAStartedBolt:
         plan.reach_places(self.FLEET, w, "x")
         return w
 
-    def fix(self, w, mode, name, words=""):
-        return plan.fix_flume(self.FLEET, w, "x", mode, name, words)
+    def fix(self, w, mode, name, words="", landings=None):
+        return plan.fix_flume(self.FLEET, w, "x", mode, name, words, landings=landings)
 
     def launches(self, w):
         return [{f: v for f, v in r.fields if f not in ("Date", "By")} for r in plan.Plan(w.files["requests.rec"]).recs("Request")]
@@ -63,6 +65,19 @@ class TestAFixOfAStartedBolt:
         self.fix(w, "start", "rail-word", "Say land.")
         with pytest.raises(plan.Refusal, match=said):
             self.fix(w, "drop", "rail-word")
+
+    def test_a_fix_its_bolts_landing_reads_merged_is_not_dropped(self):
+        """bolt-plan "A landed fix is not dropped": rail-word's place last carried at submitted, x's landing of
+        fix/x--rail-word made after its launch reads it merged, so its drop is refused and nothing is appended; with no
+        landings read, the drop goes as today."""
+        w = self.bolt(runners=ran({2: "submitted"}))
+        self.fix(w, "start", "rail-word", "Say land.")
+        w.files["requests.rec"] = re.sub(r"^Date: .*$", "Date: 2026-11-08T04:00:00Z", w.files["requests.rec"], flags=re.M)
+        landed = {"fix/x--rail-word": {"commit": "1" * 40, "at": "2026-11-08T04:18:32Z"}}
+        with pytest.raises(plan.Refusal, match="^fix/x/rail-word has merged into bolt/x, so it is not dropped"):
+            self.fix(w, "drop", "rail-word", landings=landed)
+        assert len(self.launches(w)) == 2
+        assert self.fix(w, "drop", "rail-word") == dict(n=3, host="deneb", repo="crew")
 
     QUEUED = [dict(Act="bolt.submit", On=["bolt/x"], Outcome="queued", Submission="412", Head="a" * 40)]
     REJECTED = QUEUED + [dict(Act="bolt.submit", On=["bolt/x"], Refused="#412 failed: tests:logic", Submission="412", Head="a" * 40)]

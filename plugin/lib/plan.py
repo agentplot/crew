@@ -9461,7 +9461,8 @@ def fix(fleet, a):
     ruling of 2026-11-01; runner.fix_launch), the bolt's landing held while it is in
     flight (land_hand, land_facts), and refused while the run record has the bolt's landing queued or landing again
     with no outcome, naming it, open again once sluice has rejected it (landing_hold); --drop a drop of its launch
-    (runner.fix_drop_refusal). Flume submits the place and
+    (runner.fix_drop_refusal), refused for a fix the bolt's landings, read before the write (Stages.landings), read
+    merged. Flume submits the place and
     tells its end itself, so crew fix has no merge and no wait. Recorded as fix.start or fix.drop, done or refused
     (teams.3)."""
     crew.NAME.match(a.name) or fail("a fix is named with lowercase words and dashes")
@@ -9472,9 +9473,13 @@ def fix(fleet, a):
     try:
         may_request(fleet, "fix")
         mode == "drop" or (a.words or "").strip() or fail(f'crew fix needs what is wrong: crew fix {a.bolt} {a.name} "<words>"')
+        # A drop reads the bolt's landings before the write, as a unit's drop reads its stage, so a fix its bolt's landing
+        # names is read merged and not dropped (Decision 3 of a-bolts-landed-fix-reads-merged); a start reads none.
+        b = plan.bolt(a.bolt)
+        landings = stages_for(fleet, label, plan, [b]).landings(b) if mode == "drop" and crossed_bolt(plan, a.bolt) else None
 
         def change(w):
-            seen.update(fix_flume(fleet, w, a.bolt, mode, a.name, a.words))
+            seen.update(fix_flume(fleet, w, a.bolt, mode, a.name, a.words, landings=landings))
             return []
         write(fleet, label, change, f"plan({a.bolt}): fix {a.name}", act=act, on=on)
     except Refusal as e:
@@ -9494,17 +9499,21 @@ def took(host):
     return f"the runner on {host}" if host else "the runner that took it"
 
 
-def fix_flume(fleet, w, bolt, mode, name, words):
+def fix_flume(fleet, w, bolt, mode, name, words, landings=None):
     """crew fix's change to a write (fix), each fact read again at the tip it is applied to (plan.1): the bolt started,
     marked Path: flume; then a new fix's launch appended in the bolt's repository (runner.fix_launch), refused while the
     run record at that tip has the bolt's landing queued or landing again (landing_phase, landing_hold), or for --drop its
-    launch's drop (runner.fix_drop_refusal), its stage read from the runner that took it as the write reads them.
+    launch's drop (runner.fix_drop_refusal), its stage read from the runner that took it as the write reads them and
+    from the bolt's landings (landings, as fix read them before the write, Stages.landings; None where it read none):
+    merged once a landing at or after its launch names its place's branch (runner.built_on_bolt), and its drop then
+    refused as a merged fix's is, since a landing is never undone and so still stands at the tip.
     Returns what it asked, {n, host, repo}: host, the runner's that took the launch dropped, where crew can tell."""
     crossed_bolt(w.plan, bolt) or fail(f"bolt {bolt} has not been started, so a fix of it has no Flume place to run in")
     requests, work = requests_of(w).recs("Request"), f"fix/{bolt}/{name}"
     if mode == "drop":
         launch = runner.launch_of(requests, work)
         s = runner.piece_stage(requests, w.runners(), launch) if launch is not None else None
+        s = runner.built_on_bolt(work, s, landings, launch.get("Date")) if s is not None else None
         why = runner.fix_drop_refusal(f"bolt {bolt}", work, launch, s)
         not why or fail(why)
         w.subject = f"plan({bolt}): drop fix {name}"
