@@ -155,10 +155,22 @@ expect_ok crewpy brief wldn main-ops
 lacks "$out" "one bolt deploy at a time"
 expect_ok crewpy brief wldn operator
 for want in "swancloud's main moves only through sluice (\`state.3\`), so never edit or commit in its main checkout" \
-  "\`sluice submit main --no-wait --json\`" "~/Code/github_afterthought/swancloud/places/crew-teams-<label> origin/main\`" \
-  "you level and push nothing" "When \`sluice wait\` exits 0 your head landed: remove your worktree and its branch with \`wt -C ~/Code/github_afterthought/swancloud/places/crew-teams-<label> remove --foreground\`"; do has "$out" "$want"; done
+  "\`sluice submit main --no-wait --json\`" "you level and push nothing"; do has "$out" "$want"; done
 lacks "$out" "wt submit"
 lacks "$out" "read-tree"; lacks "$out" "push swancloud's main"
+# The operator names swancloud's checkout and folder as its main level's host keeps them (Decision 7 of
+# a-kept-repositorys-folder-is-the-runners-container), its spaces' on a Mac, and says so in words on a box (teams.10).
+sc=$(space mac-studio madswan)/swancloud
+expect_ok crewpy brief madswan operator
+for want in "swancloud's checkout on a Mac, which every host publishes as crew's teams file: on your main level's host, \`$sc/main\`, in its folder \`$sc\`" \
+  "\`git -C $sc/main fetch -q origin\`" "\`git -C $sc/main worktree add -b crew-teams/<label> $sc/places/crew-teams-<label> origin/main\`" \
+  "When \`sluice wait\` exits 0 your head landed: remove your worktree and its branch with \`wt -C $sc/places/crew-teams-<label> remove --foreground\`" \
+  "an anchor its host alone moves, the fleet's timer or, on a runner host, the runner (\`plan.18\`)" \
+  "and its host's timer or runner brings the main checkout to it"; do has "$out" "$want"; done
+lacks "$out" "~/Code/github_afterthought/swancloud"
+HOST=chuck-herdr-alpha expect_ok crewpy brief wldn operator
+has "$out" "on your main level's host, \`swancloud's checkout, which chuck-herdr-alpha does not keep\`, in its folder \`its folder, which chuck-herdr-alpha does not keep\`"
+lacks "$out" "~/Code/github_afterthought/swancloud"
 expect_ok crewpy brief wldn main-ops
 for want in "bolt submit <bolt>" "bolt land <bolt>" "## Deploying main" "the bolt lands either way" \
   "The bolt's branch goes too, once main holds every commit of it" "a branch holding a commit main lacks is kept and named" \
@@ -474,6 +486,11 @@ for want in "Every decision record you write, and every amendment you make to on
   "run \`crew record … --accepted\`, which closes the card" "run \`crew record … --rejected\`, which closes the card" \
   "set \`status: rejected\` with the user's words, and take out each rule drawn from it" \
   "A kit's main moves only through sluice (\`state.3\`), so you never commit on it" "\`sluice submit main --no-wait --json\`" \
+  "its main checkout is an anchor its host alone moves to GitHub's main, the fleet's timer or, on a runner host, the runner, which nobody else edits in or moves (\`plan.18\`)" \
+  "each host's timer or runner brings its main checkout to them within minutes" \
+  "WilldanGroup/willdan-blueprints's main checkout, \`$(space chuck-herdr-alpha willdan)/willdan-blueprints/main\`, in its folder \`$(space chuck-herdr-alpha willdan)/willdan-blueprints\`" \
+  "in each kit's main checkout, with its folder, where your worktrees are cut: \`$(space chuck-herdr-alpha willdan)/atlas-kit/main\` (its folder \`$(space chuck-herdr-alpha willdan)/atlas-kit\`), " \
+  "Name each checkout and folder by its path: the folder your session began in may be another." \
   "When \`sluice wait\` exits 0 your head landed: remove the worktree and its branch with \`wt -C <the kit's folder>/places/design-<topic> remove --foreground\`" \
   "<the kit's folder>/places/design-<topic> origin/main\`" "you level nothing" "then \`git merge origin/main\`" \
   "once its \`.config/sluice.toml\` names a policy for main" \
@@ -484,7 +501,7 @@ for want in "Every decision record you write, and every amendment you make to on
   "is told to them by number and commit, and goes to them on a card only for a choice that is theirs alone"; do
   has "$out" "$want"
 done
-lacks "$out" "wt submit"; lacks "$out" "branch -d design/<topic>"
+lacks "$out" "wt submit"; lacks "$out" "branch -d design/<topic>"; lacks "$out" "this directory"
 for gone in "record/<kit>/<number>/<commit>" "The record's card is the one card you post" "post a new card for the new version" \
   "Close the card with \`ack_answer\`" "Accept decision record <number>" "is committed as proposed and put to the user" \
   "The card is still asked" "is proposed until the user accepts it"; do
@@ -530,3 +547,26 @@ for want in "Every bolt's units, chores and fixes are Flume places, taken by a r
   "who proposes it as a bolt of one chore, first among the planned"; do has "$out" "$want"; done
 lacks "$out" "who decide which team builds it"; lacks "$out" "--team <team>"
 ok "a bolt's places' answers and fixes are the planner's, its landing ops's by the one procedure, and a red main is a Flume fix place sent on the user's word"
+
+# A runner host's teams file names its kept repositories (record 0061; Decision 7 of
+# a-kept-repositorys-folder-is-the-runners-container): built there, the design agent's brief names its blueprints
+# checkout and each kit's at the runner's view with the runner's container as its folder, and the operator's names
+# swancloud's, with no ~/Code/github_afterthought/swancloud.
+blueprints afterthought/blueprints >/dev/null; blueprints agentplot/blueprints >/dev/null; crew state init madswan >/dev/null
+crew bolt new crew-work "Work in crew." --repo crew --label madswan >/dev/null
+r=/Users/chuck/.local/share/flywheel/repositories; v=/Users/chuck/Code/boomdrive
+tf=$(home_of mac-studio)/.config/crew/teams.json
+jq --arg r "$r" --arg v "$v" '.repositories = ({} | reduce ("afterthought/blueprints", "agentplot/crew", "afterthought/swancloud") as $a
+  (.; .[$a] = {dir: "\($r)/\($a)", checkout: "\($v)/\($a)"}))' "$tf" > "$tf.new" && mv "$tf.new" "$tf"
+expect_ok crewpy brief madswan design
+for want in "afterthought/blueprints's main checkout, \`$v/afterthought/blueprints\`, in its folder \`$r/afterthought/blueprints\`" \
+  "where your worktrees are cut: \`$v/agentplot/crew\` (its folder \`$r/agentplot/crew\`)."; do has "$out" "$want"; done
+lacks "$out" "$(space mac-studio madswan)"
+expect_ok crewpy brief madswan operator
+for want in "on your main level's host, \`$v/afterthought/swancloud\`, in its folder \`$r/afterthought/swancloud\`" \
+  "\`git -C $v/afterthought/swancloud fetch -q origin\`" \
+  "\`git -C $v/afterthought/swancloud worktree add -b crew-teams/<label> $r/afterthought/swancloud/places/crew-teams-<label> origin/main\`" \
+  "\`wt -C $r/afterthought/swancloud/places/crew-teams-<label> remove --foreground\`"; do has "$out" "$want"; done
+lacks "$out" "~/Code/github_afterthought/swancloud"; lacks "$out" "$(space mac-studio madswan)/swancloud"
+teams_json > "$tf"
+ok "on a runner host the design agent's and the operator's briefs name the teams file's checkouts with the folders it gives"
