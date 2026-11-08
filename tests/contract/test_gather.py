@@ -476,6 +476,18 @@ def test_a_read_that_asks_a_fetch_reads_what_github_holds_now_and_every_other_as
     assert gather.fetched(str(repo.path)) is None
 
 
+
+def test_each_kit_of_a_request_is_fetched_as_its_own_entry_asks(repo, tmp_path):
+    """plan.survey with fetch (drive-state "crew fetches nothing in the runner's clone"): a kit the request asks fetched
+    reads what GitHub holds now; one asked with fetch false, the runner's clone, reads as last fetched and moves no ref."""
+    k, other = on_github(repo, tmp_path)
+    head = landed_on_github(other, {"one": "1\n"}, "Merge unit/u into bolt/te\n\nSluice-Result: passed (9 run, 0 replayed)")
+    req = {"main": str(repo.path), "dir": str(k.dir), "bolts": ["te"]}
+    last = repo.git("rev-parse", "origin/bolt/te")
+    assert gather.read({"kits": [dict(req, fetch=False)]})[str(repo.path)]["bolts"]["te"]["head"] == last != head
+    assert repo.git("rev-parse", "origin/bolt/te") == last
+    assert gather.read({"kits": [dict(req, fetch=True)]})[str(repo.path)]["bolts"]["te"]["head"] == head
+
 class TestStamp:
     """What crew assumes of git and the file system when the host's follower checks that nothing moved (plan.12, read.1):
     a kit's stamp (gather.stamp), read with no process, moves on everything kit() reads of it moving, and on nothing
