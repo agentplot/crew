@@ -14,7 +14,7 @@
 - [x] 2.2 crew reads the installed crew from its own files where the command is its own, and otherwise by asking it `crew _release` within five seconds, an answer late, failed or missing a field read as unread with its why, and asked once for each real path (design, Decision 6; Task notes 2.2). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_release.py'` exits 0.
 - [x] 2.3 Every brief, `crew send`'s words and a command forwarded to this host name the installed crew, and the launch digest reads crew's command as one word whichever path names it (design, Decisions 4 and 5; Task notes 2.3). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_release.py tests/py/test_hold.py'` exits 0.
 - [x] 2.4 The Stop hook's hand runs `crew _renew` through the installed crew (design, Decision 4; Task notes 2.4). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_hold.py'` exits 0.
-- [ ] 2.5 The console's tabs run the installed crew (design, Decision 4; Task notes 2.5). Verify `tests/suite t-journey-main` ends with "0 failed".
+- [x] 2.5 The console's tabs run the installed crew (design, Decision 4; Task notes 2.5). Verify `tests/suite t-journey-main` ends with "0 failed".
 
 ## 3. Updates read against the installed crew
 

@@ -10046,9 +10046,10 @@ def console_tabs(asked, recorded, follower):
 
 def console_cmd(fleet, a):
     """crew console up|down <label> [flow] [rail] [board]: the partition's console on this host, in the `console`
-    workspace of this host's `<label>` session, starting no agent (record 0035): a shell tab with this crew on its path,
-    and the tabs named after the label: flow, following the run record; rail, the rail the host's follower writes
-    above and a shell below; and board, drawn from the same read. The rail tab opens of itself too while no host job
+    workspace of this host's `<label>` session, starting no agent (record 0035): a shell tab with the crew the host has
+    installed on its path (crew.crew_command), the crew every tab runs, and the tabs named after the label: flow,
+    following the run record; rail, the rail the host's follower writes above and a shell below; and board, drawn from
+    the same read. The rail tab opens of itself too while no host job
     follows (board.follower_here), since its loop is then the host's follower (console_tabs). Up keeps each tab already
     open, named or not, and a tab whose pane holds its shell alone, as herdr brings each pane back after a restart, runs
     its command there again, while one running anything else is left and said (crew.tab_holds, read.4); a tab the
@@ -10058,7 +10059,8 @@ def console_cmd(fleet, a):
     import board  # board imports this module
     c = crew.standing(fleet, "console", a.label)
     c.ensure()
-    label, crew_cmd = a.label, shlex.quote(str(crew.HOME / "plugin/bin/crew"))
+    installed = crew.crew_command()
+    label, crew_cmd = a.label, shlex.quote(installed)
     if a.act == "down":
         not a.tabs or fail(f"crew console down {label} closes every tab of the console, and names none")
         c.teardown()
@@ -10067,7 +10069,7 @@ def console_cmd(fleet, a):
     asked = console_asked(a.tabs)
     retire_operator(fleet, label)
     words = {"flow": ["events", "--follow", "--label", label], "rail": ["_rail", label], "board": ["_board", label]}
-    path = f"export PATH={shlex.quote(str(crew.HOME / 'plugin/bin'))}:$PATH"
+    path = f"export PATH={shlex.quote(os.path.dirname(installed))}:$PATH"
     opens, keeps, forgets = console_tabs(asked, {t: c.herdr.live(c.pane(t)) for t in CONSOLE_TABS if c.pane(t)}, board.follower_here())
 
     def shell_below():
