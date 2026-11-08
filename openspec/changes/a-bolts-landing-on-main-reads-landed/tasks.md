@@ -17,7 +17,7 @@
 ## 3. The command, on the stubs
 
 - [x] 3.1 The stub sluice lands a pull request's submission with `Sluice-From: <agent> (pull/<n>)`, as sluice does (design, Decision 4; Task notes 3.1). Verify `tests/suite t-journey-land` ends with "0 failed".
-- [ ] 3.2 `crew bolt land` closes a bolt landed on main whose branch GitHub deleted and whose places the runner no longer carries (design, Decision 3; Task notes 3.2). Verify `tests/suite t-journey-land` ends with "0 failed".
+- [x] 3.2 `crew bolt land` closes a bolt landed on main whose branch GitHub deleted and whose places the runner no longer carries (design, Decision 3; Task notes 3.2). Verify `tests/suite t-journey-land` ends with "0 failed".
 
 ## 4. The docs
 

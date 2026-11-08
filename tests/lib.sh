@@ -361,10 +361,13 @@ for i in range(0, len(args), 3):
             p.setdefault("stream", {"name": stream, "from": "intent"})
     kept[args[i]] = [args[i + 1], status]
 json.dump(kept, open(f, "w"))
+t = os.path.join(d, "tidied.json")
+tidied = set(json.load(open(t)) if os.path.exists(t) else []) - set(args[0::3])
+json.dump(sorted(tidied), open(t, "w"))
 at = "2026-10-31T12:01:00Z"
 files = {"runner": runner.RUNNER + f"\nHost: {h}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n",
          "answers": runner.ANSWERS + "".join(f"\nRequest: {n}\nOutcome: launched\nPlace: {p}\nAt: {at}\n" for n, (p, _) in sorted(kept.items(), key=lambda x: int(x[0]))),
-         "places": runner.PLACES + "".join(f"\nRequest: {n}\nPlace: {p}\nAt: {at}\nStatus: {json.dumps(s)}\n" for n, (p, s) in sorted(kept.items(), key=lambda x: int(x[0]))),
+         "places": runner.PLACES + "".join(f"\nRequest: {n}\nPlace: {p}\nAt: {at}\nStatus: {json.dumps(s)}\n" for n, (p, s) in sorted(kept.items(), key=lambda x: int(x[0])) if n not in tidied),
          "repositories": runner.REPOSITORIES}
 for kit, (folder, _) in sorted(keeps.items()):
     owners = sorted(os.path.basename(os.path.dirname(r)) for r in glob.glob(os.path.join(remotes, "*", f"{kit}.git")))
@@ -377,6 +380,17 @@ EOF
   parent=$(git --git-dir "$ws" rev-parse -q --verify "refs/heads/wldn/runner/$h") || parent=
   git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$h" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \
     commit-tree "$tree" ${parent:+-p "$parent"} -m "runner: $h")"
+}
+# runner_tidies <host> <request>...: wldn/runner/<host> rewritten as its runner writes it once Flume has tidied those
+# requests' places: each request's answer kept, launched at its place, and its place dropped from places.rec, as deneb's
+# runner on afterthought/runner/deneb answered request 88 launched and carried no place at all on 2026-11-08; a later
+# runner_writes naming one of them carries it again
+runner_tidies() {
+  local h=$1; shift
+  python3 -c 'import json, os, sys
+t = sys.argv[1]; tidied = set(json.load(open(t)) if os.path.exists(t) else [])
+json.dump(sorted(tidied | set(sys.argv[2:])), open(t, "w"))' "$T/runner/$h/tidied.json" "$@"
+  runner_writes "$h"
 }
 # landed_status <place> <commit>: Flume's status of a place whose work has landed at the commit, as runner_writes takes it
 landed_status() { printf '{"status":{"places":[{"place":"%s","phase":{"over":{"over":{"landed":{"commit":"%s"}}}},"current":"verify","stages":[]}]}}' "$1" "$2"; }
