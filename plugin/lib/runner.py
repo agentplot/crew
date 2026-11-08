@@ -32,6 +32,7 @@ is a launch of Flume's chore kind on its repository's default branch, the role's
 
 Each is a function of plain facts (code.7); plan.py, crew.py and hold.py read the facts and act on what they decide.
 This module imports nothing outside the standard library and crew's own modules (code.1)."""
+import datetime
 import json
 import os
 import re
@@ -1323,3 +1324,30 @@ def preview_word(shown):
     if state is None:
         return "unread" if shown.get("why") else None
     return PREVIEW_WORDS.get(state, "unread")
+
+
+def asked_at(request):
+    """When a request was written, from its Date, as an aware datetime; None where it holds none crew reads."""
+    try:
+        return datetime.datetime.strptime(request.get("Date") or "", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+
+
+def previews_put_away(asks, carried, works, now=None, grace=0):
+    """The asks whose done crew writes (Decision 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A preview is
+    released on the user's done and when its card or row ends"), from facts alone: asks, the standing asks a caller
+    weighs, as previews_standing gives them; carried, the (host, repo, revision) of each row or line that still carries
+    its preview; works, the work whose card still stands, each kept whole; now and grace, an ask written under grace
+    seconds before now kept, as it may be a card's not yet raised. Returns each bring-up whose done is to be written,
+    in requests.rec's order; an ask whose age crew can't read is kept (read.1). A preview crew did not ask for is in
+    no ask, and so never put away."""
+    out = []
+    for k, r in asks.items():
+        if k in carried or r.get("Work") in works:
+            continue
+        at = asked_at(r)
+        if now is not None and grace and (at is None or (now - at).total_seconds() < grace):
+            continue
+        out.append(r)
+    return sorted(out, key=lambda r: number(r.get("Request")) or 0)

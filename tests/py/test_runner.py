@@ -499,6 +499,46 @@ class TestPreviewReport:
         assert runner.preview_word(None) is None
 
 
+class TestPreviewsPutAway:
+    """The asks to put away are those no row, no work and no grace keeps (Decision 7; rail-cards "A preview is released
+    on the user's done and when its card or row ends", "A moved head releases the preview of the old one")."""
+
+    def asks(self, *reqs):
+        return runner.previews_standing(held(*reqs), deneb())
+
+    def test_a_row_that_can_land_at_the_head_keeps_its_ask(self):
+        asks = self.asks(asked(12))
+        assert runner.previews_put_away(asks, {("deneb", "crew", "abc1234")}, set()) == []
+
+    def test_a_head_moved_puts_the_old_one_away(self):
+        """rail-cards "The head moves with a preview up"."""
+        asks = self.asks(asked(12))
+        assert [r.get("Request") for r in runner.previews_put_away(asks, {("deneb", "crew", "def5678")}, set())] == ["12"]
+
+    def test_a_held_or_gone_row_puts_it_away(self):
+        """rail-cards "A fix holds the landing", "The bolt lands with its preview up": the row carries it no more."""
+        asks = self.asks(asked(12), asked(13, revision="def5678", work="unit/a"))
+        assert [r.get("Request") for r in runner.previews_put_away(asks, set(), set())] == ["12", "13"]
+
+    def test_a_work_whose_card_stands_keeps_it(self):
+        asks = self.asks(asked(12), asked(13, revision="def5678", work="unit/a"))
+        assert [r.get("Request") for r in runner.previews_put_away(asks, set(), {"unit/a"})] == ["12"]
+
+    def test_an_ask_under_the_grace_is_kept_and_one_over_it_put_away(self):
+        """rail-cards "A card closed elsewhere": two minutes."""
+        import datetime
+        asks = self.asks(asked(12))
+        at = datetime.datetime(2026, 10, 31, 12, 0, tzinfo=datetime.timezone.utc)
+        assert runner.previews_put_away(asks, set(), set(), now=at + datetime.timedelta(seconds=90), grace=120) == []
+        assert [r.get("Request") for r in runner.previews_put_away(asks, set(), set(), now=at + datetime.timedelta(seconds=150), grace=120)] == ["12"]
+
+    def test_a_persons_preview_no_request_names_is_never_put_away(self):
+        """rail-cards "A preview crew did not ask for"; and one the runner refused stands not, so has no done."""
+        assert runner.previews_put_away(self.asks(), set(), set()) == []
+        refused = runner.previews_standing(held(asked(12)), deneb(previews=previewed(12, "refused", words="no")))
+        assert runner.previews_put_away(refused, set(), set()) == []
+
+
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 FLUME_17 = pathlib.Path(__file__).parent / "flume-0.17.0"
 CODE ="/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"
