@@ -4,7 +4,7 @@ date: 2026-11-07
 decision-makers: the user (a repository is renamed in crew by one explicit command once its work is finished; a partition is never renamed); the design agent (what the command renames and refuses, from record 0055's reading)
 ---
 
-# 0058. A repository is renamed by one explicit command once its work is finished, and a partition is never renamed
+# 0060. A repository is renamed by one explicit command once its work is finished, and a partition is never renamed
 
 Status: proposed to the user on 2026-11-07, as `briefs.15` has it; accepted only on their yes.
 
