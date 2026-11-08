@@ -34,4 +34,4 @@ Each pytest check runs from `tests/.venv`, synced by `devenv shell -- moon run t
 
 ## 6. The command's words
 
-- [ ] 6.1 README's *Operations*, the crew skill's `crew rail` row and `crew`'s usage header say what the rail now says of answered cards, one card per row and each bolt's card stand, and that the sweep records answers and ended cards (`docs.2`; Task notes 6.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 6.1 README's *Operations*, the crew skill's `crew rail` row and `crew`'s usage header say what the rail now says of answered cards, one card per row and each bolt's card stand, and that the sweep records answers and ended cards (`docs.2`; Task notes 6.1). Verify `tests/suite t-docs` ends with "0 failed".
