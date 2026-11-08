@@ -1031,7 +1031,6 @@ class Write:
         self.on, self.frm = [], []  # objects only the change can name, for the write's run-record entry
         self.asked, self.held = [], []  # the asks the change wrote in its commit (ask_lines), and the keys it found held
         self.why, self.fields = None, {}  # the entry's Why and fields where only the tip the change is applied to says them
-        self.renamed = []  # the kits a rename in this write renamed, (old, new), whose entry the run record holds once it lands
 
     def text(self, path):
         """A file of the branch as the change has left it: replaced, else at the tip, else None."""
@@ -1062,16 +1061,10 @@ class Write:
             self._entries = sorted(seen.values(), key=lambda e: (e["At"], e["Id"]))
         return self._entries
 
-    def renames(self):
-        """The partition's renames of its kits as the run record holds them at the tip the change is applied to
-        (renames_at), whole, since a launch made under a former name stands in requests.rec however old it is, then
-        each a rename earlier in this write made (renamed), so a command after it in a proposal reads it too."""
-        return renames_at(self.repo, self.tip) + self.renamed
-
     def kits(self):
-        """The partition's kits by their names now (partition_kits), in the plan as the change has left it so far, with
-        the landings the run record holds at the tip it is applied to, read through its renames (renames)."""
-        return partition_kits(self.plan, landings_at(self.repo, self.tip) if self.tip else [], self.renames())
+        """The partition's kits (partition_kits), in the plan as the change has left it so far, with the landings the
+        run record holds at the tip it is applied to."""
+        return partition_kits(self.plan, landings_at(self.repo, self.tip) if self.tip else [])
 
     def bolt(self, name):
         return self.plan.bolt(name) or self.gone("Bolt", name)
@@ -1645,10 +1638,9 @@ def locate(fleet, kind, name, label, word=None):
 
 def kit_labels(fleet, kit):
     """The partitions whose kits (partition_kits, the repositories their plans and landings name) name a kit, by its
-    name or forge address (kit_in), a former name by the kit's name now (kit_now, the partition's renames), sorted; each
-    branch read once for the command, and refused naming one that can't be read (read.1), since crew can't tell then
-    whether it names the kit."""
-    return [l for l in sorted(fleet["partitions"]) if kit_in(kit_now(kit, renames_read(fleet, l)), kits_read(fleet, l))]
+    name or forge address (kit_in), sorted; each branch read once for the command, and refused naming one that can't
+    be read (read.1), since crew can't tell then whether it names the kit."""
+    return [l for l in sorted(fleet["partitions"]) if kit_in(kit, kits_read(fleet, l))]
 
 
 def main_kit(fleet, label, kit):
@@ -1698,20 +1690,17 @@ def kit_name(text):
     return text
 
 
-def rename_refusal(label, old, new, kits, renames, bolts, host, spaces):
+def rename_refusal(label, old, new, kits, bolts, host, spaces):
     """Why crew kit rename <old> <new> is refused, or None (Decision 2 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan), from plain facts (code.7): the partition's kits by their names
-    now (partition_kits), its renames (renames_in), its bolts' names, and its main-level host with what its spaces keep,
-    spaces None where the hosts file lists no such host, else (the repositories they keep, crew.kit_kept's of old, of
-    new). Refused for two names of one kit; for an old name a rename already renamed, or no kit of the partition; for a
-    new name a bolt of the partition holds, since land/<new> would name the bolt; and unless the host keeps a repository
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan), from plain facts (code.7): the partition's kits as written
+    (partition_kits), its bolts' names, and its main-level host with what its spaces keep, spaces None where the hosts
+    file lists no such host, else (the repositories they keep, crew.kit_kept's of old, of new). Refused for two names
+    of one kit; for an old name no kit of the partition, judged as written as any name is; for a new name a bolt of
+    the partition holds, since land/<new> would name the bolt; and unless the host keeps a repository
     by the new name and none by the old, the fleet's word that the rename has happened."""
     name = new.split("/")[-1]
     if old.split("/")[-1] == name:
         return f"{old} and {new} name one kit: a rename gives it another name"
-    now = kit_now(old, renames)
-    if now != old:
-        return f"{old} is {now} since its rename: crew kit rename {now} {new} renames it again"
     if not kit_in(old, kits):
         return f"{label}'s plan names no kit {old}: neither its plan nor its landings name it"
     if name in bolts:
@@ -1733,27 +1722,6 @@ def renamed_in(plan, old):
     each in the plan's order."""
     of = lambda r: bool(r.get("Repo")) and kit_in(r.get("Repo"), [old])
     return [b for b in plan.bolts() if of(b)], [u for u in plan.work() if of(u)]
-
-
-def kit_now(kit, renames):
-    """A kit's name now (Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan), as crew reads what it
-    recorded under a former name and never rewrites, a launch, a landing, a fix of main or a source: from kit, each
-    rename (renames, the partition's as (old, new) in the order they were written, renames_in) whose old names the name
-    so far, by its name or forge address (kit_in), makes its new the name; a name no rename names reads as written.
-    Read in order, a rename and its undoing read back, a->b then b->a reading both as a."""
-    for old, new in renames:
-        if kit and kit_in(kit, [old]):
-            kit = new
-    return kit
-
-
-def renames_in(entries):
-    """A partition's renames of its kits (Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan), as kit_now
-    reads them: each kit.rename entry not refused among a run record's entries, as (old, new), the kit its From names
-    and its Repo, in the order they were written, by At then Id."""
-    out = sorted((e for e in entries if e.get("Act") == "kit.rename" and not e.get("Refused")), key=lambda e: (e["At"], e["Id"]))
-    return [(old, e.get("Repo")) for e in out for old in [next((o[4:] for o in e.get("From") or [] if o.startswith("kit/")), None)]
-            if old and e.get("Repo")]
 
 
 def plan_for(fleet, kit, label):
@@ -2291,49 +2259,36 @@ def land_refusal(bolt, units, stage_of, outside, label, held=None, kit_name=None
     return None
 
 
-def partition_kits(plan, landings, renames=()):
+def partition_kits(plan, landings):
     """A partition's kits (Decision 3 of the-team-machinery-leaves): the repositories its plan's Bolt and Unit records
     name, with those its run record's landings name, each bolt.land entry not refused (landings, as record.acts_in
-    finds them), each by its name now through the partition's renames (kit_now), sorted and each once, so a kit whose
-    landings were recorded under a former name is one kit. There is no registry of repositories in crew: a kit enters
+    finds them), by Repo as written, sorted and each once (plan.22). There is no registry of repositories in crew: a kit enters
     a partition with its first bolt, and a kit whose last bolt has landed stays one by its landings. plan None, a
     branch not started, names none."""
     named = [r.get("Repo") for r in (plan.bolts() + plan.work() if plan is not None else [])]
     named += [e.get("Repo") for e in landings if e.get("Act") == "bolt.land" and not e.get("Refused")]
-    return sorted({kit_now(r, renames) for r in named if r})
+    return sorted({r for r in named if r})
 
 
-def runs_at(repo, tip):
-    """What crew reads of the run record by its acts at a tip of a drive's branch, in one pass over its files under
-    runs/, read once for the command by the tip (plan.12): every bolt.land entry and every kit.rename entry, found by
-    their act (record.acts_in), {"landings", "renames"}."""
-    name = f"runs-{tip}"
+def landings_at(repo, tip):
+    """Every bolt.land entry the run record holds at a tip of a drive's branch, from each of its files under runs/,
+    found by their act (record.acts_in), read once for the command by the tip (plan.12); a kit.rename entry among them
+    renames nothing crew reads."""
+    name = f"landings-{tip}"
     held = READ.held(name)
     if held is not None:
         return held
     paths = [p for p in paths_at(repo, tip, "runs/") if p.endswith(".rec")]
     texts = [show(repo, tip, p) for p in paths] if kept_listing(repo, tip) is not None else cat_file(repo, [f"{tip}:{p}" for p in paths])
-    out = {"landings": [e for t in texts for e in record.acts_in(t or "", "bolt.land")],
-           "renames": [e for t in texts for e in record.acts_in(t or "", "kit.rename")]}
+    out = [e for t in texts for e in record.acts_in(t or "", "bolt.land")]
     READ.keep(name, out)
     return out
 
 
-def landings_at(repo, tip):
-    """Every bolt.land entry the run record holds at a tip of a drive's branch (runs_at)."""
-    return runs_at(repo, tip)["landings"]
-
-
-def renames_at(repo, tip):
-    """The partition's renames of its kits as the run record holds them at a tip of a drive's branch (runs_at,
-    renames_in), read with its landings; none for a branch not started (tip None)."""
-    return renames_in(runs_at(repo, tip)["renames"]) if tip else []
-
-
 def kits_at(repo, tip, pl):
     """A partition's kits (partition_kits) as its branch holds them at a tip: the plan read there (pl) and the landings
-    and renames its run record holds; none for a branch not started (tip None)."""
-    return partition_kits(pl, landings_at(repo, tip) if tip else [], renames_at(repo, tip))
+    its run record holds; none for a branch not started (tip None)."""
+    return partition_kits(pl, landings_at(repo, tip) if tip else [])
 
 
 def kits_read(fleet, label, fresh=True):
@@ -2348,13 +2303,6 @@ def kits_read(fleet, label, fresh=True):
         tip = tip_here(repo, ref)
         tip is not None or fail(f"crew's cache of {repo} can't be read for {ref}")
     return kits_at(repo, tip, read(repo, ref, tip) if tip else None)
-
-
-def renames_read(fleet, label):
-    """A partition's renames of its kits (renames_at) read from its branch at the tip this command fetched once
-    (plan.12), as kits_read reads its kits; none for a branch not started."""
-    repo, ref = state_of(fleet, label)
-    return renames_at(repo, fetch(repo, ref))
 
 
 def land_key(key, kits):
@@ -6347,8 +6295,8 @@ def op_kit_rename(ctx, a):
     every Bolt and Unit record naming old, by its name or forge address, set to new as given, in one commit, and nothing
     else of the plan or of any other file: no record moved, no request appended, a started bolt left as it was. Its
     entry, kit.rename, names the kit by its new name (On: kit/<name>) and the one it had (From: kit/<old>), with Repo
-    the new and Count the records renamed, the partition's record of the rename that crew reads what it never rewrites
-    through (kit_now); a rename of a kit only the landings name renames no record and still writes it. Refused, with
+    the new and Count the records renamed; a rename of a kit only the landings name renames no record and still
+    writes it. Refused, with
     nothing written, by rename_refusal at the tip it is applied to (plan.1), against what the partition's main-level
     host's spaces keep (crew.kit_kept), a hosts file crew can't read among them (read.1). A proposal may hold it, and the
     user runs it directly (roles.1, may_write)."""
@@ -6360,12 +6308,11 @@ def op_kit_rename(ctx, a):
     fields = {}
 
     def change(w):
-        why = rename_refusal(label, a.old, a.new, w.kits(), w.renames(), [b.name() for b in w.plan.bolts()], host, spaces)
+        why = rename_refusal(label, a.old, a.new, w.kits(), [b.name() for b in w.plan.bolts()], host, spaces)
         not why or fail(why)
         bolts, work = renamed_in(w.plan, a.old)
         for r in bolts + work:
             r.set("Repo", a.new)
-        w.renamed.append((a.old, a.new))
         fields.update(Repo=a.new, Count=str(len(bolts) + len(work)))
         return [b.name() for b in bolts]
 

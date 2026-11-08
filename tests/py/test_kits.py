@@ -27,52 +27,6 @@ def the_plan(bolts=(), units=()):
     return plan.Plan(plan_text(bolts, units))
 
 
-def renamed(old, new, at="2026-11-05T10:00:00Z", n=1, refused=None):
-    """A kit.rename entry as record.parse gives it: crew kit rename <old> <new>."""
-    return dict({"Id": f"20261105T100000Z-{n}-deneb-1-1", "At": at, "Act": "kit.rename", "On": [f"kit/{new.split('/')[-1]}"],
-                 "From": [f"kit/{old}"], "Commit": [], "Repo": new}, **({"Refused": refused} if refused else {}))
-
-
-class TestKitNow:
-    """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: a kit's name now, read through the
-    partition's renames in the order they were written (plan.kit_now)."""
-
-    def test_a_name_no_rename_names_reads_as_written(self):
-        assert plan.kit_now("crew", [("tailrace", "timber")]) == "crew"
-        assert plan.kit_now("agentplot/tailrace", []) == "agentplot/tailrace"
-
-    def test_a_renamed_kit_reads_by_its_new_name_from_its_name_or_its_forge_address(self):
-        assert plan.kit_now("tailrace", [("tailrace", "timber")]) == "timber"
-        assert plan.kit_now("agentplot/tailrace", [("tailrace", "timber")]) == "timber"
-        assert plan.kit_now("tailrace", [("agentplot/tailrace", "agentplot/timber")]) == "agentplot/timber"
-
-    def test_a_chain_of_renames_reads_to_its_last(self):
-        renames = [("a", "b"), ("b", "c")]
-        assert (plan.kit_now("a", renames), plan.kit_now("b", renames), plan.kit_now("c", renames)) == ("c", "c", "c")
-
-    def test_a_rename_and_its_undoing_read_back(self):
-        renames = [("a", "b"), ("b", "a")]
-        assert (plan.kit_now("a", renames), plan.kit_now("b", renames)) == ("a", "a")
-
-    def test_renames_read_in_the_order_they_were_written(self):
-        """b->c written before a->b: a reads b, and b, renamed before a took its name, reads c."""
-        renames = [("b", "c"), ("a", "b")]
-        assert (plan.kit_now("a", renames), plan.kit_now("b", renames)) == ("b", "c")
-
-    def test_an_unrelated_kit_is_unchanged(self):
-        assert plan.kit_now("flume", [("tailrace", "timber"), ("flywheel-cloud", "boomdrive-cloud")]) == "flume"
-
-
-class TestRenamesIn:
-    def test_each_rename_not_refused_as_old_and_new_in_the_order_written(self):
-        entries = [renamed("b", "c", at="2026-11-05T12:00:00Z"), landing("crew"), renamed("x", "y", refused="deneb keeps no y"),
-                   renamed("a", "b", at="2026-11-05T11:00:00Z", n=2), renamed("tailrace", "agentplot/timber", at="2026-11-05T11:00:00Z")]
-        assert plan.renames_in(entries) == [("tailrace", "agentplot/timber"), ("a", "b"), ("b", "c")]
-
-    def test_none_where_the_record_holds_none(self):
-        assert plan.renames_in([landing("crew")]) == [] and plan.renames_in([]) == []
-
-
 class TestPartitionKits:
     def test_the_plan_alone_names_its_bolts_and_units_repositories(self):
         p = the_plan([("console-pages", "switchboard-kit", True)], [("a", "switchboard-kit", "console-pages", []),
@@ -98,24 +52,17 @@ class TestPartitionKits:
         assert plan.partition_kits(the_plan(), [landing("atlas-kit", refused="it conflicts"), landing("atlas-kit", act="bolt.drop"),
                                                 landing(None)]) == []
 
-    def test_landings_under_a_kits_former_name_name_it_once_by_its_name_now(self):
-        """Two bolts landed under tailrace, renamed timber after."""
-        assert plan.partition_kits(the_plan(), [landing("tailrace"), landing("tailrace")], [("tailrace", "timber")]) == ["timber"]
-
-    def test_a_plan_renamed_and_landings_under_the_former_name_are_one_kit(self):
+    def test_landings_under_another_name(self):
+        """bolt-plan "Landings under another name": madswan's plan names timber, and one bolt landed under tailrace."""
         p = the_plan([("b", "timber", True)], [("a", "timber", "b", [])])
-        assert plan.partition_kits(p, [landing("tailrace"), landing("crew")], [("tailrace", "timber")]) == ["crew", "timber"]
-        assert plan.partition_kits(p, [landing("agentplot/tailrace")], [("tailrace", "timber")]) == ["timber"]
-
-    def test_with_no_renames_each_kit_reads_as_written(self):
-        p = the_plan([("b", "timber", True)])
-        assert plan.partition_kits(p, [landing("tailrace")]) == plan.partition_kits(p, [landing("tailrace")], []) == ["tailrace", "timber"]
+        assert plan.partition_kits(p, [landing("tailrace")]) == ["tailrace", "timber"]
 
 
 class TestRunsRead:
-    """plan.12: a partition's landings and its renames come of one read of runs/ at a tip, kept for the command."""
+    """run-record "A rename's entry renames nothing": a tip's landings come of one read of runs/, kept for the command
+    (plan.12), and a kit.rename entry after a landing renames nothing crew reads."""
 
-    def test_the_landings_and_the_renames_are_one_read_per_tip(self, monkeypatch):
+    def test_a_renames_entry_renames_nothing(self, monkeypatch):
         shown = []
         text = ("%rec: Entry\n\nId: 1\nAt: 2026-10-30T11:00:00Z\nAct: bolt.land\nOn: bolt/b\nRepo: tailrace\nHead: abc\n\n"
                 "Id: 2\nAt: 2026-11-05T10:00:00Z\nAct: kit.rename\nOn: kit/timber\nFrom: kit/tailrace\nRepo: timber\nCount: 2\n")
@@ -124,10 +71,9 @@ class TestRunsRead:
         monkeypatch.setattr(plan, "kept_listing", lambda repo, tip: {})
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: shown.append((tip, path)) or text)
         assert [e["Id"] for e in plan.landings_at("o/state", "t1")] == ["1"]
-        assert plan.renames_at("o/state", "t1") == [("tailrace", "timber")]
-        assert plan.kits_at("o/state", "t1", the_plan()) == ["timber"]
+        assert plan.kits_at("o/state", "t1", the_plan()) == ["tailrace"]
         assert shown == [("t1", "runs/deneb/2026-11-05.rec")]
-        assert plan.renames_at("o/state", None) == [] and plan.kits_at("o/state", None, None) == []
+        assert plan.kits_at("o/state", None, None) == []
 
 
 class TestKitIn:

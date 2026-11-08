@@ -2,10 +2,11 @@
 a-kit-renamed-on-its-host-is-renamed-across-the-plan; bolt-plan "A kit renamed on its host is renamed across the plan
 in one act"): crew kit rename <old> <new> sets the Repo of every Bolt and Unit record naming the old name to the new,
 and nothing else, refused with nothing written unless the partition's main-level host's spaces keep the new name and
-not the old (plan.op_kit_rename, plan.rename_refusal). The rename's one commit and its entry under a real recfix are the
-contract tier's (tests/contract/test_recfix.py). And madswan's started bolt
-you-sign-in-to-staging, renamed, lands under its kit's name now in the folder the runner reports keeping it in (Decision
-7; runner.where)."""
+not the old (plan.op_kit_rename, plan.rename_refusal). It renames the plan's records alone: its kit.rename entry is the
+record of the act, and nothing crew reads goes through it (plan.22). The rename's one commit and its entry under a real
+recfix are the contract tier's (tests/contract/test_recfix.py). And madswan's started bolt
+you-sign-in-to-staging, renamed, lands in the folder the runner reports keeping its kit in, as the plan names the kit
+(Decision 7; runner.where)."""
 import argparse
 import json
 
@@ -100,7 +101,7 @@ class TestTheRename:
         text = w.plan.text()
         op = rename(w, "tailrace", "timber")
         assert w.plan.text() == text and op.fields == {"Repo": "timber", "Count": "0"}
-        assert w.renames()[-1] == ("tailrace", "timber") and w.kits() == ["crew", "timber"]
+        assert w.kits() == ["crew", "tailrace"]  # bolt-plan "A kit only its landings name": by its landing as written
 
     def test_the_new_name_is_written_as_given(self):
         w = written()
@@ -129,12 +130,19 @@ class TestRefused:
         text = w.plan.text()
         with pytest.raises(plan.Refusal, match=said):
             rename(w, old, new, f)
-        assert w.plan.text() == text and w.renamed == []
+        assert w.plan.text() == text
 
-    def test_a_name_a_rename_already_renamed_is_renamed_by_its_name_now(self):
-        w = written(entries=[renamed("tailrace", "timber")])
-        with pytest.raises(plan.Refusal, match="^tailrace is timber since its rename: crew kit rename timber trc renames it again$"):
-            rename(w, "tailrace", "trc")
+    def test_a_name_an_earlier_rename_renamed_is_judged_as_written(self):
+        """bolt-plan "A name an earlier rename renamed": the plan names timber and no tailrace, no landing names
+        tailrace, and the run record holds the rename's entry: tailrace is no kit of madswan, the refusal naming no
+        rename."""
+        was = written()
+        rename(was, "tailrace", "timber")
+        w = written(was.plan.text(), entries=[renamed("tailrace", "timber")])
+        text = w.plan.text()
+        with pytest.raises(plan.Refusal, match="^madswan's plan names no kit tailrace: neither its plan nor its landings name it$"):
+            rename(w, "tailrace", "trc", fleet("agentplot/trc"))
+        assert w.plan.text() == text
 
 
 class TestTheStartedBolt:
@@ -206,7 +214,7 @@ def deneb(kept=(("agentplot/boomdrive-cloud", NEW), ("agentplot/timber", "/Users
 
 class TestTheStartedBoltLands:
     """Decision 7: once madswan's plan renames flywheel-cloud boomdrive-cloud and deneb's runner reports the renamed clone,
-    you-sign-in-to-staging is read and landed there under its kit's name now, with nothing launched again."""
+    you-sign-in-to-staging is read and landed there, its kit as the plan names it, with nothing launched again."""
 
     @pytest.fixture(autouse=True)
     def here(self, monkeypatch):
