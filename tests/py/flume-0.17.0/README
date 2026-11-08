@@ -13,3 +13,17 @@ kept-open.json      flume status --json --repository <boomdrive> change--the-fla
                     waiting_on why answer with open_until, the end stage/code/1/ended-short with open_until), not
                     stalled: the place flume 42, 49 and 198 answer by a retry naming code or by
                     `flume tell --answers stage/code/1/ended-short`
+
+bolt-*.json         a bolt's base place, of crew's kind crew/bolt@1 (stages = [], branch bolt/<bolt>; crew record 0056,
+                    crew-lands-each-bolt-through-flumes-base-place, Decision 2), as runner.landing_of reads it. Unlike
+                    kept-open.json these were not recorded, since no host ran crew's kind when they were made: they are
+                    written from flume 0.17.0's own shapes, `crates/flume-core/src/answer.rs` (PlaceStatus,
+                    SubmissionStatus), `crates/flume-seams/src/merge_queue.rs` (Verdict, SubmissionState,
+                    SubmissionRead), `crates/flume-seams/src/held.rs` (Phase, Over, WaitingOn, Waits) and what
+                    `submit.rs` (`verdict`) and `status.rs` (`base_waiting_on`) set for a base place, trimmed as above.
+  bolt-submitted    submitted to sluice as entry 412, under test; waiting on nobody, its submission open
+  bolt-landed       over, landed at a7c3e9f with the verdict landed
+  bolt-failed       the verdict failed with sluice's words, waiting on its caller (why submission) with Flume's
+  bolt-conflict     the verdict conflict naming the files, the entry's state naming main's revision 9f1c2ab, waiting
+                    on its caller (why submission) with Flume's words
+  bolt-withdrawn    the verdict withdrawn, waiting on its caller (why submission) with Flume's words

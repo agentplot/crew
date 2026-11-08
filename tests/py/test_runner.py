@@ -18,6 +18,10 @@ import runner
 AT, BY = "2026-10-31T12:00:00Z", "madswan-dispatch-deneb"
 LAUNCH = dict(Repo="afterthought/crew", Kind="change", Base="bolt/b", Priority=2, Intent="madswan/b", Recipient="madswan/planner",
               Brief="Build it.")
+# A bolt's own launch, its base place, as a start appends it first (crew-lands-each-bolt-through-flumes-base-place,
+# Decision 3): crew's kind, cut from main, ops its recipient, and no Brief or After.
+BOLT = dict(Repo="afterthought/crew", Kind="crew/bolt", Name="b", Base="main", Priority=2, Intent="madswan/b",
+            Recipient="madswan/ops", Brief=None)
 
 
 def rec(n, act, work="unit/a", **given):
@@ -89,16 +93,17 @@ class TestRequests:
         have = held(rec(1, "launch"))
         assert runner.request_refusal(have, rec(2, "drop", Of=1, Words="Gone.", Stream="madswan")) == (
             "drop 2 for unit/a carries Stream, Words, which a drop does not take")
-        assert runner.request_refusal([], rec(1, "reorder")) == "request 1 is a reorder, and a request is a launch, a retry, a drop or a priority"
+        assert runner.request_refusal([], rec(1, "reorder")) == (
+            "request 1 is a reorder, and a request is a launch, a retry, a drop, a priority or a land")
 
     def test_the_work_is_named_as_crew_names_it(self):
-        for work in ("unit/a", "chore/bump", "fix/b/tidy", "fix/main/crew/red", "role/design/record-0053"):
+        for work in ("bolt/b", "unit/a", "chore/bump", "fix/b/tidy", "fix/main/crew/red", "role/design/record-0053"):
             assert runner.WORK.match(work)
         assert runner.request_refusal([], rec(1, "launch", "unit/A")) == (
-            "launch 1 serves unit/A, and a request serves unit/<unit>, chore/<chore>, fix/<bolt>/<name>, fix/main/<kit>/<name> or "
-            "role/<role>/<name>")
+            "launch 1 serves unit/A, and a request serves bolt/<bolt>, unit/<unit>, chore/<chore>, fix/<bolt>/<name>, "
+            "fix/main/<kit>/<name> or role/<role>/<name>")
         assert runner.request_refusal([], rec(1, "launch", "role/design")).startswith("launch 1 serves role/design")
-        assert runner.request_refusal([], rec(1, "launch", "bolt/b")).startswith("launch 1 serves bolt/b")
+        assert runner.request_refusal([], rec(1, "launch", "bolt/B", **BOLT)).startswith("launch 1 serves bolt/B")
 
     def test_an_after_names_launches_of_the_same_bolt_written_before_it(self):
         have = held(rec(1, "launch"), rec(2, "launch", "unit/c", Base="bolt/other"), rec(3, "priority", Of=1, Priority=1))
@@ -123,6 +128,76 @@ class TestRequests:
             "retry 2 of unit/a names stage code and the submission: a retry starts a stage again or submits again")
 
 
+class TestBoltRequests:
+    """A bolt's own launch, its pieces' and its land are checked before they are appended (bolt-teams "A bolt's launch,
+    its pieces' and its land are checked before they are appended"; drive-state "A launch names everything the runner
+    passes to Flume"; crew-lands-each-bolt-through-flumes-base-place, Decisions 3, 4 and 9)."""
+
+    def bolt(self, n=1, **given):
+        return rec(n, "launch", "bolt/b", **dict(BOLT, **given))
+
+    def test_a_bolts_own_launch_is_crews_kind_on_main_with_no_brief_or_after(self):
+        assert runner.request_refusal([], self.bolt()) is None
+        assert self.bolt().get("Brief") is None and self.bolt().get("Kind") == "crew/bolt"
+
+    def test_a_bolts_launch_naming_another_kind_base_a_brief_or_an_after_is_refused_naming_the_field(self):
+        assert runner.request_refusal([], self.bolt(Kind="change")) == (
+            "launch 1 of bolt/b names Kind change: a bolt's base place is of crew's kind crew/bolt")
+        assert runner.request_refusal([], self.bolt(Base="bolt/b")) == (
+            "launch 1 of bolt/b names Base bolt/b: a bolt's base place is cut from main")
+        assert runner.request_refusal([], self.bolt(Brief="Land it.")) == (
+            "launch 1 of bolt/b names a Brief: a bolt's base place runs no agent, so it carries none")
+        have = held(rec(1, "launch", "bolt/other", **dict(BOLT, Name="other")))
+        assert runner.request_refusal(have, self.bolt(2, After=[1])) == (
+            "launch 2 of bolt/b names After 1: a bolt's base place lands after every place on its branch, so it comes after no launch")
+
+    def test_no_other_launch_names_crews_kind(self):
+        have = held(self.bolt())
+        assert runner.request_refusal(have, rec(2, "launch", Kind="crew/bolt")) == (
+            "launch 2 of unit/a names Kind crew/bolt, which is a bolt's base place's alone, of bolt/<bolt>")
+
+    def test_a_kind_recfix_does_not_hold_is_named_by_recfix_not_here(self):
+        """Kind is a regexp in the descriptor, since recutils' enum takes no slash (Decision 3)."""
+        assert "%type: Kind regexp /^(change|chore|fix|crew\\/bolt)$/" in runner.REQUESTS
+        assert "%type: Act enum launch retry drop priority land" in runner.REQUESTS
+
+    def test_its_pieces_follow_it_naming_no_after_on_it(self):
+        have = held(self.bolt())
+        assert runner.request_refusal(have, rec(2, "launch")) is None
+        assert runner.request_refusal(held(self.bolt(), rec(2, "launch")), rec(3, "launch", "unit/b", After=[2])) is None
+
+    def test_a_piece_before_its_bolt_is_refused_naming_the_bolt(self):
+        assert runner.request_refusal([], rec(1, "launch")) == (
+            "launch 1 of unit/a on bolt/b comes before any launch of bolt/b: a bolt's base place is launched before its pieces")
+        assert runner.request_refusal(held(rec(1, "launch", "unit/c", Base="bolt/other")), rec(2, "launch")).startswith(
+            "launch 2 of unit/a on bolt/b comes before any launch of bolt/b")
+
+    def test_a_fix_on_a_bolt_started_before_bolts_were_base_places_is_appended(self):
+        """Its units' launches stand on bolt/b and no launch of bolt/b does (Decision 9): a fix, a take-main fix among
+        them, is still launched on its branch."""
+        have = held(rec(1, "launch"), rec(2, "launch", "chore/c"))
+        fix = rec(3, "launch", "fix/b/take-main-9f1c2ab", Kind="fix", Name="b--take-main-9f1c2ab")
+        assert runner.request_refusal(have, fix) is None
+
+    def test_a_land_names_a_bolts_or_a_fix_of_mains_launch_and_nothing_else(self):
+        fix = dict(Base="main", Intent="madswan/main/crew", Recipient="madswan/ops", Name="main--red", Hold="submission", Kind="fix")
+        have = held(self.bolt(), rec(2, "launch"), rec(3, "launch", "fix/main/crew/red", **fix))
+        assert runner.request_refusal(have, rec(4, "land", "bolt/b", Of=1)) is None
+        assert runner.request_refusal(have, rec(4, "land", "fix/main/crew/red", Of=3)) is None
+        assert runner.request_refusal(have, rec(4, "land", "bolt/b", Of=1)) is None
+        assert runner.request_refusal(have, rec(4, "land", "bolt/b")) == "land 4 for bolt/b names no Of: a land carries Request, Act, Work, Date, By, Of"
+        assert runner.request_refusal(have, rec(4, "land", "bolt/b", Of=1, Words="Land it.")) == (
+            "land 4 for bolt/b carries Words, which a land does not take")
+
+    def test_a_land_of_a_units_launch_is_refused_naming_the_launch(self):
+        have = held(self.bolt(), rec(2, "launch"))
+        assert runner.request_refusal(have, rec(3, "land", "unit/a", Of=2)) == (
+            "land 3 for unit/a names launch 2, which is no bolt's or fix of main's: a land is the user's send of a bolt or of a fix of main")
+        assert runner.request_refusal(have, rec(3, "land", "bolt/b", Of=2)) == "land 3 for bolt/b names launch 2, which is unit/a's"
+        assert runner.request_refusal(have, rec(3, "land", "bolt/b", Of=9)) == (
+            "land 3 for bolt/b names request 9, which is no launch: requests.rec does not hold it")
+
+
 class TestAppended:
     """A request is never changed or removed: a write only appends (Decision 4)."""
 
@@ -143,21 +218,23 @@ class TestPlanRequest:
     def test_two_requests_of_one_write_are_numbered_in_turn_after_those_the_branch_holds(self, monkeypatch):
         monkeypatch.setenv("CREW_AGENT", BY)
         w = FactsWrite("%rec: Bolt\n%key: Bolt\n")
-        assert plan.request(w, "launch", "unit/a", Name="a", **LAUNCH) == 1
-        assert plan.request(w, "launch", "unit/b", Name="b", After=[1], **LAUNCH) == 2
+        assert plan.request(w, "launch", "bolt/b", **BOLT) == 1
+        assert plan.request(w, "launch", "unit/a", Name="a", **LAUNCH) == 2
+        assert plan.request(w, "launch", "unit/b", Name="b", After=[2], **LAUNCH) == 3
         rs = plan.Plan(w.files["requests.rec"]).recs("Request")
         assert [(r.get("Request"), r.get("Work"), r.all("After"), r.get("By")) for r in rs] == [
-            ("1", "unit/a", [], BY), ("2", "unit/b", ["1"], BY)]
+            ("1", "bolt/b", [], BY), ("2", "unit/a", [], BY), ("3", "unit/b", ["2"], BY)]
         assert w.files["requests.rec"].startswith(runner.REQUESTS)
         w2 = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": w.files["requests.rec"]})
-        assert plan.request(w2, "drop", "unit/b", Of=2) == 3
+        assert plan.request(w2, "drop", "unit/b", Of=3) == 4
 
     def test_a_refused_request_leaves_the_writes_files_as_they_were(self, monkeypatch):
         monkeypatch.setenv("CREW_AGENT", BY)
         w = FactsWrite("%rec: Bolt\n%key: Bolt\n")
+        plan.request(w, "launch", "bolt/b", **BOLT)
         plan.request(w, "launch", "unit/a", Name="a", **LAUNCH)
         text = w.files["requests.rec"]
-        with pytest.raises(Refusal, match="^retry 2 for unit/a names request 9, which is no launch"):
+        with pytest.raises(Refusal, match="^retry 3 for unit/a names request 9, which is no launch"):
             plan.request(w, "retry", "unit/a", Of=9, Words="Go on.")
         assert w.files["requests.rec"] == text
 
@@ -431,6 +508,41 @@ class TestStageOf:
         assert of("unit/b", {})["why"].startswith("no runner answers for the partition")
 
 
+class TestABasePlacesStatus:
+    """What flume_facts reads of a bolt's base place, crew/bolt@1, as flume 0.17.0 shapes its status
+    (tests/py/flume-0.17.0/bolt-*.json; crew-lands-each-bolt-through-flumes-base-place, Decision 6): no stage, its
+    submission's entry and state, the verdict and its words, what it waits on its caller for, and its landed commit."""
+    PLACE = "/Users/chuck/.local/share/flume/places/f3a444f5e38a/bolt--the-runner-lands-each-bolt"
+
+    def facts(self, name):
+        return runner.flume_facts(json.loads((FLUME_17 / f"{name}.json").read_text()), self.PLACE)
+
+    def test_submitted_under_test_names_the_entry_and_waits_on_nobody(self):
+        f = self.facts("bolt-submitted")
+        assert (f["phase"], f["current"], f["entry"], f["entry_state"], f["verdict"], f["waiting"]) == (
+            "live", None, "412", "under_test", None, None)
+
+    def test_landed_names_its_commit(self):
+        f = self.facts("bolt-landed")
+        assert (f["phase"], f["over"], f["commit"], f["verdict"]) == ("over", "landed", "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0", "landed")
+
+    def test_failed_carries_sluices_words_and_waits_on_its_caller(self):
+        f = self.facts("bolt-failed")
+        assert (f["verdict"], f["verdict_words"], f["waiting"], f["entry_state"]) == (
+            "failed", "check-full failed: tests:logic 3 failed (tests/py/test_landing.py)", "submission", "failed")
+        assert f["waiting_words"].startswith("the submission failed: check-full failed")
+
+    def test_conflict_names_its_words_and_waits_on_its_caller(self):
+        f = self.facts("bolt-conflict")
+        assert (f["verdict"], f["waiting"], f["entry_state"]) == ("conflict", "submission", "conflict")
+        assert "conflicts with main at 9f1c2ab on plugin/lib/plan.py" in f["verdict_words"]
+
+    def test_withdrawn_has_no_words_of_sluices_but_flumes(self):
+        f = self.facts("bolt-withdrawn")
+        assert (f["verdict"], f["verdict_words"], f["waiting"], f["waiting_words"]) == (
+            "withdrawn", None, "submission", "the merge queue withdrew the submission")
+
+
 class TestVerification:
     """A bolt's verification is its work's landing at its head, as the runner reports it (merge-gate "A bolt's
     verification is its work's landing at its head"; runner.verification): green once some unit, chore or fix of it
@@ -600,7 +712,10 @@ class TestPriorities:
         return [tuple(v) for v in last.values()]
 
     def start(self, w, bolt):
+        """What a start appends: the bolt's base place's launch, then its pieces' (Decision 3)."""
         w.plan.bolt(bolt).set("Path", "flume")
+        act, work, given = runner.bolt_launch(w.plan, bolt, w.label)
+        plan.request(w, act, work, **given)
         plan.reach_places(self.FLEET, w, bolt)
 
     def test_the_first_bolt_in_the_plan_has_the_highest(self):
@@ -609,23 +724,26 @@ class TestPriorities:
         assert [runner.priority_of(p, b) for b in ("x", "t", "y", "z", "gone")] == [2, None, 1, None, None]
 
     def test_two_bolts_started_in_order(self, monkeypatch):
-        """x is started and then y, x above y in the plan: x's launches carry a higher priority than y's, each naming
-        crew's repository and no host or stream, intent madswan/<bolt> and recipient madswan/planner."""
+        """x is started and then y, x above y in the plan: x's pieces' launches carry a higher priority than y's, each
+        naming crew's repository and no host or stream, intent madswan/<bolt> and recipient madswan/planner, after its
+        bolt's base place's launch, whose recipient is madswan/ops and whose priority is set at its launch alone, since
+        a base place takes no room in its stream."""
         monkeypatch.setenv("CREW_AGENT", BY)
         w = self.write(("x", None), ("y", None))
         self.start(w, "x")
         self.start(w, "y")
-        assert self.priorities(w) == [("unit/x-unit", "2"), ("unit/y-unit", "1")]
+        assert self.priorities(w) == [("bolt/x", "1"), ("unit/x-unit", "2"), ("bolt/y", "1"), ("unit/y-unit", "1")]
         launches = [r for r in plan.Plan(w.files["requests.rec"]).recs("Request") if r.get("Act") == "launch"]
         assert [(r.get("Repo"), r.get("Host"), r.get("Stream"), r.get("Intent"), r.get("Recipient")) for r in launches] == [
-            ("crew", None, None, "madswan/x", "madswan/planner"), ("crew", None, None, "madswan/y", "madswan/planner")]
+            ("crew", None, None, "madswan/x", "madswan/ops"), ("crew", None, None, "madswan/x", "madswan/planner"),
+            ("crew", None, None, "madswan/y", "madswan/ops"), ("crew", None, None, "madswan/y", "madswan/planner")]
 
     def test_a_third_started_raises_those_above_it(self, monkeypatch):
         monkeypatch.setenv("CREW_AGENT", BY)
         w = self.write(("x", None), ("y", None), ("z", None))
         for b in ("x", "y", "z"):
             self.start(w, b)
-        assert self.priorities(w) == [("unit/x-unit", "3"), ("unit/y-unit", "2"), ("unit/z-unit", "1")]
+        assert [p for p in self.priorities(w) if p[0].startswith("unit/")] == [("unit/x-unit", "3"), ("unit/y-unit", "2"), ("unit/z-unit", "1")]
 
     def test_a_reorder_sends_only_what_changed(self, monkeypatch):
         """crew bolt order puts z above y: requests.rec gains a priority for each launched place of y and z, whose

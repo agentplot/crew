@@ -48,8 +48,8 @@ def runnerless(label, tips):
 
 REQUESTS = """\
 # crew's requests of the runners: a launch of a Flume place for a started
-# bolt's work, a fix or a role's work that lands, or a retry, drop or priority
-# of a place launched.
+# bolt's base place, its work, a fix or a role's work that lands, or a retry,
+# drop, priority or land of a place launched.
 # Written only by crew, each in the commit of the plan write that occasions it;
 # numbered once, and never changed or removed. The runner whose configuration
 # names a launch's Repo takes it, or for a role's the runner on its Host, and
@@ -57,11 +57,11 @@ REQUESTS = """\
 # never writes.
 
 %rec: Request
-%doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work; or a retry, drop or priority of the place the launch Of names launched, taken by the runner that took it.
+%doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work, a bolt's own launch its base place of crew's kind crew/bolt; or a retry, drop, priority or land of the place the launch Of names launched, taken by the runner that took it, a land the user's send of a bolt or a fix of main.
 %key: Request
 %type: Request,Of,After,Priority int
-%type: Act enum launch retry drop priority
-%type: Kind enum change chore fix
+%type: Act enum launch retry drop priority land
+%type: Kind regexp /^(change|chore|fix|crew\\/bolt)$/
 %type: Hold enum submission
 %type: Submission bool
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/
@@ -73,17 +73,29 @@ REQUESTS = """\
 FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent", "Recipient", "Hold",
           "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
 # What every request carries, and, by its act, what it must carry beside them and what else it may: a launch of a
-# role's work names its Host and Stream, and a launch of a kit's work neither (request_refusal).
+# role's work names its Host and Stream, and a launch of a kit's work neither, and a bolt's own launch carries no Brief
+# (request_refusal); a land names the launch it lands and nothing else (crew-lands-each-bolt-through-flumes-base-place,
+# Decision 4).
 COMMON = ("Request", "Act", "Work", "Date", "By")
 ACTS = {
     "launch": (("Repo", "Kind", "Name", "Base", "Priority", "Intent", "Recipient", "Brief"), ("Hold", "After", "Host", "Stream")),
     "retry": (("Of",), ("Stage", "Submission", "Words")),
     "drop": (("Of",), ()),
     "priority": (("Of", "Priority"), ()),
+    "land": (("Of",), ()),
 }
-# The work a request serves, as crew names it: a unit, a chore, a fix on a bolt or a fix of a kit's main, or a role's
-# work that lands (Decision 10 of roles-run-as-flume-kinds).
-WORK = re.compile(r"^(?:unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+# The kind of a bolt's own launch, its base place: crew's kind bolt@1, named by its source (record 0056; Decision 2).
+BOLT_KIND = "crew/bolt"
+# The work a request serves, as crew names it: a bolt's base place, a unit, a chore, a fix on a bolt or a fix of a
+# kit's main, or a role's work that lands (Decision 10 of roles-run-as-flume-kinds).
+WORK = re.compile(r"^(?:bolt/N|unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+
+
+def needs(act, work):
+    """What a request of act for work must carry beside COMMON (ACTS): a bolt's own launch, its base place, runs no
+    agent and so carries no Brief."""
+    need = ACTS[act][0]
+    return tuple(f for f in need if f != "Brief") if act == "launch" and work.startswith("bolt/") else need
 
 
 def number(v):
@@ -113,20 +125,25 @@ def request_fields(n, act, work, given, date, by):
 def request_refusal(requests, new):
     """Why crew's own rules refuse a request (plan.1), beyond what recfix checks of requests.rec, or None: requests, the
     file's records before it, and new, the request appended, each a record of the plan's kind (plan.Rec). A request is
-    the next by number; its work is a unit's, a chore's or a fix's as crew names them; it carries every field its act
-    needs and none its act does not take; a launch of a role's work names the host and stream its role runs in, and a
-    launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
-    host's Flume configuration maps the repository to (settled with the user 2026-11-01); a retry, drop or priority names by Of a launch of the same
-    work; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds its
-    submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
+    the next by number; its work is a bolt's, a unit's, a chore's or a fix's as crew names them; it carries every field
+    its act needs and none its act does not take; a launch of a role's work names the host and stream its role runs in,
+    and a launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
+    host's Flume configuration maps the repository to (settled with the user 2026-11-01); a bolt's own launch, of
+    bolt/<bolt>, names crew's kind crew/bolt and the base main, and no Brief or After, since its base place runs no
+    agent, and no other launch names that kind; a launch on a bolt's branch comes after a launch of the bolt's base
+    place in the file, or of other work on that branch, as a bolt started before bolts were base places has its pieces'
+    launches and no launch of its own, so a fix on it is taken (crew-lands-each-bolt-through-flumes-base-place, Decisions
+    3 and 9); a retry, drop, priority or land names by Of a launch of the same work, and a land a launch of a bolt or
+    of a fix of main; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds
+    its submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
     n, act, work = new.get("Request"), new.get("Act"), new.get("Work")
     want = next_request(requests)
     if number(n) != want:
         return (f"request {n} is not the next in requests.rec: it holds "
                 + (f"requests 1 to {want - 1}" if want > 2 else "request 1" if want == 2 else "none") + f", so the next is {want}")
     if act not in ACTS:
-        return f"request {n} is a {act}, and a request is a launch, a retry, a drop or a priority"
-    need, may = ACTS[act]
+        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority or a land"
+    need, may = needs(act, work or ""), ACTS[act][1] + (("Brief",) if act == "launch" and (work or "").startswith("bolt/") else ())
     missing = [f for f in COMMON + need if not new.get(f)]
     if missing:
         return (f"{act} {n} for {work} names no {' and no '.join(missing)}: a {act} carries "
@@ -135,13 +152,30 @@ def request_refusal(requests, new):
     if extra:
         return f"{act} {n} for {work} carries {', '.join(extra)}, which a {act} does not take"
     if not WORK.match(work):
-        return (f"{act} {n} serves {work}, and a request serves unit/<unit>, chore/<chore>, fix/<bolt>/<name>, fix/main/<kit>/<name> "
-                "or role/<role>/<name>")
+        return (f"{act} {n} serves {work}, and a request serves bolt/<bolt>, unit/<unit>, chore/<chore>, fix/<bolt>/<name>, "
+                "fix/main/<kit>/<name> or role/<role>/<name>")
     if act == "launch" and work.startswith("role/") and not (new.get("Host") and new.get("Stream")):
         return f"launch {n} of {work} names no Host or no Stream: a role's work runs on the host and in the stream its role runs in"
     if act == "launch" and not work.startswith("role/") and (new.get("Host") or new.get("Stream")):
         return (f"launch {n} of {work} names a Host or a Stream: a kit's work is taken by a runner whose configuration "
                 "names its repository, in the stream its host's Flume configuration maps the repository to, and crew names neither")
+    if act == "launch" and work.startswith("bolt/"):
+        if new.get("Kind") != BOLT_KIND:
+            return f"launch {n} of {work} names Kind {new.get('Kind')}: a bolt's base place is of crew's kind {BOLT_KIND}"
+        if new.get("Base") != "main":
+            return f"launch {n} of {work} names Base {new.get('Base')}: a bolt's base place is cut from main"
+        if new.get("Brief"):
+            return f"launch {n} of {work} names a Brief: a bolt's base place runs no agent, so it carries none"
+        if new.all("After"):
+            return (f"launch {n} of {work} names After {', '.join(new.all('After'))}: a bolt's base place lands after every "
+                    "place on its branch, so it comes after no launch")
+    if act == "launch" and not work.startswith("bolt/") and new.get("Kind") == BOLT_KIND:
+        return f"launch {n} of {work} names Kind {BOLT_KIND}, which is a bolt's base place's alone, of bolt/<bolt>"
+    if act == "launch" and (new.get("Base") or "").startswith("bolt/"):
+        bolt = new.get("Base")
+        if not any(r.get("Act") == "launch" and (r.get("Work") == bolt or r.get("Base") == bolt) for r in requests):
+            return (f"launch {n} of {work} on {bolt} comes before any launch of {bolt}: a bolt's base place is launched "
+                    "before its pieces")
     by = {r.get("Request"): r for r in requests}
     if act != "launch":
         of = by.get(new.get("Of"))
@@ -150,6 +184,9 @@ def request_refusal(requests, new):
                 "" if of is not None else ": requests.rec does not hold it")
         if of.get("Work") != work:
             return f"{act} {n} for {work} names launch {of.get('Request')}, which is {of.get('Work')}'s"
+        if act == "land" and not work.startswith(("bolt/", "fix/main/")):
+            return (f"land {n} for {work} names launch {of.get('Request')}, which is no bolt's or fix of main's: a land is the "
+                    "user's send of a bolt or of a fix of main")
     for a in new.all("After"):
         l = by.get(a)
         if l is None or l.get("Act") != "launch":
@@ -780,6 +817,18 @@ def built_order(work):
         order.append(u)
         placed.add(u.name())
     return order
+
+
+def bolt_launch(plan, bolt, label):
+    """The launch of a started bolt's base place (crew-lands-each-bolt-through-flumes-base-place, Decision 3), as (act,
+    work, its fields as plan.request takes them): a place of crew's kind crew/bolt named the bolt, cut from main, in
+    the bolt's repository as the plan names it, for a runner whose configuration names it to take in the stream its
+    host maps it to, at the bolt's priority (priority_of), its intent the bolt's, main-level ops as its recipient,
+    since what follows a landing is ops's (plan.16), and no Brief, since a base place runs no agent, and no After, since
+    it lands after every place on its branch. A start appends it before its pieces' launches (reach)."""
+    return ("launch", f"bolt/{bolt}", {
+        "Repo": plan.bolt(bolt).get("Repo"), "Kind": BOLT_KIND, "Name": bolt, "Base": "main",
+        "Priority": priority_of(plan, bolt), "Intent": f"{label}/{bolt}", "Recipient": f"{label}/ops"})
 
 
 def reach(plan, requests, bolt, label, again=()):
