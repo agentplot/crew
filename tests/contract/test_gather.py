@@ -324,7 +324,7 @@ def test_a_bolts_ref_gone_while_the_lines_are_read_is_left_out_and_one_git_cant_
 def test_a_merge_landed_on_github_is_read_there_with_the_hosts_copy_left_behind(repo, tmp_path):
     """Stages, crew bolts and the landing card (bolt-plan "A merge landed on GitHub while the host's copy stayed
     behind"): a bolt on GitHub is read at origin/bolt/<bolt> as the host last fetched it, its archived change, its
-    chore, its head and the verdict at that head, never at the host's own bolt/<bolt>, sluice's copy."""
+    chore and its head, never at the host's own bolt/<bolt>, sluice's copy."""
     k, other = on_github(repo, tmp_path)
     before = repo.git("rev-parse", "bolt/te")
     other.commit("chore: pin\n\nChore: c", {"pin": "1\n"})
@@ -334,78 +334,36 @@ def test_a_merge_landed_on_github_is_read_there_with_the_hosts_copy_left_behind(
     repo.git("fetch", "-q", "origin")
     got = k.read()["bolts"]["te"]
     assert repo.git("rev-parse", "bolt/te") == before != head
-    assert (got["at"], got["exists"], got["head"], got["verdict"]) == ("origin/bolt/te", True, head, "passed (9 run, 0 replayed)")
+    assert (got["at"], got["exists"], got["head"]) == ("origin/bolt/te", True, head)
     assert (got["archived"], got["chores"], "u" in got["changes"]) == (["u"], ["c"], True)
     assert gather.bolt_read(str(repo.path), "te") == ("refs/remotes/origin/bolt/te", None)
 
 
-RECORDS = Path(__file__).parent.parent / "py"
-
-
-def test_a_head_landed_beside_the_queue_is_read_with_sluices_record_of_its_submission(repo, tmp_path, monkeypatch):
-    """kit.verification, crew bolts and the landings card (merge-gate "A landing beside reads as the verdict that covers
-    it"; crew-board "The follower follows each kit's queue through sluice's overview"): git's trailers, read in one
-    `git log` as `%(trailers:key=…,valueonly)` joined by NULs, give a landing's Sluice-Result, Sluice-Submission and
-    Sluice-Tested apart; a head that names a submission and no Sluice-Tested, as sluice writes a landing beside its
-    queue (text.rs beside_message, v0.69.0), has its record read by one `sluice status <n> --json` in the kit's main
-    checkout, and a head landed through the queue asks sluice nothing. sluice here is a script on the path that logs
-    every call and answers the record as tests/py/sluice-0.69.0/ holds it, its landed_as the head; with the record
-    sluice 0.68.1 printed on the box, the same read names no covering verdict, and a sluice that refuses is said."""
-    import kit
+def test_a_head_landed_beside_the_queue_is_read_with_no_sluice_run_and_no_verdict(repo, tmp_path, monkeypatch):
+    """merge-gate "Nothing of sluice's is read" (crew record 0056 points 1 and 4): a bolt whose head is a take-main fix
+    sluice landed beside its queue with nothing run, its commit naming a submission and no combination tested as sluice
+    0.69.0 writes it (text.rs beside_message), is read with its head and no verdict or record of sluice's: the bolt's
+    verification is read from the runner's report of its work's landing at that head (runner.verification). sluice here
+    is a script first on the path that appends every call it gets to a file, which names no `sluice status`."""
     k, other = on_github(repo, tmp_path)
     covering = landed_on_github(other, {"src.txt": "s\n"}, (
         "chore(land): #1316 unit/u\n\nSluice-Submission: 1316\nSluice-From: swb-3-unit-1 (unit/u)\n"
         f"Sluice-Tested: {'f' * 40}\nSluice-Result: passed (141 run, 0 replayed)"))
-    bin_, log = tmp_path / "bin", tmp_path / "sluice.log"
-    bin_.mkdir()
-    monkeypatch.setenv("PATH", f"{bin_}{os.pathsep}{os.environ['PATH']}")
-
-    def answers(version, head, code=0):
-        rec = json.loads((RECORDS / f"sluice-{version}" / "status-landed-beside.json").read_text())
-        out = tmp_path / f"status-{version}.json"
-        out.write_text(json.dumps(dict(rec, landed_as=head, **({"covered_by": dict(rec["covered_by"], at=covering)}
-                                                                if "covered_by" in rec else {}))))
-        (bin_ / "sluice").write_text(f"""#!/bin/sh
-echo "$(pwd -P) $*" >> {log}
-case "$*" in
-  "status 1319 --json") {f"cat {out}" if not code else "echo '{\"error\": {\"message\": \"no submission 1319\"}}'"}; exit {code} ;;
-  "overview --json") echo '{{"schema": "sluice/overview@1", "branches": []}}' ;;
-  *) echo "sluice: $* is not stubbed" >&2; exit 2 ;;
-esac
-""")
-        (bin_ / "sluice").chmod(0o755)
-
-    repo.git("fetch", "-q", "origin")
-    answers("0.69.0", covering)
-    got = k.read()["bolts"]["te"]
-    assert (got["head"], got["verdict"], got["beside"]) == (covering, "passed (141 run, 0 replayed)", None)
-    assert "status" not in log.read_text()
-
-    words = (f"passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the result "
-             f"at {covering}, passed (141 run, 0 replayed)")
     head = landed_on_github(other, {"docs/guide.md": "g\n"}, (
         "chore(land): #1319 fix/te/take-main\n\nSluice-Submission: 1319\nSluice-From: swb-3-unit-1 (fix/te/take-main)\n"
-        f"Sluice-Result: {words}"))
+        "Sluice-Result: passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the "
+        f"result at {covering}, passed (141 run, 0 replayed)"))
+    bin_, log = tmp_path / "bin", tmp_path / "sluice.log"
+    bin_.mkdir()
+    (bin_ / "sluice").write_text(f'#!/bin/sh\necho "$*" >> {log}\nexit 0\n')
+    (bin_ / "sluice").chmod(0o755)
+    log.write_text("")
+    monkeypatch.setenv("PATH", f"{bin_}{os.pathsep}{os.environ['PATH']}")
     repo.git("fetch", "-q", "origin")
-    answers("0.69.0", head)
-    log.unlink()
     got = k.read()["bolts"]["te"]
-    main = os.path.realpath(repo.path)
-    assert [l for l in log.read_text().splitlines() if "status" in l] == [f"{main} status 1319 --json"]
-    assert (got["head"], got["verdict"], got["beside"]["submission"], got["beside"]["why"]) == (head, words, "1319", None)
-    assert got["beside"]["record"] == {"id": 1319, "branch": "bolt/the-shared-applications-landing-sends-a-person-where-they-were-invited",
-                                       "state": "landed", "landed_as": head, "beside": True,
-                                       "covered_by": {"at": covering, "result": "passed", "ran": 141, "replayed": 0}}
-    assert kit.verification(got["head"], got["verdict"], got["beside"]) == (
-        "green", f"sluice's verdict covering its last landing, {head[:7]}, which landed beside the queue with nothing run "
-                 f"(#1319): passed (141 run, 0 replayed), at {covering[:7]}")
-
-    answers("0.68.1", head)
-    got = k.read()["bolts"]["te"]
-    assert got["beside"]["record"]["covered_by"] is None and kit.verification(head, words, got["beside"])[0] == "unknown"
-    answers("0.69.0", head, code=1)
-    got = k.read()["bolts"]["te"]
-    assert (got["beside"]["record"], got["beside"]["why"]) == (None, "sluice status 1319 exited 1: no submission 1319")
+    assert got["head"] == head and got["exists"] is True
+    assert "verdict" not in got and "beside" not in got
+    assert not [l for l in log.read_text().splitlines() if l.startswith("status")]
 
 
 def test_a_chores_place_beside_a_bolt_on_github_is_read_against_githubs_copy(repo, tmp_path):
@@ -466,7 +424,7 @@ def test_a_read_that_asks_a_fetch_reads_what_github_holds_now_and_every_other_as
     last = repo.git("rev-parse", "origin/bolt/te")
     assert gather.kit(req)["bolts"]["te"]["head"] == last != head
     got = gather.kit(req, fetch=True)["bolts"]["te"]
-    assert (got["head"], got["verdict"]) == (head, "passed (9 run, 0 replayed)")
+    assert got["head"] == head
     repo.git("remote", "set-url", "origin", str(tmp_path / "gone.git"))
     got = gather.kit(req, fetch=True)
     assert got["ok"] is False and got["error"].startswith(f"cannot fetch {repo.path} from GitHub: ")

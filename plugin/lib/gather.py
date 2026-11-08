@@ -28,9 +28,7 @@ why they can't be read (landings_error); each place under <dir>/places with its 
 its planning is complete, read from the change archived there once its merge has archived it; each chore's place,
 <dir>/places/chore-<name> on chore/<name>, with its bolt,
 head, head's time and how many commits of its own it holds beyond the bolt; the kit's
-policy, its main's .config/sluice.toml as text; each bolt's verdict, the Sluice-Result trailer on its head when
-sluice landed it, and, for a head sluice landed beside its queue with nothing run, sluice's record of that submission,
-read by one `sluice status <n> --json`, which names the verdict that covers it (landing_read); and, for a kit the request asks bolts of, the submissions standing in sluice's queue (submissions)
+policy, its main's .config/sluice.toml as text; and, for a kit the request asks bolts of, the submissions standing in sluice's queue (submissions)
 and those its branches' recent events name decided (decided), read from one `sluice overview --json`, or each and
 why it can't be read; with the follower's queue handed in (queued, and its kept decided submissions, decided) it runs
 no sluice for its queue, and it never reads sluice's record of a branch's submissions. With sites, each worktree's devurl names and the host's
@@ -292,50 +290,6 @@ def short(ref):
 def head_at(cwd, ref):
     """The committer time of a ref, as ISO 8601, or None."""
     return (run(["git", "log", "-1", "--format=%cI", ref], cwd) or "").strip() or None
-
-
-# The trailers sluice writes on a landing commit (sluice record 0006, clause 23): its verdict, the submission it landed
-# and the combination tested for it, which every landing through sluice's queue names and a landing beside the queue,
-# with nothing run, never does (sluice clause 140, core.39; sluice-core text.rs, landing_message and beside_message,
-# read at v0.68.1 and v0.69.0).
-LANDING_TRAILERS = ("Sluice-Result", "Sluice-Submission", "Sluice-Tested")
-
-# The fields crew reads of sluice's record of a submission landed beside its queue, as `sluice status <n> --json` prints
-# it (sluice-core records.rs Submission, read at v0.69.0): covered_by, {at, result, ran, replayed}, the verdict that
-# covers the revision it landed on, which sluice records from 0.69.0 on (sluice record 0083) and before it never.
-BESIDE_FIELDS = ("id", "branch", "state", "landed_as", "beside", "covered_by")
-
-
-def landing_read(main, ref):
-    """sluice's verdict on the landing at a bolt's head (ref), read in the kit's main checkout, as (verdict, beside):
-    verdict its Sluice-Result trailer, "" when the head is no landing of sluice's; beside None but for a head that names
-    a submission and no combination tested, a landing beside sluice's queue with nothing run, for which it is sluice's
-    record of that submission, where sluice names the verdict that covers the landing (sluice clause 140, record 0083):
-    {"submission": the number its Sluice-Submission names, "record": the record's BESIDE_FIELDS, or None, "why": why the
-    record can't be read, or None}, read by one `sluice status <n> --json` (sluice core.11), and never from the
-    trailer's words, which name it too (read.2)."""
-    out = run(["git", "log", "-1", "--format=" + "%x00".join(f"%(trailers:key={k},valueonly)" for k in LANDING_TRAILERS), ref], main)
-    result, submission, tested = ([p.strip() for p in (out or "").split("\0")] + ["", "", ""])[:3]
-    if not result or not submission or tested:
-        return result, None
-    if not submission.isdigit():
-        return result, {"submission": submission, "record": None,
-                        "why": f"its Sluice-Submission, {submission!r}, is no number sluice's record can be asked for"}
-    what = f"sluice status {submission}"
-    ran, why = sluice_ran(main, ["status", submission, "--json"], what)
-    doc = None
-    if ran is not None:
-        code, said, err = ran
-        if code:
-            why = sluice_said(what, code, said, err)
-        else:
-            try:
-                doc = json.loads(said)
-            except ValueError:
-                pass
-            why = None if isinstance(doc, dict) else f"{what} printed no record"
-    record = {k: doc.get(k) for k in BESIDE_FIELDS} if isinstance(doc, dict) and not why else None
-    return result, {"submission": submission, "record": record, "why": why}
 
 
 # A change's tasks and whether its planning is complete, read from its files by openspec 1.14.1's own rules for its
@@ -893,9 +847,6 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
                            "worktree": wt if at.get(wt) == f"bolt/{b}" else None,
                            "head": (run(["git", "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], main) or "").strip() or None if ref else None,
                            "head_at": head_at(main, ref) if ref else None,
-                           # sluice's verdict on the bolt's last landing: its head's trailer, empty when it is no landing,
-                           # and for a landing beside sluice's queue, sluice's record naming the verdict that covers it.
-                           **(dict(zip(("verdict", "beside"), landing_read(main, ref))) if ref else {"verdict": None, "beside": None}),
                            **({"error": why} if why else {})}
     # Each bolt's own line beyond main, read where it lives, every bolt GitHub holds among them (bolt_lines), and what
     # each bolt read carries of another's (carries, carried_bolts): a bolt never carries another bolt's work to main
