@@ -44,8 +44,9 @@
 # queued submission, and answers as it answers any (a wait beside it waiting on that one's record). To a branch whose policy takes pull requests (route.py --pulls) it answers as sluice
 # 0.36.4 does once intake has queued the pull request (crates/sluice/src/lib.rs submit_pull): the open one from this
 # worktree's branch into it, the stub gh's, opened when there is none, its number and no submission,
-# {"branch","pull_request","state"}, its submission made from the place pull/<n>, and the pull request merged when it
-# lands; a draft one it answers as waiting, landing and recording nothing. `sluice status <branch> --all --json` lists
+# {"branch","pull_request","state"}, its submission made from the place pull/<n>, which it hands the stub wt-submit as
+# SLUICE_STUB_PLACE so the landing's Sluice-From names it, `<agent> (pull/<n>)`, as sluice's landing 4acecf09 of a bolt
+# through pull request 377 on swancloud's main did, read 2026-11-08, and the pull request merged when it lands; a draft one it answers as waiting, landing and recording nothing. `sluice status <branch> --all --json` lists
 # the submissions to the branch, each a sluice/submission@1 with its id, head, state and from {agent, head,
 # worktree}. `sluice --version` prints `sluice 0.36.4`, or what $CREW_TEST_ROOT/sluice-version holds while it exists.
 # `sluice branch create <branch> --from <from> --json` and `sluice branch delete <branch> --into <into> --json` answer
@@ -150,7 +151,7 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
       fi
       place=pull/$pr
     fi
-    said=$(CREW_TEST_LOG= wt-submit "$target" --no-remove 2>&1); rc=$?
+    said=$(CREW_TEST_LOG= SLUICE_STUB_PLACE=${pr:+$place} wt-submit "$target" --no-remove 2>&1); rc=$?
     count=$common/stub-sluice-submissions
     if (( rc == 0 )); then n=$(cat "$count"); else n=$(( $(cat "$count" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$count"; fi
     state=landed; (( rc == 1 )) && state=failed; (( rc == 2 )) && state=conflict
