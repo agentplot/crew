@@ -1350,9 +1350,12 @@ def stamped(fleet, host, kits, labels=(), overviews=(), routes=False):
 
 
 def survey(fleet, held, sites=False, board=False, fetch=False):
-    """Read the kits of every host holding active bolts, one call per host. held is [(where, bolt)], where a bolt's
-    work runs as the runner that took it reported (bolt_at, its host and the kit's folder there), bolt None for the kit
-    alone. The answer is per host: its kits by folder, or why it did not answer. With sites, each worktree's devurl names and
+    """Read the kits of every host holding active bolts, one call per host. held is [(where, bolt)] or [(where, bolt,
+    sought)], where a bolt's work runs as the runner that took it reported (bolt_at, its host and the kit's folder
+    there), bolt None for the kit alone, and sought what the kit's read seeks of the bolt's landing on main
+    (landing_sought), put on the kit's request as seek, {bolt: sought}, for gather to find (Decision 2 of
+    a-bolts-landing-on-main-reads-landed); a kit an earlier survey of the command read without seeking a bolt now
+    sought is asked again. The answer is per host: its kits by folder, or why it did not answer. With sites, each worktree's devurl names and
     the host's running portless routes too; board implies sites and adds the explorations on each kit's main, for the
     board. With fetch, each kit's GitHub is fetched on its host before it is read, for a read a decision of the moment
     rests on (plan.18, plan.19), and a fetch that fails reads that kit unread with git's words. A kit the command has
@@ -1362,14 +1365,16 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
     (Kept.served) and asks each host only for the rest, its answers stamped."""
     sites = sites or board
     hosts = {}
-    for t, bolt in held:
+    for t, bolt, *sought in held:
         kt = t["kit"]
         k = hosts.setdefault(t["machine"], {}).setdefault(kt["main"], {"main": kt["main"], "dir": kt["dir"], "bolts": []})
         if bolt and bolt not in k["bolts"]:
             k["bolts"].append(bolt)
+        if bolt and sought and sought[0]:
+            k.setdefault("seek", {})[bolt] = sought[0]
     out, kept = {}, READ.follower if board and not fetch else None  # the follower's read is the board's survey
     for host, kits in sorted(hosts.items()):
-        have = {} if sites or fetch else {m: k for m, k in READ.kits(host).items() if m in kits}
+        have = {} if sites or fetch else {m: k for m, k in READ.kits(host).items() if m in kits and seek_answered(kits[m], k)}
         if kept is not None:
             have.update({m: a for m, k in kits.items() if (a := kept.served(host, m, k)) is not None})
             for m in have:
@@ -1393,6 +1398,14 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
             have.update(got)
         out[host] = {"ok": True, "kits": have}
     return out
+
+
+def seek_answered(req, answer):
+    """Whether a kit's answer an earlier read of the command kept answers what a request seeks of its bolts' landings on
+    main (survey): each bolt sought has its landing read, found, none or unread, in the answer. A decision on plain
+    facts (code.7)."""
+    bolts = answer.get("bolts") or {}
+    return all("landed" in (bolts.get(b) or {}) or "landed_error" in (bolts.get(b) or {}) for b in req.get("seek") or {})
 
 
 def amended(mark):
@@ -1608,12 +1621,15 @@ class Stages:
 
 def stages_for(fleet, label, plan, bolts, fetch=False):
     """Stages for the units of the given bolts of a partition's plan, reading its runners once and only the hosts their
-    work runs on (bolt_at), each kit's GitHub fetched first with fetch (survey)."""
+    work runs on (bolt_at), each kit's GitHub fetched first with fetch (survey), each started bolt's landing on its
+    kit's main sought from its start and the heads crew submitted of it (landing_sought, the run record's bolt.submit
+    entries at the tip the plan's branch is read at; Decision 2 of a-bolts-landing-on-main-reads-landed)."""
     try:
-        run = runner_facts(fleet, label)
+        run, submits = runner_facts(fleet, label), submits_read(fleet, label)
     except Refusal as e:
         return Stages(fleet, plan, {}, {label: str(e)}, label)
-    held = [(t, b.name()) for b in bolts if started(b) for t in [known_at(fleet, label, b, run)] if t]
+    held = [(t, b.name(), landing_sought(run[0], submits, b.name())) for b in bolts if started(b)
+            for t in [known_at(fleet, label, b, run)] if t]
     return Stages(fleet, plan, survey(fleet, held, fetch=fetch), {label: run}, label)
 
 
@@ -2374,6 +2390,13 @@ def submits_at(repo, tip):
     """Every bolt.submit entry the run record holds at a tip of a drive's branch (runs_at); none for a branch not
     started (tip None)."""
     return runs_at(repo, tip)["submits"] if tip else []
+
+
+def submits_read(fleet, label):
+    """A partition's bolt.submit entries (submits_at) at the tip of its branch this command reads (fetch, once for the
+    command, plan.12)."""
+    repo, ref = state_of(fleet, label)
+    return submits_at(repo, fetch(repo, ref))
 
 
 def landing_sought(requests, submits, bolt):
@@ -10069,8 +10092,9 @@ def bolts_view(fleet, a):
     errors = {}
     found = plans(fleet, labels, errors)
     runs = rail_runs(found)
-    held = [(t, b.name()) for l, _, _, p in found if p and l in runs for b in p.bolts() if started(b) and a.bolt in (None, b.name())
-            for t in [known_at(fleet, l, b, runs[l])] if t]
+    # Each started bolt's landing on its kit's main sought (landing_sought; Decision 2 of a-bolts-landing-on-main-reads-landed).
+    held = [(t, b.name(), landing_sought(runs[l][0], submits_at(repo, tip), b.name())) for l, repo, tip, p in found if p and l in runs
+            for b in p.bolts() if started(b) and a.bolt in (None, b.name()) for t in [known_at(fleet, l, b, runs[l])] if t]
     logs = {}  # each partition's run record, its bolts' landings read from it (landing_phase), or why it can't be read
     for l, _, _, p in found:
         if p:
@@ -11939,8 +11963,9 @@ def rail_read(fleet, labels, board=False, sweep=False):
     errors = {}
     found = plans(fleet, labels, errors)
     runs = rail_runs(found)  # each partition's runners, read once beside its plan for its crossed work (plan.12)
-    held = [(t, b.name()) for l, _, _, p in found if p and l in runs for b in p.bolts() if started(b)
-            for t in [known_at(fleet, l, b, runs[l])] if t]
+    # each started bolt's landing on its kit's main sought (landing_sought; Decision 2 of a-bolts-landing-on-main-reads-landed)
+    held = [(t, b.name(), landing_sought(runs[l][0], submits_at(repo, tip), b.name())) for l, repo, tip, p in found if p and l in runs
+            for b in p.bolts() if started(b) for t in [known_at(fleet, l, b, runs[l])] if t]
     kits = {l: kits_at(repo, tip, p) for l, repo, tip, p in found}
     renames = {l: renames_at(repo, tip) for l, repo, tip, p in found}
     if board:  # the explorations on each kit's main, read in the checkout its partition's main-level host keeps of it
