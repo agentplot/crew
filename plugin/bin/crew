@@ -88,7 +88,10 @@
 #                                      the rail's sweep there or crew bolt land; a close crew refuses recorded and said
 #                                      on the bolt's head line until a later read lifts it; one
 #                                      that did not land recorded at its head while the rest go on: one refused for its
-#                                      own content, a conflict or a check that ran and failed, held on its row; one
+#                                      own content, a conflict or a check that ran and failed, held on its row as the
+#                                      bolt's fix, what failed named from sluice's record with a failed check's crew
+#                                      fix, and refused, nothing submitted, while its head is still the one sluice sent
+#                                      back; one
 #                                      that carries another bolt's work main lacks, a landing of that bolt's its head
 #                                      holds, refused with nothing submitted, naming that bolt and its landings, until
 #                                      main holds that work; one
@@ -421,6 +424,10 @@
 # -h or --help among any command's arguments prints that command's usage and does nothing else, exiting 0: its own lines
 # here, or its parser's for a command crew hands to one (crew bolt start --help). Any other word is a word, so
 # crew tell <agent> "--help with the tenant table" tells it as any tell does.
+#
+# A command that read a drive's branch below its tip, while a write there waits for its run-record entry, says so:
+# the commit it read at, the tip, the write it waits on and that write's agent, on the line before a refusal and on
+# standard error after an answer, since what it found missing may be in that write or after it.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)

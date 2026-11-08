@@ -140,6 +140,17 @@ tm=fix/tenant-environments/take-main-$m
 has "$out" "bolt tenant-environments takes main first: fix tenant-environments--take-main-$m is launched in switchboard-kit (request $(request_of "$tm")) for the runner that keeps it, taking origin/main at $m into the bolt"
 ok "crew bolt submit lands a bolt by a submission to main from a short-lived worktree, and a conflict lands nothing, leaves its pull request a draft, said with its link, and launches the bolt's take-main fix"
 
+# Submitted again at the head sluice sent back, nothing is submitted: the landing is the bolt's fix, not a stop, read
+# from sluice's record of the submission on the kit's host (bolt-teams "A landing sluice sent back is the bolt's fix").
+: > "$CREW_TEST_LOG"
+expect_fail "bolt/tenant-environments was not submitted: sluice sent its landing back at $(short origin/bolt/tenant-environments): #" \
+  crew bolt submit tenant-environments
+has "$out" " in conflict with main on README.md"
+has "$out" "It is the bolt's fix, not a stop: a conflict with what main has landed is the bolt's, and the fix crew launches on reading the refusal takes main into it, so start nothing for it; once that fix has merged into bolt/tenant-environments, crew bolt submit tenant-environments submits the landing again at its new head, on the send that ticked it."
+eq "$(calls | grep -c "^$box wt submit ")" 0
+eq "$(drafted "$pr")" true
+ok "a landing sluice sent back is the bolt's fix: submitted again at the same head, crew submits nothing and says the fix crew launched takes main in"
+
 # The take-main fix's Flume place merges main in, resolving the title, and is submitted to the bolt, which sluice lands
 # there.
 tmp=$T/flume/take-main
@@ -780,8 +791,8 @@ ok "a ticked bolt taking main in keeps the user's send through its take-main fix
 # Main moving under a proven row: GitHub's main lands a change to the file far's chore added, and the builder's host
 # has it as origin/main, as the fleet's timer fetches it; crew rail on the main level's host, the partition's main
 # machine, raises the kit's landings card again, which forecasts far against main after a fetch, holds far taking main
-# first, so a list of two becomes an approval of west alone, followed; a second crew rail, main not having moved,
-# raises nothing.
+# first, an unticked box beside west, so the one card is changed in place and never withdrawn and posted again; a
+# second crew rail, main not having moved, raises nothing.
 crew bolt new west "The west regions." --repo switchboard-kit >/dev/null
 crew chore add west-files "West's files." --bolt west >/dev/null; crew bolt start west >/dev/null 2>&1
 flume_lands $box chore west-files west west.txt
@@ -799,18 +810,21 @@ echo "main's far" > "$k/far.txt"; commit_all "$k" "feat: main's own far"; push "
 expect_ok on_box rail --label wldn
 has "$out" "land/switchboard-kit (wldn): main is at $(short origin/main), its rows forecast at ${was:0:7}: raised again"
 eq "$(cat "$kept")" "$(git -C "$k" rev-parse origin/main)"
-has "$(calls | grep "^$box pendingyou cancel_request ")" "far takes main first: forecast to conflict with main on far.txt at $(short origin/main)"
-posted=$(calls | grep "^$box pendingyou post_request " | tail -1)
-eq "$(jq -c '[.kind, .follows, .title]' <<<"${posted#* post_request }")" "[\"approve\",\"$kit\",\"Land the bolt west on switchboard-kit's main\"]"
-has "$posted" "**far**: takes main first: forecast to conflict with main on far.txt at $(short origin/main)"
+changed=$(calls | grep "^$box pendingyou update_request " | tail -1)
+has "$changed" "far takes main first: forecast to conflict with main on far.txt at $(short origin/main), until a fix taking main in moves its head"
+calls | grep -q "^$box pendingyou \(post\|cancel\)_request " && fail "far taking main first withdrew and posted the landings card again:"$'\n'"$(calls)"
+eq "$(jq -c '[.requestId, .recommendedIds]' <<<"${changed#* update_request }")" "[\"$kit\",[\"land:west\"]]"
+has "$changed" "Takes main first: forecast to conflict with main on far.txt at $(short origin/main)"
+eq "$(field $box card.update Heads kit/switchboard-kit)" "west@$(short origin/bolt/west) far@$(short origin/bolt/far):main"
 : > "$CREW_TEST_LOG"
 expect_ok on_box rail --label wldn
 lacks "$out" "landings cards forecast again"
 calls | grep -q "^$box pendingyou \(post\|update\|cancel\)_request " && fail "a second rail read changed the landings card:"$'\n'"$(calls)"
-ok "main moving under a proven row makes crew rail on the main level's host raise the kit's landings card again, holding the row taking main first; a second crew rail raises nothing"
+ok "main moving under a proven row makes crew rail on the main level's host raise the kit's landings card again, changing it in place with the row taking main first unticked; a second crew rail raises nothing"
 
-# A bolt the user left: near joins west on a card of two boxes, and the user sends it ticking none, which ops's crew
-# card read acts on at once, closing it and following it with both rows unticked as left, the set recorded. Main then
+# A bolt the user left: near joins west and far, which takes main first, on the card, changed in place, and the user
+# sends it ticking none, which ops's crew card read acts on at once, closing it and following it with west and near
+# unticked as left, the set recorded, and far unticked as taking main first, which is no bolt the user left. Main then
 # lands a change to the file west's chore added: crew rail's raise keeps west's box, changes the waiting card in place
 # saying it would take main first, and records the forecast as found while left. The user ticks west on the card that
 # follows: crew card read leaves west out of the command that lands, saying it takes main first, its send standing.
@@ -819,12 +833,12 @@ crew chore add near-files "Near's files." --bolt near >/dev/null; crew bolt star
 flume_lands $box chore near-files near near.txt
 expect_ok on_box _land-card wldn switchboard-kit
 two=$(grep -o "^card land/switchboard-kit: req_stub-[0-9]*" <<<"$out" | tail -1 | cut -d' ' -f3)
-eq "$(field $box card.post Heads kit/switchboard-kit)" "west@$(short origin/bolt/west) near@$(short origin/bolt/near)"
+eq "$(field $box card.update Heads kit/switchboard-kit)" "west@$(short origin/bolt/west) far@$(short origin/bolt/far):main near@$(short origin/bolt/near)"
 echo '{"answer": {"choiceIds": []}}' > "$(home_of $box)/.stub-pendingyou/answered/$two.json"
 out=$(ops card read land/switchboard-kit 2>&1) || fail "ops could not read its card:"$'\n'"$out"
 has "$out" "no bolt ticked: nothing lands"
 eq "$(field $box landing.left Heads kit/switchboard-kit)" "west@$(short origin/bolt/west) near@$(short origin/bolt/near)"
-eq "$(field $box card.post Heads kit/switchboard-kit)" "west@$(short origin/bolt/west):left near@$(short origin/bolt/near):left"
+eq "$(field $box card.post Heads kit/switchboard-kit)" "west@$(short origin/bolt/west):left far@$(short origin/bolt/far):main near@$(short origin/bolt/near):left"
 left=$(field $box card.post Card kit/switchboard-kit)
 [[ $left != "$two" ]] || fail "no card followed the send that left west and near"
 echo "main's west" > "$k/west.txt"; commit_all "$k" "feat: main's own west"; push "$k"

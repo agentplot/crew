@@ -436,7 +436,7 @@ In a kit whose sluice policy at main takes pull requests into main, crew SHALL m
 - **THEN** no pull request is marked a draft, and the command's words are those of a landing
 
 ### Requirement: A landing is recorded by the first act that reads the bolt after it
-The first crew act on any host to read a bolt once sluice's record has its landing's submission out SHALL record the outcome: the landing's waiter as it stops, `crew bolt submit`'s end, the rail's sweep on the kit's host, or `crew bolt land`. It SHALL take the number from the bolt's last queued `bolt.submit`, read sluice's record on the kit's host one read at a time, record nothing while the submission stands, and close a landed bolt with no word asked (`plan.21`).
+The first crew act on any host to read a bolt once sluice's record has its landing's submission out SHALL record the outcome: the landing's waiter as it stops, `crew bolt submit`'s end, the rail's sweep on the kit's host, or `crew bolt land`. It SHALL take the number from the bolt's last queued `bolt.submit`, read sluice's record on the kit's host one read at a time, record nothing while the submission stands, and close a landed bolt with no word asked (`plan.21`). A read SHALL never wait on itself: the kit's read that a read's close of a landed bolt runs on the kit's host, which the close waits on while the read holds the bolt's turn, SHALL read no bolt's landing, and the kit's next read or the rail's next sweep SHALL read the landings of its other bolts.
 
 #### Scenario: The submitter is gone before sluice decides
 - **WHEN** `crew bolt submit z` queues submission 412 and its process is killed, and sluice then lands 412 on main
@@ -449,6 +449,10 @@ The first crew act on any host to read a bolt once sluice's record has its landi
 #### Scenario: Two reads at once
 - **WHEN** the waiter's read and `crew bolt submit`'s own end read `z`'s landing at the same moment
 - **THEN** the run record holds one `bolt.submit` outcome for 412 and one `bolt.land`, and each says the bolt landed
+
+#### Scenario: A close's kit read reads the plan from before the close
+- **WHEN** the waiter's read of `z` finds 412 landed and closes `z`, and the kit's read the close runs on the kit's host reads the plan as it stood before the close, its `bolt.land` entry not yet on the branch, so the plan still holds `z` with every unit landed
+- **THEN** the kit's read reads no landing, the read ends, and the run record holds one `bolt.submit` outcome for 412 and one `bolt.land`
 
 #### Scenario: Still standing
 - **WHEN** a read finds sluice's record of 412 still under test
@@ -533,3 +537,38 @@ Another bolt's work is a commit on that bolt's first-parent line beyond main, re
 #### Scenario: A bolt's ref goes while the kit is read
 - **WHEN** a fetch removes `origin/bolt/gone` while a kit's read lists the bolts' lines
 - **THEN** `gone` is left out of the lines, and no bolt is read as unreadable for it
+
+### Requirement: A landing sluice sent back is the bolt's fix
+A landing sluice sent back for the bolt's own content SHALL be the bolt's fix until a fix moves its head. crew SHALL name what failed from sluice's record, never a check's words, and give the way on: the take-main fix crew launches for a conflict with main, or the `crew fix` ops starts for a failed check. crew SHALL NOT submit it again at that head, but for a conflict only with a submission queued ahead, and a submit there that submitted nothing SHALL leave it the bolt's fix.
+
+#### Scenario: A check fails
+- **WHEN** `crew bolt submit z` waits on `#7` and sluice's record has it failed with `tests:logic`, which ran and failed, tested on main at `db8bc25`
+- **THEN** the command fails, saying `z` did not land, that a failed check is the bolt's, `#7 failed tests:logic, tested on main at db8bc25`, and that ops starts `crew fix z landing-7 "Mend what sluice sent bolt/z's landing back for: #7 failed tests:logic, tested on main at db8bc25"`, after which the bolt's row asks the user again
+
+#### Scenario: Submitted again at the head sluice sent back
+- **WHEN** ops runs `crew bolt submit z` again while `z`'s head is still the one sluice sent back as `#7`
+- **THEN** crew reads sluice's record of `#7` on the kit's host and submits nothing, runs no `wt submit` and leaves the pull request a draft, refusing in words that name what failed and the way on, saying it is the bolt's fix, not a stop, and `z` stays held on its row
+
+#### Scenario: A conflict sent back, submitted again at the same head
+- **WHEN** sluice sent `z`'s landing back in conflict with main on `README.md`, crew launched its take-main fix, and ops runs `crew bolt submit z` again before that fix has merged
+- **THEN** crew submits nothing, saying the conflict is the bolt's and the fix crew launches on reading the refusal takes main into it, so ops starts nothing, and that once that fix has merged, `crew bolt submit z` submits the landing again at its new head
+
+#### Scenario: A conflict only with a submission queued ahead
+- **WHEN** sluice sent `z`'s landing back in conflict only with `#12`, queued on main ahead of it, and ops runs `crew bolt submit z` again at the same head
+- **THEN** crew submits it as any landing, the bolt having waited that submission out
+
+#### Scenario: A submit that submitted nothing
+- **WHEN** `z`'s landing was refused at `977138a` and a later `crew bolt submit z` at `977138a` ends with sluice's driver submitting nothing, recorded stopped with no submission
+- **THEN** `z` reads as held for its fix at `977138a`, on its kit's landings card, the rail and `crew bolts`, its landing rejected and open for work, and no reader says it was stopped or that ops submits it again as it is
+
+#### Scenario: The fix moves the head
+- **WHEN** a fix on `z` has merged and `z`'s head is no longer the one sluice sent back
+- **THEN** `crew bolt submit z` submits it at its new head as any landing, asking sluice's record of `#7` nothing
+
+#### Scenario: sluice's record can't be read
+- **WHEN** `crew bolt submit z` finds `z`'s landing refused at its head and `sluice status 7 --json` fails
+- **THEN** it submits nothing, saying the words the refusal was recorded with and why the record can't be read, and gives the way on with no fix's words of crew's
+
+#### Scenario: No team is named
+- **WHEN** any of the words above are said, on this line where crew runs no team
+- **THEN** none names a team or a conductor

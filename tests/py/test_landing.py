@@ -10,6 +10,7 @@ import datetime
 import io
 import json
 import pathlib
+import re
 
 import pytest
 
@@ -18,6 +19,7 @@ from facts import START, at
 import plan
 
 OLD, NEW, TIP = "a" * 40, "b" * 40, "c" * 40
+WHOLE = dict(repo="o/switchboard-kit", base="abc1234" + "0" * 33, main="/kit/main", host="box")  # where a bolt's diff is read whole
 SIGNAL = "sluice: releasing try/abc1234: its command failed"
 SLUICE = pathlib.Path(__file__).parent / "sluice-0.36.4"
 STATUS = json.loads((SLUICE / "status-all.json").read_text())
@@ -85,10 +87,12 @@ def test_a_conflict_lands_nothing_and_is_the_bolts_to_take():
 def test_checks_that_failed_land_nothing():
     words = landing(said(1, new=OLD), doc=RAN)[1]
     assert words.startswith("bolt/b did not land: main's checks failed on it")
-    assert words.endswith(" A check that failed is the bolt's: its row is held for a fix on the bolt, which you start with "
-                          "sluice's words, crew fix b <name> \"<sluice's words>\"; once that fix has merged, the bolt's row asks "
-                          "the user again.")
+    assert words.endswith(" A check that failed is the bolt's, #214 failed tests:logic, tested on main at db8bc25: its row is "
+                          "held for a fix on the bolt, which you start, crew fix b landing-214 \"Mend what sluice sent bolt/b's "
+                          "landing back for: #214 failed tests:logic, tested on main at db8bc25\"; once that fix has merged, the "
+                          "bolt's row asks the user again.")
     assert "conductor" not in words and "team" not in words
+
 
 
 def test_a_conflict_with_a_submission_queued_on_main_is_waited_out():
@@ -390,13 +394,17 @@ class TestSluiceItselfFailed:
     def test_sluices_record_of_the_submission_is_the_last_of_its_tip(self):
         """read.2, against sluice 0.36.4's own listing (tests/py/sluice-0.36.4/status-all.json)."""
         out = (pathlib.Path(__file__).parent / "sluice-0.36.4" / "status-all.json").read_text()
+        rec = {x["id"]: x for x in json.loads(out)["submissions"]}
+        tested = lambda n: {"tested": rec[n]["tested"]} if "tested" in rec[n] else {}  # main's revision it was tested on, for sent_back_of
         assert {state: plan.submission_of(head, 0, out, "") for state, head in HEADS.items()} == {
-            "conflict": {"id": 137, "state": "conflict", "conflict": CONFLICT["conflict"]}, "withdrawn": {"id": 148, "state": "withdrawn"},
-            "landed": {"id": 153, "state": "landed", "result": "passed"}, "testing": {"id": 160, "state": "testing"}}
+            "conflict": {"id": 137, "state": "conflict", "conflict": CONFLICT["conflict"], **tested(137)},
+            "withdrawn": {"id": 148, "state": "withdrawn", **tested(148)},
+            "landed": {"id": 153, "state": "landed", "result": "passed", **tested(153)}, "testing": {"id": 160, "state": "testing", **tested(160)}}
         blamed = dict(RAN, id=171, head=TIP)
-        assert plan.submission_of(TIP, 0, listing(blamed), "") == {"id": 171, "state": "failed", "result": "failed", "failed": RAN["failed"]}
+        assert plan.submission_of(TIP, 0, listing(blamed), "") == {"id": 171, "state": "failed", "result": "failed", "failed": RAN["failed"],
+                                                                   **({"tested": RAN["tested"]} if "tested" in RAN else {})}
         again = dict(STATUS["submissions"][1], id=170, state="queued")
-        assert plan.submission_of(HEADS["withdrawn"], 0, listing(again), "") == {"id": 170, "state": "queued"}
+        assert plan.submission_of(HEADS["withdrawn"], 0, listing(again), "") == {"id": 170, "state": "queued", **tested(148)}
 
     def test_a_record_crew_has_none_of_is_said_why(self):
         assert plan.submission_of(TIP, 0, listing(), "") == "sluice records no submission of ccccccc to main"
@@ -578,6 +586,65 @@ UNDER_TEST = ran_as(0, json.dumps({"schema": plan.SUBMISSION, "id": 7, "head": T
 QUEUED = ran_as(0, f"RC=0 TIP={TIP} OLD={OLD} ID=7 PULL= ANSWER= SAID={base64.b64encode(b'sluice: queued #7').decode()} LEVEL=\n", "sluice: queued #7\n")
 
 
+class TestASentBackLanding:
+    """bolt-teams "A landing sluice sent back is the bolt's fix": what failed of a landing sluice sent back for the
+    bolt's own content, from its record alone (plan.sent_back_of, plan.sent_back_said: failed, conflict.paths,
+    tested.on), a failed check's fix and its command (plan.bolt_fix), the way on (plan.sent_back_way), and crew bolt
+    submit's refusal of it at the head sluice sent back (plan.sent_back_refusal)."""
+    ON = RAN["tested"]["on"]
+
+    def test_a_check_that_ran_and_failed_names_it_and_mains_revision_it_was_tested_on(self):
+        s = plan.sent_back_of(RAN)
+        assert (s["n"], s["conflict"], s["checks"], s["on"], s["head"]) == (214, False, ["tests:logic"], self.ON, RAN["head"])
+        assert plan.sent_back_said(s) == "#214 failed tests:logic, tested on main at db8bc25"
+        assert plan.bolt_fix("b", s) == ("landing-214", "Mend what sluice sent bolt/b's landing back for: #214 failed tests:logic, "
+                                                        "tested on main at db8bc25")
+
+    def test_a_conflict_names_its_paths_and_is_taken_in_by_crews_own_fix(self):
+        s = plan.sent_back_of(dict(CONFLICT, conflict={"paths": ["README.md", "plugin/lib/plan.py"], "with": [{"id": 136}]},
+                                   tested={"combination": "f" * 40, "on": "e" * 40, "submissions": [137]}))
+        assert plan.sent_back_said(s) == "#137 in conflict with main on README.md and plugin/lib/plan.py, and with #136, tested on main at eeeeeee"
+        assert plan.sent_back_of(CONFLICT)["on"] is None and plan.sent_back_of(CONFLICT)["withs"] == []
+        way = plan.sent_back_way("b", plan.sent_back_of(CONFLICT))
+        assert way.startswith("a conflict with what main has landed is the bolt's, and the fix crew launches on reading the refusal "
+                              "takes main into it, so start nothing for it") and "crew fix" not in way
+
+    def test_a_run_its_time_limit_ended_says_so(self):
+        s = plan.sent_back_of(dict(RAN, result="timed out", failed=[{"task": "tests:logic"}]))
+        assert plan.sent_back_said(s) == "#214 timed out, tested on main at db8bc25"
+
+    def test_a_flaky_check_and_its_system_are_named_and_no_double_quote_reaches_the_command(self):
+        s = plan.sent_back_of(dict(RAN, failed=[dict(RAN["failed"][0], task='e2e:"web"', system="x86_64-linux", flaky={"key": "k"})]))
+        assert s["checks"] == ['e2e:"web" (x86_64-linux) (flaky)'] and '"' not in plan.bolt_fix("b", s)[1]
+
+    @pytest.mark.parametrize("doc", [NOT_RUN, dict(RAN, state="withdrawn"), dict(RAN, state="landed"), {"state": "testing"}, None])
+    def test_anything_but_the_bolts_own_content_is_no_sent_back_landing(self, doc):
+        assert plan.sent_back_of(doc) is None
+
+    def test_the_way_on_is_the_fix_then_its_row_never_a_submit_at_that_head(self):
+        said = plan.sent_back_way("b", plan.sent_back_of(RAN))
+        assert said.startswith("a check that failed is the bolt's: start its fix, crew fix b landing-214 \"")
+        assert said.endswith("; once that fix has merged into bolt/b, the bolt's row asks the user again.")
+        assert "conductor" not in said and "team" not in said
+
+    def test_crew_bolt_submits_refusal_reads_sluices_record_and_holds_nothing_its_record_has_otherwise(self):
+        held = {"head": RAN["head"], "words": "#214 failed: tests:logic on 41a7c09", "n": "214"}
+        refusal = plan.sent_back_refusal("b", RAN["head"], held, ("out", "1", RAN))
+        assert refusal.startswith("bolt/b was not submitted: sluice sent its landing back at 8ec587a: #214 failed tests:logic, tested on "
+                                  "main at db8bc25. It is the bolt's fix, not a stop: a check that failed is the bolt's")
+        assert plan.sent_back_refusal("b", RAN["head"], held, ("out", "4", dict(RAN, state="withdrawn"))) is None
+        standing = plan.sent_back_refusal("b", RAN["head"], held, ("standing", "testing"))
+        assert "as the run record has it: #214 failed: tests:logic on 41a7c09 (its record of #214 still has it under test)" in standing
+        assert "(crew can't" not in plan.sent_back_refusal("b", RAN["head"], dict(held, n=None), None)
+
+    def test_a_conflict_only_with_a_submission_queued_ahead_is_waited_out_and_submitted_again(self):
+        """held_way, teams.21: the bolt waits out a conflict with a submission queued on main ahead of it, then is
+        submitted again at the same head, so crew refuses nothing of it."""
+        met = dict(CONFLICT, conflict=dict(CONFLICT["conflict"], **{"with": [{"id": 12}]}))
+        held = {"head": CONFLICT["head"], "words": "#137 conflict: README.md", "n": "137"}
+        assert plan.sent_back_refusal("b", CONFLICT["head"], held, ("out", "2", met)) is None
+
+
 class TestTheSubmission:
     """crew bolt submit <bolt>... (plan.16, plan.18, Decision 6, bolt-teams): each bolt's main now read before its
     submission and its landing pull request made live, the submission queued (SUBMIT), its outcome waited on a call at
@@ -593,7 +660,7 @@ class TestTheSubmission:
         self.tmp = tmp_path
 
     def submit(self, monkeypatch, before, outs, bolts=("b",), runs_at=None, close=None, said=None, record=None, copies=None, overview=None, statuses=None,
-               carries=None):
+               carries=None, prior=()):
         """bolt_submit of the bolts on mac-studio, whose work runs on box unless runs_at says otherwise, MAIN saying before on
         each host and POLICY said, a policy at main taking no pull requests unless given, the bolt's two copies read
         right after MAIN (LAND_COPIES) answering copies, a bolt that lives on its host unless given, sluice's
@@ -606,7 +673,7 @@ class TestTheSubmission:
         gh's act or the main checkout), what was recorded of each landing's outcome, its entry as sluice queued it kept
         apart (self.queued), and which bolts crew bolt land closed, kept on self. What each bolt carries of another's
         (CARRIES) answers carries, nothing unless given, its arguments kept apart (self.carries_read), so the scripts
-        above read as they did before it."""
+        above read as they did before it. The run record holds prior's entries before what this run records."""
         ran_, emitted, closed, argvs = self.ran, self.emitted, self.closed, self.argvs = [], [], [], []
         self.order = []  # the scripts run and the entries recorded, in turn
         statuses, waited = list(statuses or []), [None]
@@ -629,7 +696,7 @@ class TestTheSubmission:
         monkeypatch.setattr(plan, "landing_state", lambda t: self.tmp / f"{t['label']}-crew")
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", f"{label}/main"))
         monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "tip")
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [
+        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: list(prior) + [
             dict({k: v for k, v in f.items() if v not in (None, "")}, Act=act, On=on, **({"Refused": f["refused"]} if f.get("refused") else {}))
             for act, on, f in emitted])
         names = {plan.SUBMIT: "SUBMIT", plan.WAIT: "WAIT", plan.LANDED: "LANDED", plan.LANDED_MARK: "MARK", plan.PULL: "PULL",
@@ -1158,6 +1225,63 @@ class TestTheSubmission:
         entries = [dict(Act="bolt.submit", On=["bolt/b"], Refused=refused)]
         assert plan.held_at(plan.refusals(entries), "b", GITHUBS) is None and plan.stops(entries) == {}
 
+    FIX = ("crew fix b landing-7 \"Mend what sluice sent bolt/b's landing back for: #7 failed tests:logic, tested on main at "
+           "db8bc25\"")
+
+    def test_a_bolt_whose_landing_failed_a_check_reads_as_its_fix_and_is_not_submitted_again_at_its_head(self, monkeypatch, capsys):
+        """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "A landing sluice sent back is the
+        bolt's fix"): sluice sends #7 back, tests:logic having run and failed; crew records it refused at its head and
+        tells ops the fix, what failed named from sluice's record and the fix's command. Submitted again at the same
+        head, as the box's ops did at 22:28Z, crew submits nothing and runs no submission: it reads sluice's record of #7
+        and refuses in its words, never as a stop of sluice's, and the bolt's row stays held for its fix."""
+        record = json.dumps(dict(RAN, id=7, head=GITHUBS))
+        level = self.copies(GITHUBS, "yes", "yes", 0, 0)
+        verdict = "#7 failed: tests:logic on 41a7c09"
+        with pytest.raises(plan.Stopped):
+            self.submit(monkeypatch, self.BEFORE, [ran_as(0, f"RC=0 TIP={GITHUBS} OLD={OLD} ID=7 PULL= ANSWER= SAID= LEVEL=\n"), ran_as(1, record),
+                                                   ran_as(0, said(1, new=OLD, github=OLD, held="no", level="''", sluice=verdict, tip=GITHUBS))],
+                        copies=level)
+        (act, on, f), = self.emitted
+        assert (act, on, f["Head"], f["refused"], f["Submission"]) == ("bolt.submit", ["bolt/b"], GITHUBS, verdict, "7")
+        assert (f"main's checks failed on it, and main is where it was. sluice's verdict: {verdict}. A check that failed is the "
+                f"bolt's, #7 failed tests:logic, tested on main at db8bc25: its row is held for a fix on the bolt, which you start, "
+                f"{self.FIX}; once that fix has merged, the bolt's row asks the user again.") in capsys.readouterr().err
+        sent = [dict(Act="bolt.submit", On=on, Head=GITHUBS, Refused=verdict, Submission="7")]
+        with pytest.raises(plan.Stopped):
+            self.submit(monkeypatch, self.BEFORE, [], copies=level, prior=sent, statuses=[ran_as(0, record)])
+        assert self.ran == [("MAIN", "box"), ("COPIES", "b"), ("STATUS", "7")]
+        refused = (f"bolt/b was not submitted: sluice sent its landing back at 2222222: #7 failed tests:logic, tested on main at db8bc25. "
+                   f"It is the bolt's fix, not a stop: a check that failed is the bolt's: start its fix, {self.FIX}; once that fix has "
+                   "merged into bolt/b, the bolt's row asks the user again.")
+        assert self.emitted == [("bolt.submit", ["bolt/b"], {"refused": refused})]
+        err = capsys.readouterr().err
+        assert refused in err and "stopped" not in err and "sluice itself failed" not in err
+        entries = sent + [dict(Act="bolt.submit", On=["bolt/b"], Refused=refused)]
+        assert plan.refusals(entries) == {"b": (GITHUBS, verdict)} and plan.stops(entries) == {}
+
+    def test_a_sent_back_landing_whose_record_cant_be_read_is_still_its_fix(self, monkeypatch):
+        """read.1: sluice's record of the sent-back submission can't be read, so the refusal names the run record's words
+        and why, and the way on with no fix's words of crew's, which can't say what failed; nothing is submitted."""
+        sent = [dict(Act="bolt.submit", On=["bolt/b"], Head=GITHUBS, Refused="#7 failed: tests:logic on 41a7c09", Submission="7")]
+        with pytest.raises(plan.Stopped):
+            self.submit(monkeypatch, self.BEFORE, [], copies=self.copies(GITHUBS, "yes", "yes", 0, 0), prior=sent,
+                        statuses=[ran_as(3, json.dumps({"error": {"message": "its records are locked"}}))])
+        assert self.scripts() == ["MAIN", "COPIES", "STATUS"]
+        assert self.emitted[0][2]["refused"] == (
+            "bolt/b was not submitted: sluice sent its landing back at 2222222, as the run record has it: #7 failed: tests:logic on "
+            "41a7c09 (crew can't read sluice's record of #7: sluice status 7 exited 3: its records are locked). It is the bolt's "
+            "fix, not a stop: a fix on the bolt mends what sluice sent it back for, crew fix b <name> \"<sluice's words>\"; once "
+            "that fix has merged into bolt/b, the bolt's row asks the user again.")
+
+    def test_a_sent_back_landing_at_an_older_head_is_submitted_as_before(self, monkeypatch):
+        """A fix moved the head: the refusal at the older head holds nothing, sluice's record is not asked, and the bolt
+        is submitted at its new head."""
+        sent = [dict(Act="bolt.submit", On=["bolt/b"], Head=HOSTS, Refused="#7 failed: tests:logic on 41a7c09", Submission="7")]
+        self.submit(monkeypatch, self.BEFORE, [ran_as(0, f"RC=0 TIP={GITHUBS} OLD={OLD} ID=8 PULL= ANSWER= SAID= LEVEL=\n"), ran_as(0, "{}"),
+                                               ran_as(0, said(0, github=NEW, tip=GITHUBS)), ran_as(0, "MARKED=yes\n")],
+                    copies=self.copies(GITHUBS, "yes", "yes", 0, 0), prior=sent)
+        assert "STATUS" not in self.scripts()[:self.scripts().index("SUBMIT")] and self.closed == ["b"]
+
     def test_a_bolt_whose_carried_work_cant_be_read_submits_nothing_naming_why(self, monkeypatch):
         """read.1: the fetch CARRIES makes fails, so crew can't tell what the bolt carries, and submits nothing, saying git's
         words."""
@@ -1324,7 +1448,23 @@ class TestTheStops:
         refused = submitted("b", Refused="sluice: bolt/b conflicts with main")
         assert plan.stops([self.STOP, landed]) == {} and plan.stops([self.STOP, refused]) == {}
         assert plan.refusals([self.STOP, refused]) == {"b": (TIP, "sluice: bolt/b conflicts with main")}
-        assert plan.stops([refused, self.STOP]) == {"b": (TIP, self.STOP["Why"])} and plan.refusals([refused, self.STOP]) == {}
+        stopped = dict(self.STOP, Submission="9")  # a submission of its own, which sluice stopped
+        assert plan.stops([refused, stopped]) == {"b": (TIP, self.STOP["Why"])} and plan.refusals([refused, stopped]) == {}
+
+    def test_a_stop_that_submitted_nothing_leaves_a_sent_back_landing_the_bolts_fix(self):
+        """bolt-teams "A landing sluice sent back is the bolt's fix": the Willdan box's 22:28Z stop of 2026-11-06, a
+        submit at the head sluice sent back that submitted nothing, leaves the refusal standing and says no stop; a
+        refusal of crew's own before anything was submitted leaves it too; a stop at another head, or anything queued,
+        lifts it. The landing's state reads rejected through it (landing_phase)."""
+        refused = submitted("b", Refused="#1474 failed: tests:logic on 1234567", Submission="1474")
+        crews = submitted("b", head=None, Refused="bolt/b was not submitted: sluice sent its landing back")
+        assert plan.refusals([refused, self.STOP]) == {"b": (TIP, "#1474 failed: tests:logic on 1234567")} and plan.stops([refused, self.STOP]) == {}
+        assert plan.sent_back([refused, crews, self.STOP]) == {"b": {"head": TIP, "words": "#1474 failed: tests:logic on 1234567", "n": "1474"}}
+        assert plan.landing_phase([refused, crews, self.STOP], "b") == dict(state="rejected", n="1474", head=TIP,
+                                                                             words="#1474 failed: tests:logic on 1234567")
+        assert plan.refusals([refused, dict(self.STOP, Head="e" * 40)]) == {}
+        assert plan.refusals([refused, submitted("b", Why="bolt(b): queued on main as #1480", Outcome="queued", Submission="1480")]) == {}
+        assert plan.refusals([refused, submitted("b", Why="crew can't tell whether bolt/b will land: sluice holds it as pull request #268")]) == {}
 
     def test_a_stop_with_no_head_gives_none(self):
         assert plan.stops([submitted("b", head=None, Why="bolt/b was not submitted on box: wt-submit is missing", Outcome="stopped")]) == {}
@@ -1555,6 +1695,33 @@ class TestTheLandingsRead:
         mark.write_text(json.dumps({"landed": True, "words": "bolt/b landed on k's main at bbbbbbb"}))
         assert plan.landing_read(self.F, "wldn", "b") == (True, "bolt/b landed on k's main at bbbbbbb")
         assert self.closed == [] and self.ran == []
+
+    def test_a_close_whose_kit_read_reads_the_plan_below_it_finishes_while_the_read_holds_the_bolts_lock(self, monkeypatch):
+        """bolt-teams "A close's kit read reads the plan from before the close" (wldn, 2026-11-06, landings #1394 and
+        #1395): the read holds landings/b.lock while crew bolt land's code closes b, and the close has the kit's read run
+        on the host b's work runs on, this one, in this process (sweep_on, kit_read). A landing read there finds b due,
+        as a read of the plan below the close does while the close's bolt.land entry has not reached the branch
+        (read.5), and reads it with the lock's file opened afresh, as reap_landings does. The read finishes within a
+        bound, its kit read reading no landing, and records the outcome once and closes b once."""
+        import threading
+        read, swept, reaped = [], [], []
+        monkeypatch.setattr(plan, "reap_landings", lambda fleet, label: reaped.append(label) or plan.landing_read(fleet, label, "b"))
+        monkeypatch.setattr(plan, "tidy", lambda fleet, t, landed=None: swept.append(landed))
+        monkeypatch.setattr(plan, "bolts_local_said", lambda fleet, t, pl: [])
+        monkeypatch.setattr(plan, "landing_cards_closed", lambda fleet, t, bolt, outcome, said=None, here=False: None)
+
+        def close(fleet, a, **k):  # crew bolt land's code: its write, then the kit's read, which reads the plan below it
+            self.closed.append((a.bolt, k))
+            plan.sweep_on(fleet, self.T, f"bolt {a.bolt}", landed=(a.bolt, "landed", None, False))
+            self.plan.bolts_.discard(a.bolt)
+        monkeypatch.setattr(plan, "bolt_land", close)
+        self.outs = [self.record_of("landed", landed_as=NEW), ran_as(0, said(0, github=NEW)), ran_as(0, "MARKED=yes\n")]
+        reading = threading.Thread(target=lambda: read.append(plan.landing_read(self.F, "wldn", "b")), daemon=True)
+        reading.start()
+        reading.join(60)  # milliseconds of work: a read still running after a minute waits on its own lock
+        assert not reading.is_alive(), "the landing's read waits on its own lock, held while its close's kit read runs"
+        assert read == [(True, "bolt/b landed on k's main at bbbbbbb: now crew bolt land b.")] and swept == ["b"] and reaped == []
+        assert [a for a, _, f in self.emitted if a == "bolt.submit"] == ["bolt.submit"] and [b for b, _ in self.closed] == ["b"]
 
 
 class TestWhoReads:
@@ -1972,20 +2139,20 @@ class TestTheLandingsPoint:
         a = [("tasks.md", "a's tasks"), ("specs/x/spec.md", "a's spec"), ("proposal.md", "a's proposal"), ("design.md", "a's design")]
         b = [("proposal.md", "b's proposal")]
         files = plan.landing_reading("y", "switchboard-kit", "def5678" + "0" * 33, ["a", "b"], ["c"], [("a", a), ("b", b)],
-                                     "diff --git a/x b/x\n")
+                                     "diff --git a/x b/x\n", WHOLE)
         assert [n for n, _ in files] == ["00-y.md", "01-a-proposal.md", "01-a-design.md", "01-a-specs-x-spec.md", "01-a-tasks.md",
                                          "02-b-proposal.md", "03-y-diff.txt"]
         assert files[1][1] == "a's proposal" and files[-1][1] == "diff --git a/x b/x\n"
 
     def test_a_bolt_of_chores_alone_reads_as_its_cover_and_its_diff(self):
-        files = plan.landing_reading("y", "k", "def5678", [], ["c", "d"], [], "diff --git a/x b/x\n")
+        files = plan.landing_reading("y", "k", "def5678", [], ["c", "d"], [], "diff --git a/x b/x\n", WHOLE)
         assert [n for n, _ in files] == ["00-y.md", "01-y-diff.txt"]
-        assert plan.landing_reading("y", "k", "def5678", [], ["c"], [], "")[-1][1] == (
+        assert plan.landing_reading("y", "k", "def5678", [], ["c"], [], "", WHOLE)[-1][1] == (
             "The bolt changes nothing against main outside its change folders.\n")
 
     def test_the_cover_names_every_unit_and_chore_and_says_the_reading_lands_nothing(self):
         cover = plan.landing_reading("y", "switchboard-kit", "def5678" + "0" * 33, ["a", "b"], ["c"],
-                                     [("a", [("proposal.md", "")]), ("b", [("proposal.md", "")])], "")[0][1]
+                                     [("a", [("proposal.md", "")]), ("b", [("proposal.md", "")])], "", WHOLE)[0][1]
         assert cover.startswith("# Bolt y, landing on switchboard-kit's main\n\nWhat lands, at its head def5678:\n\n- a\n- b\n- c (chore)\n")
         assert "This reading lands nothing: approving the landing card is the word to land" in cover
         assert "reaches main-level ops as notes on the landing card, and a note naming a defect holds the landing for a fix" in cover
@@ -2018,6 +2185,84 @@ class TestTheLandingsPoint:
         with pytest.raises(plan.Refusal, match="unit a's change is not on bolt y at def5678, open or archived, in /kit/main on box"):
             plan.landing_write(fleet, f, tmp_path / "def5678")
         assert not (tmp_path / "def5678").exists()
+
+    @staticmethod
+    def section(path, size):
+        """git's diff of one new file, path, about size bytes long."""
+        head = f"diff --git a/{path} b/{path}\nnew file mode 100644\n--- /dev/null\n+++ b/{path}\n@@ -0,0 +1 @@\n"
+        return head + ("+" + "x" * 98 + "\n") * ((size - len(head)) // 100)
+
+    def test_a_diff_past_plannotators_limit_is_read_in_parts_each_of_whole_files_in_gits_order(self):
+        """card-sessions "A diff past plannotator's limit for one file" (wldn's switchboard-kit bolt
+        a-deploy-row-follows-its-stack-to-the-end, whose reading plannotator refused on 2026-11-06: "File too large to
+        annotate (max 2MB)"): five files' changes of 0.9 MB each, 4.5 MB in all, come in three parts, none over the
+        most plannotator opens, each holding whole files' changes, and nothing is left out."""
+        mb = 1024 * 1024
+        diff = "".join(self.section(f"src/f{i}.ts", int(0.9 * mb)) for i in range(5))
+        files = plan.landing_reading("y", "switchboard-kit", "def5678" + "0" * 33, [], ["c"], [], diff, WHOLE)
+        assert [n for n, _ in files] == ["00-y.md", "01-y-diff-1-of-3.txt", "01-y-diff-2-of-3.txt", "01-y-diff-3-of-3.txt"]
+        parts = [text for _, text in files[1:]]
+        assert all(len(text.encode()) <= plan.PLANNOTATOR_MOST for text in parts)
+        assert "".join(parts) == diff
+        assert [len(re.findall(r"(?m)^diff --git ", text)) for text in parts] == [2, 2, 1]
+        assert "That diff comes in 3 files, each holding whole files' changes in git's order, since plannotator opens no file over 2 MB." in files[0][1]
+        assert "Left out" not in files[0][1]
+
+    def test_a_file_whose_own_change_passes_the_limit_is_named_in_its_place_and_on_the_page_with_where_to_read_it(self):
+        """card-sessions "One file's change past plannotator's limit", as sluice core.43 names a request's commits past
+        the forge's limit: the file's change is cut nowhere, a line stands in its place, and the page names it, its
+        size, how many and where to read it whole; every other file's change is in the reading whole."""
+        mb = 1024 * 1024
+        small, big = self.section("README.md", 4000), self.section("vendor/bundle.js", int(2.5 * mb))
+        files = plan.landing_reading("y", "switchboard-kit", "def5678" + "0" * 33, [], ["c"], [], small + big + small, WHOLE)
+        assert [n for n, _ in files] == ["00-y.md", "01-y-diff.txt"]
+        said = files[1][1]
+        assert said.startswith(small) and said.endswith(small)
+        assert said[len(small):-len(small)] == ("vendor/bundle.js: its change, 2.5 MB, passes the 2 MB plannotator opens in one "
+                                                "file, so it is not in this reading; its first page says where to read it whole.\n")
+        cover = files[0][1]
+        assert "That diff comes in" not in cover
+        assert ("Left out of this reading, 1 file whose change alone passes the 2 MB plannotator opens in one file, each "
+                "named in its place in the diff:\n\n- `vendor/bundle.js`, 2.5 MB\n") in cover
+        assert (f"Read it whole in GitHub's compare view of the bolt against main, "
+                f"https://github.com/o/switchboard-kit/compare/{WHOLE['base']}...def5678{'0' * 33}, or on box with "
+                f"`git -C /kit/main diff {WHOLE['base']} def5678{'0' * 33} -- <path>`.") in cover
+
+    def test_a_diff_of_exactly_the_limit_is_one_file_and_one_byte_more_two(self):
+        """plannotator 0.28.48 opens a file of exactly its most and refuses one a byte longer."""
+        one = self.section("a.txt", 1024 * 1024)
+        head = "diff --git a/b.txt b/b.txt\n+"
+        fits = head + "x" * (plan.PLANNOTATOR_MOST - len(one) - len(head) - 1) + "\n"
+        assert len((one + fits).encode()) == plan.PLANNOTATOR_MOST
+        assert plan.diff_parts(one + fits) == ([one + fits], [])
+        passes = head + "x" * (plan.PLANNOTATOR_MOST - len(one) - len(head)) + "\n"
+        assert plan.diff_parts(one + passes) == ([one, passes], [])
+
+    def test_a_file_is_named_by_its_path_or_by_both_sides_as_git_wrote_them(self):
+        assert plan.diff_path("diff --git a/src/x y.ts b/src/x y.ts\nindex 1..2\n") == "src/x y.ts"
+        assert plan.diff_path("diff --git a/old.ts b/new.ts\nrename from old.ts\n") == "a/old.ts b/new.ts"
+        assert plan.diff_path('diff --git "a/caf\\303\\251" "b/caf\\303\\251"\n') == '"a/caf\\303\\251" "b/caf\\303\\251"'
+
+    def test_a_size_is_said_in_plannotators_mb_rounded_up_so_one_past_its_most_never_reads_as_it(self):
+        assert [plan.megabytes(n) for n in (plan.PLANNOTATOR_MOST, plan.PLANNOTATOR_MOST + 1, 2_621_440, 1)] == [
+            "2 MB", "2.1 MB", "2.5 MB", "0.1 MB"]
+
+    def test_a_landings_reading_past_the_limit_is_written_every_file_within_it(self, monkeypatch, tmp_path):
+        """The case the box met: a bolt whose diff passes plannotator's limit is written as files plannotator opens,
+        each within its most bytes on disk, so its reading opens."""
+        mb = 1024 * 1024
+        diff = self.section("src/a.ts", int(1.5 * mb)) + self.section("src/b.ts", int(1.5 * mb)) + self.section("gen/c.json", 3 * mb)
+        monkeypatch.setattr(plan, "change_held", lambda main, ref, u: [("proposal.md", "a's proposal")])
+        monkeypatch.setattr(plan, "kit_git", lambda fleet, t, where, *args: (0, diff.strip()))
+        fleet = {"partitions": {}, "hosts": {}}
+        f = dict(bolt="y", kit="switchboard-kit", units=["a"], chores=[], head="def5678" + "0" * 33, base="abc1234",
+                 host="box", main="/kit/main", repo="o/switchboard-kit")
+        paths = [pathlib.Path(p) for p in plan.landing_write(fleet, f, tmp_path / "def5678")]
+        assert [p.name for p in paths] == ["00-y.md", "01-a-proposal.md", "02-y-diff-1-of-2.txt", "02-y-diff-2-of-2.txt"]
+        assert all(p.stat().st_size <= plan.PLANNOTATOR_MOST for p in paths)
+        assert "- `gen/c.json`, 3 MB" in paths[0].read_text()
+        assert paths[3].read_text().startswith("diff --git a/src/b.ts b/src/b.ts\n")
+        assert "gen/c.json: its change, 3 MB, passes the 2 MB plannotator opens in one file" in paths[3].read_text()
 
     def test_a_proven_bolts_card_waits_on_its_batches_and_says_which(self):
         """briefs.12, as crew card session land/<bolt> says why the bolt has no card yet."""
@@ -2597,14 +2842,15 @@ class TestACrossedBoltLands:
     def writer(self, monkeypatch):
         monkeypatch.setenv("CREW_AGENT", "madswan-ops")
 
-    def stages(self, at, main=(), verdict=GREEN):
+    def stages(self, at, main=(), verdict=GREEN, **head):
         """crossed crw-4's x, holding a, b after a, and chore c, launched as requests 1 to 3, each at the flume fixture at
-        names; crew's kit as read on deneb, its main holding main's changes, x's head d…d carrying verdict."""
+        names; crew's kit as read on deneb, its main holding main's changes, x's head d…d carrying verdict, or the head
+        and what gather.landing_read gives of it (beside) as head names them."""
         from facts import CREW_AT, crew_read, launched, madswan_fleet, ran
         fleet = madswan_fleet()
         p, requests = launched(["x"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("c", "x", [], "chore", [])],
                                fleet=fleet)
-        return plan.Stages(fleet, p, crew_read(main, bolts={"x": {"verdict": verdict}}), runs={"madswan": (requests, ran(at))},
+        return plan.Stages(fleet, p, crew_read(main, bolts={"x": {"verdict": verdict, **head}}), runs={"madswan": (requests, ran(at))},
                            label="madswan")
 
     def test_every_piece_merged_and_green_at_its_head_reads_proven(self):
@@ -2614,6 +2860,21 @@ class TestACrossedBoltLands:
         assert work == [("a", "unit", "merged"), ("b", "unit", "merged"), ("c", "chore", "merged")]
         assert plan.landing_unready(work, "d" * 40, self.GREEN, []) is None
         assert st.bolt_state(st.plan.bolt("x")) == "waits"
+
+    def test_a_head_landed_beside_the_queue_and_covered_by_a_passed_verdict_reads_proven(self):
+        """merge-gate "A landing beside reads as the verdict that covers it": x's head is a take-main fix sluice 0.69.0
+        landed beside its queue, its record naming the verdict that covers it, which passed: x reads proven and waits to
+        land, so its row reaches crew's landings card; sluice 0.68.1's record, naming none, keeps it unproven."""
+        from facts import BESIDE_HEAD, BESIDE_NEW, BESIDE_OLD, landed_beside
+        work = [("a", "unit", "merged"), ("b", "unit", "merged"), ("c", "chore", "merged")]
+        assert plan.landing_unready(work, BESIDE_HEAD, BESIDE_NEW, [], landed_beside("0.69.0")) is None
+        assert plan.landing_unready(work, BESIDE_HEAD, BESIDE_OLD, [], landed_beside("0.68.1")).startswith(
+            "its verification is not green: its head b01e966 landed beside sluice's queue with nothing run (#1319), and "
+            "sluice's record of it names no verdict that covers it")
+        st = self.stages({1: "landed", 2: "landed", 3: "landed"}, verdict=BESIDE_NEW, head=BESIDE_HEAD, beside=landed_beside("0.69.0"))
+        assert st.bolt_state(st.plan.bolt("x")) == "waits"
+        st = self.stages({1: "landed", 2: "landed", 3: "landed"}, verdict=BESIDE_OLD, head=BESIDE_HEAD, beside=landed_beside("0.68.1"))
+        assert st.bolt_state(st.plan.bolt("x")) == "active"
 
     def test_a_piece_still_in_code_keeps_it_unproven(self):
         st = self.stages({1: "landed", 2: "code", 3: "landed"})

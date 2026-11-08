@@ -195,7 +195,11 @@ def launch_of_a(w, **more):
 def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_and_a_refused_one_pushes_nothing(state, monkeypatch):
     """plan.write commits requests.rec with the plan, one commit and one Crew-Entry (state.1, plan.2); a request crew's
     rules refuse, one recfix refuses and a write that changes a request the branch holds each refuse the whole write,
-    and the branch is as it was (Decision 4 of teams-cross-to-flume-as-their-bolts-land)."""
+    and the branch is as it was (Decision 4 of teams-cross-to-flume-as-their-bolts-land). Every write names its act
+    (plan.2): the start's entry is the one its commit names, held here rather than written to this host's record."""
+    import record
+    entries = []
+    monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, **f: entries.append((act, list(commit), eid)))
     monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
     ref = f"{state.LABEL}/main"
     before = state.git("rev-parse", ref)
@@ -204,10 +208,11 @@ def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_
         w.plan.insert(plan.Rec("Bolt", [("Bolt", "b"), ("Repo", "afterthought/crew"), ("Goal", "Start."), ("Path", "flume")]))
         assert launch_of_a(w) == 1
         return []
-    sha = plan.write(state.fleet, state.LABEL, start, "plan(b): start the bolt")
+    sha = plan.write(state.fleet, state.LABEL, start, "plan(b): start the bolt", act="bolt.start", on=["bolt/b"])
     assert state.git("rev-parse", ref) == sha and state.git("rev-list", "--count", f"{before}..{sha}") == "1"
     assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == ["plan.rec", "requests.rec"]
-    assert len(state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).split()) == 1
+    eid, = state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).split()
+    assert entries == [("bolt.start", [f"{state.REPO}@{sha}"], eid)]
     held = state.git("show", f"{sha}:requests.rec")
     assert held.startswith(runner.REQUESTS.split("\n")[0]) and "Request: 1\nAct: launch\nWork: unit/a\n" in held
 
@@ -215,7 +220,7 @@ def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_
                          (lambda w: launch_of_a(w, Priority="high"), "^requests.rec fails recfix --check"),
                          (lambda w: w.replace("requests.rec", w.text("requests.rec").replace("Name: a", "Name: b")), "request 1 would be changed")):
         with pytest.raises(Refusal, match=said):
-            plan.write(state.fleet, state.LABEL, lambda w: change(w) and [], "plan: ask again")
+            plan.write(state.fleet, state.LABEL, lambda w: change(w) and [], "plan: ask again", act="bolt.start")
         assert state.git("rev-parse", ref) == sha
 
 

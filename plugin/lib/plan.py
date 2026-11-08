@@ -503,6 +503,19 @@ class Reading:
     def keep_tip(self, repo, ref, sha):
         self.keep(self.tip_name(repo, ref), sha)
 
+    def keep_below(self, repo, ref, tip, at, waits):
+        """This command's latest read of a repo's branch: below its tip at at while waits, (the write it waits on, its
+        subject), is in flight, kept for its answer (below_read); or at its tip, waits None, which takes back what an
+        earlier read of the branch kept, since the command's later steps read past it."""
+        below = self.memory.setdefault("below", {})
+        below.pop((repo, ref), None)
+        if waits and at and tip and at != tip:
+            below[(repo, ref)] = dict(ref=ref, tip=tip, at=at, write=waits[0], subject=waits[1])
+
+    def below(self):
+        """Each branch this command last read below its tip, in the order read: below_said's facts."""
+        return list((self.held("below") or {}).values())
+
     def kits(self, host):
         return {} if self.bypass else self.held(f"kits-{host}.json") or {}
 
@@ -666,8 +679,12 @@ def fetch(repo, ref, fresh=False):
     """A branch of the repo as a decision reads it (tip_of, fresh as there): at its tip, or, while any of its newest
     commits names a run-record entry it does not hold yet, below the oldest such commit (read_point), so no decision
     reads an act whose write has reached the branch and whose entry has not (read.5, plan.2); None when the repo has
-    no such branch."""
-    return read_point(repo, tip_of(repo, ref, fresh))
+    no such branch. A read below the tip is kept for the command's answer (Reading.keep_below, below_read), and a later
+    read of the branch at its tip takes it back."""
+    tip = tip_of(repo, ref, fresh)
+    at = read_point(repo, tip)
+    READ.keep_below(repo, ref, tip, at, READ.held(f"waits-{repo}-{tip}") if at != tip else None)
+    return at
 
 
 # How many of a branch's newest commits a decision's read looks through for one whose entry is still in flight.
@@ -686,6 +703,18 @@ def entry_paths(eid):
     return [f"runs/{m.group(4)}/{d.isoformat()}.rec" for d in (day, day + datetime.timedelta(days=1))]
 
 
+def entry_held(eid, texts):
+    """Whether the run-record files at a tip (texts, {path: text}, None for one the tip lacks) hold the entry eid, in
+    either file its id names (entry_paths)."""
+    return any(re.search(rf"^Id: {re.escape(eid)}$", texts.get(p) or "", re.M) for p in entry_paths(eid))
+
+
+def in_flight(commits, texts):
+    """The commits of a branch whose entry the tip lacks, newest first, as decision_at takes them: each one's write is
+    on the branch and its entry not yet (read.5)."""
+    return [c for c in commits if not all(entry_held(e, texts) for e in c[2])]
+
+
 def decision_at(commits, texts):
     """The commit a decision reads a drive's branch at (read.5, plan.2), from facts alone (code.7): commits, the
     branch's newest first, each (sha, its first parent, the entries its Crew-Entry trailer names); texts, {path: text}
@@ -696,12 +725,33 @@ def decision_at(commits, texts):
     commit is in flight has nothing below it and is read at the tip; None when none is given. An entry kept by a
     refused push (record.2) holds the read below its write until the host's next entry carries it, or the write
     passes out of the commits given."""
-    def held(eid):
-        return any(re.search(rf"^Id: {re.escape(eid)}$", texts.get(p) or "", re.M) for p in entry_paths(eid))
     if not commits:
         return None
-    flight = [parent for _, parent, eids in commits if not all(held(e) for e in eids)]
-    return (flight[-1] if flight else None) or commits[0][0]
+    flight = in_flight(commits, texts)
+    return (flight[-1][1] if flight else None) or commits[0][0]
+
+
+def waited_on(commits, texts):
+    """The write a decision's read of the branch waits on, from the same facts as decision_at (code.7): the oldest
+    commit in flight, whose parent the branch is read at; None when the branch is read at its tip."""
+    flight = in_flight(commits, texts)
+    return flight[-1][0] if flight and flight[-1][1] else None
+
+
+def writer_of(subject):
+    """The agent a commit's subject names, its trailing ` (<agent>)` (plan.2); None for a subject that names none."""
+    m = re.search(r"\(([^()]+)\)\s*$", subject or "")
+    return m.group(1) if m else None
+
+
+def below_said(ref, tip, at, write, subject):
+    """What a command says of a decision that read a branch below its tip (plan.2, read.5), from facts alone: the
+    commit it read at, the tip, the write it waits on and that write's agent, from its subject (writer_of), so that
+    what it answered or refused is read as holding at that commit, never as the branch holding nothing newer."""
+    who = writer_of(subject)
+    by = f" by {who}" if who else ", whose subject names no agent,"
+    return (f"{ref} was read at {at[:7]}, below its tip {tip[:7]}: the write {write[:7]}{by} is on the branch without its "
+            f"run-record entry yet, so nothing from {write[:7]} on was read (read.5)")
 
 
 def read_point(repo, tip):
@@ -713,13 +763,17 @@ def read_point(repo, tip):
     name = f"read-point-{repo}-{tip}"
     if READ.held(name):
         return READ.held(name)
-    log = git(repo, "log", "--first-parent", f"-n{ARRIVAL}", "--format=%H%x09%P%x09%(trailers:key=Crew-Entry,valueonly,separator=%x20)", tip)
-    rows = [(l.split("\t") + ["", ""])[:3] for l in log.splitlines() if l.strip()]  # git's output comes stripped
-    commits = [(sha, (parents.split() or [None])[0], eids.split()) for sha, parents, eids in rows]
+    log = git(repo, "log", "--first-parent", f"-n{ARRIVAL}",
+              "--format=%H%x09%P%x09%(trailers:key=Crew-Entry,valueonly,separator=%x20)%x09%s", tip)
+    rows = [(l.split("\t", 3) + ["", "", ""])[:4] for l in log.splitlines() if l.strip()]  # git's output comes stripped
+    commits = [(sha, (parents.split() or [None])[0], eids.split()) for sha, parents, eids, _ in rows]
     paths = sorted({p for _, _, eids in commits for e in eids for p in entry_paths(e)})
     texts = dict(zip(paths, [show(repo, tip, p) for p in paths] if kept_listing(repo, tip) is not None else
                      cat_file(repo, [f"{tip}:{p}" for p in paths])))
     at = decision_at(commits, texts) or tip
+    write = waited_on(commits, texts)
+    if write and at != tip:  # the write the read waits on, and its subject, for the command's answer (below_said)
+        READ.keep(f"waits-{repo}-{tip}", (write, next(r[3] for r in rows if r[0] == write)))
     READ.keep(name, at)
     return at
 
@@ -1047,18 +1101,32 @@ def message(subject, body, eid):
     return subject + (f"\n\n{body}" if body else "") + ("\n\n" + "\n".join(f"Crew-Entry: {e}" for e in eids) if eids else "") + "\n"
 
 
+def unacted(act, subject):
+    """Why a plan write is refused before it reads or pushes anything, or None (plan.2, read.5): it names no act, so
+    its commit would name a run-record entry that nothing writes, and every decision after it would read the branch
+    below it (decision_at) until it passed out of the commits a read looks through."""
+    if act:
+        return None
+    return (f"crew does not write \"{subject}\": a write names its act, whose run-record entry its commit names and the "
+            "write itself records, and this one names none (plan.2)")
+
+
 def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
     """Apply change(Write) to the tip of the drive's branch, its plan's record descriptors first brought in step
     with crew's, commit every file it changed, each checked first, and push, replaying on a refused push. change returns the bolts it touched.
-    The commit names its run-record entry; with act, that entry is written once pushed, naming on and frm and whatever
-    the change added to them, with the act's own fields, and reaches the branch as the commit after it (read.5); by, the
+    Every write is an act (plan.2): the commit names its run-record entry, written by the write itself once pushed,
+    naming on and frm and whatever the change added to them, with the act's own fields, and reaching the branch as the
+    commit after it before the write returns (read.5), so no write leaves the branch in flight; one given no act is
+    refused before anything is read or pushed (unacted), since its commit would name an entry nothing writes. by, the
     role an act of crew's own is in the name of, and why, the entry's Why in place of the subject's (record.emit), which
     the change may give instead, with fields of its own, where only the tip it is applied to says them (Write). An ask
     the change wrote in its commit (ask_lines) is named in the commit beside the act's entry, and its own entry written
     after the act's; a key the change found held is said. Returns the commit."""
+    unacts = unacted(act, subject)
+    not unacts or fail(unacts)
     repo, ref = state_of(fleet, label)
     seen = {"eid": record.new_id()}
-    CONTEXT.update(label=label, eid=seen["eid"])
+    CONTEXT.update(label=label)
 
     def make(tip):
         tip or fail(f"{repo} has no {ref} yet: crew state init {label}")
@@ -1075,9 +1143,8 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
         return files, message(seen["subject"], body, [seen["eid"]] + [eid for eid, _ in w.asked])
     sha = land(repo, ref, None, make)
     print(f"{ref} {sha[:7]}: {seen['subject']}")
-    if act:
-        record.emit(label, act, seen["on"], seen["frm"], [f"{repo}@{sha}"], why or seen["why"] or record.subject(seen["subject"]),
-                    eid=seen["eid"], by=by, **{**(fields or {}), **seen["fields"]})
+    record.emit(label, act, seen["on"], seen["frm"], [f"{repo}@{sha}"], why or seen["why"] or record.subject(seen["subject"]),
+                eid=seen["eid"], by=by, **{**(fields or {}), **seen["fields"]})
     asked(label, f"{repo}@{sha}", seen["asked"], seen["held"])
     return sha
 
@@ -1519,7 +1586,7 @@ class Stages:
         facts = k["bolts"].get(b.name(), {})
         if facts.get("error"):
             return "unknown"
-        if units and all(x in ("merged", "landed") for x in stages) and kit.verification(facts.get("head"), facts.get("verdict"))[0] == "green":
+        if units and all(x in ("merged", "landed") for x in stages) and kit.verification(facts.get("head"), facts.get("verdict"), facts.get("beside"))[0] == "green":
             return "waits"
         return "active"
 
@@ -1914,8 +1981,8 @@ def main_held(name, machine, said):
 def sweep_on(fleet, t, what, landed=None, dropped=None, units=()):
     """The kit's read after a landing or a drop of one of its bolts (kit_read, code.3), on the host its work runs on and
     in the kit's folder there (t, bolt_at): run in this process when that is this host, else crew _sweep there as the
-    one asking, saying what it did: each landing of the kit's bolts nothing recorded read
-    (reap_landings, plan.21), the sweep of crew's own landing place and marked branch of the bolt, and, after a landing,
+    one asking, saying what it did: each landing of the kit's bolts nothing recorded read, but after a landing
+    (reap_landings, plan.21, kit_read), the sweep of crew's own landing place and marked branch of the bolt, and, after a landing,
     the bolt's landing card closed there with the words (landing_cards_closed) and its branch deleted by sluice once the
     landing's place is gone (land_delete, plan.19), landed being (bolt, the outcome recorded, what Pending You is sent in
     its place or None, whether the user answered it in a conversation); after a drop (dropped, the bolt), its branch
@@ -2464,7 +2531,7 @@ def preview_listed(doc, branch, head):
     return None
 
 
-def landing_unready(work, head, verdict, fixes):
+def landing_unready(work, head, verdict, fixes, beside=None):
     """Why a bolt does not yet read proven, from its kit alone (record 0031 §1, record 0025), or None: work is each of
     its units and chores as (name, kind, stage); head and verdict, its branch's head and sluice's Sluice-Result there;
     fixes, the fixes of the bolt in flight. It reads proven once every unit and chore has merged, not every one has
@@ -2477,7 +2544,7 @@ def landing_unready(work, head, verdict, fixes):
             return f"{kind} {name} has not merged: it is {stage}"
     if all(stage == "landed" for *_, stage in work):
         return "every unit and chore of it has landed"
-    state, said = kit.verification(head, verdict)
+    state, said = kit.verification(head, verdict, beside)
     if state != "green":
         return f"its verification is not green: {said}"
     return f"{either(sorted(fixes))} is in flight on it" if fixes else None
@@ -2525,12 +2592,39 @@ def submit_queued(entries, bolt):
     return e if e and e.get("Outcome") == "queued" else None
 
 
+def sent_back(entries):
+    """Each bolt whose landing sluice sent back for the bolt's own content (landing_end) and whose sent-back landing
+    still stands as sluice's record has it (rail-cards "A refused landing is held on its row", bolt-teams "A landing
+    sluice sent back is the bolt's fix"), from the run record's entries, oldest first: {bolt: {head, words, n}}, from
+    its last bolt.submit refused naming a head: the head submitted, the words it was refused with, sluice's verdict
+    when it gave one (landing_said, recorded), and sluice's number for the submission, None when the entry names none.
+    It stands through every bolt.submit after it that submitted nothing at its head, which leaves sluice's record of
+    the sent-back landing as it was: a refusal of crew's own before anything was submitted, naming no head (a submit
+    crew refused at that head among them), and a stop naming no submission of sluice's at that head, as a `wt submit`
+    that read nothing and submitted nothing (the Willdan box's 22:28Z stop of 2026-11-06, signal
+    2026-11-06-wldn-ops-ea539623/01). Any other entry lifts it: a submission queued, left standing or landed, a stop
+    naming a submission of its own, or one at another head. A decision of facts alone (code.7)."""
+    out = {}
+    for e in entries:
+        if e.get("Act") != "bolt.submit":
+            continue
+        for b in [o[5:] for o in e.get("On") or [] if o.startswith("bolt/")]:
+            if e.get("Refused") and e.get("Head"):
+                out[b] = dict(head=e["Head"], words=e["Refused"], n=e.get("Submission") or None)
+            elif b in out and (e.get("Refused") or e.get("Outcome") == "stopped" and not e.get("Submission")
+                               and at_head(out[b]["head"], e.get("Head"))):
+                continue
+            else:
+                out.pop(b, None)
+    return out
+
+
 def refusals(entries):
-    """Each bolt whose last landing sluice refused for the bolt's own content (landing_end), from the run record's
-    entries, oldest first: {bolt: (head, words)}, the head that was submitted (its bolt.submit's Head) and the words it
-    was refused with, sluice's verdict when it gave one (landing_said, recorded), from each bolt's last bolt.submit
-    entry when it was refused; a bolt whose last one landed or was stopped, or that has none, is not in it."""
-    return {b: (e.get("Head") or "", e["Refused"]) for b, e in last_submits(entries).items() if e.get("Refused")}
+    """Each bolt whose landing sluice refused for the bolt's own content and still stands so (sent_back), from the run
+    record's entries, oldest first: {bolt: (head, words)}, the head that was submitted and the words it was refused
+    with; a bolt whose landing since landed, was submitted again or was stopped at a submission of its own, or that
+    has none, is not in it."""
+    return {b: (r["head"], r["words"]) for b, r in sent_back(entries).items()}
 
 
 def stops(entries):
@@ -2538,9 +2632,11 @@ def stops(entries):
     its host stopped keeps its box", landing_end), from the run record's entries, oldest first: {bolt: (head, words)},
     the head that was submitted and the words for what stopped it, from each bolt's last bolt.submit entry when it is
     marked Outcome stopped and names its Head; a bolt whose last one landed or was refused, or that has none, is not in
-    it, nor one whose stop names no head, which nothing of the bolt was submitted at."""
+    it, nor one whose stop names no head, which nothing of the bolt was submitted at, nor one whose landing sluice sent
+    back still stands (sent_back), which a stop that submitted nothing leaves the bolt's fix."""
+    held = sent_back(entries)
     return {b: (e["Head"], e.get("Why") or "") for b, e in last_submits(entries).items()
-            if e.get("Outcome") == "stopped" and e.get("Head") and not e.get("Refused")}
+            if e.get("Outcome") == "stopped" and e.get("Head") and not e.get("Refused") and b not in held}
 
 
 def stopped_at(stopped, bolt, head):
@@ -2675,15 +2771,35 @@ def landing_rows(order, rows, held, stopped=None, takes_main=None, left=()):
     return out
 
 
+def card_rows(rows):
+    """The rows a kit's landings card shows (rail-cards "A row taking main first stays on the card"), from its rows as
+    landing_rows gives them, less those an earlier send still lands (rows_unsent): while any row can land, each that can
+    and each held only to take main first beside it (landing_rows' takes_main), but one an earlier send lands (sent),
+    in the plan's order; none while no row can land, since no card is raised then (plan.8). A row taking main first
+    shown so keeps its place as its bolt takes main in and comes back, so its coming and going keeps the card's form
+    (cards.landings_form) and changes the card in place, where its leaving the card would follow it. A decision of
+    facts alone (code.7)."""
+    if not any(r["box"] for r in rows):
+        return []
+    return [r for r in rows if r["box"] or r.get("takes_main") and not r.get("sent")]
+
+
 def card_heads(text):
     """A kit's landings card's rows as its post or change recorded them (built_fields): [(bolt, head, left)] in the
-    card's order, left whether the user cleared it on their last send; [] for none recorded."""
+    card's order, left whether the user cleared it on their last send; [] for none recorded. A row the card showed
+    taking main first, marked :main, is among them, never left (heads_taking)."""
     out = []
     for w in (text or "").split():
-        m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40})(:left)?", w)
+        m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40})(:left|:main)?", w)
         if m:
-            out.append((m.group(1), m.group(2), bool(m.group(3))))
+            out.append((m.group(1), m.group(2), m.group(3) == ":left"))
     return out
+
+
+def heads_taking(text):
+    """The rows a kit's landings card's post or change recorded as taking main first, marked :main (cards.landings_card,
+    rail-cards "A row taking main first stays on the card"): their bolts."""
+    return {m.group(1) for w in (text or "").split() for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@[0-9a-f]{7,40}:main", w)] if m}
 
 
 def at_head(head, now):
@@ -2721,11 +2837,15 @@ def left_now(card, ticked, heads, recorded, stops):
     heads, {bolt: its head now} of each row of the kit read now; recorded and stops, as left_marks gives them. A bolt at
     its head now is left when it is marked left on the card held while it waits, the card held is answered and the user
     did not tick its row, or the record names it left or stopped and the card held has not ticked it; one the user
-    ticked, one at another head and one that is no row are not. {bolt: head7}."""
+    ticked, one at another head, one that is no row and one the card showed taking main first, unticked by crew's own
+    hand (card's taking), are not. {bolt: head7}."""
     status = (card or {}).get("status")
     ticks = set(ticked or []) if status == "answered" else set()
+    taking = set((card or {}).get("taking") or ())
     out = {}
     for b, h, marked in (card or {}).get("heads") or []:
+        if b in taking:
+            continue
         if at_head(h, heads.get(b)) and (marked if status == "waiting" else status == "answered" and b not in ticks):
             out[b] = heads[b][:7]
     for b, h in list(recorded.items()) + list(stops):
@@ -2759,13 +2879,17 @@ def rows_unsent(rows, sent, work=None):
     (landings_sent, send_stands), at the head sent or at a head whose own work is the same (work, bolt_work's for each
     bolt whose head moved), which is no row of a card that follows that send's, nor of any after it; those bolts; and
     each that can land whose send does not stand, a row again, with the words that say what changed (work_said):
-    (rows, [bolt], [(bolt, words)]). A decision of facts alone (code.7)."""
+    (rows, [bolt], [(bolt, words)]). A row taking main first whose earlier send stands stays held with no box, marked
+    sent, since that send lands it once it reads proven (card_rows). A decision of facts alone (code.7)."""
     work, out, landing, asked = work or {}, [], [], []
     for r in rows:
         b, head = r["bolt"], r["facts"]["head"]
         at = sent.get(b)
         if r["box"] and at and send_stands(at, head, work.get(b)):
             landing.append(b)
+            continue
+        if not r["box"] and r.get("takes_main") and at and send_stands(at, head, work.get(b)):
+            out.append(dict(r, sent=True))
             continue
         out.append(r)
         if r["box"] and at:
@@ -2827,7 +2951,8 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     then for a landing on the user's word in ops's pane (here), closed as answered there;
     ("post", left) when rows can land and no card is held, following the kit's last card only when that one was
     answered and closed with rows left (cards.follows_of);
-    ("change", note, kind_changed, left) when a waiting card is held and its rows, their heads or the event changed
+    ("change", note, kind_changed, left) when a waiting card is held and its rows (card_rows, a row taking main first
+    among them, marked so on the card, card's taking), their heads, whether each takes main first, or the event changed
     it, its form changed or not (cards.landings_form), followed then rather than changed; ("leave",) when nothing did;
     ("leave",) when an answered card is held while any bolt the user ticked is still to land on their send, in the
     plan, not held, or held only taking main first (landing_rows' takes_main), and its send standing at its head now,
@@ -2836,8 +2961,9 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     ("follow", outcome, left, landing) when one does, a bolt on no row of the card or at a head the card did not show
     whose send does not stand, which is never added to the card they answered: it is closed saying what landed, what
     their send still lands, each whose last landing at its head sluice or its host stopped with what stopped it (its
-    row's stopped, landing_rows), which holds nothing, what takes main in first, what was held and what was left, and
-    what changed of a ticked bolt asked again (work_said), and a new card follows it with every row that can land but
+    row's stopped, landing_rows), which holds nothing, what takes main in first, what was held and what was left, a
+    row the card showed taking main first and left unticked being no bolt they left, and what changed of a ticked bolt
+    asked again (work_said), and a new card follows it with every row that can land but
     those their send still lands (landing, each (bolt, the head they ticked), a held one whose send stands among them);
     ("close", outcome, then, standing) once none is still to land, the outcome saying what landed and where GitHub's
     main holds it, what was held and why, what was left and what reads proven since, then the bolts left when rows can
@@ -2855,25 +2981,32 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
         if not boxed:
             return ("answered" if here else "withdraw", "every bolt waiting to land is held: "
                     + "; ".join(f"{b}, {w}" for b, w in held.items()) if held else "no bolt waits to land on its main")
+        shows = card_rows(rows)
+        shown = [(r["bolt"], r["facts"]["head"][:7]) for r in shows]
+        taking, took = {r["bolt"] for r in shows if not r["box"]}, set(card.get("taking") or ())
         was = {b: (h, left) for b, h, left in heads}
         left = [b for b, h in now if b in was and was[b][1] and was[b][0] == h]
-        said = [f"{b} reads proven and joins the card" for b, _ in now if b not in was]
-        said += [f"{b}'s head is now {h}" for b, h in now if b in was and was[b][0] != h]
+        said = [f"{b} joins the card and {held[b]}" if b in taking else f"{b} reads proven and joins the card"
+                for b, _ in shown if b not in was]
+        said += [f"{b}'s head is now {h}" for b, h in shown if b in was and was[b][0] != h]
+        said += [f"{b} {held[b]}" for b, _ in shown if b in was and b in taking and b not in took]
+        said += [f"{b} can land again" for b, _ in shown if b in was and b not in taking and b in took]
         said += [(f"{b} {held[b]}" if held[b].startswith("takes main first") else f"{b}'s {held[b]}" if held[b].startswith("landing ")
                   else f"{b} is {held[b]}") if b in held
-                 else f"{b} no longer waits to land" for b, _, _ in heads if b not in dict(now)]
+                 else f"{b} no longer waits to land" for b, _, _ in heads if b not in dict(shown)]
         said = ([note] if note else []) + said
         if not said:
             return ("leave",)
-        return ("change", "; ".join(said), cards.landings_form(len(heads)) != cards.landings_form(len(now)), left)
+        return ("change", "; ".join(said), cards.landings_form(len(heads)) != cards.landings_form(len(shown)), left)
     ticked, work = list(ticked or []), work or {}
-    was = {b: h for b, h, _ in heads}
+    was, took = {b: h for b, h, _ in heads}, set(card.get("taking") or ())
     at = {r["bolt"]: r["facts"]["head"] for r in rows}
 
     def stands(b):  # the user's send still stands for a bolt they ticked, at its head now
         return b in ticked and b in was and send_stands(was[b], at[b], work.get(b))
-    # proven since the send: on no row of the card, or at a new head their send does not stand at
-    anew = [(b, h) for b, h in now if was.get(b) != h and not stands(b)]
+    # proven since the send: on no row of the card, at a new head their send does not stand at, or shown taking main
+    # first and left unticked by crew
+    anew = [(b, h) for b, h in now if (was.get(b) != h or b in took) and not stands(b)]
     moved = {b for b, _ in anew}
     main_first = {r["bolt"] for r in rows if not r["box"] and r.get("takes_main")}  # its send stands while it takes main in
     landing = [b for b in ticked if b in in_plan and (b not in held or b in main_first and stands(b)) and b not in moved]  # in flight or not yet submitted
@@ -2896,10 +3029,11 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
              "sluice has proven it, with nothing asked." if b in standing else
              f"Held: {b}, {held[b]}; {work_said(b, was[b], at[b], work.get(b))}, so a card asks for it again once it reads "
              "proven." for b in ticked if b in held and b not in landing]
-    cleared = [b for b in on if b not in ticked]
+    cleared = [b for b in on if b not in ticked and b not in took]  # crew unticked a row taking main first, not they
     said += [f"Left: {joined(cleared)}."] if cleared else []
     said += ["Since your send, " + "; ".join(work_said(b, was[b], at[b], work.get(b)) if b in was and b in ticked else
-                                             f"{b}'s head is now {h}" if b in was else f"{b} reads proven" for b, h in anew)
+                                             f"{b}'s head is now {h}" if b in was and was[b] != h else f"{b} reads proven"
+                                             for b, h in anew)
              + f", and the card that follows asks for {'it' if len(anew) == 1 else 'them'}."] if anew else []
     if not ticked:
         said = ["Sent with no bolt ticked, so nothing lands."] + said
@@ -3097,8 +3231,8 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     """A started bolt's landing facts, read on the host its work runs on (t, bolt_at), so its row on its kit's landings
     card (land_row) and its reading (crew card session) read the same bolt: (facts, None) once it reads proven
     (landing_unready, landing_facts), the row's facts as cards.landings_card takes them with what the reading's writer
-    needs beside them, its host, the kit's folder there (main) and where the bolt last met main (base); (None, why)
-    while it does not. With
+    needs beside them, its host, the kit's folder there (main), its repository as the plan names it (repo, for where its
+    diff is read whole) and where the bolt last met main (base); (None, why) while it does not. With
     fixes_hold False, a fix in flight on it does not keep it from reading proven, and the facts hold each such fix with
     the words it started with ({fix: its launch's brief}, runner.fixes_in_flight), the bolt's last landing sluice
     refused ((head, words),
@@ -3115,7 +3249,7 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     # brief for its words (Decision 10 of teams-cross-to-flume-as-their-bolts-land).
     flume = runner.fixes_in_flight(*runner_facts(fleet, label), bolt) if crossed_bolt(plan, bolt) else {}
     fixes = sorted(flume)
-    why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [])
+    why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [], facts.get("beside"))
     if why:
         return None, why
     entries = partition_entries(fleet, label)
@@ -3139,7 +3273,7 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
                                       stop=stops(entries).get(bolt))
     # Another bolt's work it carries, or why that can't be read (gather.carried_bolts), for landing_rows to hold it by (plan.8).
     carry = {x: facts[x] for x in ("carries", "carries_error") if facts.get(x)}
-    return dict(card, host=t["machine"], main=t["kit"]["main"], base=base, **held, **carry), None
+    return dict(card, host=t["machine"], main=t["kit"]["main"], repo=t["kit"]["repo"], base=base, **held, **carry), None
 
 
 def landing_retry(why, fresh, fresh_why):
@@ -3246,10 +3380,11 @@ def land_row_cmd(fleet, a):
 
 
 def kit_card_state(acts, label, key, owner, card, entries):
-    """The kit's landings card ops holds (card), as landings_step reads it, with the bolts the user ticked on it: ({status,
-    heads}, ticked), status "answered" once the user answered it, else "waiting", heads its rows as its last post or
-    change recorded them (card_heads); (None, why) when Pending You could not be read or no longer finds it, so the
-    raise changes nothing (read.1), but a lost card, recorded lost, reads as none held, for a new one to be posted."""
+    """The kit's landings card ops holds (card), as landings_step reads it, with the bolts the user ticked on it:
+    ({status, heads, taking}, ticked), status "answered" once the user answered it, else "waiting", heads its rows as
+    its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking); (None,
+    why) when Pending You could not be read or no longer finds it, so the raise changes nothing (read.1), but a lost
+    card, recorded lost, reads as none held, for a new one to be posted."""
     try:
         with acts.bridge(owner, "Its landings card is not changed.") as py:
             got, words = py.answer("get_request", {"requestId": card, "name": owner})
@@ -3263,7 +3398,8 @@ def kit_card_state(acts, label, key, owner, card, entries):
     recorded = next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and not e.get("Refused")
                      and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)
     heads = card_heads(recorded)
-    return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads, "ticked": ticked_of(got, heads)}, None
+    return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads,
+            "taking": heads_taking(recorded), "ticked": ticked_of(got, heads)}, None
 
 
 def said_heads(entries, left=()):
@@ -3316,7 +3452,10 @@ def raise_landings(fleet, label, kit, acts=None, note=None, dead=False, pane=Non
     above it (acts.forecast, forecast_rows); the bolts the user left (left_now) recorded as landing.left when they
     change, shown unticked on every card the raise posts, changes or follows with, each keeping its box though it
     conflicts with main and said once in the change note when a forecast finds it so (main_told, rail-cards "A bolt
-    the user left stays left until they tick it"), each other found so recorded held, telling no one (main_told); then what the card makes of them (landings_step):
+    the user left stays left until they tick it"), each other found so recorded held, telling no one (main_told); each
+    row taking main first beside one that can land kept on the card unticked, saying why (card_rows, rail-cards "A row
+    taking main first stays on the card"), so its bolt taking main in and coming back changes the card in place; then
+    what the card makes of them (landings_step):
     posted, changed in place with what changed, or the event's note first, followed when its form changed, left,
     withdrawn saying why, or closed with what landed, was held and was left, with how many rows can still land, a new
     card following it while any can,
@@ -3422,9 +3561,13 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     except Refusal:
         t = None
     where = card_where(card_kit(fleet, t, kit, {"main": str(pathlib.Path.home()), "repo": kit}))
-    facts = dict(kit=kit, rows=[r["facts"] for r in rows if r["box"]], held=[dict(bolt=r["bolt"], why=r["why"]) for r in rows if not r["box"]],
-                 ops=owner)
-    offered = [f"land:{b}" for b, _, _ in (state or {}).get("heads") or []]  # the rows its answer ticked or left
+    # the card's rows: each that can land, and each taking main first beside them, which says why (card_rows)
+    shows = card_rows(rows)
+    on = {r["bolt"] for r in shows}
+    facts = dict(kit=kit, rows=[r["facts"] if r["box"] else dict(r["facts"], taking=r["why"]) for r in shows],
+                 held=[dict(bolt=r["bolt"], why=r["why"]) for r in rows if r["bolt"] not in on], ops=owner)
+    # the rows its answer ticked or left; one it showed taking main first, unticked by crew, is none they left
+    offered = [f"land:{b}" for b, _, _ in (state or {}).get("heads") or [] if b not in (state or {}).get("taking", set())]
 
     def unticked(cleared):  # the rows a card shows unticked: those the step names cleared, and every bolt the user left
         return [r["bolt"] for r in rows if r["box"] and (r["bolt"] in cleared or r["bolt"] in left)]
@@ -3456,7 +3599,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     outcome = " ".join([f"{w}." for w in said] + [step[1]])
     if step[0] == "follow":  # closed with the bolts the send still lands as its Heads (landings_sent), the rest following
         _, _, cleared, landing = step
-        rest, waits = [r["facts"] for r in rows if r["box"] and r["bolt"] not in dict(landing)], unticked(cleared)
+        rest, waits = [f for f in facts["rows"] if f["bolt"] not in dict(landing)], unticked(cleared)
         closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(rest)),
                                 Heads=" ".join(f"{b}@{h}" for b, h in landing))
         # the outcome, what changed of each bolt asked again among it (landings_step), opens the card that follows
@@ -3469,8 +3612,9 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     if then is None or not boxed or not closed:  # a close refused leaves the card open, and nothing follows it yet
         return closed
     waits = unticked(then)
-    return row_card_change(fleet, label, owner, cards.landings_card, dict(facts, left=waits, follows=closed), outcome, where, acts,
-                           since=[outcome] + (left_waits(waits) if waits else []))
+    return row_card_change(fleet, label, owner, cards.landings_card,
+                           dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
+                           outcome, where, acts, since=[outcome] + (left_waits(waits) if waits else []))
 
 
 def raise_landings_row(fleet, row, acts=None):
@@ -3980,8 +4124,9 @@ def submission_of(tip, code, out, err, pull=None, after=0):
     sluice had recorded before the landing (after, landing_submitted), so that no submission made before it is ever
     read as its own; with pull, the pull request sluice answered the landing's submission with (SUBMIT's PULL), the
     last of those sluice made from its place, `pull/<n>` in the record's from.worktree, as sluice's own wait on a pull
-    request finds it (lib.rs submit_pull, pulls.rs follow). Returns {"id", "state"}, with the record's failed, result
-    and conflict beside them where it holds them, for landing_blame to judge it by; or the words why crew has none:
+    request finds it (lib.rs submit_pull, pulls.rs follow). Returns {"id", "state"}, with the record's failed, result,
+    conflict and tested beside them where it holds them, for landing_blame to judge it by and sent_back_of to name what
+    failed; or the words why crew has none:
     sluice records no such submission, holds it in a state crew does not read, did not answer, or printed what crew
     can't read."""
     subs = submissions_listed(code, out, err)
@@ -3995,7 +4140,7 @@ def submission_of(tip, code, out, err, pull=None, after=0):
     s = max(mine, key=lambda s: s["id"])
     if s.get("state") not in STANDING and s.get("state") not in OUT:
         return f"sluice records #{s['id']} in a state crew does not read: {cut(json.dumps(s.get('state')), 60)}"
-    return dict({"id": s["id"], "state": s["state"]}, **{k: s[k] for k in ("failed", "result", "conflict") if k in s})
+    return dict({"id": s["id"], "state": s["state"]}, **{k: s[k] for k in ("failed", "result", "conflict", "tested") if k in s})
 
 
 def wait_again(sub, again):
@@ -4365,8 +4510,84 @@ def held_way(bolt, rec, conflict):
         return (" It meets a submission queued on main ahead of it, which the bolt waits out rather than takes in: its row "
                 f"is held, and once that submission has landed or left main's queue, crew bolt submit {bolt} submits it "
                 "again on the send that stands.")
+    s = sent_back_of(rec)
+    if s:
+        name, words = bolt_fix(bolt, s)
+        return (f" A check that failed is the bolt's, {sent_back_said(s)}: its row is held for a fix on the bolt, which you "
+                f"start, crew fix {bolt} {name} \"{words}\"; once that fix has merged, the bolt's row asks the user again.")
     return (" A check that failed is the bolt's: its row is held for a fix on the bolt, which you start with sluice's words, "
             f"crew fix {bolt} <name> \"<sluice's words>\"; once that fix has merged, the bolt's row asks the user again.")
+
+
+def sent_back_of(doc):
+    """What failed of a landing sluice sent back for the bolt's own content (bolt-teams "A landing sluice sent back is
+    the bolt's fix"), from sluice's record of its submission alone (doc, a sluice/submission@1 as `sluice status <n>
+    --json` prints it, sluice 0.68.1 records.rs Submission, Tested and ConflictRecord), never from a check's words or
+    sluice's exit (read.2): when landing_blame has the record the bolt's, {n, head, conflict, checks, timed_out, paths,
+    withs, on}: its number and head, each None when the record names none; whether it is in conflict; the checks that
+    ran and failed, each named with its system and as flaky where the record says so; whether its run's time limit
+    ended it; the paths in conflict and the submissions it conflicts with; and main's revision it was tested on
+    (tested.on), None when the record names none, as for a conflict found before any test. None for a record of
+    anything else. A decision of facts alone (code.7)."""
+    if not isinstance(doc, dict) or landing_blame(doc)[0] != "bolt":
+        return None
+    field = lambda d, k, of=str: d.get(k) if isinstance(d, dict) and isinstance(d.get(k), of) and d.get(k) else None
+    s = dict(n=doc["id"] if type(doc.get("id")) is int else None, head=field(doc, "head"), conflict=doc["state"] == "conflict",
+             checks=[], timed_out=False, paths=[], withs=[], on=field(doc.get("tested"), "on"))
+    if s["conflict"]:
+        c = doc.get("conflict")
+        s["paths"] = [p for p in field(c, "paths", list) or [] if isinstance(p, str) and p]
+        s["withs"] = [w["id"] for w in field(c, "with", list) or [] if isinstance(w, dict) and type(w.get("id")) is int]
+        return s
+    s["checks"] = [t["task"] + (f" ({t['system']})" if field(t, "system") else "") + (" (flaky)" if t.get("flaky") else "")
+                   for t in doc.get("failed") or [] if isinstance(t, dict) and t.get("hash") and isinstance(t.get("task"), str)]
+    s["timed_out"] = doc.get("result") == "timed out"
+    return s
+
+
+def sent_back_said(s):
+    """What failed of a landing sluice sent back (sent_back_of's s), in crew's words from sluice's record: `#1474 failed
+    tests:logic, tested on main at abc1234`, `#1440 in conflict with main on README.md, and with #1439`, or that its run
+    timed out."""
+    n = f"#{s['n']}" if s.get("n") else "its submission"
+    if s["conflict"]:
+        said = f"{n} in conflict with main" + (f" on {joined(s['paths'])}" if s["paths"] else "") + "".join(
+            f", and with #{w}" for w in s["withs"])
+    else:
+        what = ([f"failed {joined(s['checks'])}"] if s["checks"] else []) + (["timed out"] if s["timed_out"] else [])
+        said = f"{n} " + (" and ".join(what) or "failed")
+    return said + (f", tested on main at {s['on'][:7]}" if s.get("on") else "")
+
+
+def bolt_fix(bolt, s):
+    """The fix ops starts on a bolt whose landing sluice sent back for a check that ran and failed, or a run its time
+    limit ended (sent_back_of's s), as crew fix takes it: (its name, its words), named landing-<sluice's number>, or by
+    the head sluice sent back where the record names no number; its words name what failed (sent_back_said) and hold
+    no double quote, so the command that carries them runs as printed. A conflict's fix is crew's own launch
+    (take_main_launch), named by main's revision, and none of this."""
+    tag = str(s.get("n") or "") or (s.get("head") or "")[:7] or "sent-back"
+    return f"landing-{tag}", f"Mend what sluice sent bolt/{bolt}'s landing back for: " + sent_back_said(s).replace('"', "'")
+
+
+def sent_back_way(bolt, s):
+    """The way on for a landing sluice sent back for the bolt's own content, at the head crew bolt submit would submit
+    again (bolt-teams "A landing sluice sent back is the bolt's fix", sluice's C.5 crew row: a fix on the bolt, merged
+    into it through sluice, then the landing submitted again), as held_way says it at the refusal: a conflict with what
+    main has landed is taken in by the fix crew launches on reading the refusal, ops starting nothing, and the send
+    that ticked it lands it once that fix has moved its head; a failed check is a fix ops starts, its command named
+    from sluice's record (bolt_fix), after which the bolt's row asks the user again; never a submission again at the
+    head sluice sent back, which nothing of the bolt's has changed. s None, for a record crew could not read, names no
+    fix's words, since crew can't say what failed. Names no team or conductor."""
+    if s and s["conflict"]:
+        return ("a conflict with what main has landed is the bolt's, and the fix crew launches on reading the refusal takes "
+                f"main into it, so start nothing for it; once that fix has merged into bolt/{bolt}, crew bolt submit {bolt} "
+                "submits the landing again at its new head, on the send that ticked it.")
+    if s:
+        name, words = bolt_fix(bolt, s)
+        return (f"a check that failed is the bolt's: start its fix, crew fix {bolt} {name} \"{words}\"; once that fix has "
+                f"merged into bolt/{bolt}, the bolt's row asks the user again.")
+    return (f"a fix on the bolt mends what sluice sent it back for, crew fix {bolt} <name> \"<sluice's words>\"; once that "
+            f"fix has merged into bolt/{bolt}, the bolt's row asks the user again.")
 
 
 def landing_conflict(said, doc=None, sub=None):
@@ -4578,7 +4799,9 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     queue is read there (QUEUE, queue_read): the bolt's landing standing at the head it submits is waited on again,
     SUBMIT given its number and head, nothing submitted and its pull request left as it is, its last the number before
     it; one standing at another head is said, and the bolt submitted as before (landing_standing, standing_words); a
-    queue that can't be read is said, and the bolt submitted as before. Queued as a pull request, sluice
+    queue that can't be read is said, and the bolt submitted as before. Before the queue, a landing sluice sent back
+    for the bolt's own content at the head it submits is refused, the bolt's fix (landing_sent_back), nothing submitted
+    and its pull request left as it is. Queued as a pull request, sluice
     answering with its number and no submission, or answered with an earlier submission (answered_before), whose exit
     is that one's and refuses nothing of this one, its ID is the submission sluice made for it, found in sluice's
     record on the team's host (SUBMISSIONS, submission_of with the pull request and last), and waited on as any other;
@@ -4610,6 +4833,11 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     # A bolt that carries another bolt's work main lacks lands nothing, as a conflict holds it (plan.8): read from the
     # branches as GitHub holds them, after one fetch, at the head this landing submits.
     refused = landing_carries(fleet, t, bolt, at_head)
+    if refused:
+        return dict(bolt=bolt, t=t, refused=refused)
+    # A landing sluice sent back at the head this one submits is the bolt's fix: nothing submitted again until a fix
+    # has moved the head (bolt-teams "A landing sluice sent back is the bolt's fix").
+    refused = landing_sent_back(fleet, label, t, bolt, at_head)
     if refused:
         return dict(bolt=bolt, t=t, refused=refused)
     # The bolt's landing already standing in sluice, as after a session that submitted it ended: waited on again at
@@ -4662,6 +4890,51 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     if f["RC"] == "0" and f["ID"]:
         landing_queued(label, t, bolt, f["ID"], f["TIP"], before, frm, excerpt)
     return dict(bolt=bolt, t=t, before=before, path=path, **f, standing=standing, last=last)
+
+
+def sent_back_refusal(bolt, head, held, due):
+    """Why crew bolt submit submits nothing of a bolt whose landing sluice sent back for its own content at the head it
+    would submit (bolt-teams "A landing sluice sent back is the bolt's fix"), a decision of facts alone (code.7), from
+    the refusal that stands at that head in the run record (held, sent_back's {head, words, n}) and what sluice's record
+    of that submission, `sluice status <n> --json`, came to (due, landing_due's, None when the refusal names no
+    submission): the refusal's words, naming what failed from sluice's record (sent_back_said) and the way on with the
+    fix's command (sent_back_way), never a submission again at a head sluice sent back; where the record can't be read,
+    the words the refusal was recorded with, why, and the way on with no fix's words (read.1). None when sluice's
+    record has that submission in no state the bolt's content answers for, or in conflict only with a submission queued
+    on main ahead of it, which the bolt waits out and is submitted again at the same head (held_way, teams.21); crew
+    then submits as before, sluice's record being what holds its outcome."""
+    s = sent_back_of(due[2]) if due and due[0] == "out" else None
+    if due and due[0] == "out" and (s is None or s["conflict"] and s["withs"]):
+        return None
+    if s:
+        said = f"sluice sent its landing back at {head[:7]}: {sent_back_said(s)}"
+    else:
+        n = f" #{held['n']}" if held.get("n") else ""
+        unread = (f" (crew can't read sluice's record of{n}: {due[1]})" if due and due[0] == "unread" else
+                  f" (its record of{n} still has it {STANDING.get(due[1], due[1])})" if due else "")
+        said = f"sluice sent its landing back at {head[:7]}, as the run record has it: {held['words'].rstrip('.')}{unread}"
+    return f"bolt/{bolt} was not submitted: {said}. It is the bolt's fix, not a stop: {sent_back_way(bolt, s)}"
+
+
+def landing_sent_back(fleet, label, t, bolt, head):
+    """The refusal of a landing sluice sent back for the bolt's own content at head, the head crew bolt submit would
+    submit (sent_back_refusal), or None: the refusal that stands at head in the partition's run record (sent_back), and,
+    when it names sluice's submission, sluice's record of it read on the host the bolt's work runs on
+    (SUBMISSION_STATUS, landing_due). A run record crew can't read refuses the submission, since whether it was sent
+    back can't be told (read.1); a head crew can't tell, None, asks nothing."""
+    if not head:
+        return None
+    try:
+        held = sent_back(partition_entries(fleet, label)).get(bolt)
+    except Refusal as e:
+        return f"bolt/{bolt} was not submitted: crew can't tell whether sluice sent its landing back at {head[:7]}: {e}"
+    if not held or not at_head(held["head"], head):
+        return None
+    due = None
+    if str(held.get("n") or "").isdigit():
+        r = crew.on_machine(fleet, t["machine"], ["bash", "-c", SUBMISSION_STATUS, "crew", t["kit"]["main"], str(held["n"])])
+        due = landing_due(int(held["n"]), r.returncode, r.stdout)
+    return sent_back_refusal(bolt, head, held, due)
 
 
 def carries_refusal(bolt, carries):
@@ -5006,8 +5279,9 @@ def landing_phase(entries, bolt):
     rejected, (its number or None, its head), the newest earlier submission of it sluice rejected; rejected, {state, n,
     head, words}, once sluice rejected its newest submission for the bolt's own content, a conflict or a failed check,
     recorded refused with the head submitted (landing_not_landed), until it is submitted again, its number None for one
-    sluice refused in its answer; else None: never submitted, landed, stopped by sluice or its host, nothing of the
-    bolt's, or refused by crew before anything was submitted, which names no head. queued and again hold the bolt's work
+    sluice refused in its answer, standing through a later submit that submitted nothing at its head (sent_back); else
+    None: never submitted, landed, stopped by sluice or its host, nothing of the bolt's, or refused by crew before
+    anything was submitted, which names no head. queued and again hold the bolt's work
     (landing_hold); rejected holds none. A decision of facts alone (code.7)."""
     mine = [e for e in entries if e.get("Act") == "bolt.submit" and f"bolt/{bolt}" in (e.get("On") or [])]
     rejected = lambda e: bool(e.get("Refused") and e.get("Head"))
@@ -5017,9 +5291,9 @@ def landing_phase(entries, bolt):
         before = next((e for e in reversed(mine[:i]) if rejected(e)), None)
         out = dict(state="again" if before else "queued", n=q["Submission"], head=q.get("Head") or "")
         return dict(out, rejected=(before.get("Submission"), before["Head"])) if before else out
-    last = next((e for e in reversed(mine) if e.get("Head") or e.get("Submission")), None)
-    if last is not None and rejected(last):
-        return dict(state="rejected", n=last.get("Submission"), head=last["Head"], words=last["Refused"])
+    back = sent_back(entries).get(bolt)  # standing through a submit at its head that submitted nothing
+    if back:
+        return dict(state="rejected", n=back["n"], head=back["head"], words=back["words"])
     return None
 
 
@@ -5160,7 +5434,10 @@ def landing_read(fleet, label, bolt):
     lock = landing_state(t) / "landings" / f"{bolt}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     with open(lock, "w") as held:
-        fcntl.flock(held, fcntl.LOCK_EX)  # one read of a bolt at a time on its host, so an outcome is recorded once
+        # One read of a bolt at a time on its host, so an outcome is recorded once. Nothing run under it waits on a
+        # command that reads a landing, so no holder waits on itself: the close's kit read, crew _sweep --landed, reads
+        # none (kit_read).
+        fcntl.flock(held, fcntl.LOCK_EX)
         fetch(*state_of(fleet, label), fresh=True)  # what a read before this one recorded and closed, which it waited on
         pl = plan_of(fleet, label)
         pl is not None or fail(f"crew can't read bolt {bolt}'s landing: {label}/main could not be read")
@@ -8908,7 +9185,8 @@ def wt_left_branch(out, path):
 def kit_sweep(fleet, a):
     """crew _sweep <label> <kit> --dir <folder> [--landed <bolt> --outcome <words> [--said <words>] [--here]] [--units
     <unit>...], on the host a bolt's work runs on, which a landing or a drop hands it to with the kit's folder there
-    (sweep_on, bolt_at, code.3): the kit's read there (kit_read)."""
+    (sweep_on, bolt_at, code.3): the kit's read there (kit_read), reading no landing after a landing (--landed), whose
+    close may hold a landing's lock while it waits on this."""
     here = crew.this_host()
     arrived(fleet, here)
     kit_read(fleet, {"label": a.label, "machine": here, "stream": None, "kit": kit_of(a.kit, a.dir)}, a.landed, a.outcome,
@@ -8918,13 +9196,19 @@ def kit_sweep(fleet, a):
 def kit_read(fleet, t, landed=None, outcome=None, said=None, here=False, units=()):
     """A kit's read on the host a bolt's work runs on, in the kit's folder there (t, bolt_at), which a landing or a drop
     asks for there (sweep_on): the landing of each started bolt of the kit
-    that may have an outcome or a close nothing recorded read (reap_landings); then the sweep of crew's own landing
+    that may have an outcome or a close nothing recorded read (reap_landings), but by the read a landing's close asks
+    for (landed, the bolt), which reads none: crew bolt land waits on that read, and a landing read's close of a bolt
+    runs under the bolt's landing lock (landing_read), so a landing read there would wait on a lock its own caller
+    holds, its bolt's when the plan is read below the close, its bolt.land entry not yet on the branch (read.5), or
+    another bolt's whose read waits on its own close in turn; that bolt was read by the act that closed it, and the
+    kit's next read reads the rest (plan.21); then the sweep of crew's own landing
     places and marked bolt branches, at a landing (landed, the bolt) having sluice delete the bolt's branch once the
     landing's place is gone (tidy, land_delete); then each bolt of it that is local until it lands said, once
     (bolts_local_said, plan.19); what the units of a bolt that landed or was dropped (units) recorded as made, kept here
     for its batch's card, removed (made_drop); and after a landing, the bolt's card closed here with the outcome
     (landing_cards_closed). What any of them refuses is said on standard error."""
-    reap_landings(fleet, t["label"])
+    if not landed:  # a landing's read reads no landing: its caller may hold a landing's lock (landing_read)
+        reap_landings(fleet, t["label"])
     try:
         tidy(fleet, t, landed)
     except Refusal as e:
@@ -9844,7 +10128,7 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                 if silent:
                     data["runners_unread"][silent[0]] = silent[1]
                 bk = (k or {}).get("bolts", {}).get(b.name()) or {}
-                verified = dict(zip(("state", "said"), kit.verification(bk.get("head"), bk.get("verdict")))) if k and bk.get("exists") else None
+                verified = dict(zip(("state", "said"), kit.verification(bk.get("head"), bk.get("verdict"), bk.get("beside")))) if k and bk.get("exists") else None
                 unread = (k or {}).get("submissions_error")
                 rows, landing = submission_rows(None if unread else (k or {}).get("submissions"), b.name(),
                                                 [(u["unit"], u["kind"]) for u in units] + [(f["fix"], "fix") for f in fixes])
@@ -11099,7 +11383,8 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             due, waits = held.get(l, {}).get("due"), held.get(l, {}).get("unanswered") or {}
             outside = [u.name() for u in units if due is not None and u.name() in due]
             unread = sorted({waits[u.name()] for u in units if u.name() in waits})
-            state, verdict = kit.verification(head, k["bolts"].get(b.name(), {}).get("verdict"))
+            bk = k["bolts"].get(b.name(), {})
+            state, verdict = kit.verification(head, bk.get("verdict"), bk.get("beside"))
             if state != "green":  # a bolt's proof is its verification (record 0025, tests.5)
                 lands = [f"lands once its verification is green; now {verdict}"]
             elif due is None and l in held:
@@ -12449,10 +12734,11 @@ def landing_write(fleet, f, folder):
     """Write a landing's reading afresh into folder, its head's, on the host the bolt's work runs on, in the kit's folder
     there, from the landing's facts (land_facts, its host and main): each unit's change as the kit holds it at the bolt's head, open or archived
     (change_held), and the bolt's diff against main from where it last met main (base) to its head, less
-    openspec/changes/, whose Markdown the units' files show whole, named and ordered by landing_reading. Every file is
-    read before any is written: what crew can't read refuses, naming it, and nothing is written (read.1). Returns the
-    files' paths, in order."""
-    t = {"label": None, "machine": f["host"], "kit": kit_of(f["kit"], f["main"])}
+    openspec/changes/, whose Markdown the units' files show whole, named and ordered by landing_reading, the diff in as
+    many files as plannotator's limit for one file asks (diff_parts), each written as the UTF-8 it was measured in.
+    Every file is read before any is written: what crew can't read refuses, naming it, and nothing is written (read.1).
+    Returns the files' paths, in order."""
+    t = {"label": None, "machine": f["host"], "kit": kit_of(f.get("repo") or f["kit"], f["main"])}
     main, head = t["kit"]["main"], f["head"]
     changes = []
     for u in f["units"]:
@@ -12461,13 +12747,14 @@ def landing_write(fleet, f, folder):
         held or fail(f"unit {u}'s change on bolt {f['bolt']} at {head[:7]} holds no Markdown file to read")
         changes.append((u, held))
     _, diff = kit_git(fleet, t, main, "diff", "--no-color", "--no-ext-diff", f["base"], head, "--", ".", ":(exclude)openspec/changes")
-    out = landing_reading(f["bolt"], f["kit"], head, f["units"], f.get("chores") or [], changes, diff + "\n" if diff else "")
+    whole = dict(repo=t["kit"]["repo"], base=f["base"], main=main, host=t["machine"])
+    out = landing_reading(f["bolt"], f["kit"], head, f["units"], f.get("chores") or [], changes, diff + "\n" if diff else "", whole)
     folder.mkdir(parents=True, exist_ok=True)
     for old in folder.iterdir():
         if old.is_file():
             old.unlink()
     for name, text in out:
-        (folder / name).write_text(text)
+        (folder / name).write_text(text, encoding="utf-8")
     return [str(folder / name) for name, _ in out]
 
 
@@ -12557,29 +12844,98 @@ def batch_folder_write(fleet, label, n, units):
     return [str(folder / name) for name, _ in out]
 
 
-def landing_reading(bolt, kit, head, units, chores, changes, diff):
+def landing_reading(bolt, kit, head, units, chores, changes, diff, whole):
     """A landing's reading, the files its one session opens as one review, in order, each (name, text) (card-sessions,
     briefs.9): 00-<bolt>.md, a page naming the bolt, its kit and its head, the units and chores that land, one a line,
     and saying that the reading lands nothing, approving the card being the word to land, and that what the user sends
     from it reaches main-level ops as notes on the card, a note naming a defect holding the landing for a fix;
     then for the k-th unit each Markdown file of its change as the head holds it, named <kk>-<unit>-<its path under the
-    change, / as ->, in a change's reading order (change_order), as a batch's folder names them; then
-    <nn>-<bolt>-diff.txt, the bolt's diff against main, numbered after the last unit, as text, which plannotator opens
-    beside Markdown in one review where it refuses a .diff (plannotator 0.28.23). changes: [(unit, [(path under the
-    change, text)])] in the plan's order; diff: the diff's text."""
-    cover = "\n".join([f"# Bolt {bolt}, landing on {kit}'s main", "", f"What lands, at its head {head[:7]}:", ""]
-                      + [f"- {u}" for u in units] + [f"- {c} (chore)" for c in chores]
-                      + ["", "This reading lands nothing: approving the landing card is the word to land, and its Approve "
-                             "here lands nothing.", "",
-                         "What you send from it reaches main-level ops as notes on the landing card, and a note "
-                         "naming a defect holds the landing for a fix.", "",
-                         "After this page come each unit's change as the bolt holds it, then what the bolt changes against "
-                         "main, from where it last met main to its head, less its change folders, shown whole before it."])
-    out = [(f"00-{bolt}.md", cover + "\n")]
+    change, / as ->, in a change's reading order (change_order), as a batch's folder names them; then the bolt's diff
+    against main, numbered after the last unit, as text, which plannotator opens beside Markdown in one review where it
+    refuses a .diff (plannotator 0.28.23): <nn>-<bolt>-diff.txt, or, when it passes the most plannotator opens in one
+    file, its parts (diff_parts), <nn>-<bolt>-diff-<k>-of-<m>.txt, the page saying how many. A file whose own change
+    passes that most is in no part: the page names each such file with its size, how many there are, and where to read
+    them whole, GitHub's compare view of the bolt's base against its head and the git command on the kit's host
+    (sluice core.43's shape for a request's commits past the forge's limit). changes: [(unit, [(path under the change,
+    text)])] in the plan's order; diff: the diff's text; whole: where the diff is read whole, the kit's GitHub repo
+    (owner/name), the commit the diff is from (base), and the kit's main checkout and host."""
+    parts, past = diff_parts(diff) if diff.strip() else (["The bolt changes nothing against main outside its change folders.\n"], [])
+    lines = [f"# Bolt {bolt}, landing on {kit}'s main", "", f"What lands, at its head {head[:7]}:", ""]
+    lines += [f"- {u}" for u in units] + [f"- {c} (chore)" for c in chores]
+    lines += ["", "This reading lands nothing: approving the landing card is the word to land, and its Approve here lands "
+                  "nothing.", "",
+              "What you send from it reaches main-level ops as notes on the landing card, and a note naming a defect "
+              "holds the landing for a fix.", "",
+              "After this page come each unit's change as the bolt holds it, then what the bolt changes against main, "
+              "from where it last met main to its head, less its change folders, shown whole before it."]
+    if len(parts) > 1:
+        lines += ["", f"That diff comes in {len(parts)} files, each holding whole files' changes in git's order, since "
+                      f"plannotator opens no file over {megabytes(PLANNOTATOR_MOST)}."]
+    if past:
+        url = f"https://github.com/{whole['repo']}/compare/{whole['base']}...{head}"
+        lines += ["", f"Left out of this reading, {plural_of(len(past), 'file', 'files')} whose change alone passes the "
+                      f"{megabytes(PLANNOTATOR_MOST)} plannotator opens in one file, each named in its place in the diff:", ""]
+        lines += [f"- `{p}`, {megabytes(n)}" for p, n in past]
+        lines += ["", f"Read {'it' if len(past) == 1 else 'them'} whole in GitHub's compare view of the bolt against main, "
+                      f"{url}, or on {whole['host']} with `git -C {whole['main']} diff {whole['base']} {head} -- <path>`."]
+    out = [(f"00-{bolt}.md", "\n".join(lines) + "\n")]
     for k, (u, files) in enumerate(changes, 1):
         out += [(f"{k:02d}-{u}-{p.replace('/', '-')}", text) for p, text in sorted(files, key=lambda f: change_order(f[0]))]
-    said = diff if diff.strip() else "The bolt changes nothing against main outside its change folders.\n"
-    return out + [(f"{len(changes) + 1:02d}-{bolt}-diff.txt", said)]
+    n = len(changes) + 1
+    if len(parts) == 1:
+        return out + [(f"{n:02d}-{bolt}-diff.txt", parts[0])]
+    return out + [(f"{n:02d}-{bolt}-diff-{k}-of-{len(parts)}.txt", text) for k, text in enumerate(parts, 1)]
+
+
+# The most bytes plannotator opens in one file: a file one byte longer, by its size on disk, is refused with "File too
+# large to annotate (max 2MB)", and with it the whole review that names it, while a review of several files has no cap
+# on them together (plannotator 0.28.48, MAX_ANNOTATABLE_FILE_BYTES in resolveAnnotateBundleFiles; read 2026-11-05 on
+# deneb, a file of exactly this many bytes opening, one of a byte more refused, and five of 7.8 MB together opening,
+# each served whole).
+PLANNOTATOR_MOST = 2 * 1024 * 1024
+
+
+def megabytes(n):
+    """A count of bytes in MB as plannotator counts them, 2**20 to one, rounded up to a tenth, so a size past its 2 MB
+    never reads 2.0; a whole count with no tenth."""
+    tenths = -(-n * 10 // 2**20)
+    return f"{tenths // 10} MB" if tenths % 10 == 0 else f"{tenths / 10:.1f} MB"
+
+
+def diff_path(section):
+    """The file a section of git's diff is of, from its header, `diff --git a/<path> b/<path>`: the path when both
+    sides name it alike, else the two sides as git wrote them, as for a rename or a path git quotes."""
+    sides = section.split("\n", 1)[0].removeprefix("diff --git ")
+    p = sides[2:2 + (len(sides) - 5) // 2]
+    return p if sides == f"a/{p} b/{p}" else sides
+
+
+def diff_parts(diff, most=PLANNOTATOR_MOST):
+    """A bolt's diff as its landing's reading holds it, so plannotator opens every file of it: (parts, past). parts, the
+    texts of its files, git's sections, one to a file changed, each whole and in git's order, as many to a part as keep
+    it within most bytes as UTF-8, a new part begun where the next section would pass it. past, [(path, bytes)] in git's
+    order, each file whose own section passes most, which no part can hold whole and none holds cut (sluice core.43: an
+    item is never cut within itself to fit a limit): a line in its place says so, naming it and its size, and the
+    reading's first page says where to read it whole (landing_reading)."""
+    parts, past, part, size = [], [], [], 0
+    for section in re.split(r"(?m)^(?=diff --git )", diff):
+        if not section:
+            continue
+        n = len(section.encode())
+        if n > most:
+            path = diff_path(section)
+            past.append((path, n))
+            section = (f"{path}: its change, {megabytes(n)}, passes the {megabytes(most)} plannotator opens in one file, "
+                       "so it is not in this reading; its first page says where to read it whole.\n")
+            n = len(section.encode())
+        if part and size + n > most:
+            parts.append("".join(part))
+            part, size = [], 0
+        part.append(section)
+        size += n
+    if part:
+        parts.append("".join(part))
+    return parts, past
 
 
 def forward_card(fleet, t, a, label):
@@ -12919,10 +13275,28 @@ def send_entries(fleet, label, entries):
     return whole + [e for e in entries if not e.get("Id") or e["Id"] not in ids]
 
 
-def main_firsts(whole, heads):
+def main_firsts(whole, heads, now=None):
     """The bolts of a kit's landings card the run record (whole, send_entries) holds forecast to conflict with main at
-    the head the card showed (main_conflict), heads its rows as card_heads gives them."""
-    return {b for b, h, _ in heads if main_conflict(whole, b, h)}
+    the head the card showed (main_conflict), heads its rows as card_heads gives them. With now, {bolt: its head now
+    where it lives, or None}, as bolt_work reads each such bolt where the kit's forecasts are made, one takes main
+    first only while it still stands at that head or the record holds a conflict at the head it moved to: one whose
+    take-main fix moved it since lands on the send that ticked it (rail-cards "A send stands for a ticked bolt taking
+    main in"); one whose head now crew can't read still takes main first (read.1). A decision of facts alone (code.7)."""
+    shown = {b: h for b, h, _ in heads if main_conflict(whole, b, h)}
+    if now is None:
+        return set(shown)
+    return {b for b, h in shown.items() if not now.get(b) or at_head(h, now[b]) or main_conflict(whole, b, now[b])}
+
+
+def firsts_now(fleet, label, kit, whole, heads, acts=None):
+    """The bolts of a kit's landings card that still take main first at the card's read (main_firsts): each the run
+    record holds forecast to conflict with main at the head the card showed, read where it lives now by one acts.work
+    where the kit's forecasts are made (bolt_work)."""
+    shown = main_firsts(whole, heads)
+    if not shown:
+        return shown
+    worked = (acts or CardActs(fleet)).work(label, kit, {b: (h, None) for b, h, _ in heads if b in shown})
+    return main_firsts(whole, heads, {b: (w or {}).get("head") for b, w in worked.items()})
 
 
 def landed_since(entries, card):
@@ -13029,7 +13403,7 @@ def card_read(fleet, a):
         if ticked:  # what the send still lands: no bolt taking main first, landed since or gone from the plan
             whole = send_entries(fleet, label, entries)
             plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so which bolts {a.key}'s send still lands can't be told")
-            first = main_firsts(whole, heads)
+            first = firsts_now(fleet, label, kind[1], whole, heads)
             gone = ticked_gone(ticked, {b.name() for b in plan.bolts() if b.get("Repo") == kind[1]}, landed_since(whole, card))
         d = CARDS / label / a.key
         reads = a.key.startswith("proposal/") and d.is_dir()
@@ -15889,10 +16263,26 @@ def main(argv):
         raise
 
 
+def below_read(said=None):
+    """What a command answers or refuses, said with each decision of it that read a branch below its tip (plan.2,
+    read.5): a refusal's words (said) after a line for each such read (below_said), so its last line is still the
+    refusal; with no words, those lines alone, said on standard error once the command has answered, where no caller
+    parses them. "" or the refusal's words alone when every read was at its tip."""
+    lines = [below_said(**f) for f in READ.below()]
+    if said is not None:
+        return "\n".join(lines + [said])
+    if lines:
+        print("\n".join(lines), file=sys.stderr)
+    return ""
+
+
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(str(e))
+        sys.exit(below_read(str(e)))
     except Stopped as e:
+        if e.code:  # a stop at 0 is a command handed to its host (forwarded), which says its own reads there
+            below_read()
         sys.exit(e.code)
+    below_read()
