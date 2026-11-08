@@ -1483,7 +1483,7 @@ class Stages:
             place = reading["places"].get(n) if reading else None
             res["carried"] = place["at"] if place else None  # when the runner carried its place's status
         k, _ = self.kit(bolt) if not isinstance(run, str) else (None, None)
-        built = runner.built_on_bolt(work, s, ((k or {}).get("bolts", {}).get(bolt.name()) or {}).get("landings"))
+        built = runner.built_on_bolt(work, s, self.landings(bolt))
         if built is not s:
             s, res["carried"] = built, built["landed"]
         if s["stage"] == "merged":
@@ -1492,14 +1492,29 @@ class Stages:
         res.update(stage=s["stage"], tasks=s.get("tasks"), flume=s, **({"why": s["why"]} if s.get("why") else {}))
         return res
 
+    def landings(self, bolt):
+        """The landings sluice made on a started bolt, by the branches they name (gather.bolt_landings), as its kit was
+        read where its work runs (kit), {branch: {"commit", "at"}}; None where its partition's runners, its kit or its
+        landings can't be read, which then build nothing (read.1). Read by crossed and fixes alike (bolt-plan "A unit
+        whose work its bolt's branch holds is built", "A fix read merged from its bolt's landing holds nothing")."""
+        if isinstance(self.runner(self.label), str):
+            return None
+        k, _ = self.kit(bolt)
+        return ((k or {}).get("bolts", {}).get(bolt.name()) or {}).get("landings")
+
     def fixes(self, bolt):
         """Each fix standing on a started bolt, in requests.rec's order, as (its work, fix/<bolt>/<name>, its launch, its
-        stage as stage_of gives it), read as its units and chores are; none where the partition's runners can't be
-        read, which unread names."""
+        stage as stage_of gives it), read as its units and chores are: merged once a landing on the bolt at or after its
+        launch names its place's branch, fix/<bolt>--<name>, whatever the runner last carried of its place, and the
+        runner's reading where the bolt's landings can't be read (landings, runner.built_on_bolt; bolt-plan "A fix whose
+        place's landing its bolt's branch holds is merged"); none where the partition's runners can't be read, which
+        unread names."""
         run = self.runner(self.label)
         if isinstance(run, str):
             return []
-        return [(l.get("Work"), l, s) for l, s in runner.fixes_on(*run, f"bolt/{bolt.name()}")]
+        landings = self.landings(bolt)
+        return [(l.get("Work"), l, runner.built_on_bolt(l.get("Work"), s, landings, l.get("Date")))
+                for l, s in runner.fixes_on(*run, f"bolt/{bolt.name()}")]
 
     def unread(self, bolt):
         """Why the runners a started bolt is read from can't be read, as (what, why), or None: its partition's requests,
@@ -3234,7 +3249,8 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     needs beside them, its host, the kit's folder there (main), its repository as the plan names it (repo, for where its
     diff is read whole) and where the bolt last met main (base); (None, why) while it does not. With
     fixes_hold False, a fix in flight on it does not keep it from reading proven, and the facts hold each such fix with
-    the words it started with ({fix: its launch's brief}, runner.fixes_in_flight), the bolt's last landing sluice
+    the words it started with ({fix: its launch's brief}, runner.fixes_in_flight over Stages.fixes, so a fix read
+    merged from its bolt's landing holds nothing), the bolt's last landing sluice
     refused ((head, words),
     refusals) or None, for landing_rows to hold its row by, and its last one sluice or its host stopped ((head, words),
     stops) or None, for its row to say. Refused when its kit can't be read (read.1)."""
@@ -3245,9 +3261,10 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     of = {u.name(): st.of(u.name()) for u in plan.work_of(bolt)}
     work = [(n, s.get("kind", "unit"), s["stage"]) for n, s in of.items()]
     facts = k["bolts"].get(bolt, {})
-    # A started bolt holds its fixes as Flume places, read from their launches and the runner's records, each with its
-    # brief for its words (Decision 10 of teams-cross-to-flume-as-their-bolts-land).
-    flume = runner.fixes_in_flight(*runner_facts(fleet, label), bolt) if crossed_bolt(plan, bolt) else {}
+    # A started bolt holds its fixes as Flume places, read as crew bolts reads them (Stages.fixes): from their launches,
+    # the runner's records and the bolt's landings, each with its brief for its words (Decision 10 of
+    # teams-cross-to-flume-as-their-bolts-land; plan.12).
+    flume = runner.fixes_in_flight(st.fixes(b), bolt) if crossed_bolt(plan, bolt) else {}
     fixes = sorted(flume)
     why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [], facts.get("beside"))
     if why:
@@ -9444,7 +9461,8 @@ def fix(fleet, a):
     ruling of 2026-11-01; runner.fix_launch), the bolt's landing held while it is in
     flight (land_hand, land_facts), and refused while the run record has the bolt's landing queued or landing again
     with no outcome, naming it, open again once sluice has rejected it (landing_hold); --drop a drop of its launch
-    (runner.fix_drop_refusal). Flume submits the place and
+    (runner.fix_drop_refusal), refused for a fix the bolt's landings, read before the write (Stages.landings), read
+    merged. Flume submits the place and
     tells its end itself, so crew fix has no merge and no wait. Recorded as fix.start or fix.drop, done or refused
     (teams.3)."""
     crew.NAME.match(a.name) or fail("a fix is named with lowercase words and dashes")
@@ -9455,9 +9473,13 @@ def fix(fleet, a):
     try:
         may_request(fleet, "fix")
         mode == "drop" or (a.words or "").strip() or fail(f'crew fix needs what is wrong: crew fix {a.bolt} {a.name} "<words>"')
+        # A drop reads the bolt's landings before the write, as a unit's drop reads its stage, so a fix its bolt's landing
+        # names is read merged and not dropped (Decision 3 of a-bolts-landed-fix-reads-merged); a start reads none.
+        b = plan.bolt(a.bolt)
+        landings = stages_for(fleet, label, plan, [b]).landings(b) if mode == "drop" and crossed_bolt(plan, a.bolt) else None
 
         def change(w):
-            seen.update(fix_flume(fleet, w, a.bolt, mode, a.name, a.words))
+            seen.update(fix_flume(fleet, w, a.bolt, mode, a.name, a.words, landings=landings))
             return []
         write(fleet, label, change, f"plan({a.bolt}): fix {a.name}", act=act, on=on)
     except Refusal as e:
@@ -9477,17 +9499,21 @@ def took(host):
     return f"the runner on {host}" if host else "the runner that took it"
 
 
-def fix_flume(fleet, w, bolt, mode, name, words):
+def fix_flume(fleet, w, bolt, mode, name, words, landings=None):
     """crew fix's change to a write (fix), each fact read again at the tip it is applied to (plan.1): the bolt started,
     marked Path: flume; then a new fix's launch appended in the bolt's repository (runner.fix_launch), refused while the
     run record at that tip has the bolt's landing queued or landing again (landing_phase, landing_hold), or for --drop its
-    launch's drop (runner.fix_drop_refusal), its stage read from the runner that took it as the write reads them.
+    launch's drop (runner.fix_drop_refusal), its stage read from the runner that took it as the write reads them and
+    from the bolt's landings (landings, as fix read them before the write, Stages.landings; None where it read none):
+    merged once a landing at or after its launch names its place's branch (runner.built_on_bolt), and its drop then
+    refused as a merged fix's is, since a landing is never undone and so still stands at the tip.
     Returns what it asked, {n, host, repo}: host, the runner's that took the launch dropped, where crew can tell."""
     crossed_bolt(w.plan, bolt) or fail(f"bolt {bolt} has not been started, so a fix of it has no Flume place to run in")
     requests, work = requests_of(w).recs("Request"), f"fix/{bolt}/{name}"
     if mode == "drop":
         launch = runner.launch_of(requests, work)
         s = runner.piece_stage(requests, w.runners(), launch) if launch is not None else None
+        s = runner.built_on_bolt(work, s, landings, launch.get("Date")) if s is not None else None
         why = runner.fix_drop_refusal(f"bolt {bolt}", work, launch, s)
         not why or fail(why)
         w.subject = f"plan({bolt}): drop fix {name}"
