@@ -122,9 +122,9 @@ class TestTheStartedBoltLands:
         monkeypatch.setattr(plan.crew, "this_host", lambda: "deneb")
 
     def rows(self, w, run):
-        """The rail's land rows (plan.rail_rows) of madswan's plan as the write leaves it, the bolt's head green, read by
-        deneb in the renamed clone's folder: a survey of any other folder does not hold the kit."""
-        k = crew_read(bolts={STAGING: {"verdict": "passed (4 run)", "head_at": "2026-11-05T00:30:00Z"}})["deneb"]["kits"]["/crew/main"]
+        """The rail's land rows (plan.rail_rows) of madswan's plan as the write leaves it, the bolt's head one-seam's landing, green,
+        read by deneb in the renamed clone's folder: a survey of any other folder does not hold the kit."""
+        k = crew_read(bolts={STAGING: {"head": COMMIT, "head_at": "2026-11-05T00:30:00Z"}})["deneb"]["kits"]["/crew/main"]
         sv = {"deneb": {"ok": True, "kits": {NEW: k}}}
         return [r for r in plan.rail_rows(RENAMED, [("madswan", "afterthought/crew-state", "tip", w.plan)], sv, [], {}, None,
                                           {"madswan": run}) if r["group"] == "land"]

@@ -101,12 +101,12 @@ test("an answered card's line is drawn above ops's view as the views give it", a
 // are on the ledger's lines as board.py's ledger_rows draws them, and the band shows them as they are (teams.22).
 test("a ledger's standing merge and landing are drawn with their numbers", async ($, on) => {
   const ledger = [
-    [['  ', null], ['crew', null], ['  ', null], ['◕◔', null], ['  ', null], ['curation-and-holds', null], ['  ', null], ['landing #355 queued', null], ['  ', null], ['0 of 2 merged', null]],
+    [['  ', null], ['crew', null], ['  ', null], ['◕◔', null], ['  ', null], ['curation-and-holds', null], ['  ', null], ['landing queued as #355', null], ['  ', null], ['0 of 2 merged', null]],
     [['    ', null], ['◕', null], ['  ', null], ['a-queued-unit-can-take-a-signal', null], ['  ', null], ['verify 3/3', null], ['  ', null], ['#41 under test', null]],
   ]
   const ui = await band($, on, { env: { CREW_AGENT: 'swancloud-planner', CREW_LABEL: 'swancloud' }, views: { ...VIEWS, views: { 'swancloud-planner': ledger } } })
   const lines = (await ui.findAll({ type: 'Text' })).map((t) => t.text)
-  expect(lines.findIndex((l) => /^ {2}crew {2}◕◔ {2}curation-and-holds {2}landing #355 queued {2}0 of 2 merged$/.test(l))).toBeGreaterThanOrEqual(0)
+  expect(lines.findIndex((l) => /^ {2}crew {2}◕◔ {2}curation-and-holds {2}landing queued as #355 {2}0 of 2 merged$/.test(l))).toBeGreaterThanOrEqual(0)
   expect(lines.findIndex((l) => /a-queued-unit-can-take-a-signal {2}verify 3\/3 {2}#41 under test$/.test(l))).toBeGreaterThanOrEqual(0)
 })
 
