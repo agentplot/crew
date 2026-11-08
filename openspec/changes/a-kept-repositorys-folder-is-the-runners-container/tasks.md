@@ -11,7 +11,7 @@ Build the groups in order. Each check runs from the worktree's root as written. 
 
 ## 2. Every main level's brief names them
 
-- [ ] 2.1 The brief's tokens name the first blueprints repository's folder, each kit's checkout with its folder, and swancloud's checkout and folder as the main level's host keeps them, in words where it keeps none (design, Decision 7; Task notes 2.1). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_teams.py'` ends with "passed" and no "failed".
+- [x] 2.1 The brief's tokens name the first blueprints repository's folder, each kit's checkout with its folder, and swancloud's checkout and folder as the main level's host keeps them, in words where it keeps none (design, Decision 7; Task notes 2.1). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_teams.py'` ends with "passed" and no "failed".
 - [ ] 2.2 The design brief names its checkout's and each kit's folder and says a checkout is moved by its host alone, and the operator's brief names swancloud's checkout and folder from its tokens and no hard-coded `~/Code/github_afterthought/swancloud`, each pinned by a phrase (design, Decision 7; `tests.6`; Task notes 2.2). Verify `tests/suite t-briefs` ends with "0 failed".
 
 ## 3. The flake writes the key

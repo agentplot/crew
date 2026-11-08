@@ -282,13 +282,48 @@ class TestRoleSessions:
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/weir"])
         tok = crew.main_tokens(fleet, crew.partition_of(fleet, "swancloud"), "planner", "")
-        assert tok["KIT_CHECKOUTS"] == f"`{tmp_path}/deneb/madswan/crew/main`"
+        assert tok["KIT_CHECKOUTS"] == f"`{tmp_path}/deneb/madswan/crew/main` (its folder `{tmp_path}/deneb/madswan/crew`)"
+        assert tok["CHECKOUT"] == f"{tmp_path}/deneb/madswan/blueprints/main" and tok["FOLDER"] == f"{tmp_path}/deneb/madswan/blueprints"
+        assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == ("swancloud's checkout, which deneb does not keep",
+                                                                       "its folder, which deneb does not keep")
         # the partition's kits, the repositories its plan and its landings name (Decision 3 of the-team-machinery-leaves),
         # and on its cards those its main level's host keeps, by forge address
         assert tok["KITS"] == "crew, weir" and tok["CARDS"].endswith("The kits: crew: afterthought/crew.")
         assert ("`swancloud-design` in session swancloud-1 (account madswan); `swancloud-planner` in session swancloud-2 "
                 "(account madswan-2)") in tok["MAIN_SESSIONS"]
         assert tok["MAIN_SESSIONS"] in tok["ROSTER"] and "OPERATORS" not in tok
+
+    def test_a_brief_names_each_kept_repositorys_checkout_and_folder_as_the_hosts_teams_file_gives_them(self, tmp_path, monkeypatch):
+        """main-level, The design brief on a runner host and The operator's swancloud on a runner host (Decision 7 of
+        a-kept-repositorys-folder-is-the-runners-container): deneb's file names the blueprints, crew and swancloud at
+        the runner's containers and views, and the tokens name them; the kits it names none of keep their spaces'."""
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        r, v = "/Users/chuck/.local/share/flywheel/repositories", "/Users/chuck/Code/boomdrive"
+        named = {a: {"dir": f"{r}/{a}", "checkout": f"{v}/{a}"} for a in ("afterthought/blueprints", "afterthought/crew", "afterthought/swancloud")}
+        def sess(space, partition, repos):
+            return {"dir": f"{tmp_path}/{space}", "partition": partition, "repos": repos}
+        hosts = {"deneb": {"ssh": "deneb", "kind": "darwin", "sessions": {
+                     "swancloud-1": sess("deneb/madswan", "personal", ["afterthought/blueprints", "afterthought/crew"]),
+                     "agentplot": sess("deneb/agentplot", "agentplot", ["agentplot/weir"])}},
+                 BOX: {"ssh": BOX, "kind": "nixos", "sessions": {"wldn-3": sess("box/willdan", "clients/willdan", ["WilldanGroup/willdan-blueprints"])}}}
+        part = {"state": "afterthought/crew-state", "review": {"every": 5, "hours": 4}, "flume": STANDING}
+        teams = {"version": 5, "repositories": named, "partitions": [
+            dict(part, label="swancloud", partition="personal", blueprints=["afterthought/blueprints"], machine="deneb", session="swancloud-1"),
+            dict(part, label="wldn", partition="clients/willdan", blueprints=["WilldanGroup/willdan-blueprints"], machine=BOX, session="wldn-3")]}
+        fleet = loaded(tmp_path, monkeypatch, teams, hosts)
+        monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/weir"])
+        tok = crew.main_tokens(fleet, crew.partition_of(fleet, "swancloud"), "design", "")
+        assert (tok["CHECKOUT"], tok["FOLDER"]) == (f"{v}/afterthought/blueprints", f"{r}/afterthought/blueprints")
+        assert tok["KIT_CHECKOUTS"] == (f"`{v}/afterthought/crew` (its folder `{r}/afterthought/crew`), "
+                                        f"`{tmp_path}/deneb/agentplot/weir/main` (its folder `{tmp_path}/deneb/agentplot/weir`)")
+        assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == (f"{v}/afterthought/swancloud", f"{r}/afterthought/swancloud")
+        assert tok["TEAMS_DOORS"] == "`swancloud`"
+        # main-level, A box's operator: the box keeps no swancloud, and its tokens say so in words (teams.10)
+        tok = crew.main_tokens(fleet, crew.partition_of(fleet, "wldn"), "operator", "")
+        assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == (f"swancloud's checkout, which {BOX} does not keep",
+                                                                       f"its folder, which {BOX} does not keep")
+        assert tok["KIT_CHECKOUTS"] == "none on this host"
+        assert (tok["CHECKOUT"], tok["FOLDER"]) == (f"{tmp_path}/box/willdan/willdan-blueprints/main", f"{tmp_path}/box/willdan/willdan-blueprints")
 
     @pytest.mark.parametrize("role", ["dispatcher", "conductor", "coder"])
     def test_a_role_with_no_definition_is_refused_a_dispatcher_among_them(self, tmp_path, monkeypatch, role):

@@ -1583,16 +1583,25 @@ def main_tokens(fleet, p, role, self_name):
     # keeping swancloud's checkout, where lib/crew-teams.nix is edited.
     doors = sorted(f"`{o['label']}`" for o in fleet["partitions"].values()
                    if fleet["hosts"].get(o["machine"], {}).get("kind") == "darwin" and kept_on(fleet, o["machine"], "afterthought/swancloud"))
+    # Each folder beside its checkout, as the main level's host keeps it (Decision 7 of
+    # a-kept-repositorys-folder-is-the-runners-container): the teams file's where it names the repository for this
+    # host, else the spaces'; swancloud's in words where the host keeps none (teams.10).
+    sess = fleet["hosts"].get(p["machine"], {}).get("sessions", {}).get(p["session"]) or fail(
+        f"{p['machine']} has no session {p['session']}, where {label}'s main level runs")
+    swancloud = kit_kept(fleet, p["machine"], "afterthought/swancloud")
     tok = {
         "SELF": self_name or names[role], "LABEL": label, "PARTITION": p["partition"], "HOST": host, "TEAM_CMD": cmd,
         "BLUEPRINTS_REPOS": ", ".join(f"`{b}`" for b in p["blueprints"]), "SIGNALS_REPO": p["blueprints"][0],
         "PLANS": f"`{label}/main` of {p['state']}", "STATE_REPO": p["state"], "SIGNAL": signal_how(cmd, label, p["state"]),
         "CARDS": cards_how(cmd, label, kits_named(kept)), "RESULTS": RESULTS,
-        "CHECKOUT": p["checkout"], "MAIN_PLACE": f"session {p['session']} on {p['machine']}", "MAIN_SESSIONS": places,
+        "CHECKOUT": p["checkout"], "FOLDER": kept_at(fleet, p["machine"], sess, p["blueprints"][0])["dir"],
+        "SWANCLOUD_CHECKOUT": swancloud["main"] if swancloud else f"swancloud's checkout, which {p['machine']} does not keep",
+        "SWANCLOUD_FOLDER": swancloud["dir"] if swancloud else f"its folder, which {p['machine']} does not keep",
+        "MAIN_PLACE": f"session {p['session']} on {p['machine']}", "MAIN_SESSIONS": places,
         "DESIGN_AGENT": f"{label}-design", "PLANNER": f"{label}-planner", "MAIN_OPS": f"{label}-ops",
         "REVIEWER": f"{label}-reviewer", "REVIEWS": f"~/.local/state/crew/{label}-main/reports",
         "KITS": ", ".join(sorted({k.split("/")[-1] for k in named})) or "none yet",
-        "KIT_CHECKOUTS": ", ".join(f"`{k['main']}`" for k in kept) or "none on this host",
+        "KIT_CHECKOUTS": ", ".join(f"`{k['main']}` (its folder `{k['dir']}`)" for k in kept) or "none on this host",
         "TEAMS_DOORS": ", ".join(doors) or "none", "TURN": turn_said(p, role),
         "SHOWING": (f"{host} is a Mac: open the site the user picks in terminal-browser beside your pane, "
                     "`terminal-browser open <url> --split right`." if fleet["hosts"].get(host, {}).get("kind") == "darwin" else
