@@ -2956,13 +2956,50 @@ def card_rows(rows):
     return [r for r in rows if r["box"] or r.get("takes_main") and not r.get("sent")]
 
 
+# The head a fix of main's row on its kit's landings card is shown at: its launch's request number, r<n>, since a place
+# whose submission waits held has no head of its own the card could show (fix_rows), and a launch anew under the
+# same name, after a drop, is another fix.
+FIX_HEAD = re.compile(r"r\d+")
+
+
+def fix_head(head):
+    """Whether a landings card's row was shown at a fix of main's head (FIX_HEAD), so the row is that fix's."""
+    return bool(FIX_HEAD.fullmatch(head or ""))
+
+
+def fix_rows(kit, fixes):
+    """Each fix of a kit's main whose code has delivered and whose submission waits held for the user's send, as a row of
+    the kit's landings card (rail-cards "A fix of main is a box of its kit's landings card"; crew-rail "A fix of main
+    waits to land on its kit's row"), from runner.main_fixes_waiting's items, in their order: a box named by its place,
+    main--<name>, shown at its launch's number (FIX_HEAD), its facts what cards.landings_card draws of it, {bolt, kit,
+    fix, name, head, host, brief, send}, brief its brief's first line, the failure's words, and send ops's command for
+    the user's send of it. One of another kit's is none of this card's; one sent on the user's word already is no row,
+    the runner acting on that send. A decision of facts alone (code.7)."""
+    return [dict(bolt=f"main--{f['name']}", box=True, fix=True,
+                 facts=dict(bolt=f"main--{f['name']}", kit=kit, fix=True, name=f["name"], head=f"r{f['request']}", host=f["host"],
+                            brief=(f["brief"].strip().splitlines() or [""])[0], send=fix_send(kit, f["name"])))
+            for f in fixes if f["kit"] == kit and f["sent"] is None and f.get("request") is not None]
+
+
+def fix_send(kit, name):
+    """Main-level ops's command for the user's send of a fix of the kit's main (main_fix)."""
+    return f"crew main fix {kit} {name} --send"
+
+
+def item_named(bolt, head):
+    """A row of a kit's landings card by name in crew's words of it: a bolt by its own, a fix of main as fix <its place>
+    (fix_head)."""
+    return f"fix {bolt}" if fix_head(head) else bolt
+
+
 def card_heads(text):
     """A kit's landings card's rows as its post or change recorded them (built_fields): [(bolt, head, left)] in the
     card's order, left whether the user cleared it on their last send; [] for none recorded. A row the card showed
-    taking main first, marked :main, is among them, never left (heads_taking)."""
+    taking main first, marked :main, is among them, never left (heads_taking); a fix of main's is at its launch's
+    number (FIX_HEAD)."""
     out = []
     for w in (text or "").split():
-        m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40})(:left|:main)?", w)
+        m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40}|r\d+)(:left|:main)?", w)
         if m:
             out.append((m.group(1), m.group(2), m.group(3) == ":left"))
     return out
@@ -3052,7 +3089,9 @@ def rows_unsent(rows, sent, work=None):
     bolt whose head moved), which is no row of a card that follows that send's, nor of any after it; those bolts; and
     each that can land whose send does not stand, a row again, with the words that say what changed (work_said):
     (rows, [bolt], [(bolt, words)]). A row taking main first whose earlier send stands stays held with no box, marked
-    sent, since that send lands it once it reads proven (card_rows). A decision of facts alone (code.7)."""
+    sent, since that send lands it once it reads proven (card_rows). A fix of main's row (fix_rows) is at its launch's
+    number, so a send stands for it while that launch waits held, and one launched anew is a row again with nothing of
+    its work to say. A decision of facts alone (code.7)."""
     work, out, landing, asked = work or {}, [], [], []
     for r in rows:
         b, head = r["bolt"], r["facts"]["head"]
@@ -3064,7 +3103,7 @@ def rows_unsent(rows, sent, work=None):
             out.append(dict(r, sent=True))
             continue
         out.append(r)
-        if r["box"] and at:
+        if r["box"] and at and not r.get("fix"):
             asked.append((b, work_said(b, at, head, work.get(b))))
     return out, landing, asked
 
@@ -3107,7 +3146,7 @@ def ticked_of(got, heads):
     return [b for b, _, _ in heads if f"land:{b}" in picked]
 
 
-def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=False, work=None):
+def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=False, work=None, fixes=None):
     """What the raise of a kit's landings card does with it (rail-cards, record 0031 as amended 2026-10-23), from facts
     alone (code.7): rows, its rows as landing_rows gives them; card, None when ops holds none, else {status, heads},
     status "waiting" or "answered" and heads its rows as its last post or change recorded them (card_heads); ticked,
@@ -3116,8 +3155,11 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     note; here, that the event is a landing on the user's word in ops's pane (pane_landed), a word that answers the
     card; work, each ticked bolt's own work between the head the card showed and its head now, for those whose head
     moved (bolt_work), by which the user's send still stands for a bolt that only took main in (send_stands, record
-    0031 as amended 2026-10-24). Each act with the bolts the user cleared on their last send (left), which its card
-    shows unticked:
+    0031 as amended 2026-10-24); fixes, how each fix of main the card showed that no longer waits held no longer does
+    ({row: "sent", "dropped" or None}, runner.main_fix_gone). A fix of main's row (fix_rows) is a row as a bolt's is,
+    in_plan holding each fix of the kit's main that waits held, sent or not, so a ticked one is still to land on the
+    send until its runner has submitted it. Each act with the bolts the user cleared on their last send (left), which
+    its card shows unticked:
     ("none",) when no row can land and no card is held;
     ("withdraw", why) when no row can land and a waiting card is held, each row held or none proven; ("answered", why)
     then for a landing on the user's word in ops's pane (here), closed as answered there;
@@ -3152,20 +3194,25 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     if card["status"] != "answered":
         if not boxed:
             return ("answered" if here else "withdraw", "every bolt waiting to land is held: "
-                    + "; ".join(f"{b}, {w}" for b, w in held.items()) if held else "no bolt waits to land on its main")
+                    + "; ".join(f"{b}, {w}" for b, w in held.items()) if held else
+                    "nothing waits to land on its main" if any(fix_head(h) for _, h, _ in heads) else
+                    "no bolt waits to land on its main")
         shows = card_rows(rows)
         shown = [(r["bolt"], r["facts"]["head"][:7]) for r in shows]
         taking, took = {r["bolt"] for r in shows if not r["box"]}, set(card.get("taking") or ())
         was = {b: (h, left) for b, h, left in heads}
         left = [b for b, h in now if b in was and was[b][1] and was[b][0] == h]
-        said = [f"{b} joins the card and {held[b]}" if b in taking else f"{b} reads proven and joins the card"
-                for b, _ in shown if b not in was]
-        said += [f"{b}'s head is now {h}" for b, h in shown if b in was and was[b][0] != h]
+        said = [f"{b} joins the card and {held[b]}" if b in taking else
+                f"fix {b} waits held for your send and joins the card" if fix_head(h) else f"{b} reads proven and joins the card"
+                for b, h in shown if b not in was]
+        said += [f"fix {b} is launched anew, as request {h[1:]}" if fix_head(h) else f"{b}'s head is now {h}"
+                 for b, h in shown if b in was and was[b][0] != h]
         said += [f"{b} {held[b]}" for b, _ in shown if b in was and b in taking and b not in took]
         said += [f"{b} can land again" for b, _ in shown if b in was and b not in taking and b in took]
         said += [(f"{b} {held[b]}" if held[b].startswith("takes main first") else f"{b}'s {held[b]}" if held[b].startswith("landing ")
                   else f"{b} is {held[b]}") if b in held
-                 else f"{b} no longer waits to land" for b, _, _ in heads if b not in dict(shown)]
+                 else f"fix {b} no longer waits held for your send" if fix_head(h) else f"{b} no longer waits to land"
+                 for b, h, _ in heads if b not in dict(shown)]
         said = ([note] if note else []) + said
         if not said:
             return ("leave",)
@@ -3186,13 +3233,14 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
     if landing and not anew:
         return ("leave",)
     on = [b for b, _, _ in heads]
-    gone = [b for b in ticked if b not in in_plan]
+    gone = [b for b in ticked if b not in in_plan and not fix_head(was.get(b))]
     said = ([f"Landed on GitHub's main: " + joined([f"{b} at {landed[b][:7]}" if b in (landed or {}) else b for b in gone])
              + "; every host's folder follows by swancloud's timer within minutes."]
             if gone and all(b in (landed or {}) for b in gone) else
             [f"Landed or left the plan: {joined(gone)}."] if gone else [])
+    said += fixes_went([b for b in ticked if b not in in_plan and fix_head(was.get(b))], fixes or {})
     lands = [b for b in landing if b not in main_first]
-    said += [f"Landing as you ticked: {joined(lands)}."] if lands else []
+    said += [f"Landing as you ticked: {joined([item_named(b, was.get(b)) for b in lands])}."] if lands else []
     stopped = {r["bolt"]: r["facts"]["stopped"] for r in boxed if r["facts"].get("stopped")}
     said += [f"{b}'s last landing at {stopped[b][0][:7]} was stopped, nothing of the bolt's: {stopped[b][1].rstrip('.')}; it "
              "lands on your send once that is cleared." for b in lands if b in stopped]
@@ -3202,36 +3250,58 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, here=Fals
              f"Held: {b}, {held[b]}; {work_said(b, was[b], at[b], work.get(b))}, so a card asks for it again once it reads "
              "proven." for b in ticked if b in held and b not in landing]
     cleared = [b for b in on if b not in ticked and b not in took]  # crew unticked a row taking main first, not they
-    said += [f"Left: {joined(cleared)}."] if cleared else []
-    said += ["Since your send, " + "; ".join(work_said(b, was[b], at[b], work.get(b)) if b in was and b in ticked else
+    said += [f"Left: {joined([item_named(b, was[b]) for b in cleared])}."] if cleared else []
+    said += ["Since your send, " + "; ".join(f"fix {b} is launched anew, as request {h[1:]}" if fix_head(h) and b in was else
+                                             f"fix {b} waits held for your send" if fix_head(h) else
+                                             work_said(b, was[b], at[b], work.get(b)) if b in was and b in ticked else
                                              f"{b}'s head is now {h}" if b in was and was[b] != h else f"{b} reads proven"
                                              for b, h in anew)
              + f", and the card that follows asks for {'it' if len(anew) == 1 else 'them'}."] if anew else []
     if not ticked:
-        said = ["Sent with no bolt ticked, so nothing lands."] + said
+        said = [("Sent with nothing ticked" if any(fix_head(h) for _, h, _ in heads) else "Sent with no bolt ticked")
+                + ", so nothing lands."] + said
     left = [b for b in cleared if b in dict(now) and b not in moved]
     if landing:
         return ("follow", " ".join(said), left, [(b, was[b]) for b in ticked if b in landing or b in standing])
     return ("close", " ".join(said), left if boxed else None, [(b, was[b]) for b in standing])
 
 
+def fixes_went(went, how):
+    """What a kit's landings card's close says of the fixes of main the user ticked that no longer wait held on it
+    (landings_step), went in the card's order, by how each went ({row: "sent", "dropped" or None},
+    runner.main_fix_gone): sent on their word, for its runner to submit to main through sluice; dropped; or gone on
+    from waiting held by another way."""
+    named = lambda bs: joined([f"fix {b}" for b in bs])
+    sent, dropped = [b for b in went if how.get(b) == "sent"], [b for b in went if how.get(b) == "dropped"]
+    other = [b for b in went if b not in sent and b not in dropped]
+    return (([f"Sent on your word: {named(sent)}, which {'its runner submits' if len(sent) == 1 else 'their runners submit'} "
+              "to main through sluice."] if sent else [])
+            + ([f"Dropped since your send: {named(dropped)}."] if dropped else [])
+            + ([f"No longer waiting held for your send: {named(other)}."] if other else []))
+
+
 def landings_since(earlier, rows):
     """What changed since the user's send on a kit's last landings card, which a new card raised after it, following it
     (cards.follows_of), says first (rail-cards "A card that follows one the user answered says so first"), from facts
     alone (code.7): earlier, that card's rows as its last post or change recorded them (card_heads); rows, the rows
-    that can land now (landing_rows, with a box). Each bolt that joins the card, each head that moved, and each bolt
-    still waiting at the head the card showed, which the user's send left; sentences."""
+    that can land now (landing_rows, with a box). Each bolt that joins the card, each fix of main that waits held and
+    joins it (fix_rows), each head that moved, and each bolt still waiting at the head the card showed, which the
+    user's send left; sentences."""
     was = {b: h for b, h, _ in earlier}
-    joins = [r["bolt"] for r in rows if r["bolt"] not in was]
+    fixes = [f"fix {r['bolt']}" for r in rows if r["bolt"] not in was and r.get("fix")]
+    joins = [r["bolt"] for r in rows if r["bolt"] not in was and not r.get("fix")]
     moved = [(r["bolt"], r["facts"]["head"][:7]) for r in rows if r["bolt"] in was
              and not (r["facts"]["head"].startswith(was[r["bolt"]]) or was[r["bolt"]].startswith(r["facts"]["head"]))]
-    waits = [r["bolt"] for r in rows if r["bolt"] in was and r["bolt"] not in dict(moved)]
-    return ([f"{joined(joins)} {'reads' if len(joins) == 1 else 'read'} proven and {'joins' if len(joins) == 1 else 'join'} the card."]
-            if joins else []) + [f"{b}'s head is now {h}." for b, h in moved] + (left_waits(waits) if waits else [])
+    waits = [item_named(r["bolt"], r["facts"]["head"]) for r in rows if r["bolt"] in was and r["bolt"] not in dict(moved)]
+    return ([f"{joined(fixes)} {'waits' if len(fixes) == 1 else 'wait'} held for your send and "
+             f"{'joins' if len(fixes) == 1 else 'join'} the card."] if fixes else []) + (
+        [f"{joined(joins)} {'reads' if len(joins) == 1 else 'read'} proven and {'joins' if len(joins) == 1 else 'join'} the card."]
+        if joins else []) + [f"{b}'s head is now {h}." for b, h in moved] + (left_waits(waits) if waits else [])
 
 
 def left_waits(left):
-    """The sentence a kit's landings card that follows the user's send says of the bolts that send left, shown again."""
+    """The sentence a kit's landings card that follows the user's send says of the bolts that send left, shown again,
+    each named in crew's words of it (item_named)."""
     return [f"{joined(left)}, which you left, {'waits' if len(left) == 1 else 'wait'} on this card."]
 
 
@@ -3634,7 +3704,12 @@ def raise_landings(fleet, label, kit, acts=None, note=None, dead=False, pane=Non
     conflicts with main and said once in the change note when a forecast finds it so (main_told, rail-cards "A bolt
     the user left stays left until they tick it"), each other found so recorded held, telling no one (main_told); each
     row taking main first beside one that can land kept on the card unticked, saying why (card_rows, rail-cards "A row
-    taking main first stays on the card"), so its bolt taking main in and coming back changes the card in place; then
+    taking main first stays on the card"), so its bolt taking main in and coming back changes the card in place; each
+    fix of the kit's main whose code has delivered and whose submission waits held for the user's send a box ahead of
+    the bolts, forecast against nothing, a card raised for it though no bolt can land beside it, and one the user
+    ticked still to land on their send until its runner has submitted it, each that went said as it went
+    (fix_rows, runner.main_fix_gone; rail-cards "A fix of main is a box of its kit's landings card", "A ticked fix of
+    main stands on the send while it waits held"); then
     what the card makes of them (landings_step):
     posted, changed in place with what changed, or the event's note first, followed when its form changed, left,
     withdrawn saying why, or closed with what landed, was held and was left, with how many rows can still land, a new
@@ -3710,32 +3785,42 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     moves = {b: (h, at[b]) for b, h in list(sent.items()) + list(ticked_at.items())
              if b in at and not (at[b].startswith(h) or h.startswith(at[b]))}
     work = acts.work(label, kit, moves) if moves else {}
-    rows, landing, asked = rows_unsent(rows, sent, work)
+    # each fix of the kit's main whose submission waits held for the user's send is a box ahead of the bolts, as the rail
+    # puts it ahead of them on the kit's landings row (fix_rows; crew-rail "A fix of main waits to land on its kit's row")
+    fixes_held = [f for f in runner.main_fixes_waiting(*run) if f["kit"] == kit]
+    rows, landing, asked = rows_unsent(fix_rows(kit, fixes_held) + rows, sent, work)
+    named = {r["bolt"]: item_named(r["bolt"], r["facts"]["head"]) for r in rows}
     for b in landing:
         print(f"card {key}: {b} lands on the user's send of an earlier card, so it is no row of this one")
     for b, words in asked:
         print(f"card {key}: {words}; the user's send of an earlier card does not stand for it, so it is a row again")
     # Every row that can land is forecast against main first, and each forecast to conflict with it, by this forecast or
     # the run record's at its present head, takes main first; the rest are forecast among themselves (row_forecasts).
-    recorded = {r["bolt"]: c for r in rows if r["box"] for c in [main_conflict(whole, r["bolt"], r["facts"]["head"])] if c}
-    boxed = [r["bolt"] for r in rows if r["box"]]
+    # A fix of main is no bolt to forecast: it is cut from main and submitted onto it alone.
+    bolts = [r for r in rows if not r.get("fix")]
+    recorded = {r["bolt"]: c for r in bolts if r["box"] for c in [main_conflict(whole, r["bolt"], r["facts"]["head"])] if c}
+    boxed = [r["bolt"] for r in bolts if r["box"]]
     forecast, unmade, onto = acts.forecast(label, kit, boxed, list(recorded)) if boxed else ({}, {}, None)
     if onto:
         acts.keep_main(label, kit, onto["main"])
     found = {b: p for b, fs in forecast.items() for w, p in fs if w == "main" and p}
     takes = dict(recorded, **{b: (onto["main"][:7], p) for b, p in found.items()})
-    rows = [landing_rows([r["bolt"]], {r["bolt"]: r["facts"]}, {}, takes_main=takes, left=left)[0] if r["box"] else r for r in rows]
+    rows = [landing_rows([r["bolt"]], {r["bolt"]: r["facts"]}, {}, takes_main=takes, left=left)[0] if r["box"] and not r.get("fix")
+            else r for r in rows]
     # each conflict found is recorded once, telling no one, and a bolt the user left is said in the card's change note
     lefts = main_told(acts, label, {r["bolt"]: r["facts"] for r in rows if r["bolt"] in found}, found, onto, whole + entries, left)
     note = "; ".join(([note] if note else []) + lefts) or None
     boxed = [r["bolt"] for r in rows if r["box"]]
     for r in rows:
-        if r["box"]:
+        if r["box"] and not r.get("fix"):
             r["facts"] = dict(r["facts"], forecast=forecast.get(r["bolt"], []), forecast_why=unmade.get(r["bolt"]))
     landed = {next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None): e.get("Head") or ""
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
-    in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit}
-    step = landings_step(rows, state, ticked, in_plan, landed, note, bool(pane), work)
+    # each fix of the kit's main waiting held, sent or not, is still to land on a send that ticked it (landings_step)
+    in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit} | {f"main--{f['name']}" for f in fixes_held}
+    went = {b: runner.main_fix_gone(*run, kit, b[len("main--"):]) for b, h, _ in (state or {}).get("heads") or []
+            if fix_head(h) and b not in in_plan}
+    step = landings_step(rows, state, ticked, in_plan, landed, note, bool(pane), work, went)
     try:
         t = kit_at(fleet, label, kit)
     except Refusal:
@@ -3785,7 +3870,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
         # the outcome, what changed of each bolt asked again among it (landings_step), opens the card that follows
         return closed and row_card_change(fleet, label, owner, cards.landings_card, dict(facts, rows=rest, left=waits,
                                                                                          follows=closed), outcome, where, acts,
-                                          since=[outcome] + (left_waits(waits) if waits else []))
+                                          since=[outcome] + (left_waits([named.get(b, b) for b in waits]) if waits else []))
     _, _, then, standing = step  # the bolts held whose send stands kept as its close's Heads (landings_sent)
     closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(boxed)),
                             Heads=" ".join(f"{b}@{h}" for b, h in standing))  # its own, none when nothing stands (close_kept)
@@ -3794,7 +3879,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     waits = unticked(then)
     return row_card_change(fleet, label, owner, cards.landings_card,
                            dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
-                           outcome, where, acts, since=[outcome] + (left_waits(waits) if waits else []))
+                           outcome, where, acts, since=[outcome] + (left_waits([named.get(b, b) for b in waits]) if waits else []))
 
 
 def raise_landings_row(fleet, row, acts=None):
@@ -11680,7 +11765,7 @@ def main_fix_line(label, kit, f):
     with the first line of its brief, the failure's words, and ops's command for the user's send of it, or that the
     send was made and the runner acts on it; the time it began to wait, Flume's since, else when the runner carried
     the status that shows it waiting. {fix, host, can, send, line, at}."""
-    send = f"crew main fix {kit} {f['name']} --send"
+    send = fix_send(kit, f["name"])
     first = (f["brief"].strip().splitlines() or [""])[0]
     then = (f"can land: {label}-ops sends it with {send}" if f["sent"] is None else
             f"sent on the user's word (request {f['sent']}): the runner on {f['host']} submits it")
@@ -11749,7 +11834,7 @@ def answered_waits(c, entries):
     by, a = c["by"], c.get("answered") or {}
     kind = (c["key"] or "").split("/")[0]
     if kind == "land":
-        bolts = [b for b, _, _ in card_heads(a.get("heads"))]
+        bolts = [item_named(b, h) for b, h, _ in card_heads(a.get("heads"))]
         return f"waits on {by} to land {joined(bolts)}" if bolts else f"sent with no bolt ticked: waits on {by} to close it"
     if kind == "proposal":
         said = a.get("answer") or ""
@@ -11778,14 +11863,18 @@ WAITS_ON_OWNER = "answered: "
 def send_waits(entries, card):
     """The bolts the user's send on a kit's landings card still waits to land (rail-cards "The sweep leaves an answered
     landings card while a bolt it ticked waits to land", design Decision 5): each its card.answer's Heads name, the
-    first recorded, with no bolt.land or bolt.drop of it since, none refused; [] when the run record (entries) holds no
-    answer of the card, or one ticking none. A decision of facts alone (code.7)."""
+    first recorded, with no bolt.land or bolt.drop of it since, none refused, and each fix of the kit's main it names
+    (fix_head) with no send or drop of it since, fix.merge or fix.drop on fix/main/<kit>/<name>, the send being ops's
+    act on it; [] when the run record (entries) holds no answer of the card, or one ticking none. A decision of facts
+    alone (code.7)."""
     answer = next((e for e in entries if e.get("Act") == "card.answer" and e.get("Card") == card and not e.get("Refused")), None)
     if answer is None:
         return []
-    since = answer.get("At") or ""
+    since, kit = answer.get("At") or "", (answer.get("Key") or "").partition("/")[2]
     ended = {o[5:] for e in entries if e.get("Act") in ("bolt.land", "bolt.drop") and not e.get("Refused") and (e.get("At") or "") >= since
              for o in e.get("On") or [] if o.startswith("bolt/")}
+    ended |= {"main--" + o[len(f"fix/main/{kit}/"):] for e in entries if e.get("Act") in ("fix.merge", "fix.drop") and kit
+              and not e.get("Refused") and (e.get("At") or "") >= since for o in e.get("On") or [] if o.startswith(f"fix/main/{kit}/")}
     return [b for b, _, _ in card_heads(answer.get("Heads")) if b not in ended]
 
 
@@ -13572,7 +13661,7 @@ def card_held(label, who, key):
         f"{who} holds no open card under {key} on {crew.this_host()}")
 
 
-def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=(), gone=None):
+def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=(), gone=None, kit=None, fixes=()):
     """What crew card read land/<kit> prints beside the answer once the user sent the kit's landings card (rail-cards
     "An answer wakes the owner"): the bolts they ticked in the card's order (ticked_of, heads its rows as card_heads
     gives them), and the one crew bolt submit that lands them in that order, or that none was ticked, so nothing lands;
@@ -13586,13 +13675,21 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     so and left out of it, so a send some of whose bolts landed gives the rest alone (main-level "Ops lands a bolt on a
     send that still stands"). Each bolt it lands whose last landing sluice or its host stopped (stopped, {bolt: (head,
     words)}, stops) is said with what stopped it and the head it was at, the same submit landing it once that is
-    cleared (rail-cards "Checks that never ran")."""
-    ticked, earlier, stopped, gone = ticked_of(got, heads), list(earlier), stopped or {}, gone or {}
-    lands = [b for b in ticked or [] if b not in main_first and b not in gone]
+    cleared (rail-cards "Checks that never ran"). Each fix of the kit's main among them (fixes, the rows the card or an
+    earlier send showed at a fix's head, fix_head) is no bolt to submit: each is said with ops's command for the user's
+    send of it, crew main fix <kit> <name> --send, the earlier send's first and then this card's in its order
+    (main-level "A fix of main lands on the user's send")."""
+    ticked, stopped, gone, fixes = ticked_of(got, heads), stopped or {}, gone or {}, set(fixes)
+    sends = list(dict.fromkeys(b for b in list(earlier) + list(ticked or []) if b in fixes))
+    earlier = [b for b in earlier if b not in fixes]
+    lands = [b for b in ticked or [] if b not in main_first and b not in gone and b not in fixes]
     lines = [f"  can't tell whether the user's earlier send still lands {b}: {why}" for b, why in unknown]
     lines += [f"  to land on the user's send of an earlier card: {joined(earlier)}"] if earlier else []
+    lines += [f"  sends fix {b}: {fix_send(kit, b[len('main--'):])}" for b in sends]
     if ticked == []:
-        lines += ["  no bolt ticked on this card: nothing of it lands" if earlier else "  no bolt ticked: nothing lands"]
+        lines += ["  nothing ticked on this card: nothing of it lands" if fixes and (earlier or sends) else
+                  "  nothing ticked: nothing lands" if fixes else
+                  "  no bolt ticked on this card: nothing of it lands" if earlier else "  no bolt ticked: nothing lands"]
     elif lands:
         lines += [f"  to land, in the card's order: {joined(lands)}"]
     lines += [f"  {b} takes main first until a fix taking main in moves its head, and the user's send stands for it"
@@ -13674,9 +13771,19 @@ def landings_earlier(fleet, label, kit, key, who, entries, heads, acts=None):
         return [], []
     plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so what an earlier send on {key} still lands can't be told")
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit}
+    # a fix of main the send ticked is still to send while it waits held at the launch the card showed (fix_rows)
+    held = {r["bolt"]: r["facts"]["head"] for r in fix_rows(kit, runner.main_fixes_waiting(*runner_facts(fleet, label)))} \
+        if any(fix_head(h) for h in sent.values()) else {}
     moves = {b: (h, None) for b, h in sent.items() if b in in_plan}
     work = (acts or CardActs(fleet)).work(label, kit, moves) if moves else {}
-    return sent_left(sent, {b: (work.get(b) or {}).get("head") for b in moves}, in_plan, refusals(entries), work)
+    return sent_left(sent, dict({b: (work.get(b) or {}).get("head") for b in moves}, **held), in_plan | set(held),
+                     refusals(entries), work)
+
+
+def fixes_shown(entries, key, who, heads):
+    """The rows of a kit's landings card that are fixes of main (fix_head), on the card read (heads, card_heads) or on
+    an earlier send its owner's closes under the key keep (landings_sent): their names, main--<name>."""
+    return {b for b, h, _ in heads if fix_head(h)} | {b for b, h in landings_sent(entries, key, who).items() if fix_head(h)}
 
 
 def landings_unopened(fleet, a, label, who, kit, entries, acts=None):
@@ -13689,8 +13796,8 @@ def landings_unopened(fleet, a, label, who, kit, entries, acts=None):
     if a.json:
         print(json.dumps(dict(key=a.key, card=None, earlier=earlier, unknown=dict(unknown)), indent=1, ensure_ascii=False))
         return
-    print("\n".join([f"card {a.key}: no landings card of {kit} is open"] + landing_lines(label, {}, [], earlier, unknown,
-                                                                                          stops(entries))))
+    print("\n".join([f"card {a.key}: no landings card of {kit} is open"] + landing_lines(
+        label, {}, [], earlier, unknown, stops(entries), kit=kit, fixes=fixes_shown(entries, a.key, who, []))))
 
 
 def card_read(fleet, a, acts=None):
@@ -13748,19 +13855,20 @@ def card_read(fleet, a, acts=None):
         heads = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and e.get("Heads")
                                  and not e.get("Refused")), None))
         earlier, unknown = landings_earlier(fleet, label, kind[1], a.key, who, entries, heads) if kind and kind[0] == "kit" else ([], [])
-        ticked = ticked_of(got, heads) if kind and kind[0] == "kit" else None
+        fixes = fixes_shown(entries, a.key, who, heads) if kind and kind[0] == "kit" else set()
+        ticked = [b for b in ticked_of(got, heads) or [] if b not in fixes] if kind and kind[0] == "kit" else None
         first, gone = set(), {}
         if ticked:  # what the send still lands: no bolt taking main first, landed since or gone from the plan
             whole = send_entries(fleet, label, entries)
             plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so which bolts {a.key}'s send still lands can't be told")
-            first = firsts_now(fleet, label, kind[1], whole, heads)
+            first = firsts_now(fleet, label, kind[1], whole, [h for h in heads if h[0] not in fixes])
             gone = ticked_gone(ticked, {b.name() for b in plan.bolts() if b.get("Repo") == kind[1]}, landed_since(whole, card))
         d = CARDS / label / a.key
         reads = a.key.startswith("proposal/") and d.is_dir()
         decided = card_result(d) if reads else None
         r = reading_read(a.key, got, decided) if reads else dict(lines=[], aside=False)
         print("\n".join(cards.answer_lines(a.key, card, got)
-                        + (landing_lines(label, got, heads, earlier, unknown, stops(entries), first, gone)
+                        + (landing_lines(label, got, heads, earlier, unknown, stops(entries), first, gone, kind[1], fixes)
                            if kind and kind[0] == "kit" else []) + r["lines"]))
         if r["aside"]:
             reading_decided(d, decided)
@@ -14486,9 +14594,12 @@ def rows_previewed(fleet, label, rows):
     """Which of a kit's landings card's rows carry a preview (rail-cards "A thing the card does not carry"), each read
     at the head the card recorded it at, in its kit's folder on its host (bolt_at, head_previewed), sluice asked
     for nothing: ({bolt: None} for each whose kit's policy declares one, {bolt: why} for each that can't be read, a
-    bolt not started among them, read.1). rows: [(bolt, head, left)], as card_heads gives them."""
+    bolt not started among them, read.1); a fix of main's row (fix_head) carries none. rows: [(bolt, head, left)], as
+    card_heads gives them."""
     carried, unread = {}, {}
     for bolt, head, _ in rows:
+        if fix_head(head):  # a fix of main's row brings no preview up
+            continue
         _, _, t = land_held(fleet, label, bolt)
         declared, why = head_previewed(fleet, t, head) if t else (None, f"bolt {bolt} is not started")
         if why:

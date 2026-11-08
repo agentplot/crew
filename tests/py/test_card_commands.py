@@ -1740,3 +1740,17 @@ def test_the_follower_hears_the_notice_only_where_a_role_whose_main_level_is_her
 def test_the_notice_runs_crew_answered_through_pending_yous_watch():
     argv = board.notice_argv()
     assert argv[:3] == ["pendingyou", "watch", "--"] and argv[-2:] == [str(crew.HOME / "plugin/bin/crew"), "_answered"]
+
+
+def test_reading_a_sent_landings_card_whose_one_row_is_a_fix_of_main_gives_its_send_command(monkeypatch, capsys):
+    """main-level "A fix of main lands on the user's send": sluice's main--handed-over-wait-holds-steady, set on crew, the
+    card's one row (signal 2026-11-08-agentplot-ops-de90f199/01); the user's approval reads as ops's crew main fix
+    <kit> <name> --send, with no bolt to submit and no plan read for one."""
+    read = ReadSent(monkeypatch, {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}, held=None)
+    read.entries = [post("land/crew", "swancloud-ops", "req_k1", Heads="main--handed-over-wait-holds-steady@r12")]
+    read.run()
+    assert read.raised == ["crew"]
+    assert capsys.readouterr().out.splitlines()[-1] == (
+        "  sends fix main--handed-over-wait-holds-steady: crew main fix crew handed-over-wait-holds-steady --send")
+    assert [(e["Act"], e["Answer"], e["Heads"]) for e in read.emitted] == [
+        ("card.answer", "approved", "main--handed-over-wait-holds-steady@r12")]

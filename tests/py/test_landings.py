@@ -1931,3 +1931,153 @@ def test_the_sweeps_raise_of_a_kits_card_handed_an_older_copy_posts_it_saying_th
     assert plan.raise_landings_row(FLEET, r, plain) == "req_k1"
     dead, bare = [next(a for t, a in x.calls if t == "post_request")["summary"] for x in (acts, plain)]
     assert dead == f"{cards.DEAD}\n\n{bare}"
+
+
+# ------------------------------------------------------------------------------- a fix of main on the kit's card
+
+# sluice's main--handed-over-wait-holds-steady on 2026-11-08 (signal 2026-11-08-agentplot-ops-de90f199/01), set on
+# crew: its code delivered on deneb as request 12, its submission held for the user's send, and no bolt beside it.
+FIX = "main--handed-over-wait-holds-steady"
+HELD_FIX = dict(kit="crew", name="handed-over-wait-holds-steady", request=12, host="deneb", since=None,
+                carried="2026-11-08T10:00:00Z", sent=None,
+                brief="sluice's wait on a handed-over submission holds steady.\nIts words, as the check gave them.")
+
+
+def held_fix(**more):
+    """A fix of main as runner.main_fixes_waiting gives it."""
+    return dict(HELD_FIX, **more)
+
+
+def fix_box(**more):
+    """A fix of main's row on crew's landings card (fix_rows)."""
+    return plan.fix_rows("crew", [held_fix(**more)])[0]
+
+
+def fixes_waiting(monkeypatch, *fixes, gone=None):
+    """The fixes of main the partition's runners show waiting held, and how each that went did (runner.main_fix_gone)."""
+    monkeypatch.setattr(plan.runner, "main_fixes_waiting", lambda requests, reads: list(fixes))
+    monkeypatch.setattr(plan.runner, "main_fix_gone", lambda requests, reads, kit, name: (gone or {}).get(name))
+
+
+def test_a_fix_of_main_waiting_held_is_a_box_at_its_launch_and_one_sent_or_of_another_kit_is_none():
+    """rail-cards "A fix of main is a box of its kit's landings card"."""
+    assert plan.fix_rows("crew", [held_fix(), held_fix(name="sent", request=13, sent=14),
+                                  held_fix(kit="swancloud", name="theirs", request=15)]) == [dict(
+        bolt=FIX, box=True, fix=True, facts=dict(bolt=FIX, kit="crew", fix=True, name="handed-over-wait-holds-steady",
+                                               head="r12", host="deneb", brief="sluice's wait on a handed-over submission holds steady.",
+                                               send="crew main fix crew handed-over-wait-holds-steady --send"))]
+    assert plan.card_heads(f"{FIX}@r12 y@abc1234 {FIX}@r3:left") == [(FIX, "r12", False), ("y", "abc1234", False), (FIX, "r3", True)]
+    assert plan.fix_head("r12") and not plan.fix_head("abc1234") and not plan.fix_head(None)
+
+
+def test_a_held_fix_of_main_with_no_bolt_beside_it_raises_its_kits_card_as_the_one_row(monkeypatch):
+    """The case of 2026-11-08 (signal 2026-11-08-agentplot-ops-de90f199/01): the rail read 'card: land/sluice, none
+    open' beside the fix's line, since no bolt could land beside it. The raise posts the kit's card in ops's name, the
+    fix its one row, an approval that names the send, forecast against nothing, its Heads the fix at its launch."""
+    fixes_waiting(monkeypatch, held_fix())
+    acts = LandActs({}, answers=POSTED)
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\n%rec: Unit\n\n"))
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert (post["kind"], post["title"], post["session"]["label"], post["approve"]["risk"]) == (
+        "approve", f"Land fix {FIX} on crew's main", "swancloud-ops", "high")
+    assert "highStakes" not in post
+    assert ("Its code has delivered on deneb, its submission held for your send: sluice's wait on a handed-over submission "
+            "holds steady. Approving this sends it: main-level ops runs crew main fix crew handed-over-wait-holds-steady --send"
+            ) in post["summary"]
+    assert acts.forecasts == []
+    assert acts.emitted == [dict(Act="card.post", On=["kit/crew"], by="swancloud-ops", Card="req_k1", Key="land/crew",
+                                 Heads=f"{FIX}@r12", Head="r12")]
+
+
+def test_a_held_fix_of_main_beside_a_bolt_that_can_land_is_the_first_box_both_ticked(monkeypatch):
+    """rail-cards "A fix of main is a box of its kit's landings card", "A fix beside a bolt"."""
+    fixes_waiting(monkeypatch, held_fix())
+    acts = LandActs({"y": row("y")}, answers=POSTED)
+    assert raised(monkeypatch, acts) == "req_k1"
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert (post["kind"], post["title"]) == ("multi", "Land on crew's main: 1 fix of main and 1 bolt in order")
+    assert [(o["id"], o["label"]) for o in post["options"]] == [(f"land:{FIX}", f"1. fix {FIX}"), ("land:y", "2. y")]
+    assert post["recommendedIds"] == [f"land:{FIX}", "land:y"]
+    assert post["options"][0]["consequence"] == (
+        "Ticked, main-level ops sends it with crew main fix crew handed-over-wait-holds-steady --send, and the runner on "
+        "deneb submits it to crew's main through sluice.")
+    assert acts.forecasts == [(["y"], [])]  # the bolt alone is forecast
+    assert acts.emitted[-1]["Heads"] == f"{FIX}@r12 y@abc1234"
+
+
+def test_a_fix_joining_a_waiting_card_or_leaving_it_is_said_and_one_sent_by_hand_withdraws_a_card_of_it_alone():
+    assert plan.landings_step([fix_box(), box("y")], waiting("y@abc1234"), None, {"y", FIX}) == (
+        "change", f"fix {FIX} waits held for your send and joins the card", True, [])
+    assert plan.landings_step([box("y")], waiting(f"{FIX}@r12", "y@abc1234"), None, {"y", FIX}) == (
+        "change", f"fix {FIX} no longer waits held for your send", True, [])
+    assert plan.landings_step([fix_box()], waiting(f"{FIX}@r12"), None, {FIX}) == ("leave",)
+    assert plan.landings_step([], waiting(f"{FIX}@r12"), None, {FIX}) == ("withdraw", "nothing waits to land on its main")
+
+
+def test_an_answered_card_is_left_while_a_ticked_fix_waits_held_and_closed_once_its_runner_took_the_send():
+    """rail-cards "A ticked fix of main stands on the send while it waits held": ticked, it is still to land on the send
+    while it waits held, sent or not, and the close says how it went."""
+    card = answered(f"{FIX}@r12")
+    assert plan.landings_step([fix_box()], card, [FIX], {FIX}) == ("leave",)  # ops is still to send it
+    assert plan.landings_step([], card, [FIX], {FIX}) == ("leave",)  # sent, its runner yet to submit it
+    assert plan.landings_step([], card, [FIX], set(), fixes={FIX: "sent"}) == (
+        "close", f"Sent on your word: fix {FIX}, which its runner submits to main through sluice.", None, [])
+    assert plan.landings_step([], card, [FIX], set(), fixes={FIX: "dropped"})[1] == f"Dropped since your send: fix {FIX}."
+    assert plan.landings_step([fix_box()], card, [], {FIX}) == ("close", f"Sent with nothing ticked, so nothing lands. Left: fix {FIX}.", [FIX], [])
+
+
+def test_a_fix_left_on_a_send_is_named_left_and_unticked_on_the_card_that_follows(monkeypatch):
+    """rail-cards "A ticked fix of main stands on the send while it waits held", "Cleared on the send"."""
+    step = plan.landings_step([fix_box()], answered(f"{FIX}@r12", "y@abc1234"), ["y"], {FIX}, landed={"y": "1" * 40})
+    assert step == ("close", f"Landed on GitHub's main: y at 1111111;{TIMER} Left: fix {FIX}.", [FIX], [])
+    b = cards.landings_card(dict(kit="crew", rows=[fix_box()["facts"], row("z")["facts"]], left=[FIX]))
+    assert b["card"]["recommendedIds"] == ["land:z"] and b["heads"] == [f"{FIX}@r12:left", "z@abc1234"]
+    assert f"fix {FIX} was left on your last send, and is unticked." in b["card"]["summary"]
+
+
+def test_a_ticked_fix_on_a_closed_cards_send_is_no_row_of_the_next_while_it_waits_held_at_that_launch():
+    rows = [fix_box(), box("y")]
+    assert plan.rows_unsent(rows, {FIX: "r12"}) == ([box("y")], [FIX], [])
+    assert plan.rows_unsent([fix_box(request=14)], {FIX: "r12"}) == ([fix_box(request=14)], [], [])  # launched anew
+
+
+def test_crew_card_read_gives_a_ticked_fix_as_its_send_command_beside_the_bolts_submit():
+    """main-level "A fix of main lands on the user's send": the read of the card's send names ops's command for it."""
+    got = {"status": "answered", "turn": "agent", "answer": {"choiceIds": [f"land:{FIX}", "land:y"]}}
+    heads = plan.card_heads(f"{FIX}@r12 y@abc1234")
+    fixes = plan.fixes_shown([], "land/crew", "swancloud-ops", heads)
+    assert fixes == {FIX}
+    assert plan.landing_lines("swancloud", got, heads, kit="crew", fixes=fixes) == [
+        f"  sends fix {FIX}: crew main fix crew handed-over-wait-holds-steady --send",
+        "  to land, in the card's order: y",
+        "  lands them: crew bolt submit y --label swancloud"]
+    one = plan.card_heads(f"{FIX}@r12")
+    yes, no = ({"status": "answered", "turn": "agent", "answer": {"approved": a}} for a in (True, False))
+    assert plan.landing_lines("agentplot", yes, one, kit="sluice", fixes={FIX}) == [
+        f"  sends fix {FIX}: crew main fix sluice handed-over-wait-holds-steady --send"]
+    assert plan.landing_lines("agentplot", no, one, kit="sluice", fixes={FIX}) == ["  nothing ticked: nothing lands"]
+
+
+def test_with_no_card_open_ops_reads_a_fix_an_earlier_send_ticked_while_it_waits_held_at_that_launch(monkeypatch, capsys):
+    closes = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads=f"{FIX}@r12 z@abc1234")]
+    fixes_waiting(monkeypatch, held_fix())
+    assert read_unopened(monkeypatch, capsys, closes, {"z": work()}) == (
+        "card land/crew: no landings card of crew is open\n"
+        "  to land on the user's send of an earlier card: z\n"
+        f"  sends fix {FIX}: crew main fix crew handed-over-wait-holds-steady --send\n"
+        "  lands them: crew bolt submit z --label swancloud\n")
+    fixes_waiting(monkeypatch, held_fix(sent=13))  # sent already: nothing of it to send
+    assert f"sends fix {FIX}" not in read_unopened(monkeypatch, capsys, closes, {"z": work()})
+
+
+def test_an_answered_card_waits_on_ops_for_a_ticked_fix_until_its_send_is_recorded():
+    """rail-cards "A ticked fix of main stands on the send while it waits held", "ops's send ends the wait": ops's act
+    on a ticked fix of main is its send, fix.merge on fix/main/<kit>/<name>."""
+    answer = dict(Act="card.answer", Card="req_k1", Key="land/crew", At="2026-11-08T10:00:00Z", Heads=f"{FIX}@r12 y@abc1234")
+    assert plan.send_waits([answer], "req_k1") == [FIX, "y"]
+    sent = dict(Act="fix.merge", On=["fix/main/crew/handed-over-wait-holds-steady"], At="2026-11-08T10:05:00Z")
+    assert plan.send_waits([answer, sent], "req_k1") == ["y"]
+    assert plan.send_waits([answer, dict(sent, On=["fix/main/swancloud/handed-over-wait-holds-steady"])], "req_k1") == [FIX, "y"]
+    assert plan.answered_waits(dict(key="land/crew", by="swancloud-ops", answered={"heads": f"{FIX}@r12 y@abc1234"}), []) == (
+        f"waits on swancloud-ops to land fix {FIX} and y")

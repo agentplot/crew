@@ -929,6 +929,49 @@ def row_paragraph(n, r):
     return "\n".join(lines + ([""] + [" · ".join(links)] if links else []))
 
 
+def fix_said(r):
+    """What a fix of main's row on its kit's landings card says of it (rail-cards "A fix of main is a box of its kit's
+    landings card"): its code delivered on its host and its submission held for the user's send, with the failure's
+    words, its brief's first line (r: plan.fix_rows' facts)."""
+    return (f"Its code has delivered on {r['host']}, its submission held for your send: {r['brief'].rstrip('.')}."
+            if r.get("brief") else f"Its code has delivered on {r['host']}, its submission held for your send.")
+
+
+def fix_then(r):
+    """What the user's send of a fix of main's row does: main-level ops sends it with its command, and its runner
+    submits it to the kit's main through sluice."""
+    return (f"Ticked, main-level ops sends it with {r['send']}, and the runner on {r['host']} submits it to "
+            f"{r['kit']}'s main through sluice.")
+
+
+def fix_paragraph(n, r):
+    """A fix of main's row on its kit's landings card's face, as Markdown: its place, what it says (fix_said) and what
+    a tick on it does (fix_then)."""
+    return "\n".join([f"**{n}. fix {r['bolt']}**" + (" · *left on your last send*" if r.get("left") else ""), "",
+                      f"{fix_said(r)} {fix_then(r)}"])
+
+
+def fix_card(f):
+    """A kit's landings card whose one row is a fix of main (landings_card; rail-cards "A fix of main is a box of its
+    kit's landings card"): an approval of risk high, never highStakes, since Pending You takes no list of one box,
+    its summary what the fix is and what approving it does, what follows as its rationale, its face the row's
+    paragraph and the rows held with no box. f: the row's facts (plan.fix_rows) with key, held, left, follows."""
+    held, about = list(f.get("held") or []), f"{f['kit']}'s main"
+    said = (["Left on your last send."] if f.get("left") else []) + [
+        f"Fix {f['bolt']} of {about} waits to land.", fix_said(f),
+        f"Approving this sends it: main-level ops runs {f['send']}, and the runner on {f['host']} submits it to {about} "
+        "through sluice."] + ([f"Held, with no box: {joined([h['bolt'] for h in held])}."] if held else [])
+    face = fix_paragraph(1, f) + ("\n\n**Held, with no box**\n\n" + "\n".join(f"- **{h['bolt']}**: {h['why']}" for h in held)
+                                  if held else "")
+    background = ("A fix of main is cut from main and submitted onto it alone, so nothing is forecast for it. A note "
+                  "naming a defect in it goes to main-level ops.")
+    then = f"After it lands: the runner on {f['host']} submits it to {about} through sluice, and every host takes it."
+    return built(f["key"], f"Land fix {f['bolt']} on {about}", " ".join(said), background, (),
+                 [markdown(f"What lands on {about}", f"land-{f['kit']}.md", face)], f.get("follows"), head=f["head"],
+                 kind="approve", intent="approve", approve=high(f"Send fix {f['bolt']} to {about}"),
+                 recommendedIds=["approve"], rationale=by_words(then, DETAIL))
+
+
 def landings_card(f):
     """A kit's landings card (rail-cards, record 0031 as amended 2026-10-23, briefs.13), keyed land/<kit>, main-level
     ops's: every bolt of the kit that can land, and each beside them taking main first (plan.card_rows), a row each in
@@ -944,7 +987,9 @@ def landings_card(f):
     forecast_why, link or unread and preview, stopped when sluice or its host stopped its last landing at its head,
     which its paragraph and its box's detail say, stopped_said, and taking, why, for a row taking main first), held
     ([{bolt, why}]), left (the bolts the user cleared on their last send), ops (the main-level ops whose card it is),
-    follows. Also handed back: heads, each row as <bolt>@<head>, :main for one taking main first and :left for one the
+    follows. A row may be a fix of main's (plan.fix_rows, fix), ahead of the bolts: a box `<n>. fix main--<name>`,
+    ticked as crew proposes, saying what it is and what its send does (fix_said, fix_then), forecast against nothing;
+    as the card's one row, an approval of its own (fix_card). Also handed back: heads, each row as <bolt>@<head>, :main for one taking main first and :left for one the
     user cleared, which the run record keeps on the card's post and change for the next raise to read
     (plan.landings_step), and linked, since each row's reading was opened with it and the card has no reading of its
     own."""
@@ -957,19 +1002,26 @@ def landings_card(f):
     unread = [(r["bolt"], r["unread"]) for r in rows if r.get("unread")]
     why = unread[0][1] if len(rows) == 1 and unread else "; ".join(f"{b}: {w}" for b, w in unread)
     if form == "approve":
-        out = landing_card(dict(rows[0], key=key, held=held, follows=f.get("follows")))
+        out = (fix_card if rows[0].get("fix") else landing_card)(dict(rows[0], key=key, held=held, follows=f.get("follows")))
         out.update(heads=heads, linked=True, **({"unread": why} if why else {}))
         return out
     n = len(rows)
     about = f"{kit}'s main"
-    face = "\n\n".join(row_paragraph(i, r) for i, r in enumerate(rows, 1))
+    face = "\n\n".join((fix_paragraph if r.get("fix") else row_paragraph)(i, r) for i, r in enumerate(rows, 1))
     if held:
         face += "\n\n**Held, with no box**\n\n" + "\n".join(f"- **{h['bolt']}**: {h['why']}" for h in held)
-    left_said = [r["bolt"] for r in rows if r["left"] and not r.get("taking")]
+    named = lambda r: f"fix {r['bolt']}" if r.get("fix") else r["bolt"]
+    left_said = [named(r) for r in rows if r["left"] and not r.get("taking")]
     taking = [r["bolt"] for r in rows if r.get("taking")]
-    summary = (f"{n} bolts wait to land on {about}, in the order below. One send lands the ticked ones in that order, each "
-               "queued behind the one before; clear a box to leave that bolt waiting. A note can move one in the order, or "
-               "name a defect in one, which goes to main-level ops."
+    fixes = sum(1 for r in rows if r.get("fix"))
+    items = (joined(([f"{fixes} fixes of main" if fixes > 1 else "1 fix of main"] if fixes else [])
+                    + ([plural(n - fixes, "bolt")] if n > fixes else [])))
+    summary = ((f"{n} bolts wait to land on {about}, in the order below. One send lands the ticked ones in that order, each "
+                "queued behind the one before; clear a box to leave that bolt waiting. A note can move one in the order, or "
+                "name a defect in one, which goes to main-level ops." if not fixes else
+                f"{items} wait to land on {about}, in the order below. One send lands the ticked ones in that order, ops "
+                "sending each fix and landing each bolt; clear a box to leave it waiting. A note can move one in the order, "
+                "or name a defect in one, which goes to main-level ops.")
                + (f" {joined(left_said)} {'was' if len(left_said) == 1 else 'were'} left on your last send, and "
                   f"{'is' if len(left_said) == 1 else 'are'} unticked." if left_said else "")
                + (f" {joined(taking)} {'takes' if len(taking) == 1 else 'take'} main first, and "
@@ -977,14 +1029,20 @@ def landings_card(f):
                + (f" Held, with no box: {joined([h['bolt'] for h in held])}." if held else ""))
 
     def option(i, r):
+        if r.get("fix"):
+            return {"id": f"land:{r['bolt']}", "label": cut(f"{i}. fix {r['bolt']}", LABEL),
+                    "detail": by_words(("Left on your last send. " if r["left"] else "") + fix_said(r), DETAIL),
+                    "consequence": by_words(fix_then(r), DETAIL)}
         return {"id": f"land:{r['bolt']}", "label": cut(f"{i}. {r['bolt']}", LABEL),
                 "detail": by_words((f"{r['taking'][0].upper()}{r['taking'][1:].rstrip('.')}. " if r.get("taking") else
                                     "Left on your last send. " if r["left"] else "") + row_counts(r), DETAIL),
                 "consequence": by_words("Ticked, it lands once a fix on it has taken main in and sluice has proven it, your send standing through it." if r.get("taking") else row_said(r), DETAIL)}
     options = [option(i, r) for i, r in enumerate(rows, 1)]
     ticked = [o["id"] for o, r in zip(options, rows) if not r["left"] and not r.get("taking")]
-    then = by_words("After they land: main-level ops lands them through sluice in this order, closing each as it lands, "
-                    "and every host takes them.", DETAIL)
+    then = by_words(("After they land: main-level ops lands them through sluice in this order, closing each as it lands, "
+                     "and every host takes them.") if not fixes else
+                    ("After they land: main-level ops sends each fix of main, whose runner submits it through sluice, and "
+                     "lands the bolts through sluice in this order, closing each as it lands, and every host takes them."), DETAIL)
     if form == "multi":
         shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": n}, recommendedIds=ticked,
                      rationale=then)
@@ -1002,7 +1060,8 @@ def landings_card(f):
     previews = [(f"Preview {r['bolt']}: {label}", url) for r in rows for label, url in preview_said(r.get("preview"))[1]]
     pulls = [(f"Pull request #{r['pr']['number']} for {r['bolt']}, opened by sluice", r["pr"]["url"]) for r in rows if r.get("pr")]
     links = reads + previews + pulls
-    background = ("\n\n".join(f"{i}. {r['bolt']}: {row_counts(r)}. "
+    background = ("\n\n".join(f"{i}. fix {r['bolt']}: {fix_said(r)} {fix_then(r)}" if r.get("fix") else
+                              f"{i}. {r['bolt']}: {row_counts(r)}. "
                               + (taking_said(r) if r.get("taking") else forecast_said(r.get("forecast") or [], r.get("forecast_why")))
                               + (f" Read it: {r['link']}" if r.get("link") else
                                  f" Its reading could not be opened: {r['unread']}" if r.get("unread") else "")
@@ -1011,7 +1070,7 @@ def landings_card(f):
                   + "\n\nA note naming a defect in a bolt goes to main-level ops, and holds that bolt on this card with no "
                     "box until its fix merges.")
     shown = [markdown(f"What lands on {about}, in order", f"land-{kit}.md", face)]
-    out = built(key, f"Land on {about}: {n} bolts in order", summary, background, links,
+    out = built(key, f"Land on {about}: {items if fixes else f'{n} bolts'} in order", summary, background, links,
                 shown + [link(t, u) for t, u in links[:ARTIFACTS - len(shown)]], f.get("follows"), highStakes=True, **shape)
     out.update(heads=heads, linked=True, **({"unread": why} if why else {}))
     return out

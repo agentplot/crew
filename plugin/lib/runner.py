@@ -1075,8 +1075,9 @@ def send_refusal(work, launch, s, sent):
 def main_fixes_waiting(requests, reads):
     """Each fix of main a kit's landings row carries (Decision 11; crew-rail "A fix of main waits to land on its kit's
     row"): those whose launch stands and whose code has delivered with its submission waiting held, their stage read
-    from the runner that took them (reads, by host; taken, piece_stage), in requests.rec's order, each {kit, name, host,
-    brief, since, carried, sent}: kit, the kit its launch's Repo names; since, when Flume read it waiting, in seconds,
+    from the runner that took them (reads, by host; taken, piece_stage), in requests.rec's order, each {kit, name,
+    request, host, brief, since, carried, sent}: kit, the kit its launch's Repo names; request, its launch's number,
+    which its row on the kit's landings card is shown at (plan.fix_rows); since, when Flume read it waiting, in seconds,
     or None; carried, when the runner carried that status; sent, the number of the request that sent it on the user's
     word (sent_of), None while it waits on that word. One crew can't read is left off, as a bolt whose stage crew can't
     read is, being in no state it can tell to send (read.1)."""
@@ -1091,10 +1092,22 @@ def main_fixes_waiting(requests, reads):
         reading = taken(reads, number(l.get("Request")))[0]
         place, sent = reading["places"][number(l.get("Request"))], sent_of(requests, reads, l)
         _, _, kit, name = work.split("/", 3)
-        out.append(dict(kit=(l.get("Repo") or kit).split("/")[-1], name=name, host=reading["host"], brief=l.get("Brief") or "",
+        out.append(dict(kit=(l.get("Repo") or kit).split("/")[-1], name=name, request=number(l.get("Request")),
+                        host=reading["host"], brief=l.get("Brief") or "",
                         since=flume_facts(place["status"], place["place"])["waiting_since"], carried=place["at"],
                         sent=number(sent.get("Request")) if sent is not None else None))
     return out
+
+
+def main_fix_gone(requests, reads, kit, name):
+    """How a fix of a kit's main that its landings card showed no longer waits held there (rail-cards "A fix of main is
+    a box of its kit's landings card"), from requests.rec's records and the runners as crew read them: "sent", its
+    submission sent on the user's word by a retry that stands (sent_of); "dropped", no launch of it standing; None for
+    anything else, its place gone on from waiting held by another way."""
+    launch = launch_of(requests, f"fix/main/{kit}/{name}")
+    if launch is None:
+        return "dropped"
+    return "sent" if sent_of(requests, reads, launch) is not None else None
 
 
 # ------------------------------------------------------------------------------------- a role's work that lands
