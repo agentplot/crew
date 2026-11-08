@@ -842,3 +842,89 @@ class TestBoltLaunch:
         unread = {"deneb": runner.host_read("madswan", "deneb", TIP, {}, {})}
         asked, why = runner.restart(w.plan, self.requests(), unread, "x", "madswan")
         assert asked is None and why.startswith("bolt x is started already, and crew can't tell whether the runner refused its launch")
+
+
+class TestLandingOf:
+    """bolt-teams "A landing's outcome is read from the runner's report" (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 6): runner.landing_of reads a bolt's landing from its base place as the runner that took its launch
+    reports it, one case per row of the design's table, on flume 0.17.0's base-place shapes (tests/py/flume-0.17.0/)."""
+    PLACE = "/Users/chuck/.local/share/flume/places/f3a444f5e38a/bolt--the-runner-lands-each-bolt"
+
+    def requests(self, lands=1):
+        return held(rec(1, "launch", "bolt/b", **BOLT), *[rec(1 + n, "land", "bolt/b", Of=1) for n in range(1, lands + 1)])
+
+    def of(self, reads, lands=1):
+        rs = self.requests(lands)
+        return runner.landing_of(rs[0], runner.lands_of(rs, rs[0]), reads)
+
+    def test_a_launch_unanswered_held_or_refused_is_unlaunched_with_the_runners_words(self):
+        assert self.of(ran(label="madswan")) == {"outcome": "unlaunched"}
+        assert self.of(ran(held={1: "no room"})) == {"outcome": "unlaunched", "words": "no room"}
+        assert self.of(ran(refused={1: "crew/bolt@1 is not locked"})) == {"outcome": "unlaunched", "words": "crew/bolt@1 is not locked",
+                                                                         "refused": True}
+
+    def test_no_land_standing_is_none(self):
+        assert self.of(ran({1: "flume-0.17.0/bolt-submitted"}), lands=0) == {"outcome": "none"}
+
+    def test_the_newest_land_unanswered_is_asked_with_its_request(self):
+        assert self.of(ran({1: "flume-0.17.0/bolt-submitted"}), lands=2) == {"outcome": "asked", "request": 3}
+
+    def test_a_land_answered_but_not_yet_submitted_by_flume_is_still_asked(self):
+        """The place's submissions fewer than the lands the runner carried: Flume's verdict is an earlier land's."""
+        assert self.of(ran({1: "flume-0.17.0/bolt-conflict"}, unplaced={2: "-", 3: "-"}), lands=2) == {"outcome": "asked", "request": 3}
+
+    def test_the_runner_refusing_the_land_is_stopped_in_its_words(self):
+        got = self.of(ran({1: "flume-0.17.0/bolt-submitted"}, refused={2: "flume refused it: a place on bolt/b is live"}))
+        assert got == {"outcome": "stopped", "request": 2, "by": "runner", "words": "flume refused it: a place on bolt/b is live"}
+
+    def test_a_submission_under_test_is_submitted_with_its_entry(self):
+        got = self.of(ran({1: "flume-0.17.0/bolt-submitted"}, unplaced={2: "-"}))
+        assert got == {"outcome": "submitted", "request": 2, "entry": "412", "state": "under_test"}
+        assert runner.landing_said(got) == "landing #412 under test"
+
+    def test_the_place_over_landed_is_landed_with_its_commit(self):
+        got = self.of(ran({1: "flume-0.17.0/bolt-landed"}, unplaced={2: "-"}))
+        assert got == {"outcome": "landed", "commit": "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0"}
+        assert runner.landing_said(got) == "landed at a7c3e9f"
+
+    def test_a_failed_check_is_refused_the_bolts_with_flumes_words(self):
+        got = self.of(ran({1: "flume-0.17.0/bolt-failed"}, unplaced={2: "-"}))
+        assert got == {"outcome": "refused", "request": 2, "why": "failed",
+                       "words": "check-full failed: tests:logic 3 failed (tests/py/test_landing.py)"}
+
+    def test_a_conflict_is_refused_naming_the_files_and_mains_revision(self):
+        got = self.of(ran({1: "flume-0.17.0/bolt-conflict"}, unplaced={2: "-"}))
+        assert (got["outcome"], got["why"], got["files"], got["main"]) == (
+            "refused", "conflict", ["plugin/lib/plan.py", "plugin/lib/runner.py"], "9f1c2ab07d6e5f4a3b2c1d0e9f8a7b6c5d4e3f21")
+        assert "conflicts with main at 9f1c2ab" in got["words"]
+
+    def test_a_submission_withdrawn_is_stopped_in_flumes_words(self):
+        got = self.of(ran({1: "flume-0.17.0/bolt-withdrawn"}, unplaced={2: "-"}))
+        assert got == {"outcome": "stopped", "request": 2, "by": "flume", "words": "the merge queue withdrew the submission"}
+
+    def test_a_runner_or_a_submission_crew_cant_read_is_unknown_naming_why(self):
+        unread = {"deneb": runner.host_read("madswan", "deneb", TIP, {}, {"answers.rec": "recfix refused it"})}
+        got = self.of(unread)
+        assert got["outcome"] == "unknown" and "recfix refused it" in got["why"]
+        status = json.loads((FLUME_17 / "bolt-submitted.json").read_text())
+        status["status"]["places"][0]["submission"]["read"] = {"could_not_read": {"reason": "sluice did not answer"}}
+        reading = ran({1: "flume-0.17.0/bolt-submitted"}, unplaced={2: "-"})["deneb"]
+        reading["places"][1]["status"] = status
+        assert self.of({"deneb": reading}) == {"outcome": "unknown", "request": 2,
+                                               "why": "Flume could not read bolt/b's submission: sluice did not answer"}
+
+    def test_the_place_over_dropped_is_dropped(self):
+        status = json.loads((FLUME_17 / "bolt-submitted.json").read_text())
+        status["status"]["places"][0]["phase"] = {"over": {"over": "dropped", "kept": None}}
+        reading = ran({1: "flume-0.17.0/bolt-submitted"})["deneb"]
+        reading["places"][1]["status"] = status
+        assert self.of({"deneb": reading}) == {"outcome": "dropped"}
+
+    def test_a_field_of_another_shape_never_becomes_text(self):
+        status = json.loads((FLUME_17 / "bolt-failed.json").read_text())
+        status["status"]["places"][0]["submission"]["verdict"] = {"failed": {"words": 7}}
+        status["status"]["places"][0]["waiting_on"]["words"] = None
+        reading = ran({1: "flume-0.17.0/bolt-failed"}, unplaced={2: "-"})["deneb"]
+        reading["places"][1]["status"] = status
+        got = self.of({"deneb": reading})
+        assert got["outcome"] == "refused" and "None" not in repr(got["words"]) and got["words"] == ""

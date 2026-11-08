@@ -597,8 +597,8 @@ def flume_facts(status, place):
         "tasks": tasks,
         "entry": text(at(entry, "id")), "entry_state": entry_state,
         "entry_base": text(ef.get("base")) if entry_state == "conflict" else None,
-        "files": [f for f in (vf.get("files") if isinstance(vf.get("files"), list) else ef.get("files") or []) if isinstance(f, str)]
-        if verdict == "conflict" or entry_state == "conflict" else [],
+        "files": tuple(f for f in (vf.get("files") if isinstance(vf.get("files"), list) else ef.get("files") if isinstance(ef.get("files"), list)
+                                   else []) if isinstance(f, str)) if verdict == "conflict" or entry_state == "conflict" else (),
         "unread": text(rf.get("reason")) if read == "could_not_read" else None,
         "request": text(sub.get("request")), "submits": count(sub.get("submits")), "send_backs": count(sub.get("send_backs")),
         "verdict": verdict, "verdict_words": text(vf.get("words")) or text(vf.get("reason")), "held": sub.get("held") is True,
@@ -1179,7 +1179,7 @@ def landing_of(launch, lands, reads):
         return {"outcome": "unknown", "why": why}
     answer = reading["answers"].get(n) if reading else None
     if answer is None or answer.get("Outcome") in ("held", "refused"):
-        return dict({"outcome": "unlaunched"}, **({"words": answer["Words"]} if answer is not None and answer.get("Words") else {}),
+        return dict({"outcome": "unlaunched"}, **({"words": answer.get("Words")} if answer is not None and answer.get("Words") else {}),
                     **({"refused": True} if answer is not None and answer.get("Outcome") == "refused" else {}))
     if answer.get("Outcome") != "launched":
         return {"outcome": "unknown", "why": f"the runner answered launch {n} of {work} {answer.get('Outcome')}, and a launch is "
