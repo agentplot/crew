@@ -17,11 +17,12 @@
                                      its own process for every partition with an operator session here, fetching each
                                      repository once a minute on its clock and showing this host's writes within
                                      seconds, checking first what moved and reading only that, asking another host,
-                                     Pending You or herdr only when something there could have moved, each
-                                     repository's queue followed through one sluice overview watch; the due restarts handed out once crew's checkout or the teams file
-                                     moved (crew _update), and each partition's rail, board and agents' views written as
-                                     frames, stale after three minutes; it waits for the host's follower lock while a
-                                     rail tab holds it. --once makes one tick, with no watch, and ends
+                                     Pending You or herdr only when something there could have moved, and learning
+                                     that a submission moved from its runner's report, starting no sluice; the due
+                                     restarts handed out once crew's checkout or the teams file moved (crew _update),
+                                     and each partition's rail, board and agents' views written as frames, stale after
+                                     three minutes; it waits for the host's follower lock while a rail tab holds it.
+                                     --once makes one tick and ends
   crew _rail <label> [--once]        the rail tab: the latest rail the host's follower wrote, drawn whenever it
                                      changes, headed with its age once stale; while no one holds the host's follower
                                      lock, it takes it and follows itself. --once draws once and follows nothing
@@ -1092,17 +1093,17 @@ def rail_frame_text(label, data, now):
 def moved(kept, now):
     """What moved between the stamps the follower's last read was made at (kept) and the stamps now (now), each
     {"crew": (crew's head, the teams file's bytes), "state": {label: tip}, "runners": {label: {host: tip}},
-    "blueprints": {label: tip}, "kits": {(host, main): stamp}, "readings": {host: stamp}, "cards": cards_stamp's,
-    "queues": {(host, main): queue_stamp's}}, a tip "" for a branch the cache does not hold: whether crew's checkout or
+    "blueprints": {label: tip}, "kits": {(host, main): stamp}, "readings": {host: stamp}, "cards": cards_stamp's}, a tip ""
+    for a branch the cache does not hold: whether crew's checkout or
     the teams file moved, the labels whose state tip or one of whose runners' branches moved, which the read rests on
     as it rests on the partition's own, and whose blueprints tip moved, the kits that moved, the hosts whose card
     readings folders moved, whether the cards
-    moved, the kits whose queue moved, whether anything the read rests on moved (read: a tip, a kit or crew), and
+    moved, whether anything the read rests on moved (read: a tip, a kit or crew), and
     whether anything did. A stamp None, which could not be read, counts as moved, as does one either side lacks
     (read.1); with no kept read, everything has moved. A decision on plain facts (code.7)."""
     if kept is None:
         return {"crew": True, "state": set(now["state"]), "blueprints": set(now["blueprints"]), "kits": set(now["kits"]),
-                "readings": set(now.get("readings", {})), "cards": True, "queues": set(now.get("queues", {})), "read": True, "any": True}
+                "readings": set(now.get("readings", {})), "cards": True, "read": True, "any": True}
 
     def apart(a, b):
         return {k for k in a.keys() | b.keys() if a.get(k) is None or b.get(k) is None or a[k] != b[k]}
@@ -1110,9 +1111,9 @@ def moved(kept, now):
            "state": apart(kept["state"], now["state"]) | apart(kept.get("runners", {}), now.get("runners", {})),
            "blueprints": apart(kept["blueprints"], now["blueprints"]),
            "kits": apart(kept["kits"], now["kits"]), "readings": apart(kept.get("readings", {}), now.get("readings", {})),
-           "cards": kept.get("cards") != now.get("cards"), "queues": apart(kept.get("queues", {}), now.get("queues", {}))}
+           "cards": kept.get("cards") != now.get("cards")}
     read = bool(out["crew"] or out["state"] or out["blueprints"] or out["kits"])
-    return dict(out, read=read, any=read or bool(out["readings"]) or out["cards"] or bool(out["queues"]))
+    return dict(out, read=read, any=read or bool(out["readings"]) or out["cards"])
 
 
 def cards_stamp(found, why, left, asks, listed=None, owned=None):
@@ -1149,130 +1150,6 @@ def card_left(swept):
                             or bool(swept["unswept"]))
 
 
-def queue_key(doc):
-    """What of an overview's document the follower compares: all of it but its time (at), as text; None for none."""
-    return json.dumps({k: v for k, v in doc.items() if k != "at"}, sort_keys=True) if isinstance(doc, dict) else None
-
-
-def queue_moved(kept, doc):
-    """Whether a line an overview watch printed, its document (doc), moves the kit's queue from the one kept: a document
-    that differs from it but for its time, as sluice prints the document again at each change (sluice ADR 0023). A
-    decision on plain facts (code.7)."""
-    return queue_key(kept) != queue_key(doc)
-
-
-def queue_stamp(state):
-    """What the follower's check compares of a kit's queue (Decision 7 of a-rail-refresh-after-no-change-reads-nothing):
-    the document its watch or the clock's ask last read, its time aside, or why it can't be read."""
-    return ["read", queue_key(state["doc"])] if "doc" in state else ["unread", state["why"]]
-
-
-def queue_of(state):
-    """A kit's queue as its rows carry it, (submissions, why), from what its watch or the clock's ask last read: the
-    document's standing submissions (gather.submissions_of), or none and why it can't be read (read.1)."""
-    return gather.submissions_of(state["doc"]) if "doc" in state else (None, state["why"])
-
-
-def kept_submissions(kept, doc, bolts):
-    """What the follower keeps of a kit's submissions (Decision 2 of a-rows-age-and-holder-come-from-the-followers-overview),
-    {number: {id, bolt, branch, worktree, pull_head, submitted, started, decided, event}}, taken from what it kept
-    (kept) and an overview's document its watch printed or the clock or a gather asked (doc), for the bolts its read
-    asks of the kit (bolts), reading nothing else: each submission standing on a bolt's branch, or on main from bolt/<b>
-    or a pull request opened from it, with when it was submitted and, once a candidate testing it gives it, when its
-    checks began, never cleared after; each kept one the document no longer holds standing decided at the time its
-    branch's recent events give for it, its event kept, or at the document's own time, `gone`, a withdrawal or a
-    decision the events' window missed, and one a document with no time decides nothing (read.1); each the recent
-    events name decided that it lacks, decided before the follower saw it, added with its decision alone; and one of a
-    bolt no longer asked dropped. A submission on main whose bolt it can't tell, from a pull request alone, is kept with
-    bolt None while the document holds it, standing or in its events, so plan.bolt_facts takes it by the number the run
-    record's queued bolt.submit names. A document crew can't read changes nothing. A decision on plain facts (code.7)."""
-    standing, why = gather.submissions_of(doc)
-    if why:
-        return dict(kept)
-    recent = {x["id"]: x for x in gather.decided_in(doc)[0]}
-    asked, at = {f"bolt/{b}": b for b in bolts}, gather.text(doc.get("at"))
-
-    def bolt_of(x):
-        """The bolt a submission is of and whether it is kept: a bolt's branch's, or main's from one, else None on main."""
-        if x["branch"] in asked:
-            return asked[x["branch"]], True
-        if x["branch"] == "main":
-            return next((asked[w] for w in (x.get("worktree"), x.get("pull_head")) if w in asked), None), True
-        return None, False
-    out = {n: x for n, x in kept.items() if x["bolt"] is None or x["bolt"] in bolts}
-    stands = set()
-    for x in standing:
-        b, ours = bolt_of(x)
-        if ours:
-            was = out.get(x["id"], {})
-            stands.add(x["id"])
-            out[x["id"]] = {"id": x["id"], "bolt": b, "branch": x["branch"], "worktree": x["worktree"], "pull_head": x["pull_head"],
-                            "submitted": x["submitted"] or was.get("submitted"), "started": was.get("started") or x["started"],
-                            "decided": None, "event": None}
-    for n, x in list(out.items()):
-        if n in stands or x["decided"]:
-            continue
-        ev = recent.get(n)
-        if ev is not None and ev["decided"]:
-            out[n] = dict(x, decided=ev["decided"], event=ev["event"])
-        elif at:
-            out[n] = dict(x, decided=at, event="gone")
-    for n, x in recent.items():
-        b, ours = bolt_of(x)
-        if ours and n not in out and x["decided"]:
-            out[n] = {"id": n, "bolt": b, "branch": x["branch"], "worktree": x["worktree"], "pull_head": None,
-                      "submitted": None, "started": None, "decided": x["decided"], "event": x["event"]}
-    return {n: x for n, x in out.items() if x["bolt"] is not None or n in stands or n in recent}
-
-
-def decided_kept(kept):
-    """The submissions the follower kept of a kit that are decided (kept_submissions), by number, as a kit's answer
-    carries them (decided)."""
-    return [x for _, x in sorted(kept.items()) if x["decided"]]
-
-
-def queue_kits(kits):
-    """The kits whose queue the follower's read shows, by (host, main): each the read asked bolts of and read (gather.kit
-    reads sluice's queue for those alone), of the kept answers, {host: {main: (request, answer)}}."""
-    return {(host, m) for host, ks in kits.items() for m, (req, answer) in ks.items() if req.get("bolts") and (answer or {}).get("ok")}
-
-
-def watch_plan(kits, watching, refused, ended, tick):
-    """The follower's overview watches at a refresh (Decision 7 of a-rail-refresh-after-no-change-reads-nothing), from the
-    kits whose queue its read shows (kits), those with a watch running (watching), the hosts whose sluice refused
-    --watch (refused), the kits whose watch ended or could not start (ended), and whether its clock ticks: a watch
-    opened for each kit shown with none, but on a refused host and, between ticks, one whose watch ended; one closed for
-    each kit no longer shown; and, at a tick alone, the overview asked once of each kit no watch follows, on a refused
-    host or whose watch ended, which the tick opens again. {open, close, ask}, each sorted. A decision on plain facts
-    (code.7)."""
-    kits, watching = set(kits), set(watching)
-    return {"open": sorted(k for k in kits - watching if k[0] not in refused and (tick or k not in ended)),
-            "close": sorted(watching - kits),
-            "ask": sorted(k for k in kits if k[0] in refused or k in ended) if tick else []}
-
-
-def watch_key(host, main, here):
-    """The watch a kit's queue is followed through (Decision 4 of a-followers-tick-reads-nothing-while-nothing-moved):
-    one for each repository on a host, as sluice reads one repository's records once on a host and every other watch
-    follows that reader's document (sluice core.25). On this host (here) a kit's repository is its main checkout's
-    common git folder, read from its files with no process (gather.git_dirs), so two checkouts of one repository share
-    one watch; on another host, and where the files can't say, the kit's main checkout names it."""
-    if host == here:
-        try:
-            dirs = gather.git_dirs(main)
-        except OSError:
-            dirs = None
-        if dirs:
-            return (host, dirs[1])
-    return (host, main)
-
-
-def watch_refused(code, said):
-    """Whether an overview watch's end says its host's sluice has no --watch (clap's refusal of an argument it does
-    not know, exit 2), so the follower asks that host's overviews on its clock for the rest of its life."""
-    return code == 2 and "--watch" in said
-
-
 def routes_moved(kits, asked):
     """The hosts whose portless routes the clock's tick read (asked, {host: routes}) differ from those a kit answer of the
     kept read holds there (kits, {host: {main: (request, answer)}}): their routes are drawn again with nothing
@@ -1287,14 +1164,14 @@ def routes_moved(kits, asked):
 DISCOVERY = plan.CARD_RETRY
 
 
-def host_basis(host, labels, tips, runners, queues):
+def host_basis(host, labels, tips, runners):
     """What says something on a host could have moved (Decision 1 of a-followers-tick-reads-nothing-while-nothing-moved),
     read with no process: the drive's branch of each partition the host serves (labels), its tip as this host's cache
-    holds it (tips, {label: tip}), since every act on the host reaches that branch as it is written (read.5); the host's
-    own runner's branch of each (runners, {label: {host: tip}}), where its runner reports the places it runs; and the
-    queue of each kit on the host as its watch last read it (queues, {main: queue_stamp}), where a merge or a landing
-    shows. Text, compared whole (hosts_due). A decision on plain facts (code.7)."""
-    return json.dumps([[l, tips.get(l), (runners.get(l) or {}).get(host)] for l in sorted(labels)] + [sorted(queues.items())])
+    holds it (tips, {label: tip}), since every act on the host reaches that branch as it is written (read.5); and the
+    host's own runner's branch of each (runners, {label: {host: tip}}), where its runner reports the places it runs, a
+    piece's submission among them, so a submission's move is a move of its runner's branch (crew record 0056 points 1
+    and 4). Text, compared whole (hosts_due). A decision on plain facts (code.7)."""
+    return json.dumps([[l, tips.get(l), (runners.get(l) or {}).get(host)] for l in sorted(labels)])
 
 
 def hosts_due(bases, asked, now):
@@ -1375,9 +1252,9 @@ def refresh_plan(m, kept, crew_read=True):
     and the teams file could be read then and now (crew_read): "read" with none kept, its first, or when a tip or a kit
     moved, reading only what moved and running every sweep; "update" once crew's checkout or the teams file moved, the
     due restarts handed out and the follower started again as the new crew, but a read when either can't be read, which
-    hands out nothing on a guess (read.1); "sweep" when only a host's card readings folder, the cards, a kit's queue or a
-    host's routes moved, reading nothing, taking the queue or the routes into the kept read and running against it only
-    the sweeps of what moved (sweeps_after); "render" when nothing
+    hands out nothing on a guess (read.1); "sweep" when only a host's card readings folder, the cards or a host's routes
+    moved, reading nothing, taking the routes into the kept read and running against it only the sweeps of what moved
+    (sweeps_after); "render" when nothing
     moved, the frames written again from the kept read and the card sessions swept only on the hosts the last refresh
     could not check (plan.sessions_unchecked). A decision on plain facts (code.7)."""
     if not kept:
@@ -1414,28 +1291,23 @@ def readings_hosts(fleet, labels):
     return out
 
 
-def stamps_now(fleet, kits, readings, overviews=None, routes=(), hosts=None):
+def stamps_now(fleet, kits, readings, routes=(), hosts=None):
     """The follower's check of the hosts (plan.stamped): each kit's stamp now (gather.stamp), of the kits the last read
     surveyed, {host: {main: (request, answer)}}, by (host, main), and each host's card readings folders' stamp
     (gather.readings_stamp), of the partitions readings names for it, by host: in this process on this host, in one ssh
     to each other, of the hosts named (hosts, every one when None) and no other (hosts_due). Every stamp of a host that
-    did not answer is None, which moved() takes as moved (read.1). At the clock's tick, in the same request: each kit
-    overviews names, {host: [main]}, its overview read once, by (host, main), {"doc": document} or {"why": why}, a host
-    that did not answer saying so; and the portless routes of each host routes names whose kits were surveyed, by host,
-    one that did not answer left out."""
-    out, overviews = {"kits": {}, "readings": {}, "overviews": {}, "routes": {}}, overviews or {}
-    for host in sorted(set(kits) | set(readings) | set(overviews)):
+    did not answer is None, which moved() takes as moved (read.1). At the clock's tick, in the same request, the portless
+    routes of each host routes names whose kits were surveyed, by host, one that did not answer left out. It asks no
+    sluice."""
+    out = {"kits": {}, "readings": {}, "routes": {}}
+    for host in sorted(set(kits) | set(readings)):
         if hosts is not None and host not in hosts:
             continue
         ks = kits.get(host, {})
-        got, why = plan.stamped(fleet, host, [req for req, _ in ks.values()], readings.get(host, ()), overviews.get(host, ()),
-                                host in routes and bool(ks))
+        got, why = plan.stamped(fleet, host, [req for req, _ in ks.values()], readings.get(host, ()), (), host in routes and bool(ks))
         out["kits"].update({(host, m): ((got or {}).get("kits") or {}).get(m) for m in ks})
         if host in readings:
             out["readings"][host] = (got or {}).get("readings")
-        for m in overviews.get(host, ()):
-            doc, said = ((got or {}).get("overviews") or {}).get(m) or (None, f"{host} did not answer ({why})" if why else "it was not read")
-            out["overviews"][(host, m)] = {"why": said} if said else {"doc": doc}
         if got is not None and "routes" in got:
             out["routes"][host] = got["routes"]
     return out
@@ -1487,137 +1359,6 @@ def notice_argv():
     return ["pendingyou", "watch", "--", "bash", str(crew.HOME / "plugin/bin/crew"), "_answered"]
 
 
-class Watches:
-    """The follower's overview watches (Decision 7 of a-rail-refresh-after-no-change-reads-nothing): one `sluice overview
-    --json --watch` for each repository whose queue its read shows on a host (watch_key, Decision 4 of
-    a-followers-tick-reads-nothing-while-nothing-moved), in a main checkout of it, a child on this host and one ssh to
-    another (code.3), each read at the follower's look without blocking; and what last read each kit's queue, its
-    repository's watch's last line or the clock's ask, {"doc": document} or {"why": why it can't be read}, by kit,
-    (host, main). sluice prints the document at once and again at each change but its time, so a running watch costs
-    nothing until the queue moves. crew reads no folder of sluice's: this is how it learns the queue moved."""
-
-    WATCH = ["sluice", "overview", "--json", "--watch"]
-
-    def __init__(self):
-        self.running, self.states, self.ended, self.refused = {}, {}, set(), set()
-        # the kits each watch follows, by its key (watch_key): {key: {(host, main)}}; a key it does not hold stands for
-        # the one kit it names, as another host's watch is keyed
-        self.kits = {}
-
-    def sync(self, fleet, kits, tick):
-        """The watches made to match the kits whose queue the read shows (watch_plan, on each kit's watch_key): the
-        repositories no longer shown let go, and the kits to ask the overview of once now, at a tick, returned by host."""
-        here, of = crew.this_host(), {}
-        for kit in sorted(kits):
-            of.setdefault(watch_key(*kit, here), set()).add(kit)
-        p = watch_plan(set(of), self.running, self.refused, self.ended, tick)
-        for key in p["close"]:
-            self.close(key)
-        for kit in set(self.states) - set(kits):
-            del self.states[kit]
-        self.ended &= set(of)
-        self.kits = of
-        for key in p["open"]:
-            self.open(fleet, key, *min(of[key]))
-        asks = {}
-        for key in p["ask"]:
-            for host, main in sorted(of[key]):
-                asks.setdefault(host, []).append(main)
-        return asks
-
-    def open(self, fleet, key, host, main):
-        """The watch of key's repository opened in a main checkout of it (main) on its host."""
-        self.ended.discard(key)
-        here = host == crew.this_host()
-        argv = self.WATCH if here else ["ssh", "-o", "BatchMode=yes", fleet["hosts"][host]["ssh"], f"cd {shlex.quote(main)} && exec {shlex.join(self.WATCH)}"]
-        try:
-            proc = subprocess.Popen(argv, cwd=main if here else None, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except OSError as e:
-            self.end(key, f"sluice overview --watch could not start on {host}: {e.strerror or e}")
-            return
-        for pipe in (proc.stdout, proc.stderr):
-            os.set_blocking(pipe.fileno(), False)
-        self.running[key] = {"proc": proc, "out": b"", "err": b""}
-
-    def poll(self):
-        """What each watch printed since the last look, read without blocking: its last whole line taken as the queue of
-        each kit of its repository, and a watch whose output ended taken as ended, their queue unread with why until
-        the next tick."""
-        for key, w in list(self.running.items()):
-            done = False
-            for name in ("out", "err"):
-                pipe = getattr(w["proc"], "std" + name)
-                while True:
-                    try:
-                        chunk = os.read(pipe.fileno(), 65536)
-                    except BlockingIOError:
-                        break
-                    if not chunk:
-                        done = done or name == "out"
-                        break
-                    w[name] = (w[name] + chunk)[-65536:] if name == "err" else w[name] + chunk
-            *lines, w["out"] = w["out"].split(b"\n")
-            line = next((l for l in reversed(lines) if l.strip()), None)
-            if line is not None:
-                try:
-                    doc = json.loads(line)
-                except ValueError:
-                    doc = None
-                state = {"doc": doc} if isinstance(doc, dict) else {"why": "sluice overview --watch printed a line that is no JSON document"}
-                self.states.update({kit: state for kit in self.kits.get(key, {key})})
-            if done:
-                try:
-                    code = w["proc"].wait(timeout=5)
-                except subprocess.TimeoutExpired:  # its output ended and it lives on: ended all the same
-                    w["proc"].kill()
-                    code = w["proc"].wait()
-                said = gather.sluice_said("sluice overview --watch", code, "", w["err"].decode(errors="replace"))
-                if watch_refused(code, said):
-                    self.refused.add(key[0])
-                del self.running[key]
-                self.end(key, f"{said}, on {key[0]}" if key[0] != crew.this_host() else said)
-
-    def end(self, key, why):
-        self.ended.add(key)
-        state = {"why": f"its overview watch ended ({why}), and is opened again at the follower's next tick"}
-        self.states.update({kit: state for kit in self.kits.get(key, {key})})
-
-    def seed(self, kits):
-        """Each kit whose gather read its overview itself this refresh (gather.kit's overview, taken from the answer so
-        it is never read twice) takes it as its queue when nothing has read the queue since, none yet or its watch
-        ended: so a new watch's first line, the same but for its time, moves nothing, and a kit's queue is read once.
-        Whether any did."""
-        new = {}
-        for host, ks in kits.items():
-            for m, (_, answer) in ks.items():
-                doc = answer.pop("overview", None) if isinstance(answer, dict) else None
-                if isinstance(doc, dict) and "doc" not in self.states.get((host, m), {}):
-                    new[(host, m)] = {"doc": doc}
-        self.states.update(new)
-        return bool(new)
-
-    def took(self, asked):
-        """The overviews the clock's tick asked (stamps_now), each the kit's queue now."""
-        self.states.update(asked)
-
-    def stamp(self):
-        return {key: queue_stamp(s) for key, s in self.states.items()}
-
-    def close(self, key):
-        w = self.running.pop(key, None)
-        if w:
-            w["proc"].terminate()
-            try:
-                w["proc"].wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                w["proc"].kill()
-                w["proc"].wait()
-
-    def close_all(self):
-        for key in list(self.running):
-            self.close(key)
-
-
 class Follower:
     """The host's follower once it holds the lock (lock_follower): on its clock, every PERIOD seconds, it fetches each
     repository it reads once, every branch it reads of it in that one fetch (fetches), and refreshes; between ticks it
@@ -1631,18 +1372,13 @@ class Follower:
     asks Pending You after the cards its card sweep would act on, and herdr after their askers, when something there
     could have moved (cards_due), in one bridge, and every sweep judges with those answers until the next ask. So a tick
     after nothing moved starts nothing but its fetches (Decisions 1 to 3 of
-    a-followers-tick-reads-nothing-while-nothing-moved). It follows each repository's queue through one sluice
-    overview watch (Watches), with watch, and a new line is the queue's move, taken into the kept read with nothing
-    gathered, each submission of a held bolt kept from its submit to its decision (kept_submissions); a kit no watch
-    follows has its overview asked once at a tick its host is asked. SIGUSR1 makes the next tick now."""
+    a-followers-tick-reads-nothing-while-nothing-moved). It runs no sluice and keeps no submission of its own: a
+    piece's submission is in its runner's report, so a submission's move reaches it as a move of the runner's branch,
+    which its look reads and its clock fetches (crew record 0056 points 1 and 4). SIGUSR1 makes the next tick now."""
 
-    def __init__(self, lock, period=PERIOD, watch=True):
+    def __init__(self, lock, period=PERIOD):
         self.lock, self.period, self.kept, self.last = lock, period, plan.Kept(), None
         self.labels, self.fleet_, self.tick_at, self.seen, self.unfetched, self.here = [], None, 0.0, None, {}, {}
-        # the overview watches, None for a follower that keeps none (crew _follow --once), whose gathers read the queues
-        self.watches = Watches() if watch else None
-        # what it kept of each kit's submissions from what its watches printed, by (host, main) (kept_submissions)
-        self.subs = {}
         # the partitions a refresh found a batch due for, by the state tip its read held and whether the tell went
         # through (plan.batch_told)
         self.told = {}
@@ -1650,7 +1386,7 @@ class Follower:
         # last ask, and when that ask was made (cards_due), on the monotonic clock
         self.asks, self.left, self.cards, self.cards_at = 0, False, None, None
         # what each host was last asked at and answered, {host: (host_basis, monotonic time)}: for its check at any
-        # refresh, and for its routes and the overviews no watch follows at a tick (hosts_due)
+        # refresh, and for its routes at a tick (hosts_due)
         self.asked, self.asked_at_tick = {}, {}
         # what handing out the restarts said before the follower started again as the new crew (again)
         self.updated = json.loads(os.environ.pop("CREW_FOLLOWER_UPDATED", "") or "{}")
@@ -1711,22 +1447,22 @@ class Follower:
             return
         self.cards = kept_stamp(self.kept.cards, self.left, self.asks, self.kept.listed)
 
-    def tick(self):
-        """The clock's tick: the caches fetched, the cards asked after, and a refresh, which asks the overviews no watch
-        follows; a tick whose read asked nothing, failing before its sweep, leaves the sweeps until the next with no
-        answer to judge by, rather than ask between."""
+    def tick(self, hear=True):
+        """The clock's tick: the caches fetched, the cards asked after, Pending You's notice heard (hear) but by a tick of
+        its own (once), and a refresh; a tick whose read asked nothing, failing before its sweep, leaves the sweeps until
+        the next with no answer to judge by, rather than ask between."""
         fleet = self.fleet()
         self.fetch(fleet)
         self.ask(fleet)
-        if self.watches is not None and fleet is not None:
+        if hear and fleet is not None:
             self.hear(fleet)
         self.refresh(tick=True)
         if self.kept.cards is None:
             self.kept.cards = ({}, None)
 
     def once(self):
-        """One tick, waiting for nothing: crew _follow --once, for the tiers."""
-        self.tick()
+        """One tick, waiting for nothing and starting no notice: crew _follow --once, for the tiers."""
+        self.tick(hear=False)
 
     def hear(self, fleet):
         """Pending You's notice (notice_argv) run as a child of the follower's own while a role whose main level is
@@ -1758,15 +1494,12 @@ class Follower:
         self.notice = None
 
     def look(self, fleet):
-        """What the look reads (look), with each kit's queue as its watch last read it, read now without blocking."""
-        if self.watches is None:
-            return look(fleet, self.labels)
-        self.watches.poll()
-        return dict(look(fleet, self.labels), queues=self.watches.stamp())
+        """What the look reads (look)."""
+        return look(fleet, self.labels)
 
     def step(self, most=None):
-        """A look: the clock's tick when it is due, a refresh when a cache, crew, the teams file or a kit's queue moved,
-        else nothing; then a wait of a second, or of most seconds when that is less."""
+        """A look: the clock's tick when it is due, a refresh when a cache, crew or the teams file moved, else nothing;
+        then a wait of a second, or of most seconds when that is less."""
         how = wake(time.monotonic(), self.tick_at, self.seen, self.look(self.fleet_) if self.fleet_ else None)
         if how == "tick":
             self.tick_at = time.monotonic() + self.period
@@ -1778,25 +1511,22 @@ class Follower:
 
     def bases(self, fleet, kits, readings):
         """What says something on each host the check reads could have moved (host_basis), read with no process: the
-        partitions' tips and their runners' as this host's caches hold them, and the queue of each of its kits as its
-        watch last read it."""
+        partitions' tips and their runners' as this host's caches hold them."""
         tips = look(fleet, self.labels)["state"]
         runners = {l: plan.runner_tips(plan.state_of(fleet, l)[0], l, fetch=False) for l in self.labels}
-        queues = self.watches.stamp() if self.watches is not None else {}
-        return {h: host_basis(h, readings.get(h, ()), tips, runners, {m: q for (qh, m), q in queues.items() if qh == h})
-                for h in sorted(set(kits) | set(readings))}
+        return {h: host_basis(h, readings.get(h, ()), tips, runners) for h in sorted(set(kits) | set(readings))}
 
-    def check(self, fleet, kits, readings, asks, tick, kept):
+    def check(self, fleet, kits, readings, tick, kept):
         """The check's stamps (stamps_now): this host's in this process each time, which starts nothing; another host's
         only when something there could have moved (hosts_due), the rest as the last read was made at, so they move
-        nothing; and at a tick, of each host something could have moved on since the last tick asked it, its routes and
-        the overviews no watch follows. Each host asked that answered whole is kept as asked at its basis now."""
+        nothing; and at a tick, of each host something could have moved on since the last tick asked it, its routes.
+        Each host asked that answered whole is kept as asked at its basis now."""
         here, at = crew.this_host(), time.monotonic()
         bases = self.bases(fleet, kits, readings) if kept else {}
         due = set(hosts_due(bases, self.asked, at)) if kept else None
         clock = set(hosts_due(bases, self.asked_at_tick, at)) if kept and tick else set(kits) if tick else set()
         hosts = None if due is None else due | clock | {here}
-        now = stamps_now(fleet, kits, readings, {h: ms for h, ms in asks.items() if h in clock}, routes=clock, hosts=hosts)
+        now = stamps_now(fleet, kits, readings, routes=clock, hosts=hosts)
         if kept:
             for (h, m), s in kept["stamps"]["kits"].items():
                 if h not in hosts:
@@ -1808,7 +1538,7 @@ class Follower:
 
     def answered(self, fleet, now, hosts, clock):
         """Each host the check asked that answered whole, its kits' and readings' stamps all read, kept as asked at its
-        basis as the refresh leaves it, the queues its read seeded among it; one that did not is asked again. With none
+        basis as the refresh leaves it; one that did not is asked again. With none
         kept before (hosts None), the read asked every host for everything, its gathers their routes among it."""
         if hosts is None:
             hosts = clock = set(self.kept.kits) | set(readings_hosts(fleet, self.labels))
@@ -1827,11 +1557,8 @@ class Follower:
         fleet = self.fleet()
         kept = self.last if self.last and self.last["read"] is not None else None
         kits = self.kept.kits if kept else {}
-        asks = self.watches.sync(fleet, queue_kits(kits), tick) if self.watches is not None else {}
         readings = readings_hosts(fleet, self.labels)
-        now, hosts, clock = self.check(fleet, kits, readings, asks, tick, kept)
-        if self.watches is not None:
-            self.watches.took(now["overviews"])
+        now, hosts, clock = self.check(fleet, kits, readings, tick, kept)
         looked = self.look(fleet)
         stamps = dict(looked, kits=now["kits"], readings=now["readings"], cards=self.cards)
         self.seen = looked
@@ -1848,15 +1575,6 @@ class Follower:
             self.render(fleet, m, stamps, tick)
         if self.last["read"] is not None:
             self.reroute(routes, now["routes"])
-        if self.watches is not None and self.last["read"] is not None:
-            seeded = self.watches.seed(self.kept.kits)  # the overviews the read's gathers made, each new watch's first line
-            self.requeue(m.get("queues", ()))
-            self.rekeep()
-            self.watches.sync(fleet, queue_kits(self.kept.kits), tick=False)
-            if seeded:
-                self.last["stamps"] = dict(self.last["stamps"], queues=self.watches.stamp())
-                self.seen = dict(self.seen, queues=self.watches.stamp())
-        if self.last["read"] is not None:
             self.answered(fleet, now, hosts, clock)
         self.write(fleet)
 
@@ -1868,33 +1586,6 @@ class Follower:
                 if (answer or {}).get("ok"):
                     answer["routes"] = routes[host]
 
-    def requeue(self, moved_):
-        """Each kit whose queue moved has its kept answer's submissions remade from what its watch or the clock's ask
-        last read (queue_of), the read's rows and frames drawn from it with nothing gathered (Decision 7)."""
-        for host, main in moved_:
-            state, (_, answer) = self.watches.states.get((host, main)), self.kept.kits.get(host, {}).get(main, (None, None))
-            if state is None or not (answer or {}).get("ok"):
-                continue
-            answer["submissions"], why = queue_of(state)
-            answer.pop("submissions_error", None)
-            if why:
-                answer["submissions_error"] = why
-
-    def rekeep(self):
-        """What the follower keeps of each shown kit's submissions (kept_submissions), taken from the document its watch,
-        the clock's ask or a gather last read of the kit, and the kit's kept answer given the decided among them
-        (decided_kept), so neither a line nor a gather throws away what was kept; a kit no longer shown let go."""
-        shown = queue_kits(self.kept.kits)
-        self.subs = {k: v for k, v in self.subs.items() if k in shown}
-        for host, main in sorted(shown):
-            req, answer = self.kept.kits[host][main]
-            doc = self.watches.states.get((host, main), {}).get("doc")
-            if isinstance(doc, dict):
-                self.subs[(host, main)] = kept_submissions(self.subs.get((host, main), {}), doc, req["bolts"])
-            if (host, main) in self.subs:
-                answer["decided"] = decided_kept(self.subs[(host, main)])
-                answer.pop("decided_error", None)
-
     def read(self, fleet, looked, stamps):
         """A read of what moved: the tips this host's caches hold handed in (no fetch), each unmoved kit served from what
         was kept, and every sweep run; what the read said on standard error kept for the rail's frames."""
@@ -1905,8 +1596,6 @@ class Follower:
                 if tip is not None:
                     plan.READ.keep_tip(repo, ref, tip)
         self.kept.stamps, plan.READ.follower, said, asked = stamps["kits"], self.kept, io.StringIO(), self.kept.cards is None
-        self.kept.queued = {k: list(queue_of(s)) for k, s in (self.watches.states if self.watches is not None else {}).items() if "doc" in s}
-        self.kept.decided = {k: [decided_kept(self.subs.get(k, {})), None] for k in self.kept.queued}
         try:
             with contextlib.redirect_stderr(said):
                 read = flow_read(fleet, self.labels, sweep=True)
@@ -1951,7 +1640,7 @@ class Follower:
             told = plan.reckon_batches(fleet, read["found"], read, plan.batch_told(self.told, read["found"], tick))
         self.told.update({l: (tip, told[l]) for l, _, tip, _ in read["found"] if l in told})
         self.last = dict(self.last, said=said.getvalue().strip(), read=dict(read, swept=swept, moved={"raised": [], "unread": []}, ended=ended, unchecked=unchecked),
-                         stamps=dict(self.last["stamps"], readings=stamps["readings"], cards=self.cards, queues=stamps.get("queues", {})))
+                         stamps=dict(self.last["stamps"], readings=stamps["readings"], cards=self.cards))
 
     def again(self, fleet):
         """crew's checkout or the teams file moved: each partition's agents here that it made due a restart are handed
@@ -1960,8 +1649,6 @@ class Follower:
         cmd = ["bash", str(crew.HOME / "plugin/bin/crew")]
         updated = {l: subprocess.run(cmd + ["_update", "--label", l], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True).stdout.strip() or None
                    for l in self.labels}
-        if self.watches is not None:
-            self.watches.close_all()
         self.unhear()
         try:
             os.set_inheritable(self.lock.fileno(), True)
@@ -2004,8 +1691,6 @@ class Follower:
         self.updated = {}
 
     def close(self):
-        if self.watches is not None:
-            self.watches.close_all()
         self.unhear()
         self.lock.close()
 
@@ -2014,7 +1699,7 @@ def run_follow(once=False):
     """crew _follow: the host's follower with no tab, the command a job of the host's runs (swancloud's): it waits for
     the lock while another follows, reading nothing, then follows every partition with an operator session here."""
     lock = lock_follower("job", wait=True)
-    f = Follower(lock, int(os.environ.get("CREW_TEST_PERIOD") or PERIOD), watch=not once)
+    f = Follower(lock, int(os.environ.get("CREW_TEST_PERIOD") or PERIOD))
     signal.signal(signal.SIGUSR1, lambda *_: f.tick_now())
     try:
         if once:
