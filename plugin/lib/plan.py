@@ -3401,10 +3401,8 @@ def kit_card_state(acts, label, key, owner, card, entries):
         return None, f"Pending You refused get_request: {words}"
     recorded = shown_heads(entries, card)
     heads, taking = card_heads(recorded), heads_taking(recorded)
-    state = cards.ended(got)
+    state = ended_close(acts, label, owner, key, card, got, entries)
     if state:  # ended in Pending You by another hand: recorded so, its answer and send kept, and none held (Decision 4)
-        acts.emit(label, "card.close", [cards.row_object(key, acts.kits(label)) or f"agent/{owner}"], by=owner, Card=card, Key=key,
-                  State=state, Outcome=ENDED_ELSEWHERE, **close_kept(got, entries, card, True))
         print(f"card {key}: {card} was {state} in Pending You already, and the raise posts as the bolts stand")
         return {"status": None}, None
     if got.get("status") == "answered":  # the user's answer recorded the first time crew reads it (Decision 1)
@@ -15100,6 +15098,19 @@ def card_closed(acts, label, owner, key, outcome, reason, said=None, here=False,
     return card
 
 
+def ended_close(acts, label, owner, key, card, got, entries):
+    """A card Pending You has ended by another hand (cards.ended: resolved, closed, cancelled or expired) recorded so,
+    sending Pending You nothing: closed as ended there with what the user answered and, for a kit's landings card,
+    their send (close_kept), or withdrawn; on the row's object, or agent/<owner> for a question, in its owner's name.
+    The close's state, or None when the reply is no ended card's."""
+    state = cards.ended(got)
+    if state:
+        obj = cards.row_object(key, acts.kits(label)) or f"agent/{owner}"
+        acts.emit(label, "card.close", [obj], by=owner, Card=card, Key=key, State=state, Outcome=ENDED_ELSEWHERE,
+                  **close_kept(got, entries, card, obj.startswith("kit/")))
+    return state
+
+
 def close_kept(got, entries, card, kit, offered=(), more=None):
     """What a card's close keeps of the user's answer, from get_request's reply (got) and the run record's entries:
     Answer, in crew's words (cards.answer_said, offered the boxes the card offered, a kit's landings card's read from
@@ -15612,7 +15623,10 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     withdrawn with the same words, as a card whose row is gone. It asks Pending You in crew's own name
     (SWEEPER) whether it finds each card (cards_fetched), in one bridge and none when it asks after no card, and in
     that bridge reads each owner's pending list in the owner's name and each card it shows changed (owners_read,
-    cards_owned), recording the user's answer on each it reads answered, once (answer_seen, did answered); or, for
+    cards_owned), recording the user's answer on each it reads answered, once (answer_seen, did answered), and the close
+    of each Pending You reports ended, on that read, sending it nothing (ended_close: closed as ended in Pending You
+    already, with the answer and a landings card's send, or withdrawn), which it then acts on no more, a row of one that
+    still waits being a row with none at the next read; or, for
     the host's follower, which asks on its clock's tick alone, takes answers, (found, why), the clock's last ask's,
     acting on no card that ask did not answer for, until the next tick does, and listed, herdr's listing of the askers
     read on that tick (askers_listed), judging no question whose asker it did not list. Every row's card this
@@ -15676,6 +15690,18 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
             if seen:
                 es.append(dict(Act="card.answer", By=c["by"], **seen))
                 did(l, c["key"], c["card"], c["by"], "answered", seen["Answer"])
+    ended = set()  # the cards its owners' reads found ended in Pending You, recorded so on this read (Decision 5)
+    for l, owners, j in judged:
+        for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"] + j["records"]:
+            got, words = mine.get(c["card"], (None, None))
+            state = ended_close(acts, l, c["by"], c["key"] or "", c["card"], got, recorded[l]) if words is None and got else None
+            if state:
+                ended.add(c["card"])
+                did(l, c["key"], c["card"], c["by"], state, "ended in Pending You already")
+        j["gone"] = [g for g in j["gone"] if g[0]["card"] not in ended]
+        j["held"] = [h for h in j["held"] if h[0]["card"] not in ended]
+        j["unread"] = [u for u in j["unread"] if u[0]["card"] not in ended]
+        j["questions"] = [q for q in j["questions"] if q["card"] not in ended]
     for l, owners, j in judged:
         kits = (read.get("kits") or {}).get(l, ())
         for c, bolts in j["waiting_on_owner"] + [(c, send_waits(recorded[l], c["card"])) for c, *_ in j["gone"]

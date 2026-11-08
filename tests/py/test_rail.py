@@ -1569,6 +1569,55 @@ class TestSweep:
         assert [e["Act"] for e in acts.emitted] == ["card.answer"]
         assert [(d["did"], d["words"]) for d in out["done"]] == [("answered", "approved"), ("left", "answered: waits on wldn-ops to land a")]
 
+    # A card the sweep's owner read finds ended in Pending You (design Decision 5): recorded on that read, nothing sent.
+    @staticmethod
+    def ended(status, answer=None):
+        got = {"status": status, "turn": "agent", "version": 4, **({"answer": answer} if answer else {})}
+        return lambda args: (None, "This is the owner's card; leave it.") if args["name"] == "crew" else (got, None)
+
+    def test_a_card_the_user_dismissed_is_recorded_withdrawn_and_its_row_is_a_row_with_none_at_the_next_read(self):
+        """rail-cards "A card the user dismissed"."""
+        p4 = card("proposal/4", "req_p4", "wldn-planner")
+        out, acts = swept(rows_=[row("proposal/4")], cards_=[p4],
+                          answers={"get_request": self.ended("cancelled"), "list_pending": ({"requests": []}, None)})
+        assert [t for _, t, _ in acts.calls] == ["get_request", "list_pending", "get_request"]
+        assert [{k: e[k] for k in ("Act", "Card", "State", "Outcome")} for e in acts.emitted] == [
+            dict(Act="card.close", Card="req_p4", State="withdrawn", Outcome=plan.ENDED_ELSEWHERE)]
+        assert out["done"] == [dict(label="wldn", key="proposal/4", card="req_p4", by="wldn-planner", did="withdrawn",
+                                    words="ended in Pending You already", new=None)]
+        left = plan.swept_cards([p4], out, "mac-studio", NOW)
+        assert left == []
+        posted = [{"Act": "card.post", "Key": "proposal/4", "By": "wldn-planner", "Card": "req_p4", "At": iso(60)}]
+        closed = [dict(e, By=e["by"], At=iso(0)) for e in acts.emitted]
+        j = plan.sweep_judged("mac-studio", [row("proposal/4")], left, posted + closed, OWNERS, set(), {4}, NOW)
+        assert j["none"] == [row("proposal/4")]
+
+    def test_a_question_its_asker_acked_is_recorded_closed_and_listed_nowhere(self):
+        """rail-cards "A question its asker acked"."""
+        q = card("ask/crw-3-conductor/hold", "req_q1", "crw-3-conductor")
+        out, acts = swept(cards_=[q], listed={"crw-3-conductor": (True, None)},
+                          answers={"get_request": self.ended("resolved", {"choiceIds": ["a"]}), "list_pending": ({"requests": []}, None)})
+        assert [{k: e[k] for k in ("Act", "On", "Card", "State", "Outcome", "Answer")} for e in acts.emitted] == [
+            dict(Act="card.close", On=["agent/crw-3-conductor"], Card="req_q1", State="closed", Outcome=plan.ENDED_ELSEWHERE, Answer="picked a")]
+        assert [(d["did"], d["words"]) for d in out["done"]] == [("closed", "ended in Pending You already")]
+        assert plan.question_cards(plan.swept_cards([q], out, "mac-studio", NOW), {}) == []
+
+    def test_a_cancelled_batch_card_closes_its_batchs_row(self):
+        b3 = card("batch/3", "req_b3", "wldn-planner")
+        out, acts = swept(rows_=[row("batch/3", "batches")], cards_=[b3],
+                          answers={"get_request": self.ended("expired"), "list_pending": ({"requests": []}, None)})
+        (close,) = acts.emitted
+        assert (close["State"], close["Key"]) == ("withdrawn", "batch/3")
+        assert "batch/3" in plan.batch_closed([{"Act": "card.post", "Key": "batch/3", "Card": "req_b3"}, close])
+
+    def test_an_ended_landings_card_keeps_its_answer_and_send(self):
+        k = card(f"land/{KIT}", "req_k1", "wldn-ops")
+        shown = did("card.post", 30, Key=f"land/{KIT}", Card="req_k1", By="wldn-ops", Heads="a@1111111 b@2222222")
+        out, acts = swept(rows_=[row(f"land/{KIT}", "land")], cards_=[k], entries=[shown],
+                          answers={"get_request": self.ended("resolved", {"choiceIds": ["land:a"]}), "list_pending": ({"requests": []}, None)})
+        (close,) = acts.emitted
+        assert (close["State"], close["Answer"], close["Heads"]) == ("closed", "ticked a, left b", "a@1111111")
+
     def test_an_owner_whose_list_cant_be_read_has_none_of_its_cards_read(self):
         p57 = card("proposal/57", "req_57", "wldn-planner")
         for listed in [(None, "Pending You refused list_pending: busy"), ({"total": 0}, None)]:
