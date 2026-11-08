@@ -70,67 +70,6 @@ def bolt_remote(text, branch="bolt/a-bolt", where=DECLARATION):
         crew.fail(f"{where} is not TOML, so crew can't read where sluice keeps {branch}: {e}")
 
 
-def takes_pulls(text, where=DECLARATION):
-    """Whether a kit's policy takes pull requests into main, as sluice reads it: True when the [branches."<pattern>"]
-    table that matches main, the most specific first, holds a `pull_requests` table, so a landing opens a pull request
-    from the bolt's branch that sluice's intake submits while it is out of draft; False for no policy (text None) or no
-    such table. Refused, naming the file, when it is not TOML or `pull_requests` is not a table (read.1)."""
-    if text is None:
-        return False
-    try:
-        branches = tomllib.loads(text).get("branches", {})
-    except tomllib.TOMLDecodeError as e:
-        crew.fail(f"{where} is not TOML, so crew can't read whether its main takes pull requests: {e}")
-    table = branch_table(branches, "main")
-    pulls = table.get("pull_requests") if table else None
-    if pulls is not None and not isinstance(pulls, dict):
-        crew.fail(f"{where}: [branches.main.pull_requests] is a table, not {type(pulls).__name__}")
-    return pulls is not None
-
-
-# What crew reads of a pull request, as `gh pr list --json number,isDraft,headRefOid,url` prints each (gh 2.102.0,
-# read 2026-10-22 on afterthought/crew), and the key crew keeps it under.
-PULL_FIELDS = (("number", int, "number"), ("isDraft", bool, "draft"), ("headRefOid", str, "head"), ("url", str, "url"))
-
-
-def pull_said(code, out, err, repo, bolt):
-    """The one open pull request from bolt/<bolt> into main on GitHub's repo, from what `gh pr list` printed and its
-    exit: {number, draft, head, url}, or None when there is none. Refused, naming the repository and gh's words, when gh
-    exited non-zero; and when what it printed is not a list of pull requests with those fields, or lists more than one,
-    since crew can't tell which is the landing's (read.1, read.2)."""
-    import json
-    what = f"{repo}'s open pull request from bolt/{bolt} into main"
-    if code != 0:
-        said = ((err or "").strip() or (out or "").strip()).splitlines()
-        crew.fail(f"crew can't read {what}: gh exited {code}: {said[-1].strip() if said else 'gh said nothing'}")
-    try:
-        doc = json.loads(out or "")
-    except ValueError:
-        doc = None
-    sha = re.compile(r"[0-9a-f]{40,64}")
-    ok = lambda p: (isinstance(p, dict) and all(isinstance(p.get(k), t) and (t is bool or not isinstance(p.get(k), bool))
-                                                 for k, t, _ in PULL_FIELDS)
-                    and sha.fullmatch(p["headRefOid"]) and p["url"].startswith("https://"))
-    if not (isinstance(doc, list) and all(ok(p) for p in doc)):
-        crew.fail(f"crew can't read {what} from what gh printed: {(out or '').strip()[:200] or 'nothing'}")
-    if len(doc) > 1:
-        crew.fail(f"crew can't tell {what}: gh lists {len(doc)}, " + " and ".join(p["url"] for p in doc))
-    return {key: doc[0][k] for k, _, key in PULL_FIELDS} if doc else None
-
-
-def pull_marked(code, out, err):
-    """What PULL_MARK said of `gh pr ready`: (gh's exit, gh's last line), or, when it did not run there, (the host's
-    exit, its own words), so a non-zero exit is never read as marked (read.2)."""
-    f = said_of(out)
-    try:
-        if code == 0:
-            return int(f["RC"]), " ".join(base64.b64decode(f["SAID"], validate=True).decode(errors="replace").split())
-    except (KeyError, ValueError, binascii.Error):
-        pass
-    said = ((err or "").strip() or (out or "").strip()).splitlines()
-    return (code or 1), (said[-1].strip() if said else f"exit {code}")
-
-
 def branch_said(out, code):
     """What sluice's `branch create` or `branch delete` said with --json (read.2, as sluice 0.36.4 says it,
     tests/py/sluice-0.36.4/): (the commit it made the branch at or removed it from, None) for its document of a branch
@@ -184,38 +123,6 @@ def bolt_home(said, bolt):
     except (binascii.Error, UnicodeDecodeError) as e:
         crew.fail(f"crew can't read main's {DECLARATION} as it was sent: {e}")
     return lives, bolt_remote(text, f"bolt/{bolt}", f"{DECLARATION} at main")
-
-
-def land_copies(said, bolt):
-    """What LAND_COPIES printed of a bolt's two copies for its landing (plan.19), as {"own", "there", "remote", "held",
-    "ahead", "lacks", "beyond", "read"}: read, git's words when origin could not be asked or fetched, the rest None;
-    there "-" when the kit has no origin or origin has no bolt/<bolt>; else there, origin's commit, and remote, what the
-    policy at it names for the bolt's branch (bolt_remote), or None; own, the host's commit, or "-" when it has none;
-    held "yes" or "no", whether origin's holds the host's, "yes" when the host has none; ahead "yes" or "no", whether
-    the host's holds origin's; and lacks and beyond, how many merges the host's holds beyond origin's and origin's
-    beyond the host's; ahead, lacks and beyond None when the host has no copy. Refused, naming what was printed, on
-    anything else (read.2), and when the policy at origin's copy is not TOML."""
-    f = said_of(said)
-    none = dict(own=None, there=None, remote=None, held=None, ahead=None, lacks=None, beyond=None, read=None)
-    if "READ" in f:
-        return {**none, "read": f["READ"].strip() or "git said nothing"}
-    if f.get("THERE") == "-":
-        return {**none, "there": "-"}
-    sha = re.compile(r"[0-9a-f]{40,64}")
-    own, at = f.get("OWN") or "", f.get("AT_THERE") or ""
-    mine = own != "-"
-    count = (lambda v: (v or "").isdigit()) if mine else (lambda v: v == "-")
-    if not (sha.fullmatch(f.get("THERE") or "") and (sha.fullmatch(own) or not mine) and at
-            and f.get("HELD") in (("yes", "no") if mine else ("yes",))
-            and f.get("AHEAD") in (("yes", "no") if mine else ("-",)) and count(f.get("LACKS")) and count(f.get("BEYOND"))):
-        crew.fail(f"crew can't read bolt/{bolt}'s copies for its landing from: {(said or '').strip()[:200] or 'nothing'}")
-    try:
-        text = None if at == "-" else base64.b64decode(at, validate=True).decode()
-    except (binascii.Error, UnicodeDecodeError) as e:
-        crew.fail(f"crew can't read origin/bolt/{bolt}'s {DECLARATION} as it was sent: {e}")
-    return dict(own=own, there=f["THERE"], remote=bolt_remote(text, f"bolt/{bolt}", f"{DECLARATION} at origin/bolt/{bolt}"),
-                held=f["HELD"], ahead=f["AHEAD"] if mine else None, lacks=int(f["LACKS"]) if mine else None,
-                beyond=int(f["BEYOND"]) if mine else None, read=None)
 
 
 def delete_ran(said):

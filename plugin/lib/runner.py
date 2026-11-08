@@ -1075,19 +1075,25 @@ def fix_launch(plan, requests, bolt, label, name, words):
         "Priority": priority_of(plan, bolt), "Intent": f"{label}/{bolt}", "Recipient": f"{label}/planner", "Brief": words}), None
 
 
-def take_main(plan, requests, bolt, label, main, words):
+def take_main_name(main, request=None):
+    """A take-main fix's name: take-main-<main's revision, seven>, or, where the merge queue recorded no revision of main,
+    take-main-l<the land's request>, so each conflict read launches its fix once."""
+    return f"take-main-{main[:7]}" if main else f"take-main-l{request}"
+
+
+def take_main(plan, requests, bolt, label, main, words, request=None):
     """The launch of a crossed bolt's take-main fix (Decision 10, plan.8), once sluice refused its landing for a
     conflict with main at main (its revision): a fix as fix_launch makes it, named take-main-<main, seven>, its brief
     saying to take origin/main into the bolt and resolve, with sluice's words of the conflict, and beginning as every
     take-main fix's does, so the bolt's row says it takes main first (plan.TAKE_MAIN); None while a fix of that name
     stands on the bolt, so a refusal read twice launches it once."""
-    name = f"take-main-{main[:7]}"
+    name = take_main_name(main, request)
     if launch_of(requests, f"fix/{bolt}/{name}") is not None:
         return None
     return fix_launch(plan, requests, bolt, label, name, (
-        f"Take main into the bolt: merge origin/main, at {main[:7]}, into this place, cut from bolt/{bolt}, resolving each "
-        f"conflicting path keeping both intents, main's and the bolt's; sluice refused the bolt's landing for its conflict "
-        f"with main: {words}"))[0]
+        f"Take main into the bolt: merge origin/main" + (f", at {main[:7]}," if main else "") + f" into this place, cut from "
+        f"bolt/{bolt}, resolving each conflicting path keeping both intents, main's and the bolt's; the merge queue refused "
+        f"the bolt's landing for its conflict with main: {words}"))[0]
 
 
 def fix_drop_refusal(of, work, launch, s):
@@ -1211,13 +1217,15 @@ def landing_of(launch, lands, reads):
         return dict(asked, outcome="unknown", why=f"Flume could not read {work}'s submission: {f['unread']}")
     if f["entry_state"] in ("waiting", "under_test"):
         return dict(asked, outcome="submitted", entry=f["entry"], state=f["entry_state"])
+    entry = {"entry": f["entry"]} if f["entry"] else {}
     if f["verdict"] == "failed":
-        return dict(asked, outcome="refused", why="failed", words=f["verdict_words"] or f["waiting_words"] or "")
+        return dict(asked, outcome="refused", why="failed", words=f["verdict_words"] or f["waiting_words"] or "", **entry)
     if f["verdict"] == "conflict":
         return dict(asked, outcome="refused", why="conflict", words=f["verdict_words"] or f["waiting_words"] or "",
-                    files=list(f["files"]), main=f["entry_base"])
+                    files=list(f["files"]), main=f["entry_base"], **entry)
     if f["verdict"] in ("withdrawn", "refused"):
-        return dict(asked, outcome="stopped", by="flume", words=f["waiting_words"] or f["verdict_words"] or f"the merge queue {f['verdict']} it")
+        return dict(asked, outcome="stopped", by="flume", words=f["waiting_words"] or f["verdict_words"] or f"the merge queue {f['verdict']} it",
+                    **entry)
     if f["entry_state"] == "landed":
         return dict(asked, outcome="submitted", entry=f["entry"], state="landed")
     return asked

@@ -889,7 +889,7 @@ class TestLandingOf:
 
     def test_a_failed_check_is_refused_the_bolts_with_flumes_words(self):
         got = self.of(ran({1: "flume-0.17.0/bolt-failed"}, unplaced={2: "-"}))
-        assert got == {"outcome": "refused", "request": 2, "why": "failed",
+        assert got == {"outcome": "refused", "request": 2, "why": "failed", "entry": "412",
                        "words": "check-full failed: tests:logic 3 failed (tests/py/test_landing.py)"}
 
     def test_a_conflict_is_refused_naming_the_files_and_mains_revision(self):
@@ -900,7 +900,7 @@ class TestLandingOf:
 
     def test_a_submission_withdrawn_is_stopped_in_flumes_words(self):
         got = self.of(ran({1: "flume-0.17.0/bolt-withdrawn"}, unplaced={2: "-"}))
-        assert got == {"outcome": "stopped", "request": 2, "by": "flume", "words": "the merge queue withdrew the submission"}
+        assert got == {"outcome": "stopped", "request": 2, "by": "flume", "words": "the merge queue withdrew the submission", "entry": "412"}
 
     def test_a_runner_or_a_submission_crew_cant_read_is_unknown_naming_why(self):
         unread = {"deneb": runner.host_read("madswan", "deneb", TIP, {}, {"answers.rec": "recfix refused it"})}

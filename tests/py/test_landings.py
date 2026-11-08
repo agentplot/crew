@@ -119,7 +119,7 @@ def test_a_landing_refused_at_the_bolts_present_head_holds_its_row():
     row, = plan.landing_rows(["y"], {"y": facts("y", head)}, held)
     assert (row["box"], row["why"]) == (False, "landing rejected at ddddddd, open for work: it waits for a fix on the "
                                                "bolt: bolt/y did not land: sluice found a conflict")
-    assert plan.refused_at([submitted("y", head, "no")], "y", head) == "no"
+    assert plan.held_at(plan.refusals([submitted("y", head, "no")]), "y", head) == "no"
 
 
 def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held_for_its_fix():
@@ -135,46 +135,15 @@ def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held
                                                "failed: tests:logic on 41a7c09")
 
 
-def test_a_holds_reason_is_sluices_verdict_with_the_conflicts_paths_never_a_place_it_could_not_release():
-    """The chore a-holds-reason-is-sluices-verdict-not-a-side-warning: sluice's wait on the landing's submission prints
-    its record in conflict and says on standard error only that its round could not release another place (sluice
-    0.36.4 exec.rs tell_abandoned); the hold carries the record's verdict, its paths, so the conductor reads a
-    conflict, the team's to take main in for, and not the release, which is said to ops beside it."""
-    head, old = "d" * 40, "a" * 40
-    record = {"schema": "sluice/submission@1", "id": 7, "branch": "main", "head": head, "state": "conflict",
-              "conflict": {"paths": ["plugin/lib/plan.py"], "with": []}}
-    tidying = "could not release /c/places/old-unit, whose worktree no longer exists: its release command failed"
-    verdict = plan.verdict_printed(json.dumps(record), 7)
-    landed = (f"ORIGIN=yes\nFETCHED=ok\nGITHUB={old}\nOWN={old}\nHELD_GITHUB=no\nHELD_OWN=no\nRC=2 TIP={head} OLD={old} KEPT='' "
-              f"WHY='' LEVEL='' SAID={base64.b64encode(verdict.encode()).decode()}\n")  # LANDED's report, handed the verdict
-    _, refused = plan.landing_said("y", "crew", "h", landed, old, recorded=True)
-    row, = plan.landing_rows(["y"], {"y": facts("y", head)}, plan.refusals([submitted("y", head, refused)]))
-    assert row["why"] == ("landing rejected at ddddddd, open for work: it waits for a fix on the bolt: #7 conflict: "
-                          "plugin/lib/plan.py")
-    told = plan.landing_said("y", "crew", "h", landed, old, beside=plan.beside_of(f"{tidying}\n", verdict))[1]
-    assert "release" not in refused and f"sluice said: {tidying}." in told
-
-
 def test_a_refusal_at_an_older_head_holds_nothing_once_the_fix_moved_it():
     held = plan.refusals([submitted("y", "c" * 40, "bolt/y did not land")])
     row, = plan.landing_rows(["y"], {"y": facts("y", "d" * 40)}, held)
     assert row["box"]
-    assert plan.refused_at([submitted("y", "c" * 40, "no")], "y", "d" * 40) is None
+    assert plan.held_at(plan.refusals([submitted("y", "c" * 40, "no")]), "y", "d" * 40) is None
 
 
 def test_a_landing_after_a_refusal_holds_nothing():
     assert plan.refusals([submitted("y", "c" * 40, "no"), submitted("y", "c" * 40)]) == {}
-
-
-def test_a_landing_left_standing_in_sluice_holds_its_row_for_no_fix():
-    """A landing whose submission sluice answered with nothing crew can wait on, a pull request crew found no
-    submission of, is recorded with its words and no refusal (plan.left_standing), since what sluice queued stands: its
-    row keeps its box, never held for a fix the bolt does not need."""
-    head = "d" * 40
-    f = dict(RC="0", ID="", PULL="113", ANSWER="")
-    standing = dict(submitted("y", head), Why=plan.left_standing("y", "crew", "/c/places/land-y", f, "sluice records none"))
-    row, = plan.landing_rows(["y"], {"y": facts("y", head)}, plan.refusals([submitted("y", head, "no"), standing]))
-    assert row["box"] and plan.refused_at([standing], "y", head) is None
 
 
 def test_a_landing_stopped_at_the_bolts_present_head_keeps_its_box_saying_what_stopped_it():
@@ -292,7 +261,7 @@ class TestCrossedTakesMain:
         return w, "madswan"
 
     def test_a_landing_refused_for_a_conflict_launches_one_take_main_fix_with_sluices_words(self):
-        """main-level ops's crew bolt submit x reads sluice refusing x for a conflict with main at 4d3d9be."""
+        """crew's read of x's landing finds Flume refusing it for a conflict with main at 4d3d9be (landing_read)."""
         import runner
         w, t = self.launched()
         act, work, given = runner.take_main(w.plan, plan.requests_of(w).recs("Request"), "x", t, self.MAIN, self.WORDS)
@@ -300,7 +269,7 @@ class TestCrossedTakesMain:
             "launch", "fix/x/take-main-4d3d9be", "crew", "fix", "x--take-main-4d3d9be", "bolt/x", "madswan/planner")
         assert given["Brief"] == (
             "Take main into the bolt: merge origin/main, at 4d3d9be, into this place, cut from bolt/x, resolving each conflicting "
-            "path keeping both intents, main's and the bolt's; sluice refused the bolt's landing for its conflict with main: "
+            "path keeping both intents, main's and the bolt's; the merge queue refused the bolt's landing for its conflict with main: "
             "#137 conflict: README.md, plugin/lib/plan.py")
         assert given["Brief"].startswith(plan.TAKE_MAIN)
 
@@ -838,22 +807,22 @@ def stopped_box(bolt, head=H1, words=STOP):
     return dict(bolt=bolt, box=True, facts=dict(facts(bolt, head), stopped=(head, words)))
 
 
-def test_an_answered_card_is_left_while_a_ticked_bolt_whose_landing_was_stopped_still_lands_on_the_send():
-    """rail-cards "Checks that never ran": the stop holds nothing, so the user's send still lands it, and the card
-    they answered is left as it is."""
-    assert plan.landings_step([stopped_box("z")], answered("z@abc1234"), ["z"], {"z"}) == ("leave",)
+def test_an_answered_card_whose_ticked_bolts_landing_was_stopped_closes_naming_it_and_its_send_is_spent():
+    """rail-cards "A stopped row on the same send" (crew-lands-each-bolt-through-flumes-base-place, Decision 7): the
+    runner or Flume stopped z's land on the user's send, nothing of the bolt's; the send is spent, so the card they
+    answered closes naming the stop, keeping no send, and the card that follows asks for z again with its box."""
+    step = plan.landings_step([stopped_box("z")], answered("z@abc1234"), ["z"], {"z"})
+    assert step == ("close", f"z's landing at abc1234 was stopped, nothing of the bolt's: {STOP}; your send of it is spent, and the "
+                             "card that follows asks for it again.", [], [])
 
 
-def test_a_card_that_follows_names_a_stopped_bolt_as_still_landing_with_what_stopped_it_and_has_no_row_for_it():
-    """rail-cards "A new card while it is stopped": the closed card's outcome names z as still landing on the send,
-    with what stopped it, and the card that follows does not ask for z again."""
+def test_a_stopped_bolt_beside_one_proven_since_closes_the_card_and_the_one_that_follows_asks_for_both():
     step = plan.landings_step([stopped_box("z"), box("w")], answered("z@abc1234"), ["z"], {"z", "w"})
-    assert step == ("follow", f"Asked of the runner as you ticked: z. z's last landing at abc1234 was stopped, nothing of the bolt's: {STOP}; "
-                              "it lands on your send once that is cleared. Since your send, w reads proven, and the card that "
-                              "follows asks for it.", [], [("z", "abc1234")])
-    closes = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
-    assert plan.rows_unsent([stopped_box("z"), box("w")], plan.landings_sent(closes, "land/crew", "swancloud-ops")) == (
-        [box("w")], ["z"], [])
+    assert step == ("close", f"z's landing at abc1234 was stopped, nothing of the bolt's: {STOP}; your send of it is spent, and the "
+                             "card that follows asks for it again. Since your send, w reads proven, and the card that follows asks "
+                             "for it.", [], [])
+    assert plan.rows_unsent([stopped_box("z"), box("w")], plan.landings_sent([], "land/crew", "swancloud-ops")) == (
+        [stopped_box("z"), box("w")], [], [])
 
 
 def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_beside_the_command_that_lands_it():
@@ -1234,6 +1203,10 @@ class LandActs:
 
     def keep_main(self, label, kit, sha):
         self.kept[kit] = sha
+
+    def read_landings(self, label, kit):
+        """The kit's landings read from the runner's report before the card's lock (kit_landings_read): recorded."""
+        self.landings_read = getattr(self, "landings_read", []) + [(label, kit)]
 
     def post_lands(self, label, kit, owner, rows, sent, reads, work):
         """The lands the send makes due, as lands_change decides them on a write over requests.rec as given (requests),
@@ -2121,3 +2094,23 @@ class TestTheRaisePostsTheLands:
         assert "card land/crew: req_k1 is left as it is, the user having answered it" in out
         plan.raise_landings(FLEET, "swancloud", "crew", acts)
         assert len(acts.posts) == 1
+
+
+def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_ssh_refused(monkeypatch):
+    """bolt-teams "Read from any host" (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners'
+    branches are the partition's state, so a host that is not the kit's reads y's landing from the runner's report and
+    records it, reaching no host."""
+    import record
+    from test_landing import ASKED, base_run
+    emitted = []
+
+    def refused(*a, **k):
+        raise AssertionError("ssh: connect to host deneb: refused")
+    monkeypatch.setattr(crew, "on_machine", refused)
+    monkeypatch.setattr(plan, "host_run", refused)
+    monkeypatch.setattr(crew, "this_host", lambda: "macbook-pro")
+    monkeypatch.setattr(record, "emit", lambda label, act, on=(), *a, **f: emitted.append(dict(f, Act=act, On=list(on))))
+    monkeypatch.setattr(plan, "unlanded_ask", lambda *a, **k: None)
+    landed, said = plan.landing_read({}, "swancloud", "y", base_run("bolt-failed"), [ASKED])
+    assert (landed, said) == (False, "landing refused, a check failed: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")
+    assert [(e["Act"], e["On"], e["Refused"]) for e in emitted] == [("bolt.submit", ["bolt/y"], said)]
