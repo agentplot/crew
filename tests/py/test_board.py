@@ -1639,6 +1639,29 @@ class TestViews:
         assert ledger("wldn-planner", "doctor-rows", sv=sv, cards=[card])[0].endswith(
             f"doctor-rows  in Flume stream wldn  waits to land  1 of 1 merged  {NO_START}  card open, asked by wldn-ops")
 
+    def test_ops_answered_landings_card_says_the_landing_is_ops_own(self, monkeypatch):
+        """crew-board "Ops's answered landings card": land/switchboard-kit's card, wldn-ops's, the user's answer on it
+        recorded; ops's band shows the card answered and its land line says the landing is ops's, and the planner's
+        ledger says the card waits on ops, as the rail's card line does (design Decision 3)."""
+        two = plan.Plan(plan_text(bolts=[("doctor-rows", "switchboard-kit", True)], units=[("rows-one", "switchboard-kit", "doctor-rows", [])]))
+        monkeypatch.setitem(globals(), "the_plan", lambda: two)
+        monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None)})
+        sv = kits()
+        sv[BOX]["kits"]["/kit/main"]["bolts"].update({
+            "doctor-rows": {"head": "f" * 40, "head_at": ago(30), "changes": ["rows-one"], "archived": ["rows-one"], "verdict": "passed (2 run)"}})
+        card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW - datetime.timedelta(hours=1),
+                    answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="ticked doctor-rows", heads="doctor-rows@fffffff"))
+        d = data(sv=sv, cards=[card])
+        (m,) = d["partitions"][0]["construction"][0]["markers"]
+        assert m["card"]["answered"] == board.iso(NOW - datetime.timedelta(minutes=5))
+        assert ("✓ land/switchboard-kit  doctor-rows  waits to land  answered: the landing is yours  card answered, waits on wldn-ops"
+                in view("wldn-ops", sv=sv, cards=[card]))
+        assert ["".join(t for t, _ in l) for l in board.agent_views(d)["cards"]["wldn-ops"]] == [
+            "  your card  land/switchboard-kit  req_k1  answered 5m ago, yours to act on"]
+        assert ledger("wldn-planner", "doctor-rows", sv=sv, cards=[card])[0].endswith("card answered, waits on wldn-ops")
+        waiting = dict(card, answered=None)
+        assert "✓ land/switchboard-kit  doctor-rows  waits to land  card open, asked by wldn-ops" in view("wldn-ops", sv=sv, cards=[waiting])
+
     def test_a_unit_waits_on_no_answer_so_it_has_no_marker_even_with_an_old_verify_card_open(self):
         card = dict(label="wldn", card="req_2", key="verify/a/20261012-1200", by="swb-1-conductor", host="mac-studio", at=NOW)
         assert ledger("wldn-planner", "tenant-environments", cards=[card])[1] == "    ◑  a  code 1/2"
@@ -1837,8 +1860,11 @@ class TestViews:
         assert "home + '/.cache/crew/board/' + label + '.agents.json'" in mod and board.agents_path("wldn").parts[-4:] == (".cache", "crew", "board", "wldn.agents.json")
         assert re.findall(r"style === '(\w+)'", mod) == ["bold"] and "dimColor: true" in mod
         assert v["cards"] == {} and json.loads(json.dumps(board.agent_views(data(cards=[QUESTION]))))["cards"]["wldn-ops"]
+        answered = dict(QUESTION, answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="picked a", heads=None))  # an answered card's line
+        lines = [l for lines in json.loads(json.dumps(board.agent_views(data(cards=[answered]))))["cards"].values() for l in lines]
+        assert any("answered 5m ago, yours to act on" in t for l in lines for t, _ in l)
         standing = board.agent_views(data(sv=queued(STANDING_SUBS)))["views"]  # a merge and a landing standing in sluice, drawn as plain segments
-        lines = [v["stale"]] + [l for lines in v["views"].values() for l in lines] + [l for lines in board.agent_views(data(cards=[QUESTION]))["cards"].values() for l in lines]
+        lines += [v["stale"]] + [l for lines in v["views"].values() for l in lines] + [l for lines in board.agent_views(data(cards=[QUESTION]))["cards"].values() for l in lines]
         lines += [l for lines in standing.values() for l in lines]
         assert any("#41 under test" in t for l in standing["wldn-planner"] for t, _ in l)
         # a role's run's view, under its run's name, its lines of the same form (Decision 15 of roles-run-as-flume-kinds)
@@ -2005,6 +2031,18 @@ class TestCards:
         drawn = {a: ["".join(t for t, _ in l) for l in lines] for a, lines in v["cards"].items()}
         assert drawn == {"wldn-planner": ["  your card  proposal/2  req_p2  open 2h 05m"], "wldn-ops": ["  your question  req_q1  open 14m"]}
         assert ("req_q1", "dim") in v["cards"]["wldn-ops"][0]
+
+    def test_the_planners_answered_proposal_card_says_it_was_answered_and_is_the_planners_to_act_on(self):
+        """crew-board "The planner's answered proposal card": proposal/57's card, wldn-planner's, answered five minutes
+        ago; the board's card carries when and what (design Decision 3)."""
+        p57 = dict(label="wldn", card="req_57", key="proposal/57", by="wldn-planner", host="mac-studio", at=NOW - datetime.timedelta(hours=1),
+                   answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="approved", heads=None))
+        v = board.agent_views(data(cards=[p57]))
+        assert ["".join(t for t, _ in l) for l in v["cards"]["wldn-planner"]] == ["  your card  proposal/57  req_57  answered 5m ago, yours to act on"]
+        (c,) = data(cards=[p57])["partitions"][0]["cards"]
+        assert (c["answered"], c["answer"]) == (board.iso(NOW - datetime.timedelta(minutes=5)), "approved")
+        (c,) = data(cards=[dict(p57, answered=None)])["partitions"][0]["cards"]
+        assert (c["answered"], c["answer"]) == (None, None)
 
     def test_the_board_lists_each_open_card_with_what_it_is(self):
         rec = dict(QUESTION, card="req_r1", key="record/atlas-kit/0021", by="wldn-design")

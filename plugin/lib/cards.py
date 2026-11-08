@@ -155,6 +155,18 @@ def run_cards(listed):
         if isinstance(requests, list) else []
 
 
+def pending_turns(listed):
+    """Each card list_pending's reply holds in the name asked, by its id, to whose turn it is, read as run_cards reads
+    the reply (Pending You's wake mod's reading of list_pending): every card the list holds, not only those on the
+    agent's turn, so a card the list no longer holds can be told (design Decision 2 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); a request of any other shape left out; None when the reply
+    holds no list, which says nothing of what is missing from it (read.2)."""
+    requests = listed.get("requests") if isinstance(listed, dict) else None
+    if not isinstance(requests, list):
+        return None
+    return {r["id"]: r.get("turn") for r in requests if isinstance(r, dict) and isinstance(r.get("id"), str) and REQUEST_ID.match(r["id"])}
+
+
 def stranded(entries, key, owner, here):
     """The owner's newest card under a key when this host (here) can't reach it: one posted from another host, done and
     naming a card, that no later card.close of it closes, or one whose last close was as lost to its owner, on any
@@ -187,21 +199,40 @@ def followed_open(entries, card, by):
     return key
 
 
-def lost(words):
-    """Whether Pending You's refusal says it no longer finds the card: what a card posted under another sign-in reads
-    as to its owner once the host has signed in again (ADR 0005 as amended 2026-10-11)."""
-    return isinstance(words, str) and words.lower().startswith("not found")
+HOLDER = re.compile(r"This is (\S+?)'s card\b")  # Pending You's refusal of a card to any name but its holder's
+
+
+def held_elsewhere(words, owner):
+    """Whether Pending You's refusal of a read, change or close made in the name of the card's recorded owner says
+    another assistant holds it: "This is <name>'s card", <name> not the owner (design Decision 6 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), as madswan's batch cards 16 to 31, posted under
+    swancloud-planner's name, were refused to madswan-planner on every close from 2026-10-25."""
+    m = HOLDER.match(words) if isinstance(words, str) and owner else None
+    return bool(m) and m.group(1) != owner
+
+
+def lost(words, owner=None):
+    """Whether Pending You's refusal says the card is lost to its owner: that it no longer finds the card, what a card
+    posted under another sign-in reads as to its owner once the host has signed in again (ADR 0005 as amended
+    2026-10-11); or, given the owner the refused call was made in the name of, that another assistant holds it
+    (held_elsewhere). crew's own asks in its own name, which Pending You refuses as the holder's card by design, give
+    no owner."""
+    return isinstance(words, str) and (words.lower().startswith("not found") or held_elsewhere(words, owner))
 
 
 def lost_said(key, card, words):
     """The refusal of a read of a lost card: the card is still the user's to see, but no longer its owner's to reach. A
     row's card, while its row still waits, the rail's next read posts again under the key, the summary saying the older
-    copy is dead; a question its asker asks again, if it still matters."""
+    copy is dead; a question its asker asks again, if it still matters. A card held in another assistant's name is said
+    so, naming that assistant."""
     again = ("While the row still waits, the rail's next read posts it again under its key, its summary saying an older "
              "copy is dead and to dismiss it in the app" if row_object(key) else
              "Ask it again if it still matters, saying in it that an older copy is dead and to dismiss it in the app")
-    return (f"card {card} under {key} is lost to its owner (Pending You: \"{words}\"): it was posted under another "
-            f"sign-in than this host's, and the user may still see it and answer it, to nobody. {again}")
+    m = HOLDER.match(words) if isinstance(words, str) else None
+    how = (f"Pending You holds it in {m.group(1)}'s name, not its owner's" if m else
+           "it was posted under another sign-in than this host's")
+    return (f"card {card} under {key} is lost to its owner (Pending You: \"{words}\"): {how}, and the user may still "
+            f"see it and answer it, to nobody. {again}")
 
 
 # A name crew raises its own cards in: a partition's planner, main-level ops or design agent (plan.row_owner, the
@@ -1748,7 +1779,9 @@ def close_words(got, outcome=None, reason=None):
 
 def close_call(got, card, name, outcome=None, reason=None, here=False):
     """How crew closes a card, from get_request's answer: one the user answered acked at its version with what was
-    done on it, the outcome, or the reason it is withdrawn; one still waiting withdrawn with the reason, or the
+    done on it, the outcome, or, where the event gives only a reason, the reason as its outcome, and closed, never
+    withdrawn, since a withdrawal is for a card nobody answered and the user reads the ack's words as what became of
+    their answer (record 0031 §1; rail-cards "A card the user answered is closed, never withdrawn"); one still waiting withdrawn with the reason, or the
     outcome (close_words), or, with here, the user having answered it in a conversation, as a landing said in ops's
     pane is (plan.16), cancelled as answered there (Pending You's answeredHere) and closed. Either is cut to OUTCOME
     characters, since Pending You refuses a longer one (proposal 142's close on 2026-10-18: "outcome: Too big: expected
@@ -1757,8 +1790,7 @@ def close_call(got, card, name, outcome=None, reason=None, here=False):
     words = close_words(got, outcome, reason)
     said = cut(words, OUTCOME) if isinstance(words, str) else words
     if got.get("status") == "answered":
-        return ("ack_answer", {"requestId": card, "name": name, "expectedVersion": version_of(got, card), "outcome": said},
-                "closed" if outcome is not None else "withdrawn")
+        return "ack_answer", {"requestId": card, "name": name, "expectedVersion": version_of(got, card), "outcome": said}, "closed"
     if here:
         return "cancel_request", {"requestId": card, "name": name, "reason": said, "answeredHere": True}, "closed"
     return "cancel_request", {"requestId": card, "name": name, "reason": said}, "withdrawn"

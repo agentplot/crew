@@ -1404,6 +1404,57 @@ def test_an_answered_card_whose_ticked_bolts_all_landed_is_closed_naming_where_w
     assert not [t for t, _ in acts.calls if t == "post_request"]
 
 
+def test_a_raise_reading_its_card_answered_records_the_answer_once_with_the_bolts_ticked(monkeypatch):
+    """rail-cards "crew records the user's answer the first time it reads it", "A landings card's raise reads it
+    answered": y ticked and z cleared, the card showing y@abc1234 z@abc1234; y still lands on the send, so the card is
+    left, and a second raise records nothing more."""
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"]}}
+    acts = LandActs({"y": row("y")}, held, answers={"get_request": (answer, None)})
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\n"))
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    answers = [e for e in acts.emitted if e["Act"] == "card.answer"]
+    assert answers == [dict(Act="card.answer", On=["kit/crew"], by="swancloud-ops", Card="req_k1", Key="land/crew",
+                            Answer="ticked y, left z", Heads="y@abc1234")]
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert len([e for e in acts.emitted if e["Act"] == "card.answer"]) == 1
+
+
+def test_an_answered_landings_card_the_sweep_closes_keeps_the_send_and_the_next_raise_has_no_row_for_it(monkeypatch):
+    """rail-cards "The sweep closes an answered landings card" and "The next card": the user ticked y at abc1234 and
+    the sweep closes the card with a reason alone, its row gone for a moment; the close is acked, recorded closed with
+    Heads: y@abc1234, and the next raise, y standing at abc1234 beside z, posts a card with z's row alone."""
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"]}}
+    acts = LandActs({"y": row("y"), "z": row("z")}, held, answers=dict(POSTED, get_request=(answer, None),
+                                                                        post_request=({"requestId": "req_k2", "version": 1}, None)))
+    plan.row_card_close(FLEET, "swancloud", "swancloud-ops", "land/crew", reason="nothing waits to land on crew's main", acts=acts)
+    close = acts.emitted[-1]
+    assert (close["Act"], close["State"], close["Answer"], close["Heads"]) == ("card.close", "closed", "ticked y, left z", "y@abc1234")
+    assert next(a for t, a in acts.calls if t == "ack_answer")["outcome"] == "nothing waits to land on crew's main"
+    acts.answers["get_request"] = ({"status": "pending", "turn": "you", "version": 1}, None)
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PLAN))
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k2"
+    assert acts.emitted[-1]["Act"] == "card.post" and acts.emitted[-1]["Heads"] == "z@abc1234"
+
+
+def test_a_send_ops_acked_in_pending_you_read_resolved_at_a_raise_is_recorded_closed_with_its_answer_and_send(monkeypatch):
+    """rail-cards "A send closed in Pending You by its owner": ops's session acked land/crew's answered card, and the
+    raise reads it resolved: crew records it closed as ended there, its Answer and Heads kept, sends Pending You
+    nothing for it, and posts with no row for y, whose send stands at its head."""
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
+    resolved = {"status": "resolved", "turn": "agent", "version": 4, "answer": {"choiceIds": ["land:y"]}}
+    acts = LandActs({"y": row("y"), "z": row("z")}, held, answers=dict(POSTED, get_request=(resolved, None),
+                                                                        post_request=({"requestId": "req_k2", "version": 1}, None)))
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PLAN))
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k2"
+    close = next(e for e in acts.emitted if e["Act"] == "card.close")
+    assert {k: close[k] for k in ("Card", "State", "Outcome", "Answer", "Heads")} == {
+        "Card": "req_k1", "State": "closed", "Outcome": plan.ENDED_ELSEWHERE, "Answer": "ticked y, left z", "Heads": "y@abc1234"}
+    assert not [t for t, _ in acts.calls if t in ("ack_answer", "cancel_request", "update_request")]
+    assert acts.emitted[-1]["Act"] == "card.post" and acts.emitted[-1]["Heads"] == "z@abc1234"
+
+
 def test_one_left_out_closes_the_card_and_a_new_one_follows_it_with_that_bolt_unticked(monkeypatch):
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
     answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"]}}

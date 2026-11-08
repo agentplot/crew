@@ -464,7 +464,7 @@ body.selecting #lines line:not(.marked) { opacity: .2; }
     var row = el("div", "marks");
     (ms || []).forEach(function (k) {
       var s = el("span", "mark " + (MARK[k.glyph] || ""));
-      s.append(el("span", null, k.glyph), el("span", "mk-t", k.card ? "card open, asked by " + k.card.by
+      s.append(el("span", null, k.glyph), el("span", "mk-t", k.card ? (k.card.answered ? "card answered, waits on " : "card open, asked by ") + k.card.by
                                                             : k.refused ? "no card, its post refused" : "no card"));
       s.title = !k.card && k.refused ? k.key + ": " + k.refused : k.key;
       row.append(s);
