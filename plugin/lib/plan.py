@@ -1685,6 +1685,96 @@ def kit_in(kit, kits):
     return kit.split("/")[-1] in {k.split("/")[-1] for k in kits}
 
 
+def renamed_kit(value, old, new):
+    """A field's repository after a rename of old to new (Decision 1 of a-repository-is-renamed-by-one-explicit-command):
+    new where the value names old, by its name or forge address (kit_in), kept in its form, a forge address by its owner
+    and the new name unless new is an address itself, so a reader matching by address keeps the owner; the value as it
+    is otherwise."""
+    if not value or not kit_in(value, [old]):
+        return value
+    if "/" in new or "/" not in value:
+        return new
+    return f"{value.rsplit('/', 1)[0]}/{new}"
+
+
+# The objects built on a repository's name that a reader matches it by (record.py's typed names, cards.row_object's keys):
+# kit/<repo>, land/<repo>, queue/<repo>, record/<repo>/<number> and fix/main/<repo>/<name>.
+KIT_OBJECT = re.compile(r"^(kit|land|queue)/([^/]+)$|^(record)/([^/]+)/(\d+)$|^(fix/main)/([^/]+)/(.+)$")
+
+
+def renamed_object(obj, old, new):
+    """An object built on a repository's name after a rename of old to new (Decision 1 of
+    a-repository-is-renamed-by-one-explicit-command; KIT_OBJECT): its repository part new's name where it names old, by
+    name (kit_in); any other object as it is."""
+    m = KIT_OBJECT.match(obj or "")
+    if not m:
+        return obj
+    name = new.split("/")[-1]
+    if m.group(1) and kit_in(m.group(2), [old]):
+        return f"{m.group(1)}/{name}"
+    if m.group(3) and kit_in(m.group(4), [old]):
+        return f"{m.group(3)}/{name}/{m.group(5)}"
+    if m.group(6) and kit_in(m.group(7), [old]):
+        return f"{m.group(6)}/{name}/{m.group(8)}"
+    return obj
+
+
+def renamed_source(source, old, new):
+    """A Source line after a rename of old to new (Decision 1 of a-repository-is-renamed-by-one-explicit-command): each
+    decision-record reference whose repository names old, <owner>/<old> before docs/adr/<n> (RECORD_REF), naming it by
+    the new name in its form (renamed_kit); the rest of the line, its words, as written."""
+    def one(m):
+        repo = m.group(1)
+        if not repo or not kit_in(repo, [old]):
+            return m.group(0)
+        return renamed_kit(repo, old, new) + m.group(0)[len(repo):]
+    return RECORD_REF.sub(one, source or "")
+
+
+def renamed_field(field, value, old, new):
+    """One field of a record after a rename of old to new (Decision 1 of a-repository-is-renamed-by-one-explicit-command):
+    a Repo by its repository (renamed_kit), a Source by its record references (renamed_source), and an On, From or Work
+    by its object (renamed_object); any other field, a card's Key among them, as it is."""
+    if field == "Repo":
+        return renamed_kit(value, old, new)
+    if field == "Source":
+        return renamed_source(value, old, new)
+    if field in ("On", "From", "Work"):
+        return renamed_object(value, old, new)
+    return value
+
+
+# The fields a rename renames in each file of a drive's branch that a reader matches a repository by (Decision 1 of
+# a-repository-is-renamed-by-one-explicit-command): the plan's decision-record sources, a request's repository and a fix
+# of its main's work, and a run-record entry's repository and the objects it names. An entry's Key is the key Pending You
+# held its card under, left as it was posted.
+RENAMED_FIELDS = {"plan.rec": ("Source",), "requests.rec": ("Repo", "Work"), "runs/": ("Repo", "On", "From")}
+
+
+def rename_rec(text, fields, old, new):
+    """A recutils file's text after a rename of old to new (Decision 1 of a-repository-is-renamed-by-one-explicit-command),
+    record by record: each field of fields renamed (renamed_field), every kit.rename entry whole, since it records an
+    earlier act, and every other line, the descriptor, comments and the order of records and fields, byte for byte.
+    Returns (text, how many records it renamed)."""
+    blocks, n = re.split(r"(\n\s*\n)", text), 0
+    for i in range(0, len(blocks), 2):
+        lines = blocks[i].split("\n")
+        if any(l.startswith(("%", "#")) for l in lines if l.strip()):
+            continue
+        if any(re.match(r"^Act: ?kit\.rename\s*$", l) for l in lines):
+            continue
+        out = []
+        for l in lines:
+            m = re.match(r"^([A-Za-z][A-Za-z0-9_]*):( ?)(.*)$", l)
+            if m and m.group(1) in fields:
+                v = renamed_field(m.group(1), m.group(3), old, new)
+                l = f"{m.group(1)}:{m.group(2)}{v}" if v != m.group(3) else l
+            out.append(l)
+        if out != lines:
+            blocks[i], n = "\n".join(out), n + 1
+    return "".join(blocks), n
+
+
 # A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
 # the hosts file lists it, the owner as GitHub has it.
 KIT = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]*/)?[a-z0-9][a-z0-9-]*$")
