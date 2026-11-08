@@ -193,7 +193,8 @@ def runner_branch(label, host):
 # roles-run-as-flume-kinds), with Flume's status of its place, or the runner's words where no run could be launched
 # (boomdrive's the-runner-carries-crews-work-into-flume, Decision 14); and repositories.rec each repository its
 # configuration keeps on the host, by its forge address with the folder of its clone, where Flume cuts its places
-# (Decision 6 of a-kit-renamed-on-its-host-is-renamed-across-the-plan), a branch with none reporting no repositories.
+# (roles.9; the drive-state spec, "A kit's work is taken by a runner whose configuration names its repository"), a
+# branch with none reporting no repositories.
 RUNNER = """\
 %rec: Runner
 %key: Host
@@ -244,7 +245,7 @@ def host_read(label, host, tip, files, refused):
     place's path, when the runner carried it, and its Status parsed, or with why it could not be; each role's run
     by its address, likewise, with the runner's words where it could launch none; and the repositories it keeps, each
     one's folder by its forge address, None where the tip holds no repositories.rec, a runner that reports none
-    (Decision 6 of a-kit-renamed-on-its-host-is-renamed-across-the-plan)."""
+    (roles.9)."""
     branch = runner_branch(label, host)
     out = {"host": host, "branch": branch, "tip": tip, "why": None}
     if tip is None:
@@ -360,9 +361,9 @@ def taken(reads, n):
 
 
 def kept_folder(reading, kit, what):
-    """The folder a host's runner keeps a kit's clone in, as its repositories.rec reports it (Decision 6 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan), from host_read's reading and the kit's name now (kit,
-    plan.kit_now's, by its name or forge address): (folder, None); (None, None) for a runner that reports no
+    """The folder a host's runner keeps a kit's clone in, as its repositories.rec reports it (roles.9: where a kit lives
+    on a host is its runner's report), from host_read's reading and the kit as the plan gives it (kit), matched by its
+    name or forge address: (folder, None); (None, None) for a runner that reports no
     repositories, whose folder Flume's status of a place names (where); or (None, why) where it reports none by the
     kit's name, naming the host, what it keeps and the rename that may be why, or two by it (read.1). A kit named by
     its forge address is the repository of that address before any other of its name."""
@@ -384,10 +385,10 @@ def kept_folder(reading, kit, what):
 def where(reads, launches, what, kit):
     """Where a runner reported taking work (the user's ruling of 2026-11-01; Decision 4), from the partition's runners as
     crew read them (reads), the launches of the work (launches, requests.rec's records, a bolt's on its branch or a
-    kit's) and the kit's name now (kit, plan.kit_now's): the host whose runner took the newest of them taken (takers);
-    the kit's folder there as that runner's repositories.rec reports it (kept_folder), or, where it reports none, as
+    kit's) and the kit as the plan gives it (kit): the host whose runner took the newest of them taken (takers); the
+    kit's folder there as that runner's repositories.rec reports it (kept_folder), or, where it reports none, as
     Flume's status of the newest place it carries of them names it; and the stream its work runs in, as that status
-    names it (Decision 6 of a-kit-renamed-on-its-host-is-renamed-across-the-plan); each None where it carries no place
+    names it (roles.9); each None where it carries no place
     naming it yet; as ({"host", "dir", "stream"}, None); (None, None) while no runner has taken any of them and every
     runner was read; or (None, why) when none has and one could not be read, naming what (what) and that runner, two
     runners took the newest, or the one that did keeps no repository by the kit's name (read.1)."""
@@ -1075,11 +1076,10 @@ def main_fixes_waiting(requests, reads):
     """Each fix of main a kit's landings row carries (Decision 11; crew-rail "A fix of main waits to land on its kit's
     row"): those whose launch stands and whose code has delivered with its submission waiting held, their stage read
     from the runner that took them (reads, by host; taken, piece_stage), in requests.rec's order, each {kit, name, host,
-    brief, since, carried, sent}: kit, the kit its launch's Repo names, which a launch read through the partition's
-    renames names by its name now (plan.launches_now), so a fix launched under a former name is its renamed kit's;
-    since, when Flume read it waiting, in seconds, or None; carried, when the runner carried that status; sent, the
-    number of the request that sent it on the user's word (sent_of), None while it waits on that word. One crew can't
-    read is left off, as a bolt whose stage crew can't read is, being in no state it can tell to send (read.1)."""
+    brief, since, carried, sent}: kit, the kit its launch's Repo names; since, when Flume read it waiting, in seconds,
+    or None; carried, when the runner carried that status; sent, the number of the request that sent it on the user's
+    word (sent_of), None while it waits on that word. One crew can't read is left off, as a bolt whose stage crew can't
+    read is, being in no state it can tell to send (read.1)."""
     out = []
     for l in standing(requests):
         work = l.get("Work") or ""

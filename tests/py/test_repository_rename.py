@@ -442,7 +442,7 @@ class TestTheCommand:
             "kit.rename", "plan(kit): rename flywheel-cloud boomdrive-cloud", ["kit/boomdrive-cloud"], ["kit/flywheel-cloud"],
             {"Repo": "boomdrive-cloud", "Count": "6"})
         assert plan.Plan(w.files["requests.rec"]).recs("Request")[0].get("Repo") == "boomdrive-cloud"
-        assert w.renaming == [("flywheel-cloud", "boomdrive-cloud")] and w.renamed == []
+        assert w.renaming == [("flywheel-cloud", "boomdrive-cloud")]
         op.after("afterthought/crew-state", "0" * 40)
         assert capsys.readouterr().out == "flywheel-cloud is boomdrive-cloud in madswan's records: 6 records renamed\n"
 

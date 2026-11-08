@@ -141,8 +141,7 @@
 #                                      reports none, keeps <old>, for a new name a bolt's, for two names of one
 #                                      repository, and when no record names <old>. Run again, it renames what an
 #                                      earlier one left, its host's kept entries pushed first. No command renames a
-#                                      partition. What crew recorded under a former name is read under the name now,
-#                                      and bolt new, unit add and chore add given one write the name now and say so
+#                                      partition. Every record is read as written, no reader mapping a former name
 #   crew plan  propose|proposed|approve|answer|drop ...
 #                                      the planner's proposals: a change to the plan, waiting on the user alone and applied
 #                                      once the user approves it,

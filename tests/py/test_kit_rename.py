@@ -1,9 +1,9 @@
-"""What crew recorded under a kit's former name is read under its name now (Decision 4 of
-a-kit-renamed-on-its-host-is-renamed-across-the-plan): a plan command given a kit's former name writes its name now and
-says so (plan.kit_given), a proposal approved after the rename among them. And madswan's started bolt
-you-sign-in-to-staging, its kit renamed, lands under its kit's name now in the folder the runner reports keeping it in
-(Decision 7; runner.where). Each case starts from the plan and the kit.rename entry an earlier rename left (earlier);
-the rename itself, crew kit rename, is tests/py/test_repository_rename.py's."""
+"""A plan an earlier rename left is read as written (plan.22): a plan command given a kit by --repo writes it as
+given, through no rename, and says nothing of one (bolt-plan "A command given a kit writes it as given"). And madswan's
+started bolt you-sign-in-to-staging, its kit renamed by a rename made before a-repository-is-renamed-by-one-explicit-command,
+lands in the folder the runner reports keeping its kit in, as the plan names the kit (Decision 7 of
+a-kit-renamed-on-its-host-is-renamed-across-the-plan; runner.where). Each case starts from the plan and the kit.rename
+entry an earlier rename left (earlier); the rename itself, crew kit rename, is tests/py/test_repository_rename.py's."""
 import argparse
 import json
 import re
@@ -61,42 +61,23 @@ def earlier(old, new, text=None):
     return written(renamed_text, entries=[renamed(old, new)])
 
 
-class TestAFormerName:
-    """Decision 4: a plan command given a kit's former name writes its name now and says so."""
+class TestAKitAsGiven:
+    """bolt-plan "A command given a kit writes it as given": a plan command given a kit by --repo writes it as given,
+    through no rename, and says nothing of one."""
 
-    def test_a_new_bolt_under_a_former_name_is_written_under_the_name_now(self, capsys):
+    def test_a_kit_given_by_repo_is_written_as_given(self, capsys):
         w = written(entries=[renamed("tailrace", "timber")])
         a = plan.do_args("madswan", 'bolt new y "Y is built." --repo tailrace')
         op = plan.OPS[("bolt", "new")](known(w, fleet=RENAMED, n=1), a)
         op.change(w)
-        op.after("afterthought/crew-state", "0" * 40)
-        assert w.plan.bolt("y").get("Repo") == "timber"
-        assert capsys.readouterr().out == "tailrace is timber since its rename; written as timber\n"
+        assert op.after is None
+        assert w.plan.bolt("y").get("Repo") == "tailrace" and capsys.readouterr().out == ""
 
-    def test_a_proposal_approved_after_the_rename_queues_its_unit_under_the_name_now_its_do_unchanged(self, capsys):
-        """bolt-plan, A proposal approved after the rename: proposal 400's unit add x --repo tailrace, approved once
-        tailrace is timber, queues x in timber and says so, its Do still reading --repo tailrace (plan.4)."""
-        do = 'unit add x "X is built." --repo tailrace'
-        w = written(entries=[renamed("tailrace", "timber")])
-        a = plan.do_args("madswan", do)
-        op = plan.OPS[("unit", "add")](known(w, fleet=RENAMED, n=400), a)
-        op.change(w)
-        op.after("afterthought/crew-state", "0" * 40)
-        assert (w.plan.unit("x").get("Repo"), w.plan.unit("x").get("Bolt")) == ("timber", None) and a.do == do
-        assert capsys.readouterr().out == "tailrace is timber since its rename; written as timber\n"
-
-    def test_a_chore_into_a_renamed_kits_bolt_given_its_former_name_goes_in(self):
+    def test_a_chore_given_another_name_of_its_bolts_kit_is_refused(self):
         w = earlier("tailrace", "timber")
-        apply(w, 'chore add bump "Bump it." --bolt trc-1 --repo tailrace', ctx=known(w, fleet=RENAMED, n=1))
-        assert (w.plan.item("bump").get("Repo"), w.plan.item("bump").get("Kind")) == ("timber", "chore")
-
-    def test_a_former_name_kept_again_is_refused_naming_the_rename(self):
-        w = written(entries=[renamed("tailrace", "timber")])
         text = w.plan.text()
-        again = fleet("agentplot/timber", "agentplot/tailrace")
-        with pytest.raises(plan.Refusal, match="^tailrace is timber since its rename, and deneb's spaces keep agentplot/tailrace again: "
-                                               "crew can't tell its records from timber's, so that repository needs another name in crew$"):
-            apply(w, 'bolt new y "Y is built." --repo tailrace', ctx=known(w, fleet=again, n=1))
+        with pytest.raises(plan.Refusal, match="^bolt trc-1 is in timber, not tailrace$"):
+            apply(w, 'chore add bump "Bump it." --bolt trc-1 --repo tailrace', ctx=known(w, fleet=RENAMED, n=1))
         assert w.plan.text() == text
 
     def test_a_name_no_rename_renamed_is_written_as_given_and_says_nothing(self, capsys):
@@ -104,7 +85,6 @@ class TestAFormerName:
         op = plan.OPS[("bolt", "new")](known(w, fleet=RENAMED, n=1), argparse.Namespace(
             bolt="y", goal="Y.", repo="crew", source=[], before=None))
         op.change(w)
-        op.after("afterthought/crew-state", "0" * 40)
         assert w.plan.bolt("y").get("Repo") == "crew" and capsys.readouterr().out == ""
 
 
@@ -135,7 +115,7 @@ def deneb(kept=(("agentplot/boomdrive-cloud", NEW), ("agentplot/timber", "/Users
 
 class TestTheStartedBoltLands:
     """Decision 7: once madswan's plan renames flywheel-cloud boomdrive-cloud and deneb's runner reports the renamed clone,
-    you-sign-in-to-staging is read and landed there under its kit's name now, with nothing launched again."""
+    you-sign-in-to-staging is read and landed there, its kit as the plan names it, with nothing launched again."""
 
     @pytest.fixture(autouse=True)
     def here(self, monkeypatch):
@@ -150,13 +130,13 @@ class TestTheStartedBoltLands:
                                           {"madswan": run}) if r["group"] == "land"]
 
     def test_one_seam_reads_merged_and_the_bolt_lands_in_the_renamed_clone_on_land_boomdrive_cloud(self):
-        """request 1, launched under flywheel-cloud, is read as boomdrive-cloud's (plan.launches_now), one-seam reads
-        merged at 84393d4 from deneb's place, the bolt is read and landed in the folder deneb's runner reports for
-        agentplot/boomdrive-cloud over the place's stale one, and it is a row of land/boomdrive-cloud; requests.rec is
-        as it was."""
+        """request 1, launched under flywheel-cloud, is read as written, the bolt's launches found by its branch;
+        one-seam reads merged at 84393d4 from deneb's place, the bolt is read and landed in the folder deneb's runner
+        reports for agentplot/boomdrive-cloud over the place's stale one, and it is a row of land/boomdrive-cloud;
+        requests.rec is as it was."""
         w = earlier("flywheel-cloud", "boomdrive-cloud")
         assert w.files == {"requests.rec": REQUESTS}
-        requests = plan.launches_now(plan.Plan(REQUESTS).recs("Request"), w.renames())
+        requests = plan.Plan(REQUESTS).recs("Request")
         run = (requests, deneb())
         s = runner.piece_stage(requests, run[1], runner.launch_of(requests, f"unit/{SEAM}"))
         assert (s["stage"], s["commit"]) == ("merged", COMMIT)
