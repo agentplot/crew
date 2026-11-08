@@ -7111,15 +7111,14 @@ def record_refs(source, kit_repo):
     return list(dict.fromkeys((m.group(1) or kit_repo, int(m.group(2))) for m in RECORD_REF.finditer(source)))
 
 
-def record_items(fleet, label, plan, argvs, renames=()):
+def record_items(fleet, label, plan, argvs):
     """The records a proposal's new work names (plan-proposals, briefs.15): for each bolt its `bolt new`s create, then
     each unit or chore it makes new to a bolt or the queue (new_units), as the plan its commands leave holds them, each
     record its sources name (record_refs), as (kind, name, kit, repo, number): kit the record's kit as a refusal names
     it, the work's kit by its name, or <owner>/<name> when the record is another repository's, and repo the repository
     it is read in, the work's kit as the partition's main-level host keeps it (main_kit; the user's ruling of
-    2026-11-01). A source naming the work's kit by a former name names the kit (renames, the partition's, kit_now),
-    its record read in the kit's checkout. Work whose sources name a record and whose kit that host keeps no checkout
-    of is refused, since crew can't tell whose records they are (read.1)."""
+    2026-11-01). A source's repository is read as written. Work whose sources name a record and whose kit that host
+    keeps no checkout of is refused, since crew can't tell whose records they are (read.1)."""
     work = [("bolt", a.bolt, plan.bolt(a.bolt)) for a in argvs if (a.cmd, a.sub) == ("bolt", "new")]
     work += [(kind_of(plan.item(u)) if plan.item(u) else "unit", u, plan.item(u)) for u in new_units(argvs)]
     out = []
@@ -7133,8 +7132,7 @@ def record_items(fleet, label, plan, argvs, renames=()):
         k = t["kit"]
         for s in sources:
             for repo, n in record_refs(s, k["repo"]):
-                now = kit_now(repo, renames)
-                own = repo == k["repo"] or (now != repo and kit_in(now, [k["repo"]]))
+                own = repo == k["repo"]
                 out.append((kind, name, k["name"], k["repo"], n) if own else (kind, name, repo, repo, n))
     return list(dict.fromkeys(out))
 
@@ -7162,14 +7160,13 @@ def unaccepted(items, held):
     return "\n".join([UNACCEPTED, *lines, UNACCEPTED_AFTER]) if lines else None
 
 
-def proposal_records(fleet, label, scratch, argvs, renames=()):
+def proposal_records(fleet, label, scratch, argvs):
     """The records a proposal's new work names, read on each repository's main as GitHub holds it now (plan.18): the
-    items record_items finds in the plan its commands leave (scratch), a source's repository read through the
-    partition's renames (renames), and what each repository's main holds by each
+    items record_items finds in the plan its commands leave (scratch), and what each repository's main holds by each
     number, for unaccepted. Each repository is fetched once into crew's cache, held for the command (plan.12), its
     docs/adr/ listed at that tip and the one file by a number read; a main that can't be fetched, or a file that can't
     be read as text, gives why, naming it (read.1, read.2). Returns (items, held)."""
-    items, held = record_items(fleet, label, scratch.plan, argvs, renames), {}
+    items, held = record_items(fleet, label, scratch.plan, argvs), {}
     for repo in dict.fromkeys(i[3] for i in items):
         numbers = sorted({i[4] for i in items if i[3] == repo})
         try:
@@ -7217,7 +7214,7 @@ def plan_propose(fleet, a):
         pl = proposals(w)
         n = next_proposal(pl)
         scratch = check_ops(fleet, label, w, argvs, n)
-        said = unaccepted(*proposal_records(fleet, label, scratch, argvs, w.renames()))
+        said = unaccepted(*proposal_records(fleet, label, scratch, argvs))
         not said or fail(said)
         seen["old_by"] = open_proposal(pl, n, case, dos, agent(), datetime.date.today().isoformat(), a.replaces, label)
         w.replace("proposals.rec", pl.text())
