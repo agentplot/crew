@@ -475,3 +475,35 @@ class TestTheCommand:
         w.files["proposals.rec"] = plan.PROPOSALS + "\n" + "\n".join(proposal(7, "kit rename flywheel-cloud boomdrive-cloud").lines()) + "\n"
         with pytest.raises(plan.Refusal, match="proposal 7 is open and names flywheel-cloud"):
             command(w).change(w)
+
+
+class TestRunAgain:
+    """Decisions 1 and 5: run again, the rename renames what an earlier one left, and leaves every kit.rename entry whole."""
+
+    @pytest.fixture(autouse=True)
+    def reach(self, monkeypatch):
+        monkeypatch.setattr(plan.record, "reach", lambda label, eid=None: 0)
+
+    def test_what_an_earlier_rename_left_is_renamed_and_its_entry_kept(self):
+        earlier = entry(9, "kit.rename", on=["kit/boomdrive-cloud"], frm=["kit/flywheel-cloud"], Repo="boomdrive-cloud", Count="2")
+        day = runs(entry(1, "bolt.land", on=["bolt/you-sign-in-to-staging", "unit/one-seam"], Repo="flywheel-cloud"),
+                   entry(2, "bolt.land", on=["bolt/second"], Repo="agentplot/flywheel-cloud"), earlier)
+        text = plan_text(bolts=[("third", "boomdrive-cloud", False)], units=[("x", "boomdrive-cloud", "third", [])])
+        w = FactsWrite(text, label="madswan", files={"requests.rec": requests(unit_launch(3, "one-seam", "flywheel-cloud", "staging")),
+                                                     "runs/deneb/2026-10-30.rec": day})
+        op = command(w)
+        op.change(w)
+        assert op.fields == {"Repo": "boomdrive-cloud", "Count": "3"} and w.plan.text() == plan.Plan(text).text()
+        assert plan.Plan(w.files["requests.rec"]).recs("Request")[0].get("Repo") == "boomdrive-cloud"
+        assert w.files["runs/deneb/2026-10-30.rec"] == runs(
+            entry(1, "bolt.land", on=["bolt/you-sign-in-to-staging", "unit/one-seam"], Repo="boomdrive-cloud"),
+            entry(2, "bolt.land", on=["bolt/second"], Repo="agentplot/boomdrive-cloud"), earlier)
+
+    def test_a_later_rename_leaves_the_earlier_entry_whole(self):
+        earlier = entry(9, "kit.rename", on=["kit/timber"], frm=["kit/tailrace"], Repo="timber", Count="8")
+        day = runs(entry(1, "bolt.land", on=["bolt/trc-1"], Repo="timber"), earlier)
+        w = FactsWrite(plan_text(), label="madswan", files={"runs/deneb/2026-10-30.rec": day})
+        op = command(w, "kit rename timber trc", f=fleet("agentplot/trc"))
+        op.change(w)
+        assert op.fields == {"Repo": "trc", "Count": "1"}
+        assert w.files["runs/deneb/2026-10-30.rec"] == runs(entry(1, "bolt.land", on=["bolt/trc-1"], Repo="trc"), earlier)
