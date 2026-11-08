@@ -6,7 +6,7 @@
 - [x] 1.2 crew's package writes `plugin/release.json`, the flake's commit and the package's version, where the flake knows its commit, and none where it does not, its `release` giving the same (design, Decision 2; Task notes 1.2). Verify `tests/suite nix:test nix:format nix:lint` ends with "0 failed".
 - [x] 1.3 `crew _release` prints what its crew is as one line of JSON, from a checkout and from a build, reading nothing else (design, Decision 6; Task notes 1.3). Verify `tests/suite t-session-hook` ends with "0 failed".
 - [x] 1.4 `crew _release --help` prints its usage and exits 0, and the help test lists it among the commands crew dispatches (design, Decision 6; Task notes 1.4). Verify `tests/suite t-help` ends with "0 failed".
-- [ ] 1.5 A start from a build records the commit and version its release file names, and one from a build with none records neither (design, Decision 1; Task notes 1.5). Verify `tests/suite t-session-hook` ends with "0 failed".
+- [x] 1.5 A start from a build records the commit and version its release file names, and one from a build with none records neither (design, Decision 1; Task notes 1.5). Verify `tests/suite t-session-hook` ends with "0 failed".
 
 ## 2. The crew the host has installed
 
