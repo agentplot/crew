@@ -318,3 +318,40 @@ class TestWhatStands:
         text = plan_text(bolts=[("crew-bolt", "crew", False)], units=[("crew-unit", "crew", "crew-bolt", [])])
         assert standing(text=text, requests_=[fix_of_main(1, "tailrace", "x")], reads=reading(launched={1: "landed"}),
                         entries=[card(10, "card.post", "land/tailrace"), card(11, "card.close", "land/tailrace", state="closed")]) == ([], [])
+
+
+class TestWhatAHostKeeps:
+    """Decision 3: a host's keeping is its runner's report where it gives one, else its spaces in the hosts file."""
+
+    def test_a_runner_reporting_it(self):
+        assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/tailrace": "/r/tailrace", "agentplot/timber": "/r/timber"},
+                                                       ["agentplot/timber"])}) == (["deneb's runner keeps agentplot/tailrace"], [])
+
+    def test_the_runners_report_wins_over_the_spaces(self):
+        assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/timber": "/r/timber"}, ["agentplot/tailrace"])}) == ([], [])
+
+    def test_a_runner_reporting_none_read_by_its_hosts_spaces(self):
+        assert plan.rename_kept("tailrace", {"deneb": (None, ["agentplot/tailrace", "afterthought/crew"])}) == (
+            ["deneb's spaces keep agentplot/tailrace"], [])
+
+    def test_a_runner_reporting_none_on_a_host_the_hosts_file_doesnt_list_is_unread(self):
+        assert plan.rename_kept("tailrace", {"vega": (None, None)}) == (
+            [], [f"vega's runner reports no repositories and {plan.crew.HOSTS} lists no vega, so crew can't read whether it keeps tailrace"])
+
+    def test_an_unreadable_runner_is_unread(self):
+        why = "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: repositories.rec holds agentplot/timber twice"
+        assert plan.rename_kept("tailrace", {"deneb": (why, ["agentplot/tailrace"])}) == ([], [why])
+
+    def test_the_main_level_host_with_no_runner_branch_by_its_spaces(self):
+        assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/timber": "/r/timber"}, []), "mac-studio": (None, ["tailrace"])}) == (
+            ["mac-studio's spaces keep tailrace"], [])
+
+    def test_two_repositories_by_the_name_both_named(self):
+        assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/tailrace": "/a", "afterthought/tailrace": "/b"}, None)}) == (
+            ["deneb's runner keeps afterthought/tailrace", "deneb's runner keeps agentplot/tailrace"], [])
+        assert plan.rename_kept("agentplot/tailrace", {"deneb": ({"agentplot/tailrace": "/a", "afterthought/tailrace": "/b"}, None)}) == (
+            ["deneb's runner keeps agentplot/tailrace"], [])
+
+    def test_no_host_keeping_it(self):
+        assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/timber": "/r/timber"}, None),
+                                             "mac-studio": (None, ["agentplot/tailrace-web"])}) == ([], [])

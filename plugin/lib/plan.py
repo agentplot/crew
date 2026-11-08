@@ -1907,6 +1907,33 @@ def rename_standing(old, plan, requests, reads, entries, proposals, own):
     return stands, list(dict.fromkeys(unread))
 
 
+def rename_kept(old, hosts):
+    """Which hosts still keep a repository, so crew kit rename <old> <new> waits for its removal (Decision 3 of
+    a-repository-is-renamed-by-one-explicit-command; plan.22), from plain facts (code.7): hosts, {host: (report,
+    spaces)} for each host with a runner branch of the partition and its main-level host, report the repositories its
+    runner's repositories.rec names, None for a runner that reports none or a host with no runner branch, or why its
+    runner can't be read, and spaces the repositories its sessions keep in the hosts file, None for a host it doesn't
+    list. A host's keeping is its runner's report where it gives one, else its spaces; a host keeps old where a repository
+    it keeps has old's name, or is old's address when old is given as one, each such repository named. Reads only
+    whether a host still keeps the name, to refuse, never where a kit's work runs (roles.9). No host needs to keep the
+    new name: the repository is added back under it after the rename. Returns (what keeps old, what crew could not read),
+    each as words (read.1)."""
+    names = (lambda r: r == old) if "/" in old else (lambda r: r.split("/")[-1] == old)
+    kept, unread = [], []
+    for host in sorted(hosts):
+        report, spaces = hosts[host]
+        if isinstance(report, str):
+            unread.append(report)
+        elif report is not None:
+            kept += [f"{host}'s runner keeps {r}" for r in sorted(report) if names(r)]
+        elif spaces is None:
+            unread.append(f"{host}'s runner reports no repositories and {crew.HOSTS} lists no {host}, so crew can't read "
+                          f"whether it keeps {old}")
+        else:
+            kept += [f"{host}'s spaces keep {r}" for r in sorted(set(spaces)) if names(r)]
+    return kept, unread
+
+
 # A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
 # the hosts file lists it, the owner as GitHub has it.
 KIT = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]*/)?[a-z0-9][a-z0-9-]*$")
