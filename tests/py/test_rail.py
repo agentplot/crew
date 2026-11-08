@@ -151,7 +151,7 @@ class TestRows:
         assert land["cmds"] == []
         held["wldn"]["refused"] = {"apex-zones": ("c" * 40, "an older head's")}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
 
     def test_a_landing_queued_or_landing_again_says_so_holds_the_bolts_work_and_is_no_bolt_that_can_land(self):
         """crew-rail "A landing queued" and "Landing again": submitted and not yet decided, so the tell leaves it out."""
@@ -177,11 +177,11 @@ class TestRows:
                          "stopped": {"apex-zones": ("abc1234" + "0" * 33, stop)}}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
         assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: can land; its last landing at abc1234 was stopped, nothing of the "
-                                   f"bolt's: {stop}; wldn-ops submits it again once that is cleared")
+                                   f"bolt's: {stop}; wldn-ops submits it again once that is cleared; follows: the next card under land/{KIT} carries it")
         assert land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')] and land["bolts"][0]["can"] is True
         held["wldn"]["stopped"] = {"apex-zones": ("c" * 40, "an older head's")}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
 
     def test_a_bolt_carrying_another_bolts_work_is_held_on_its_land_line_and_left_out_of_the_tell(self):
         """crew-rail "A bolt carrying another bolt's work is held on its land line" (plan.8): its kit's read says the
@@ -197,7 +197,7 @@ class TestRows:
         assert land["cmds"] == [] and land["bolts"][0]["can"] is False
         sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["carries"] = {}
         land, = [r for r in rows(held=held, sv=sv) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
 
     def test_a_bolt_forecast_at_its_head_to_conflict_with_main_takes_main_first_and_is_left_out_of_the_tell(self):
         """crew-rail "A bolt taking main first" and "A conflict forecast at an older head"."""
@@ -210,7 +210,7 @@ class TestRows:
         assert land["cmds"] == [] and land["bolts"][0]["can"] is False
         held["wldn"]["forecasts"] = [dict(conflict, Heads="bolt/apex-zones@ccccccc main@e4f5a6b")]
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land" and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it" and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
 
     def test_a_left_bolt_forecast_to_conflict_with_main_takes_main_first_once_ticked_and_is_left_out_of_the_tell(self):
         """crew-rail "Left and forecast to conflict" and "Ticked"."""
@@ -231,7 +231,68 @@ class TestRows:
         # left and clean: as today
         held["wldn"].update(forecasts=[], left=[left])
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
+
+    # How the kit's card stands for each bolt of its land row (crew-rail "Each bolt's land line says whether its card
+    # carries, holds or follows it", design Decision 8).
+    H = "abc1234" + "0" * 33
+
+    @staticmethod
+    def kit_card(heads, answered=None):
+        return dict(card="req_k1", heads=plan.card_heads(heads), taking=plan.heads_taking(heads),
+                    answered=None if answered is None else dict(at=NOW, answer="ticked", heads=answered))
+
+    @pytest.mark.parametrize("bolt, head, can, card, sends, stand", [
+        ("b", H, True, "waiting b@abc1234", {}, ("carries", None)),  # A bolt the open card carries
+        ("b", "2222222" + "0" * 33, True, "waiting b@1111111", {}, ("carries", "1111111")),  # A bolt the card shows at an older head
+        ("b", H, True, "answered b@abc1234", {}, ("holds",)),  # A bolt the user's send holds
+        ("b", H, True, None, {"b": "abc1234"}, ("holds",)),  # A send kept on a closed card
+        ("b", H, False, None, {"b": "abc1234"}, ("holds",)),  # held taking main in, on that send
+        ("c", H, True, "answered b@abc1234", {}, ("follows", True)),  # A bolt proven since the send
+        ("b", H, True, None, {}, ("follows", False)),  # A bolt no card carries yet
+        ("b", H, False, None, {}, None),  # A bolt waiting on its verification
+        ("b", H, True, "answered left", {}, ("follows", True)),  # left on the send, carried by the card after it
+    ])
+    def test_a_bolts_card_stand(self, bolt, head, can, card, sends, stand):
+        kind, _, heads = (card or "").partition(" ")
+        c = (self.kit_card(heads) if kind == "waiting" else self.kit_card("b@abc1234 x@abc1234", answered=heads if heads != "left" else "x@abc1234")
+             if kind == "answered" else None)
+        assert plan.card_stand(bolt, head, can, c, sends) == stand
+
+    def land_line(self, land_cards=None, sends=None, **more):
+        held = {"wldn": dict({"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}},
+                             land_cards=land_cards or {}, sends=sends or {}, **more)}
+        land, = [r for r in rows(held=held) if r["group"] == "land"]
+        return land["what"][1]
+
+    def test_each_bolt_line_ends_with_how_its_kits_card_stands_for_it(self):
+        line = f"apex-zones, on {BOX}, in Flume stream wldn: can land; "
+        key = f"land/{KIT}"
+        assert self.land_line({key: self.kit_card("apex-zones@abc1234")}) == line + f"carried by {key}, waiting on you"
+        assert self.land_line({key: self.kit_card("apex-zones@1111111")}) == line + f"carried by {key} at 1111111, its head now abc1234, waiting on you"
+        assert self.land_line({key: self.kit_card("apex-zones@abc1234", answered="apex-zones@abc1234")}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line(sends={key: {"apex-zones": "abc1234"}}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line({key: self.kit_card("other@abc1234", answered="other@abc1234")}) == line + f"follows: the card after {key}'s answered one carries it"
+        assert self.land_line() == line + f"follows: the next card under {key} carries it"
+
+    def test_a_bolt_that_cant_land_and_is_no_row_of_the_card_says_nothing_of_it(self):
+        sv = survey()
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["verdict"] = ""
+        held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "land_cards": {}, "sends": {}}}
+        land, = [r for r in rows(held=held, sv=sv) if r["group"] == "land"]
+        assert land["what"][1].endswith("so it has no verdict")
+
+    def test_the_record_reading_keeps_each_landings_cards_rows_answer_and_the_sends_kept(self):
+        k = f"land/{KIT}"
+        entries = [post("req_k0", k, by="wldn-ops", minutes=1), dict(Act="card.close", Card="req_k0", Key=k, By="wldn-ops", Heads="y@1111111"),
+                   dict(post("req_k1", k, by="wldn-ops", minutes=2), Heads="z@2222222"),
+                   dict(Act="card.update", Card="req_k1", Key=k, By="wldn-ops", Heads="z@2222222 w@3333333:main"),
+                   dict(Act="card.answer", Card="req_k1", Key=k, By="wldn-ops", Answer="ticked z", Heads="z@2222222", At=iso(1)),
+                   post("req_p1", "proposal/1", minutes=2)]
+        held = plan.record_reading("wldn", entries, the_plan(), NOW - datetime.timedelta(days=14))["held"]
+        assert held["land_cards"] == {k: dict(card="req_k1", heads=[("z", "2222222", False), ("w", "3333333", False)], taking={"w"},
+                                              answered=dict(at=NOW - datetime.timedelta(minutes=1), answer="ticked z", heads="z@2222222"))}
+        assert held["sends"] == {k: {"y": "1111111"}}
 
     def test_the_record_reading_keeps_what_says_which_bolts_the_user_left(self):
         left = [dict(Act="landing.left", On=["kit/k"], Key="land/k", Heads="b@abc1234"), dict(Act="bolt.leave", On=["bolt/b"], Head="a" * 40),
@@ -293,7 +354,7 @@ class TestRows:
         assert land["what"][1:] == [f"apex-zones, on {BOX}, in Flume stream wldn: lands once you have answered batch 8"] and land["cmds"] == []
         held["wldn"]["unanswered"] = {}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1:] == [f"apex-zones, on {BOX}, in Flume stream wldn: can land"] and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
+        assert land["what"][1:] == [f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"] and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
 
     def test_a_landing_row_names_both_the_units_due_a_batch_and_the_batches_that_wait_on_the_user(self):
         p = plan.Plan(plan_text(bolts=[("apex-zones", KIT, "swb-2")], units=[(u, KIT, "apex-zones", []) for u in ("zone-one", "zone-two", "zone-three")]))
@@ -698,7 +759,7 @@ class TestRecord:
         rs = rows(held={"wldn": r["held"]})
         assert not [x for x in rs if x["group"] == "batches"]
         land, = [x for x in rs if x["group"] == "land"]
-        assert land["what"][1:] == ["apex-zones, on chuck-herdr-alpha, in Flume stream wldn: can land"] and land["cmds"] == [
+        assert land["what"][1:] == [f"apex-zones, on chuck-herdr-alpha, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"] and land["cmds"] == [
             ("answer", 'crew tell wldn-ops "Land apex-zones."')]
 
 

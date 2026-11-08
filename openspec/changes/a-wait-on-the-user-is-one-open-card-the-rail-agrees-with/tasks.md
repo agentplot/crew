@@ -23,7 +23,7 @@ Each pytest check runs from `tests/.venv`, synced by `devenv shell -- moon run t
 ## 4. The rail says what each card waits on
 
 - [x] 4.1 A row's answered card says when and what was answered and the owner's act it waits on, and answered questions, record cards and left landings cards are listed under answered cards waiting on their askers, not among what waits on the user (design, Decision 3; Task notes 4.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
-- [ ] 4.2 Each bolt's line on a kit's land row says whether its card carries, holds or follows it, and a bolt that can't land and is no row of the card says nothing of it (design, Decision 8; Task notes 4.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
+- [x] 4.2 Each bolt's line on a kit's land row says whether its card carries, holds or follows it, and a bolt that can't land and is no row of the card says nothing of it (design, Decision 8; Task notes 4.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
 - [ ] 4.3 On the stub pendingyou, `crew rail`'s sweep records a steered answer once and the row's card line says it waits on the planner, with one `list_pending` in the planner's name, and `t-cards.sh`'s other expectations follow the new reads (design, Decisions 2 and 3; Task notes 4.3). Verify `tests/suite t-cards` ends with "0 failed".
 
 ## 5. A bolt's time and the agents' bands

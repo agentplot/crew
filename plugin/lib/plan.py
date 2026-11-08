@@ -11284,7 +11284,10 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
     its last card act is a close (batch_closed), so a batch card posted again after a close keeps its row, or once its
     batch waits on nothing (batch_settled), whose words are held as settled. crossed, as due_changes takes it. An open
     card the user answered carries answered, {at, answer, heads}, from its first card.answer (design Decision 3 of
-    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); one not answered carries none."""
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); one not answered carries none. The held facts keep, for
+    each bolt's land line (card_stand), each land/ key's open card in main-level ops's name, its rows as its last post
+    or change showed them and its answer (land_cards), and the sends kept on that key's closed cards (sends,
+    landings_sent)."""
     times, posted, closed, landings = {}, {}, set(), []
     for e in entries:
         act = e.get("Act")
@@ -11311,12 +11314,20 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
                                      by=e.get("By"), host=e.get("Host")))
     settled = batch_settled(entries)
     closed = {k for k in closed if not k.startswith("batch/")} | batch_closed(entries) | set(settled)  # a batch card posted again reopens its row
+    # each landings key's open card in ops's name, as its last post or change showed it, and the sends kept on its
+    # closed cards (landings_sent), which say how each bolt's card stands (card_stand)
+    ops_cards = sorted((c for c in posted.values() if (c["key"] or "").startswith("land/") and c["by"] == f"{l}-ops"), key=lambda c: c["at"])
+    land_cards = {c["key"]: dict(card=c["card"], heads=card_heads(shown_heads(entries, c["card"])),
+                                 taking=heads_taking(shown_heads(entries, c["card"])), answered=c.get("answered")) for c in ops_cards}
+    sends = {k: landings_sent(entries, k, f"{l}-ops") for k in dict.fromkeys(
+        e["Key"] for e in entries if e.get("Act") == "card.close" and (e.get("Key") or "").startswith("land/") and e.get("Heads"))}
     held = dict(batches=batches(entries), closed=closed, settled=settled, posts=batch_posts(entries),
                 due=None if missing else {u for u, *_ in due_changes(plan, entries, crossed)},
                 unanswered=None if missing else awaiting_answer(entries, crossed), refused=refusals(entries), stopped=stops(entries),
                 phases=landing_phases(entries),
                 forecasts=[e for e in entries if e.get("Act") == "forecast"],
-                left=[e for e in entries if e.get("Act") in ("landing.left", "bolt.leave", "bolt.submit")])
+                left=[e for e in entries if e.get("Act") in ("landing.left", "bolt.leave", "bolt.submit")],
+                land_cards=land_cards, sends=sends)
     return dict(times=times, cards=list(posted.values()), landings=landings, held=held)
 
 
@@ -11343,7 +11354,8 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
     (held's phases, landing_phase) says so and that no work joins it until sluice decides, and is no bolt that can land
     (bolt-teams "A landing queued holds its bolt's work"), or for a bolt the user left on the
     kit's landings card (left_of, held's left), that it takes main first once ticked (crew-rail "A left bolt's land line
-    says it would take main first once ticked"). A bolt given through Flume is a row's on the same terms, its pieces' stages
+    says it would take main first once ticked"); and, once the partition's run record was read, how the kit's card
+    stands for it, carried, held by the user's send or following (card_stand, stand_said). A bolt given through Flume is a row's on the same terms, its pieces' stages
     and its fixes in flight read from the runner's records (Stages, runner.fixes_on), and each bolt's line says its
     team's stream after its host (runner.stream_said; Decision 14 of teams-cross-to-flume-as-their-bolts-land), its team's
     Flume stream where another's says nothing of slots. A kit's row carries too, ahead of its bolts, each fix of its main whose
@@ -11430,9 +11442,12 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                          "taking main in moves its head"]
             can = ["can land"] + ([f"its last landing at {head[:7]} was stopped, nothing of the bolt's: {stop.rstrip('.')}; "
                                    f"{l}-ops submits it again once that is cleared"] if stop else [])  # stopped_at, holding nothing
+            # how the kit's card stands for the bolt, once the run record was read (card_stand, design Decision 8)
+            stand = card_stand(b.name(), head, not lands, (held[l].get("land_cards") or {}).get(f"land/{kit_name}"),
+                               (held[l].get("sends") or {}).get(f"land/{kit_name}") or {}) if l in held else None
             kits.setdefault(kit_name, []).append(
                 dict(bolt=b.name(), host=host, at=at, can=not lands, line=f"{b.name()}, on {host}"
-                     + (f", {path}" if path else "") + ": " + "; ".join(lands or can)))
+                     + (f", {path}" if path else "") + ": " + "; ".join((lands or can) + ([stand_said(stand, kit_name, l, head)] if stand else []))))
         waiting = {}
         for f in runner.main_fixes_waiting(*(runs or {}).get(l, ([], {}))):
             waiting.setdefault(f["kit"], []).append(f)
@@ -11447,6 +11462,39 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                              bolts=[{k_: x[k_] for k_ in ("bolt", "host", "can")} for x in bolts],
                              fixes=[{k_: f[k_] for k_ in ("fix", "host", "can", "send")} for f in fixes]))
     return rows
+
+
+def card_stand(bolt, head, can, card, sends):
+    """How a kit's landings card stands for one bolt of its land row (crew-rail "Each bolt's land line says whether its
+    card carries, holds or follows it", design Decision 8), from facts alone (code.7): the bolt, its head now and
+    whether it can land; card, the open card under land/<kit> in main-level ops's name as record_reading keeps it, None
+    or {card, heads: [(bolt, head7, left)], taking, answered: {heads} or None}; sends, the sends kept on that key's
+    closed cards, landings_sent's {bolt: head}. ("carries", the head the card shows, or None when it shows the head now)
+    while the card waits on the user and shows the bolt as a row; ("holds",) when the card is answered and its answer
+    ticked the bolt, or a kept send names the bolt and no open card shows it, since a raise leaves out exactly the bolts
+    whose send stands (rows_unsent), so no git read is needed to agree with it; ("follows", whether the card that carries
+    it follows an answered one) when the bolt can land and neither holds; None for a bolt that can't land and is no row
+    of the card."""
+    shown = {b: h for b, h, _ in (card or {}).get("heads") or []}
+    answered = (card or {}).get("answered")
+    if card and not answered and bolt in shown:
+        return ("carries", None if at_head(shown[bolt], head) else shown[bolt])
+    if answered and bolt in {b for b, _, _ in card_heads(answered.get("heads"))}:
+        return ("holds",)
+    if bolt in sends and bolt not in shown:
+        return ("holds",)
+    return ("follows", bool(answered)) if can else None
+
+
+def stand_said(stand, kit, label, head):
+    """A bolt's card stand (card_stand) in the words its land line ends with, before its time."""
+    if stand[0] == "carries":
+        return (f"carried by land/{kit} at {stand[1]}, its head now {head[:7]}, waiting on you" if stand[1] else
+                f"carried by land/{kit}, waiting on you")
+    if stand[0] == "holds":
+        return f"held by your send on land/{kit}: {label}-ops lands it"
+    return (f"follows: the card after land/{kit}'s answered one carries it" if stand[1] else
+            f"follows: the next card under land/{kit} carries it")
 
 
 def main_fix_line(label, kit, f):
