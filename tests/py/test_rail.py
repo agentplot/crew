@@ -2016,7 +2016,7 @@ class TestBolts:
         zone, = b["apex-zones"]["units"]
         assert b["apex-zones"]["state"] == "waits" and zone["flume"]["stage"] == "merged"
         assert {k: v for k, v in zone.items() if k != "flume"} == dict(unit="zone-one", kind="unit", after=[], sources=[], stage="merged", tasks=None,
-                                                                         worktree=None, submission=None)
+                                                                         worktree=None)
 
     def test_the_text_names_the_branch_each_bolt_and_each_units_stage_and_place(self):
         out = plan.bolts_text(self.data())

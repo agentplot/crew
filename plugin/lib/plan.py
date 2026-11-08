@@ -5502,20 +5502,19 @@ def rejected_said(n, head):
     return f"#{n}" if n else f"its landing at {(head or '')[:7]}"
 
 
-def phase_said(phase, head, live=False):
+def phase_said(phase, head):
     """What a bolt's line says of its landing as the run record holds it (landing_phase), each state in words of its own
-    (bolt-teams "A landing queued holds its bolt's work"): queued, `landing queued as #<n>`, or nothing while sluice's
-    queue shows its landing standing (live), whose own state says it; again, `landing again as #<n>, after #<m> was
-    rejected`, the number left to sluice's state while live; rejected, while the bolt's head now (head) is the one
-    rejected, `landing #<m> rejected at <head>, open for work: <words>`, and nothing once a fix has moved it, the
-    rejection holding nothing (held_at); else None. A decision of facts alone (code.7)."""
+    (bolt-teams "A landing queued holds its bolt's work"), the number always named, since no view reads sluice's queue
+    (crew record 0056 points 1 and 4): queued, `landing queued as #<n>`; again, `landing again as #<n>, after #<m> was
+    rejected`; rejected, while the bolt's head now (head) is the one rejected, `landing #<m> rejected at <head>, open
+    for work: <words>`, and nothing once a fix has moved it, the rejection holding nothing (held_at); else None. A
+    decision of facts alone (code.7)."""
     if not phase:
         return None
     if phase["state"] == "queued":
-        return None if live else f"landing queued as #{phase['n']}"
+        return f"landing queued as #{phase['n']}"
     if phase["state"] == "again":
-        after = f"after {rejected_said(*phase['rejected'])} was rejected"
-        return f"landing again, {after}" if live else f"landing again as #{phase['n']}, {after}"
+        return f"landing again as #{phase['n']}, after {rejected_said(*phase['rejected'])} was rejected"
     if at_head(phase["head"], head):
         return (f"landing {'#' + str(phase['n']) + ' ' if phase['n'] else ''}rejected at {phase['head'][:7]}, open for work: "
                 f"{phase['words']}")
@@ -10221,8 +10220,9 @@ def line_branches(name, kind):
 
 
 def submission_rows(submissions, bolt, lines):
-    """Whose line of a bolt's row each submission standing in sluice's queue is (bolt-teams "A submission's number is
-    on its bolt's row from the submit", teams.22), a decision of facts alone (code.7): from the kit's submissions as the
+    """Whose line of a bolt's row each submission standing in sluice's queue is (teams.22), a decision of facts alone
+    (code.7), for crew's own landing alone, which reads sluice's queue before it submits (landing_standing); no view
+    calls it, a piece's submission being on its line as the runner carries it (runner.piece_said): from the kit's submissions as the
     gather reads them (gather.submissions_of), the bolt, and its lines, [(name, kind)], kind unit, chore or fix, a fix
     named by its work, fix/<bolt>/<f>. On bolt/<bolt>, a submission from one of a line's branches (line_branches), its
     Flume place's or crew's own from before, is that line's; on main, one from bolt/<bolt>, or from a pull request,
@@ -10241,8 +10241,8 @@ def submission_rows(submissions, bolt, lines):
 
 
 def standing_said(sub):
-    """A standing submission as a row says it: its number and its state in crew's words (STANDING), sluice's own word
-    for a state crew has none for, and none when sluice gave none."""
+    """A standing submission as crew's own landing says it (landing_standing): its number and its state in crew's words
+    (STANDING), sluice's own word for a state crew has none for, and none when sluice gave none; no view calls it."""
     words = STANDING.get(sub.get("state"), sub.get("state"))
     return f"#{sub['id']}" + (f" {words}" if words else "")
 
@@ -10251,10 +10251,8 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
     """What crew bolts shows, from the plans read (found) and the survey of the hosts holding their bolts (sv): each
     partition's plans, each bolt with the host its work runs on as the runner that took it reported (bolt_at), state, verification (whether its head is the landing of its
     work, as the runner reports it, Stages.verification, for a bolt whose kit was read), units and chores in build order with their kinds and
-    stages read from the kits, and fixes, each with the number and state of its merge standing in sluice's queue on
-    the bolt's branch (submission), the bolt's landing standing on its kit's main (landing), and, when the queue could
-    not be read on its host, why (submissions_error), no line then given a submission (submission_rows,
-    teams.22); and the queue; the hosts that did not answer and the plans that could not be read. Each started bolt says
+    stages read from the kits, and fixes, each piece's submission said by its stage as the runner carries it
+    (runner.piece_said) and nothing of sluice's queue read (crew record 0056 points 1 and 4); and the queue; the hosts that did not answer and the plans that could not be read. Each started bolt says
     the Flume stream its work runs in, as Flume's status of its places names it (stream), and a bolt given through Flume its units' and chores' stages and its fixes' from the
     runner's records (Stages.crossed, Stages.fixes), each with stage_of's answer (flume), no worktree and no submission
     of crew's, and the runners that could not be read, which hide that work alone (runners_unread; Decisions 8 and 14
@@ -10290,14 +10288,9 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                     data["runners_unread"][silent[0]] = silent[1]
                 bk = (k or {}).get("bolts", {}).get(b.name()) or {}
                 verified = dict(zip(("state", "said"), st.verification(b, bk.get("head")))) if k and bk.get("exists") else None
-                unread = (k or {}).get("submissions_error")
-                rows, landing = submission_rows(None if unread else (k or {}).get("submissions"), b.name(),
-                                                [(u["unit"], u["kind"]) for u in units] + [(f["fix"], "fix") for f in fixes])
-                for x in units + fixes:
-                    x["submission"] = rows.get(x.get("unit") or x.get("fix"))
                 bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"),
                                   host=st.host(b) if crossed else None, state=st.bolt_state(b), verification=verified, units=units, fixes=fixes,
-                                  landing=landing, submissions_error=unread, given=b.get("Path"), stream=t["stream"] if t else None,
+                                  given=b.get("Path"), stream=t["stream"] if t else None,
                                   head=bk.get("head"), landing_record=landing_phase(log, b.name()) if crossed and isinstance(log, list) else None,
                                   carries=bk.get("carries") or {}, carries_error=bk.get("carries_error")))
             queue = [] if bolt else [dict(unit=u.name(), kind=kind_of(u), repo=u.get("Repo"), stage="queued", sources=u.all("Source"))
@@ -10308,10 +10301,9 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
 
 
 def bolts_text(data):
-    """crew bolts as text: each plan's branch and tip, each bolt with its repo, host and state and its landing standing
-    in sluice, `landing #<n> <state>` (standing_said), that its submissions can't be read on its host and why, once,
-    when they can't, its verification when its kit was read, and each unit with its stage, tasks, its merge standing in
-    sluice, `#<n> <state>`, and place, each chore among them with `chore` before its stage, each fix with its merge, the
+    """crew bolts as text: each plan's branch and tip, each bolt with its repo, host and state, its verification when
+    its kit was read, and each unit with its stage, tasks and place, each chore among them with `chore` before its
+    stage, each fix with its stage, the
     queue by repo with each unit's and chore's sources, and each host that did not answer. A started bolt's host and
     stream are on its head line (runner.stream_said), with its landing as the run record holds it, queued, again or
     rejected, each in words of its own (phase_said), and a crossed piece's line says its stage as the runner's records give it, its
@@ -10327,14 +10319,11 @@ def bolts_text(data):
             for b in pl["bolts"]:
                 who = (f"@ {b['host']}" if b["host"] else "not started" if not b.get("given") else "where it runs can't be told") + (
                     f", {runner.stream_said(b['stream'])}" if b.get("stream") else "")
-                record_said = phase_said(b.get("landing_record"), b.get("head"), live=bool(b.get("landing")))
-                lines.append(f"{b['bolt']}  {b['repo']}  {who}  {b['state']}" + (f"  {record_said}" if record_said else "")
-                             + (f"  landing {standing_said(b['landing'])}" if b.get("landing") else ""))
+                record_said = phase_said(b.get("landing_record"), b.get("head"))
+                lines.append(f"{b['bolt']}  {b['repo']}  {who}  {b['state']}" + (f"  {record_said}" if record_said else ""))
                 carry = carries_said(b.get("carries"), b.get("carries_error"))
                 if carry:
                     lines.append(f"  landing: held: {carry}")
-                if b.get("submissions_error"):
-                    lines.append(f"  submissions: can't be read on {b['host']}: {b['submissions_error']}")
                 if b.get("verification"):
                     lines.append(f"  verification: {b['verification']['state']}, {b['verification']['said']}")
                 for u in b["units"]:
@@ -10344,8 +10333,7 @@ def bolts_text(data):
                         lines.append(f"  {u['unit']:<40} {stage:<12} {flume_place(u['flume'])}  {detail}".rstrip())
                         continue
                     stage = ("chore " if u.get("kind") == "chore" else "") + u["stage"] + (
-                        f" {u['tasks'][0]}/{u['tasks'][1]}" if u["stage"] in ("code", "verify") and u["tasks"] else "") + (
-                        f" {standing_said(u['submission'])}" if u.get("submission") else "")
+                        f" {u['tasks'][0]}/{u['tasks'][1]}" if u["stage"] in ("code", "verify") and u["tasks"] else "")
                     where = "places/" + os.path.basename(u["worktree"]) if u["worktree"] else ""
                     lines.append(f"  {u['unit']:<40} {stage:<12} {where}".rstrip())
                 for f in b["fixes"]:
@@ -10353,7 +10341,7 @@ def bolts_text(data):
                         stage, detail = runner.piece_said(f["flume"])
                         lines.append(f"  {f['fix']:<40} {'fix ' + stage:<12} {flume_place(f['flume'])}  {detail}".rstrip())
                         continue
-                    fixed = ("fix merged" if f["merged"] else "fix") + (f" {standing_said(f['submission'])}" if f.get("submission") else "")
+                    fixed = "fix merged" if f["merged"] else "fix"
                     lines.append(f"  {f['fix']:<40} {fixed:<12} places/{os.path.basename(f['worktree'])}")
             repos = sorted({u["repo"] for u in pl["queue"]})
             for r in repos:

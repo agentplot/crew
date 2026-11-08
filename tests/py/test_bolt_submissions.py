@@ -4,9 +4,10 @@ own overview (tests/py/sluice-0.51.3/), every field guarded and a document of an
 failures, each said, on a stand-in for the process; the submissions an overview's recent events name decided,
 gather.decided_in, on sluice 0.56.0's and 0.51.3's own overviews (tests/py/sluice-0.56.0/); sluice's record of every
 submission a branch has had, gather.decided_of, as the landing reads it once, on its own `status --all` documents;
-whose line each submission is, plan.submission_rows; and what
-crew bolts shows of them, plan.bolts_data and plan.bolts_text, beside the rest of crew bolts in test_rail.py and
-test_chores.py."""
+whose line each submission is, plan.submission_rows, which crew's own landing reads; and that crew bolts,
+plan.bolts_data and plan.bolts_text, shows a piece's submission as the runner carries it and a bolt's landing as the
+run record holds it, never from sluice's queue (crew record 0056 points 1 and 4), beside the rest of crew bolts in
+test_rail.py and test_chores.py."""
 import json
 import pathlib
 import subprocess
@@ -287,10 +288,10 @@ def here(monkeypatch):
     monkeypatch.setenv("CREW_AGENT", "chuck")
 
 
-def bolts(submissions=None, error=None, at="code", carries=None):
+def bolts(at="code", carries=None, logs=None):
     """crew bolts of wldn's plan, its bolt y started and its work launched, taken by the runner on the box, which keeps
-    switchboard-kit in /kit/main, a's place at the Flume 0.3.6 status fixture named (tests/py/flume-0.3.6/<at>.json), the
-    kit's submissions in sluice's queue as given."""
+    switchboard-kit in /kit/main, a's place at the Flume 0.3.6 status fixture named (tests/py/flume-0.3.6/<at>.json),
+    the kit read as the gather reads it, with no queue of sluice's, and wldn's run record the entries logs gives."""
     from facts import FactsWrite, ran
     import runner
     w = FactsWrite(plan_text(bolts=[("y", "switchboard-kit", "swb-1")],
@@ -298,11 +299,11 @@ def bolts(submissions=None, error=None, at="code", carries=None):
     plan.reach_places(FLEET, w, "y")
     requests = plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")
     kit = {"ok": True, "main": [], "fixes": [], "places": {}, "bolts": {"y": {"exists": True, "head": "d" * 40, "changes": [],
-                                                                         **({"carries": carries} if carries else {})}},
-           **({"submissions": submissions} if submissions is not None else {}), **({"submissions_error": error} if error else {})}
+                                                                         **({"carries": carries} if carries else {})}}}
     sv = {BOX: {"ok": True, "kits": {"/kit/main": kit}}}
     return plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, w.plan)], sv, {},
-                           runs={"wldn": (requests, ran({1: at}, host=BOX, label="wldn", repository="/kit/main"))})
+                           runs={"wldn": (requests, ran({1: at}, host=BOX, label="wldn", repository="/kit/main"))},
+                           logs={"wldn": logs} if logs is not None else None)
 
 
 def held(d):
@@ -321,37 +322,34 @@ def test_crew_bolts_says_a_bolt_carrying_another_bolts_work_is_held_naming_it():
     assert held(bolts())["carries"] == {} and "carries" not in plan.bolts_text(bolts())
 
 
+A_LINE = "  a                                        submitted #413 flume/change--teams-cross-to-flume-as-their-bolts-land"
+
+
 def test_crew_bolts_shows_a_merge_under_test_on_its_line_and_the_landing_on_the_head_line():
-    """bolt-teams "A unit's merge under test", "A bolt's landing queued on main"."""
-    d = bolts([sub(41, "bolt/y", "unit/a", "testing"), sub(355, "main", "pull/198", pull_head="bolt/y", head="d" * 40)], at="submitted")
+    """bolt-teams "A unit's merge under test", "A bolt's landing queued on main" and "Read again after the session that
+    submitted it ended": a's line says its submission as the runner carries Flume's status of its place, under test as
+    #413, and y's head line its landing as the run record holds it, queued as #355; the JSON gives a's stage from the
+    runner and no line a submission, nor the bolt a landing or a submissions error, read from sluice's queue."""
+    queued = [dict(Act="bolt.submit", On=["bolt/y"], Outcome="queued", Submission="355", Head="d" * 40)]
+    d = bolts(at="submitted", logs=queued)
     b = held(d)
-    assert {u["unit"]: u["submission"] for u in b["units"]} == {"a": {"id": 41, "state": "testing"}, "b": None, "bump": None}
-    assert (b["landing"], b["submissions_error"]) == ({"id": 355, "state": "queued", "head": "d" * 40}, None)
+    assert (b["units"][0]["flume"]["stage"], b["units"][0]["flume"]["submission"]) == ("submitted", "413")
+    assert not any("submission" in x for x in b["units"] + b["fixes"]) and "landing" not in b and "submissions_error" not in b
     out = plan.bolts_text(d).splitlines()
-    assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active  landing #355 queued"
-    assert "  a                                        submitted #413 flume/change--teams-cross-to-flume-as-their-bolts-land" in out
-    assert json.loads(json.dumps(d))["partitions"][0]["plans"][0]["bolts"][0]["units"][0]["submission"] == {"id": 41, "state": "testing"}
-
-
-def test_a_merge_passed_and_nothing_waiting_on_it_still_shows():
-    """bolt-teams "Read again after the session that submitted it ended": the queue is sluice's, so a restart loses nothing."""
-    d = bolts([sub(41, "bolt/y", "unit/a", "passed")])
-    assert held(d)["units"][0]["submission"] == {"id": 41, "state": "passed"}
-    assert plan.standing_said(held(d)["units"][0]["submission"]) == "#41 passed, to land next"
+    assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active  landing queued as #355"
+    assert A_LINE in out
 
 
 def test_once_decided_no_line_shows_a_submission():
-    """bolt-teams "Decided": sluice's overview holds a landed submission in no chain."""
-    d = bolts([])
-    assert all(u["submission"] is None for u in held(d)["units"]) and held(d)["landing"] is None
+    """bolt-teams "Decided": the runner carries a's place landed, so a reads merged and its line names no number."""
+    d = bolts(at="landed")
+    assert held(d)["units"][0]["stage"] == "merged"
     assert "#" not in plan.bolts_text(d)
 
 
-def test_a_queue_that_cant_be_read_is_said_once_on_the_head_line_and_no_line_shows_a_number():
-    """bolt-teams "sluice's record can't be read"."""
-    d = bolts([sub(41, "bolt/y", "unit/a", "testing")], error="sluice overview exited 2: not a repository sluice serves")
-    assert all(u["submission"] is None for u in held(d)["units"]) and held(d)["landing"] is None
-    assert held(d)["submissions_error"] == "sluice overview exited 2: not a repository sluice serves"
-    out = plan.bolts_text(d)
-    assert out.count("can't be read") == 1 and "#41" not in out
-    assert out.splitlines()[2] == f"  submissions: can't be read on {BOX}: sluice overview exited 2: not a repository sluice serves"
+def test_sluices_record_cant_be_read_and_nothing_is_said_of_it():
+    """bolt-teams "sluice's record can't be read": the kit's read carries nothing of sluice's queue, and none is asked;
+    a's line still says its submission from the runner, and the head line says nothing of the queue."""
+    out = plan.bolts_text(bolts(at="submitted")).splitlines()
+    assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active"
+    assert A_LINE in out and not any("can't be read" in line for line in out)

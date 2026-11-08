@@ -223,9 +223,9 @@ def board_data(fleet, labels, read, now):
     its landings name (plan.partition_kits), which the fleet page lists. Each started bolt is a ledger of its units, chores and fixes,
     its host and stream where the runner that took its work reported them (plan.bolt_at), each unit or chore with its
     kind, and each of them with its stage from the runner's records and what goes with it (flume, Stages.crossed,
-    Stages.fixes) and its merge standing in sluice's queue, as the ledger its landing standing on its kit's main and why
-    the queue can't be read on its kit's host when it can't (plan.submission_rows, teams.22); a runner that could not be
-    read is named for attention. Each ledger has its bolt's time to now (plan.held_time, plan.20): {age, shares: {team,
+    Stages.fixes), a piece's submission among it as the runner carries it (runner.piece_said), and the ledger its landing
+    as the run record holds it (record, landing_of), nothing of sluice's queue read (crew record 0056 points 1 and 4); a
+    runner that could not be read is named for attention. Each ledger has its bolt's time to now (plan.held_time, plan.20): {age, shares: {team,
     kit, team_or_kit, user, hold, nobody}, now: {holder, what, since}, said}, in minutes, or {unknown: why, said}, with
     its age once its start is read. Each partition lists too its open cards, oldest first, each with whose it is and what
     it is, a row's, a decision record's or a question (plan.card_kind), and the decision records proposed and not yet
@@ -282,21 +282,18 @@ def board_data(fleet, labels, read, now):
                 silent = st.unread(b)
                 if silent:
                     attention.append({"what": "runner", "name": silent[0], "why": silent[1]})
-                unread = k.get("submissions_error")
-                subs, landing = plan.submission_rows(None if unread else k.get("submissions"), b.name(),
-                                                     [(u.name(), plan.kind_of(u)) for u in units])
                 recorded = landing_of(logs, b.name())
                 ledger = {"bolt": b.name(), "repo": b.get("Repo"), "goal": b.get("Goal"), "host": st.host(b),  # plan.Stages.host
                           "head": (k.get("bolts", {}).get(b.name()) or {}).get("head"),
                           "stream": t["stream"] if t else None, "state": state, "url": None,  # its places are Flume's (crew-board)
                           "markers": markers(rows, cards, l, "land", b.name(), logs), "units": [], "fixes": [],
-                          "landing": landing, "submissions_error": unread, "record": recorded,
+                          "record": recorded,
                           "time": plan.held_time(fleet, logs, read["unread"].get(l, {}), pl, b, k, now)}
                 for u in units:
                     s = st.of(u.name())
                     ledger["units"].append({"unit": u.name(), "kind": plan.kind_of(u), "stage": s["stage"], "tasks": s["tasks"],
-                                            "submission": subs.get(u.name()), "worktree": s["worktree"], "url": None, "flume": s.get("flume")})
-                ledger["fixes"] = [{"fix": w, "merged": x["stage"] in ("merged", "landed"), "submission": None, "worktree": None,
+                                            "worktree": s["worktree"], "url": None, "flume": s.get("flume")})
+                ledger["fixes"] = [{"fix": w, "merged": x["stage"] in ("merged", "landed"), "worktree": None,
                                     "url": None, "flume": x} for w, _, x in st.fixes(b)]
                 construction.append(ledger)
                 if state == "landed" or unclosed(ledger):
@@ -553,11 +550,11 @@ def board_text(data, width=None, color=False, stale=None):
         heading("Construction")
         for b in p["construction"]:
             line(fields(named(b["repo"], b["bolt"]), f"on {b['host']}" if b["host"] else "", stream_of(b),
-                        head_said(b), landing_said(b), queue_said(b, True), time_of(b)), gutter(b["markers"], needs_eye(b)), 0, b["markers"])
+                        head_said(b), time_of(b)), gutter(b["markers"], needs_eye(b)), 0, b["markers"])
             for u in b["units"]:
-                line(fields(u["unit"], stage_of(u), detail_of(u), merge_said(u), u["url"] or ""), " ", 2)
+                line(fields(u["unit"], stage_of(u), detail_of(u), u["url"] or ""), " ", 2)
             for f in b["fixes"]:
-                line(fields(f["fix"], fix_stage(f), detail_of(f), merge_said(f), f["url"] or ""), " ", 2)
+                line(fields(f["fix"], fix_stage(f), detail_of(f), f["url"] or ""), " ", 2)
             if b["url"]:
                 line(fields("server", b["url"]), " ", 2)
         if not p["construction"]:
@@ -622,24 +619,6 @@ def state_said(state):
     return "" if state == "active" else "waits to land" if state == "waits" else state
 
 
-def merge_said(x):
-    """A unit's, chore's or fix's merge standing in sluice's queue, as its line says it: `#<n> <state>` (plan.standing_said),
-    or nothing while none stands (teams.22)."""
-    return plan.standing_said(x["submission"]) if x.get("submission") else ""
-
-
-def landing_said(b):
-    """A held bolt's landing standing in sluice's queue on its kit's main, as its head line says it: `landing #<n>
-    <state>`, or nothing while none stands (teams.22)."""
-    return f"landing {plan.standing_said(b['landing'])}" if b.get("landing") else ""
-
-
-def queue_said(b, why=False):
-    """That a held bolt's submissions can't be read, said once on its head line, with why when asked (read.1), so no
-    line of it shows a number or says it has none; nothing when they were read."""
-    return (f"submissions can't be read: {b['submissions_error']}" if why else ("submissions can't be read", "dim")) if b.get("submissions_error") else ""
-
-
 def time_of(b):
     """A held bolt's age and who held its time, as its head line ends with them (plan.time_said, plan.20); nothing for
     a ledger made without it."""
@@ -674,13 +653,17 @@ def unclosed(b):
 def head_said(b):
     """A held bolt's state as its head line says it, from what the run record holds of its landing (its record,
     landing_of): landed on main and not closed, in its last refused close's words; its landing queued, landing again or
-    rejected at its head, each in words of its own (plan.phase_said), a queued landing's number only while sluice's queue
-    was read and shows no landing of it standing, which landing_said says in its stead, a queue that can't be read
-    showing no number (queue_said, read.1); else its state (state_said)."""
+    rejected at its head, each in words of its own with its number (plan.phase_said); else its state (state_said)."""
     if unclosed(b):
         return f"landed on main, not closed: {unclosed(b)}"
-    said = plan.phase_said(b.get("record"), b.get("head"), live=bool(b.get("landing") or b.get("submissions_error")))
-    return said or state_said(b["state"])
+    return plan.phase_said(b.get("record"), b.get("head")) or state_said(b["state"])
+
+
+def record_landing(b):
+    """A held bolt's landing as ops's band names it, the run record's (its record, landing_of): queued or landing again,
+    with its number (plan.phase_said); nothing for any other state or none."""
+    record = b.get("record") or {}
+    return plan.phase_said(record, b.get("head")) if record.get("state") in ("queued", "again") else ""
 
 
 def needs_eye(b):
@@ -690,20 +673,18 @@ def needs_eye(b):
 
 def bolt_row(b):
     """A started bolt on one line, led by its product, the repository it builds; then its pips, its name, its stream
-    (stream_of), its state unless active, or what its landing is (head_said), its landing standing in sluice
-    (landing_said), that its submissions can't be read when they can't (queue_said), how many of its units have merged,
-    and its age and who held its time (time_of); its landing's marker in the gutter, or attention once every unit has
+    (stream_of), its state unless active, or what its landing is (head_said), how many of its units have merged, and its
+    age and who held its time (time_of); its landing's marker in the gutter, or attention once every unit has
     landed or its close was refused (needs_eye)."""
-    return row(fields(b["repo"] or "", pips(b["units"]), b["bolt"], stream_of(b), head_said(b), landing_said(b), queue_said(b),
-                      merged(b), time_of(b)), gutter(b["markers"], needs_eye(b)), 0, b["markers"])
+    return row(fields(b["repo"] or "", pips(b["units"]), b["bolt"], stream_of(b), head_said(b), merged(b), time_of(b)), gutter(b["markers"], needs_eye(b)), 0, b["markers"])
 
 
 def ledger_rows(b):
     """A started bolt as a ledger: the bolt (bolt_row), then a unit or chore to a line, its pip, its stage and what goes
-    with it, and its merge standing in sluice (merge_said), then each fix with its stage and merge; no slot."""
+    with it, a submission among it as the runner carries it, then each fix with its stage; no slot."""
     return ([bolt_row(b)]
-            + [row(fields(pip(u), u["unit"], stage_of(u), detail_of(u), merge_said(u)), " ", 2) for u in b["units"]]
-            + [row(fields(f["fix"], fix_stage(f), detail_of(f), merge_said(f)), " ", 2) for f in b["fixes"]])
+            + [row(fields(pip(u), u["unit"], stage_of(u), detail_of(u)), " ", 2) for u in b["units"]]
+            + [row(fields(f["fix"], fix_stage(f), detail_of(f)), " ", 2) for f in b["fixes"]])
 
 
 def in_flight(p):
@@ -810,8 +791,8 @@ def operator_view(p):
 def ops_view(p):
     """Main-level ops's: the partition's operations in brief; each fix of a kit's main and each take-main fix in flight,
     with its stage (fixing; crew-board "A fix of main in ops's band"); each kit's landing row, its landings card ops's, naming
-    the bolts that wait on its main in the plan's order, each with its landing standing in sluice when one stands
-    (landing_said), with its card, saying the landing is ops's once the user has answered it, and each started bolt
+    the bolts that wait on its main in the plan's order, each with its landing the run record holds queued or landing
+    again, with its number (record_landing), with its card, saying the landing is ops's once the user has answered it, and each started bolt
     whose landing stands on no such row; then, environment by
     environment, each deploy
     waiting on the user's word with its card, each approved and not yet deployed, each running, and each operation step
@@ -832,14 +813,14 @@ def ops_view(p):
         for m in b["markers"]:
             if m["group"] == "land":
                 lands.setdefault(m["key"], (m, []))[1].append(b["bolt"])
-    landing = {b["bolt"]: f"{b['bolt']} {landing_said(b)}" for b in p.get("construction", []) if b.get("landing")}
+    landing = {b["bolt"]: f"{b['bolt']} {record_landing(b)}" for b in p.get("construction", []) if record_landing(b)}
     for key, (m, bolts) in lands.items():  # a card the user answered leaves the landing to ops (Decision 3)
         out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
                               "answered: the landing is yours" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
-    out += [row(fields(b["repo"] or "", b["bolt"], landing_said(b)), " ") for b in p.get("construction", [])
-            if b.get("landing") and b["bolt"] not in rowed]
+    out += [row(fields(b["repo"] or "", b["bolt"], record_landing(b)), " ") for b in p.get("construction", [])
+            if record_landing(b) and b["bolt"] not in rowed]
     out += [bolt_row(b) for b in p.get("construction", []) if unclosed(b)]
     for e in p.get("environments", []):
         for d in (d for env, d in pending if env == e["env"]):

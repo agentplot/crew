@@ -1551,10 +1551,9 @@ class TestMore:
                              "label", "operation", "plan", "records", "runs"]
         assert p["kits"] == ["breadboard-kit", "switchboard-kit"]
         te = next(b for b in p["construction"] if b["bolt"] == "tenant-environments")
-        assert sorted(te) == ["bolt", "fixes", "goal", "head", "host", "landing", "markers", "record", "repo", "state", "stream",
-                              "submissions_error", "time", "units", "url"]
+        assert sorted(te) == ["bolt", "fixes", "goal", "head", "host", "markers", "record", "repo", "state", "stream", "time", "units", "url"]
         assert (te["host"], te["stream"]) == (BOX, "wldn")  # where the box's runner reported its work (plan.bolt_at)
-        assert sorted(te["units"][0]) == ["flume", "kind", "stage", "submission", "tasks", "unit", "url", "worktree"]
+        assert sorted(te["units"][0]) == ["flume", "kind", "stage", "tasks", "unit", "url", "worktree"]
         assert te["fixes"] == []  # a fix is a started bolt's Flume place alone (TestCrossed)
 
     def test_half_a_frame_or_one_with_no_time_reads_as_none(self, tmp_path, monkeypatch):
@@ -1699,16 +1698,6 @@ class TestViews:
         assert f"! switchboard-kit tenant-environments  on chuck-herdr-alpha  in Flume stream wldn  {said}  {TE_TIME}" in lane(board.board_text(data(logs=self.UNCLOSED)),
                                                                                                        "Construction")
         assert not [l for l in view("wldn-ops") if "not closed" in l]
-
-    def test_a_landing_queued_that_sluices_queue_shows_standing_is_said_once_by_sluices_state(self):
-        """The run record has it queued as #355 and sluice's queue has #355 standing: its head line says it once, in
-        sluice's state, and says the record's queued again only once sluice's queue no longer shows it."""
-        logs = [dict(self.QUEUED[0], Submission="355")]
-        sv = queued(STANDING_SUBS)
-        assert ledger("wldn-planner", "tenant-environments", sv=sv, logs=logs)[0] == (
-            f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  landing #355 queued  0 of 2 merged  {QUEUED_TIME}")
-        assert ledger("wldn-planner", "tenant-environments", logs=logs)[0] == (
-            f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  landing queued as #355  0 of 2 merged  {TE_TIME}")
 
     REJECTED = QUEUED + [dict(entry("bolt.submit", 25, Refused="#412 conflict: README.md", Submission="412", Head="d" * 40),
                               On=["bolt/tenant-environments"])]
@@ -1862,10 +1851,10 @@ class TestViews:
         answered = dict(QUESTION, answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="picked a", heads=None))  # an answered card's line
         lines = [l for lines in json.loads(json.dumps(board.agent_views(data(cards=[answered]))))["cards"].values() for l in lines]
         assert any("answered 5m ago, yours to act on" in t for l in lines for t, _ in l)
-        standing = board.agent_views(data(sv=queued(STANDING_SUBS)))["views"]  # a merge and a landing standing in sluice, drawn as plain segments
+        standing = board.agent_views(data(placed=TestSubmissions.SUBMITTED))["views"]  # a submission the runner carries, drawn as plain segments
         lines += [v["stale"]] + [l for lines in v["views"].values() for l in lines] + [l for lines in board.agent_views(data(cards=[QUESTION]))["cards"].values() for l in lines]
         lines += [l for lines in standing.values() for l in lines]
-        assert any("#41 under test" in t for l in standing["wldn-planner"] for t, _ in l)
+        assert any("submitted #413" in t for l in standing["wldn-planner"] for t, _ in l)
         # a role's run's view, under its run's name, its lines of the same form (Decision 15 of roles-run-as-flume-kinds)
         ran = json.loads(json.dumps(board.agent_views(data(roles=roles({"planner": "wldn-main", "reviewer": "wldn-main"},
                                                                        [an_ask(1, 9), an_ask(2, 4)], [a_turn(1, ["ask/1"])])))))["views"]
@@ -1898,64 +1887,40 @@ def queued(subs=(), error=None):
 
 
 class TestSubmissions:
-    """crew-board "Construction shows each bolt in flight as a ledger, with no server for a started bolt's work": each standing merge's number and state on its line,
-    the landing's on the bolt's head line, in the lane and in the bands (teams.22, code.8)."""
+    """crew-board "Construction shows each bolt in flight as a ledger, with no server for a started bolt's work": each
+    piece's submission on its line as the runner carries Flume's status of its place, and the bolt's landing on its
+    head line as the run record holds it, in the lane and in the bands, nothing of sluice's queue read (crew record
+    0056 points 1 and 4; code.8)."""
+    SUBMITTED = dict(PLACED, a=("submitted", None))
 
-    def test_a_merge_standing_in_sluice_is_on_its_line_in_the_lane_and_the_planners_band(self):
-        """crew-board "A merge standing in sluice"."""
-        sv = queued(STANDING_SUBS)
-        assert lane(board.board_text(data(sv=sv)), "Construction")[1:3] == [
-            "    a  code 1/2  #41 under test", "    b  construct"]
-        assert ledger("wldn-planner", "tenant-environments", sv=sv)[1:3] == ["    ◑  a  code 1/2  #41 under test", "    ◔  b  construct"]
+    def test_a_submission_the_runner_carries_is_on_its_line_in_the_lane_and_the_planners_band(self):
+        """crew-board "A submission moved": a's place submitted as #413, under test, as the box's runner carries it."""
+        assert lane(board.board_text(data(placed=self.SUBMITTED)), "Construction")[1:3] == [
+            "    a  submitted #413", "    b  construct"]
+        assert ledger("wldn-planner", "tenant-environments", placed=self.SUBMITTED)[1:3] == [
+            "    ◕  a  submitted #413", "    ◔  b  construct"]
 
-    def test_a_landing_standing_in_sluice_is_on_the_bolts_head_line_in_the_lane_and_the_bands(self):
-        """crew-board "A landing standing in sluice": the lane, the planner's band and main-level ops's."""
-        sv = queued(STANDING_SUBS)
-        assert lane(board.board_text(data(sv=sv)), "Construction")[0] == (
-            f"  switchboard-kit tenant-environments  on chuck-herdr-alpha  in Flume stream wldn  landing #355 queued  {QUEUED_TIME}")
-        assert ledger("wldn-planner", "tenant-environments", sv=sv)[0] == (
-            f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  landing #355 queued  0 of 2 merged  {QUEUED_TIME}")
-        assert "  switchboard-kit  tenant-environments  landing #355 queued" in view("wldn-ops", sv=sv)
+    def test_a_landing_the_run_record_holds_queued_is_on_the_bolts_head_line_in_the_lane_and_the_bands(self):
+        """bolt-teams "A bolt's landing queued on main": the lane, the planner's band and main-level ops's, with its number."""
+        logs = TestViews.QUEUED
+        assert lane(board.board_text(data(logs=logs)), "Construction")[0] == (
+            f"  switchboard-kit tenant-environments  on chuck-herdr-alpha  in Flume stream wldn  landing queued as #412  {TE_TIME}")
+        assert ledger("wldn-planner", "tenant-environments", logs=logs)[0] == (
+            f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  landing queued as #412  0 of 2 merged  {TE_TIME}")
+        assert "  switchboard-kit  tenant-environments  landing queued as #412" in view("wldn-ops", logs=logs)
 
     def test_a_landing_on_ops_landing_row_is_named_with_its_bolt(self, monkeypatch):
         two = plan.Plan(plan_text(bolts=[("doctor-rows", "switchboard-kit", True)], units=[("rows-one", "switchboard-kit", "doctor-rows", [])]))
         monkeypatch.setitem(globals(), "the_plan", lambda: two)
         monkeypatch.setitem(globals(), "PLACED", {"rows-one": ("landed", None)})
-        sv = queued([dict(STANDING_SUBS[2], pull_head="bolt/doctor-rows")])
+        sv = kits()
         sv[BOX]["kits"]["/kit/main"]["bolts"]["doctor-rows"] = {"head": LANDED, "head_at": ago(30), "changes": ["rows-one"],
                                                                 "archived": ["rows-one"]}
+        logs = [dict(entry("bolt.submit", 10, Outcome="queued", Submission="355", Head=LANDED), On=["bolt/doctor-rows"])]
         card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW)
-        assert ("✓ land/switchboard-kit  doctor-rows landing #355 queued  waits to land  card open, asked by wldn-ops"
-                in view("wldn-ops", sv=sv, cards=[card]))
-        assert not [l for l in view("wldn-ops", sv=sv, cards=[card]) if l.startswith("  switchboard-kit  doctor-rows")]
-
-    def test_a_queue_that_cant_be_read_is_said_on_the_head_line_and_no_line_shows_a_number(self):
-        """crew-board "A queue that can't be read"."""
-        sv = queued(error="sluice overview exited 2: not a repository sluice serves")
-        out = lane(board.board_text(data(sv=sv)), "Construction")
-        assert out[0] == ("  switchboard-kit tenant-environments  on chuck-herdr-alpha  in Flume stream wldn  submissions can't be read: sluice overview "
-                          "exited 2: not a repository sluice serves  3h 20m; who held its time can't be told: its submissions can't be read: "
-                          "sluice overview exited 2: not a repository sluice serves")
-        assert not [l for l in out if "#" in l]
-        mine = ledger("wldn-planner", "tenant-environments", sv=sv)
-        assert mine[0] == ("  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  submissions can't be read  0 of 2 merged  3h 20m; who held its time "
-                           "can't be told: its submissions can't be read: sluice overview exited 2: not a repository sluice serves")
-        assert not [l for l in mine if "#" in l]
-
-    def test_a_landing_queued_whose_queue_cant_be_read_shows_no_number(self):
-        """crew-board "A queue that can't be read": the run record has its landing queued as #412, and sluice's queue
-        could not be read on its kit's host, so its head line says its submissions can't be read and no line shows
-        the record's number (read.1)."""
-        sv = queued(error="sluice overview exited 2: not a repository sluice serves")
-        out = lane(board.board_text(data(sv=sv, logs=TestViews.QUEUED)), "Construction")
-        assert out[0] == ("  switchboard-kit tenant-environments  on chuck-herdr-alpha  in Flume stream wldn  submissions can't be read: sluice overview "
-                          "exited 2: not a repository sluice serves  3h 20m; who held its time can't be told: its submissions can't be "
-                          "read: sluice overview exited 2: not a repository sluice serves")
-        assert not [l for l in out if "#" in l]
-        mine = ledger("wldn-planner", "tenant-environments", sv=sv, logs=TestViews.QUEUED)
-        assert mine[0] == ("  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  submissions can't be read  0 of 2 merged  3h 20m; who held its time "
-                           "can't be told: its submissions can't be read: sluice overview exited 2: not a repository sluice serves")
-        assert not [l for l in mine if "#" in l]
+        ops_ = view("wldn-ops", sv=sv, cards=[card], logs=logs)
+        assert "✓ land/switchboard-kit  doctor-rows landing queued as #355  waits to land  card open, asked by wldn-ops" in ops_
+        assert not [l for l in ops_ if l.startswith("  switchboard-kit  doctor-rows")]
 
     def test_nothing_standing_draws_nothing_new(self):
         assert view("wldn-planner", sv=queued([])) == view("wldn-planner")
