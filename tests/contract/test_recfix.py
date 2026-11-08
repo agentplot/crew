@@ -264,7 +264,9 @@ def test_a_rename_is_one_commit_whose_plan_passes_recfix_and_its_entry_names_bot
     rename tailrace timber is one commit of plan.rec alone, under its Crew-Entry, the plan it leaves passing a real
     recfix --check with every tailrace record naming timber, two bolts of one goal now under one name among them, since
     %unique holds a field once within a record and not across records; its kit.rename entry, the commit after on the
-    branch (read.5), names kit/timber and kit/tailrace with Repo timber and Count 21."""
+    branch (read.5), names kit/timber and kit/tailrace with Repo timber and Count 21, and the day file holding it passes
+    a real recfix --check, so a branch holding the entry still takes every write (run-record "The entry of a rename";
+    plan.1). The rename's commit holding plan.rec alone is bolt-plan's "A rename appends only its entry"."""
     import datetime
     import record
     fleet, a = a_rename(state, monkeypatch)
@@ -284,10 +286,11 @@ def test_a_rename_is_one_commit_whose_plan_passes_recfix_and_its_entry_names_bot
     assert sum(1 for r in p.bolts() + p.work() if r.get("Repo") == "timber") == 22 and "Repo: tailrace" not in text
     assert [(b.get("Repo"), b.get("Path")) for b in p.bolts() if b.name() == "you-sign-in-to-staging"] == [("flywheel-cloud", "flume")]
     day = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    e, = [e for e in record.parse(state.git("show", f"{entry}:runs/deneb/{day}.rec")) if e["Id"] == eid]
+    runs = state.git("show", f"{entry}:runs/deneb/{day}.rec")
+    e, = [e for e in record.parse(runs) if e["Id"] == eid]
     assert (e["Act"], e["On"], e["From"], e["Repo"], e["Count"], e.get("Refused")) == (
         "kit.rename", ["kit/timber"], ["kit/tailrace"], "timber", "21", None)
-    assert plan.renames_in([e]) == [("tailrace", "timber")]
+    plan.recfix(runs, f"runs/deneb/{day}.rec")
 
 
 def test_a_rename_whose_plan_breaks_unique_repo_goal_is_refused_before_any_commit(state, monkeypatch):
