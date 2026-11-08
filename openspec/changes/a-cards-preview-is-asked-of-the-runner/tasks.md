@@ -8,7 +8,7 @@ Build the groups in order. Sync the tests' venv once before the first check: `de
 - [x] 1.2 crew reads a runner's `previews.rec` under its descriptor held byte for byte, a file it can't read hiding that runner and a preview's bad JSON marking that preview alone (design Decision 3; Task notes 1.2). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py -k TestHostReadPreviews`.
 - [x] 1.3 A preview's report, its ask's standing and whether an ask is written are read from the requests and the runner on the host the request names alone, a refusal in `answers.rec` read as the runner's (design Decisions 2, 3 and 6; Task notes 1.3). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py -k TestPreviewReport`.
 - [x] 1.4 The asks to put away are those no row, no work and no grace keeps (design Decision 7; Task notes 1.4). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py -k TestPreviewsPutAway`.
-- [ ] 1.5 A preview, its done and a `previews.rec` as the runner writes it pass recfix under crew's descriptors (design Decisions 1 and 3; Task notes 1.5). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/contract/test_recfix.py -k preview`.
+- [x] 1.5 A preview, its done and a `previews.rec` as the runner writes it pass recfix under crew's descriptors (design Decisions 1 and 3; Task notes 1.5). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/contract/test_recfix.py -k preview`.
 
 ## 2. What a card says
 
