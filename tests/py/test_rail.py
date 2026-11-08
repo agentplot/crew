@@ -2183,12 +2183,16 @@ class TestLandTime:
         ledger = next(b for b in board.board_data(FLEET, ["wldn"], read, NOW)["partitions"][0]["construction"] if b["bolt"] == "apex-zones")
         assert rail.endswith("can land; " + ledger["time"]["said"]) and ledger["time"]["shares"]["user"] == 120
 
-    def test_a_kit_not_read_says_why_its_time_cant_be_told_after_its_age(self):
+    def test_a_kit_whose_queue_was_not_read_still_tells_its_time(self):
+        """The views read no submission (crew-board "Each holder is read from what crew already keeps"), so a kit's read
+        with nothing of sluice's queue in it tells who held the bolt's time from the run record."""
+        import board
         read = self.read()
         del read["sv"][BOX]["kits"]["/kit/main"]["decided"]
-        out = plan.rail_text(FLEET, ["wldn"], read, NOW)
-        assert ("can land; 5h 00m; who held its time can't be told: its submissions can't be read: what sluice's overview names "
-                "decided was not read") in out
+        rail = next(l for l in plan.rail_text(FLEET, ["wldn"], read, NOW).splitlines() if l.strip().startswith("apex-zones, on"))
+        assert rail.endswith("can land; " + next(b for b in board.board_data(FLEET, ["wldn"], read, NOW)["partitions"][0]["construction"]
+                                                    if b["bolt"] == "apex-zones")["time"]["said"])
+        assert "can't be told" not in rail
 
 
 class TestMainFix:

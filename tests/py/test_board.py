@@ -279,13 +279,13 @@ class TestText:
             f"  mac-studio  deploy {S2[:7]} from {S1[:7]}  failed {board.local(ago(10))} at the machine  carrying what can't be read: {S2[:7]} is no landing's commit in the record"]
 
     def test_a_host_that_does_not_answer_is_named_and_its_ledgers_bolts_are_unknown(self):
-        """Its bolts' states and times can't be told; each unit's stage is the runner's, read from the branch, but a
-        place merged on its bolt can't be told landed with main unread."""
+        """Its bolts' states can't be told, and their times are read from the run record alone; each unit's stage is the
+        runner's, read from the branch, but a place merged on its bolt can't be told landed with main unread."""
         out = board.board_text(data(sv=kits(ok=False)))
         assert f"! {BOX} did not answer (its kits: ssh: timed out)" in lane(out, "attention")
         con = lane(out, "Construction")
-        assert (f"  switchboard-kit tenant-environments  on {BOX}  in Flume stream wldn  unknown  3h 20m; who held its time can't be told: its submissions "
-                "can't be read: its kit was not read") in con and "    a  code 1/2" in con and "    done-one  merged" in con
+        assert (f"  switchboard-kit tenant-environments  on {BOX}  in Flume stream wldn  unknown  {TE_TIME}") in con and "    a  code 1/2" in con \
+            and "    done-one  merged" in con
         assert out.splitlines()[0].endswith("read from mac-studio")
 
     def test_an_operator_host_with_no_team_is_never_named_for_its_run_record(self):
@@ -1668,11 +1668,11 @@ class TestViews:
         assert "✓ proposal 2 by wldn-planner  Tenants get d.  no card open" in view("wldn-planner", props=WAITS)
 
     def test_a_bolt_whose_host_does_not_answer_is_unknown_and_the_host_is_named_for_attention(self):
-        """Its state and time can't be told; its units' stages are the runner's, read from the branch."""
+        """Its state can't be told, and its time is read from the run record alone; its units' stages are the runner's,
+        read from the branch."""
         mine = view("wldn-planner", sv=kits(ok=False))
         assert ledger("wldn-planner", "tenant-environments", sv=kits(ok=False))[:2] == [
-            ("  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  unknown  0 of 2 merged  3h 20m; who held its time can't be told: its "
-             "submissions can't be read: its kit was not read"), "    ◑  a  code 1/2"]
+            f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  unknown  0 of 2 merged  {TE_TIME}", "    ◑  a  code 1/2"]
         assert f"! {BOX} did not answer (its kits: ssh: timed out)" in mine
 
     QUEUED = [dict(entry("bolt.submit", 30, Outcome="queued", Submission="412", Head=S1), On=["bolt/tenant-environments"])]
@@ -1876,8 +1876,6 @@ STANDING_SUBS = [{"id": 41, "branch": "bolt/tenant-environments", "head": "a" * 
                   "pull_head": None, "submitted": ago(25), "started": None},
                  {"id": 355, "branch": "main", "head": "d" * 40, "state": "queued", "worktree": "pull/198", "pull_head": "bolt/tenant-environments",
                   "submitted": ago(10), "started": None}]
-# tenant-environments' time with those standing: #41 queued ten minutes, the team's, then under test twenty, the kit's.
-QUEUED_TIME = f"3h 20m: team 10m, kit 20m, nobody 2h 50m; kit since {hm(20)}, #41"
 
 
 def queued(subs=(), error=None):
@@ -1942,8 +1940,11 @@ class TestTime:
         assert f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  0 of 2 merged  {said}" in view("wldn-planner", logs=logs)
         assert f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  0 of 2 merged  {said}" in view("wldn-operator", logs=logs)
 
-    def test_the_kit_while_a_merge_is_under_test(self):
-        assert self.head(sv=queued(STANDING_SUBS)).endswith(QUEUED_TIME)
+    def test_a_submission_the_runner_reports_places_no_minute(self):
+        """crew-board "A submission the runner reports": a's place submitted as #413 under test, as the box's runner
+        carries it, with no stage, card or hold of the bolt's: none of its minutes are the kit's or the team's, and
+        nobody holds it."""
+        assert self.head(placed=TestSubmissions.SUBMITTED).endswith(TE_TIME)
 
     def test_the_user_while_a_card_of_the_bolts_is_open(self):
         logs = [dict(Act="card.post", On=["bolt/tenant-environments"], Card="req_l", Key="land/tenant-environments", By="wldn-ops", At=ago(40))]
@@ -1960,16 +1961,14 @@ class TestTime:
                 dict(Act="stage.end", On=["stage/a/code", "unit/a", "agent/swb-1-unit-1"], At=ago(2))]
         assert self.head(logs=logs).endswith(f"3h 20m: team 48m, nobody 2h 32m; nobody since {hm(2)}")
 
-    def test_minutes_that_cant_be_split_show_as_team_or_kit_with_why_in_the_lane_the_json_and_the_bands(self):
-        """crew-board "Minutes that can't be split": twelve minutes of the bolt's age were a decided merge's stay in sluice,
-        kept by the follower with no start of its checks."""
-        sv = kits()
-        sv[BOX]["kits"]["/kit/main"]["decided"] = [{"id": 41, "bolt": "tenant-environments", "branch": "bolt/tenant-environments", "worktree": "unit/a",
+    def test_a_row_reads_nothing_of_sluices_queue(self):
+        """crew-board "A row drawn from the overview": the kit's read holding #41 under test since twenty minutes ago and
+        #40 decided, as an older gather gave them, places no minute: the head line is as with none."""
+        sv = queued(STANDING_SUBS)
+        sv[BOX]["kits"]["/kit/main"]["decided"] = [{"id": 40, "bolt": "tenant-environments", "branch": "bolt/tenant-environments", "worktree": "unit/a",
                                                     "pull_head": None, "submitted": ago(30), "started": None, "decided": ago(18), "event": "landed"}]
-        said = f"3h 20m: team or kit 12m, nobody 3h 08m; nobody since {hm(18)}; team or kit: sluice keeps no start of its checks"
-        assert self.head(sv=sv).endswith(f"on {BOX}  in Flume stream wldn  {said}")
-        assert data(sv=sv)["partitions"][0]["construction"][0]["time"]["shares"]["team_or_kit"] == 12
-        assert f"  switchboard-kit  ◑◔  tenant-environments  in Flume stream wldn  0 of 2 merged  {said}" in view("wldn-planner", sv=sv)
+        assert self.head(sv=sv).endswith(f"on {BOX}  in Flume stream wldn  {TE_TIME}")
+        assert data(sv=sv)["partitions"][0]["construction"][0]["time"]["shares"] == data()["partitions"][0]["construction"][0]["time"]["shares"]
 
     def test_an_age_that_cant_be_told_says_why_and_shows_no_share(self):
         unread = {"wldn": {"wldn/main of WilldanGroup/crew-state": "fetch failed"}}

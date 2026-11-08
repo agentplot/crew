@@ -16,7 +16,7 @@ Submit nothing, and never run `wt submit --help`.
 ## 2. A piece's submission and a bolt's landing from the runner and the run record
 
 - [x] 2.1 `crew bolts`, the board's lanes and the agents' bands show each piece's submission only as `runner.piece_said` says it, and a bolt's landing only as the run record holds it. They give no `submission`, `landing` or `submissions_error`, and `merge_said`, `landing_said` and `queue_said` are gone (design Decision 2; Task notes 2.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_bolt_submissions.py tests/py/test_board.py tests/py/test_rail.py'` exits 0.
-- [ ] 2.2 A bolt's time on the board, the rail and the bands places no minute by a submission. The landing's entry still records its split from sluice's record read at the landing (design Decision 5; Task notes 2.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py tests/py/test_bolt_time.py tests/py/test_landing.py'` exits 0.
+- [x] 2.2 A bolt's time on the board, the rail and the bands places no minute by a submission. The landing's entry still records its split from sluice's record read at the landing (design Decision 5; Task notes 2.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py tests/py/test_bolt_time.py tests/py/test_landing.py'` exits 0.
 
 ## 3. The gather and the follower run no sluice
 

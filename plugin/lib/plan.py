@@ -10439,10 +10439,9 @@ def bolt_time(start, end, stages, submissions, cards, holds):
 def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided, unread=None):
     """What a started bolt's time is split from (bolt_time), read from what crew already keeps, a decision of facts alone
     (code.7): the partition's run record (entries, oldest first, read from its branch, read.5) and sluice's submissions
-    of the kit as its overview gave them, those standing as the gather or the follower's watch read them (submissions,
-    gather.submissions_of's (list, why)) and those decided (decided, (list, why)): what the follower kept of each from
-    its submit to its decision (board.kept_submissions), or, with no follower, those the overview's recent events name
-    (gather.decided_in), or at a landing sluice's record of the bolt's submissions read once (landing_split). The start
+    of the kit, those standing (submissions, (list, why)) and those decided (decided, (list, why)): none from the views,
+    which held_time hands ([], None) for both, since the runner's report carries no time of a submission, and at a
+    landing sluice's record of the bolt's submissions read once (landing_split), crew's own landing's. The start
     is the run record's newest entry not refused that made the bolt's branch, bolt.start or an older crew's bolt.give
     (the-team-machinery-leaves Decision 11). Its stages are each stage.start of a unit or chore of the bolt's, and each
     fix.start and fix.merge of a fix of it, fix/<bolt>/<f>, not refused, to the next stage.end naming the same stage and
@@ -10669,20 +10668,14 @@ def time_said(tm, now):
 def held_time(fleet, entries, unread, plan_, b, k, now):
     """A started bolt's time to now, as its rows carry it (plan.20): bolt_time's split of bolt_facts' facts, read from the
     partition's run record (entries, oldest first, and unread, its branches that could not be read) and its kit as the
-    gather or the host's follower last read it (k, Stages.kit's), its submissions standing and decided as the overview
-    gave them and the follower kept them, a kit not read or either not read saying why; since as ISO 8601, so the board's JSON carries it, and the words
-    its lines end with (time_said). The board and the rail each call it at the time they draw, from the same read, so
+    gather or the host's follower last read it (k, Stages.kit's), for where its work runs and its name; handed no
+    submissions, standing or decided, since the runner's report carries no time of one, so no minute is placed by a
+    submission (crew record 0056 points 1 and 4; departs from plan.20, as the change crew-calls-no-tool-but-its-runner's
+    Decision 5 says); since as ISO 8601, so the board's JSON carries it, and the words its lines end with (time_said). The board and the rail each call it at the time they draw, from the same read, so
     the two never differ for one bolt and a redraw from a kept read ages it reading nothing."""
     t = (k or {}).get("at") or {}  # where its work runs (Stages.kit)
-
-    def pair(key, what):
-        if not (k or {}).get("ok"):
-            return None, "its kit was not read"
-        if k.get(f"{key}_error"):
-            return None, k[f"{key}_error"]
-        return (k[key], None) if isinstance(k.get(key), list) else (None, f"{what} was not read")
     facts = bolt_facts(entries, plan_, b.name(), t.get("label"), t.get("machine"), b.get("Repo") or ((k or {}).get("kit") or {}).get("name"),
-                       pair("submissions", "sluice's queue"), pair("decided", "what sluice's overview names decided"), unread)
+                       ([], None), ([], None), unread)
     tm = time_at(facts, now)
     if "now" in tm:
         tm = dict(tm, now=dict(tm["now"], since=tm["now"]["since"].astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
