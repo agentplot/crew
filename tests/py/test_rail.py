@@ -2417,6 +2417,16 @@ class TestPreviews:
         acts = self.Acts(self)
         assert plan.previews_changed(fleet, read, acts) == [] and acts.notes == []
 
+    def test_a_card_posted_with_no_key_is_passed_over(self):
+        """code.2: an agent's own question, posted with no Key (rail_times keeps its key None), carries no ask; the
+        planner's and ops's alike are passed over, and the card beside them is still changed."""
+        self.requests = [self.ask(1)]
+        own = [dict(label="wldn", card=f"req_q{n}", key=None, by=by, host="mac-studio") for n, by in enumerate(("wldn-planner", "wldn-ops"))]
+        fleet, read = self.read(cards_=[*own, self.CARD], entries=[{"Act": "card.post", "By": "wldn-planner", "Card": "req_q0"}, self.POSTED])
+        acts, self.telling = self.Acts(self), {"1": "asked"}
+        assert [(x["key"], x["note"]) for x in plan.previews_changed(fleet, read, acts)] == [
+            (f"land/{KIT}", "tenant-environments: Its preview of abc1234 is asked of the runner on chuck-herdr-alpha")]
+
     def test_a_lost_cache_changes_the_card_once(self):
         """rail-cards "What was told is lost"."""
         self.requests = [self.ask(1)]

@@ -194,7 +194,7 @@ Not taken: leaving every done to the rail's read. A moved head's preview would s
 - a landings card through `land_hand`, with `landing_act("preview")`;
 - a batch's through `batch_hand`.
 
-A card the user answered is left (its raise leaves it).
+A card the user answered is left (its raise leaves it). A card posted with no key, an agent's own question, carries no ask and is passed over, so the rail's read never fails on one (`code.2`).
 
 **What the card was told.** It is kept on the main machine in `~/.local/state/crew/cards/<label>/previews.json`: `{key: {request: word}}`, beside the card folders and in none, as `landings_main` keeps a card's main. It is written by every post or change of a card that carries an ask, by `landings_raised`, `raise_batch` and `previews_changed`. It is a cache of what crew read (`state.4`): lost or unreadable, it reads as empty, which costs one more change of each card.
 
@@ -416,6 +416,8 @@ Cases in `tests/py/test_rail.py`, its `release_preview` and `release_previews` f
 - a waiting card changed once when the runner's report moves, and not on the read after;
 - an answered card left;
 - a lost cache changing the card once.
+
+**3.7** `previews_changed` passes over a card whose key is `None`, as `rail_times` keeps the key of a card posted with no `Key` (an agent's own question, as t-cards posts the planner's). Before, the planner's such card reached `re.fullmatch(r"batch/\d+", None)` and the whole rail read on the main machine failed with a traceback. The case in `tests/py/test_rail.py`'s `TestPreviews`: a keyless card in the planner's name and one in ops's, beside the kit's landings card, which is still changed.
 
 **3.5** Remove Decision 9's code from `plugin/lib/plan.py`, `plugin/lib/kit.py` and `CardActs`, with the cases of it:
 - `tests/py/test_landing.py`, its preview cases from `test_what_a_rows_read_does_with_the_preview_brought_up_from_its_card` to `test_how_sluices_preview_ended_is_read_from_its_exit_and_its_words`, keeping `test_the_close_names_the_commit_landed_and_says_nothing_of_a_preview`;

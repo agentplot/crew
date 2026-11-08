@@ -15887,7 +15887,8 @@ def previews_changed(fleet, read, acts=None):
     runner now reports of each (runner.preview_word) is compared with what the card was last told (told_read), and,
     where any differs, the card is raised again with one note naming each such thing and what its preview now is
     (preview_changed, through acts.preview_note), its raise keeping what it then told it (told_kept). A card whose
-    record of what it was told is lost is changed once. Returns [{label, key, note, said}], said a refusal's words or
+    record of what it was told is lost is changed once. A card posted with no key, an agent's own question, carries
+    no ask and is passed over. Returns [{label, key, note, said}], said a refusal's words or
     None."""
     acts = acts or SweepActs(fleet)
     here, out = acts.host(), []
@@ -15901,7 +15902,7 @@ def previews_changed(fleet, read, acts=None):
             continue
         asked, told, kits = list(runner.previews_asked(requests).values()), told_read(l), read["kits"].get(l, [])
         answered = {e.get("Card") for e in entries if e.get("Act") == "card.answer"}
-        for c in [c for c in read["cards"] if c["label"] == l and c["host"] == here and c["card"] not in answered]:
+        for c in [c for c in read["cards"] if c["label"] == l and c["host"] == here and c["card"] not in answered and c["key"]]:
             key, kind = c["key"], land_key(c["key"], kits)
             if c["by"] == f"{l}-ops" and kind and kind[0] == "kit":
                 heads = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == c["card"] and e.get("Heads")
