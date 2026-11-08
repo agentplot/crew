@@ -1165,3 +1165,80 @@ def test_a_branch_flume_kept_is_read_standing_in_its_repository_and_a_name_besid
     assert r.returncode != 0 and "already exists" in r.stderr
     r = script("BRANCHES", str(tmp_path / "nowhere"), "refs/heads/change/a")
     assert r.returncode != 0
+
+
+class TestTheRunnersClone:
+    """drive-state "crew fetches nothing in the runner's clone" (agentplot/boomdrive core.14): a script crew runs in a
+    checkout the host's teams file names is told fetch=no (plan.fetch_told), runs no git fetch, so it reads with no remote
+    to reach and moves no ref, and reads origin's tracking refs as the runner last fetched them; GitHub moved since is read
+    once the runner's own fetch brings it."""
+
+    def run(self, repo, name, *args):
+        import plan
+        fleet = {"repositories": {"host": "h", "named": {"o/k": {"dir": str(repo.path), "checkout": str(repo.path)}}}}
+        text = plan.fetch_told(fleet, "h", str(repo.path), getattr(plan, name))
+        assert text.startswith("fetch=no\n")
+        return subprocess.run(["bash", "-c", text, "crew", *args], capture_output=True, text=True)
+
+    def refs(self, repo):
+        return repo.git("for-each-ref", "--format=%(refname) %(objectname)", "refs/remotes")
+
+    def test_main_now_is_origin_main_as_the_runner_last_fetched_it(self, repo, tmp_path):
+        import kit
+        repo.commit("main", {"README": "r\n"})
+        pushed = kit_with_github(repo, tmp_path)
+        last = repo.git("rev-parse", "origin/main")
+        pushed("later")
+        before = self.refs(repo)
+        repo.git("remote", "set-url", "origin", str(tmp_path / "gone.git"))
+        r = self.run(repo, "MAIN", str(repo.path))
+        assert r.returncode == 0 and "FETCHED=runner" in r.stdout, r.stderr
+        assert kit.main_now(r.stdout, "k", "h") == ("origin/main", last, None)
+        assert self.refs(repo) == before
+        repo.git("remote", "set-url", "origin", str(tmp_path / "github.git"))
+        repo.git("fetch", "-q", "origin")  # the runner's own fetch
+        assert kit.main_now(self.run(repo, "MAIN", str(repo.path)).stdout, "k", "h") == ("origin/main", github_main(tmp_path), None)
+        r = subprocess.run(["bash", "-c", "fetch=maybe\n" + __import__("plan").MAIN, "crew", str(repo.path)], capture_output=True, text=True)
+        assert kit.main_now(r.stdout, "k", "h")[2].startswith("cannot fetch k from GitHub on h, so cannot read its main now: crew told "
+                                                              "this script fetch=maybe, which is neither yes nor no")
+
+    def test_what_a_tip_carries_is_read_at_the_branches_as_the_runner_last_fetched_them(self, repo, tmp_path):
+        import gather
+        import kit
+        o, other, l214 = two_bolts(repo, tmp_path)
+        o("checkout", "-q", "-b", "unit/pop", l214)
+        (other / "pop").write_text("one popover\n")
+        o("add", "pop"); o("commit", "-qm", "docs(openspec): propose who-can-open-an-app")
+        o("checkout", "-q", "-b", "bolt/popover", "origin/bolt/popover")
+        o("merge", "-q", "--no-ff", "-m", "chore(land): #216 unit/pop", "unit/pop")
+        o("push", "-q", "origin", "bolt/popover")
+        head = o("rev-parse", "HEAD")
+        repo.git("fetch", "-q", "origin")  # the runner's own fetch
+        o("checkout", "-q", "-B", "main", "origin/main")
+        o("merge", "-q", "--no-ff", "-m", "chore(land): bolt/deleting", "bolt/deleting")
+        o("push", "-q", "origin", "main")
+        before = self.refs(repo)
+
+        def carried():
+            r = self.run(repo, "CARRIES", str(repo.path), "popover", head, "")
+            assert r.returncode == 0, r.stderr
+            holds, lines, why = kit.carries_of(r.stdout, "popover")
+            assert why is None, why
+            return gather.carried_bolts(holds, lines, "popover")
+        assert carried() == {"deleting": [l214]}
+        assert self.refs(repo) == before
+        repo.git("fetch", "-q", "origin")  # the runner's own fetch brings main's landing of deleting
+        assert carried() == {}
+
+    def test_a_landings_copies_wait_for_the_runners_fetch_when_github_moved_past_it(self, repo, tmp_path):
+        import kit
+        own, there, _ = bolt_lives_on_github(repo, tmp_path)
+        before = self.refs(repo)
+        assert repo.git("rev-parse", "origin/bolt/b") == own != there
+        got = kit.land_copies(self.run(repo, "LAND_COPIES", str(repo.path), "b", kit.DECLARATION).stdout, "b")
+        assert got["read"] == (f"the runner's clone holds origin's bolt/b at {own} while GitHub's is at {there}, and crew "
+                               "fetches nothing there, so this waits for the runner's next fetch")
+        assert self.refs(repo) == before
+        repo.git("fetch", "-q", "origin")  # the runner's own fetch
+        got = kit.land_copies(self.run(repo, "LAND_COPIES", str(repo.path), "b", kit.DECLARATION).stdout, "b")
+        assert got == dict(own=own, there=there, remote="origin", held="yes", ahead="no", lacks=0, beyond=2, read=None)

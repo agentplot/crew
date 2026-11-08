@@ -1286,6 +1286,28 @@ def kit_kept(fleet, host, kit):
     return found[0] if found else None
 
 
+def runners_clone(fleet, host, path):
+    """The repository (owner/name) whose clone a path on a host is in, where the host's teams file names it (named_on):
+    the path its `dir` or its `checkout`, or a folder under either, a place or a worktree among them; None for any other
+    path, and on any other host. On a runner host that clone is the runner's, which the runner alone fetches
+    (agentplot/boomdrive core.14), so crew fetches nothing in it (fetches_in)."""
+    p = os.path.normpath(path)
+    for repo, e in sorted(named_on(fleet, host).items()):
+        for root in (os.path.normpath(e["dir"]), os.path.normpath(e["checkout"])):
+            if p == root or p.startswith(root.rstrip("/") + "/"):
+                return repo
+    return None
+
+
+def fetches_in(fleet, host, path):
+    """Whether crew, or a brief it writes, may fetch from origin in a kit's checkout, folder or worktree (path) on a
+    host: never in a repository the host's teams file names (runners_clone), the runner's clone, where crew and the
+    main level read GitHub's branches at origin's tracking refs as the runner last fetched them, which it does every
+    pass and at once on a landing, a read that needs them fresher waiting for its next fetch (agentplot/boomdrive
+    core.14; records 0056 and 0061); everywhere else as before."""
+    return runners_clone(fleet, host, path) is None
+
+
 def session_checkouts(fleet, host, sess):
     """The checkouts of the repositories a session's space keeps on a host, in its order, each where the host keeps it
     (kept_at): the teams file's checkout where the file names it, else <sess dir>/<name>/main."""
@@ -1589,6 +1611,12 @@ def main_tokens(fleet, p, role, self_name):
     sess = fleet["hosts"].get(p["machine"], {}).get("sessions", {}).get(p["session"]) or fail(
         f"{p['machine']} has no session {p['session']}, where {label}'s main level runs")
     swancloud = kit_kept(fleet, p["machine"], "afterthought/swancloud")
+    # Each checkout here in the runner's clone, which the brief has the agent fetch and pull nothing in (fetches_in;
+    # agentplot-design's ruling on batch 12, agentplot/boomdrive core.14): the blueprints' and the kits', each named.
+    machine = p["machine"]
+    runners = [r for r, at in [(p["blueprints"][0], p["checkout"])] + [(k["repo"], k["main"]) for k in kept]
+               if not fetches_in(fleet, machine, at)]
+    clone = lambda at: "" if fetches_in(fleet, machine, at) else "; the runner's clone, which only the runner fetches"
     tok = {
         "SELF": self_name or names[role], "LABEL": label, "PARTITION": p["partition"], "HOST": host, "TEAM_CMD": cmd,
         "BLUEPRINTS_REPOS": ", ".join(f"`{b}`" for b in p["blueprints"]), "SIGNALS_REPO": p["blueprints"][0],
@@ -1601,7 +1629,23 @@ def main_tokens(fleet, p, role, self_name):
         "DESIGN_AGENT": f"{label}-design", "PLANNER": f"{label}-planner", "MAIN_OPS": f"{label}-ops",
         "REVIEWER": f"{label}-reviewer", "REVIEWS": f"~/.local/state/crew/{label}-main/reports",
         "KITS": ", ".join(sorted({k.split("/")[-1] for k in named})) or "none yet",
-        "KIT_CHECKOUTS": ", ".join(f"`{k['main']}` (its folder `{k['dir']}`)" for k in kept) or "none on this host",
+        "KIT_CHECKOUTS": ", ".join(f"`{k['main']}` (its folder `{k['dir']}`{clone(k['main'])})" for k in kept) or "none on this host",
+        "FETCHING": (f"On {machine} the runner keeps " + " and ".join(dict.fromkeys(runners)) + ": each is the runner's clone, "
+                     "which the runner alone fetches, every pass and at once on a landing (agentplot/boomdrive `core.14`), "
+                     "so there you run no `git fetch` and no `git pull`, read GitHub's branches at `origin/<branch>` as the "
+                     "runner last fetched them, and when you need one fresher, wait for the runner's next fetch."
+                     if runners else f"No checkout on {machine} is a runner's clone, so you fetch from GitHub where this brief says."),
+        "BLUEPRINTS_COMMIT": (
+            "Until then, its checkout on this host is the runner's view, which only the runner moves: commit on a branch of "
+            "your own cut from `origin/main` as the runner last fetched it, in a worktree, `git -C {{CHECKOUT}} worktree add "
+            "-b design/<topic> {{FOLDER}}/places/design-<topic> origin/main`, fetching and pulling nothing there, and tell "
+            "the user the branch." if not fetches_in(fleet, machine, p["checkout"]) else
+            "Until then its folder stays on `main`, and meetings' signals reach {{SIGNALS_REPO}}'s main from other "
+            "checkouts, so pull (`git pull --rebase`) before you commit there."),
+        "SWANCLOUD_FETCH": (
+            "as the runner last fetched it, with no fetch of your own, since this host's runner alone fetches swancloud's "
+            "clone: " if swancloud and not fetches_in(fleet, machine, swancloud["main"]) else
+            "`git -C {{SWANCLOUD_CHECKOUT}} fetch -q origin`, then "),
         "TEAMS_DOORS": ", ".join(doors) or "none", "TURN": turn_said(p, role),
         "SHOWING": (f"{host} is a Mac: open the site the user picks in terminal-browser beside your pane, "
                     "`terminal-browser open <url> --split right`." if fleet["hosts"].get(host, {}).get("kind") == "darwin" else
