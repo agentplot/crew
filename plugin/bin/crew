@@ -226,9 +226,10 @@
 #                                      the card's owner's, main-level ops's for a kit's landings card (land/<kit>) and
 #                                      the planner's for a batch's (batch/<n>), on the user's words on the card: brings
 #                                      up a thing it carries that must run, a landings row's bolt at its head or a batch
-#                                      line's <unit>/<name> at the branch and revision its stage recorded, through sluice
-#                                      preview on the host its work runs on, and changes the card in place
-#                                      to list its addresses while it is up; --done puts it away; refused for any other
+#                                      line's <unit>/<name> at the branch and revision its stage recorded, by one
+#                                      request asking the runner on the host its work runs on, every landings row that
+#                                      can land offering one, and changes the card in place, which lists its addresses
+#                                      once the runner reports them; --done writes its done; refused for any other
 #                                      caller, key or thing, naming those the card carries
 #   crew signal <slug> "<what it asserts>" --excerpt "<the words, verbatim>" ...
 #                                      record a finding as a signal, quoting the words that show it, which are
