@@ -77,6 +77,26 @@ test("an agent's open cards are drawn above its view", async ($, on) => {
   expect(at(/curation-and-holds/)).toBeGreaterThan(at(/your question/))
 })
 
+// crew-board "The mod draws an answered card" (design Decision 3 of a-wait-on-the-user-is-one-open-card-the-rail-agrees-with):
+// ops's landings card the user answered five minutes ago, its card line as board.py's card_line draws it, and its land
+// line as ops_view draws it, drawn above its view as given.
+test("an answered card's line is drawn above ops's view as the views give it", async ($, on) => {
+  const card = [['  ', null], ['your card', null], ['  ', null], ['land/sluice', null], ['  ', null], ['req_e9', 'dim'], ['  ', null],
+    ['answered 5m ago, yours to act on', null]]
+  const ops = [
+    [['swancloud operations', 'bold']],
+    [['✓ ', null], ['land/sluice', null], ['  ', null], ['a', null], ['  ', null], ['waits to land', null], ['  ', null],
+      ['answered: the landing is yours', null], ['  ', null], ['card answered, waits on swancloud-ops', null]],
+  ]
+  const views = { ...VIEWS, views: { ...VIEWS.views, 'swancloud-ops': ops }, cards: { 'swancloud-ops': [card] } }
+  const ui = await band($, on, { env: { CREW_AGENT: 'swancloud-ops', CREW_LABEL: 'swancloud' }, views })
+  const lines = (await ui.findAll({ type: 'Text' })).map((t) => t.text)
+  const at = (pattern) => lines.findIndex((l) => pattern.test(l))
+  expect(at(/^ {2}your card {2}land\/sluice {2}req_e9 {2}answered 5m ago, yours to act on$/)).toBeGreaterThanOrEqual(0)
+  expect(at(/^✓ land\/sluice {2}a {2}waits to land {2}answered: the landing is yours {2}card answered, waits on swancloud-ops$/)).toBeGreaterThan(at(/your card/))
+  expect(at(/curation-and-holds/)).toBe(-1)
+})
+
 // crew-board "A merge standing in sluice" and "A landing standing in sluice": the numbers sluice gave the submissions
 // are on the ledger's lines as board.py's ledger_rows draws them, and the band shows them as they are (teams.22).
 test("a ledger's standing merge and landing are drawn with their numbers", async ($, on) => {

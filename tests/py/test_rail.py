@@ -151,7 +151,7 @@ class TestRows:
         assert land["cmds"] == []
         held["wldn"]["refused"] = {"apex-zones": ("c" * 40, "an older head's")}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
 
     def test_a_landing_queued_or_landing_again_says_so_holds_the_bolts_work_and_is_no_bolt_that_can_land(self):
         """crew-rail "A landing queued" and "Landing again": submitted and not yet decided, so the tell leaves it out."""
@@ -177,11 +177,11 @@ class TestRows:
                          "stopped": {"apex-zones": ("abc1234" + "0" * 33, stop)}}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
         assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: can land; its last landing at abc1234 was stopped, nothing of the "
-                                   f"bolt's: {stop}; wldn-ops submits it again once that is cleared")
+                                   f"bolt's: {stop}; wldn-ops submits it again once that is cleared; follows: the next card under land/{KIT} carries it")
         assert land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')] and land["bolts"][0]["can"] is True
         held["wldn"]["stopped"] = {"apex-zones": ("c" * 40, "an older head's")}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
 
     def test_a_bolt_carrying_another_bolts_work_is_held_on_its_land_line_and_left_out_of_the_tell(self):
         """crew-rail "A bolt carrying another bolt's work is held on its land line" (plan.8): its kit's read says the
@@ -197,7 +197,7 @@ class TestRows:
         assert land["cmds"] == [] and land["bolts"][0]["can"] is False
         sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["carries"] = {}
         land, = [r for r in rows(held=held, sv=sv) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
 
     def test_a_bolt_forecast_at_its_head_to_conflict_with_main_takes_main_first_and_is_left_out_of_the_tell(self):
         """crew-rail "A bolt taking main first" and "A conflict forecast at an older head"."""
@@ -210,7 +210,7 @@ class TestRows:
         assert land["cmds"] == [] and land["bolts"][0]["can"] is False
         held["wldn"]["forecasts"] = [dict(conflict, Heads="bolt/apex-zones@ccccccc main@e4f5a6b")]
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land" and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it" and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
 
     def test_a_left_bolt_forecast_to_conflict_with_main_takes_main_first_once_ticked_and_is_left_out_of_the_tell(self):
         """crew-rail "Left and forecast to conflict" and "Ticked"."""
@@ -231,7 +231,68 @@ class TestRows:
         # left and clean: as today
         held["wldn"].update(forecasts=[], left=[left])
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land"
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"
+
+    # How the kit's card stands for each bolt of its land row (crew-rail "Each bolt's land line says whether its card
+    # carries, holds or follows it", design Decision 8).
+    H = "abc1234" + "0" * 33
+
+    @staticmethod
+    def kit_card(heads, answered=None):
+        return dict(card="req_k1", heads=plan.card_heads(heads), taking=plan.heads_taking(heads),
+                    answered=None if answered is None else dict(at=NOW, answer="ticked", heads=answered))
+
+    @pytest.mark.parametrize("bolt, head, can, card, sends, stand", [
+        ("b", H, True, "waiting b@abc1234", {}, ("carries", None)),  # A bolt the open card carries
+        ("b", "2222222" + "0" * 33, True, "waiting b@1111111", {}, ("carries", "1111111")),  # A bolt the card shows at an older head
+        ("b", H, True, "answered b@abc1234", {}, ("holds",)),  # A bolt the user's send holds
+        ("b", H, True, None, {"b": "abc1234"}, ("holds",)),  # A send kept on a closed card
+        ("b", H, False, None, {"b": "abc1234"}, ("holds",)),  # held taking main in, on that send
+        ("c", H, True, "answered b@abc1234", {}, ("follows", True)),  # A bolt proven since the send
+        ("b", H, True, None, {}, ("follows", False)),  # A bolt no card carries yet
+        ("b", H, False, None, {}, None),  # A bolt waiting on its verification
+        ("b", H, True, "answered left", {}, ("follows", True)),  # left on the send, carried by the card after it
+    ])
+    def test_a_bolts_card_stand(self, bolt, head, can, card, sends, stand):
+        kind, _, heads = (card or "").partition(" ")
+        c = (self.kit_card(heads) if kind == "waiting" else self.kit_card("b@abc1234 x@abc1234", answered=heads if heads != "left" else "x@abc1234")
+             if kind == "answered" else None)
+        assert plan.card_stand(bolt, head, can, c, sends) == stand
+
+    def land_line(self, land_cards=None, sends=None, **more):
+        held = {"wldn": dict({"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}},
+                             land_cards=land_cards or {}, sends=sends or {}, **more)}
+        land, = [r for r in rows(held=held) if r["group"] == "land"]
+        return land["what"][1]
+
+    def test_each_bolt_line_ends_with_how_its_kits_card_stands_for_it(self):
+        line = f"apex-zones, on {BOX}, in Flume stream wldn: can land; "
+        key = f"land/{KIT}"
+        assert self.land_line({key: self.kit_card("apex-zones@abc1234")}) == line + f"carried by {key}, waiting on you"
+        assert self.land_line({key: self.kit_card("apex-zones@1111111")}) == line + f"carried by {key} at 1111111, its head now abc1234, waiting on you"
+        assert self.land_line({key: self.kit_card("apex-zones@abc1234", answered="apex-zones@abc1234")}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line(sends={key: {"apex-zones": "abc1234"}}) == line + f"held by your send on {key}: wldn-ops lands it"
+        assert self.land_line({key: self.kit_card("other@abc1234", answered="other@abc1234")}) == line + f"follows: the card after {key}'s answered one carries it"
+        assert self.land_line() == line + f"follows: the next card under {key} carries it"
+
+    def test_a_bolt_that_cant_land_and_is_no_row_of_the_card_says_nothing_of_it(self):
+        sv = survey()
+        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["verdict"] = ""
+        held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "land_cards": {}, "sends": {}}}
+        land, = [r for r in rows(held=held, sv=sv) if r["group"] == "land"]
+        assert land["what"][1].endswith("so it has no verdict")
+
+    def test_the_record_reading_keeps_each_landings_cards_rows_answer_and_the_sends_kept(self):
+        k = f"land/{KIT}"
+        entries = [post("req_k0", k, by="wldn-ops", minutes=1), dict(Act="card.close", Card="req_k0", Key=k, By="wldn-ops", Heads="y@1111111"),
+                   dict(post("req_k1", k, by="wldn-ops", minutes=2), Heads="z@2222222"),
+                   dict(Act="card.update", Card="req_k1", Key=k, By="wldn-ops", Heads="z@2222222 w@3333333:main"),
+                   dict(Act="card.answer", Card="req_k1", Key=k, By="wldn-ops", Answer="ticked z", Heads="z@2222222", At=iso(1)),
+                   post("req_p1", "proposal/1", minutes=2)]
+        held = plan.record_reading("wldn", entries, the_plan(), NOW - datetime.timedelta(days=14))["held"]
+        assert held["land_cards"] == {k: dict(card="req_k1", heads=[("z", "2222222", False), ("w", "3333333", False)], taking={"w"},
+                                              answered=dict(at=NOW - datetime.timedelta(minutes=1), answer="ticked z", heads="z@2222222"))}
+        assert held["sends"] == {k: {"y": "1111111"}}
 
     def test_the_record_reading_keeps_what_says_which_bolts_the_user_left(self):
         left = [dict(Act="landing.left", On=["kit/k"], Key="land/k", Heads="b@abc1234"), dict(Act="bolt.leave", On=["bolt/b"], Head="a" * 40),
@@ -293,7 +354,7 @@ class TestRows:
         assert land["what"][1:] == [f"apex-zones, on {BOX}, in Flume stream wldn: lands once you have answered batch 8"] and land["cmds"] == []
         held["wldn"]["unanswered"] = {}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
-        assert land["what"][1:] == [f"apex-zones, on {BOX}, in Flume stream wldn: can land"] and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
+        assert land["what"][1:] == [f"apex-zones, on {BOX}, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"] and land["cmds"] == [("answer", 'crew tell wldn-ops "Land apex-zones."')]
 
     def test_a_landing_row_names_both_the_units_due_a_batch_and_the_batches_that_wait_on_the_user(self):
         p = plan.Plan(plan_text(bolts=[("apex-zones", KIT, "swb-2")], units=[(u, KIT, "apex-zones", []) for u in ("zone-one", "zone-two", "zone-three")]))
@@ -351,6 +412,101 @@ class TestText:
         assert stray[1] == f"    left:   a rail read on {BOX} closes it, under that host's sign-in"
         assert stray[2].endswith("proposal/9 (wldn), asked by wldn-planner on mac-studio") and stray[3] == "    left:   a later rail read here closes it"
         assert "crew tell" not in "\n".join(stray)
+
+    def test_a_row_names_its_owners_card_and_each_other_card_open_under_its_key_apart(self):
+        """crew-rail "Two cards open under one row's key": as afterthought's proposal/508 of 2026-11-07, its planner's
+        card and swancloud-planner's both open under it, here wldn's."""
+        rs = rows([proposal(508)])
+        ours = dict(label="wldn", card="req_51", key="proposal/508", by="wldn-planner", host="mac-studio", at=NOW - datetime.timedelta(minutes=9))
+        theirs = dict(ours, card="req_69", by="swancloud-planner", at=NOW)
+        out = text(rs, cards=[ours, theirs])
+        lines = out.splitlines()
+        i = lines.index("    card:   proposal/508, open, asked by wldn-planner (req_51)")
+        assert lines[i + 1] == "    also:   req_69, swancloud-planner's, open under proposal/508, not the row's card"
+        assert "asked by swancloud-planner" not in out
+        alone = text(rs, cards=[theirs])
+        assert "    card:   proposal/508, none open\n    also:   req_69, swancloud-planner's, open under proposal/508, not the row's card" in alone
+        assert plan.row_cards([ours, theirs], rs[0]) == (ours, [theirs])
+
+    # A card the user answered (crew-rail "A row whose card the user answered says whose act it waits on", design
+    # Decision 3), its answer read from the run record as record_reading gives it.
+    @staticmethod
+    def answered(key, cid, by, answer, heads=None, minutes=5):
+        at = NOW - datetime.timedelta(minutes=minutes)
+        return dict(label="wldn", card=cid, key=key, by=by, host="mac-studio", at=NOW - datetime.timedelta(minutes=60),
+                    answered=dict(at=at, answer=answer, heads=heads)), f"{at.astimezone():%H:%M}"
+
+    def test_a_landings_card_the_user_sent_says_when_what_and_that_it_waits_on_ops_to_land_them(self):
+        """crew-rail "A landings card the user sent"."""
+        k, hm = self.answered(f"land/{KIT}", "req_e9", "wldn-ops", "ticked a and b", heads="a@1111111 b@2222222")
+        out = text(rows(), cards=[k])
+        assert f"    card:   land/{KIT}, answered {hm} (5m ago): ticked a and b; waits on wldn-ops to land a and b (req_e9)" in out
+        assert "open, asked by" not in out
+        none, hm = self.answered(f"land/{KIT}", "req_e9", "wldn-ops", "ticked none, left a")
+        assert f"answered {hm} (5m ago): ticked none, left a; sent with no bolt ticked: waits on wldn-ops to close it (req_e9)" in text(rows(), cards=[none])
+
+    @pytest.mark.parametrize("answer, waits", [("approved", "waits on wldn-planner to apply it"),
+                                                ("ticked u1, left u2", "waits on wldn-planner to apply it"),
+                                                ("declined, with a note", "waits on wldn-planner to act on it")])
+    def test_a_proposals_card_answered_waits_on_the_planner(self, answer, waits):
+        """crew-rail "A proposal's card approved on the phone"."""
+        p57, hm = self.answered("proposal/57", "req_57", "wldn-planner", answer)
+        assert f"    card:   proposal/57, answered {hm} (5m ago): {answer}; {waits} (req_57)" in text(rows([proposal(57)]), cards=[p57])
+
+    def test_a_batch_a_deploy_and_a_steps_card_answered_each_say_whose_act_they_wait_on(self, monkeypatch):
+        """crew-rail "A batch's card tapped" and "A deploy whose word stands"."""
+        b12, hm = self.answered("batch/12", "req_b12", "wldn-planner", "answered with a note")
+        d, _ = self.answered("deploy/srv", "req_d1", "wldn-ops", "approved")
+        s, _ = self.answered("op/srv/1", "req_s1", "wldn-ops", "done")
+        rs = [row("batch/12", "batches"), row("deploy/srv", "operations"), row("op/srv/1", "operations")]
+        import ops
+        monkeypatch.setattr(ops, "word_stands", lambda key, es: False)
+        out = text(rs, cards=[b12, d, s])
+        assert f"    card:   batch/12, answered {hm} (5m ago): answered with a note; waits on wldn-planner to hand on its notes (req_b12)" in out
+        assert f"    card:   deploy/srv, answered {hm} (5m ago): approved; waits on wldn-ops to record your word (req_d1)" in out
+        assert f"    card:   op/srv/1, answered {hm} (5m ago): done; waits on wldn-ops to record it (req_s1)" in out
+        monkeypatch.setattr(ops, "word_stands", lambda key, es: key == "deploy/srv")
+        assert f"approved; your word stands: the deploy's end closes it (req_d1)" in text(rs, cards=[b12, d, s])
+
+    def test_an_answered_question_and_record_card_wait_on_their_askers_and_not_on_the_user(self):
+        """crew-rail "A question answered" and "A record card answered"."""
+        q, hm = self.answered("ask/wldn-design/sluice-who-claims", "req_q2", "wldn-design", "picked a")
+        rec, _ = self.answered("record/weir/0004", "req_r4", "wldn-design", "approved")
+        waiting = dict(label="wldn", card="req_q3", key="ask/wldn-ops/hold", by="wldn-ops", host="mac-studio", at=NOW)
+        out = text([], cards=[q, rec, waiting])
+        asked = out.split("questions waiting on you:\n")[1].split("\n\n")[0]
+        assert "req_q3" in asked and "req_q2" not in asked and "decision records waiting on you" not in out
+        answered = out.split("answered, waiting on their askers:\n")[1].split("\n\n")[0].splitlines()
+        assert [l[29:] for l in answered] == [
+            f"ask/wldn-design/sluice-who-claims (wldn), asked by wldn-design on mac-studio, answered {hm}: picked a; waits on wldn-design to act on it",
+            f"record/weir/0004 (wldn), asked by wldn-design on mac-studio, answered {hm}: approved; waits on wldn-design to act on it"]
+
+    def test_a_landings_card_left_as_the_user_answered_it_with_its_row_gone_waits_with_the_answered(self):
+        k, hm = self.answered(f"land/{KIT}", "req_5f", "wldn-ops", "approved", heads="a@1111111")
+        logs = {"wldn": [{"Act": "card.answer", "Card": "req_5f", "Heads": "a@1111111", "At": iso(5)}]}
+        out = text([], cards=[k], logs=logs)
+        assert out.split("answered, waiting on their askers:\n")[1].splitlines()[0][29:] == (
+            f"land/{KIT} (wldn), asked by wldn-ops on mac-studio, answered {hm}: approved; waits on wldn-ops to land a")
+        assert "open cards whose row is gone" not in out
+
+    def test_the_record_reading_gives_an_open_card_its_first_answer(self):
+        entries = [post("req_57", "proposal/57", minutes=60), post("req_58", "proposal/58", minutes=60),
+                   dict(Act="card.answer", Card="req_57", Key="proposal/57", Answer="approved", At=iso(5)),
+                   dict(Act="card.answer", Card="req_57", Key="proposal/57", Answer="declined", At=iso(4)),
+                   dict(Act="card.answer", Card="req_58", Key="proposal/58", Answer="approved", At=iso(3), Refused="x")]
+        cards_ = {c["card"]: c for c in plan.record_reading("wldn", entries, the_plan(), NOW - datetime.timedelta(days=14))["cards"]}
+        assert cards_["req_57"]["answered"] == dict(at=NOW - datetime.timedelta(minutes=5), answer="approved", heads=None)
+        assert "answered" not in cards_["req_58"]
+
+    def test_a_stray_card_whose_close_was_refused_is_listed_with_the_refusals_words(self):
+        """rail-cards "A card whose close was refused"."""
+        b40 = dict(label="wldn", card="req_b40", key="batch/40", by="wldn-planner", host="mac-studio", at=NOW)
+        refused = {"Act": "card.close", "Card": "req_b40", "Key": "batch/40", "By": "wldn-planner", "At": iso(2),
+                   "Refused": "Pending You refused the close: the service is down"}
+        stray = text(rows(), cards=[b40], logs={"wldn": [refused]}).split("open cards whose row is gone:\n")[1].splitlines()
+        assert stray[1] == "    left:   its last close was refused: Pending You refused the close: the service is down"
+        assert "closes it" not in "\n".join(stray)
+        assert plan.last_close_refusal([refused, dict(refused, Refused=None)], "req_b40") is None
 
     def test_a_row_without_a_card_names_the_refusal_of_its_last_post(self):
         refused = {"Act": "card.post", "Key": "proposal/1", "On": ["proposal/1"], "By": "wldn-planner", "At": iso(5),
@@ -603,7 +759,7 @@ class TestRecord:
         rs = rows(held={"wldn": r["held"]})
         assert not [x for x in rs if x["group"] == "batches"]
         land, = [x for x in rs if x["group"] == "land"]
-        assert land["what"][1:] == ["apex-zones, on chuck-herdr-alpha, in Flume stream wldn: can land"] and land["cmds"] == [
+        assert land["what"][1:] == [f"apex-zones, on chuck-herdr-alpha, in Flume stream wldn: can land; follows: the next card under land/{KIT} carries it"] and land["cmds"] == [
             ("answer", 'crew tell wldn-ops "Land apex-zones."')]
 
 
@@ -740,7 +896,7 @@ class TestSweepJudged:
         there = card("proposal/4", "req_p4", "wldn-planner", host=BOX)
         rec = card("record/atlas-kit/0021", "req_r1", "wldn-design")
         assert self.judged(cards_=[there, rec]) == {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [],
-                                                    "unread": [], "left_fleet": []}
+                                                    "unread": [], "left_fleet": [], "records": [rec], "waiting_on_owner": []}
         proposed = [did("record.proposed", On=["record/atlas-kit/0021"], Commit=["WilldanGroup/atlas-kit@" + "a" * 40], By="wldn-design")]
         assert self.judged(cards_=[rec], entries=proposed)["gone"] == []
 
@@ -797,7 +953,8 @@ class TestSweepJudged:
         recent = [did("card.close", 5, Card="req_p4", Refused="Pending You refused the close: Too many requests."),
                   did("card.post", 5, Key="deploy/dev", Refused="Pending You refused post_request: x")]
         assert self.judged(rows=[row("deploy/dev", "operations")], cards_=[p4], entries=recent) == {"gone": [], "questions": [], "held": [], "none": [],
-                                                                                                "again": [], "settled": [], "unread": [], "left_fleet": []}
+                                                                                                "again": [], "settled": [], "unread": [], "left_fleet": [],
+                                                                                                "records": [], "waiting_on_owner": []}
         old = [dict(e, At=iso(plan.CARD_RETRY // 60 + 1)) for e in recent]
         j = self.judged(rows=[row("deploy/dev", "operations")], cards_=[p4], entries=old)
         assert ([c for c, *_ in j["gone"]], j["none"]) == ([p4], [row("deploy/dev", "operations")])
@@ -855,7 +1012,8 @@ class TestSweepJudged:
         its proposal open; a read that holds proposal 5 with no row for it withdraws it."""
         p5 = card("proposal/5", "req_p5", "wldn-planner")
         assert self.judged(cards_=[p5], proposed={1, 2, 3, 4}) == {"gone": [], "questions": [], "held": [], "none": [], "again": [],
-                                                                    "settled": [], "unread": [], "left_fleet": []}
+                                                                    "settled": [], "unread": [], "left_fleet": [], "records": [],
+                                                                    "waiting_on_owner": []}
         assert self.judged(cards_=[p5], proposed=None)["gone"] == []
         assert self.judged(cards_=[p5], proposed={4, 5})["gone"] == [(p5, None, "its proposal is closed")]
         assert self.judged(rows=[row("proposal/5")], cards_=[p5], proposed={4, 5})["held"] == [(p5, row("proposal/5"))]
@@ -1003,6 +1161,27 @@ class TestSweepJudged:
     def test_a_kits_card_whose_row_is_gone_is_withdrawn_saying_nothing_waits_on_its_main(self):
         assert plan.row_gone("land/crew", [], ("crew",), {}) == (None, "nothing waits to land on crew's main")
 
+    def test_an_answered_landings_card_whose_row_is_gone_is_left_while_a_bolt_it_ticked_waits_to_land(self):
+        """rail-cards "The row is gone for a moment" (design Decision 5): the user approved land/crew ticking a; the
+        read finds no land/crew row, and a has no bolt.land or bolt.drop since the answer."""
+        k = card("land/crew", "req_5f", "wldn-ops")
+        answer = did("card.answer", 10, Card="req_5f", Key="land/crew", By="wldn-ops", Answer="approved", Heads="a@1111111")
+        j = self.judged(cards_=[k], entries=[answer], kits=("crew",))
+        assert (j["gone"], j["waiting_on_owner"]) == ([], [(k, ["a"])])
+        dropped_before = did("bolt.drop", 20, On=["bolt/a"])
+        assert self.judged(cards_=[k], entries=[dropped_before, answer], kits=("crew",))["waiting_on_owner"] == [(k, ["a"])]
+
+    def test_an_answered_landings_card_whose_ticked_bolt_landed_is_gone_and_closed_as_answered(self):
+        """rail-cards "The ticked bolt landed"."""
+        k = card("land/crew", "req_5f", "wldn-ops")
+        answer = did("card.answer", 10, Card="req_5f", Key="land/crew", By="wldn-ops", Answer="approved", Heads="a@1111111")
+        for ended in [did("bolt.land", 5, On=["bolt/a"], Repo="crew"), did("bolt.drop", 5, On=["bolt/a"])]:
+            j = self.judged(cards_=[k], entries=[answer, ended], kits=("crew",))
+            assert j["waiting_on_owner"] == [] and [c for c, *_ in j["gone"]] == [k]
+        refused = did("bolt.land", 5, On=["bolt/a"], Refused="a has not landed")
+        assert self.judged(cards_=[k], entries=[answer, refused], kits=("crew",))["waiting_on_owner"] == [(k, ["a"])]
+        assert plan.send_waits([dict(answer, Heads=None)], "req_5f") == [] and plan.send_waits([], "req_5f") == []
+
     def test_a_kits_card_is_left_while_the_host_of_a_bolt_of_it_does_not_answer(self):
         p = plan.Plan(plan_text(bolts=[("apex-zones", KIT, "swb-2")], units=[("zone-one", KIT, "apex-zones", [])]))
         ran = runs(p)  # zone-one's place on the box (runs), so apex-zones runs there
@@ -1139,8 +1318,9 @@ class TestSweep:
         p4 = card("proposal/4", "req_p4", "wldn-planner")
         out, acts = swept(cards_=[p4], entries=[did("plan.approve", On=["proposal/4"])],
                           answers={"get_request": ({"status": "pending", "version": 2}, None)})
-        assert acts.calls[0] == ("crew", "get_request", {"requestId": "req_p4", "name": "crew"})
-        assert acts.calls[2] == ("wldn-planner", "cancel_request", {"requestId": "req_p4", "name": "wldn-planner", "reason": "its proposal was applied"})
+        assert acts.calls[:2] == [("crew", "get_request", {"requestId": "req_p4", "name": "crew"}),
+                                  ("crew", "list_pending", {"name": "wldn-planner"})]
+        assert acts.calls[3] == ("wldn-planner", "cancel_request", {"requestId": "req_p4", "name": "wldn-planner", "reason": "its proposal was applied"})
         assert [(e["Act"], e["Card"], e["State"], e["Outcome"]) for e in acts.emitted] == [("card.close", "req_p4", "withdrawn", "its proposal was applied")]
         assert out["done"] == [dict(label="wldn", key="proposal/4", card="req_p4", by="wldn-planner", did="closed", words="its proposal was applied", new=None)]
 
@@ -1189,7 +1369,7 @@ class TestSweep:
         out, acts = swept(rows_=[row("deploy/dev", "operations")], cards_=[d], raises={"deploy": lambda *a, **k: pytest.fail("raised")},
                           answers={"get_request": ({"status": "pending", "version": 2}, None)})
         assert out == {"done": [], "unswept": []} and acts.emitted == []
-        assert [n for n, *_ in acts.calls] == ["crew"]
+        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("crew", "list_pending")]
 
     def test_a_card_whose_role_left_that_pending_you_no_longer_finds_is_recorded_lost(self):
         d = card("proposal/4", "req_p4", "willdan-planner")
@@ -1201,7 +1381,8 @@ class TestSweep:
         """The rail-cards scenario: crw-3-conductor's question card is open and crw-3's team is closed."""
         q = card("ask/crw-3-conductor/hold", "req_q1", "crw-3-conductor")
         out, acts = swept(cards_=[q], listed={"crw-3-conductor": (False, None)})
-        assert acts.calls[1:] == [("crw-3-conductor", "get_request", {"requestId": "req_q1", "name": "crw-3-conductor"}),
+        assert acts.calls[1:] == [("crew", "list_pending", {"name": "crw-3-conductor"}),
+                                  ("crw-3-conductor", "get_request", {"requestId": "req_q1", "name": "crw-3-conductor"}),
                                   ("crw-3-conductor", "cancel_request", {"requestId": "req_q1", "name": "crw-3-conductor",
                                                                          "reason": "crw-3-conductor ended; ask again if it still matters"})]
         assert acts.emitted == [dict(Act="card.close", On=["agent/crw-3-conductor"], by="crw-3-conductor", Card="req_q1", Key="ask/crw-3-conductor/hold",
@@ -1225,7 +1406,8 @@ class TestSweep:
         out, acts = swept(cards_=[q], listed={"crw-3-conductor": (False, None)},
                           answers={"get_request": ({"status": "resolved", "version": 3}, None),
                                    "cancel_request": (None, "This request is already closed.")})
-        assert acts.calls[1:] == [("crw-3-conductor", "get_request", {"requestId": "req_q1", "name": "crw-3-conductor"})]
+        assert acts.calls[1:] == [("crew", "list_pending", {"name": "crw-3-conductor"}),
+                                  ("crw-3-conductor", "get_request", {"requestId": "req_q1", "name": "crw-3-conductor"})]
         assert acts.emitted == [dict(Act="card.close", On=["agent/crw-3-conductor"], by="crw-3-conductor", Card="req_q1", Key="ask/crw-3-conductor/hold",
                                      State="closed", Outcome=plan.ENDED_ELSEWHERE)]
         assert [(d["did"], d["words"]) for d in out["done"]] == [("closed", "crw-3-conductor ended")]
@@ -1265,7 +1447,8 @@ class TestSweep:
         out, acts = swept(rows_=[row("deploy/dev", "operations")], cards_=[d], raises={"deploy": raise_deploy},
                           answers={"get_request": NOT_FOUND, "match_area": ({"decision": "use", "suggestions": [{"areaId": "prj_k"}]}, None),
                                    "post_request": ({"requestId": "req_d2", "version": 1}, None)})
-        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("wldn-ops", "get_request"), ("wldn-ops", "match_area"), ("wldn-ops", "post_request")]
+        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("crew", "list_pending"), ("wldn-ops", "get_request"),
+                                                      ("wldn-ops", "match_area"), ("wldn-ops", "post_request")]
         posted = acts.calls[-1][2]
         assert posted["idempotencyKey"] == "deploy/dev@wldn:2" and posted["summary"].startswith(cards.DEAD)
         assert [(e["Act"], e.get("State"), e["Card"]) for e in acts.emitted] == [("card.close", "lost", "req_d1"), ("card.post", None, "req_d2")]
@@ -1278,7 +1461,7 @@ class TestSweep:
         c = card("proposal/4", "req_188b8b6a", "crw-2-conductor")
         refused = "This is crw-2-conductor's card; leave it. You're \"recovery\": act only on the cards you posted."
         out, acts = swept(rows_=[row("proposal/4")], cards_=[c], answers={"get_request": (None, refused)})
-        assert out["done"] == [] and acts.emitted == [] and [n for n, *_ in acts.calls] == ["crew"]
+        assert out["done"] == [] and acts.emitted == [] and [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("crew", "list_pending")]
 
     def test_a_lost_card_of_a_kind_with_no_raise_is_recorded_lost_for_its_owner_to_raise_again(self):
         p4 = card("proposal/4", "req_p4", "wldn-planner")
@@ -1340,7 +1523,7 @@ class TestSweep:
         out, acts = swept(rows_=[row("batch/3", "batches")], cards_=[b3], entries=self.unread(b3),
                           answers={"get_request": self.owners("pending")}, readings={"batch/3": self.LINK})
         assert acts.raised == [("reading", "batch/3")]
-        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("wldn-planner", "get_request")]
+        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("crew", "list_pending"), ("wldn-planner", "get_request")]
         assert out["done"] == [dict(label="wldn", key="batch/3", card="req_b3", by="wldn-planner", did="opened",
                                     words=f"its reading opened at {self.LINK}", new=None)]
         assert f"  batch/3 (wldn), wldn-planner's req_b3: opened: its reading opened at {self.LINK}" in text(
@@ -1352,7 +1535,7 @@ class TestSweep:
         out, acts = swept(rows_=[row(f"land/{KIT}", "land")], cards_=[k], entries=self.unread(k),
                           answers={"get_request": self.owners("pending")}, readings={f"land/{KIT}": None})
         assert acts.raised == [("reading", f"land/{KIT}")]
-        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("wldn-ops", "get_request")]
+        assert [(n, t) for n, t, _ in acts.calls] == [("crew", "get_request"), ("crew", "list_pending"), ("wldn-ops", "get_request")]
         assert out["done"] == [dict(label="wldn", key=f"land/{KIT}", card="req_k1", by="wldn-ops", did="opened",
                                     words="its rows' readings opened", new=None)]
 
@@ -1463,6 +1646,205 @@ class TestSweep:
         assert plan.cards_asked(fleet, dict(read, cards=[]), "mac-studio", NOW) == []
         left = card("deploy/dev", "req_d1", "willdan-ops")  # a card whose role left the fleet
         assert plan.cards_asked(fleet, dict(read, cards=[p4, left]), "mac-studio", NOW) == ["req_p4", "req_d1"]
+
+    # The sweep reads each owner's pending list in its one bridge (design Decision 2 of
+    # a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), and records the answer of each card it reads answered.
+    APPROVED = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+
+    @staticmethod
+    def listing(*cards_on):
+        """Pending You's list_pending in the planner's name: each (card, turn) it holds."""
+        return ({"requests": [{"id": c, "title": "t", "status": "answered" if t == "agent" else "pending", "turn": t, "version": 2}
+                              for c, t in cards_on], "total": len(cards_on)}, None)
+
+    def test_a_held_proposal_card_on_the_agents_turn_has_its_answer_recorded_once(self):
+        """rail-cards "The sweep finds a row's card answered"."""
+        p57 = card("proposal/57", "req_57", "wldn-planner")
+        mine = lambda args: (None, f"This is wldn-planner's card; leave it.") if args["name"] == "crew" else (self.APPROVED, None)
+        out, acts = swept(rows_=[row("proposal/57")], cards_=[p57], proposed=(57,),
+                          answers={"get_request": mine, "list_pending": self.listing(("req_57", "agent"))})
+        assert [(n, t, a.get("name")) for n, t, a in acts.calls] == [
+            ("crew", "get_request", "crew"), ("crew", "list_pending", "wldn-planner"), ("crew", "get_request", "wldn-planner")]
+        assert [(e["Act"], e["On"], e["by"], e["Card"], e["Key"], e["Answer"]) for e in acts.emitted] == [
+            ("card.answer", ["proposal/57"], "wldn-planner", "req_57", "proposal/57", "approved")]
+        assert out["done"] == [dict(label="wldn", key="proposal/57", card="req_57", by="wldn-planner", did="answered", words="approved", new=None)]
+        assert out["answered"] == {"req_57": dict(at=NOW, answer="approved", heads=None)}
+        assert plan.swept_cards([p57], out, "mac-studio", NOW) == [dict(p57, answered=dict(at=NOW, answer="approved", heads=None))], (
+            "an answered card is still open, and carries the answer recorded")
+
+    def test_a_card_already_recorded_answered_is_read_no_more_and_one_waiting_on_the_user_is_not_read(self):
+        p57 = card("proposal/57", "req_57", "wldn-planner")
+        answered = [did("card.answer", Card="req_57", Key="proposal/57", Answer="approved")]
+        out, acts = swept(rows_=[row("proposal/57")], cards_=[p57], proposed=(57,), entries=answered,
+                          answers={"get_request": (self.APPROVED, None), "list_pending": self.listing(("req_57", "agent"))})
+        assert [t for _, t, _ in acts.calls] == ["get_request", "list_pending"] and acts.emitted == [] and out["done"] == []
+        out, acts = swept(rows_=[row("proposal/57")], cards_=[p57], proposed=(57,),
+                          answers={"list_pending": self.listing(("req_57", "you"))})
+        assert [t for _, t, _ in acts.calls] == ["get_request", "list_pending"] and acts.emitted == [] and out["done"] == []
+
+    def test_an_answered_question_and_record_card_have_their_answers_recorded_on_their_askers_and_records(self):
+        """rail-cards "A question answered": a question's answer on agent/<asker>; a record card's open, its record not
+        settled, asked after too."""
+        q = card("ask/wldn-design/sluice-who-claims", "req_q2", "wldn-design")
+        rec = card("record/atlas-kit/0021", "req_r1", "wldn-design")
+        listed = ({"requests": [{"id": "req_q2", "turn": "agent"}, {"id": "req_r1", "turn": "agent"}]}, None)
+        got = lambda args: (None, "refused") if args["name"] == "crew" else (dict(self.APPROVED, answer={"choiceIds": ["a"]}), None)
+        out, acts = swept(cards_=[q, rec], listed={"wldn-design": (True, None)}, answers={"get_request": got, "list_pending": listed})
+        assert [(e["On"], e["Card"], e["Answer"]) for e in acts.emitted if e["Act"] == "card.answer"] == [
+            (["agent/wldn-design"], "req_q2", "picked a"), (["record/atlas-kit/0021"], "req_r1", "picked a")]
+        assert [(d["key"], d["did"]) for d in out["done"]] == [("ask/wldn-design/sluice-who-claims", "answered"),
+                                                               ("record/atlas-kit/0021", "answered")]
+
+    def test_an_answered_landings_card_records_the_bolts_ticked_at_the_heads_it_showed(self):
+        k = card(f"land/{KIT}", "req_k1", "wldn-ops")
+        shown = [did("card.post", Key=f"land/{KIT}", Card="req_k1", By="wldn-ops", Heads="a@1111111 b@2222222")]
+        ticked = dict(self.APPROVED, answer={"choiceIds": ["land:a"]})
+        got = lambda args: (None, "refused") if args["name"] == "crew" else (ticked, None)
+        out, acts = swept(rows_=[row(f"land/{KIT}", "land")], cards_=[k], entries=shown,
+                          answers={"get_request": got, "list_pending": ({"requests": [{"id": "req_k1", "turn": "agent"}]}, None)})
+        (e,) = [e for e in acts.emitted if e["Act"] == "card.answer"]
+        assert (e["On"], e["Answer"], e["Heads"]) == ([f"kit/{KIT}"], "ticked a, left b", "a@1111111")
+
+    def test_an_answered_landings_card_whose_row_is_gone_is_left_said_as_waiting_on_ops_and_nothing_withdrawn(self):
+        """rail-cards "The row is gone for a moment": agentplot's land/sluice of 2026-11-08, its row gone for a read;
+        the card is left, said as waiting on ops to land a, and is no stray of the rail's."""
+        k = card(f"land/{KIT}", "req_5f", "wldn-ops")
+        answer = did("card.answer", 10, Card="req_5f", Key=f"land/{KIT}", By="wldn-ops", Answer="approved", Heads="a@1111111")
+        out, acts = swept(cards_=[k], entries=[answer], answers={"get_request": ({"status": "answered", "turn": "agent", "version": 3}, None)})
+        assert [t for _, t, _ in acts.calls if t in ("ack_answer", "cancel_request")] == [] and acts.emitted == []
+        assert out["done"] == [dict(label="wldn", key=f"land/{KIT}", card="req_5f", by="wldn-ops", did="left",
+                                    words="answered: waits on wldn-ops to land a", new=None)]
+        import board
+        assert not board.card_left(out), "a card waiting on its owner is no act the next tick tries again"
+        assert plan.stray_cards(FLEET, [("wldn", "o/s", "tip", the_plan())], survey(), [], [k], {}, {"wldn": [answer]}) == []
+
+    def test_a_gone_landings_card_whose_answer_the_sweep_reads_now_is_left_too(self):
+        k = card(f"land/{KIT}", "req_5f", "wldn-ops")
+        shown = did("card.post", 30, Key=f"land/{KIT}", Card="req_5f", By="wldn-ops", Heads="a@1111111")
+        approved = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+        out, acts = swept(cards_=[k], entries=[shown], answers={"get_request": (approved, None),
+                                                                 "list_pending": ({"requests": [{"id": "req_5f", "turn": "agent"}]}, None)})
+        assert [e["Act"] for e in acts.emitted] == ["card.answer"]
+        assert [(d["did"], d["words"]) for d in out["done"]] == [("answered", "approved"), ("left", "answered: waits on wldn-ops to land a")]
+
+    # A card the sweep's owner read finds ended in Pending You (design Decision 5): recorded on that read, nothing sent.
+    @staticmethod
+    def ended(status, answer=None):
+        got = {"status": status, "turn": "agent", "version": 4, **({"answer": answer} if answer else {})}
+        return lambda args: (None, "This is the owner's card; leave it.") if args["name"] == "crew" else (got, None)
+
+    def test_a_card_the_user_dismissed_is_recorded_withdrawn_and_its_row_is_a_row_with_none_at_the_next_read(self):
+        """rail-cards "A card the user dismissed"."""
+        p4 = card("proposal/4", "req_p4", "wldn-planner")
+        out, acts = swept(rows_=[row("proposal/4")], cards_=[p4],
+                          answers={"get_request": self.ended("cancelled"), "list_pending": ({"requests": []}, None)})
+        assert [t for _, t, _ in acts.calls] == ["get_request", "list_pending", "get_request"]
+        assert [{k: e[k] for k in ("Act", "Card", "State", "Outcome")} for e in acts.emitted] == [
+            dict(Act="card.close", Card="req_p4", State="withdrawn", Outcome=plan.ENDED_ELSEWHERE)]
+        assert out["done"] == [dict(label="wldn", key="proposal/4", card="req_p4", by="wldn-planner", did="withdrawn",
+                                    words="ended in Pending You already", new=None)]
+        left = plan.swept_cards([p4], out, "mac-studio", NOW)
+        assert left == []
+        posted = [{"Act": "card.post", "Key": "proposal/4", "By": "wldn-planner", "Card": "req_p4", "At": iso(60)}]
+        closed = [dict(e, By=e["by"], At=iso(0)) for e in acts.emitted]
+        j = plan.sweep_judged("mac-studio", [row("proposal/4")], left, posted + closed, OWNERS, set(), {4}, NOW)
+        assert j["none"] == [row("proposal/4")]
+
+    def test_a_question_its_asker_acked_is_recorded_closed_and_listed_nowhere(self):
+        """rail-cards "A question its asker acked"."""
+        q = card("ask/crw-3-conductor/hold", "req_q1", "crw-3-conductor")
+        out, acts = swept(cards_=[q], listed={"crw-3-conductor": (True, None)},
+                          answers={"get_request": self.ended("resolved", {"choiceIds": ["a"]}), "list_pending": ({"requests": []}, None)})
+        assert [{k: e[k] for k in ("Act", "On", "Card", "State", "Outcome", "Answer")} for e in acts.emitted] == [
+            dict(Act="card.close", On=["agent/crw-3-conductor"], Card="req_q1", State="closed", Outcome=plan.ENDED_ELSEWHERE, Answer="picked a")]
+        assert [(d["did"], d["words"]) for d in out["done"]] == [("closed", "ended in Pending You already")]
+        assert plan.question_cards(plan.swept_cards([q], out, "mac-studio", NOW), {}) == []
+
+    def test_a_cancelled_batch_card_closes_its_batchs_row(self):
+        b3 = card("batch/3", "req_b3", "wldn-planner")
+        out, acts = swept(rows_=[row("batch/3", "batches")], cards_=[b3],
+                          answers={"get_request": self.ended("expired"), "list_pending": ({"requests": []}, None)})
+        (close,) = acts.emitted
+        assert (close["State"], close["Key"]) == ("withdrawn", "batch/3")
+        assert "batch/3" in plan.batch_closed([{"Act": "card.post", "Key": "batch/3", "Card": "req_b3"}, close])
+
+    def test_an_ended_landings_card_keeps_its_answer_and_send(self):
+        k = card(f"land/{KIT}", "req_k1", "wldn-ops")
+        shown = did("card.post", 30, Key=f"land/{KIT}", Card="req_k1", By="wldn-ops", Heads="a@1111111 b@2222222")
+        out, acts = swept(rows_=[row(f"land/{KIT}", "land")], cards_=[k], entries=[shown],
+                          answers={"get_request": self.ended("resolved", {"choiceIds": ["land:a"]}), "list_pending": ({"requests": []}, None)})
+        (close,) = acts.emitted
+        assert (close["State"], close["Answer"], close["Heads"]) == ("closed", "ticked a, left b", "a@1111111")
+
+    # A card Pending You holds in another assistant's name is lost to its recorded owner (design Decision 6).
+    @staticmethod
+    def held_by(holder):
+        words = f"This is {holder}'s card; leave it. You're \"x\": act only on the cards you posted."
+        return lambda args: (None, words), words
+
+    def test_a_gone_batch_card_held_in_another_name_is_recorded_lost_and_no_longer_a_stray(self):
+        """rail-cards "A batch card posted under another name": as madswan's batch/16 card, here wldn's, posted under
+        swancloud-planner's name, its batch answered in a pane."""
+        b16 = card("batch/16", "req_ea", "wldn-planner")
+        refusal, words = self.held_by("swancloud-planner")
+        answered = did("batch.answer", 60, Key="batch/16", By="wldn-ops")
+        out, acts = swept(cards_=[b16], entries=[answered], answers={"get_request": refusal, "list_pending": ({"requests": []}, None)})
+        assert [(t, a["name"]) for _, t, a in acts.calls] == [("get_request", "crew"), ("list_pending", "wldn-planner"),
+                                                              ("get_request", "wldn-planner")]
+        assert [(e["Act"], e["State"], e["Card"], e["Outcome"]) for e in acts.emitted] == [
+            ("card.close", "lost", "req_ea", f"lost to its owner: {words}")]
+        assert [(d["did"], d["words"]) for d in out["done"]] == [("lost", "its row is gone, so nobody posts it again")]
+        assert plan.swept_cards([b16], out, "mac-studio", NOW) == []
+
+    def test_a_held_rows_card_in_another_name_is_posted_again_in_its_owners_name_saying_the_older_copy_is_dead(self):
+        """rail-cards "A row's card posted under another name": proposal/12's card, wldn-planner's in the run record,
+        refused to wldn-planner as swancloud-planner's."""
+        build = lambda facts: dict(key="proposal/12", card={"kind": "approval", "title": "Proposal 12", "summary": "Two units."})
+        raise_proposal = lambda fleet, r, acts=None: plan.row_card_change(fleet, r["label"], "wldn-planner", build, {}, "x",
+                                                                          ("/kit/main", "github.com/o/k"), acts)
+        p12 = card("proposal/12", "req_69", "wldn-planner")
+        refusal, words = self.held_by("swancloud-planner")
+        out, acts = swept(rows_=[row("proposal/12")], cards_=[p12], proposed=(12,), raises={"proposal": raise_proposal},
+                          answers={"get_request": refusal, "list_pending": ({"requests": []}, None),
+                                   "match_area": ({"decision": "use", "suggestions": [{"areaId": "prj_k"}]}, None),
+                                   "post_request": ({"requestId": "req_70", "version": 1}, None)})
+        posted = next(a for _, t, a in acts.calls if t == "post_request")
+        assert posted["session"]["label"] == "wldn-planner" and posted["summary"].startswith(cards.DEAD)
+        assert [(e["Act"], e.get("State"), e["Card"]) for e in acts.emitted] == [("card.close", "lost", "req_69"), ("card.post", None, "req_70")]
+        assert out["done"] == [dict(label="wldn", key="proposal/12", card="req_69", by="wldn-planner", did="lost", words="posted again as req_70", new="req_70")]
+
+    def test_crews_own_ask_refused_as_another_holders_card_is_not_read_as_lost(self):
+        p12 = card("proposal/12", "req_69", "wldn-planner")
+        refusal, _ = self.held_by("swancloud-planner")
+        out, acts = swept(rows_=[row("proposal/12")], cards_=[p12], proposed=(12,), answers={"get_request": refusal})
+        assert out["done"] == [] and acts.emitted == []
+
+    def test_an_owner_whose_list_cant_be_read_has_none_of_its_cards_read(self):
+        p57 = card("proposal/57", "req_57", "wldn-planner")
+        for listed in [(None, "Pending You refused list_pending: busy"), ({"total": 0}, None)]:
+            out, acts = swept(rows_=[row("proposal/57")], cards_=[p57], proposed=(57,),
+                              answers={"get_request": (self.APPROVED, None), "list_pending": listed})
+            assert [t for _, t, _ in acts.calls] == ["get_request", "list_pending"] and acts.emitted == []
+
+    def test_the_cards_owned_are_each_judged_cards_owner_with_whether_its_answer_is_recorded(self):
+        p4, q = card("proposal/4", "req_p4", "wldn-planner"), card("ask/crw-3-conductor/hold", "req_q1", "crw-3-conductor")
+        rec, left = card("record/atlas-kit/0021", "req_r1", "wldn-design"), card("deploy/dev", "req_d1", "willdan-ops")
+        j = dict(gone=[(p4, None, "x")], held=[], questions=[q], records=[rec], left_fleet=[(left, "y")])
+        logs = {"wldn": [did("card.answer", Card="req_q1")]}
+        assert plan.cards_owned([("wldn", j)], logs) == {"wldn-planner": {"req_p4": False}, "crw-3-conductor": {"req_q1": True},
+                                                         "wldn-design": {"req_r1": False}}
+
+    def test_the_owners_list_reads_whole_only_a_card_on_the_agents_turn_unrecorded_and_one_it_no_longer_holds(self):
+        acts = Acts(answers={"list_pending": ({"requests": [{"id": "req_a", "turn": "agent"}, {"id": "req_b", "turn": "agent"},
+                                                            {"id": "req_c", "turn": "you"}, {"bad": 1}]}, None)})
+        got = plan.cards_fetched(FLEET, ["req_a"], acts, {"wldn-planner": {"req_a": False, "req_b": True, "req_c": False, "req_d": False}})
+        assert [(t, a.get("requestId"), a["name"]) for _, t, a in acts.calls] == [
+            ("get_request", "req_a", "crew"), ("list_pending", None, "wldn-planner"),
+            ("get_request", "req_a", "wldn-planner"), ("get_request", "req_d", "wldn-planner")]
+        assert got[1] is None and sorted(got[2]) == ["req_a", "req_d"]
+        assert plan.cards_fetched(FLEET, [], acts, {}) == ({}, None, {}) and plan.cards_fetched(FLEET, [], acts) == ({}, None)
+        assert cards.pending_turns({"requests": [{"id": "req_a", "turn": "you"}]}) == {"req_a": "you"}
+        assert cards.pending_turns({"requests": "x"}) is None and cards.pending_turns(None) is None
 
     def test_a_host_not_signed_in_changes_nothing_and_says_so(self):
         said = "this host can't ask through Pending You: it is not signed in. The user signs it in with pendingyou-signin. " + plan.SWEEP_LATER
