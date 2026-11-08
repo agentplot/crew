@@ -18,5 +18,5 @@ Each check runs as written from the place's root. `tests:logic` and `tests:contr
 
 ## 3. The docs and the brief
 
-- [ ] 3.1 `crew`'s usage, README and the crew skill say that what crew recorded elsewhere under a former name stays under it, read as written, and no longer speak of a kit's name now (design, Decisions 1, 2 and 3; `docs.2`; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.1 `crew`'s usage, README and the crew skill say that what crew recorded elsewhere under a former name stays under it, read as written, and no longer speak of a kit's name now (design, Decisions 1, 2 and 3; `docs.2`; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
 - [ ] 3.2 The planner's brief no longer says a `--repo` given the old name is written under the new (design, Decision 2; Task notes 3.2). Verify `tests/suite t-briefs` ends with "0 failed".
