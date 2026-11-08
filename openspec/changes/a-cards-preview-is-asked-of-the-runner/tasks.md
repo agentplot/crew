@@ -29,5 +29,5 @@ Build the groups in order. Sync the tests' venv once before the first check: `de
 
 ## 5. The briefs and the docs
 
-- [ ] 5.1 Main-level ops's and the planner's briefs say crew asks the runner on the host where the work runs, and that the card changes once the runner reports it (design Decision 10; Task notes 5.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 5.1 Main-level ops's and the planner's briefs say crew asks the runner on the host where the work runs, and that the card changes once the runner reports it (design Decision 10; Task notes 5.1). Verify `tests/suite t-briefs` ends with "0 failed".
 - [ ] 5.2 README, the crew skill and the usage of `crew card preview` say the same (design Decision 10; Task notes 5.2). Verify `tests/suite t-docs` ends with "0 failed".
