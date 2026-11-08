@@ -208,11 +208,16 @@ def madswan_fleet():
 CREW_AT = {"label": "madswan", "machine": "deneb", "stream": "madswan", "kit": dict(CREW_KIT, main="/crew/main", dir="/crew")}
 
 
+# The commit flume-0.3.6/landed.json's place landed, so a bolt whose head it is and whose pieces stand landed there
+# reads green: its head is its work's landing, as the runner reports it (runner.verification).
+LANDED = "d185a879b51dba33555c036392b50443f4dfc5e8"
+
+
 def crew_read(main=(), chores=(), bolts=None):
     """A survey of deneb (plan.survey's answer) holding crew's kit as read there: main's changes and chores, and each
-    bolt in bolts, {bolt: its facts over a bolt holding nothing yet, its head d…d with no verdict}."""
+    bolt in bolts, {bolt: its facts over a bolt holding nothing yet, its head LANDED}."""
     empty = {"exists": True, "at": "origin/bolt/x", "changes": [], "archived": [], "open": {}, "chores": [], "worktree": None,
-             "head": "d" * 40, "head_at": "2026-10-31T12:00:00Z", "verdict": ""}
+             "head": LANDED, "head_at": "2026-10-31T12:00:00Z"}
     k = {"ok": True, "main": list(main), "chores": list(chores), "places": {}, "chore_places": {}, "fixes": [],
          "bolts": {b: dict(empty, at=f"origin/bolt/{b}", **facts) for b, facts in (bolts or {}).items()}}
     return {"deneb": {"ok": True, "kits": {"/crew/main": k}}}
@@ -281,22 +286,3 @@ def launched(bolts, work=(), fleet=None, planned=()):
         w.plan.bolt(b).set("Path", "flume")
         plan.reach_places(fleet, w, b)
     return w.plan, plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")
-
-
-# switchboard-kit's b01e966 on the box: #1319, its bolt's take-main fix, landed beside sluice's queue with nothing run on
-# #1316's e25fea4, which passed (141 run, 0 replayed) (tests/py/sluice-0.68.1/README).
-BESIDE_HEAD = "b01e9661211039a0682829dac1e4b7346d5d5828"
-COVERING = "e25fea4057459d9964dd6d422816115ecd1207fa"
-BESIDE_OLD = "landed beside the queue (no required check reads its changes)"  # sluice 0.68.1's Sluice-Result, b01e966's own
-BESIDE_NEW = ("passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the result at "
-              f"{COVERING}, passed (141 run, 0 replayed)")  # sluice 0.69.0's, as text.rs beside_message writes it
-
-
-def landed_beside(version, why=None, **change):
-    """What gather.landing_read gives of b01e966: sluice's record of #1319 as `sluice status 1319 --json` prints it in
-    tests/py/sluice-<version>/, its fields changed by change, or none with why."""
-    import json
-    import gather
-    rec = json.loads((pathlib.Path(__file__).parent / f"sluice-{version}" / "status-landed-beside.json").read_text())
-    rec = dict(rec, **change)
-    return {"submission": "1319", "record": None if why else {k: rec.get(k) for k in gather.BESIDE_FIELDS}, "why": why}

@@ -231,11 +231,11 @@ A card act Pending You refuses SHALL be refused in Pending You's own words and r
 - **THEN** the offer is recorded, no card posts, and the command says this computer is not signed in to Pending You
 
 ### Requirement: The landing card is posted once the bolt's verification is green
-crew SHALL keep one landings card for each kit with a proven bolt waiting on its main, keyed `land/<kit>`, in the name of the partition's main-level ops, posted on the partition's main host. A bolt SHALL be a row that can land once every unit and chore of it has merged, every unit's latest change has been in a batch whose card the user has answered, sluice's verdict at its head is green and no fix of it is in flight. Rows SHALL be in the plan's order. The card SHALL ask only for the landing.
+crew SHALL keep one landings card for each kit with a proven bolt waiting on its main, keyed `land/<kit>`, in the name of the partition's main-level ops, posted on the partition's main host. A bolt SHALL be a row that can land once every unit and chore of it has merged, every unit's latest change has been in a batch whose card the user has answered, its verification is green, its head the landing of its work as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it"), and no fix of it is in flight. Rows SHALL be in the plan's order. The card SHALL ask only for the landing.
 
 #### Scenario: A green bolt
-- **WHEN** every unit and chore of bolt `y` of crew has merged, each unit's latest change has been in a batch the user has answered and sluice is green at `abc1234`, and no other bolt of crew can land
-- **THEN** one card keyed `land/crew` is open in swancloud-ops's name, an approve of risk high, naming `y`, its units and chores and the verdict
+- **WHEN** every unit and chore of bolt `y` of crew has merged, each unit's latest change has been in a batch the user has answered, `y`'s head `abc1234` is the landing of its last unit as the runner reports it, and no other bolt of crew can land
+- **THEN** one card keyed `land/crew` is open in swancloud-ops's name, an approve of risk high, naming `y`, its units and chores and `abc1234` green
 
 #### Scenario: Sluice's pull request
 - **WHEN** sluice's submission at `y`'s head has pull request #23 on the kit's GitHub
@@ -254,7 +254,7 @@ crew SHALL keep one landings card for each kit with a proven bolt waiting on its
 - **THEN** `land/crew` holds `y`, `land/swancloud` holds `w`, and each is its own card
 
 #### Scenario: A row carries what the bolt's card carried
-- **WHEN** bolt `y` of swc-1, holding units `a` and `b` read in batch 7 and chore `c`, reads proven at `abc1234`, sluice green there since 10:02 with pull request #23, main moved two landings since `y` was cut
+- **WHEN** bolt `y` of swc-1, holding units `a` and `b` read in batch 7 and chore `c`, reads proven at `abc1234`, the landing of its work there made at 10:02, with pull request #23, main moved two landings since `y` was cut
 - **THEN** `y`'s row names swc-1-conductor, `a`, `b` and `c (chore)`, batch 7, `abc1234` green since 10:02, two landings, pull request #23 linked, and `y`'s reading's link
 
 #### Scenario: A second bolt is proven while the card waits
@@ -278,7 +278,7 @@ crew SHALL keep one landings card for each kit with a proven bolt waiting on its
 - **THEN** the rail's landing row for crew names `y`, saying it lands once that unit has been in a batch, and `y` is no row of `land/crew`
 
 #### Scenario: A landing row while a batch card waits on the user
-- **WHEN** every unit of bolt `y` has merged, sluice is green at its head, and batch 7, whose card the user has not answered, holds a unit's latest change
+- **WHEN** every unit of bolt `y` has merged, its verification is green, and batch 7, whose card the user has not answered, holds a unit's latest change
 - **THEN** the rail's landing row for crew names `y`, saying it lands once you have answered batch 7, and `y` is no row of `land/crew` until the user has answered batch 7's card
 
 #### Scenario: A defect noted on the card

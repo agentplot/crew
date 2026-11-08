@@ -49,11 +49,11 @@
 #                                      status of its place, a runner that can't be read named and the work no runner
 #                                      read has taken unknown; each started bolt's head line saying where the runner
 #                                      that took its work reported it runs, @ <host>, in Flume stream <s>, and
-#                                      its landing as the run record holds it, queued, rejected or landing again;
-#                                      each held bolt's verification, sluice's verdict on
-#                                      its last landing, and each merge and landing standing in sluice's queue with
-#                                      its number and state on its line, a queue that can't be read said once on the
-#                                      bolt's head line
+#                                      its landing as the run record holds it, queued, rejected or landing again,
+#                                      with its number; each held bolt's verification, whether its head is the
+#                                      landing of its work as the runner reports it; and each piece's submission on
+#                                      its line as the runner carries it, submitted #<n>; nothing read from sluice's
+#                                      queue
 #   crew bolt  new|start|order|drop|land ...
 #                                      start, the user's or a proposal's, has sluice make bolt/<bolt> on GitHub from
 #                                      main (sluice branch create, in the checkout the partition's main-level host
@@ -332,9 +332,8 @@
 #                                      one read for every partition with an operator session here, fetching each
 #                                      repository once a minute and showing this host's writes within seconds, reading
 #                                      only what moved, asking another host, Pending You or herdr only when something
-#                                      there could have moved, and following each repository's queue through one
-#                                      sluice overview watch; due restarts
-#                                      handed out once crew's checkout or the teams file moved, the rail's frame, the
+#                                      there could have moved, learning that a submission moved from its runner's
+#                                      report and starting no sluice; due restarts handed out once crew's checkout or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's

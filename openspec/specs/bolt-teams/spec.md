@@ -32,14 +32,14 @@ crew SHALL remove only the landing worktrees it cut, `<kit>/places/land-<bolt>` 
 - **THEN** the landing's entry names switchboard-kit and the commit its main holds, and crew says the bolt has landed at that commit
 
 ### Requirement: A bolt's proof is its verification
-A bolt SHALL be proven by its verification alone: sluice's verdict on its last landing, green at its head. Nobody SHALL deploy the bolt or work a list from its changes to prove it; ops SHALL prove and deploy nothing. crew SHALL offer the bolt for landing, as its row on its kit's landings card, once every unit and chore has merged and its verification is green.
+A bolt SHALL be proven by its verification alone: its head is the landing of its work, as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it"). Nobody SHALL deploy the bolt or work a list from its changes to prove it. Ops SHALL prove and deploy nothing. crew SHALL offer the bolt for landing, as its row on its kit's landings card, once every unit and chore of it has merged and its verification is green.
 
 #### Scenario: Ready to land
 - **WHEN** every unit of a bolt has merged and `crew bolts` shows its verification green
 - **THEN** the bolt is a row of its kit's landings card, in main-level ops's name, and no one is asked to prove it
 
 #### Scenario: Not yet green
-- **WHEN** every unit of a bolt has merged and its head is no landing of sluice's
+- **WHEN** every unit of a bolt has merged and its head is no landing of its work that the runner reports
 - **THEN** the bolt is not offered for landing, and `crew bolts` says what its verification is
 
 ### Requirement: A landing is read from GitHub's main
@@ -183,27 +183,36 @@ Any end of `crew bolt submit` with the bolt not on main that is not the bolt's S
 - **THEN** the landing is recorded stopped, in sluice's words, and holds nothing
 
 ### Requirement: A submission's number is on its bolt's row from the submit
-While a submission stands in sluice's queue, crew SHALL show its number and state on its bolt's row in `crew bolts`, text and JSON, from the first read after the submit, whoever made it, read from sluice's record of the queue on the kit's host: a merge into `bolt/<bolt>` on its unit's, chore's or fix's line, and the bolt's landing on its kit's main, from `bolt/<bolt>` or a pull request opened from it, on the bolt's head line.
+crew SHALL show each piece's sluice submission and the bolt's landing on the bolt's row in `crew bolts`, text and JSON. It SHALL show them from the first read after the submit, whoever made it:
+
+- **A piece's submission.** While a unit's, chore's or fix's submission stands, its line SHALL show the submission's number, `submitted #<n>`, from Flume's status of the piece's place as the runner carried it (`runner.stage_of`).
+- **The bolt's landing.** The bolt's head line SHALL show its landing as the run record holds it: queued as #n, landing again, or rejected (`plan.landing_phase`).
+
+crew SHALL read neither from sluice's queue. It SHALL run no `sluice overview` for a bolt's row. Its JSON SHALL give no line a `submission`, and no bolt a `landing` or a `submissions_error`, read from sluice.
 
 #### Scenario: A unit's merge under test
-- **WHEN** unit `a`'s merge agent runs `sluice submit bolt/y --no-wait --json` and sluice answers `#41`, which it then tests
-- **THEN** the next `crew bolts` shows `a`'s line with `#41 under test`, and its JSON gives `a` a submission of id 41 and state `testing`
+- **WHEN** the runner carries the place of unit `a` with its submission `#41` under test on `bolt/y`
+- **THEN** the next `crew bolts` shows `a`'s line with `submitted #41`, its JSON gives `a`'s stage as `submitted` with submission `41`, and no sluice command is run
 
 #### Scenario: A bolt's landing queued on main
-- **WHEN** main-level ops's `crew bolt submit y` has been answered `#355` and sluice has it queued on main
-- **THEN** `crew bolts` shows `y`'s head line with `landing #355 queued`
+- **WHEN** main-level ops's `crew bolt submit y` has been answered `#355`, and the run record holds the landing queued with no outcome
+- **THEN** `crew bolts` shows `y`'s head line saying `landing queued as #355`
 
 #### Scenario: Read again after the session that submitted it ended
-- **WHEN** the session that submitted unit `a`'s merge `#41` has ended, and `#41` stands passed on `bolt/y` with nothing waiting on it
-- **THEN** `crew bolts` still shows `a`'s line with `#41 passed, to land next`
+- **WHEN** the session in unit `a`'s place has ended, and the runner still carries `a`'s submission `#41` waiting on `bolt/y`
+- **THEN** `crew bolts` still shows `a`'s line with `submitted #41`
 
 #### Scenario: Decided
-- **WHEN** sluice lands `#41` on `bolt/y`
-- **THEN** `a`'s line shows no submission and reads its stage as merged once the bolt holds its change archived
+- **WHEN** sluice lands `#41` on `bolt/y`, and the runner carries `a`'s place landed
+- **THEN** `a`'s line shows no submission, and reads its stage as merged
 
 #### Scenario: sluice's record can't be read
-- **WHEN** `sluice overview --json` fails on the kit's host, or prints a document crew does not read
-- **THEN** each held bolt of that kit on the host says its submissions can't be read and why, once, and no line shows a number or says it has none
+- **WHEN** `sluice overview --json` would fail on the kit's host, while the runner carries `a`'s submission `#41` waiting on `bolt/y`
+- **THEN** `crew bolts` runs no sluice command, shows `a`'s line with `submitted #41`, and says nothing of sluice's queue on the bolt's head line
+
+#### Scenario: A runner that can't be read
+- **WHEN** the branch of the runner that took `a`'s launch can't be read
+- **THEN** `crew bolts` names that runner as one that can't be read, the stages of its work unknown, no line shows a number, and no sluice command is run
 
 ### Requirement: A landing standing in sluice is waited on again, not submitted again
 When `crew bolt submit <bolt>` finds the bolt's landing standing in sluice on its kit's main at the bolt's head, it SHALL submit nothing and SHALL wait on that submission again, as it waits on one it made, saying it waits on the number it found; the landing's end SHALL be read and recorded as for any landing. A landing standing at another head SHALL be said, naming its number and head, and the bolt SHALL be submitted as before.

@@ -161,13 +161,15 @@ class TestStage:
         assert plan.after_met(deps) is met
 
     def test_a_bolt_lands_once_every_unit_and_chore_has(self):
-        """Started bolt x of unit a and chore bump, both landed on x by the runner: active while crew's main holds a's change
-        and not bump's trailer, landed once it holds both."""
+        """Started bolt x of unit a and chore bump, both landed on x by the runner at x's head (crew_read's LANDED, the
+        commit ran's landed places carry): it waits to land while crew's main holds a's change and not bump's trailer,
+        since every piece has merged and its head is their landing as the runner reports it, so its verification reads
+        green (runner.verification), and it is landed once main holds both."""
         fleet = madswan_fleet()
         p, requests = launched(["x"], work=[("a", "x", [], "unit", []), ("bump", "x", [], "chore", [])], fleet=fleet)
         runs = {"madswan": (requests, ran({1: "landed", 2: "landed"}))}
         st = plan.Stages(fleet, p, crew_read(main=["a"], bolts={"x": {}}), runs=runs, label="madswan")
-        assert st.bolt_state(p.bolt("x")) == "active"
+        assert st.bolt_state(p.bolt("x")) == "waits"
         st = plan.Stages(fleet, p, crew_read(main=["a"], chores=["bump"], bolts={"x": {}}), runs=runs, label="madswan")
         assert st.bolt_state(p.bolt("x")) == "landed"
 

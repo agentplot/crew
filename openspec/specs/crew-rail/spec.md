@@ -89,7 +89,7 @@ A fix of the kit's main whose code has delivered and whose submission waits held
 Each kit with a bolt in flight whose units have all merged and not all landed SHALL be one row under land, keyed `land/<kit>`, naming the partition's main-level ops and, in the plan's order, each such bolt with what it waits on. A bolt not yet proven SHALL say what it waits on: the verification as it reads, the units due a batch, the batches waiting on the user's answer, a fix in flight, a landing sluice rejected at its head for the bolt's own content, said as rejected with the bolt open for work, or that it takes main first, forecast at its present head to conflict with what main holds. A bolt whose landing the run record has queued, or landing again, SHALL say so with its number and that no work joins it until sluice decides, and SHALL be none of the bolts that can land (bolt-teams "A landing queued holds its bolt's work"). A bolt that can land whose last landing at its head sluice or its host stopped SHALL say, beside that it can land, what stopped it and that main-level ops submits it again once that is cleared. Once a bolt can land, the row SHALL carry `crew tell <label>-ops "Land <bolts that can land, in order>."`. The row SHALL have begun to wait at the time of the earliest last commit among its bolts' branches.
 
 #### Scenario: The last unit merges
-- **WHEN** the last unit of crew's bolt `b` merges into `bolt/b` through sluice, every unit's change has been in a batch the user has answered, and the landing's verdict is `passed`
+- **WHEN** the last unit of crew's bolt `b` merges into `bolt/b` through sluice, every unit's change has been in a batch the user has answered, and the runner carries that unit's place landed at `bolt/b`'s head
 - **THEN** crew's row under land names `b` and `swancloud-ops`, saying `b` waits to land, with the tell that lands it
 
 #### Scenario: Two bolts of one kit
@@ -97,7 +97,7 @@ Each kit with a bolt in flight whose units have all merged and not all landed SH
 - **THEN** there is one row, `land/crew`, naming `b` then `c`, its tell naming both in that order
 
 #### Scenario: A verification that is not green
-- **WHEN** every unit of bolt `b` has merged and been in a batch the user has answered, and `bolt/b`'s head is no landing of sluice's
+- **WHEN** every unit of bolt `b` has merged and been in a batch the user has answered, and `bolt/b`'s head is no landing of its work that the runner reports
 - **THEN** `b`'s line says it lands once its verification is green and what the verification is now, and the row's tell leaves `b` out
 
 #### Scenario: A batch that waits on the user

@@ -28,17 +28,6 @@ Every merge into a bolt, every landing on main, and every commit that reaches a 
 - **WHEN** an agent waits on its submission to a kit's main or a bolt
 - **THEN** it reads the outcome from `sluice wait`'s exit and record, never from `sluice status <branch>`'s listing, which a decided submission leaves
 
-### Requirement: A bolt's verification is sluice's verdict on its last landing
-A bolt's verification SHALL be read from the `Sluice-Result` trailer of the merge commit at the bolt's head, which sluice writes on every landing: green only when it starts `passed`; none when the head is no landing of sluice's; unknown when there is no head to read. A landing beside the queue SHALL read as the verdict that covers it. crew SHALL never read a bolt's verification as green from anything but that trailer or, for a landing beside, sluice's record of it.
-
-#### Scenario: A bolt after a landing
-- **WHEN** the last submission to `bolt/b` landed with `Sluice-Result: passed (9 run, 0 replayed)`
-- **THEN** `crew bolts` shows the bolt's verification green, naming its head and that verdict
-
-#### Scenario: A bolt nothing has landed on
-- **WHEN** `bolt/b`'s head is a commit sluice did not make
-- **THEN** its verification reads none, and the bolt is not offered for landing
-
 ### Requirement: crew's own policy gates its bolts and main on its whole suite
 crew's `.config/sluice.toml` SHALL require the `check-full` tasks of every `bolt/*` branch and of `main`, run open on the host, and SHALL accept no replayed task for either, so every submission runs every test afresh. The live test SHALL be no task.
 
@@ -46,21 +35,29 @@ crew's `.config/sluice.toml` SHALL require the `check-full` tasks of every `bolt
 - **WHEN** crew's `.config/sluice.toml` is read
 - **THEN** `[branches."bolt/*"]` and `[branches.main]` each require `#check-full` and trust `open` alone, and its executor is `open`
 
-### Requirement: A landing beside reads as the verdict that covers it
-A head that names a submission and no `Sluice-Tested`, which sluice lands beside its queue with nothing run, SHALL read as the verdict that covers it, from sluice's record of that submission (`sluice status <n> --json`, its `covered_by`), never from its trailer's words: green only when the record has it landed beside the queue as the head and names a covering verdict that passed, naming that verdict's run and replay counts and the revision it landed as; otherwise unknown, saying why.
+### Requirement: A bolt's verification is its work's landing at its head, as the runner reports it
+A bolt's verification SHALL be green when its head, read where the bolt lives, is the commit at which one of its units, chores or fixes reads merged or landed, as the runner reports it or as record 0062's stopgap reads it; none when the head is no such commit; and unknown with no head to read. Its words SHALL name the head and the work. crew SHALL read no `Sluice-Result` trailer and run no sluice command for it.
 
-#### Scenario: Covered by a verdict that passed
-- **WHEN** every unit of `bolt/b` has merged, its head is a take-main fix sluice landed beside its queue as `#1319`, and sluice's record of `#1319` names the verdict that covers it, at `e25fea4`, `passed (141 run, 0 replayed)`
-- **THEN** `crew bolts` shows its verification green, naming `#1319` landed beside with nothing run and the covering verdict `passed (141 run, 0 replayed)` at `e25fea4`, and `b` is a row of its kit's landings card that can land
+#### Scenario: A bolt after its last unit's landing
+- **WHEN** the runner carries unit `a`'s place on `bolt/b` landed at `e25fea4`, and `bolt/b`'s head is `e25fea4`
+- **THEN** `crew bolts` shows the bolt's verification green, naming `e25fea4` and `a`
 
-#### Scenario: A record that names no covering verdict
-- **WHEN** `bolt/b`'s head is a landing beside whose record, written by sluice 0.68.1, names no covering verdict, as sluice before 0.69.0 writes none
-- **THEN** its verification reads unknown, saying sluice's record names none and that the bolt reads proven once a landing on it carries a verdict of its own or names the one that covers it, and the bolt is not offered for landing
+#### Scenario: A landing read from the bolt's own landings
+- **WHEN** unit `a`'s place was tidied before the runner carried its landing, and the landing commit at `bolt/b`'s head names `a`'s branch in its `Sluice-From`
+- **THEN** the bolt's verification is green, naming the head and `a`
 
-#### Scenario: The trailer alone
-- **WHEN** `bolt/b`'s head is a landing beside whose `Sluice-Result` opens `passed (0 run, 0 replayed)`, and sluice's record of its submission can't be read
-- **THEN** its verification reads unknown, saying why the record can't be read, and never green
+#### Scenario: A take-main fix landed beside the queue
+- **WHEN** every unit of `bolt/b` has merged, and the runner carries the place of `b`'s take-main fix landed at the bolt's head, which sluice landed beside its queue with nothing run
+- **THEN** the bolt's verification is green, naming the fix, and `b` is a row of its kit's landings card that can land
 
-#### Scenario: A record of something else
-- **WHEN** sluice's record of the head's submission has it landed as another commit, not landed, or covered by a verdict that did not pass or that crew can't read
-- **THEN** its verification reads unknown, naming which
+#### Scenario: A head that is no landing of the bolt's work
+- **WHEN** `bolt/b`'s head is a commit at which none of its units, chores or fixes reads merged or landed
+- **THEN** its verification reads none, saying its head is no landing of its work that the runner reports, and the bolt is not offered for landing
+
+#### Scenario: No head
+- **WHEN** crew can't read `bolt/b`'s head where it lives
+- **THEN** its verification reads unknown, and the bolt is not offered for landing
+
+#### Scenario: Nothing of sluice's is read
+- **WHEN** a kit holding `bolt/b`, whose head is a landing beside the queue, is gathered, with a `sluice` on the path that records every call
+- **THEN** the gather runs no `sluice` command, and its answer carries no `verdict` and no `beside` for `b`
