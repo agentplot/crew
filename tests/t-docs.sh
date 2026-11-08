@@ -32,7 +32,8 @@ echo "$n commands checked"
 (( n >= 100 )) || fail "too few commands read from the README"
 ok "every command in the README is in crew's usage"
 
-for gone in assign release opsx fable explorer verifier coder-; do
+# the removed crew release <team> by its command: a release is otherwise crew's own, plugin/release.json and crew _release
+for gone in assign "crew release" opsx fable explorer verifier coder-; do
   for doc in usage readme skill; do lacks "${!doc}" "$gone"; done
 done
 for gone in assign release opsx list status up rebuild close restart resume clear down _tidy _status _team; do

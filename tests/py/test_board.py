@@ -437,6 +437,91 @@ class TestFollower:
         assert board.wake(100.0, f.tick_at, "a", "a") == "tick"
 
 
+class TestInstalledCrew:
+    """The follower watches the crew the host has installed (host-holds-and-updates "An install moves while an agent sits
+    idle"): on a build its stamp is the installed command's real path, which an install moves, so the next refresh is an
+    update, handed out and started again through the installed crew; on a checkout its commit, as before."""
+
+    @pytest.fixture
+    def build(self, tmp_path, monkeypatch):
+        """crew run from a build in the store, no git, and a profile folder on its path whose crew links to a build."""
+        store = tmp_path / "store"
+        home = store / "abc-crew"
+        (home / "bin").mkdir(parents=True)
+        monkeypatch.setattr(crew, "HOME", home)
+        monkeypatch.setattr(crew, "STORE", f"{store}/")
+        profile = tmp_path / "profile/bin"
+        profile.mkdir(parents=True)
+        monkeypatch.setenv("PATH", str(profile))
+        return store, home, profile
+
+    def built(self, store, name):
+        """A build's bin/crew in the store, made where it is missing."""
+        (store / name / "bin").mkdir(parents=True, exist_ok=True)
+        (store / name / "bin/crew").write_text("#!/bin/sh\n")
+        (store / name / "bin/crew").chmod(0o755)
+        return store / name / "bin/crew"
+
+    def test_on_a_build_the_stamp_is_the_installed_commands_real_path_and_an_install_moves_it(self, build):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "abc-crew"))
+        was = board.crew_stamp()
+        assert was == os.path.realpath(home / "bin/crew")
+        (profile / "crew").unlink()
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        assert board.crew_stamp() == os.path.realpath(store / "def-crew/bin/crew") != was
+        assert board.moved_at()[0] == board.crew_stamp()
+
+    def test_on_a_checkout_the_stamp_is_its_commit(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").write_text("gitdir: /elsewhere\n")
+        monkeypatch.setattr(crew, "HOME", tmp_path)
+        monkeypatch.setattr(crew, "head_here", lambda root=None: "c" * 40)
+        assert board.crew_stamp() == "c" * 40
+
+    def test_with_no_installed_crew_the_stamp_is_unread_and_a_refresh_reads_and_hands_out_nothing(self, build):
+        assert board.crew_stamp() is None
+        kept = {"crew": ("c" * 40, b"{teams}"), "state": {}, "blueprints": {}, "kits": {}}
+        now = dict(kept, crew=(board.crew_stamp(), b"{teams}"))
+        m = board.moved(kept, now)
+        assert m["crew"] and board.refresh_plan(m, True, None not in now["crew"]) == "read"
+
+    def test_the_notice_runs_the_installed_crew(self, build):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        assert board.notice_argv() == ["pendingyou", "watch", "--", "bash", str(profile / "crew"), "_answered"]
+
+    def test_an_install_hands_out_the_restarts_and_starts_the_follower_again_through_the_installed_crew(self, build, tmp_path, monkeypatch):
+        store, home, profile = build
+        (profile / "crew").symlink_to(self.built(store, "def-crew"))
+        ran, started = [], []
+        monkeypatch.setattr(board.subprocess, "run", lambda argv, **kw: ran.append(argv) or
+                            board.subprocess.CompletedProcess(argv, 0, "wldn-ops is due", ""))
+        monkeypatch.setattr(board.os, "execvpe", lambda file, argv, env: started.append((file, argv, env["CREW_FOLLOWER_LOCK"])))
+        monkeypatch.setattr(board.os, "execve", lambda file, argv, env: started.append((file, argv, env["CREW_FOLLOWER_LOCK"])))
+        monkeypatch.setattr(board.sys, "argv", ["board.py", "_follow"])
+        lock = open(tmp_path / "lock", "w")
+        f = board.Follower(lock, watch=False)
+        f.labels = ["wldn"]
+        f.again({})
+        assert ran == [["bash", str(profile / "crew"), "_update", "--label", "wldn"]]
+        assert started == [("bash", ["bash", str(profile / "crew"), "_follow"], str(lock.fileno()))]
+
+    def test_on_a_checkout_the_follower_starts_again_as_its_own_board(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").write_text("gitdir: /elsewhere\n")
+        monkeypatch.setattr(crew, "HOME", tmp_path)
+        ran, started = [], []
+        monkeypatch.setattr(board.subprocess, "run", lambda argv, **kw: ran.append(argv) or
+                            board.subprocess.CompletedProcess(argv, 0, "", ""))
+        monkeypatch.setattr(board.os, "execvpe", lambda file, argv, env: started.append(argv))
+        monkeypatch.setattr(board.os, "execve", lambda file, argv, env: started.append(argv))
+        monkeypatch.setattr(board.sys, "argv", ["board.py", "_follow"])
+        f = board.Follower(open(tmp_path / "lock", "w"), watch=False)
+        f.labels = ["wldn"]
+        f.again({})
+        assert ran == [["bash", str(tmp_path / "plugin/bin/crew"), "_update", "--label", "wldn"]]
+        assert started == [[sys.executable, str(board.LIB / "board.py"), "_follow"]]
+
+
 class TestRefresh:
     """The host's follower's refresh (the crew-board spec, The rail and the board come from one read, A refresh after
     nothing moved reads nothing, A refresh after a change reads only what moved): one read for every partition with an
