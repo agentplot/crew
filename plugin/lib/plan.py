@@ -14849,6 +14849,48 @@ def row_card_post(fleet, label, owner, build, facts, where, acts=None, since=Non
     return card_posted(acts, label, owner, card_built(acts, label, build, facts), where, since=since)
 
 
+def answer_due(entries, card):
+    """Whether the user's answer on a card is still to be recorded (rail-cards "crew records the user's answer the first
+    time it reads it"): true unless a card.answer of card, not refused, is among the entries, since Pending You changes
+    no answered card and one answer per card is final (record.1). A decision of facts alone (code.7)."""
+    return not any(e.get("Act") == "card.answer" and e.get("Card") == card and not e.get("Refused") for e in entries)
+
+
+def answer_fields(key, got, heads=None, offered=()):
+    """A card.answer's fields but its Card, from get_request's reply on the agent's turn (got): its Key and its Answer
+    in crew's words made from names alone (cards.answer_said, offered the boxes the card offered), and for a kit's
+    landings card, land/<kit>, its rows as its last post or change recorded them given (heads, card_heads), Heads: the
+    bolts the user ticked (ticked_of), each at the head the card showed, left out when they ticked none. None when the
+    reply holds no answer, or the card waits on the user. A decision of facts alone (code.7)."""
+    if not isinstance(got, dict) or got.get("status") != "answered":
+        return None
+    answer = cards.answer_said(got, offered)
+    if answer is None:
+        return None
+    fields = {"Key": key, "Answer": answer}
+    if heads is not None and (key or "").startswith("land/"):
+        ticked = ticked_of(got, heads) or []
+        if ticked:
+            fields["Heads"] = " ".join(f"{b}@{h}" for b, h, _ in heads if b in ticked)
+    return fields
+
+
+def answer_seen(acts, label, owner, key, card, got, entries, heads=None, offered=()):
+    """The user's answer on a card crew read answered (got, get_request's reply in the owner's name) recorded, the first
+    time an act of crew's reads it (rail-cards "crew records the user's answer the first time it reads it", design
+    Decision 1): one card.answer on the row's object, or agent/<owner> for a question, in the owner's name, with its
+    Card and answer_fields', heads and offered as they take them, unless the run record (entries) holds the card's
+    answer already (answer_due). Said on standard error. The fields recorded, or None when nothing was."""
+    if not answer_due(entries, card):
+        return None
+    fields = answer_fields(key, got, heads, offered)
+    if fields is None:
+        return None
+    acts.emit(label, "card.answer", [cards.row_object(key, acts.kits(label)) or f"agent/{owner}"], by=owner, Card=card, **fields)
+    print(f"card {key}: {card} was answered, {fields['Answer']}, and crew recorded it", file=sys.stderr)
+    return dict(fields, Card=card)
+
+
 def card_lost(acts, label, owner, key, card, words):
     """A card Pending You no longer finds for its owner, recorded closed as lost so it is held no longer."""
     acts.emit(label, "card.close", [cards.row_object(key, acts.kits(label)) or f"agent/{owner}"], by=owner, Card=card, Key=key, State="lost",
