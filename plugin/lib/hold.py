@@ -197,12 +197,12 @@ def marked_exit(name, session):
     return marked or None
 
 
-def changes_for(was, now):
+def changes_for(was, now, root=None):
     """The subjects of crew's commits between two of its commits that changed what an agent loads or its briefs, at
-    most five, newest first; none when git can't read them."""
+    most five, newest first, read in crew's checkout at root, crew's own by default; none when git can't read them."""
     if not (was and now) or was == now:
         return []
-    r = subprocess.run(["git", "-C", str(crew.HOME), "log", "--no-merges", "--format=%s", f"{was}..{now}", "--",
+    r = subprocess.run(["git", "-C", str(root or crew.HOME), "log", "--no-merges", "--format=%s", f"{was}..{now}", "--",
                         *crew.LOADED, "plugin/roles"], capture_output=True, text=True)
     return r.stdout.splitlines()[:5] if r.returncode == 0 else []
 
@@ -336,9 +336,10 @@ def update_here(fleet, a):
     if h:
         print(f"{host} is held; crew go {host} restarts what an update made due")
         return
-    commit, version = crew.crew_version()
+    now = crew.installed()
+    commit, version = now["commit"], now["version"]
     for name in crew.agents_here(fleet, a.label):
-        due, why, started = crew.due_of(fleet, name, commit=commit)
+        due, why, started = crew.due_of(fleet, name, now=now)
         if due and why == crew.KIND_SAID:  # passed over (design Decision 14): its own stop, or crew main up, ends it
             print(f"{name} is passed over, never restarted: {why}; while it is up, the end of its next turn ends it, "
                   f"as crew main up {crew.label_of_agent(fleet, name)} does")
@@ -350,11 +351,12 @@ def update_here(fleet, a):
 
 
 def hand(name):
-    """The restart of an agent due for an update handed to a process of its own on this host (code.9), its words kept in
+    """The restart of an agent due for an update handed to a process of its own on this host (code.9), run by the crew
+    the host has installed (crew.crew_command), whichever build the hand runs from, its words kept in
     RENEW/<agent>.log."""
     RENEW.mkdir(parents=True, exist_ok=True)
     with open(RENEW / f"{name}.log", "a") as log:
-        subprocess.Popen(["bash", str(crew.HOME / "plugin/bin/crew"), "_renew", name], stdin=subprocess.DEVNULL,
+        subprocess.Popen(["bash", crew.crew_command(), "_renew", name], stdin=subprocess.DEVNULL,
                          stdout=log, stderr=log, start_new_session=True)
 
 
@@ -384,11 +386,12 @@ def renew(fleet, a):
         return
     deadline = time.monotonic() + a.wait
     gone = False  # an earlier restart's keys ended it, so it is started with no stop
+    now = crew.installed()  # the crew the host has installed, which the agent is restarted on
     while True:
         if crew.held():
             print(f"{host} is held; crew go {host} hands {name} what it is due")
             return
-        due, why, started = crew.due_of(fleet, name)
+        due, why, started = crew.due_of(fleet, name, now=now)
         if not due:
             print(f"{name} is not due a restart" + (f": {why}" if why else ""))
             return
@@ -416,7 +419,7 @@ def renew(fleet, a):
     if why == crew.KIND_SAID:
         kind_end(fleet, agents, role)
         return
-    commit, version = crew.crew_version()
+    commit, version = now["commit"], now["version"]
     mark = RENEW / f"{name}.exiting"
     if gone:
         print(f"{name} was ended by the exit an earlier restart typed; crew starts it")
@@ -437,7 +440,8 @@ def renew(fleet, a):
     mark.unlink(missing_ok=True)
     agents.record("agent.renew", f"update({host}): restart {name}", [role])
     started = started or {}
-    notice = renew_notice(started.get("version"), version, changes_for(started.get("commit"), commit))
+    changes = changes_for(started.get("commit"), commit, now["root"]) if now["from"] == "checkout" else []
+    notice = renew_notice(started.get("version"), version, changes)
     if role in agents.fresh:  # it had no conversation to pick up, so it is greeted as any fresh start is
         plan.greeted(plan.greeting(fleet, agents, [role]))
     else:

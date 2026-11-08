@@ -303,7 +303,8 @@ def range_landings(commits, merged, lands):
 
 def kit_range(fleet, label, frm, to):
     """What a deploy from frm to to carries on its kit's main, read with git on this host, the partition's main level's,
-    in the main checkouts of the repos its main-level session keeps: the kit is the one that holds to. (commits, merged)
+    in the main checkouts of the repos its main-level session keeps, each where the host keeps it (crew.session_checkouts:
+    the teams file's checkout where it names the repo for this host): the kit is the one that holds to. (commits, merged)
     as range_landings takes them, and None; or (None, None, why) naming what git could not read (read.1)."""
     import plan
     p = crew.partition_of(fleet, label)
@@ -311,7 +312,7 @@ def kit_range(fleet, label, frm, to):
 
     def git(where, *args):
         return subprocess.run(["git", "-C", where, *args], capture_output=True, text=True, env=plan.gitenv())
-    held = [m for m in (crew.checkout(sess, r) for r in sess.get("repos") or [])
+    held = [m for m in crew.session_checkouts(fleet, p["machine"], sess)
             if pathlib.Path(m).is_dir() and git(m, "cat-file", "-e", f"{to}^{{commit}}").returncode == 0]
     if len(held) != 1:
         return None, None, (f"{to[:7]} is a commit of {len(held)} kits {label}'s main level keeps on {p['machine']}" if held

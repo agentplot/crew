@@ -7,6 +7,8 @@ runner.where), a partition's hosts its main level's and its runners' (plan.hosts
 has taken a kit's work, it does in the checkout its partition's main-level host keeps of the kit (plan.main_kit,
 crew.kit_kept, crew.kits_on)."""
 import json
+import pathlib
+import re
 
 import pytest
 
@@ -302,3 +304,114 @@ class TestBeforeARunnerTookIt:
         assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/d/madswan/crew/main", "/d/agentplot/flume/main"]
         assert crew.kits_on(self.FLEET, "madswan", "deneb", fetch=True) == ["/d/madswan/crew/main", "/d/agentplot/flume/main"]
         assert asked == [("madswan", False), ("madswan", True)]
+
+
+class TestInTheRunnersCopy:
+    """drive-state, A kit in the runner's copy (record 0061; Decision 5 of a-kept-repositorys-folder-is-the-runners-container):
+    on the host its teams file is for, a repository the file names is kept at its `dir` and `checkout`, whether or not a
+    space lists it, by its address or its name alone; every other host's kits are its spaces', as before."""
+    SPACES = dict(TestBeforeARunnerTookIt.SPACES, deneb={"sessions": {
+        "madswan": {"dir": "/d/madswan", "repos": ["afterthought/blueprints", "afterthought/swancloud"]},
+        "madswan-2": {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/sluice", "agentplot/flume"]}}})
+    NAMED = {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"},
+             "agentplot/weir": {"dir": "/r/agentplot/weir", "checkout": "/v/agentplot/weir"}}
+    FLEET = dict(FLEET, hosts=SPACES, repositories={"host": "deneb", "named": NAMED})
+
+    def test_a_kit_the_file_names_is_its_container_and_view_by_its_name_or_its_forge_address(self):
+        for kit in ("crew", "agentplot/crew"):
+            assert plan.main_kit(self.FLEET, "madswan", kit)["kit"] == {
+                "name": "crew", "repo": "agentplot/crew", "dir": "/r/agentplot/crew", "main": "/v/agentplot/crew"}
+        assert plan.main_kit(self.FLEET, "madswan", "sluice")["kit"] == {
+            "name": "sluice", "repo": "agentplot/sluice", "dir": "/d/agentplot/sluice", "main": "/d/agentplot/sluice/main"}
+
+    def test_a_repository_the_file_names_and_no_space_keeps_is_kept(self):
+        """drive-state, A repository the file names and no space keeps."""
+        assert plan.main_kit(self.FLEET, "madswan", "weir")["kit"]["main"] == "/v/agentplot/weir"
+        import crew
+        assert crew.kept_on(self.FLEET, "deneb", "agentplot/weir") == "/v/agentplot/weir"
+        assert crew.kept_on(self.FLEET, "deneb", "agentplot/crew") == "/v/agentplot/crew"
+
+    def test_another_host_keeps_its_spaces_folders(self):
+        """drive-state, Another host's kit: deneb's file names deneb's repositories alone."""
+        import crew
+        fleet = dict(self.FLEET, partitions={"madswan": {"label": "madswan", "machine": "alpha"}})
+        assert plan.main_kit(fleet, "madswan", "crew")["kit"] == {
+            "name": "crew", "repo": "afterthought/crew", "dir": "/a/willdan/crew", "main": "/a/willdan/crew/main"}
+        assert crew.kit_kept(fleet, "alpha", "weir") is None
+        assert crew.kept_on(fleet, "alpha", "agentplot/crew") is None
+
+    def test_one_name_for_two_repositories_across_the_file_and_the_spaces_is_refused_naming_both(self):
+        """drive-state, One name, two repositories."""
+        fleet = dict(self.FLEET, repositories={"host": "deneb", "named": {
+            "agentplot/blueprints": {"dir": "/r/agentplot/blueprints", "checkout": "/v/agentplot/blueprints"}}})
+        with pytest.raises(plan.Refusal, match="^deneb's teams file and spaces keep agentplot/blueprints and afterthought/blueprints "
+                                               "by the name blueprints, so crew can't tell which is meant$"):
+            plan.main_kit(fleet, "madswan", "blueprints")
+        assert plan.main_kit(fleet, "madswan", "agentplot/blueprints")["kit"]["main"] == "/v/agentplot/blueprints"
+        assert plan.main_kit(fleet, "madswan", "afterthought/blueprints")["kit"]["main"] == "/d/madswan/blueprints/main"
+
+    def test_the_main_levels_kit_folders_are_the_files_checkouts(self, monkeypatch):
+        import crew
+        monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/crew", "flume", "weir"])
+        assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/v/agentplot/crew", "/d/agentplot/flume/main", "/v/agentplot/weir"]
+
+    def test_a_fleet_that_names_none_keeps_its_spaces_folders(self):
+        import crew
+        assert crew.kept(dict(self.FLEET, repositories={}), "deneb")[2] == {
+            "name": "crew", "repo": "agentplot/crew", "dir": "/d/agentplot/crew", "main": "/d/agentplot/crew/main"}
+        assert crew.kept(TestBeforeARunnerTookIt.FLEET, "deneb") == crew.kept(dict(TestBeforeARunnerTookIt.FLEET, repositories={}), "deneb")
+
+
+class TestNoFetchInTheRunnersClone:
+    """drive-state "crew fetches nothing in the runner's clone" (agentplot-design's ruling on batch 12; agentplot/boomdrive
+    core.14; records 0056 and 0061): where the host's teams file names a repository, its folder, its checkout and every
+    worktree under either are the runner's clone, which the runner alone fetches, so crew fetches nothing there and reads
+    origin's tracking refs as the runner last fetched them; every other checkout is fetched as before."""
+    FLEET = TestInTheRunnersCopy.FLEET
+    SHA = "a" * 40
+
+    def test_the_files_folder_checkout_and_their_worktrees_are_the_runners_clone_on_its_host_alone(self):
+        import crew
+        for path in ("/r/agentplot/crew", "/r/agentplot/crew/places/design-x", "/v/agentplot/crew", "/v/agentplot/crew/",
+                     "/r/agentplot/weir/places/fix-y"):
+            assert not crew.fetches_in(self.FLEET, "deneb", path), path
+        assert crew.runners_clone(self.FLEET, "deneb", "/r/agentplot/crew/places/design-x") == "agentplot/crew"
+        for path in ("/r/agentplot/crew-kit", "/v/agentplot", "/d/agentplot/sluice/main", "/d/madswan/blueprints/main"):
+            assert crew.fetches_in(self.FLEET, "deneb", path), path
+        assert crew.fetches_in(self.FLEET, "alpha", "/v/agentplot/crew")
+        assert crew.fetches_in(dict(self.FLEET, repositories={}), "deneb", "/v/agentplot/crew")
+        assert crew.fetches_in(TestBeforeARunnerTookIt.FLEET, "deneb", "/v/agentplot/crew")
+
+    FETCHING = ("MAIN", "POLICY", "GIVE_READ", "LANDED", "CARRIES", "LAND_COPIES", "BOLT_CREATE")
+
+    def test_a_script_is_told_fetch_no_in_the_runners_clone_and_nothing_elsewhere(self):
+        assert plan.fetch_told(self.FLEET, "deneb", "/v/agentplot/crew", plan.MAIN) == "fetch=no\n" + plan.MAIN
+        assert plan.fetch_told(self.FLEET, "deneb", "/d/agentplot/sluice/main", plan.MAIN) is plan.MAIN
+        for name in self.FETCHING:
+            text = getattr(plan, name)
+            assert "origin_fetch()" in text and "git fetch" not in text.replace(plan.FETCH, ""), name
+
+    def test_every_script_that_fetches_is_told_where_it_runs(self):
+        """No script that fetches from origin reaches bash or a host but through told, so none fetches in the runner's
+        clone by a call that forgot to ask (roles.3)."""
+        src = pathlib.Path(plan.__file__).read_text()
+        for name in self.FETCHING:
+            assert not re.search(rf'(?:host_run\(fleet, [^,()]+, |"-c", ){name}\b', src), name
+            assert re.search(rf'told\([^()]*, {name}\)', src), name
+
+    def test_main_now_in_the_runners_clone_is_origin_main_as_the_runner_last_fetched_it(self):
+        import kit
+        assert kit.main_now(f"ORIGIN=yes\nFETCHED=runner\nGITHUB={self.SHA}\nOWN=-\n", "crew", "deneb") == ("origin/main", self.SHA, None)
+        assert kit.main_now(f"ORIGIN=yes\nFETCHED=runner\nGITHUB=-\nOWN={self.SHA}\n", "crew", "deneb") == (
+            None, None, "the runner's clone of crew on deneb holds no origin/main yet, and crew fetches nothing there: its "
+                        "runner's next fetch brings it")
+
+    def test_a_forecasts_read_fetches_nothing_in_the_runners_clone(self, monkeypatch):
+        ran = []
+        monkeypatch.setattr(plan, "kit_git", lambda fleet, t, main, *args, ok=(0,): ran.append(args) or (0, ""))
+        t = {"machine": "deneb", "kit": {"main": "/r/agentplot/crew", "dir": "/r/agentplot/crew"}}
+        assert plan.origin_fetched(self.FLEET, t, "/r/agentplot/crew") is True
+        assert ran == [("remote", "get-url", "origin")]
+        ran.clear()
+        assert plan.origin_fetched(self.FLEET, dict(t, kit={"main": "/d/agentplot/sluice/main"}), "/d/agentplot/sluice/main") is True
+        assert ran == [("remote", "get-url", "origin"), ("fetch", "-q", "origin")]

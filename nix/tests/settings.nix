@@ -1,6 +1,9 @@
 # The crew-flake spec's settings: deneb's four partitions, in the order and
 # with the values of deneb's ~/.config/crew/teams.json read 2026-11-07,
-# which nix/tests/files/deneb.json holds byte for byte.
+# which nix/tests/files/deneb.json holds byte for byte; and `runner`, the
+# same partitions with crew's and swancloud's kept repositories at the
+# runner's container and view record 0060 lays out, which
+# nix/tests/files/runner.json holds byte for byte.
 let
   # Every role stands on deneb.
   standing = {
@@ -14,8 +17,21 @@ let
     every = 5;
     hours = 4;
   };
+
+  # A repository the runner keeps on deneb: its container and its view.
+  kept = address: {
+    dir = "/Users/chuck/.local/share/flywheel/repositories/${address}";
+    checkout = "/Users/chuck/Code/boomdrive/${address}";
+  };
 in
-{
+rec {
+  runner = deneb // {
+    repositories = {
+      "agentplot/crew" = kept "agentplot/crew";
+      "afterthought/swancloud" = kept "afterthought/swancloud";
+    };
+  };
+
   deneb = {
     partitions = [
       {
