@@ -352,6 +352,31 @@ class TestText:
         assert stray[2].endswith("proposal/9 (wldn), asked by wldn-planner on mac-studio") and stray[3] == "    left:   a later rail read here closes it"
         assert "crew tell" not in "\n".join(stray)
 
+    def test_a_row_names_its_owners_card_and_each_other_card_open_under_its_key_apart(self):
+        """crew-rail "Two cards open under one row's key": as afterthought's proposal/508 of 2026-11-07, its planner's
+        card and swancloud-planner's both open under it, here wldn's."""
+        rs = rows([proposal(508)])
+        ours = dict(label="wldn", card="req_51", key="proposal/508", by="wldn-planner", host="mac-studio", at=NOW - datetime.timedelta(minutes=9))
+        theirs = dict(ours, card="req_69", by="swancloud-planner", at=NOW)
+        out = text(rs, cards=[ours, theirs])
+        lines = out.splitlines()
+        i = lines.index("    card:   proposal/508, open, asked by wldn-planner (req_51)")
+        assert lines[i + 1] == "    also:   req_69, swancloud-planner's, open under proposal/508, not the row's card"
+        assert "asked by swancloud-planner" not in out
+        alone = text(rs, cards=[theirs])
+        assert "    card:   proposal/508, none open\n    also:   req_69, swancloud-planner's, open under proposal/508, not the row's card" in alone
+        assert plan.row_cards([ours, theirs], rs[0]) == (ours, [theirs])
+
+    def test_a_stray_card_whose_close_was_refused_is_listed_with_the_refusals_words(self):
+        """rail-cards "A card whose close was refused"."""
+        b40 = dict(label="wldn", card="req_b40", key="batch/40", by="wldn-planner", host="mac-studio", at=NOW)
+        refused = {"Act": "card.close", "Card": "req_b40", "Key": "batch/40", "By": "wldn-planner", "At": iso(2),
+                   "Refused": "Pending You refused the close: the service is down"}
+        stray = text(rows(), cards=[b40], logs={"wldn": [refused]}).split("open cards whose row is gone:\n")[1].splitlines()
+        assert stray[1] == "    left:   its last close was refused: Pending You refused the close: the service is down"
+        assert "closes it" not in "\n".join(stray)
+        assert plan.last_close_refusal([refused, dict(refused, Refused=None)], "req_b40") is None
+
     def test_a_row_without_a_card_names_the_refusal_of_its_last_post(self):
         refused = {"Act": "card.post", "Key": "proposal/1", "On": ["proposal/1"], "By": "wldn-planner", "At": iso(5),
                    "Refused": "Pending You refused post_request: Too many requests."}

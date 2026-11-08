@@ -11683,8 +11683,32 @@ def row_owner(fleet, plan, row):
     """Whose a rail row's card is and the host it runs on, where its card is posted under that host's sign-in: the
     planner's a proposal's and a batch's, and main-level ops's an operation's and a kit's landings card's, land/<kit>,
     on the partition's main machine (rail-cards, record 0031 as amended 2026-10-23)."""
-    l = row["label"]
-    return f"{l}-{'planner' if row['group'] in ('proposals', 'batches') else 'ops'}", fleet["partitions"][l]["machine"]
+    return row_owner_name(row), fleet["partitions"][row["label"]]["machine"]
+
+
+def row_owner_name(row):
+    """Whose a rail row's card is (row_owner), by its group alone: <label>-planner or <label>-ops."""
+    return f"{row['label']}-{'planner' if row['group'] in ('proposals', 'batches') else 'ops'}"
+
+
+def row_cards(cards_, row):
+    """A rail row's card and the other cards open under its key (rail-cards "The rail shows each row's card", design
+    Decision 7): the newest open in the row owner's name (row_owner_name), or None, and each other, oldest first, a copy
+    in another name or an older one in the owner's, which is not the row's card. A decision of facts alone (code.7)."""
+    under = sorted((c for c in cards_ if (c["label"], c["key"]) == (row["label"], row["key"])), key=lambda c: (c["at"], c["card"]))
+    own = [c for c in under if c["by"] == row_owner_name(row)]
+    return (own[-1] if own else None), [c for c in under if not own or c is not own[-1]]
+
+
+def last_close_refusal(entries, card):
+    """The words of a card's last close when Pending You or crew refused it, as the rail says of an open card whose row
+    is gone (rail-cards "The rail names an open card whose row is gone"); None when its last close went through, or
+    there was none."""
+    said = None
+    for e in entries:
+        if e.get("Act") == "card.close" and e.get("Card") == card:
+            said = e.get("Refused") or None
+    return said
 
 
 def older_than_card(key, proposed):
@@ -11985,11 +12009,13 @@ def rail_text(fleet, labels, read, now):
     held its time (land_times), the commands that answer it, and its card key with whether a card is open for it,
     whose and its id, by which its owner asks Pending You for it, or, with none open, the words of the refusal of its
     last post, oldest first; then the questions the asking roles put to the user, each with its key, which names it,
-    its asker and its age, since no entry holds a card's words (record.3); then each card act of an agent's whose reply
+    its asker and its age, since no entry holds a card's words (record.3), a row's card being the one open in its
+    owner's name and each other card open under its key named apart as not the row's (row_cards); then each card act of an agent's whose reply
     crew could not read (unread_card_acts); then the decision records waiting on the user, each the design
     agent's open card for one, with when it was asked and by whom, and no command, since the card is where it is
-    answered; then any open card whose row is gone that the sweep did not close, with the host whose rail read closes
-    it; then, from a read that swept, each card the sweep closed, withdrew, recorded lost or posted, and each batch it
+    answered; then any open card whose row is gone that the sweep did not close, with the words of its last close's
+    refusal where its last close was refused (last_close_refusal), else the host whose rail read closes it; then, from
+    a read that swept, each card the sweep closed, withdrew, recorded lost or posted, and each batch it
     closed or left with no card, named so, each partition it changed nothing for and why, each landings card raised
     again as main moved under it and each whose kit's revision of main can't be read (sweep_moved), each card session ended,
     with its host and why, each reading the user sent whose owner it told or that it recorded read, and each host whose
@@ -12022,9 +12048,10 @@ def rail_text(fleet, labels, read, now):
             lines += [" " * 29 + w for w in rest]
             lines += [f"    {c + ':':<8}{cmd}" for c, cmd in r["cmds"]]
             refused = last_refusal(logs.get(r["label"], []), r["key"])
-            lines += [f"    {'card:':<8}{r['key']}, open, asked by {c['by']} ({c['card']})" for c in cards_
-                      if (c["label"], c["key"]) == (r["label"], r["key"])] or [
-                f"    {'card:':<8}{r['key']}, none open" + (f"; its last post was refused: {refused}" if refused else "")]
+            own, others = row_cards(cards_, r)  # the row's one card, its owner's, and any other open under its key apart
+            lines += [f"    {'card:':<8}{r['key']}, open, asked by {own['by']} ({own['card']})" if own else
+                      f"    {'card:':<8}{r['key']}, none open" + (f"; its last post was refused: {refused}" if refused else "")]
+            lines += [f"    {'also:':<8}{c['card']}, {c['by']}'s, open under {r['key']}, not the row's card" for c in others]
     questions = question_cards(cards_, read["unread"])
     if questions:
         lines += ["", "questions waiting on you:"]
@@ -12047,7 +12074,9 @@ def rail_text(fleet, labels, read, now):
         lines += ["", "open cards whose row is gone:"]
     for c in stray:
         lines.append(when(c) + f"{c['key']} ({c['label']}), asked by {c['by']} on {c['host']}")
-        lines.append(f"    {'left:':<8}" + (f"a rail read on {c['host']} closes it, under that host's sign-in" if c["host"] != here
+        refused = last_close_refusal(logs.get(c["label"], []), c["card"])
+        lines.append(f"    {'left:':<8}" + (f"its last close was refused: {refused}" if refused else
+                                            f"a rail read on {c['host']} closes it, under that host's sign-in" if c["host"] != here
                                             else "a later rail read here closes it"))
     done = [f"  {d['key'] or 'a question'} ({d['label']}), {d['by']}" + (f"'s {d['card'] or d['new']}" if d["card"] or d["new"] else ", no card")
             + f": {d['did']}: {d['words']}" for d in swept["done"]]

@@ -162,12 +162,13 @@ def roles_read(fleet, found):
 # ------------------------------------------------------------------------------------------------- the data
 
 def marker(r, cards, label, logs):
-    """A rail row as a marker: its group, its card key, its glyph, when it began to wait, its card, open or None, and,
-    when none is open, the words of Pending You's refusal of the last post under its key, as the rail's card line gives
-    them (plan.last_refusal), or None; logs are the label's run-record entries the rail read."""
-    card = [c for c in cards if (c["label"], c["key"]) == (label, r["key"])]
+    """A rail row as a marker: its group, its card key, its glyph, when it began to wait, its card, the one open in the
+    row owner's name as the rail's card line names it (plan.row_cards), or None, and, when none is open, the words of
+    Pending You's refusal of the last post under its key, as the rail's card line gives them (plan.last_refusal), or
+    None; logs are the label's run-record entries the rail read."""
+    card, _ = plan.row_cards(cards, dict(r, label=label))
     return {"group": r["group"], "key": r["key"], "glyph": GLYPH[r["group"]], "at": r.get("date") or iso(r["at"]),
-            "card": {"by": card[-1]["by"], "host": card[-1]["host"], "at": iso(card[-1]["at"])} if card else None,
+            "card": {"by": card["by"], "host": card["host"], "at": iso(card["at"])} if card else None,
             "refused": None if card else plan.last_refusal(logs, r["key"])}
 
 
