@@ -3,7 +3,10 @@
 # 0.29.3 does. `sluice overview --json` prints $CREW_TEST_ROOT/sluice-overview.json while it exists, else the document
 # sluice prints for a repository whose branches have no records yet; `sluice overview --json --watch` prints that
 # document as one line at once and again whenever it changes but for its time, as sluice 0.51.3 does, until it is
-# ended, reading no git, so a test's shims on git see the follower's own calls alone; `sluice status <id> --json` prints
+# ended, reading no git, so a test's shims on git see the follower's own calls alone, and a file a test is still
+# writing, which is no whole document yet, is looked at again rather than printed or ended on, since sluice never
+# prints half a document, the watch's host noted once in $CREW_TEST_ROOT/sluice-overview-half-read when it finds one;
+# `sluice status <id> --json` prints
 # $CREW_TEST_ROOT/sluice-status-<id>.json while it exists, else the record of a submission it made, as its wait prints
 # it, else sluice's not-found error on standard output, exiting 1.
 # `sluice preview <branch> <revision> [--wait] --json` refuses, as sluice does, a revision whose .config/sluice.toml has
@@ -44,8 +47,9 @@
 # queued submission, and answers as it answers any (a wait beside it waiting on that one's record). To a branch whose policy takes pull requests (route.py --pulls) it answers as sluice
 # 0.36.4 does once intake has queued the pull request (crates/sluice/src/lib.rs submit_pull): the open one from this
 # worktree's branch into it, the stub gh's, opened when there is none, its number and no submission,
-# {"branch","pull_request","state"}, its submission made from the place pull/<n>, and the pull request merged when it
-# lands; a draft one it answers as waiting, landing and recording nothing. `sluice status <branch> --all --json` lists
+# {"branch","pull_request","state"}, its submission made from the place pull/<n>, which it hands the stub wt-submit as
+# SLUICE_STUB_PLACE so the landing's Sluice-From names it, `<agent> (pull/<n>)`, as sluice's landing 4acecf09 of a bolt
+# through pull request 377 on swancloud's main did, read 2026-11-08, and the pull request merged when it lands; a draft one it answers as waiting, landing and recording nothing. `sluice status <branch> --all --json` lists
 # the submissions to the branch, each a sluice/submission@1 with its id, head, state and from {agent, head,
 # worktree}. `sluice --version` prints `sluice 0.36.4`, or what $CREW_TEST_ROOT/sluice-version holds while it exists.
 # `sluice branch create <branch> --from <from> --json` and `sluice branch delete <branch> --into <into> --json` answer
@@ -74,13 +78,20 @@ if [[ $* == "overview --json --watch" ]]; then
   exec python3 -c '
 import json, os, sys, time
 path, host, here = sys.argv[1:]
-last = None
+last, half = None, False
 while True:
     try:
         with open(path) as f:
             doc = json.load(f)
     except FileNotFoundError:
         doc = {"branches": [], "host": host, "previews": [], "repository": here, "schema": "sluice/overview@1", "sessions": []}
+    except ValueError:  # the test is still writing the file: no whole document yet
+        if not half:
+            half = True
+            with open(os.path.join(os.path.dirname(path), "sluice-overview-half-read"), "a") as f:
+                f.write(host + "\n")
+        time.sleep(0.2)
+        continue
     doc["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     same = {k: v for k, v in doc.items() if k != "at"}
     if same != last:
@@ -150,7 +161,7 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
       fi
       place=pull/$pr
     fi
-    said=$(CREW_TEST_LOG= wt-submit "$target" --no-remove 2>&1); rc=$?
+    said=$(CREW_TEST_LOG= SLUICE_STUB_PLACE=${pr:+$place} wt-submit "$target" --no-remove 2>&1); rc=$?
     count=$common/stub-sluice-submissions
     if (( rc == 0 )); then n=$(cat "$count"); else n=$(( $(cat "$count" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$count"; fi
     state=landed; (( rc == 1 )) && state=failed; (( rc == 2 )) && state=conflict

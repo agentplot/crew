@@ -236,14 +236,17 @@ def flume_fixture(name):
     return (FLUME.parent if "/" in name else FLUME) / f"{name}.json"
 
 
-def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", unplaced=None, refused=None):
+def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", unplaced=None, refused=None,
+        keeps=("afterthought/crew",)):
     """A host's runner as crew reads it from its branch (runner.host_read): each launch in launched, {request's number:
     the Flume status fixture its place stands at (flume_fixture: tests/py/flume-0.3.6/<name>.json, or another version's
     named with its folder)}, answered launched and carried in places.rec at the fixture's own place, its repository given
-    as repository, the kit's folder on host where crew reads it (runner.where), and its stream the partition's label, as
-    its host's Flume configuration maps it; each in unplaced, {request's number: its place}, answered launched at that
-    place with no status of it carried yet; each in held answered held, with the runner's words where held is
-    {request's number: words}; and each in refused, {request's number: the runner's words}, answered refused."""
+    as repository, and its stream the partition's label, as its host's Flume configuration maps it; each in unplaced,
+    {request's number: its place}, answered launched at that place with no status of it carried yet; each in held
+    answered held, with the runner's words where held is {request's number: words}; and each in refused, {request's
+    number: the runner's words}, answered refused. Its repositories.rec names each forge address in keeps at repository,
+    the kit's folder on host where crew reads it (runner.where, Decision 1 of a-bolts-landing-on-main-reads-landed); a
+    runner given no repository, or keeps None, reports no repositories."""
     import json
     import plan
     import runner
@@ -262,6 +265,8 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
     answers += "".join(f"\nRequest: {n}\nOutcome: refused\nWords: {w}\nAt: 2026-10-31T12:01:00Z\n" for n, w in (refused or {}).items())
     files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n"),
              "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
+    if repository is not None and keeps is not None:
+        files["repositories.rec"] = plan.Plan(runner.REPOSITORIES + "".join(f"\nRepository: {a}\nFolder: {repository}\n" for a in keeps))
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}
 
 

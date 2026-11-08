@@ -264,6 +264,11 @@ eq "$(tick_reads $box gather) $(tick_reads mac-studio gather) $(tick_reads mac-s
 proposed || fail "the rail lost its words at sluice's write: $(railtext)"
 eq "$(unit_of a | jq -c .submission)" "null"
 : > "$T/reads.log"; : > "$CREW_TEST_LOG"
+# sluice prints its document whole, but a test's write of the stub's file can be caught half done, as a busy host
+# caught this one's (tests.8): a half-written file stands until each kit's watch has looked at it, and no watch ends on it
+printf '{"schema": "sluice/overview@1", "branches": [' > "$T/sluice-overview.json"
+half_read() { [[ $(sort -u "$T/sluice-overview-half-read" 2>/dev/null | paste -sd ' ' -) == "$box mac-studio" ]]; }
+until_ok half_read || fail "the overview watches never looked at the half-written document: $(cat "$T/sluice-overview-half-read" 2>/dev/null)"
 jq -n '{schema: "sluice/overview@1", at: "2026-10-28T16:24:41Z", branches: [{branch: "bolt/tenant-environments",
   submissions: [{id: 41, branch: "bolt/tenant-environments", state: "testing", from: {worktree: "unit/a"}}]}]}' > "$T/sluice-overview.json"
 queued() { [[ $(unit_of a | jq -c .submission) == '{"id":41,"state":"testing"}' ]]; }
@@ -272,7 +277,7 @@ eq "$(reads mac-studio gather) $(reads $box gather) $(reads mac-studio fetch)" "
 eq "$(grep ' sluice ' "$CREW_TEST_LOG" | grep -vc ' overview --json --watch' || true)" "0"
 expect_ok crew _board wldn --once; has "$(line_of "$out" "  a  ")" "#41 under test"
 kill "$fol"; wait "$fol" 2>/dev/null || true
-ok "the running follower's first read runs no sluice status, its tick with nothing moved starts nothing but one fetch of each repository, no ssh, sluice, Pending You, herdr, portless or gather, a plan write on mac-studio is shown at its next look with nothing fetched and no kit gathered, a reading sent back there has mac-studio's card sessions swept and nothing gathered, a write to sluice's folder moves nothing, and a merge queued in sluice is on its row from the kit's overview watch with nothing gathered"
+ok "the running follower's first read runs no sluice status, its tick with nothing moved starts nothing but one fetch of each repository, no ssh, sluice, Pending You, herdr, portless or gather, a plan write on mac-studio is shown at its next look with nothing fetched and no kit gathered, a reading sent back there has mac-studio's card sessions swept and nothing gathered, a write to sluice's folder moves nothing, and a merge queued in sluice is on its row from the kit's overview watch with nothing gathered, a half-written overview ending no watch"
 
 # crew page: the page written whole under the partition's state folder, its path and header printed, nothing
 # appended; a node's history on it, and its dock's, is what crew trace prints.

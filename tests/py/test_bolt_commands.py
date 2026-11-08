@@ -426,6 +426,8 @@ class TestWhenABoltIsFetched:
         asks = []
         monkeypatch.setattr(plan, "READ", plan.Reading())
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: ([], {}))
+        monkeypatch.setattr(plan, "submits_read", lambda fleet, label: [])  # the run record's bolt.submit entries
+        monkeypatch.setattr(plan, "submits_at", lambda repo, tip: [])
         monkeypatch.setattr(plan, "rail_runs", lambda found: {"wldn": ([], {})})
         monkeypatch.setattr(plan, "bolt_at", lambda fleet, label, b, run=None: self.WHERE if plan.started(b) else None)
         monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [])  # the run record crew bolts reads its landings from
@@ -571,9 +573,10 @@ class TestCrewBoltsCrossed:
     def test_a_bolt_whose_units_its_branch_holds_reads_where_it_runs_and_each_unit_merged(self):
         """bolt-plan "A unit whose work its bolt's branch holds is built" (signal 2026-11-07-agentplot-planner-cbc41169/02):
         x's a and b ran as another partition's places and landed on x, sluice passing its last landing; crew launched
-        them again here and the runner refused each, the bolt already holding the change, so no place of x's names the
-        kit's folder; y, started, runs on deneb. crew bolts reads x at deneb, never "where it runs can't be told", each
-        of a and b merged at its landing, and x waiting to land."""
+        them again here and the runner refused each, the bolt already holding the change, so the runner carries no place
+        of x's; y, started, runs on deneb, whose runner reports crew in its repositories.rec. crew bolts reads x at deneb,
+        in no stream while no place of x's is carried (Decision 1 of a-bolts-landing-on-main-reads-landed), never "where
+        it runs can't be told", each of a and b merged at its landing, and x waiting to land."""
         from facts import crew_read, launched, madswan_fleet, ran
         fleet = madswan_fleet()
         p, requests = launched(["x", "y"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("y1", "y", [], "unit", [])],
@@ -584,7 +587,7 @@ class TestCrewBoltsCrossed:
                             crew_read(bolts={"x": {"landings": landings, "verdict": "passed (9 run, 0 replayed)"}, "y": {}}), {},
                             runs={"madswan": (requests, runners)})
         out = plan.bolts_text(d).splitlines()
-        assert "x  crew  @ deneb, in Flume stream madswan  waits" in out
+        assert "x  crew  @ deneb  waits" in out, out
         assert f"  {'a':<40} {'merged':<12}   change/a landed on its bolt at 1111111" in out
         assert f"  {'b':<40} {'merged':<12}   change/b landed on its bolt at 2222222" in out
         assert not any("can't be told" in line for line in out)

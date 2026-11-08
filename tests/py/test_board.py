@@ -101,7 +101,8 @@ def flume_status(name, place, tasks=None, repository=None):
     return json.dumps(s)
 
 
-# Each kit's folder on the box, as Flume's status of a place the box's runner took names it (runner.where).
+# Each kit's folder on the box, as the box's runner reports it in its repositories.rec (runner.where; Decision 1 of
+# a-bolts-landing-on-main-reads-landed), and as Flume's status of a place it took names it.
 KEPT = {"switchboard-kit": "/kit/main", "breadboard-kit": "/b/main"}
 
 
@@ -109,7 +110,7 @@ def flume_runs(p, placed):
     """wldn's requests and runners as the board reads them (plan.runner_facts): a launch of each unit and chore of each
     started bolt in p, in the plan's order, in its bolt's repository, as a start writes them, and the box's runner
     answering each launch of placed launched with its place at {unit: (fixture, tasks)} in the kit's folder there (KEPT),
-    the rest unanswered."""
+    the rest unanswered, and reporting each kit of KEPT in its folder there."""
     import runner
     requests, answers, places = [], "", ""
     for b in p.bolts() if p else []:
@@ -124,7 +125,8 @@ def flume_runs(p, placed):
                 answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: {ago(100)}\n"
                 places += f"\nRequest: {n}\nPlace: {where}\nAt: {ago(90)}\nStatus: {flume_status(fixture, where, tasks, KEPT[b.get('Repo')])}\n"
     files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {BOX}\nVersion: 0.1.0\nSince: {ago(300)}\n"),
-             "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
+             "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places),
+             "repositories.rec": plan.Plan(runner.REPOSITORIES + "".join(f"\nRepository: WilldanGroup/{k}\nFolder: {f}\n" for k, f in KEPT.items()))}
     return {"wldn": (requests, {BOX: runner.host_read("wldn", BOX, "5e1f0c2a" + "0" * 32, files, {})})}
 
 
@@ -2104,16 +2106,16 @@ class TestStarted:
     def test_a_launch_the_runner_holds_with_no_after_is_on_its_runners_host_with_its_words(self):
         """drive-state "A place not carried yet" and bolt-plan "A claimed launch is not held for After work", in the
         board and the planner's band (code.8): deneb's runner holds a's launch, which names no After, with its claim's
-        words, and has carried no place of x's work; the ledger names deneb, a's line says it is launching with the
-        runner's words, and b, after a, waits on a."""
+        words, has carried no place of x's work and reports no repositories; the ledger names deneb, a's line says it is
+        launching with the runner's words, and b, after a, waits on a."""
         from facts import ran
         claim = "claimed by deneb's runner; launching once no other runner has claimed it"
-        d = self.data(ran(held={1: claim, 2: None}))
+        d = self.data(ran(held={1: claim, 2: None}, keeps=None))
         x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
         assert (x["host"], x["stream"]) == ("deneb", None)
         assert lane(board.board_text(d), "Construction")[1:] == [f"    a  launching  held by the runner: {claim}", "    b  waiting  on a"]
         assert lane(board.board_text(d), "Construction")[0].startswith("  crew x  on deneb  ")
-        v = self.views(ran(held={1: claim, 2: None}))["madswan-planner"]
+        v = self.views(ran(held={1: claim, 2: None}, keeps=None))["madswan-planner"]
         assert any(f"a  launching  held by the runner: {claim}" in l for l in v) and not any("After work" in l for l in v)
 
     def test_a_question_in_the_planners_band(self):

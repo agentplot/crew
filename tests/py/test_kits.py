@@ -196,10 +196,13 @@ def launch(n, work, base, repo="crew"):
     return plan.Rec("Request", [("Request", str(n)), ("Act", "launch"), ("Work", work), ("Repo", repo), ("Base", base)])
 
 
-def took(host, *ns, repository="/w/crew", stream="madswan", kept=None):
+def took(host, *ns, repository="/w/crew", stream="madswan", kept="place"):
     """A host's runner as crew reads it, having taken each launch numbered ns, its place's status naming the kit's folder
-    on host (repository) and its stream; and, where kept is given, reporting the repositories it keeps, each (address,
-    folder), in its repositories.rec."""
+    on host (repository) and its stream; and reporting the repositories it keeps in its repositories.rec, each (address,
+    folder) of kept, by default the kit its place names at that folder, under any owner, since crew matches a kit by its
+    name (runner.kept_folder); None for a runner whose branch holds no repositories.rec, which reports none."""
+    if kept == "place":
+        kept = [(f"afterthought/{repository.rsplit('/', 1)[-1]}", repository)]
     status = json.loads((FLUME / "code.json").read_text())
     p = status["status"]["places"][0]
     p.update(repository=repository, stream={"name": stream, "from": "intent"})
@@ -218,7 +221,8 @@ class TestWhereABoltRuns:
 
     def test_its_host_folder_and_stream_are_the_runners_that_took_its_work(self):
         """drive-state "The runner that took the work": x's work taken by deneb's runner, the main level's host, which
-        carries Flume's status of its place naming crew's folder /w/crew and reports no repositories."""
+        carries Flume's status of its place naming its stream madswan and reports crew at /w/crew in its
+        repositories.rec."""
         at = plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": took("deneb", 1, 2)}))
         assert at == {"label": "madswan", "machine": "deneb", "stream": "madswan",
                       "kit": {"name": "crew", "repo": "crew", "main": "/w/crew", "dir": "/w/crew"}}
@@ -247,11 +251,27 @@ class TestWhereABoltRuns:
             plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": took("deneb")}))
         assert plan.bolt_taken(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": took("deneb", 3)})) == (None, None)
 
-    def test_taken_with_no_place_carried_crew_cant_tell_its_folder(self):
-        read = took("deneb", 1)
+    def test_a_bolt_whose_places_the_runner_no_longer_carries_is_read_in_the_folder_it_reports(self):
+        """drive-state "A bolt whose places the runner no longer carries" and "A bolt whose every launch was refused":
+        deneb's runner answered x's launches, launched or refused, carries no place of them nor of crew's other work, and
+        its repositories.rec names crew at /w/crew: x is read and landed on deneb in /w/crew, its stream none; with no
+        repositories.rec on its branch, crew can't tell where it keeps crew there, naming deneb (Decision 1 of
+        a-bolts-landing-on-main-reads-landed; read.1)."""
+        read = took("deneb", 1, 2, 3)
         read["places"] = {}
-        with pytest.raises(plan.Refusal, match="^the runner on deneb took bolt x's work and has carried no place of it yet"):
-            plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": read}))
+        at = plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": read}))
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", None, "/w/crew")
+        refused = took("deneb", 1, 2, 3)
+        refused["places"] = {}
+        refused["answers"] = {n: plan.Rec("Answer", [("Request", str(n)), ("Outcome", "refused"), ("Words", "bolt/x holds it")])
+                              for n in (1, 2)}
+        assert plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": refused}))["kit"]["main"] == "/w/crew"
+        bare = took("deneb", 1, 2, 3, kept=None)
+        bare["places"] = {}
+        with pytest.raises(plan.Refusal) as e:
+            plan.bolt_at(FLEET, "madswan", self.BOLT, (self.LAUNCHES, {"deneb": bare}))
+        assert str(e.value) == ("the runner on deneb took bolt x's work and reports no repositories it keeps, so crew can't "
+                                "tell where it keeps crew there")
 
     def test_the_folder_the_runner_reports_wins_over_a_places_stale_status(self):
         """drive-state "A kit renamed under its place" (Decision 6 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
