@@ -8,13 +8,13 @@ tasks:
   contract:
     command: 'python3 -m pytest -q -p no:cacheprovider tests/contract'
     deps: ['~:venv']
-    inputs: ['/plugin/lib/**/*', '/plugin/roles/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/.prototools', '/.moon/toolchains.yml', '/tests/pyproject.toml', '/tests/uv.lock', '/.config/sluice.toml', '/tests/contract/**/*']
+    inputs: ['/plugin/lib/**/*', '/plugin/roles/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/.prototools', '/.moon/toolchains.yml', '/tests/pyproject.toml', '/tests/uv.lock', '/.config/sluice.toml', '/flake.lock', '/nix/inputs.nix', '/nix/moon.yml', '/.moon/workspace.yml', '/tests/contract/**/*']
     tags: [check-full]
     options: { runFromWorkspaceRoot: true }
   logic:
     command: 'python3 -m pytest -q -p no:cacheprovider tests/py'
     deps: ['~:venv']
-    inputs: ['/plugin/lib/**/*', '/plugin/roles/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/.prototools', '/.moon/toolchains.yml', '/tests/pyproject.toml', '/tests/uv.lock', '/plugin/hooks/status.js', '/plugin/hooks/cards', '/plugin/hooks/hooks.json', '/plugin/flume/**/*', '/plugin/bin/**/*', '/plugin/.claude-plugin/plugin.json', '/tests/py/**/*']
+    inputs: ['/plugin/lib/**/*', '/plugin/roles/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/.prototools', '/.moon/toolchains.yml', '/tests/pyproject.toml', '/tests/uv.lock', '/plugin/hooks/status.js', '/plugin/hooks/cards', '/plugin/hooks/hooks.json', '/plugin/flume/**/*', '/plugin/bin/**/*', '/plugin/.claude-plugin/plugin.json', '/nix/tests/files/**/*', '/tests/py/**/*']
     tags: [check-full]
     options: { runFromWorkspaceRoot: true }
   mod:

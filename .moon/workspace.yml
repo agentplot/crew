@@ -1,12 +1,15 @@
-# moon runs crew's suite: one project, tests, whose tasks are one per tests/t-*.sh, generated into tests/moon.yml by
-# tests/moon-tasks and run side by side by tests/suite. A task whose inputs are identical to a run that passed on
-# this host, in any worktree of crew, is replayed from the archives in .moon/cache/outputs (a link into the git
-# common dir, made by devenv.nix) instead of run again. So every task's inputs must name everything its test reads
-# from crew's tree: a file left out could change and a stale pass replay. tests/suite refuses while they don't.
+# moon runs crew's suite: the project tests, whose tasks are one per tests/t-*.sh, generated into tests/moon.yml by
+# tests/moon-tasks and run side by side by tests/suite; and the project nix, crew's flake's own checks (nix/moon.yml,
+# flake.3), whose check-full tasks tests/suite and sluice run beside the suite's. A task whose inputs are identical to
+# a run that passed on this host, in any worktree of crew, is replayed from the archives in .moon/cache/outputs (a link
+# into the git common dir, made by devenv.nix) instead of run again. So every task's inputs must name everything its
+# test reads from crew's tree: a file left out could change and a stale pass replay. tests/suite refuses while they
+# don't.
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
   tests: 'tests'
+  nix: 'nix'
 
 # --affected compares against the merge-base with main, uncommitted edits included.
 vcs:

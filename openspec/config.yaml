@@ -8,9 +8,12 @@ context: |
   from {{TOKENS}}) and skills. Needs only herdr, jq, python3, git, wt and
   openspec on the machine; no service of its own.
 
-  Teams are data written by swancloud (lib/crew-teams.nix →
-  ~/.config/crew/teams.json); hosts and sessions come from swancloud's
-  ~/.config/swancloud/herdr-hosts.json. crew never edits either file. A host
+  Partitions are data in ~/.config/crew/teams.json, written by the machine's
+  configuration: crew's own module, services.crew from crew's flake
+  (flake.nix, nix/; flake.1, flake.2), or swancloud's lib/crew-teams.nix;
+  hosts and sessions come from swancloud's
+  ~/.config/swancloud/herdr-hosts.json. The crew command never edits either
+  file. A host
   loads crew in one of two modes swancloud sets for it (plan.19, record
   0032): live, from crew/live/plugin, a detached worktree at GitHub's main
   that swancloud's timer moves, so a landing is live there minutes after it
