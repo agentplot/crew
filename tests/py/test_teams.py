@@ -116,6 +116,21 @@ class TestKeptRepositories:
         assert self.load(tmp_path, monkeypatch)["repositories"] == {}
         assert self.load(tmp_path, monkeypatch, repositories={})["repositories"] == {}
 
+    def test_a_partition_whose_blueprints_the_file_names_on_its_host_starts_in_the_files_checkout(self, tmp_path, monkeypatch):
+        """Decision 6: madswan's main level runs on mac-studio, whose file names afterthought/blueprints, so its checkout,
+        where its roles start, is the file's; wldn's, on the box, is its session's as before."""
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+        named = {"afterthought/blueprints": {"dir": "/r/afterthought/blueprints", "checkout": "/v/afterthought/blueprints"}}
+        fleet = self.load(tmp_path, monkeypatch, repositories=named)
+        assert crew.partition_of(fleet, "madswan")["checkout"] == "/v/afterthought/blueprints"
+        assert crew.partition_of(fleet, "wldn")["checkout"] == f"{tmp_path}/box/willdan/willdan-blueprints/main"
+        monkeypatch.setattr(crew, "definition", lambda role: ({"model": "opus", "effort": "high"}, ""))
+        monkeypatch.setattr(crew, "kits_on", lambda fleet, label, host, fetch=False: [])
+        assert crew.launch(fleet, "madswan", "design")["cwd"] == "/v/afterthought/blueprints"
+        monkeypatch.setattr(crew, "this_host", lambda: BOX)
+        fleet = self.load(tmp_path, monkeypatch, repositories=named)
+        assert crew.partition_of(fleet, "madswan")["checkout"] == f"{tmp_path}/mac/madswan/blueprints/main"
+
     @pytest.mark.parametrize("repositories, said", [
         ([], "'repositories' maps each kept repository, <owner>/<name>, to its 'dir' and 'checkout', not \\[\\]"),
         (None, "'repositories' maps each kept repository, <owner>/<name>, to its 'dir' and 'checkout', not null"),

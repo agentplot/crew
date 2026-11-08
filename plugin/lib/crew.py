@@ -277,7 +277,11 @@ def load():
                 _, rs = session_of(hosts, f"{what}'s {defn}", machine, o["session"])
                 rs.get("partition") == name or fail(f"{what}'s {defn} runs in {machine}'s session {o['session']}, which is in "
                                                      f"partition {rs.get('partition')}, not {name}")
-        parts[label] = dict(p, label=label, partition=name, ssh=host["ssh"], dir=sess["dir"], checkout=checkout(sess, blueprints[0]),
+        # The partition's checkout, where its roles start: its first blueprints repo where its machine keeps it, the
+        # teams file's checkout where the file names it for this host (Decision 6 of
+        # a-kept-repositorys-folder-is-the-runners-container), else its session's.
+        at = kept_at({"repositories": repositories}, machine, sess, blueprints[0])
+        parts[label] = dict(p, label=label, partition=name, ssh=host["ssh"], dir=sess["dir"], checkout=at["main"],
                             roles=roles, flume=role_settings(p, what))
         parts[label]["sessions"] = {r: role_session(parts[label], r) for r in MAIN_STANDING + ("reviewer",)}
     return {"hosts": hosts, "partitions": parts, "repositories": repositories}
