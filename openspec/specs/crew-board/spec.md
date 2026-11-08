@@ -153,14 +153,14 @@ Whoever follows on a host, `crew _follow` or a rail tab's loop, SHALL hold the h
 - **THEN** the rail tab draws the follower's frames and reads nothing itself
 
 ### Requirement: A refresh after nothing moved reads nothing
-Before it reads, the host's follower SHALL check whether anything the refresh acts on has moved since its last read: each partition's state branch, its runners' branches and blueprints main as this host's caches hold them; each kit's refs, worktrees, places' changes and slots files, on every host it reads; each kit's queue, as sluice's overview last printed it; each of those hosts' card readings folder, where a reading the user sent back lands; the cards as Pending You last answered for them; crew's checkout; and the teams file. It SHALL stamp this host's kits and readings in its own process at each refresh, starting nothing, and SHALL ask another host for its kits' and readings' stamps only when something there could have moved: when the drive's branch of a partition with work on that host moved, when that host's runner's branch moved, when a watch of one of its kits printed a new line or ended, when the host did not answer the last time it was asked, and otherwise once in ten minutes; a host not asked SHALL count as unmoved. When nothing has moved, the follower SHALL start no read and no process, and at a tick of its clock none beyond its fetches, and SHALL write each partition's rail frame, board frame and agents' views again from its last read, as of the check.
+Before it reads, the host's follower SHALL check whether anything the refresh acts on has moved since its last read: each partition's state branch, its runners' branches and blueprints main as this host's caches hold them; each kit's refs, worktrees, places' changes and slots files, on every host it reads; each of those hosts' card readings folder, where a reading the user sent back lands; the cards as Pending You last answered for them; crew's checkout; and the teams file. It SHALL stamp this host's kits and readings in its own process at each refresh, starting nothing, and SHALL ask another host for its kits' and readings' stamps only when something there could have moved: when the drive's branch of a partition with work on that host moved, when that host's runner's branch moved, when the host did not answer the last time it was asked, and otherwise once in ten minutes; a host not asked SHALL count as unmoved. When nothing has moved, the follower SHALL start no read and no process, and at a tick of its clock none beyond its fetches, and SHALL write each partition's rail frame, board frame and agents' views again from its last read, as of the check.
 
 #### Scenario: An idle host
 - **WHEN** the host's follower on mac-studio ticks, every card it acts on answered at an earlier ask, and nothing it read has moved since its last refresh
 - **THEN** it fetches each repository once and starts no other process: no git besides, no gather, no ssh, no sluice, no Pending You bridge, no herdr and no portless; it asks the box nothing, and writes wldn's frames again from its last read, each saying the time of this refresh
 
 #### Scenario: The box asked when something there could have moved
-- **WHEN** the box runs wldn's runner and holds a kit of wldn's, and the box's runner reports, or wldn's branch moves, or the watch of the kit on the box prints a new line
+- **WHEN** the box runs wldn's runner and holds a kit of wldn's, and the box's runner reports, or wldn's branch moves
 - **THEN** the follower's next refresh asks the box for its kits' and readings' stamps in one ssh, and the refresh after it, with nothing moved since, asks the box nothing
 
 #### Scenario: A partition with nothing on the box moves
@@ -184,7 +184,7 @@ Before it reads, the host's follower SHALL check whether anything the refresh ac
 - **THEN** the follower's next refresh, within a few seconds, takes mac-studio's readings as moved and sweeps its card sessions there, which is where the reading's owner is told, and gathers no kit and reads no state branch
 
 #### Scenario: sluice's folder moves
-- **WHEN** sluice writes its records and logs in switchboard-kit's git folder on the box, and its overview prints no new line
+- **WHEN** sluice writes its records and logs in switchboard-kit's git folder on the box, and the box's runner has not reported since
 - **THEN** the follower takes the kit as unmoved, having read nothing of that folder
 
 #### Scenario: A task ticked with nothing committed
@@ -192,7 +192,7 @@ Before it reads, the host's follower SHALL check whether anything the refresh ac
 - **THEN** the follower's next refresh on its clock takes the kit as moved and gathers it again
 
 ### Requirement: A refresh after a change reads only what moved
-When something has moved, the host's follower SHALL read again only what rests on what moved: a moved state tip, that partition's plan, proposals and run record at the new tip; a moved blueprints tip, its signals; a moved kit, that kit alone, on its host; a kit's queue moved, that kit's rows' submissions from the overview's new line and nothing gathered; a moved readings folder, that host's card sessions swept and nothing read; cards whose answers moved, the card sweep run and nothing read. What did not move SHALL be taken from the follower's last read, which crew SHALL never read as a fact once what it was read at has moved, and keep in the follower's process alone, writing none of it.
+When something has moved, the host's follower SHALL read again only what rests on what moved: a moved state tip, that partition's plan, proposals and run record at the new tip; a moved blueprints tip, its signals; a moved kit, that kit alone, on its host; a moved runner's branch, that partition's runners' records at the new tip, each piece's stage and submission among them, and no kit gathered whose stamp did not move; a moved readings folder, that host's card sessions swept and nothing read; cards whose answers moved, the card sweep run and nothing read. What did not move SHALL be taken from the follower's last read, which crew SHALL never read as a fact once what it was read at has moved, and keep in the follower's process alone, writing none of it.
 
 #### Scenario: The plan moved and no kit did
 - **WHEN** the user approves a proposal on mac-studio, moving wldn's state branch there, and no kit has moved
@@ -201,6 +201,10 @@ When something has moved, the host's follower SHALL read again only what rests o
 #### Scenario: One kit moved
 - **WHEN** a coder commits in a place of switchboard-kit on the box, and nothing else has moved
 - **THEN** the follower's next refresh gathers switchboard-kit on the box alone, and reads no state branch again
+
+#### Scenario: A submission moved
+- **WHEN** the box's runner reports unit `a`'s place with its submission `#41` under test, and nothing else has moved
+- **THEN** the follower's refresh after its clock's fetch brings the report shows `submitted #41` on `a`'s line, gathers no kit and starts no sluice
 
 ### Requirement: The follower fetches on a one-minute clock
 The host's follower SHALL fetch once a minute on its own clock, never faster, each repository it reads once, carrying every branch it reads of that repository in the one fetch: each partition's state branch with its runners' branches, and its blueprints main. It SHALL never fetch because an entry arrived. A branch a repository does not have yet SHALL cost that repository's fetch no more than one fetch again without it. Between its clock's ticks it SHALL look at this host's caches with no process, refreshing within a few seconds when a write on this host moves one; it SHALL start no `crew events --follow` to wake on.
@@ -235,41 +239,6 @@ The host's follower SHALL ask Pending You about the cards its sweep acts on, and
 #### Scenario: A card the sweep left
 - **WHEN** Pending You refused the close of a card whose row is gone, and nothing else moves
 - **THEN** the cards count as moved again at the follower's next ask, not at each tick before it
-
-### Requirement: The follower follows each kit's queue through sluice's overview
-The host's follower SHALL learn that a kit's merge queue moved from sluice's overview alone. It SHALL keep one `sluice overview --json --watch` running for each repository whose queue its read shows on a host, in a main checkout of it on that host, two checkouts of one repository on this host sharing one watch, take a line whose document differs from the last (its time aside) as the queue's move for each kit of that repository, and read the queue from that line. Where no watch can run, because the host's sluice has no watch or the kit's watch ended or could not start, it SHALL ask `sluice overview --json` once at a tick of its clock that asks that host, and open an ended watch again at the next tick. A gather of a kit SHALL start no sluice process for its queue while a watch's line gives the queue, and at most one `sluice overview --json` where none does; it SHALL run no `sluice status` for a held bolt's branch or for the kit's main, and SHALL run one `sluice status <n> --json` for each bolt whose head sluice landed beside its queue, the record of that landing's submission, which names the verdict that covers it (merge-gate "A landing beside reads as the verdict that covers it"), and none for any other head. The follower SHALL keep, for each kit, every submission of a held bolt it has seen stand, with when it was submitted and, once a candidate tested it, when its checks began, and SHALL keep it across later lines and gathers while the bolt is held. When a line no longer holds a kept submission, the follower SHALL take it as decided at the time that line's recent events give for it, or at that line's own time when they name it in no event, reading nothing else. crew SHALL read and name no folder of sluice's.
-
-#### Scenario: A merge moves in sluice's queue
-- **WHEN** a unit's merge into a bolt of switchboard-kit on the box is queued in sluice, and the kit's overview watch prints a new line
-- **THEN** the follower's next refresh, within a few seconds, shows the submission's number on the unit's row, gathers no kit and starts no sluice
-
-#### Scenario: One watch for each kit
-- **WHEN** the follower on mac-studio reads two partitions whose bolts are both in switchboard-kit on the box, or two kits that are checkouts of one repository on mac-studio
-- **THEN** it keeps one overview watch for that repository, over one ssh to the box or as one child on mac-studio, and a refresh that gathers a kit of it takes its queue from the watch's line and starts no sluice process
-
-#### Scenario: A host whose sluice has no watch
-- **WHEN** the box's sluice refuses `--watch`
-- **THEN** the follower asks the box's kits' overviews once at each tick of its clock that asks the box, in that tick's one ssh to it, and not between ticks
-
-#### Scenario: A watch ends
-- **WHEN** the ssh holding switchboard-kit's watch drops
-- **THEN** the kit's row says its queue can't be read and why until the next tick, which opens the watch again and asks the overview once
-
-#### Scenario: A held bolt's decided merges
-- **WHEN** the follower gathers switchboard-kit while bolts `b` and `c` are held there, with merges of both decided and one of `b`'s standing
-- **THEN** the gather runs no `sluice status`, for `bolt/b`, `bolt/c` or main, and the rows of `b` and `c` are drawn from the overview the watch last printed and what the follower kept of each submission
-
-#### Scenario: A held bolt whose head landed beside the queue
-- **WHEN** the follower gathers switchboard-kit while bolt `b`'s head is a take-main fix sluice landed beside its queue as `#1319`, and bolt `c`'s head a merge landed through the queue
-- **THEN** the gather runs one `sluice status 1319 --json` in the kit's main checkout and no other `sluice status`
-
-#### Scenario: A merge decided between gathers
-- **WHEN** `b`'s merge `#41`, kept since it was submitted at 14:00 and tested from 14:05, leaves the queue on a line whose recent events say it landed at 14:17
-- **THEN** the follower keeps `#41` decided at 14:17, starts no process to learn it, and still holds it after the next gather of the kit
-
-#### Scenario: A withdrawn merge
-- **WHEN** a kept merge of `b` leaves the queue on a line printed at 14:20 whose recent events do not name it
-- **THEN** the follower keeps it decided at 14:20
 
 ### Requirement: What no stamp sees is read on the follower's clock
 At a tick of its clock that asks a host (the requirement *A refresh after nothing moved reads nothing* says when), the host's follower SHALL read again that host's dev servers as portless lists them, and at a tick that asks Pending You (the requirement *The follower asks Pending You about cards on its clock*), herdr's listing of each card's asker its card sweep acts on; it SHALL take a change in either as moved, drawing the frames again and sweeping the cards with it, with nothing gathered. At every refresh, whether or not anything moved, it SHALL work out from the run record's times and the time now whether a batch is due by hours, and tell the partition's planner once when one is.
@@ -350,7 +319,7 @@ The team's share of a merge SHALL end at its submit unless the submission stands
 Every holder of a bolt's time SHALL be read from what crew already keeps, and nothing SHALL be recorded to make the reading:
 
 - **Stages**: the run record's stage starts and ends for the bolt's work since the give.
-- **Submissions**: sluice's overview, as the follower's watch or one ask of it printed it, and what the follower kept of each submission from it: the number and where it came from, when it was submitted, when its checks began where a candidate testing it gave that, and when it was decided, from the recent events of the line that no longer held it. A landing on main is the bolt's when it came from `bolt/<bolt>`, from a pull request opened from it, or when its number is the one the run record's queued `bolt.submit` of the bolt names. No gather SHALL read sluice's record of a branch's submissions; a read made once at an act, as the landing's, MAY.
+- **Submissions**: none in the views. The runner's report carries a piece's submission, but no time of it, and crew reads no queue of sluice's, so the lane, the rail and the bands place no minute by a submission. A read made once at an act MAY place them: the landing's own read of sluice's record, as crew's landing makes it, whose split the landing's entry records. There, a landing on main is the bolt's when it came from `bolt/<bolt>`, from a pull request opened from it, or when its number is the one the run record's queued `bolt.submit` of the bolt names.
 - **Cards**: the run record's card posts, changes, answers and closes. A card holds the bolt for the user from its post until the user's answer on it or its close, whichever comes first. A card is the bolt's when:
   - it is under the bolt's own key, `land/<bolt>`;
   - it is a batch's card holding work of the bolt's;
@@ -374,12 +343,16 @@ Every holder of a bolt's time SHALL be read from what crew already keeps, and no
 - **THEN** the minutes since 14:02 are the hold's, and the line says `b` is held since 14:02 because its host is held, naming who held it
 
 #### Scenario: A row drawn from the overview
-- **WHEN** the follower's watch of switchboard-kit prints a line holding `b`'s merge `#41` under test since 14:05 and recent events naming `#40` landed at 13:58
-- **THEN** `b`'s head line counts `#41` the kit's since 14:05 and `#40` decided at 13:58, read from that line and what the follower kept, with no sluice process started
+- **WHEN** sluice's overview of switchboard-kit would hold `b`'s merge `#41` under test since 14:05 and recent events naming `#40` landed at 13:58
+- **THEN** `b`'s head line reads nothing of the overview, starts no sluice process, and counts neither `#41` nor `#40` among its shares
+
+#### Scenario: A submission the runner reports
+- **WHEN** the runner carries `b`'s unit `a` with its submission `#41` under test, and since 14:05 no stage of `b`'s has run, no card of it has been open and no hold has been on it
+- **THEN** `b`'s head line counts none of the minutes since 14:05 the kit's or the team's, says nobody holds `b` since 14:05, and no sluice process is started
 
 #### Scenario: A landing by pull request
-- **WHEN** main's recent events name `#52`, from `pull/9`, landed, and the run record's queued `bolt.submit` of `b` names `#52`
-- **THEN** `#52` is `b`'s landing
+- **WHEN** sluice's record read at `b`'s landing names `#52`, from `pull/9`, landed, and the run record's queued `bolt.submit` of `b` names `#52`
+- **THEN** `#52` is `b`'s landing in the split its landing's entry records
 
 #### Scenario: The user answered the landings card
 - **WHEN** `b`'s kit's landings card, posted at 14:00 with `b` among its rows, was answered by the user at 14:40, and ops has not yet submitted `b`
@@ -434,7 +407,7 @@ The Construction lane SHALL show each started bolt as a ledger of its units, cho
 - **THEN** the board's Construction lane shows `x` on deneb in stream `madswan`, `a` at code 3/7 and `b` waiting on `a`, and no slot line
 
 ### Requirement: Construction shows each bolt in flight as a ledger, with no server for a started bolt's work
-The Construction lane SHALL show each bolt in flight as a ledger: its head line with its repository and its kit's host, the number and state of its landing while one stands in sluice, and, once every unit and chore of it has merged and sluice is green at its head while not every one has landed, that it waits to land; while the run record has its landing queued and sluice's queue, read, shows no landing of it standing, that its landing is queued, with the number the run record holds; while it is landing again, that, with the submission sluice rejected before it; while sluice's rejection of its landing is at its head, that its landing was rejected and the bolt is open for work, with sluice's words, each state its own (bolt-teams "A landing queued holds its bolt's work"); once it has landed on main and its close was refused, that it landed and was not closed, with the words of its last refused close; each unit in plan order with its stage, its tasks done and total in code or verify, and the number and state of its merge while one stands in sluice; and each fix of the bolt with whether it has merged, and its merge's number and state while one stands. A started bolt's ledger SHALL show no dev server for the bolt or any of its work, whose places are Flume's, until the runner reports a place's addresses. The planner's band SHALL draw each bolt in flight as this ledger, its head line as the lane's, since ordering within a bolt, batches and amendments are the planner's; main-level ops's band SHALL draw the number and state of each landing while one stands in sluice, and the head line of each bolt whose close was refused.
+The Construction lane SHALL show each bolt in flight as a ledger: its head line with its repository and its kit's host, and, once every unit and chore of it has merged and its verification is green while not every one has landed, that it waits to land; while the run record has its landing queued, that its landing is queued, with the number the run record holds; while it is landing again, that, with the submission sluice rejected before it; while sluice's rejection of its landing is at its head, that its landing was rejected and the bolt is open for work, with sluice's words, each state its own (bolt-teams "A landing queued holds its bolt's work"); once it has landed on main and its close was refused, that it landed and was not closed, with the words of its last refused close; each unit in plan order with its stage, its tasks done and total in code or verify, and its submission's number while one stands, as Flume's status of its place gives it and the runner carried it; and each fix of the bolt with whether it has merged, and its submission's number while one stands, read the same way. A started bolt's ledger SHALL show no dev server for the bolt or any of its work, whose places are Flume's, until the runner reports a place's addresses. The planner's band SHALL draw each bolt in flight as this ledger, its head line as the lane's, since ordering within a bolt, batches and amendments are the planner's; main-level ops's band SHALL draw each landing the run record holds queued or landing again, with its number, and the head line of each bolt whose close was refused.
 
 #### Scenario: A unit in code
 - **WHEN** unit a of bolt tenant-environments is in code with 1 of 2 tasks ticked, 
@@ -445,31 +418,35 @@ The Construction lane SHALL show each bolt in flight as a ledger: its head line 
 - **THEN** its ledger shows no URL for the bolt, its units or its fixes, and no note about one
 
 #### Scenario: A bolt waiting to land beside the one being built
-- **WHEN** `doctor-rows` has every unit merged and sluice green at its head, and `ssh-fix` of the same kit has a unit in code
+- **WHEN** `doctor-rows` has every unit merged and its verification green, and `ssh-fix` of the same kit has a unit in code
 - **THEN** the lane shows `doctor-rows`'s head line saying it waits to land, and `ssh-fix`'s ledger beside it
 
 #### Scenario: A merge standing in sluice
-- **WHEN** unit a of bolt tenant-environments has its merge `#41` under test on `bolt/tenant-environments`
-- **THEN** a's line in the lane says `#41 under test`
+- **WHEN** the runner carries unit a of bolt tenant-environments with its submission `#41` under test on `bolt/tenant-environments`
+- **THEN** a's line in the lane says `submitted #41`, once
 
 #### Scenario: A landing standing in sluice
-- **WHEN** `doctor-rows`'s landing `#355` is queued on its kit's main
-- **THEN** `doctor-rows`'s head line in the lane and in main-level ops's band says `landing #355 queued`
-
-#### Scenario: A queue that can't be read
-- **WHEN** sluice's record of the queue could not be read on swb-1's host
-- **THEN** tenant-environments' head line says its submissions can't be read, and no line shows a number, though the run record has its landing queued
+- **WHEN** the run record's last `bolt.submit` on `doctor-rows` is queued as submission 355, with no outcome
+- **THEN** `doctor-rows`'s head line, in the lane and in main-level ops's band, says `landing queued as #355`
 
 #### Scenario: A landing recorded queued that sluice no longer has standing
-- **WHEN** the run record's last `bolt.submit` on `doctor-rows` is queued as submission 412, and sluice's queue, read on its kit's host, shows no landing of it standing
-- **THEN** `doctor-rows`'s head line, on the lane and in the planner's band, says its landing is queued as #412
+- **WHEN** the run record's last `bolt.submit` on `doctor-rows` is queued as submission 412, and sluice's queue on its kit's host would show no landing of it standing
+- **THEN** `doctor-rows`'s head line, on the lane and in the planner's band, says its landing is queued as #412, and nothing of sluice's queue is read
+
+#### Scenario: A queue that can't be read
+- **WHEN** sluice's record of the queue could not be read on swb-1's host, and the run record has tenant-environments' landing queued as #412
+- **THEN** nothing of it is said: crew reads no queue of sluice's, tenant-environments' head line says `landing queued as #412`, and each line shows its submission as the runner carries it
+
+#### Scenario: A runner that can't be read
+- **WHEN** the branch of the runner that took tenant-environments' work can't be read, and the run record has its landing queued as #412
+- **THEN** the lane names that runner as one that can't be read, no line of the bolt's work shows a number, and its head line says `landing queued as #412`
 
 #### Scenario: A landing rejected
 - **WHEN** the run record has `doctor-rows`'s landing #412 refused at its present head for a conflict on `README.md`
 - **THEN** `doctor-rows`'s head line, on the lane and in the planner's band, says its landing #412 was rejected at that head and the bolt is open for work, with sluice's words
 
 #### Scenario: Landing again
-- **WHEN** `doctor-rows`, rejected as #412, is queued again as #415, and sluice's queue shows no landing of it standing
+- **WHEN** `doctor-rows`, rejected as #412, is queued again as #415
 - **THEN** its head line says it is landing again as #415, after #412 was rejected
 
 #### Scenario: A close refused
@@ -490,3 +467,25 @@ Among the cards `board.agent_views` gives an agent's band, a card whose answer t
 #### Scenario: The mod draws an answered card
 - **WHEN** the views give agentplot-ops a card line saying `land/sluice` was answered 5m ago, its to act on
 - **THEN** crew's mod draws that line above ops's view as given
+
+### Requirement: The follower runs no sluice
+The host's follower SHALL start no sluice process: no `sluice overview --watch`, no `sluice overview` at its clock's tick, and no `sluice status`. It SHALL keep no submission of its own. It SHALL learn that a piece's submission moved from the partition's runner's branch, which it looks at with no process and fetches on its clock. crew SHALL read and name no folder of sluice's.
+
+#### Scenario: A merge moves in sluice's queue
+- **WHEN** a unit's merge into a bolt of switchboard-kit on the box is queued in sluice, and the box's runner has not reported since
+- **THEN** the follower's next refresh shows no change on the unit's line, and starts no sluice
+
+#### Scenario: The runner reports the merge
+- **WHEN** the box's runner then reports the unit's place submitted as `#41`
+- **THEN** the follower's refresh after its clock's next fetch shows `submitted #41` on the unit's line, gathering no kit whose stamp did not move
+
+#### Scenario: A follower's life
+- **WHEN** the follower on mac-studio reads two partitions whose bolts are in switchboard-kit on the box, through a read, ticks with nothing moved, a runner's report and a gather of the kit
+- **THEN** it starts no `sluice` process on either host and opens no ssh for a sluice command
+
+### Requirement: A gather runs no sluice
+A gather of a kit SHALL run no sluice command. A request to it SHALL hand in no queue. Its answer SHALL carry no `submissions`, `decided`, `overview`, `overviews`, `verdict` or `beside`.
+
+#### Scenario: A gather of a kit with a held bolt
+- **WHEN** a kit is gathered while bolt `b` is held there, with a merge of it decided, one standing, and a head landed beside the queue, and a `sluice` on the path that records every call
+- **THEN** the gather runs no `sluice` command, and its answer carries no `submissions`, `decided`, `overview`, `verdict` or `beside`

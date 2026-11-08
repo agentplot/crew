@@ -2,8 +2,8 @@
 # .config/sluice.toml on GitHub's main names the checks its bolt branches require, refusing, with the plan unchanged and no
 # branch made, a kit with no policy or one naming no bolt branch checks, naming the file; a unit's and a fix's place on
 # a started bolt merge into it only as Flume's submissions to sluice, crew fix having no --merge since crew
-# merges nothing, and crew reads each merged from the runner's records and the bolt's verification from sluice's verdict
-# at its head; and crew's own policy requires its check-full tasks of a bolt and of main, run open on the host and taking
+# merges nothing, and crew reads each merged from the runner's records and the bolt's verification from the runner's
+# report of its work's landing at its head (crew record 0056 points 1 and 4); and crew's own policy requires its check-full tasks of a bolt and of main, run open on the host and taking
 # no replay (tests.5, tests.10). Each scenario of the bolt-teams spec on merging; which table and checks a policy names
 # for a bolt branch is a logic case (tests/py/test_kit.py), and that the policy is read from main's commit, a contract
 # case (tests/contract/test_git.py).
@@ -55,8 +55,9 @@ eq "$(landed)" $'sluice chore(land): #2 fix/tenant-environments/edge-sign-in\npa
 expect_ok crew bolts tenant-environments --json
 eq "$(jq -r '.partitions[0].plans[0].bolts[0] | "\(.fixes[0].fix) \(.fixes[0].merged) \(.verification.state)"' <<<"$out")" \
   "fix/tenant-environments/edge-sign-in true green"
-has "$(jq -r '.partitions[0].plans[0].bolts[0].verification.said' <<<"$out")" ": passed (stub)"
-ok "a unit's and a fix's merge into a started bolt is Flume's submission to sluice, crew merging nothing, and crew reads each merged and the bolt's verification from sluice's verdict at its head"
+eq "$(jq -r '.partitions[0].plans[0].bolts[0] | "\(.verification.state), \(.verification.said)"' <<<"$out")" \
+  "green, its head $(git -C "$k" rev-parse origin/bolt/tenant-environments | cut -c1-7) is tenant-environments--edge-sign-in's landing, as the runner reports it"
+ok "a unit's and a fix's merge into a started bolt is Flume's submission to sluice, crew merging nothing, and crew reads each merged and the bolt's verification from the runner's report of its work's landing at its head"
 
 policy() { python3 -c 'import sys, tomllib; sys.path.insert(0, sys.argv[1]); import kit
 text = open(sys.argv[2]).read(); b = tomllib.loads(text)["branches"]
