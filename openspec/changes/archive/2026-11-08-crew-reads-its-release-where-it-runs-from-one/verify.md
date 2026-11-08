@@ -15,6 +15,8 @@ Ran: `tests:logic`, `tests:contract`, `nix:test`, `nix:typecheck`, and every end
 
 `openspec validate crew-reads-its-release-where-it-runs-from-one --strict`: valid.
 
+After the archive, `openspec validate --specs --strict` passes 8 of 26 specs, against 9 of 26 at fcedc22e. The one that changed is `crew-flake`: its modified requirement is now over 500 characters, which openspec warns of and strict mode counts as a failure. `host-holds-and-updates` failed in the same way before the archive. These are length warnings, not errors, of the kind most of crew's specs carry, so they stop nothing here.
+
 ## Tasks
 
 All 17 tasks in `tasks.md` are ticked. Each one's named check is among the tasks above, and all of them passed.
