@@ -2125,6 +2125,19 @@ class TestStarted:
         assert v[0].endswith("1 place waits on an answer")
         assert [l for l in v if "asks at" in l] == [next(l for l in v if l.startswith("    ◑  a  needs  asks at code: Head 118ec46 is ready for your flume:live run"))]
 
+    def test_a_place_past_its_bound_in_the_planners_band(self):
+        """crew-board "A place past its bound in the planner's band": the runner carries flume 0.17.0's status of a's
+        place waiting on its caller to retry code past its bound, its verify delivered (tests/py/flume-0.17.0/
+        past-bound.json); the planner's view counts it among the places waiting on an answer and lists it waiting on
+        its caller at code with Flume's words, as the board's ledger does in the Construction lane, never at verify."""
+        from facts import ran
+        said = "waits on its caller at code: the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process"
+        v = self.views(ran({1: "flume-0.17.0/past-bound"}))["madswan-planner"]
+        assert v[0].endswith("1 place waits on an answer")
+        assert [l for l in v if "waits on its caller" in l] == [next(l for l in v if l.startswith(f"    ◑  a  waits  {said}"))]
+        assert any(l.startswith(f"    a  waits  {said}") for l in lane(board.board_text(self.data(ran({1: "flume-0.17.0/past-bound"}))), "Construction"))
+        assert not any("verify" in l for l in v if "  a  " in l)
+
     def test_a_fix_of_main_in_ops_band(self):
         """crew-board "A fix of main in ops's band": main--a-test-reads-its-fixture is in code."""
         from facts import ran

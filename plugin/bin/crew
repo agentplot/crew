@@ -32,12 +32,15 @@
 #                                      drop a fix not wanted: its launch dropped; a merged one is refused
 #   crew answer  <work> "<words>" [--label L]
 #                                      answer the Flume place of a started bolt's work that stopped short asking, or
-#                                      waits on its caller: the retry of that stage carrying the words, appended to
-#                                      requests.rec for the runner that took it, or of its submission where that waits
-#                                      unheld; refused, naming the place's stage, when it neither stopped short nor
-#                                      waits on its caller, or what crew could not read when it can't tell, as while
-#                                      the runner holds the launch or has carried no status of the place. <work> is
-#                                      the unit's or chore's name, or the fix's place (<bolt>--<name>)
+#                                      waits on its caller, past its bound among them, whatever stage it last
+#                                      delivered: the retry of the stage it waits to retry carrying the words, appended
+#                                      to requests.rec for the runner that took it, or of its submission where that
+#                                      waits unheld; refused, naming the place's stage, when it neither stopped short
+#                                      nor waits on its caller, a live place's as the runner carried it, with the
+#                                      runner's host and when, so answer again once crew bolts shows it waiting; or
+#                                      what crew could not read when it can't tell, as while the runner holds the
+#                                      launch or has carried no status of the place. <work> is the unit's or chore's
+#                                      name, or the fix's place (<bolt>--<name>)
 #
 # The plan, the moves and the signals crew records, on the drive's branch <label>/main of the partition's state
 # repository, with requests.rec, crew's requests of the partition's runners for a started bolt's work, appended in the
