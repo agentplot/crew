@@ -155,6 +155,18 @@ def run_cards(listed):
         if isinstance(requests, list) else []
 
 
+def pending_turns(listed):
+    """Each card list_pending's reply holds in the name asked, by its id, to whose turn it is, read as run_cards reads
+    the reply (Pending You's wake mod's reading of list_pending): every card the list holds, not only those on the
+    agent's turn, so a card the list no longer holds can be told (design Decision 2 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with); a request of any other shape left out; None when the reply
+    holds no list, which says nothing of what is missing from it (read.2)."""
+    requests = listed.get("requests") if isinstance(listed, dict) else None
+    if not isinstance(requests, list):
+        return None
+    return {r["id"]: r.get("turn") for r in requests if isinstance(r, dict) and isinstance(r.get("id"), str) and REQUEST_ID.match(r["id"])}
+
+
 def stranded(entries, key, owner, here):
     """The owner's newest card under a key when this host (here) can't reach it: one posted from another host, done and
     naming a card, that no later card.close of it closes, or one whose last close was as lost to its owner, on any

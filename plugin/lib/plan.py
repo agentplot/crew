@@ -583,8 +583,9 @@ class Kept:
     def __init__(self):
         self.kits, self.used, self.stamps = {}, {}, {}
         self.listings, self.blobs, self.checked, self.tips = {}, {}, set(), set()
-        # cards: the clock's last ask of Pending You after the cards (cards_fetched), (found, why), which every card
-        # sweep judges with until the next tick; None while no tick has asked, when the read's sweep asks on its tick
+        # cards: the clock's last ask of Pending You after the cards (cards_fetched), (found, why), with the cards read
+        # in their owners' names third when any was (owners_read), which every card sweep judges with until the next
+        # tick; None while no tick has asked, when the read's sweep asks on its tick
         self.cards = None
         # listed: herdr's listing of the askers of the questions the sweep judges, read on the clock's tick beside the
         # cards (askers_listed), {name: (listed, why)}; None while no tick has read it
@@ -3396,11 +3397,10 @@ def kit_card_state(acts, label, key, owner, card, entries):
             card_lost(acts, label, owner, key, card, words)
             return {"status": None}, None
         return None, f"Pending You refused get_request: {words}"
-    recorded = next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and not e.get("Refused")
-                     and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)
+    recorded = shown_heads(entries, card)
     heads, taking = card_heads(recorded), heads_taking(recorded)
     if got.get("status") == "answered":  # the user's answer recorded the first time crew reads it (Decision 1)
-        answer_seen(acts, label, owner, key, card, got, entries, heads, [f"land:{b}" for b, _, _ in heads if b not in taking])
+        answer_seen(acts, label, owner, key, card, got, entries, heads, offered_boxes(recorded))
     return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads,
             "taking": taking, "ticked": ticked_of(got, heads)}, None
 
@@ -11710,11 +11710,14 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
     key) whose owner left the fleet, a partition role's name whose label is none of the teams file's labels now
     (cards.role_left), to withdraw in its owner's name with the words that say so (cards.left_said), and none judged
     so with no labels handed; such a card cards no row, so its row is posted in its owner's name as a row with none.
+    And each decision record's card still open, its record not settled, whose answer the sweep reads in its owner's
+    name (records, cards_owned).
     Returns {gone: [(card, outcome, reason)], questions: [card], held: [(card, row)], none: [row], again: [(row, older
-    card)], settled: [(key, why)], unread: [(card, row)], left_fleet: [(card, words)]}."""
+    card)], settled: [(key, why)], unread: [(card, row)], left_fleet: [(card, words)], records: [card]}."""
     import ops  # its decision of a deploy's card alone
     rowed = {r["key"]: r for r in rows}
-    out = {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [], "unread": [], "left_fleet": []}
+    out = {"gone": [], "questions": [], "held": [], "none": [], "again": [], "settled": [], "unread": [], "left_fleet": [],
+           "records": []}
 
     def left(c):  # a card of crew's own whose owner left the fleet (cards.role_left)
         return labels is not None and bool(cards.row_object(c["key"] or "")) and cards.role_left(c["by"], labels)
@@ -11729,6 +11732,8 @@ def sweep_judged(here, rows, cards_, entries, owners, blind, proposed, now, plan
             settled = record_settled(c["key"], entries, renames=renames)
             if settled and not refused_lately(entries, now, card=c["card"]):
                 out["gone"].append((c, settled, None))
+            elif not settled:
+                out["records"].append(c)
         elif kind == "question":
             out["questions"].append(c)
         elif c["key"] in rowed:
@@ -11918,7 +11923,8 @@ def rail_read(fleet, labels, board=False, sweep=False):
         k = READ.follower
         if k is not None and k.cards is None:  # the follower's tick with no read kept to ask from: its one ask, made here
             now = datetime.datetime.now(datetime.timezone.utc)
-            k.cards = cards_fetched(fleet, cards_asked(fleet, read, crew.this_host(), now))
+            k.cards = cards_fetched(fleet, cards_asked(fleet, read, crew.this_host(), now),
+                                    owned=owners_asked(fleet, read, crew.this_host(), now) or None)
             k.listed = askers_listed(fleet, askers_asked(fleet, read, crew.this_host(), now))
         read["swept"] = sweep_cards(fleet, read, answers=k.cards if k is not None else None, listed=k.listed if k is not None else None)
         read["cards"] = swept_cards(read["cards"], read["swept"], crew.this_host(), datetime.datetime.now(datetime.timezone.utc),
@@ -13392,11 +13398,9 @@ def card_read(fleet, a, acts=None):
         got = py.call("get_request", {"requestId": card, "name": who})
         if got.get("status") == "answered":  # the user's answer recorded first, the first time crew reads it (Decision 1)
             held = cards.host_entries(record, label, crew.this_host())
-            shown = next((e.get("Heads") for e in reversed(held) if e.get("Card") == card and not e.get("Refused")
-                          and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)
-            heads = card_heads(shown) if kind and kind[0] == "kit" else None
-            answer_seen(acts, label, who, a.key, card, got, held, heads,
-                        [f"land:{b}" for b, _, _ in heads or [] if b not in heads_taking(shown)])
+            shown = shown_heads(held, card) if kind and kind[0] == "kit" else None
+            answer_seen(acts, label, who, a.key, card, got, held, card_heads(shown) if shown is not None else None,
+                        offered_boxes(shown) if shown is not None else ())
         words = cards.declined(got)
         if words is not None:
             tool, args, _ = cards.close_call(got, card, who, cards.declined_outcome(words))
@@ -15421,13 +15425,36 @@ def sweep_judgments(fleet, read, here, now):
 
 def cards_asked(fleet, read, here, now):
     """The cards the rail's sweep asks Pending You whether it still finds, of the judgments it would act on
-    (sweep_judgments): each card of a row that is gone, each held with its row, each question and each whose role left
-    the fleet, each once, in order.
+    (sweep_judgments): each card of a row that is gone, each held with its row, each question, each whose role left
+    the fleet and each decision record's still open, each once, in order.
     The host's follower asks after them on its clock's tick (cards_fetched) and none when there are none. A decision
     on plain facts (code.7)."""
     judged, _ = sweep_judgments(fleet, read, here, now)
     return list(dict.fromkeys(c["card"] for _, _, _, j in judged for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"]
-                              + [c for c, _ in j["left_fleet"]]))
+                              + [c for c, _ in j["left_fleet"]] + j["records"]))
+
+
+def cards_owned(judged, logs):
+    """The cards the rail's sweep reads in their owners' names (design Decision 2 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), from its judgments ([(label, j)], j as sweep_judged gives
+    it) and each partition's run record (logs, {label: entries}): {owner: {card: whether the run record holds its
+    answer (answer_due)}}, each card of a row that is gone, held with its row, each question and each decision record's
+    still open, under the name its post was made in: a row's owner, a question's asker, the design agent; a card whose
+    owner left the fleet is none, since that name is no one's now. In order. A decision on plain facts (code.7)."""
+    out = {}
+    for l, j in judged:
+        es = logs.get(l) or []
+        for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"] + j.get("records", []):
+            out.setdefault(c["by"], {}).setdefault(c["card"], not answer_due(es, c["card"]))
+    return out
+
+
+def owners_asked(fleet, read, here, now):
+    """The owners whose pending lists the host's follower reads on its clock's tick, with the cards of each it asks
+    after (cards_owned), of the judgments the rail's sweep would act on (sweep_judgments). A decision on plain facts
+    (code.7)."""
+    judged, _ = sweep_judgments(fleet, read, here, now)
+    return cards_owned([(l, j) for l, _, _, j in judged], read.get("logs") or {})
 
 
 def askers_asked(fleet, read, here, now):
@@ -15448,19 +15475,54 @@ def askers_listed(fleet, names, acts=None):
     return {name: acts.listed(name) for name in names}
 
 
-def cards_fetched(fleet, asked, acts=None):
+def cards_fetched(fleet, asked, acts=None, owned=None):
     """The card sweep's one ask of Pending You, in crew's own name (SWEEPER), whether it still finds each card asked,
     which it answers for another assistant's card by refusing it as that assistant's and for one this host's sign-in no
     longer reaches with "not found": ({card: (got, words)}, None), or ({}, why) when the bridge failed; no bridge when
-    none is asked."""
-    if not asked:
-        return {}, None
+    none is asked. With owned ({owner: {card: whether its answer is recorded}}, cards_owned), the same bridge reads each
+    owner's pending list in the owner's name and the cards whose state it shows changed (owners_read), handed back
+    third: ({card: (got, words)}, why, {card: (got, words)})."""
+    if not asked and not owned:
+        return ({}, None) if owned is None else ({}, None, {})
     acts = acts or SweepActs(fleet)
     try:
         with acts.bridge(SWEEPER, SWEEP_LATER) as py:
-            return {card: py.answer("get_request", {"requestId": card, "name": SWEEPER}) for card in asked}, None
+            found = {card: py.answer("get_request", {"requestId": card, "name": SWEEPER}) for card in asked}
+            return (found, None) if owned is None else (found, None, owners_read(py, owned))
     except Refusal as e:
-        return {}, str(e)
+        return ({}, str(e)) if owned is None else ({}, str(e), {})
+
+
+def owners_read(py, owned):
+    """Each owner's cards read in its own name, in one session with Pending You (py), as crew reads its own cards
+    (briefs.16; design Decision 2 of a-wait-on-the-user-is-one-open-card-the-rail-agrees-with): the owner's pending list,
+    once (list_pending, cards.pending_turns), and get_request in the owner's name for each card asked (owned, {owner:
+    {card: whether its answer is recorded}}) that is on the agent's turn with its answer not yet recorded, or that the
+    list no longer holds, which it has ended, lost or holds in another name; an owner whose list it can't read reads none
+    of its cards (read.1). {card: (got, words)}."""
+    out = {}
+    for owner, held in owned.items():
+        listed, words = py.answer("list_pending", {"name": owner})
+        turns = cards.pending_turns(listed) if words is None else None
+        if turns is None:
+            continue
+        for card, recorded in held.items():
+            if card not in turns or turns[card] == "agent" and not recorded:
+                out[card] = py.answer("get_request", {"requestId": card, "name": owner})
+    return out
+
+
+def shown_heads(entries, card):
+    """The rows a kit's landings card showed, as its last post or change the run record holds done recorded them
+    (built_fields): its Heads, or None for none recorded."""
+    return next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and not e.get("Refused")
+                 and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)
+
+
+def offered_boxes(shown):
+    """The boxes a kit's landings card offered, land:<bolt> of each row it showed (shown_heads' Heads) but those it
+    showed taking main first, which carried none (heads_taking)."""
+    return [f"land:{b}" for b, _, _ in card_heads(shown) if b not in heads_taking(shown)]
 
 
 def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
@@ -15480,7 +15542,9 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     it records crew's close of each batch that waits on nothing, once, as batch.close on batch/<n> in the planner's
     name with its card key and why (briefs.12), so a host not signed in still records it; a card open under its key is
     withdrawn with the same words, as a card whose row is gone. It asks Pending You in crew's own name
-    (SWEEPER) whether it finds each card (cards_fetched), in one bridge and none when it asks after no card; or, for
+    (SWEEPER) whether it finds each card (cards_fetched), in one bridge and none when it asks after no card, and in
+    that bridge reads each owner's pending list in the owner's name and each card it shows changed (owners_read,
+    cards_owned), recording the user's answer on each it reads answered, once (answer_seen, did answered); or, for
     the host's follower, which asks on its clock's tick alone, takes answers, (found, why), the clock's last ask's,
     acting on no card that ask did not answer for, until the next tick does, and listed, herdr's listing of the askers
     read on that tick (askers_listed), judging no question whose asker it did not list. Every row's card this
@@ -15490,8 +15554,8 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     briefs.12, read.1). A host not signed in,
     or a bridge that fails, changes nothing more, and is said, as is a partition whose record could not be read from its
     branch, which records no close either (read.1). crew board sweeps nothing (state.4). Returns {done: [{label, key,
-    card, by, did, words, new}], unswept: [{label, why}]}, did closed, withdrawn, lost, posted or left, a batch's close
-    by crew with card and new None."""
+    card, by, did, words, new}], unswept: [{label, why}]}, did answered, closed, withdrawn, lost, posted or left, a
+    batch's close by crew with card and new None."""
     acts = acts or SweepActs(fleet)
     here, now = acts.host(), acts.now()
     out, judged = {"done": [], "unswept": []}, []
@@ -15509,8 +15573,11 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     if not judged:
         return out
     asked = list(dict.fromkeys(c["card"] for _, _, j in judged for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"]
-                               + [c for c, _ in j["left_fleet"]]))
-    found, error = answers if answers is not None else cards_fetched(fleet, asked, acts)
+                               + [c for c, _ in j["left_fleet"]] + j["records"]))
+    logs = read.get("logs") or {}
+    fetched = answers if answers is not None else cards_fetched(fleet, asked, acts, cards_owned([(l, j) for l, _, j in judged], logs))
+    found, error = fetched[:2]
+    mine = fetched[2] if len(fetched) > 2 else {}  # the cards read in their owners' names (owners_read)
     if error is not None:
         out["unswept"] += [dict(label=l, why=error) for l, _, _ in judged]
         return out
@@ -15527,6 +15594,19 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
         except Refusal as e:
             did(l, row["key"], None, owner, "left", f"its raise refused: {e}")
             return None, None
+    for l, owners, j in judged:  # the user's answers its owners' reads found, recorded first (Decision 1)
+        es = (logs.get(l) or []) + acts.entries(l)
+        for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"] + j["records"]:
+            got, words = mine.get(c["card"], (None, None))
+            if words is not None or not isinstance(got, dict) or got.get("status") != "answered":
+                continue
+            kit = (c["key"] or "").startswith("land/") and c["key"].split("/", 1)[1] in (read.get("kits") or {}).get(l, ())
+            shown = shown_heads(es, c["card"]) if kit else None
+            seen = answer_seen(acts, l, c["by"], c["key"] or "", c["card"], got, es, card_heads(shown) if kit else None,
+                               offered_boxes(shown) if kit else ())
+            if seen:
+                es.append(dict(Act="card.answer", By=c["by"], **seen))
+                did(l, c["key"], c["card"], c["by"], "answered", seen["Answer"])
     for l, owners, j in judged:
         for c, outcome, reason in j["gone"]:
             if c["card"] not in found:

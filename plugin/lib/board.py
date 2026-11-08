@@ -1123,10 +1123,13 @@ def moved(kept, now):
     return dict(out, read=read, any=read or bool(out["readings"]) or out["cards"] or bool(out["queues"]))
 
 
-def cards_stamp(found, why, left, asks, listed=None):
+def cards_stamp(found, why, left, asks, listed=None, owned=None):
     """What the follower's check compares of the cards (Decisions 3 and 8 of a-rail-refresh-after-no-change-reads-nothing):
     of each card Pending You was asked after at the clock's last ask (plan.cards_fetched, found {card: (got, words)}),
-    whether it answered it lost, the fact the card sweep acts on, [[card, lost]], and of each asker herdr was asked
+    whether it answered it lost, the fact the card sweep acts on, [[card, lost]], of each card read in its owner's name
+    at that ask (plan.owners_read, owned {card: (got, words)}), its status or that it was refused, [["owned", card,
+    state]], since an answer or an end the sweep records is read there (Decision 2 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), and of each asker herdr was asked
     about with it (plan.askers_listed, listed {name: (listed, why)}), whether its pane holds an agent, [["asker",
     name, listed]]; but the ask itself, ["again", asks], the count of asks made, when its bridge failed (why) or the
     last card sweep left a card, its act not gone through (left), so the cards count as moved at each ask until the
@@ -1135,7 +1138,14 @@ def cards_stamp(found, why, left, asks, listed=None):
     if why is not None or left:
         return ["again", asks]
     return sorted([card, plan.cards.lost(words)] for card, (_, words) in found.items()) + sorted(
+        ["owned", card, "refused" if words is not None else str((got or {}).get("status"))] for card, (got, words) in (owned or {}).items()) + sorted(
         ["asker", name, here] for name, (here, _) in (listed or {}).items())
+
+
+def kept_stamp(kept, left, asks, listed):
+    """cards_stamp of the follower's kept answers (kept, plan.cards_fetched's (found, why) or (found, why, owned))."""
+    found, why, *owned = kept
+    return cards_stamp(found, why, left, asks, listed, owned[0] if owned else None)
 
 
 def card_left(swept):
@@ -1695,14 +1705,16 @@ class Follower:
             return
         now, at = datetime.datetime.now(datetime.timezone.utc), time.monotonic()
         cards, askers = plan.cards_asked(fleet, read, crew.this_host(), now), plan.askers_asked(fleet, read, crew.this_host(), now)
+        owned = plan.owners_asked(fleet, read, crew.this_host(), now)  # each owner's cards, read in its name (plan.owners_read)
         if not cards and not askers:  # nothing to ask after: no bridge and no listing
             self.kept.cards, self.kept.listed = ({}, None), {}
         elif cards_due(cards, askers, self.kept.cards, self.kept.listed, self.cards_at, at):
             self.asks, self.cards_at = self.asks + 1, at
-            self.kept.cards, self.kept.listed = plan.cards_fetched(fleet, cards), plan.askers_listed(fleet, askers)
+            self.kept.cards = plan.cards_fetched(fleet, cards, owned=owned) if owned else plan.cards_fetched(fleet, cards)
+            self.kept.listed = plan.askers_listed(fleet, askers)
         else:
             return
-        self.cards = cards_stamp(*self.kept.cards, self.left, self.asks, self.kept.listed)
+        self.cards = kept_stamp(self.kept.cards, self.left, self.asks, self.kept.listed)
 
     def tick(self):
         """The clock's tick: the caches fetched, the cards asked after, and a refresh, which asks the overviews no watch
@@ -1912,7 +1924,7 @@ class Follower:
             self.kept.settle()
         if asked and self.kept.cards is not None:  # the read's sweep made the tick's ask
             self.asks, self.cards_at = self.asks + 1, time.monotonic()
-            self.cards = cards_stamp(*self.kept.cards, False, self.asks, self.kept.listed)
+            self.cards = kept_stamp(self.kept.cards, False, self.asks, self.kept.listed)
         if read is not None:
             self.left = card_left(read.get("swept"))
             self.told = {l: (tip, read["told"][l]) for l, _, tip, _ in read["found"] if l in (read.get("told") or {})}

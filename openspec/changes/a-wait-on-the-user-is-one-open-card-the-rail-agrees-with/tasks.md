@@ -6,7 +6,7 @@ Each pytest check runs from `tests/.venv`, synced by `devenv shell -- moon run t
 
 - [x] 1.1 crew records one `card.answer` per card, on its object in its owner's name, with `Card`, `Key`, `Answer` in crew's words and, for a kit's landings card, `Heads` of the ticked bolts, and `record.py`'s docstring names the act (design, Decision 1; Task notes 1.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_card_commands.py` passes.
 - [x] 1.2 A landings card's raise and `crew card read` record the answer when they read the card answered, once (design, Decision 1; Task notes 1.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_landings.py tests/py/test_card_commands.py` passes.
-- [ ] 1.3 The rail's sweep reads each owner's pending list in its one bridge, open record cards among what it asks after, and records the answer of each card it finds answered (design, Decision 2; Task notes 1.3). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
+- [x] 1.3 The rail's sweep reads each owner's pending list in its one bridge, open record cards among what it asks after, and records the answer of each card it finds answered (design, Decision 2; Task notes 1.3). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
 
 ## 2. An answered card is closed and keeps its send
 
