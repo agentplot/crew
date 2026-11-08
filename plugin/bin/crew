@@ -132,11 +132,10 @@
 #                                      in the run record naming both, with Count the records renamed; nothing else
 #                                      rewritten, no request appended and nothing launched, so a started bolt goes on as
 #                                      it stood; refused, nothing written, for an old name that is no kit of the
-#                                      partition or that a rename already renamed, while the partition's main-level
-#                                      host's spaces keep a repository by <old> or none by <new>, for a new name a
-#                                      bolt's, for two names of one kit, and when the hosts file can't be read. What
-#                                      crew recorded under a former name and never rewrites is read under the name now,
-#                                      and bolt new, unit add and chore add given one write the name now and say so
+#                                      partition, while the partition's main-level host's spaces keep a repository by
+#                                      <old> or none by <new>, for a new name a bolt's, for two names of one kit, and
+#                                      when the hosts file can't be read; what crew recorded elsewhere under <old> stays
+#                                      under it, read as written
 #   crew plan  propose|proposed|approve|answer|drop ...
 #                                      the planner's proposals: a change to the plan, waiting on the user alone and applied
 #                                      once the user approves it,
