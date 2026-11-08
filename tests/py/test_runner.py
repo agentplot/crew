@@ -480,13 +480,13 @@ class TestStageOf:
 class TestWhere:
     """Where a bolt's or a kit's work runs is what the runner that took it reported (the user's ruling of 2026-11-01;
     runner.where): the host whose runner took its newest launch taken, the kit's folder as that runner's
-    repositories.rec reports it and never as Flume's status of a place it carried names it (Decision 1 of
-    a-bolts-landing-on-main-reads-landed), and the stream as that status names it (Decision 6 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan)."""
+    repositories.rec reports it where it reports its repositories, else as Flume's status of its newest place of the
+    work names it, and the stream as that status names it (Decision 6 of
+    a-kit-renamed-on-its-host-is-renamed-across-the-plan; drive-state "A runner that reports no repositories")."""
 
     def test_the_host_folder_and_stream_of_the_newest_launch_taken(self):
         """deneb's repositories.rec names afterthought/crew: the folder is the one it reports, the stream the place's;
-        the same reading with no repositories.rec leaves the kit unread, naming deneb."""
+        the same reading with no repositories.rec takes the folder its place's status names."""
         code = json.loads(fixture("code"))
         report = kept(("afterthought/crew", "/Users/chuck/Code/github_afterthought/crew"))
         deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE),
@@ -498,21 +498,22 @@ class TestWhere:
             {"host": "deneb", "dir": "/Users/chuck/Code/github_afterthought/crew", "stream": "default"}, None)
         assert runner.where({"alpha": alpha}, launches, "bolt b", "afterthought/crew") == ({"host": "alpha", "dir": "/a/crew", "stream": None}, None)
         bare = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE)), {})
-        assert runner.where({"deneb": bare, "alpha": alpha}, launches, "bolt b", "afterthought/crew") == (None, (
-            "the runner on deneb took bolt b's work and reports no repositories it keeps, so crew can't tell where it keeps "
-            "afterthought/crew there"))
+        assert runner.where({"deneb": bare, "alpha": alpha}, launches, "bolt b", "afterthought/crew") == (
+            {"host": "deneb", "dir": code["status"]["places"][0]["repository"], "stream": "default"}, None)
 
-    def test_a_runner_that_reports_no_repositories_leaves_the_kit_unread_whatever_its_places_name(self):
+    def test_a_runner_that_reports_no_repositories_is_read_by_its_newest_place_of_the_work(self):
         """drive-state "A runner that reports no repositories": deneb's runner answers launch 1 of x's unit a and carries
-        Flume's status of its place, naming its repository /w/crew, and its branch holds no repositories.rec: crew can't
-        tell where x's kit is kept on deneb, saying its runner reports no repositories it keeps, and reads nothing of x in
-        /w/crew (read.1, roles.9)."""
+        Flume's status of its place, naming its repository /w/crew, and its branch holds no repositories.rec: x is read
+        in /w/crew on deneb, as crew main reads it; carrying no place of the work, its folder is None, which the callers
+        refuse naming deneb (plan.launched_at, plan.kit_at, launch_repositories)."""
         code = json.loads(fixture("code"))
         code["status"]["places"][0]["repository"] = "/w/crew"
         deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(1, "launched", CODE), places=placed(1, code, CODE)), {})
-        assert runner.where({"deneb": deneb}, held(rec(1, "launch")), "bolt x", "crew") == (None, (
-            "the runner on deneb took bolt x's work and reports no repositories it keeps, so crew can't tell where it keeps "
-            "crew there"))
+        assert runner.where({"deneb": deneb}, held(rec(1, "launch")), "bolt x", "crew") == (
+            {"host": "deneb", "dir": "/w/crew", "stream": "default"}, None)
+        bare = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(1, "launched", CODE)), {})
+        assert runner.where({"deneb": bare}, held(rec(1, "launch")), "bolt x", "crew") == (
+            {"host": "deneb", "dir": None, "stream": None}, None)
 
     def test_work_no_runner_has_taken_is_nowhere_and_two_runners_are_told_apart_by_none(self):
         silent = runner.host_read("madswan", "alpha", TIP, {}, {"runner.rec": "recfix refused it"})
