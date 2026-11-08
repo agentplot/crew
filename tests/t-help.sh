@@ -98,6 +98,7 @@ _landing-read wldn tenant-environments
 _release
 main up wldn
 main fix switchboard-kit red "main is red"
+main fix switchboard-kit red --send
 review wldn --wait
 review delivered
 revive
