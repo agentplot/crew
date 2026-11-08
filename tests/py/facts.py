@@ -105,10 +105,11 @@ def plan_text(bolts=(), units=()):
 
 
 class FactsWrite:
-    """A plan.Write over a plan in memory: its files given, each host's runner as given (runners, {host: its reading as
-    runner.host_read gives it}), the run record at its tip as given (entries, oldest first, none unless given; logged,
-    which a case may set after), the partition's kits read from those entries, and a
-    refusal for a missing bolt or unit that reads no git for the commit that removed it."""
+    """A plan.Write over a plan in memory: its files given, which it lists (paths) and reads (texts) as the branch's at
+    its tip, each host's runner as given (runners, {host: its reading as runner.host_read gives it}), the run record at
+    its tip as given (entries, oldest first, none unless given; logged, which a case may set after), the partition's
+    kits read from those entries, and a refusal for a missing bolt or unit that reads no git for the commit that removed
+    it."""
 
     def __new__(cls, text, files=None, runners=None, label="wldn", entries=()):
         import plan
@@ -117,6 +118,12 @@ class FactsWrite:
         class W(plan.Write):
             def text(self, path):
                 return self.files.get(path)
+
+            def paths(self, prefix):
+                return sorted(p for p in self.files if p.startswith(prefix))
+
+            def texts(self, paths):
+                return [self.files.get(p) for p in paths]
 
             def gone(self, kind, name, word=None):
                 plan.fail(f"no {word or kind.lower()} {name} in {self.label}/main")
