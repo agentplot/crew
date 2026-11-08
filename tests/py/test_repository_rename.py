@@ -11,7 +11,7 @@ import pytest
 import plan
 import runner
 
-from facts import FactsWrite, flume_fixture, plan_text
+from facts import STANDING, FactsWrite, flume_fixture, keeping, known, plan_text
 
 KIT_RENAME = """\
 Id: 20261105T120000Z-1-deneb-1-1
@@ -121,12 +121,14 @@ Do: unit add one-seam "One seam." --repo flywheel-cloud
 """
 
 
-def madswan_branch():
-    text = plan_text(bolts=[("crew-bolt", "crew", False)], units=[("crew-unit", "crew", "crew-bolt", [])])
+def madswan_branch(bolts=()):
+    """madswan's write over that branch, its plan holding crew's bolt and each of bolts, (name, repo, started), and deneb's
+    runner reporting request 3's place landed."""
+    text = plan_text(bolts=[("crew-bolt", "crew", False), *bolts], units=[("crew-unit", "crew", "crew-bolt", [])])
     text = text.replace("Unit: crew-unit\n", "Unit: crew-unit\nSource: agentplot/flywheel-cloud:docs/adr/0017, the seam\n")
     text = text.replace("Goal: Goal of crew-bolt.", "Goal: crew reads flywheel-cloud's seam.")
-    return FactsWrite(text, label="madswan", files={"requests.rec": SEAM_REQUESTS, "runs/deneb/2026-10-30.rec": DAY,
-                                                     "runs/deneb/2026-10-31.rec": QUIET, "proposals.rec": PROPOSALS})
+    return FactsWrite(text, label="madswan", runners=reading(launched={3: "landed"}), files={
+        "requests.rec": SEAM_REQUESTS, "runs/deneb/2026-10-30.rec": DAY, "runs/deneb/2026-10-31.rec": QUIET, "proposals.rec": PROPOSALS})
 
 
 class TestWhatTheRenameRenames:
@@ -405,3 +407,71 @@ class TestRefused:
 
     def test_none_when_all_is_clear(self):
         assert self.refusal() is None and self.refusal(count=3) is None
+
+
+def fleet(*repos):
+    """madswan's fleet, its main level on deneb, whose spaces keep repos (owner/name)."""
+    return {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
+            "hosts": {"deneb": keeping("/d/agentplot", *repos)}}
+
+
+# deneb's spaces once flywheel-cloud is removed and before boomdrive-cloud is added back (record 0060's order).
+REMOVED = fleet("agentplot/timber", "afterthought/crew")
+
+
+def command(w, do="kit rename flywheel-cloud boomdrive-cloud", f=REMOVED, n=None):
+    """crew kit rename as plan.OPS builds it, run directly (n None) or inside proposal n, on the write's facts."""
+    return plan.OPS[("kit", "rename")](known(w, fleet=f, n=n), plan.do_args("madswan", do))
+
+
+class TestTheCommand:
+    """Decisions 2 to 5: crew kit rename pushes its host's kept entries, refuses on the tip's facts, and renames every
+    record in one write with Repo and Count on its entry."""
+
+    @pytest.fixture(autouse=True)
+    def reach(self, monkeypatch):
+        self.reached = []
+        monkeypatch.setattr(plan.record, "reach", lambda label, eid=None: self.reached.append(label) or 0)
+
+    def test_a_direct_run_over_finished_work_renames_and_fills_repo_and_count(self, capsys):
+        w = madswan_branch()
+        op = command(w)
+        op.change(w)
+        plan.check(w.plan)
+        assert (op.act, op.subject, op.on, op.frm, op.fields) == (
+            "kit.rename", "plan(kit): rename flywheel-cloud boomdrive-cloud", ["kit/boomdrive-cloud"], ["kit/flywheel-cloud"],
+            {"Repo": "boomdrive-cloud", "Count": "6"})
+        assert plan.Plan(w.files["requests.rec"]).recs("Request")[0].get("Repo") == "boomdrive-cloud"
+        assert w.renaming == [("flywheel-cloud", "boomdrive-cloud")] and w.renamed == []
+        op.after("afterthought/crew-state", "0" * 40)
+        assert capsys.readouterr().out == "flywheel-cloud is boomdrive-cloud in madswan's records: 6 records renamed\n"
+
+    def test_a_started_bolt_refuses_naming_it_with_the_write_as_it_was(self):
+        w = madswan_branch(bolts=[("you-sign-in-to-staging", "flywheel-cloud", True)])
+        text, files = w.plan.text(), dict(w.files)
+        with pytest.raises(plan.Refusal, match="^crew can't rename flywheel-cloud while its work stands: bolt you-sign-in-to-staging "
+                                               "has not landed; its work lands or is dropped first$"):
+            command(w).change(w)
+        assert (w.plan.text(), w.files, w.renaming) == (text, files, [])
+
+    def test_a_host_keeping_the_old_name_refuses(self):
+        w = madswan_branch()
+        with pytest.raises(plan.Refusal, match="^crew can't rename flywheel-cloud while a host keeps it: deneb's spaces keep "
+                                               "agentplot/flywheel-cloud; flywheel-cloud is removed from the runner"):
+            command(w, f=fleet("agentplot/flywheel-cloud")).change(w)
+
+    def test_prepare_pushes_this_hosts_kept_entries_before_the_change(self):
+        w = madswan_branch()
+        op = command(w)
+        assert op.prepare() is None and self.reached == ["madswan"]
+
+    def test_an_approvals_own_proposal_names_nothing_against_it(self):
+        w = madswan_branch()
+        w.files["proposals.rec"] = plan.PROPOSALS + "\n" + "\n".join(proposal(7, "kit rename flywheel-cloud boomdrive-cloud").lines()) + "\n"
+        op = command(w, n=7)
+        op.change(w)
+        assert op.fields == {"Repo": "boomdrive-cloud", "Count": "6"}
+        w = madswan_branch()
+        w.files["proposals.rec"] = plan.PROPOSALS + "\n" + "\n".join(proposal(7, "kit rename flywheel-cloud boomdrive-cloud").lines()) + "\n"
+        with pytest.raises(plan.Refusal, match="proposal 7 is open and names flywheel-cloud"):
+            command(w).change(w)

@@ -1852,7 +1852,7 @@ def rename_standing(old, plan, requests, reads, entries, proposals, own):
     runner it can't read, and a place whose status it can't read (read.1)."""
     of = lambda r: bool(r.get("Repo")) and kit_in(r.get("Repo"), [old])
     stands, unread = [], []
-    stands += [f"bolt {b.name()} has not landed" for b in plan.bolts() if of(b)]
+    stands += [f"bolt {b.name()} has not landed" for b in renamed_in(plan, old)[0]]
     stands += [f"{kind_of(u)} {u.name()} waits in {old}'s queue" for u in plan.queue() if of(u)]
     for l in runner.standing(requests):
         work = l.get("Work") or ""
@@ -1994,9 +1994,9 @@ def rename_refusal(label, old, new, bolts, stands, unread, kept, unkept, count):
 
 
 def renamed_in(plan, old):
-    """The plan's records a rename of old renames (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
-    its bolts and its units and chores whose Repo names old, by its name or forge address (kit_in), as (bolts, work),
-    each in the plan's order."""
+    """The plan's records whose Repo names a repository, old, by its name or forge address (kit_in): its bolts and its
+    units and chores, as (bolts, work), each in the plan's order; work that stands, so a rename of old waits for it
+    (rename_standing), and what a proposal holding the rename names."""
     of = lambda r: bool(r.get("Repo")) and kit_in(r.get("Repo"), [old])
     return [b for b in plan.bolts() if of(b)], [u for u in plan.work() if of(u)]
 
@@ -6655,36 +6655,53 @@ def op_unit_drop(ctx, a):
 
 
 def op_kit_rename(ctx, a):
-    """crew kit rename <old> <new> (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan): the Repo of
-    every Bolt and Unit record naming old, by its name or forge address, set to new as given, in one commit, and nothing
-    else of the plan or of any other file: no record moved, no request appended, a started bolt left as it was. Its
-    entry, kit.rename, names the kit by its new name (On: kit/<name>) and the one it had (From: kit/<old>), with Repo
-    the new and Count the records renamed, the partition's record of the rename that crew reads what it never rewrites
-    through (kit_now); a rename of a kit only the landings name renames no record and still writes it. Refused, with
-    nothing written, by rename_refusal at the tip it is applied to (plan.1), against what the partition's main-level
-    host's spaces keep (crew.kit_kept), a hosts file crew can't read among them (read.1). A proposal may hold it, and the
-    user runs it directly (roles.1, may_write)."""
+    """crew kit rename <old> <new> (a-repository-is-renamed-by-one-explicit-command; record 0060, plan.22): old renamed
+    new, by its name or forge address, in one commit wherever a reader matches the repository on the drive's branch
+    (rename_branch): the plan's decision-record sources, requests.rec and the run record's entries, and nothing else, no
+    record moved, no request appended, nothing launched, retried or dropped. Its entry, kit.rename, names the repository
+    by its new name (On: kit/<name>) and the one it had (From: kit/<old>), with Repo the new and Count every record
+    renamed. Before the write reads the branch, the entries this host kept unpushed are pushed (record.reach), so they
+    are renamed with the rest, a refused push refusing the rename. Refused, with nothing written, by rename_refusal at
+    the tip it is applied to (plan.1): while old's work stands (rename_standing), the proposal applying it excepted, or
+    any host still keeps old (rename_kept), each host with a runner branch of the partition read with its main-level
+    host, by its runner's report or else its spaces in the hosts file; and for a name no record holds. Run again, it
+    renames what an earlier rename left. A proposal may hold it, and the user runs it directly (roles.1, may_write)."""
     label, fleet = ctx.kit(a.old), ctx.fleet
     host = crew.partition_of(fleet, label)["machine"]
-    listed = host in fleet["hosts"]
-    spaces = ([r for s in fleet["hosts"][host].get("sessions", {}).values() for r in s.get("repos") or []],
-              crew.kit_kept(fleet, host, a.old), crew.kit_kept(fleet, host, a.new)) if listed else None
+    own = None if ctx.direct else str(ctx.n)
     fields = {}
 
+    def prepare():  # returns no undo: a push of this host's own entries takes nothing back
+        record.reach(label)
+
     def change(w):
-        why = rename_refusal(label, a.old, a.new, w.kits(), w.renames(), [b.name() for b in w.plan.bolts()], host, spaces)
+        paths = [p for p in w.paths("runs/") if p.endswith(".rec")]
+        seen = {}
+        for text in w.texts(paths):
+            for e in record.parse(text or ""):
+                seen.setdefault(e["Id"], e)
+        entries = sorted(seen.values(), key=lambda e: (e["At"], e["Id"]))
+        reads = w.runners()
+        stands, unread = rename_standing(a.old, w.plan, requests_of(w).recs("Request"), reads, entries,
+                                         proposals(w).recs("Proposal"), own)
+        spaces = lambda h: [r for s in fleet["hosts"][h].get("sessions", {}).values() for r in s.get("repos") or []] \
+            if h in fleet["hosts"] else None
+        hosts = {h: ((reads[h].get("why") or reads[h].get("repositories")) if h in reads else None, spaces(h))
+                 for h in sorted({host, *reads})}
+        kept, unkept = rename_kept(a.old, hosts)
+        bolts = [b.name() for b in w.plan.bolts()]
+        why = rename_refusal(label, a.old, a.new, bolts, stands, unread, kept, unkept, None)
         not why or fail(why)
-        bolts, work = renamed_in(w.plan, a.old)
-        for r in bolts + work:
-            r.set("Repo", a.new)
-        w.renamed.append((a.old, a.new))
-        fields.update(Repo=a.new, Count=str(len(bolts) + len(work)))
-        return [b.name() for b in bolts]
+        n = rename_branch(w, a.old, a.new)
+        why = rename_refusal(label, a.old, a.new, bolts, [], [], [], [], n)
+        not why or fail(why)
+        fields.update(Repo=a.new, Count=str(n))
+        return []
 
     def after(repo, sha):
-        print(f"{a.old} is {a.new} in {label}'s plan: {cards.plural(int(fields.get('Count') or 0), 'record')} renamed")
+        print(f"{a.old} is {a.new} in {label}'s records: {cards.plural(int(fields.get('Count') or 0), 'record')} renamed")
     return Op(label, change, f"plan(kit): rename {a.old} {a.new}", "kit.rename", on=[f"kit/{a.new.split('/')[-1]}"],
-              frm=[f"kit/{a.old}"], after=after, fields=fields)
+              frm=[f"kit/{a.old}"], prepare=prepare, after=after, fields=fields)
 
 
 # The commands a proposal may hold, each built the same way whether run directly or inside a proposal. A chore's five are
