@@ -1032,10 +1032,22 @@ class Write:
         self.asked, self.held = [], []  # the asks the change wrote in its commit (ask_lines), and the keys it found held
         self.why, self.fields = None, {}  # the entry's Why and fields where only the tip the change is applied to says them
         self.renamed = []  # the kits a rename in this write renamed, (old, new), whose entry the run record holds once it lands
+        self.renaming = []  # each rename this write makes, (old, new), through which appended reads requests.rec
 
     def text(self, path):
         """A file of the branch as the change has left it: replaced, else at the tip, else None."""
         return self.files[path] if path in self.files else show(self.repo, self.tip, path)
+
+    def paths(self, prefix):
+        """The branch's files under prefix as the change has left them: at the tip (paths_at), with any it added, sorted."""
+        return sorted(set(paths_at(self.repo, self.tip, prefix) if self.tip else []) | {p for p in self.files if p.startswith(prefix)})
+
+    def texts(self, paths):
+        """Files of the branch as the change has left them (text), those at the tip read in one cat-file, as runs_at reads
+        the run record whole (plan.12); None for one that is not there."""
+        at = [p for p in paths if p not in self.files]
+        got = dict(zip(at, cat_file(self.repo, [f"{self.tip}:{p}" for p in at]) if at and self.tip else [None] * len(at)))
+        return [self.files[p] if p in self.files else got[p] for p in paths]
 
     def replace(self, path, text):
         self.files[path] = text
@@ -1773,6 +1785,31 @@ def rename_rec(text, fields, old, new):
         if out != lines:
             blocks[i], n = "\n".join(out), n + 1
     return "".join(blocks), n
+
+
+def rename_branch(w, old, new):
+    """The drive's branch as a rename of old to new leaves it, in the write (Decision 1 of
+    a-repository-is-renamed-by-one-explicit-command; plan.22, record.4): the plan's records by their decision-record
+    sources, requests.rec, and every file of the run record under runs/ at the tip, each by its fields (RENAMED_FIELDS,
+    rename_rec), a file replaced only where a record of it changed; no Bolt or Unit Repo, since none names old when the
+    rename runs (rename_standing), and no other file. The rename is recorded on the write (w.renaming), through which
+    appended reads requests.rec. Returns how many records it renamed, together, the entry's Count."""
+    n = 0
+    for r in w.plan.bolts() + w.plan.work():
+        was = list(r.fields)
+        r.fields[:] = [(f, renamed_field(f, v, old, new) if f in RENAMED_FIELDS["plan.rec"] else v) for f, v in r.fields]
+        n += r.fields != was
+    paths = ["requests.rec"] + [p for p in w.paths("runs/") if p.endswith(".rec")]
+    for path, text in zip(paths, w.texts(paths)):
+        if text is None:
+            continue
+        renamed, k = rename_rec(text, RENAMED_FIELDS.get(path) or RENAMED_FIELDS["runs/"], old, new)
+        if k:
+            w.replace(path, renamed)
+            n += k
+    if n:
+        w.renaming.append((old, new))
+    return n
 
 
 # A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
