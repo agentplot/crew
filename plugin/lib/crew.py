@@ -1228,29 +1228,64 @@ def standing_greeting(fleet, name):
     return label, GREETINGS[role].format(label=label, host=host), f"main({label}): greet {name}", f"crew main up {label} starts and greets it"
 
 
+def named_on(fleet, host):
+    """The kept repositories the teams file names for a host, {<owner>/<name>: {"dir", "checkout"}}: the file's where
+    the host is the one it is written on (record 0061; Decision 4 of a-kept-repositorys-folder-is-the-runners-container),
+    else none, since the file names that host's alone; none for a fleet that holds no `repositories`."""
+    r = fleet.get("repositories") or {}
+    return (r.get("named") or {}) if r.get("host") == host else {}
+
+
+def kept_at(fleet, host, sess, repo):
+    """Where a host keeps a repository (owner/name) its session sess's space lists, {"dir" (its folder), "main" (its
+    checkout)}: the teams file's `dir` and `checkout` where the file names it for that host, else the hosts file's
+    layout, <sess dir>/<name> and <sess dir>/<name>/main (checkout)."""
+    e = named_on(fleet, host).get(repo)
+    if e:
+        return {"dir": e["dir"], "main": e["checkout"]}
+    return {"dir": f"{sess['dir']}/{repo.split('/')[-1]}", "main": checkout(sess, repo)}
+
+
+def kept(fleet, host):
+    """Every repository a host keeps, {"name", "repo" (owner/name), "dir", "main"}: those its teams file names for it
+    first, at the file's folder and checkout, whether or not a space lists them; then each its sessions' spaces keep
+    that the file does not name by address, at the first session whose space keeps it (kept_at)."""
+    named = named_on(fleet, host)
+    out = {r: {"name": r.split("/")[-1], "repo": r, "dir": e["dir"], "main": e["checkout"]} for r, e in named.items()}
+    for s in fleet["hosts"].get(host, {}).get("sessions", {}).values():
+        for r in s.get("repos") or []:
+            if r not in out:
+                out[r] = dict({"name": r.split("/")[-1], "repo": r}, **kept_at(fleet, host, s, r))
+    return list(out.values())
+
+
 def kept_on(fleet, host, repo):
-    """The main checkout of a repo (owner/name) on a host: the first of the host's sessions whose space keeps it."""
-    for sess in fleet["hosts"].get(host, {}).get("sessions", {}).values():
-        if repo in (sess.get("repos") or []):
-            return checkout(sess, repo)
-    return None
+    """The main checkout of a repo (owner/name) on a host, as it keeps it (kept): the teams file's checkout where the file
+    names it for that host, else the first of the host's sessions whose space keeps it; None where neither does."""
+    return next((k["main"] for k in kept(fleet, host) if k["repo"] == repo), None)
 
 
 def kit_kept(fleet, host, kit):
     """A kit as a host keeps it, named as a plan names it, by its forge address, <owner>/<name>, or its name alone: the
-    repository of that address, or of that name, the first of the host's sessions whose space keeps it holds, as
-    kept_on finds a repo, {"name", "repo" (owner/name as the space keeps it), "dir" (its folder), "main" (its main
-    checkout)}; None where no session's space keeps it. Refused for a name alone when the spaces keep two repositories
-    by it, since crew can't tell which is meant (read.1)."""
+    repository of that address, or of that name, among those the host keeps (kept), {"name", "repo" (owner/name as the
+    file or the space names it), "dir" (its folder), "main" (its main checkout)}; None where the host keeps none. Refused
+    for a name alone when the host keeps two repositories by it, counting those its teams file names with those its
+    spaces keep, since crew can't tell which is meant (read.1)."""
     same = (lambda r: r == kit) if "/" in kit else (lambda r: r.split("/")[-1] == kit)
-    found = [(r, s) for s in fleet["hosts"].get(host, {}).get("sessions", {}).values() for r in (s.get("repos") or []) if same(r)]
-    repos = list(dict.fromkeys(r for r, _ in found))
-    len(repos) < 2 or fail(f"{host}'s spaces keep " + " and ".join(repos) + f" by the name {kit}, so crew can't tell which is meant")
-    if not found:
-        return None
-    r, s = found[0]
-    name = r.split("/")[-1]
-    return {"name": name, "repo": r, "dir": f"{s['dir']}/{name}", "main": checkout(s, r)}
+    found = [k for k in kept(fleet, host) if same(k["repo"])]
+    if len(found) > 1:
+        named = named_on(fleet, host)
+        filed = [k["repo"] for k in found if k["repo"] in named]
+        who = (f"{host}'s spaces keep" if not filed else f"{host}'s teams file names" if len(filed) == len(found)
+               else f"{host}'s teams file and spaces keep")
+        fail(f"{who} " + " and ".join(k["repo"] for k in found) + f" by the name {kit}, so crew can't tell which is meant")
+    return found[0] if found else None
+
+
+def session_checkouts(fleet, host, sess):
+    """The checkouts of the repositories a session's space keeps on a host, in its order, each where the host keeps it
+    (kept_at): the teams file's checkout where the file names it, else <sess dir>/<name>/main."""
+    return [kept_at(fleet, host, sess, r)["main"] for r in sess.get("repos") or []]
 
 
 # A GitHub repository's address as a manifest's `repository` gives it, its owner and name taken.
