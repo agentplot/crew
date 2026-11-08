@@ -43,13 +43,6 @@ WHERE = {"swb-1": {"label": "wldn", "machine": "chuck-herdr-alpha", "stream": "w
                    "kit": {"name": "flywheel-next", "repo": "agentplot/flywheel-next", "main": "/f/main", "dir": "/f"}}}
 
 
-@pytest.fixture(autouse=True)
-def previews(monkeypatch, tmp_path):
-    """crew's records of the previews it asked for, in a scratch folder rather than the host's."""
-    monkeypatch.setattr(plan, "PREVIEWS", tmp_path / "previews")
-    return tmp_path / "previews"
-
-
 # Where the bolts BATCH_UNITS names ran their work, as a runner reported it (plan.batch_unit_at).
 BUILT = {"tenant-zones": WHERE["swb-1"], "apex-zones": WHERE["swb-2"]}
 # Each partition's kits as its plan and landings name them (plan.partition_kits), which an area's key is checked against.
@@ -417,7 +410,6 @@ class TestSessions:
         assert not plan.judged_dead(None, set(), [])
         now = START + datetime.timedelta(minutes=10)
         assert plan.young("2026-10-12T10:09:00Z", now) and not plan.young("2026-10-12T10:00:00Z", now)
-
 
     # A batch's card, a landing's and a long proposal's are raised with their reading session (card-sessions, record
     # 0031 §5).

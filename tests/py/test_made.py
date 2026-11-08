@@ -18,7 +18,6 @@ NOTES = '{"name": "notes", "kind": "page", "address": "https://example.test/note
 def kept(monkeypatch, tmp_path):
     """crew's copies of what stages made, in a scratch folder rather than the host's."""
     monkeypatch.setattr(plan, "MADE", tmp_path / "made")
-    monkeypatch.setattr(plan, "PREVIEWS", tmp_path / "previews")
     return tmp_path / "made"
 
 

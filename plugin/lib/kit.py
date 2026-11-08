@@ -1,6 +1,6 @@
 """A kit's policy, as sluice reads it, and what crew reads of a kit's main and its bolts (plan.18, plan.19).
 
-A kit says what gates its branches, where each branch lives and whether it declares a preview once, in sluice's words:
+A kit says what gates its branches and where each branch lives once, in sluice's words:
 the policy file DECLARATION, read at the revision in hand. crew readies no place: a unit's, chore's and fix's places
 are Flume's, which has sluice equip each at its launch (`sluice equip`; Flume record 0036, sluice 147). sluice stands on
 its own, and Boomdrive will use sluice's SDK for these same reads; the file becomes boomdrive.toml then, and DECLARATION
@@ -16,21 +16,6 @@ import crew
 import gather
 
 DECLARATION = ".config/sluice.toml"
-
-
-def previewed(text, where=DECLARATION):
-    """Whether a kit's DECLARATION, as a revision holds it, declares a preview of that revision, as sluice reads it
-    there (sluice record 0021): True when its TOML holds a [preview] table, False when there is no file or no table.
-    Refused, naming the file, when it is not TOML or `preview` is not a table (read.1)."""
-    if text is None:
-        return False
-    try:
-        preview = tomllib.loads(text).get("preview")
-    except tomllib.TOMLDecodeError as e:
-        crew.fail(f"{where} is not TOML, so crew can't read whether the kit declares a preview: {e}")
-    if preview is not None and not isinstance(preview, dict):
-        crew.fail(f"{where}: [preview] is a table, not {type(preview).__name__}")
-    return preview is not None
 
 
 # How a policy's branches are matched, as sluice matches them: gather's, since gather.py is sent to hosts on its own

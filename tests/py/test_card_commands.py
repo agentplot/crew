@@ -1129,7 +1129,6 @@ class TestSweptReading:
         d.mkdir(parents=True)
         (d / "result.json").write_text(json.dumps(result))
         monkeypatch.setattr(plan, "CARDS", tmp_path)
-        monkeypatch.setattr(plan, "PREVIEWS", tmp_path / "previews")
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, plan.Rec("Bolt", [("Bolt", bolt)]), self.AT))
         monkeypatch.setattr(plan.sys, "stdin", io.StringIO(json.dumps({"live": live or [key], "blind": []})))
         plan.card_sweep(self.FLEET, argparse.Namespace(key=None, unit=None, label="wldn"), acts)

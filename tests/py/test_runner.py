@@ -539,6 +539,28 @@ class TestPreviewsPutAway:
         assert runner.previews_put_away(refused, set(), set()) == []
 
 
+def test_crew_runs_no_sluice_command_for_a_preview():
+    """Decision 9 of a-cards-preview-is-asked-of-the-runner (record 0056 point 1; roles.3): crew asks the runner for a
+    card's preview and runs no sluice command for one, reads no kit's [preview], and keeps no preview record of its
+    own. Read from crew's command core: no `preview`, `previews` or `release` of a preview handed to sluice_read, nor a
+    sluice preview, previews or release command line (the tidy's `sluice release --worktree` of a place is no
+    preview's); no previewed( call; no ~/.local/state/crew/previews path."""
+    import re
+    root = pathlib.Path(__file__).resolve().parents[2] / "plugin"
+    texts = {p: p.read_text() for p in sorted((root / "lib").glob("*.py")) + [root / "bin" / "crew"]}
+    found = []
+    for p, text in texts.items():
+        for n, line in enumerate(text.splitlines(), 1):
+            if (re.search(r"sluice_read\([^)]*[\"'](preview|previews)[\"']", line)
+                    or re.search(r"sluice_read\([^)]*[\"']release[\"'](?![^)]*--worktree)", line)
+                    or re.search(r"sluice (preview|previews)\b", line)
+                    or re.search(r"sluice release(?! --worktree)\b", line)
+                    or re.search(r"[\"']sluice[\"'],\s*[\"'](preview|previews|release)[\"']", line)
+                    or "previewed(" in line or ".local/state/crew/previews" in line):
+                found.append(f"{p.relative_to(root)}:{n}: {line.strip()}")
+    assert found == []
+
+
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 FLUME_17 = pathlib.Path(__file__).parent / "flume-0.17.0"
 CODE ="/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"
