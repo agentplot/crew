@@ -163,12 +163,14 @@ def roles_read(fleet, found):
 
 def marker(r, cards, label, logs):
     """A rail row as a marker: its group, its card key, its glyph, when it began to wait, its card, the one open in the
-    row owner's name as the rail's card line names it (plan.row_cards), or None, and, when none is open, the words of
+    row owner's name as the rail's card line names it (plan.row_cards), with when the user answered it, or None, and,
+    when none is open, the words of
     Pending You's refusal of the last post under its key, as the rail's card line gives them (plan.last_refusal), or
     None; logs are the label's run-record entries the rail read."""
     card, _ = plan.row_cards(cards, dict(r, label=label))
     return {"group": r["group"], "key": r["key"], "glyph": GLYPH[r["group"]], "at": r.get("date") or iso(r["at"]),
-            "card": {"by": card["by"], "host": card["host"], "at": iso(card["at"])} if card else None,
+            "card": {"by": card["by"], "host": card["host"], "at": iso(card["at"]),
+                     "answered": iso(card["answered"]["at"]) if card.get("answered") else None} if card else None,
             "refused": None if card else plan.last_refusal(logs, r["key"])}
 
 
@@ -310,7 +312,8 @@ def board_data(fleet, labels, read, now):
         mine = sorted((c for c in cards if c["label"] == l), key=lambda c: (c["at"], c["card"]))
         parts.append({"label": l, "plan": tip, "hosts": hosts, "kits": list(read["kits"].get(l, [])),
                       "cards": [{"key": c["key"], "card": c["card"], "by": c["by"], "host": c["host"], "at": iso(c["at"]),
-                                 "kind": plan.card_kind(c["key"])} for c in mine],
+                                 "kind": plan.card_kind(c["key"]), "answered": iso(c["answered"]["at"]) if c.get("answered") else None,
+                                 "answer": c["answered"]["answer"] if c.get("answered") else None} for c in mine],
                       "records": records_proposed(logs, mine),
                       "inception": {"signals": sorted(sigs,
                                                       key=lambda s: (when(s["at"]) is None, when(s["at"]) or now, s["signal"])),
@@ -403,9 +406,11 @@ def named(repo, name):
 
 
 def card_of(ms):
-    """What each marker of a line says of its card at the line's end: open and who asked it, none open, or none open
+    """What each marker of a line says of its card at the line's end: open and who asked it, answered and whose act it
+    waits on (design Decision 3 of a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), none open, or none open
     because Pending You refused its row's last post, which the row then owes."""
-    return [(f"card open, asked by {m['card']['by']}" if m["card"] else
+    return [(f"card answered, waits on {m['card']['by']}" if m["card"] and m["card"].get("answered") else
+             f"card open, asked by {m['card']['by']}" if m["card"] else
              "no card open, its post refused" if m.get("refused") else "no card open", None) for m in ms]
 
 
@@ -806,7 +811,8 @@ def ops_view(p):
     """Main-level ops's: the partition's operations in brief; each fix of a kit's main and each take-main fix in flight,
     with its stage (fixing; crew-board "A fix of main in ops's band"); each kit's landing row, its landings card ops's, naming
     the bolts that wait on its main in the plan's order, each with its landing standing in sluice when one stands
-    (landing_said), with its card, and each started bolt whose landing stands on no such row; then, environment by
+    (landing_said), with its card, saying the landing is ops's once the user has answered it, and each started bolt
+    whose landing stands on no such row; then, environment by
     environment, each deploy
     waiting on the user's word with its card, each approved and not yet deployed, each running, and each operation step
     waiting, handed or failed, with the deploy it comes after, or whose gate it is, and its doer; the head line of each
@@ -827,8 +833,9 @@ def ops_view(p):
             if m["group"] == "land":
                 lands.setdefault(m["key"], (m, []))[1].append(b["bolt"])
     landing = {b["bolt"]: f"{b['bolt']} {landing_said(b)}" for b in p.get("construction", []) if b.get("landing")}
-    for key, (m, bolts) in lands.items():
-        out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land"),
+    for key, (m, bolts) in lands.items():  # a card the user answered leaves the landing to ops (Decision 3)
+        out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
+                              "answered: the landing is yours" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
     out += [row(fields(b["repo"] or "", b["bolt"], landing_said(b)), " ") for b in p.get("construction", [])
@@ -863,9 +870,12 @@ def run_rows(r, now):
 
 def card_line(c, now):
     """An open card of an agent's own, as its band shows it above its view: its question or the row's card, its key,
-    its id, dim, and how long it has been open."""
+    its id, dim, and how long it has been open, or, once the user has answered it, how long ago and that it is the
+    agent's to act on (crew-board "An agent's band says which of its cards the user answered")."""
     what = {"question": "your question", "record": "your record's card"}.get(c["kind"], "your card")
-    return row(fields(what, c["key"] or "", (c["card"], "dim"), f"open {plan.age(when(c['at']), now)}"), " ")
+    since = (f"answered {plan.age(when(c['answered']), now)} ago, yours to act on" if c.get("answered") else
+             f"open {plan.age(when(c['at']), now)}")
+    return row(fields(what, c["key"] or "", (c["card"], "dim"), since), " ")
 
 
 def agent_views(data):
