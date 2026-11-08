@@ -36,7 +36,7 @@ crew makes a bolt's branch with sluice's `branch create`, lands it with `crew bo
 
 ## Amendment of 2026-11-08: the user's send is the landing, and no role runs one
 
-Status: proposed to the user on 2026-11-08, as `briefs.15` has it; accepted only on their yes.
+The user's send on a bolt's landings row is itself the landing, a retry of its base place's submission that Flume and sluice carry out, and no role runs a landing. Status: proposed to the user on 2026-11-08, as `briefs.15` has it; accepted only on their yes.
 
 Deciders: the user, 2026-11-08, declining proposal 62 (`crew-lands-each-bolt-by-name`) with this note, relayed by agentplot-planner (signal 2026-11-08-agentplot-planner-9cdb51ff/01-crew-lands-nothing): "It's not crew's job to land anymore. That's the whole point of the runner in Flume and sluice. Crew no longer is responsible for landing itself. I guess I'm thinking about how the control plane would work. It is going to be a decision in the user's rail to land, so that's a message for a Flume place, theoretically." agentplot-design for writing it here, and for the choices marked as its own.
 
