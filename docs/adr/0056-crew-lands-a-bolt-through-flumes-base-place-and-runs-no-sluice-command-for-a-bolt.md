@@ -40,9 +40,17 @@ Today crew makes a bolt's branch with sluice's `branch create`. It lands the bol
 - Rules `plan.8`, `plan.16` and `plan.19` are amended to match.
 - crew's unit `crew-lands-each-bolt-through-flumes-base-place` builds points 1 to 5 for a bolt, and posts `land`.
 - Boomdrive's runner takes `land` as the message for a work's landing, and carries it out as Flume's retry of the work's submission. That is a Boomdrive unit.
-- crew still calls sluice directly in three other places, each against point 1:
+- crew still calls sluice directly in four other places, each against point 1:
   - its plan's reads of a landing (`plan.py`, a `sluice ... --json` run in a kit's main);
   - its gather of a kit (`gather.py`);
-  - the board's watch of `sluice overview`.
+  - the board's watch of `sluice overview`;
+  - a card's preview, which `crew card preview` brings up and puts away with `sluice preview` and reads with `sluice previews` on the work's host, and which crew offers on a row by reading `[preview]` in the kit's `.config/sluice.toml`.
 
-  They move onto the runner's report by one crew unit, with a Boomdrive unit first wherever the report must carry what crew needs.
+  The first three move onto the runner's report by one crew unit, with a Boomdrive unit first wherever the report must carry what crew needs. Previews move as below.
+- **Previews go through the runner (agentplot-design's choice, 2026-11-08, on point 1).** What the user sees on a card stays as it is: a row or a batch line says whether its work has a preview, the preview comes up when the user asks on the card, the card lists its addresses while it is up, and it goes when they are done or the row ends. Only the way it is brought up changes:
+  - crew posts a message, `preview`, naming the repository, the branch and the revision, and the same message marked `done` to put it away. Like `land`, it is named for what it does, not by sluice's word.
+  - A runner that keeps the repository, on the host where the work runs, carries it out through sluice's own preview command, once, and reports sluice's answer as sluice gave it: its addresses and its state, or its refusal.
+  - crew reads whether a kit has a preview, and each preview's addresses, from the runner's report alone. Where the report cannot yet say whether a kit declares one, the row offers it, and a kit that declares none answers in sluice's words.
+  - crew puts away only previews it asked for, and the runner only what its control plane asked it to bring up; a person's own preview is left alone.
+  - Not taken: crew keeping its own preview calls until a later change, since it would go on calling sluice against point 1; and dropping previews from the cards, which the user relies on for swancloud's and switchboard-kit's bolts.
+  - This is one Boomdrive unit, then one crew unit. The hosted protocol carries `preview` in a later version of its own, as it will `land`.
