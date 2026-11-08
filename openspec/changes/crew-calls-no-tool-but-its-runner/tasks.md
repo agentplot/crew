@@ -27,4 +27,4 @@ Submit nothing, and never run `wt submit --help`.
 
 ## 4. The words
 
-- [ ] 4.1 These say where a bolt's queue and verification now come from: `crew`'s usage, README, the crew skill, main-level ops's brief, CLAUDE.md, `board.py`'s follower usage and the mod's comment. None of them says a view reads sluice's queue or its verdict (design Decision 8; Task notes 4.1). Verify `tests/suite t-docs t-briefs mod` ends with "0 failed".
+- [x] 4.1 These say where a bolt's queue and verification now come from: `crew`'s usage, README, the crew skill, main-level ops's brief, CLAUDE.md, `board.py`'s follower usage and the mod's comment. None of them says a view reads sluice's queue or its verdict (design Decision 8; Task notes 4.1). Verify `tests/suite t-docs t-briefs mod` ends with "0 failed".

@@ -9,9 +9,9 @@
 // changes this module and board.agent_views together, each with its cases: tests/py/test_board.py pins every key this
 // reads from the views file, and plugin/tests/status.test.ts what it draws (code.8).
 
-// How often the file's time is looked at; the host's follower writes it once a minute on its clock, and within seconds
-// of a write on this host or a kit's queue moving in sluice's overview watch; a frame is stale after three minutes
-// (its stale_after_ms).
+// How often the file's time is looked at; the host's follower writes it once a minute on its clock, within seconds of
+// a write on this host, and at its clock's fetch of a runner's report; a frame is stale after three minutes (its
+// stale_after_ms).
 const EVERY_MS = 5000
 
 // Who this session is, where its partition's views are, and what was last read from them.
