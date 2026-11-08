@@ -130,10 +130,10 @@ def request_refusal(requests, new):
     and a launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
     host's Flume configuration maps the repository to (settled with the user 2026-11-01); a bolt's own launch, of
     bolt/<bolt>, names crew's kind crew/bolt and the base main, and no Brief or After, since its base place runs no
-    agent, and no other launch names that kind; a launch on a bolt's branch comes after a launch of the bolt's base
-    place in the file, or of other work on that branch, as a bolt started before bolts were base places has its pieces'
-    launches and no launch of its own, so a fix on it is taken (crew-lands-each-bolt-through-flumes-base-place, Decisions
-    3 and 9); a retry, drop, priority or land names by Of a launch of the same work, and a land a launch of a bolt or
+    agent, and no other launch names that kind, though no rule holds a bolt's pieces after its base place in the file,
+    since a fix on a bolt started before bolts were base places, which has no launch of its own, is launched on its
+    branch still (crew-lands-each-bolt-through-flumes-base-place, Decisions 3 and 9), and a start's order is its own
+    (bolt_launch, reach); a retry, drop, priority or land names by Of a launch of the same work, and a land a launch of a bolt or
     of a fix of main; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds
     its submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
     n, act, work = new.get("Request"), new.get("Act"), new.get("Work")
@@ -171,11 +171,6 @@ def request_refusal(requests, new):
                     "place on its branch, so it comes after no launch")
     if act == "launch" and not work.startswith("bolt/") and new.get("Kind") == BOLT_KIND:
         return f"launch {n} of {work} names Kind {BOLT_KIND}, which is a bolt's base place's alone, of bolt/<bolt>"
-    if act == "launch" and (new.get("Base") or "").startswith("bolt/"):
-        bolt = new.get("Base")
-        if not any(r.get("Act") == "launch" and (r.get("Work") == bolt or r.get("Base") == bolt) for r in requests):
-            return (f"launch {n} of {work} on {bolt} comes before any launch of {bolt}: a bolt's base place is launched "
-                    "before its pieces")
     by = {r.get("Request"): r for r in requests}
     if act != "launch":
         of = by.get(new.get("Of"))

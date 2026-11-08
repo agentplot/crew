@@ -167,12 +167,6 @@ class TestBoltRequests:
         assert runner.request_refusal(have, rec(2, "launch")) is None
         assert runner.request_refusal(held(self.bolt(), rec(2, "launch")), rec(3, "launch", "unit/b", After=[2])) is None
 
-    def test_a_piece_before_its_bolt_is_refused_naming_the_bolt(self):
-        assert runner.request_refusal([], rec(1, "launch")) == (
-            "launch 1 of unit/a on bolt/b comes before any launch of bolt/b: a bolt's base place is launched before its pieces")
-        assert runner.request_refusal(held(rec(1, "launch", "unit/c", Base="bolt/other")), rec(2, "launch")).startswith(
-            "launch 2 of unit/a on bolt/b comes before any launch of bolt/b")
-
     def test_a_fix_on_a_bolt_started_before_bolts_were_base_places_is_appended(self):
         """Its units' launches stand on bolt/b and no launch of bolt/b does (Decision 9): a fix, a take-main fix among
         them, is still launched on its branch."""

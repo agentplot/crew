@@ -20,7 +20,7 @@ crew SHALL write every request for a host's runner as a record of `requests.rec`
 - **THEN** it is refused, saying a request is never changed or removed, and nothing is pushed
 
 ### Requirement: A launch names everything the runner passes to Flume
-A launch of a kit's work SHALL name the work it serves, its repository as the plan names it, its kind, name and base, its priority, intent and recipient, and its brief, and SHALL name no host or stream, a runner whose configuration names its repository taking it, in the stream its host's Flume configuration maps the repository to; a launch of a role's work SHALL also name the host and stream its role runs in. A bolt's own launch, of `bolt/<bolt>`, SHALL name the kind `crew/bolt` and the base `main`, and no brief and no launch to land first, since its base place runs no agent; any other launch SHALL NOT name the kind `crew/bolt`; and a launch on the base `bolt/<bolt>` SHALL come after a launch of `bolt/<bolt>` in the file (record 0056 point 2). A launch MAY name launches that must land first and a held submission. A retry, drop, priority or land SHALL name the launch it acts on and no host, and a land SHALL name a launch of a bolt or of a fix of main, its work the same as that launch's. crew's rules SHALL refuse a request that lacks what its act needs or names what its act does not take.
+A launch of a kit's work SHALL name the work it serves, its repository as the plan names it, its kind, name and base, its priority, intent and recipient, and its brief, and SHALL name no host or stream, a runner whose configuration names its repository taking it, in the stream its host's Flume configuration maps the repository to; a launch of a role's work SHALL also name the host and stream its role runs in. A bolt's own launch, of `bolt/<bolt>`, SHALL name the kind `crew/bolt` and the base `main`, and no brief and no launch to land first, since its base place runs no agent; and any other launch SHALL NOT name the kind `crew/bolt` (record 0056 point 2). A start SHALL append the bolt's launch before its pieces' (bolt-teams), and a launch on the base `bolt/<bolt>` SHALL be taken with no launch of `bolt/<bolt>` before it, as a fix on a bolt started before bolts were base places is. A launch MAY name launches that must land first and a held submission. A retry, drop, priority or land SHALL name the launch it acts on and no host, and a land SHALL name a launch of a bolt or of a fix of main, its work the same as that launch's. crew's rules SHALL refuse a request that lacks what its act needs or names what its act does not take.
 
 #### Scenario: A launch with no stream
 - **WHEN** a bolt's start appends a launch of a kit's work naming no `Stream`
@@ -38,9 +38,9 @@ A launch of a kit's work SHALL name the work it serves, its repository as the pl
 - **WHEN** a bolt's start appends a launch of `bolt/x` of the kind `crew/bolt` on the base `main`, with no brief and no launch to land first
 - **THEN** it is appended; had it named a brief, a launch to land first, another kind or another base, the write would be refused naming the field
 
-#### Scenario: A piece before its bolt
-- **WHEN** a write would append a launch on the base `bolt/x` with no launch of `bolt/x` before it in `requests.rec`
-- **THEN** the write is refused naming `bolt/x`, and the branch is unchanged
+#### Scenario: A fix on a bolt with no launch of its own
+- **WHEN** a write would append a fix's launch on the base `bolt/x`, and `requests.rec` holds `x`'s units' launches and no launch of `bolt/x`
+- **THEN** it is appended
 
 #### Scenario: A land of a unit
 - **WHEN** a land would name request 4, the launch of unit `a` on `bolt/x`
