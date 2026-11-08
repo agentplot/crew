@@ -12094,10 +12094,13 @@ def rail_read(fleet, labels, board=False, sweep=False):
 
 
 def swept_cards(cards_, swept, here, now, kits=()):
-    """The open cards once the sweep acted (sweep_cards): each it closed, withdrew or recorded lost gone, and each it
-    posted, again or anew, there, posted on this host (here) at now under its row's key in its owner's name, on its
-    row's object (cards.row_object, the kits of its partition, {label: names}, as it takes them)."""
+    """The open cards once the sweep acted (sweep_cards): each it closed, withdrew or recorded lost gone, each whose
+    answer it recorded carrying it (answered), and each it posted, again or anew, there, posted on this host (here) at
+    now under its row's key in its owner's name, on its row's object (cards.row_object, the kits of its partition,
+    {label: names}, as it takes them)."""
     gone = {d["card"] for d in swept["done"] if d["did"] in ("closed", "withdrawn", "lost") and d["card"]}
+    answers = swept.get("answered") or {}
+    cards_ = [dict(c, answered=answers[c["card"]]) if c["card"] in answers and not c.get("answered") else c for c in cards_]
     return [c for c in cards_ if c["card"] not in gone] + [
         dict(label=d["label"], card=d["new"], key=d["key"], on=cards.row_object(d["key"], kits.get(d["label"], ()) if kits else ()), by=d["by"], host=here, at=now)
         for d in swept["done"] if d.get("new")]
@@ -15781,7 +15784,8 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     or a bridge that fails, changes nothing more, and is said, as is a partition whose record could not be read from its
     branch, which records no close either (read.1). crew board sweeps nothing (state.4). Returns {done: [{label, key,
     card, by, did, words, new}], unswept: [{label, why}]}, did answered, closed, withdrawn, lost, posted or left, a
-    batch's close by crew with card and new None."""
+    batch's close by crew with card and new None; and, when it recorded an answer, answered: {card: {at, answer,
+    heads}}, each as record_reading would read it, for the read's open cards (swept_cards)."""
     acts = acts or SweepActs(fleet)
     here, now = acts.host(), acts.now()
     out, judged = {"done": [], "unswept": []}, []
@@ -15844,6 +15848,7 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
             if seen:
                 es.append(dict(Act="card.answer", By=c["by"], **seen))
                 did(l, c["key"], c["card"], c["by"], "answered", seen["Answer"])
+                out.setdefault("answered", {})[c["card"]] = dict(at=now, answer=seen["Answer"], heads=seen.get("Heads"))
     ended = set()  # the cards its owners' reads found ended in Pending You, recorded so on this read (Decision 5)
     for l, owners, j in judged:
         for c in [c for c, *_ in j["gone"]] + [c for c, _ in j["held"]] + j["questions"] + j["records"]:

@@ -1668,7 +1668,9 @@ class TestSweep:
         assert [(e["Act"], e["On"], e["by"], e["Card"], e["Key"], e["Answer"]) for e in acts.emitted] == [
             ("card.answer", ["proposal/57"], "wldn-planner", "req_57", "proposal/57", "approved")]
         assert out["done"] == [dict(label="wldn", key="proposal/57", card="req_57", by="wldn-planner", did="answered", words="approved", new=None)]
-        assert plan.swept_cards([p57], out, "mac-studio", NOW) == [p57], "an answered card is still open"
+        assert out["answered"] == {"req_57": dict(at=NOW, answer="approved", heads=None)}
+        assert plan.swept_cards([p57], out, "mac-studio", NOW) == [dict(p57, answered=dict(at=NOW, answer="approved", heads=None))], (
+            "an answered card is still open, and carries the answer recorded")
 
     def test_a_card_already_recorded_answered_is_read_no_more_and_one_waiting_on_the_user_is_not_read(self):
         p57 = card("proposal/57", "req_57", "wldn-planner")
