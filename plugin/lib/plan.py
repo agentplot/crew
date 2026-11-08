@@ -12236,8 +12236,8 @@ def stranded_said(entries, card, owner, new):
 
 
 def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None, runs=None):
-    """End the card sessions crew started, release the landings' previews it asked for, whose card is closed or whose
-    row is gone, and read the landings nothing recorded, on every host of each partition whose plan was read, its main
+    """End the card sessions crew started whose card is closed or whose row is gone, and read the landings nothing
+    recorded, on every host of each partition whose plan was read, its main
     machine and each its runners answer on as the read read them (runs, hosts_of): one crew card sweep --label <label>
     on each (code.3), handed
     as live every row key less each the record holds as closed with no card open under it (batched, what the batches
@@ -12253,7 +12253,7 @@ def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None, ru
         if not plan or (only is not None and not only.get(l)):
             continue
         readings = {f"land/{b['bolt']}" for r in rows if r["label"] == l and r["group"] == "land" for b in r.get("bolts", []) if b["can"]}
-        rowed = {r["key"] for r in rows if r["label"] == l} | readings  # each row's, and each landing row's reading and preview
+        rowed = {r["key"] for r in rows if r["label"] == l} | readings  # each row's, and each landing row's reading
         judgment, landings = sweep_judgment(l, rowed, cards, unread.get(l), batched.get(l, {}), readings), landings_judged(fleet, l, plan, sv, runs)
         for h in hosts_of(fleet, l, runs):
             judged = json.dumps(dict(judgment, landings=landings[h]) if landings.get(h) else judgment)
@@ -12348,7 +12348,9 @@ def rail_read(fleet, labels, board=False, sweep=False):
     (board.py), from which the rail's text is made as well.
     With sweep, once the rows are made, the cards on this host are swept under its sign-in (sweep_cards), against the
     proposals the plans read hold (proposals_held), the cards read then being those open once it acted, each kit's
-    landings card main moved under is raised again (sweep_moved), and the card sessions whose card is closed or whose row is gone are
+    landings card main moved under is raised again (sweep_moved), the done of each preview crew asked for whose card or
+    row is gone is written and each card whose preview the runner reports anew is changed in place, on the partition's
+    main machine (sweep_previews, previews_changed), and the card sessions whose card is closed or whose row is gone are
     ended on every host of the labels read; what the sweeps did, and which hosts were not checked, are in the read
     (sweep_sessions). No state is written but by those sweeps' acts. Each partition's runners are read once beside its
     plan (runs, rail_runs), for the stages of its crossed work and the changes its batches count (crossed_changes)."""
@@ -12379,6 +12381,8 @@ def rail_read(fleet, labels, board=False, sweep=False):
         read["cards"] = swept_cards(read["cards"], read["swept"], crew.this_host(), datetime.datetime.now(datetime.timezone.utc),
                                     read["kits"])
         read["moved"] = sweep_moved(fleet, read)
+        read["previews"] = sweep_previews(fleet, read)
+        read["previewed"] = previews_changed(fleet, read)
         read["ended"], read["unchecked"] = sweep_sessions(fleet, found, sv, read["rows"], read["cards"], unread, batched, runs=runs)
         read["told"] = reckon_batches(fleet, found, read)
     return read
@@ -12497,6 +12501,10 @@ def rail_text(fleet, labels, read, now):
         ["", "landings cards whose main can't be read:"] + [
             f"  land/{u['kit']} ({u['label']}): whether main moved under it can't be told: {u['why']}" for u in moved["unread"]]
         if moved["unread"] else [])
+    gone = [f"  {x['work']} at {x['revision'][:7]} ({x['label']}): {x['said']}" for x in read.get("previews") or []]
+    told = [f"  {x['key']} ({x['label']}): {x['note']}" + (f"; {x['said']}" if x.get("said") else "") for x in read.get("previewed") or []]
+    lines += (["", "previews put away, their card or row gone:"] + gone if gone else []) + (
+        ["", "cards changed as the runner reported their previews:"] + told if told else [])
     said = [(e.get("sent"), f"  {e['key']}{' ' + e['unit'] if e['unit'] else ''} ({e['label']}) on {e['host']}: {e['why']}; {e['said']}")
             for e in read.get("ended") or []]
     ended, sent = [w for s, w in said if not s], [w for s, w in said if s]
@@ -12538,6 +12546,8 @@ def labels_of(read, labels):
                 swept=swept and {"done": [d for d in swept["done"] if d["label"] in labels], "unswept": [u for u in swept["unswept"] if u["label"] in labels]},
                 moved=moved and {k: [x for x in v if x["label"] in labels] for k, v in moved.items()},
                 ended=[e for e in read.get("ended") or [] if e["label"] in labels],
+                previews=[x for x in read.get("previews") or [] if x["label"] in labels],
+                previewed=[x for x in read.get("previewed") or [] if x["label"] in labels],
                 unchecked=[u for u in read.get("unchecked") or [] if u["label"] in labels])
 
 
@@ -14587,33 +14597,6 @@ def previews_card(label, key):
     return out
 
 
-def preview_files(label):
-    """Every record of a preview crew keeps on this host for the partition, as the rail's sweep judges them: (where,
-    the card's key, the thing, whether an older crew kept it at a landing row's post), key and thing None for a record
-    whose own can't be read."""
-    d, out = PREVIEWS / label, []
-    for f in sorted(d.glob("*.json")) if d.is_dir() else []:
-        if crew.NAME.match(f.stem):
-            out.append((f, f"land/{f.stem}", f.stem, True))
-    for f in sorted(d.glob("*/*.json")) if d.is_dir() else []:
-        if f.name.startswith("."):
-            continue
-        try:
-            r = json.loads(f.read_text())
-        except (OSError, ValueError):
-            r = None
-        key, thing = (r.get("key"), r.get("thing")) if isinstance(r, dict) else (None, None)
-        out.append((f, key if isinstance(key, str) else None, thing if isinstance(thing, str) else None, False))
-    return out
-
-
-def preview_row_key(key, thing):
-    """The rail row a preview's record lives as long as (rail-cards "A card closed elsewhere"): a landings row's bolt's,
-    land/<bolt>, which the rail's judgment holds live while the bolt is a row of its kit's card; any other card's own
-    key."""
-    return f"land/{thing}" if key.startswith("land/") else key
-
-
 def preview_target(key, thing, carried, unread=None):
     """What brings a card's thing up (rail-cards "A thing the card does not carry"), from facts alone: carried, {thing:
     (branch, revision)}, each thing the card carries that must run, or None for one whose branch and revision are read
@@ -15924,6 +15907,12 @@ class SweepActs(CardActs):
         return (k["main_at"], None) if k.get("main_at") else (
             None, f"crew on {host} names no revision of main it read {main} at, as a crew older than the read of it does")
 
+    def preview_note(self, label, key, note):
+        """A card's change for its preview handed to its raise (preview_changed), what the raise says going to standard
+        error, the rail's text saying what it did."""
+        with contextlib.redirect_stdout(sys.stderr):
+            return preview_changed(self.fleet, label, key, note)
+
     def raise_kit(self, label, kit):
         """A kit's landings card raised again as main moved under it (raise_landings, with no note of its own), what it
         says going to standard error, the rail's text saying what it did: the card's id, or None."""
@@ -16351,6 +16340,127 @@ def sweep_moved(fleet, read, acts=None):
     return out
 
 
+# How long an ask stands before the rail's read may take its card or row for gone (Decision 7 of
+# a-cards-preview-is-asked-of-the-runner): a card raised since the read began is not yet in it.
+PREVIEW_GRACE = 120
+
+
+def previews_live(label, judgment, entries):
+    """The work whose card stands, by the rail's judgment (sweep_judgment) of a partition, so the asks of its previews
+    stand (Decision 7 of a-cards-preview-is-asked-of-the-runner): bolt/<bolt> for each live land/ key, and unit/<unit>
+    for each unit of a live batch/<n> or batch/<n>-<k>, the batches read from the partition's run record (entries);
+    and the kinds whose every ask stands, those a blind prefix covers (read.1). Returns (works, kinds)."""
+    live = judgment["live"]
+    works = {f"bolt/{k.split('/')[1]}" for k in live if k.startswith("land/") and len(k.split("/")) >= 2}
+    alive = {int(k.split("/")[1].split("-")[0]) for k in live if re.fullmatch(r"batch/\d+(-\d+)?", k)}
+    works |= {f"unit/{u}" for m, _, us in batches(entries) if m in alive for u, _, _ in us}
+    kinds = {{"land/": "bolt/", "batch/": "unit/"}.get(b) for b in judgment["blind"]} - {None}
+    return works, kinds
+
+
+def ask_card(r, entries):
+    """The card a preview's ask was made from, as its work names it (Decision 1 of
+    a-cards-preview-is-asked-of-the-runner): a bolt's, its kit's landings card, land/<repo>; a unit's, the newest batch
+    of the partition's run record (entries) that holds it, batch/<n>, or None when none does."""
+    kind, _, name = (r.get("Work") or "").partition("/")
+    if kind == "bolt":
+        return f"land/{(r.get('Repo') or '').split('/')[-1]}"
+    held = [m for m, _, us in batches(entries) for u, _, _ in us if u == name]
+    return f"batch/{max(held)}" if held else None
+
+
+def sweep_previews(fleet, read, acts=None):
+    """The rail read's put-away of each preview crew asked for whose card or row is gone (rail-cards "A card closed
+    elsewhere", "A row gone with no raise of its card"; Decision 7 of a-cards-preview-is-asked-of-the-runner), once its
+    sweep acted, on the partition's main machine alone, where the cards are: for each partition whose plan was read,
+    the standing asks (runner.previews_standing) the rail's judgment keeps neither by a live card's work nor by a blind
+    prefix, batch/ while the partition's run record can't be read from its branch (previews_live), each written at least PREVIEW_GRACE seconds before now by its Date
+    (runner.previews_put_away), have their done written, one plan write a card (preview_written). A write refused is
+    said, and the next read tries again; nothing is put away that crew could not read (read.1). Returns [{label, work,
+    revision, said}]."""
+    acts = acts or SweepActs(fleet)
+    here, now, out = acts.host(), acts.now(), []
+    for l, _, _, pl in read["found"]:
+        if not pl or crew.partition_of(fleet, l)["machine"] != here:
+            continue
+        rows = read["rows"]
+        readings = {f"land/{b['bolt']}" for r in rows if r["label"] == l and r["group"] == "land" for b in r.get("bolts", []) if b["can"]}
+        rowed = {r["key"] for r in rows if r["label"] == l} | readings
+        entries = (read.get("logs") or {}).get(l, [])
+        works, kinds = previews_live(l, sweep_judgment(l, rowed, read["cards"], read["unread"].get(l), read["batched"].get(l, {}), readings),
+                                     entries)
+        try:
+            requests, reads = (read.get("runs") or {}).get(l) or acts.runner(l)
+        except Refusal as e:
+            out.append(dict(label=l, work=f"plan/{l}", revision="", said=f"its runners can't be read, so no preview is put away: {e}"))
+            continue
+        asks = {k: r for k, r in runner.previews_standing(requests, reads).items()
+                if not any((r.get("Work") or "").startswith(kind) for kind in kinds)}
+        gone = runner.previews_put_away(asks, set(), works, now, PREVIEW_GRACE)
+        by = {}
+        for r in gone:
+            by.setdefault(ask_card(r, entries) or f"{r.get('Work')}", []).append(r)
+        for key, rs in sorted(by.items()):
+            things = joined(sorted({r.get("Work").split("/", 1)[1] for r in rs}))
+            try:
+                preview_written(fleet, l, key, things, rs, done=True, made=[])
+                said = "put away, its card or row gone"
+            except Refusal as e:
+                said = f"not put away yet, the next read trying again: {e}"
+            out += [dict(label=l, work=r.get("Work"), revision=r.get("Revision") or "", said=said) for r in rs]
+    return out
+
+
+def previews_changed(fleet, read, acts=None):
+    """The rail read's change of each card whose preview the runner reports anew (rail-cards "A card is changed in place
+    when the runner reports its preview anew"; Decision 8 of a-cards-preview-is-asked-of-the-runner), on the
+    partition's main machine alone: for each card open on this host and not answered, by the run record's card.answer,
+    that carries an ask of a preview not put away (runner.previews_asked), main-level ops's land/<kit> its asks of the
+    bolts of its last recorded rows at their heads, the planner's batch/<n> its asks of its units, the word of what the
+    runner now reports of each (runner.preview_word) is compared with what the card was last told (told_read), and,
+    where any differs, the card is raised again with one note naming each such thing and what its preview now is
+    (preview_changed, through acts.preview_note), its raise keeping what it then told it (told_kept). A card whose
+    record of what it was told is lost is changed once. Returns [{label, key, note, said}], said a refusal's words or
+    None."""
+    acts = acts or SweepActs(fleet)
+    here, out = acts.host(), []
+    for l, _, _, pl in read["found"]:
+        if not pl or crew.partition_of(fleet, l)["machine"] != here or read["unread"].get(l):
+            continue
+        entries = (read.get("logs") or {}).get(l, [])
+        try:
+            requests, reads = (read.get("runs") or {}).get(l) or acts.runner(l)
+        except Refusal:
+            continue
+        asked, told, kits = list(runner.previews_asked(requests).values()), told_read(l), read["kits"].get(l, [])
+        answered = {e.get("Card") for e in entries if e.get("Act") == "card.answer"}
+        for c in [c for c in read["cards"] if c["label"] == l and c["host"] == here and c["card"] not in answered]:
+            key, kind = c["key"], land_key(c["key"], kits)
+            if c["by"] == f"{l}-ops" and kind and kind[0] == "kit":
+                heads = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == c["card"] and e.get("Heads")
+                                         and not e.get("Refused")), None))
+                mine = [(b, r) for b, h, _ in heads for r in asked if r.get("Work") == f"bolt/{b}" and r.get("Repo") == kind[1]
+                        and (r.get("Revision") or "").startswith(h)]
+            elif c["by"] == f"{l}-planner" and re.fullmatch(r"batch/\d+", key):
+                units = {u for m, _, us in batches(entries) if m == int(key.split("/")[1]) for u, _, _ in us}
+                mine = [(r.get("Work").split("/", 1)[1], r) for r in asked if r.get("Work") in {f"unit/{u}" for u in units}]
+            else:
+                continue
+            was = told.get(key, {})
+            now = [(thing, r, runner.preview_report(reads, r)) for thing, r in mine]
+            moved = [(thing, p) for thing, r, p in now if was.get(r.get("Request")) != runner.preview_word(p)]
+            if not moved:
+                continue
+            note = "; ".join(asked_note(thing, p) for thing, p in moved)
+            said = None
+            try:
+                acts.preview_note(l, key, note)
+            except Refusal as e:
+                said = str(e)
+            out.append(dict(label=l, key=key, note=note, said=said))
+    return out
+
+
 def card_folder(rel):
     """The card key and unit (None but for an old batch card's, batch/<n>-<k>) whose session a folder under
     ~/.local/state/crew/cards/<label>/ keeps, from its path there: batch/<n> is a key's own folder, as a proposal's;
@@ -16370,16 +16480,14 @@ def card_sweep(fleet, a, acts=None):
     only to a host a started bolt's work runs on (landings_judged). It ends, through end_session, each session crew recorded on
     this host for the partition whose key is in no live entry and starts with no blind prefix, once it is at least two
     minutes old by its own start against this host's clock and its folder's lock is free (crew card session holds it
-    while it starts one). Then it releases, through preview_release, each preview crew recorded on this host for a
-    bolt of the partition whose landing card's key the judgment holds dead, once it is two minutes old by when it was
-    asked (preview_dead). Then it acts on each reading of a live key the user sent and nobody has read (readings_sent):
+    while it starts one). It puts away no preview: the rail's read on the partition's main machine writes the done of
+    each whose card or row is gone (sweep_previews). Then it acts on each reading of a live key the user sent and nobody has read (readings_sent):
     a batch's sent with no words is recorded read as the planner's read records it (sweep_wordless), and every other
     reading's owner is told once, the mark written only once the tell went through (sweep_told), since nothing of
     crew's waits on a reading (teams.24). Then it reads each landing the judgment names, of a bolt whose work runs
     here as the rail read it, that may have an outcome or a close nothing recorded (reap_judged), what that says on
-    standard error. It prints, as a JSON list, each session, preview and reading it acted on: its
-    key, its unit (a batch card's) or null, what it said, whether it sent SIGTERM or released the preview, and, for a
-    reading, sent. A folder with no session.json, or whose path is no card key's, is left alone, and a record it can't
+    standard error. It prints, as a JSON list, each session and reading it acted on: its key, its unit (a batch card's)
+    or null, what it said, whether it sent SIGTERM, and, for a reading, sent. A folder with no session.json, or whose path is no card key's, is left alone, and a record it can't
     read is kept and said (read.1, read.4)."""
     a.key is None or fail("crew card sweep takes no key: it judges every session crew recorded on this host, from the "
                           "rail's judgment on standard input")
@@ -16428,31 +16536,6 @@ def card_sweep(fleet, a, acts=None):
                 continue
             said, ended = end_session(label, key, unit)
             out.append(dict(key=key, unit=unit, said=said, ended=ended))
-    for f, key, thing, old in preview_files(label):
-        if key is None or thing is None:
-            out.append(dict(key=f"previews/{label}", unit=None, ended=False,
-                            said=f"crew's record {f} names no card and thing crew reads: crew released nothing, and keeps it"))
-            continue
-        row = preview_row_key(key, thing)
-        if not judged_dead((row, None), live, blind):
-            continue
-        r = None
-        try:
-            r = preview_load(f, key, thing, old)
-            dead = bool(r) and preview_dead(row, r.get("asked"), live, blind, now)
-        except Refusal as e:
-            out.append(dict(key=row, unit=None, said=f"{e}; crew released nothing, and keeps it", ended=False))
-            continue
-        except (ValueError, TypeError):
-            out.append(dict(key=row, unit=None, ended=False,
-                            said=f"crew can't read when {thing}'s preview from {key} was asked ({r.get('asked')}): it released nothing, and keeps it"))
-            continue
-        if dead:
-            with preview_lock(label):
-                r = preview_load(f, key, thing, old)
-                said, released = preview_released(label, r) if r else (None, False)
-            if said:
-                out.append(dict(key=row, unit=None, said=said, ended=released))
     acts = acts or CardActs(fleet)
     for key, step in readings_due(readings_sent(root, live, blind)):
         said = (sweep_wordless if step == "record" else sweep_told)(fleet, label, key, acts)
@@ -16572,14 +16655,6 @@ def judged_dead(found, live, blind):
     """Whether the rail's judgment makes a recorded session's key dead: a card key's folder (found), in no live entry and
     under no blind prefix."""
     return bool(found) and found[0] not in live and not found[0].startswith(tuple(blind))
-
-
-def preview_dead(key, asked, live, blind, now):
-    """Whether the rail's sweep releases the preview crew asked for with a landing card under key (rail-cards "A card
-    closed elsewhere"): its key dead by the rail's judgment (judged_dead), and asked at least CARD_GRACE seconds before
-    now, so a card raised since the rail's read is not taken for one whose row is gone. Refused, as young is, when when
-    it was asked can't be read."""
-    return judged_dead((key, None), live, blind) and not young(asked, now)
 
 
 def young(started, now):
