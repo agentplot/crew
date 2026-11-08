@@ -748,11 +748,11 @@ class TestTheFirstReadActs:
     def test_a_failed_check_is_recorded_once_and_asks_ops_with_flumes_words(self):
         assert self.read("bolt-failed")[0] is False
         (e,) = self.emitted
-        assert e["Refused"].startswith("landing refused, a check failed: check-full failed") and e["Head"] == TIP
-        assert self.asked == [("y", "crew", "2", e["Refused"])] and self.taken == [] and self.closed == []
-        self.read("bolt-failed", entries=(ASKED, dict(ASKED, Outcome=None, Refused=e["Refused"])))
+        assert e["refused"].startswith("landing refused, a check failed: check-full failed") and e["Head"] == TIP
+        assert self.asked == [("y", "crew", "2", e["refused"])] and self.taken == [] and self.closed == []
+        self.read("bolt-failed", entries=(ASKED, dict(ASKED, Outcome=None, Refused=e["refused"])))
         assert len(self.emitted) == 1 and len(self.asked) == 1
-        assert plan.refusals([ASKED, dict(ASKED, Outcome=None, Refused=e["Refused"])]) == {"y": (TIP, e["Refused"])}
+        assert plan.refusals([ASKED, dict(ASKED, Outcome=None, Refused=e["refused"])]) == {"y": (TIP, e["refused"])}
 
     def test_a_conflict_launches_the_take_main_fix_with_mains_revision_and_flumes_words(self):
         self.read("bolt-conflict")

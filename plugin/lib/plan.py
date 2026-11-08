@@ -1373,7 +1373,8 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
     board. With fetch, each kit's GitHub is fetched on its host before it is read, for a read a decision of the moment
     rests on (plan.18, plan.19), and a fetch that fails reads that kit unread with git's words; a kit in the runner's
     clone, which crew fetches nothing in, is read as the runner last fetched it (crew.fetches_in). A kit the command has
-    already read is not asked again, but by a survey that fetches, which must read after its own fetch; what a host
+    already read for every bolt asked of it is not asked again, but by a survey that fetches, which must read after its
+    own fetch; what a host
     answers is kept for the command's later steps; a sites survey is neither served nor kept, but in the host's
     follower's board survey, which serves each kit whose stamp and request have not moved from what it kept
     (Kept.served) and asks each host only for the rest, its answers stamped."""
@@ -1388,7 +1389,9 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
             k["bolts"].append(bolt)
     out, kept = {}, READ.follower if board and not fetch else None  # the follower's read is the board's survey
     for host, kits in sorted(hosts.items()):
-        have = {} if sites or fetch else {m: k for m, k in READ.kits(host).items() if m in kits}
+        # a kit already read serves only a read of the bolts it was read for: one asked for another bolt is read again
+        have = {} if sites or fetch else {m: k for m, k in READ.kits(host).items()
+                                          if m in kits and all(b in (k.get("bolts") or {}) for b in kits[m]["bolts"])}
         if kept is not None:
             have.update({m: a for m, k in kits.items() if (a := kept.served(host, m, k)) is not None})
             for m in have:
@@ -3645,7 +3648,7 @@ def raise_landings(fleet, label, kit, acts=None, note=None, dead=False, pane=Non
         return landings_raised(fleet, label, kit, acts, note, dead, pane)
 
 
-READING = set()  # the kits whose landings this process is reading at a raise, so a close inside it raises no read again
+LANDINGS_READ = set()  # the kits whose landings this process is reading at a raise, so a close inside it raises no read again
 
 
 def kit_landings_read(fleet, label, kit):
@@ -3653,9 +3656,9 @@ def kit_landings_read(fleet, label, kit):
     is taken (raise_landings), each bolt one crew posted a land of: an outcome the runner reports recorded and acted on,
     a landed bolt closed leaving its card to this raise (card False), so the card that follows reads it gone. A read
     refused said; a raise inside it reads none again."""
-    if (label, kit) in READING:
+    if (label, kit) in LANDINGS_READ:
         return
-    READING.add((label, kit))
+    LANDINGS_READ.add((label, kit))
     try:
         plan = plan_of(fleet, label)
         if plan is not None:
@@ -3663,7 +3666,7 @@ def kit_landings_read(fleet, label, kit):
     except Refusal as e:
         print(f"crew read none of {kit}'s landings: {e}", file=sys.stderr)
     finally:
-        READING.discard((label, kit))
+        LANDINGS_READ.discard((label, kit))
 
 
 def landings_raised(fleet, label, kit, acts, note, dead, pane):
@@ -4259,8 +4262,11 @@ def landing_read(fleet, label, bolt, run=None, entries=None, card=True):
     fields = landing_entry(entries, bolt, l)
     ops, kit_name = f"{label}-ops", (launch.get("Repo") or "").split("/")[-1]
     if fields:
+        refused = fields.pop("Refused", None)
         record.emit(label, "bolt.submit", [f"bolt/{bolt}"], by=ops, why=fields.pop("Why", None) or f"bolt({bolt}): {said}",
-                    **{k: v for k, v in fields.items() if v})
+                    refused=refused, **{k: v for k, v in fields.items() if v})
+        if refused:
+            fields["Refused"] = refused
         if l["outcome"] in ("refused", "stopped"):
             unlanded_ask(fleet, label, bolt, kit_name, fields.get("Request"), said)
     print(f"bolt/{bolt}: {said}", file=sys.stdout if l["outcome"] != "unknown" else sys.stderr)
@@ -7998,7 +8004,7 @@ def reap_judged(fleet, label, landings, run=None):
         if f"bolt/{g['bolt']}" not in asked:
             continue
         try:
-            landing_read(fleet, label, g["bolt"], run, entries, card=not READING)
+            landing_read(fleet, label, g["bolt"], run, entries, card=not LANDINGS_READ)
         except Refusal as e:
             print(e, file=sys.stderr)
 

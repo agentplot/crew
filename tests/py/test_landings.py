@@ -2113,4 +2113,4 @@ def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_
     monkeypatch.setattr(plan, "unlanded_ask", lambda *a, **k: None)
     landed, said = plan.landing_read({}, "swancloud", "y", base_run("bolt-failed"), [ASKED])
     assert (landed, said) == (False, "landing refused, a check failed: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")
-    assert [(e["Act"], e["On"], e["Refused"]) for e in emitted] == [("bolt.submit", ["bolt/y"], said)]
+    assert [(e["Act"], e["On"], e["refused"]) for e in emitted] == [("bolt.submit", ["bolt/y"], said)]
