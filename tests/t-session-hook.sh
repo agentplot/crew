@@ -2,7 +2,9 @@
 # environment, the agent gets CREW_AGENT, CREW_LABEL and SLUICE_AGENT back through CLAUDE_ENV_FILE and its pane its name;
 # a resume, and a compaction of a session crew-role started, give no brief back (t-roles has the one a compaction gives).
 # A start that loads crew's plugin records the commit and version of crew it loaded, and crew-role's launch digest; a
-# compaction keeps them, and herdr's resume records what it loaded anew beside the launch it began with (teams.19).
+# compaction keeps them, and herdr's resume records what it loaded anew beside the launch it began with (teams.19); a
+# start from a build, a plugin folder with no git, records the commit and version its release file names, or neither
+# where it has none, and crew _release prints what a checkout and a build are.
 # The record names the herdr session and pane the session started in, at herdr's resume the pane it resumed in.
 # Every agent crew starts is a main level's (Decision 10 of the-team-machinery-leaves), so the hook runs here on wldn's
 # main level's host. A session recorded as a team's agent before teams left gets nothing back, crew modelling no such
@@ -35,6 +37,37 @@ CREW_COMMIT=$commit
 CREW_VERSION=$version
 CREW_LAUNCH=d1"
 ok "a crew agent's start records its session, the definition its brief comes from, the folder it began in, the herdr session and pane it started in, and the crew and launch it loaded, and no branch for sluice"
+
+eq "$(crew _release | jq -c '[.root, .commit, .version, .from, .unread]')" \
+  "$(jq -nc --arg r "$CREW" --arg c "$commit" --arg v "$version" '[$r, $c, $v, "checkout", null]')"
+ok "crew _release from a checkout prints its root, commit and version, read from git"
+
+# A build: crew's plugin folder, what its commands and hooks run of it, copied with no git, as crew's package holds it, its release file written as the
+# package writes one where its flake knows its commit (nix/packages/crew.nix).
+: > "$CREW_TEST_LOG"
+build="$T/build"; mkdir -p "$build/plugin/.claude-plugin"
+cp -R "$CREW/plugin/bin" "$CREW/plugin/lib" "$CREW/plugin/hooks" "$build/plugin/"
+cp "$CREW/plugin/.claude-plugin/plugin.json" "$build/plugin/.claude-plugin/"
+built=fcedc22e6df6380f1f640efac5f796416b1fb4c9
+printf '{"commit":"%s","version":"0-unstable-2026-11-08"}\n' "$built" > "$build/plugin/release.json"
+eq "$(as "$HOST" "$build/plugin/bin/crew" _release | jq -c '[.root, .commit, .version, .from, .unread]')" \
+  "$(jq -nc --arg r "$build" --arg c "$built" '[$r, $c, "0-unstable-2026-11-08+fcedc22", "release", null]')"
+rm "$build/plugin/release.json"
+out=$(as "$HOST" "$build/plugin/bin/crew" _release)
+eq "$(jq -c '[.commit, .version, .from]' <<<"$out")" "[null,null,null]"
+has "$(jq -r .unread <<<"$out")" "neither git nor a release file"
+eq "$(calls)" ""
+ok "crew _release from a build prints the commit and version its release file names, read from the release, and from a build with none no commit, no version and from null, saying why; it calls no tool"
+
+sid() { echo "{\"session_id\":\"$1\",\"source\":\"startup\",\"cwd\":\"/work\"}"; }
+printf '{"commit":"%s","version":"0-unstable-2026-11-08"}\n' "$built" > "$build/plugin/release.json"
+sid sid-7 | CREW_AGENT=wldn-ops CREW_LABEL=wldn CREW_LAUNCH=d7 python3 "$build/plugin/hooks/session-start"
+has "$(cat "$HOME/.local/state/crew/sessions/sid-7")" $'CREW_COMMIT='"$built"$'\nCREW_VERSION=0-unstable-2026-11-08+fcedc22\nCREW_LAUNCH=d7'
+rm "$build/plugin/release.json"
+sid sid-8 | CREW_AGENT=wldn-ops CREW_LABEL=wldn CREW_LAUNCH=d8 python3 "$build/plugin/hooks/session-start"
+has "$(cat "$HOME/.local/state/crew/sessions/sid-8")" $'CREW_COMMIT=\nCREW_VERSION=\nCREW_LAUNCH=d8'
+rm "$HOME/.local/state/crew/sessions/sid-7" "$HOME/.local/state/crew/sessions/sid-8"
+ok "a start from a build records the commit and version its release file names, and one from a build with none records neither"
 
 rewrite "$record" "s/^CREW_COMMIT=.*/CREW_COMMIT=old/; s/^CREW_VERSION=.*/CREW_VERSION=v0.1.0/"
 echo '{"session_id":"sid-1","source":"compact","cwd":"/work/blueprints"}' | CREW_AGENT=wldn-planner CREW_LABEL=wldn CREW_ROLE=planner CREW_LAUNCH=d1 HERDR_SESSION=s HERDR_PANE_ID=w1:p2 hook

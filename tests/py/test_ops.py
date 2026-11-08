@@ -343,6 +343,41 @@ class TestRange:
         assert ops.range_landings(commits, {}, [])[1]["subject"] == "chore(land): #69 pull/66"
 
 
+class TestRangesKits:
+    """Where a deploy's range is read (Decision 8 of a-kept-repositorys-folder-is-the-runners-container): in each
+    repository its main level's session keeps, at the checkout the host keeps it at (crew.session_checkouts), the teams
+    file's where it names the repository for that host."""
+    SESS = {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/flume"]}
+    FILE = {"host": "deneb", "named": {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"}}}
+
+    def test_a_session_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
+        import crew
+        fleet = {"hosts": {}, "partitions": {}, "repositories": self.FILE}
+        assert crew.session_checkouts(fleet, "deneb", self.SESS) == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
+        assert crew.session_checkouts(fleet, "mac-studio", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert crew.session_checkouts({"hosts": {}}, "deneb", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert crew.session_checkouts(fleet, "deneb", {"dir": "/d/x"}) == []
+
+    def test_the_range_is_read_in_the_checkouts_the_host_keeps(self, monkeypatch, tmp_path):
+        """ops.kit_range probes the resolver's checkouts, here git standing in for the tool."""
+        import pathlib
+        import subprocess
+        view = tmp_path / "v/agentplot/crew"
+        view.mkdir(parents=True)
+        fleet = {"hosts": {"deneb": {"sessions": {"madswan": dict(self.SESS, dir=str(tmp_path / "d"))}}},
+                 "partitions": {"madswan": {"label": "madswan", "machine": "deneb", "session": "madswan"}},
+                 "repositories": {"host": "deneb", "named": {"agentplot/crew": {"dir": str(tmp_path / "r"), "checkout": str(view)}}}}
+        asked = []
+
+        def git(argv, **kw):
+            asked.append((argv[2], argv[3]))
+            return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+        monkeypatch.setattr(subprocess, "run", git)
+        monkeypatch.setattr(pathlib.Path, "is_dir", lambda self: str(self) in (str(view), str(tmp_path / "d/flume/main")))
+        assert ops.kit_range(fleet, "madswan", S1, S2) == (None, None, f"{S2[:7]} is a commit of 2 kits madswan's main level keeps on deneb")
+        assert asked == [(str(view), "cat-file"), (str(tmp_path / "d/flume/main"), "cat-file")]
+
+
 class TestOfferedAgain:
     """An offer of the commit already offered (main-level "The same commit offered again after its card was refused"
     and "... while its card is open"): offer_move on the open offers, what changed and whether ops holds its card."""

@@ -39,6 +39,9 @@
           crew = nixpkgs.legacyPackages.${system}.callPackage ./nix/packages/crew.nix {
             inherit version;
             platforms = systems;
+            # The commit the package's release file names; none for a tree
+            # with uncommitted changes, whose build carries no release.
+            commit = self.rev or null;
           };
         in
         {

@@ -6,7 +6,9 @@ Above a partition's bolt teams: a design agent that elaborates on main, a planne
 ## Requirements
 
 ### Requirement: Partitions are declared in the teams file
-`teams.json` SHALL list each partition with a main level, and nothing else. Each entry gives the partition's label (`wldn`, `madswan`, `swancloud`), its swancloud name, its blueprints repos, its state repository (`state`, as `<owner>/<name>`), the machine and session its main level runs in, and `flume`, naming each of its five main-level roles, `design`, `planner`, `reviewer`, `ops` and `operator`, as `false` while it stands or as the Flume stream its runs run in on the main level's host. The first blueprints repo listed SHALL be the one the partition's signals and elaboration go to by default. A partition with no `state` or no `flume` SHALL be an error naming the field and the machine's configuration as the fix, never a default, and so SHALL a `flume` that leaves a role out, names another key, or gives a role anything but `false` or a stream's name. crew SHALL read version 5 of the file alone: a file at any other version, or one holding `teams`, SHALL be refused naming swancloud's `lib/crew-teams.nix` as the fix, with nothing done. A partition's `roles.<role>` MAY name a `session` for a main-level role, a session of the main level's machine in the partition, where that role runs while it stands; any other session SHALL be an error naming it.
+`teams.json` SHALL list each partition with a main level. Beside its partitions it MAY name, for the host it is written on, each repository that host keeps, and nothing else. Each partition's entry gives the partition's label (`wldn`, `madswan`, `swancloud`), its swancloud name, its blueprints repos, its state repository (`state`, as `<owner>/<name>`), the machine and session its main level runs in, and `flume`, naming each of its five main-level roles, `design`, `planner`, `reviewer`, `ops` and `operator`, as `false` while it stands or as the Flume stream its runs run in on the main level's host. The first blueprints repo listed SHALL be the one the partition's signals and elaboration go to by default. A partition with no `state` or no `flume` SHALL be an error naming the field and the machine's configuration as the fix, never a default, and so SHALL a `flume` that leaves a role out, names another key, or gives a role anything but `false` or a stream's name. crew SHALL read version 5 of the file alone: a file at any other version, or one holding `teams`, SHALL be refused naming swancloud's `lib/crew-teams.nix` as the fix, with nothing done. A partition's `roles.<role>` MAY name a `session` for a main-level role, a session of the main level's machine in the partition, where that role runs while it stands; any other session SHALL be an error naming it.
+
+The host's kept repositories, where the file names them, SHALL be its `repositories`. That is an object keyed by each repository's address, `<owner>/<name>`, each giving exactly its `dir`, the folder crew names as the kit's, and its `checkout`, the working tree crew names as the kit's checkout, each an absolute path. crew SHALL check every entry when it loads the file, before any is used. A `repositories` that is no object, a key that is no `<owner>/<name>`, or an entry that lacks `dir` or `checkout`, gives another key, or gives a path that is not absolute SHALL be refused, naming the file, the repository and the machine's configuration as the fix, with nothing done. A file with no `repositories` SHALL load as before, naming no repository.
 
 #### Scenario: clients/willdan
 - **WHEN** `teams.json` lists `wldn` as `clients/willdan` with willdan-blueprints and `WilldanGroup/crew-state`, running on the box in `wldn-2`
@@ -47,6 +49,18 @@ Above a partition's bolt teams: a design agent that elaborates on main, a planne
 #### Scenario: A version-5 file that lists teams
 - **WHEN** `teams.json` is at version 5 and holds a `teams` key beside its `partitions`
 - **THEN** crew refuses to load it, saying version 5 has no place for teams since crew runs none, naming swancloud's `lib/crew-teams.nix`, and does nothing
+
+#### Scenario: A runner host's kept repositories
+- **WHEN** deneb's `teams.json` gives `repositories` naming `agentplot/crew` with `dir` `/Users/chuck/.local/share/flywheel/repositories/agentplot/crew` and `checkout` `/Users/chuck/Code/boomdrive/agentplot/crew`
+- **THEN** crew loads the file, and on deneb names that folder and that checkout as crew's
+
+#### Scenario: A kept repository named wrongly
+- **WHEN** `repositories` names `crew` with no owner, or names `agentplot/crew` with no `checkout`, with a `dir` of `repositories/agentplot/crew`, or with a `view` beside its `dir` and `checkout`
+- **THEN** crew refuses to load the teams file, naming the file, the repository and the machine's configuration, and does nothing
+
+#### Scenario: A file that names no repository
+- **WHEN** `teams.json` gives no `repositories`
+- **THEN** crew loads it, and names every kit's folder and checkout as the sessions in the hosts file keep it, `<session dir>/<name>` and `<session dir>/<name>/main`
 
 ### Requirement: The main level is one herdr workspace
 `crew main up <label>` SHALL open a herdr workspace named `<label>` in the main level's session. It SHALL hold a `design` tab with the design agent, a `planner` tab with the planner, an `ops` tab with the main-level ops and an `operator` tab with the partition's operator, each only while it stands, and start each, and nothing else. A role that runs as its kind SHALL get no tab and no start: `crew main up` SHALL instead write its role record to match the teams file, and SHALL end a standing agent of it still running once that agent is not working, leaving one working and saying so.
@@ -590,3 +604,25 @@ Where no runner answers for the partition, its state repository holding no `<lab
 #### Scenario: No runner answers for the partition
 - **WHEN** wldn's state repository holds no runner's branch and ops runs `crew main fix switchboard-kit gate-word "<words>"`
 - **THEN** it is refused, naming switchboard-kit and a bolt of one chore proposed first among the planned
+
+### Requirement: The design agent's brief names each kept repository's checkout and folder as its host keeps them
+The design agent's brief SHALL name its default blueprints repository's checkout and folder, and each kit's checkout with its folder, where its worktrees are cut. Each SHALL be the teams file's `checkout` and `dir` where it names the repository on the host crew runs on, and otherwise `<session dir>/<name>/main` and `<session dir>/<name>`. It SHALL say a checkout is moved only by its host: the fleet's timer, or the runner on a runner host.
+
+#### Scenario: The design brief on a runner host
+- **WHEN** deneb's teams file names `agentplot/blueprints` and `agentplot/crew` with their containers and views, and agentplot's design agent's brief is built on deneb
+- **THEN** it names the blueprints view as its checkout with the blueprints container as its folder, and crew's view as crew's checkout with crew's container as its folder
+
+#### Scenario: The design brief where the file names none
+- **WHEN** the teams file gives no `repositories`, and deneb's agentplot session at `/Users/chuck/Code/github_agentplot` keeps `agentplot/crew`
+- **THEN** the design brief names `/Users/chuck/Code/github_agentplot/crew/main` as crew's checkout, in the folder `/Users/chuck/Code/github_agentplot/crew`
+
+### Requirement: The operator's brief names swancloud's checkout and folder as its host keeps them
+The operator's brief SHALL name swancloud's checkout and folder as its main level's host keeps `afterthought/swancloud`, found as the design agent's are, for its fetch, its worktree under `<folder>/places/` and that worktree's removal. Where that host keeps none, the brief SHALL say so in words, never leaving a token blank.
+
+#### Scenario: The operator's swancloud on a runner host
+- **WHEN** deneb's teams file names `afterthought/swancloud` with its container and its view, and afterthought's operator's brief is built on deneb
+- **THEN** it fetches in swancloud's view and cuts its `crew-teams-<label>` worktree under the container's `places/`, naming no `~/Code/github_afterthought/swancloud`
+
+#### Scenario: A box's operator
+- **WHEN** wldn's main level runs on the box, whose spaces and file keep no `afterthought/swancloud`
+- **THEN** the operator's brief builds with every token filled, saying the host keeps no checkout of swancloud, and sends a change to the teams to a partition whose main level keeps one

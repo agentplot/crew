@@ -16,5 +16,7 @@ let
 in
 {
   typecheck = lines (import ./typecheck.nix t);
-  test = lines (import ./file.nix t // import ./darwin.nix t // import ./nixos.nix t);
+  test = lines (
+    import ./file.nix t // import ./package.nix t // import ./darwin.nix t // import ./nixos.nix t
+  );
 }

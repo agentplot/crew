@@ -1365,7 +1365,8 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
     alone. The answer is per host: its kits by folder, or why it did not answer. With sites, each worktree's devurl names and
     the host's running portless routes too; board implies sites and adds the explorations on each kit's main, for the
     board. With fetch, each kit's GitHub is fetched on its host before it is read, for a read a decision of the moment
-    rests on (plan.18, plan.19), and a fetch that fails reads that kit unread with git's words. A kit the command has
+    rests on (plan.18, plan.19), and a fetch that fails reads that kit unread with git's words; a kit in the runner's
+    clone, which crew fetches nothing in, is read as the runner last fetched it (crew.fetches_in). A kit the command has
     already read is not asked again, but by a survey that fetches, which must read after its own fetch; what a host
     answers is kept for the command's later steps; a sites survey is neither served nor kept, but in the host's
     follower's board survey, which serves each kit whose stamp and request have not moved from what it kept
@@ -1374,7 +1375,9 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
     hosts = {}
     for t, bolt in held:
         kt = t["kit"]
-        k = hosts.setdefault(t["machine"], {}).setdefault(kt["main"], {"main": kt["main"], "dir": kt["dir"], "bolts": []})
+        # a kit in the runner's clone is read as the runner last fetched it, with no fetch (crew.fetches_in)
+        asked = {"fetch": crew.fetches_in(fleet, t["machine"], kt["main"])} if fetch else {}
+        k = hosts.setdefault(t["machine"], {}).setdefault(kt["main"], {"main": kt["main"], "dir": kt["dir"], "bolts": [], **asked})
         if bolt and bolt not in k["bolts"]:
             k["bolts"].append(bolt)
     out, kept = {}, READ.follower if board and not fetch else None  # the follower's read is the board's survey
@@ -1387,7 +1390,7 @@ def survey(fleet, held, sites=False, board=False, fetch=False):
         ask = [k for m, k in kits.items() if m not in have]
         if ask:
             req = {"kits": list(ask), "sites": sites,
-                   **({"board": True} if board else {}), **({"fetch": True} if fetch else {}), **({"stamped": True} if kept is not None else {})}
+                   **({"board": True} if board else {}), **({"stamped": True} if kept is not None else {})}
             got, error = gathered(fleet, host, req)
             for k in ask if kept is not None else ():
                 kept.use(host, k["main"], k, None if error else got.get(k["main"]))
@@ -2079,12 +2082,35 @@ echo "LOCAL=$l"; echo "TRACKED=$o"; echo "AT_LOCAL=$(pol "$l")"; echo "AT_TRACKE
 """
 
 
+# A script that fetches from origin in a kit's checkout is told so on its first line where crew may not fetch there
+# (fetch_told, crew.fetches_in): fetch=no in a repository the host's teams file names, the runner's clone, which the
+# runner alone fetches (agentplot/boomdrive core.14), where the script reads origin's tracking refs as the runner last
+# fetched them; a script told nothing fetches as before. FETCH is that fetch, origin_fetch, made unless told fetch=no, and
+# refused with nothing fetched, in its own words on standard error, for a word that is neither (read.1).
+FETCH = r"""origin_fetch() {
+  case ${fetch-yes} in
+    yes) git fetch -q origin "$@" ;;
+    no) ;;
+    *) echo "crew told this script fetch=${fetch}, which is neither yes nor no, so it fetches nothing" >&2; return 2 ;;
+  esac
+}
+"""
+
+
+def fetch_told(fleet, host, main, script):
+    """A script that fetches from origin in a kit's checkout (main) on a host (FETCH), told fetch=no on its first line
+    in the runner's clone, which crew fetches nothing in (crew.fetches_in); elsewhere as it is, fetching as before."""
+    return script if crew.fetches_in(fleet, host, main) else "fetch=no\n" + script
+
+
 # What a kit's main checkout holds of its mains, on its host, for kit.main_now to decide which is main now (plan.18,
 # code.7): ORIGIN, whether it has an origin remote, which it then fetches, once for the command, and FETCHED, ok or the
-# fetch's error; GITHUB and OWN, the commits origin/main and its own main are at, or -.
-MAINS = r"""if git remote get-url origin >/dev/null 2>&1; then
+# fetch's error, or runner where it is the runner's clone, which crew fetches nothing in (FETCH), its origin/main as the
+# runner last fetched it; GITHUB and OWN, the commits origin/main and its own main are at, or -.
+MAINS = FETCH + r"""if git remote get-url origin >/dev/null 2>&1; then
   echo ORIGIN=yes
-  if err=$(git fetch -q origin 2>&1); then echo FETCHED=ok; else echo "FETCHED=$(printf '%s' "$err" | tr '\n' ' ')"; fi
+  if [ "${fetch-yes}" = no ]; then echo FETCHED=runner
+  elif err=$(origin_fetch 2>&1); then echo FETCHED=ok; else echo "FETCHED=$(printf '%s' "$err" | tr '\n' ' ')"; fi
 else echo ORIGIN=no; fi
 echo "GITHUB=$(git rev-parse --verify -q 'refs/remotes/origin/main^{commit}' || echo -)"
 echo "OWN=$(git rev-parse --verify -q 'refs/heads/main^{commit}' || echo -)"
@@ -2111,12 +2137,13 @@ GIVE_READ = POLICY + r"""echo "SLUICE=$(sluice --version 2>&1 | tr '\n' ' ')"
 # branch too, crew marks that branch in the kit's git config, branch.bolt/<bolt>.crew, so the tidy knows it as crew's
 # (read.4), and fetches GitHub's copy, origin/bolt/<bolt>, where the bolt is read from then (gather.bolt_read), before
 # the give's plan write; a mark git refused, or a fetch that failed, is said on standard error, and the give goes on,
-# since the branch is made and crew's next read of the bolt fetches it again.
-BOLT_CREATE = r"""cd "$1" || exit 3
+# since the branch is made and crew's next read of the bolt fetches it again. In the runner's clone crew fetches
+# nothing (FETCH): the runner's next fetch brings GitHub's copy.
+BOLT_CREATE = FETCH + r"""cd "$1" || exit 3
 sluice branch create "bolt/$2" --from main --json; rc=$?
 if [ "$rc" = 0 ]; then
   git config "branch.bolt/$2.crew" given || echo "git could not mark bolt/$2 as crew's" >&2
-  git fetch -q origin "+refs/heads/bolt/$2:refs/remotes/origin/bolt/$2" >&2 \
+  origin_fetch "+refs/heads/bolt/$2:refs/remotes/origin/bolt/$2" >&2 \
     || echo "git could not fetch bolt/$2 from GitHub; crew's next read of the bolt fetches it again" >&2
 fi
 exit $rc
@@ -2370,7 +2397,8 @@ def kit_policy(fleet, t):
     """The team's kit's policy as its main holds it now and what its host's sluice says of its version, read on the
     team's host in one go, origin/main after a fetch for a kit with an origin (GIVE_READ, kit.main_now, plan.18): (the
     policy's text, or None; the ref and the commit it was read at; sluice's words)."""
-    said = host_run(fleet, t["machine"], GIVE_READ, t["kit"]["main"], kit.DECLARATION)
+    said = host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], t["kit"]["main"], GIVE_READ), t["kit"]["main"],
+                    kit.DECLARATION)
     text, ref, sha = kit.policy_said(said, t["kit"]["name"], t["machine"])
     return text, ref, sha, kit.said_of(said).get("SLUICE", "")
 
@@ -3306,9 +3334,10 @@ def forecast_rows(fleet, label, kit, bolts, held=()):
 
 def origin_fetched(fleet, t, main):
     """Whether the kit's folder on the host its work runs on (t) has an origin, GitHub, fetched there when it has;
-    refused in git's words when the fetch fails (plan.18)."""
+    refused in git's words when the fetch fails (plan.18). In the runner's clone nothing is fetched, and origin's
+    tracking refs are read as the runner last fetched them (crew.fetches_in)."""
     origin = kit_git(fleet, t, main, "remote", "get-url", "origin", ok=(0, 2))[0] == 0
-    if origin:
+    if origin and crew.fetches_in(fleet, t["machine"], main):
         kit_git(fleet, t, main, "fetch", "-q", "origin")
     return origin
 
@@ -3468,7 +3497,8 @@ def landing_retry(why, fresh, fresh_why):
 def landing_opened(fleet, label, plan, b, t, card, acts):
     """A landings row's facts with its reading opened by its read (land_row), before the card is built: its link,
     or on a refusal one more try as crew card session land/<bolt> makes it, the kit's main fetched on the team's host,
-    this one, a fetch that failed said and the try going on (plan.18), the landing read afresh (land_facts) and its
+    this one, a fetch that failed said and the try going on (plan.18), nothing fetched in the runner's clone, where
+    the kit's main is read as the runner last fetched it (crew.fetches_in), the landing read afresh (land_facts) and its
     reading opened again with those facts (landing_retry). The facts the card is built from, carrying the reading's
     link or why it could not be opened (unread, the second try's reason, or the first's when the fresh read was
     refused); None when, read afresh, the bolt no longer reads proven, so the raise posts and changes nothing."""
@@ -3477,10 +3507,13 @@ def landing_opened(fleet, label, plan, b, t, card, acts):
         return dict(card, link=acts.reading(label, key, card)[0])
     except Refusal as e:
         why = str(e)
-    print(f"card {key}: its reading could not be opened on the tailnet: {why}; crew fetches {t['kit']['name']}'s main "
-          "and tries once more", file=sys.stderr)
+    fetch = crew.fetches_in(fleet, t["machine"], main)
+    name = t["kit"]["name"]
+    print(f"card {key}: its reading could not be opened on the tailnet: {why}; crew "
+          + (f"fetches {name}'s main" if fetch else f"reads {name}'s main as its runner last fetched it")
+          + " and tries once more", file=sys.stderr)
     try:
-        if gather.has_origin(main):
+        if fetch and gather.has_origin(main):
             kit_git(fleet, t, main, "fetch", "-q", "origin")
     except Refusal as e:
         print(f"card {key}: {e}; the reading is tried again all the same", file=sys.stderr)
@@ -3926,7 +3959,7 @@ def bolt_land(fleet, a, by=None, close_why=None):
         not why or fail(why)
     # What main holds now, GitHub's after the command's one fetch (plan.18), read before which units landed, so a bolt
     # sluice has just landed reads landed with no wait for the fleet's timer; the landing records it (plan.14).
-    said = host_run(fleet, t["machine"], MAIN, t["kit"]["main"])
+    said = host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], t["kit"]["main"], MAIN), t["kit"]["main"])
     ref, head, why = kit.main_now(said, t["kit"]["name"], t["machine"])
     not why or fail(why)
     st = stages_for(fleet, label, plan, [b]) if held else None
@@ -4875,7 +4908,8 @@ def pull_hold(fleet, t, bolt, want):
     request or None, the act done or None); refused, marking nothing, when the policy or the pull requests can't be
     read (pull_unread), and when gh does not mark it (pull_said, read.1)."""
     name, host, main = t["kit"]["name"], t["machine"], t["kit"]["main"]
-    text, ref, _ = kit.policy_said(host_run(fleet, host, POLICY, main, kit.DECLARATION), name, host)
+    said = host_run(fleet, host, fetch_told(fleet, host, main, POLICY), main, kit.DECLARATION)
+    text, ref, _ = kit.policy_said(said, name, host)
     if ref != "origin/main" or not kit.takes_pulls(text, f"{name}'s {kit.DECLARATION} on {ref}"):
         return None, None
     repo = forge(fleet, t)
@@ -5000,9 +5034,10 @@ def landing_submitted(fleet, label, t, bolt, frm=(), excerpt=None):
     since the landing's end may be read on another; one waited on again as it stands in sluice is recorded so too."""
     name, host, main = t["kit"]["name"], t["machine"], t["kit"]["main"]
     try:
-        before, why = main_held(name, host, host_run(fleet, host, MAIN, main))
+        before, why = main_held(name, host, host_run(fleet, host, fetch_told(fleet, host, main, MAIN), main))
         not why or fail(why)
-        r = crew.on_machine(fleet, host, ["bash", "-c", LAND_COPIES, "crew", main, bolt, kit.DECLARATION])
+        r = crew.on_machine(fleet, host, ["bash", "-c", fetch_told(fleet, host, main, LAND_COPIES), "crew", main, bolt,
+                                          kit.DECLARATION])
         r.returncode == 0 or fail(f"crew can't read bolt/{bolt}'s copies on {host}: "
                                   + ((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1])
         copies = kit.land_copies(r.stdout, bolt)
@@ -5147,12 +5182,13 @@ def landing_carries(fleet, t, bolt, head):
 # holds beyond main now (and beyond $4); OWN, the tip's first-parent commits beyond main; and a LINE for each bolt, its
 # name and its first-parent commits beyond main, every bolt GitHub holds read there, and a bolt the host keeps with no
 # copy on GitHub read in the host's refs, a ref another command removed while it was read left out, as gone. Read from
-# the branches alone, never a commit's words.
-CARRIES = r"""main=$1 bolt=$2 tip=$3 into=${4:-}
+# the branches alone, never a commit's words. In the runner's clone crew fetches nothing (FETCH), and the branches are
+# read as the runner last fetched them.
+CARRIES = FETCH + r"""main=$1 bolt=$2 tip=$3 into=${4:-}
 cd "$main" || exit 1
 now=refs/heads/main
 if git remote get-url origin >/dev/null 2>&1; then
-  if ! err=$(git fetch -q origin '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/bolt/*:refs/remotes/origin/bolt/*' 2>&1); then
+  if ! err=$(origin_fetch '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/bolt/*:refs/remotes/origin/bolt/*' 2>&1); then
     echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0
   fi
   now=refs/remotes/origin/main
@@ -5181,7 +5217,8 @@ def bolts_carried(fleet, t, bolt, tip, into=""):
     (CARRIES, kit.carries_of): {bolt: [its landings the tip holds]} beyond main that are not on the tip's own
     first-parent line, and beyond into when given. Refused, naming what could not be read, when git could not fetch or
     list it (read.1)."""
-    holds, lines, why = kit.carries_of(host_run(fleet, t["machine"], CARRIES, t["kit"]["main"], bolt, tip, into), bolt)
+    holds, lines, why = kit.carries_of(host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], t["kit"]["main"], CARRIES),
+                                                 t["kit"]["main"], bolt, tip, into), bolt)
     not why or fail(f"crew can't tell whether {tip} carries another bolt's work: {why}")
     return gather.carried_bolts(holds, lines, bolt)
 
@@ -5355,7 +5392,8 @@ def landing_close_out(fleet, label, t, bolt, p, rc, said, doc, beside, again=0):
     later read records it again. (landed, None), its words printed, standard error for one that did not land; or (None,
     (the submission to wait on again, the tip it submitted))."""
     name, host, main = t["kit"]["name"], t["machine"], t["kit"]["main"]
-    r = crew.on_machine(fleet, host, ["bash", "-c", LANDED, "crew", main, p["path"], bolt, p["TIP"], p["OLD"], rc,
+    r = crew.on_machine(fleet, host, ["bash", "-c", fetch_told(fleet, host, main, LANDED), "crew", main, p["path"], bolt,
+                                      p["TIP"], p["OLD"], rc,
                                       base64.b64encode(said.encode()).decode()])
     READ.drop_kit(host, main)
     if r.stderr.strip():
@@ -5844,17 +5882,25 @@ bolt=$2 file=$3
 # bolt/<bolt>, or - when it has none; THERE, origin's after the fetch; AT_THERE, the policy at it, base64, or - when it
 # holds none, read as BOLT_AT reads one; HELD, yes when the host's copy is an ancestor of origin's or there is none;
 # AHEAD, yes when origin's is an ancestor of the host's; LACKS, the merges the host's copy holds beyond origin's, and
-# BEYOND, the merges origin's holds beyond the host's; AHEAD, LACKS and BEYOND each - when the host has no copy.
-LAND_COPIES = r"""cd "$1" || exit 1
+# BEYOND, the merges origin's holds beyond the host's; AHEAD, LACKS and BEYOND each - when the host has no copy. In the
+# runner's clone crew fetches nothing (FETCH): origin's is read as the runner last fetched it, and READ says so when
+# that is not the commit GitHub's bolt/<bolt> is at, as ls-remote reads it, since the landing waits for the runner's
+# next fetch rather than submit a head GitHub has moved past.
+LAND_COPIES = FETCH + r"""cd "$1" || exit 1
 bolt=$2 file=$3
 git remote get-url origin >/dev/null 2>&1 || { echo "THERE=-"; exit 0; }
-err=$(git ls-remote --exit-code origin "refs/heads/bolt/$bolt" 2>&1); rc=$?
+heads=$(git ls-remote --exit-code origin "refs/heads/bolt/$bolt" 2>&1); rc=$?
 if [ $rc = 2 ]; then echo "THERE=-"; exit 0; fi
-if [ $rc != 0 ]; then echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0; fi
-if ! err=$(git fetch -q origin "+refs/heads/bolt/$bolt:refs/remotes/origin/bolt/$bolt" 2>&1); then
+if [ $rc != 0 ]; then echo "READ=$(printf '%s' "$heads" | tr '\n' ' ')"; exit 0; fi
+if ! err=$(origin_fetch "+refs/heads/bolt/$bolt:refs/remotes/origin/bolt/$bolt" 2>&1); then
   echo "READ=$(printf '%s' "$err" | tr '\n' ' ')"; exit 0
 fi
 """ + REFS + r"""own=$(ref "refs/heads/bolt/$bolt") there=$(ref "refs/remotes/origin/bolt/$bolt")
+github=${heads%%[[:space:]]*}
+if [ "${fetch-yes}" = no ] && [ "$there" != "$github" ]; then
+  echo "READ=the runner's clone holds origin's bolt/$bolt at $there while GitHub's is at $github, and crew fetches" \
+    "nothing there, so this waits for the runner's next fetch"; exit 0
+fi
 echo "OWN=$own"; echo "THERE=$there"; echo "AT_THERE=$(pol "$there")"
 if [ "$own" = - ]; then printf 'HELD=yes\nAHEAD=-\nLACKS=-\nBEYOND=-\n'; exit 0; fi
 git merge-base --is-ancestor "$own" "$there" 2>/dev/null; case $? in 0) echo "HELD=yes" ;; 1) echo "HELD=no" ;; esac
@@ -6190,7 +6236,8 @@ def op_bolt_start(ctx, a):
     seen = {}
 
     def prepare():
-        r = crew.on_machine(fleet, host, ["bash", "-c", BOLT_CREATE, "crew", main, a.bolt])
+        r = crew.on_machine(fleet, host, ["bash", "-c", fetch_told(fleet, host, main, BOLT_CREATE), "crew", main,
+                                          a.bolt])
         READ.drop_kit(host, main)
         if r.stderr.strip():
             print(r.stderr.strip(), file=sys.stderr)
@@ -10049,9 +10096,10 @@ def console_tabs(asked, recorded, follower):
 
 def console_cmd(fleet, a):
     """crew console up|down <label> [flow] [rail] [board]: the partition's console on this host, in the `console`
-    workspace of this host's `<label>` session, starting no agent (record 0035): a shell tab with this crew on its path,
-    and the tabs named after the label: flow, following the run record; rail, the rail the host's follower writes
-    above and a shell below; and board, drawn from the same read. The rail tab opens of itself too while no host job
+    workspace of this host's `<label>` session, starting no agent (record 0035): a shell tab with the crew the host has
+    installed on its path (crew.crew_command), the crew every tab runs, and the tabs named after the label: flow,
+    following the run record; rail, the rail the host's follower writes above and a shell below; and board, drawn from
+    the same read. The rail tab opens of itself too while no host job
     follows (board.follower_here), since its loop is then the host's follower (console_tabs). Up keeps each tab already
     open, named or not, and a tab whose pane holds its shell alone, as herdr brings each pane back after a restart, runs
     its command there again, while one running anything else is left and said (crew.tab_holds, read.4); a tab the
@@ -10061,7 +10109,8 @@ def console_cmd(fleet, a):
     import board  # board imports this module
     c = crew.standing(fleet, "console", a.label)
     c.ensure()
-    label, crew_cmd = a.label, shlex.quote(str(crew.HOME / "plugin/bin/crew"))
+    installed = crew.crew_command()
+    label, crew_cmd = a.label, shlex.quote(installed)
     if a.act == "down":
         not a.tabs or fail(f"crew console down {label} closes every tab of the console, and names none")
         c.teardown()
@@ -10070,7 +10119,7 @@ def console_cmd(fleet, a):
     asked = console_asked(a.tabs)
     retire_operator(fleet, label)
     words = {"flow": ["events", "--follow", "--label", label], "rail": ["_rail", label], "board": ["_board", label]}
-    path = f"export PATH={shlex.quote(str(crew.HOME / 'plugin/bin'))}:$PATH"
+    path = f"export PATH={shlex.quote(os.path.dirname(installed))}:$PATH"
     opens, keeps, forgets = console_tabs(asked, {t: c.herdr.live(c.pane(t)) for t in CONSOLE_TABS if c.pane(t)}, board.follower_here())
 
     def shell_below():
@@ -13017,7 +13066,8 @@ def change_folder(fleet, t, unit, into, at=None):
     found = next((w for w in where if os.path.isdir(w)), None) or (change_written(t["kit"]["main"], at, unit, into) if at else None)
     if found:
         return found
-    r = subprocess.run(["bash", "-c", MAIN, "crew", t["kit"]["main"]], capture_output=True, text=True, env=gitenv())
+    r = subprocess.run(["bash", "-c", fetch_told(fleet, crew.this_host(), t["kit"]["main"], MAIN), "crew", t["kit"]["main"]],
+                       capture_output=True, text=True, env=gitenv())
     r.returncode == 0 or fail(f"on {t['machine']}: " + ((r.stderr or r.stdout).strip() or f"exit {r.returncode}"))
     head, why = main_held(t["kit"]["name"], t["machine"], r.stdout)
     not why or fail(why)
@@ -15564,7 +15614,8 @@ def record_read(fleet, label, kit_, number, status, alternatives=None):
         r.returncode == 0 or fail(f"git {args[0]} in {checkout} failed: {(r.stderr or r.stdout).strip() or f'exit {r.returncode}'}")
         return r.stdout
     # The record as the kit's main holds it now, GitHub's after a fetch for a kit with an origin (kit.main_now, plan.18).
-    r = subprocess.run(["bash", "-c", MAIN, "crew", checkout], capture_output=True, text=True, env=gitenv())
+    r = subprocess.run(["bash", "-c", fetch_told(fleet, here, checkout, MAIN), "crew", checkout], capture_output=True, text=True,
+                       env=gitenv())
     r.returncode == 0 or fail(f"{checkout} could not be read: {(r.stderr or r.stdout).strip() or f'exit {r.returncode}'}")
     _, now, why = kit.main_now(r.stdout, kit_, here)
     not why or fail(why)

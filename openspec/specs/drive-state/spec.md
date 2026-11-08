@@ -214,7 +214,7 @@ Some of what crew does on a kit comes before any runner has taken the work in ha
 - the board's explorations on the kit's main;
 - the main level's folders of the partition's kits.
 
-That work SHALL be done in the checkout the partition's main-level host keeps of the kit, as that host's spaces in the hosts file keep it, found by the kit's forge address or, for a kit the plan names by its name alone, by that name. Nothing SHALL be asked of a runner for it. It SHALL be refused, naming the host and the kit, where that host keeps none or keeps two repositories by the kit's name. A refusal for a kit the host keeps none of SHALL also name `crew kit rename <kit> <new>` as the way on for a kit renamed on its host.
+That work SHALL be done in the checkout the partition's main-level host keeps of the kit, found by the kit's forge address or, for a kit the plan names by its name alone, by that name. Where the main-level host is the host crew runs on and its teams file names the repository among its `repositories`, the kit's checkout SHALL be that entry's `checkout` and its folder that entry's `dir`, whether or not a session's space lists the repository. Otherwise they SHALL be the checkout and folder that host's spaces in the hosts file keep, `<session dir>/<name>/main` and `<session dir>/<name>`. Nothing SHALL be asked of a runner for it. It SHALL be refused, naming the host and the kit, where that host keeps none or keeps two repositories by the kit's name, counting those its teams file names with those its spaces keep. A refusal for a kit the host keeps none of SHALL also name `crew kit rename <kit> <new>` as the way on for a kit renamed on its host.
 
 #### Scenario: A kit's first bolt is started
 - **WHEN** `crew bolt start x` runs for crew's first bolt, no runner has taken any of crew's work, and deneb, madswan's main-level host, keeps `afterthought/crew` at `/d/madswan/crew/main`
@@ -235,6 +235,22 @@ That work SHALL be done in the checkout the partition's main-level host keeps of
 #### Scenario: The main level's kit folders
 - **WHEN** madswan's plan names crew and sluice, deneb keeps both and a role of madswan's main level starts there
 - **THEN** it may reach deneb's checkouts of crew and sluice, and a kit its plan names that deneb keeps none of is left out
+
+#### Scenario: A kit in the runner's copy
+- **WHEN** crew runs on deneb, madswan's main-level host, and deneb's teams file names `agentplot/crew` with `dir` `/r/agentplot/crew` and `checkout` `/v/agentplot/crew`, while a session's space also keeps `agentplot/crew` at `/d/agentplot`
+- **THEN** crew is read and acted on before any runner takes its work in `/v/agentplot/crew`, its folder `/r/agentplot/crew`, by the name `crew` or the address `agentplot/crew`, and a role of madswan's main level may reach `/v/agentplot/crew`
+
+#### Scenario: A repository the file names and no space keeps
+- **WHEN** crew runs on deneb, deneb's teams file names `agentplot/weir`, and no session's space on deneb keeps it
+- **THEN** weir is a kit deneb keeps, at the file's `checkout` and `dir`
+
+#### Scenario: Another host's kit
+- **WHEN** crew runs on deneb, its teams file names `WilldanGroup/atlas-kit`, and wldn's main level runs on chuck-herdr-alpha, whose spaces keep atlas-kit at `/workspace`
+- **THEN** wldn's atlas-kit is read in `/workspace/atlas-kit/main` on chuck-herdr-alpha, since deneb's file names deneb's repositories alone
+
+#### Scenario: One name, two repositories
+- **WHEN** crew runs on deneb, its teams file names `agentplot/blueprints`, and a session's space on deneb keeps `afterthought/blueprints`
+- **THEN** a kit named `blueprints` alone is refused naming both, and `agentplot/blueprints` is the file's checkout
 
 ### Requirement: A started bolt's host is named before its place is carried
 `crew bolts`, the board's ledger and the page SHALL name a started bolt's host as the one whose runner took its newest launch taken, while the runner has carried no place of its work, and never say where it runs can't be told for work a runner has taken. Whatever acts in the bolt's kit SHALL still wait until the kit's folder there is read.

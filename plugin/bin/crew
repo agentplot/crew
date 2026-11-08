@@ -333,12 +333,17 @@
 #                                      repository once a minute and showing this host's writes within seconds, reading
 #                                      only what moved, asking another host, Pending You or herdr only when something
 #                                      there could have moved, learning that a submission moved from its runner's
-#                                      report and starting no sluice; due restarts handed out once crew's checkout or the teams file moved, the rail's frame, the
+#                                      report and starting no sluice; due restarts handed out once crew's checkout, the
+#                                      crew the host has installed or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
 #                                      notice, pendingyou watch -- crew _answered, which makes each change on a card in a
 #                                      role's run's name an ask of the role, reading nothing of the card
+#   crew _release                      what this crew is, as one line of JSON: its root, commit and version and where
+#                                      they were read from, "checkout" from git, "release" from a build's
+#                                      plugin/release.json, or null, with why where nothing was read; reading nothing
+#                                      else and starting nothing, so one crew reads another it cannot import by it
 #   crew tell     <agent> "<text>"     prompt an agent crew started, a main level's, wherever it runs, marked with who sent it;
 #                                      refused, with nothing typed, while the agent waits on a question in its pane.
 #                                      To a role that runs as its kind with no standing agent of it up, crew's own
@@ -487,7 +492,8 @@ for a in ${args[@]+"${args[@]:1}"}; do
   case $cmd in
     bolts | bolt | unit | chore | kit | fix | signal | state | plan | rail | card | record | answer | role | events | trace | \
       page | sites | ops | board | _views | _board | _rail | _follow | _hold | _go | _update | _renew | _preview | \
-      _answered | _card-preview | _preview-release | _made | _batch-card | _land-row | _land-card | _landing-read) break ;;  # their own arms below
+      _answered | _card-preview | _preview-release | _made | _batch-card | _land-row | _land-card | _landing-read | \
+      _release) break ;;  # their own arms below
     _sweep) exec python3 "$here/../lib/plan.py" "${args[@]}" ;;  # plan.py's of that name, before its label is asked for
     main) [[ ${2:-} == fix ]] && break ;;
     review) [[ ${2:-} == delivered ]] && break ;;
@@ -495,6 +501,12 @@ for a in ${args[@]+"${args[@]:1}"}; do
   esac
   usage "$cmd" "${2:-}"; exit 0
 done
+
+# crew _release says what this crew is and nothing else (crew.py crew_read): answered here, before a role's run is
+# named or any command's host is chosen, so it reads no teams file and starts nothing; another crew asks it so.
+case $cmd in
+  _release) exec python3 "$here/../lib/crew.py" "${args[@]}" ;;
+esac
 
 # ------------------------------------------------------------------------------------------- where a command runs
 

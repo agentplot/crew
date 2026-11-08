@@ -40,7 +40,8 @@ nothing_done "crew fix --help"
 ok "crew fix <bolt> <name> --help prints the fix's usage and launches nothing"
 
 # Every command crew dispatches, each with arguments of its own shape before the flag. The list holds every command
-# the dispatch in plugin/bin/crew names, so a command added there without a line here fails below.
+# the dispatches in plugin/bin/crew name, crew _release's before a command's host is chosen and the commands' own, so
+# a command added there without a line here fails below.
 commands=$(cat <<'EOF'
 bolts tenant-environments
 bolt start tenant-environments
@@ -94,6 +95,7 @@ _batch-card wldn 1
 _land-row wldn tenant-environments
 _land-card wldn switchboard-kit
 _landing-read wldn tenant-environments
+_release
 main up wldn
 main fix switchboard-kit red "main is red"
 review wldn --wait
@@ -103,7 +105,7 @@ console up wldn rail
 operator up wldn
 EOF
 )
-dispatched=$(sed -n '/^# -* commands$/,/^esac$/p' "$CREW/plugin/bin/crew" | sed -n 's/^  \([a-z_][a-z_ |-]*\)).*/\1/p' | tr '|' '\n' | tr -d ' ')
+dispatched=$(sed -n '/^case \$cmd in$/,/^esac$/p' "$CREW/plugin/bin/crew" | sed -n 's/^  \([a-z_][a-z_ |-]*\)).*/\1/p' | tr '|' '\n' | tr -d ' ')
 for c in $dispatched; do
   grep -q "^$c\( \|$\)" <<<"$commands" || fail "crew $c is dispatched and has no line here"
 done

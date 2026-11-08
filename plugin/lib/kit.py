@@ -305,14 +305,20 @@ def main_now(out, kit, host):
     """Which of a kit's mains is its main now, from what MAINS read in its main checkout on its host (plan.18): (ref,
     sha, None), or (None, None, why). A kit with an origin remote has its main on GitHub, where sluice lands every
     branch and which the host's own main lags on every host that did not land, so main now is origin/main after the
-    command's one fetch, and a fetch that failed or an origin with no main refuses (read.1); a kit with no origin
-    remote has no GitHub to lag, so its own main is main now. What is not MAINS's words refuses too (read.2)."""
+    command's one fetch, or, in the runner's clone, which crew fetches nothing in (FETCHED=runner, crew.fetches_in),
+    origin/main as the runner last fetched it; a fetch that failed or an origin with no main refuses (read.1); a kit
+    with no origin remote has no GitHub to lag, so its own main is main now. What is not MAINS's words refuses too
+    (read.2)."""
     said = said_of(out)
     sha = re.compile(r"[0-9a-f]{40,64}")
     origin, fetched, github, own = said.get("ORIGIN"), said.get("FETCHED"), said.get("GITHUB"), said.get("OWN")
     if origin not in ("yes", "no") or not all(v == "-" or (v and sha.fullmatch(v)) for v in (github, own)):
         return None, None, f"crew can't read what {kit}'s main on {host} holds: {(out or '').strip()[:200] or 'nothing was said'}"
     if origin == "yes":
+        if fetched == "runner":
+            return (("origin/main", github, None) if github != "-" else
+                    (None, None, f"the runner's clone of {kit} on {host} holds no origin/main yet, and crew fetches "
+                                 "nothing there: its runner's next fetch brings it"))
         if fetched != "ok":
             return None, None, f"cannot fetch {kit} from GitHub on {host}, so cannot read its main now: {(fetched or 'no word').strip()}"
         return ("origin/main", github, None) if github != "-" else (None, None, f"{kit}'s GitHub has no main, fetched on {host}")

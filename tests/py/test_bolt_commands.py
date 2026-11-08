@@ -450,20 +450,32 @@ class TestWhenABoltIsFetched:
         with pytest.raises(SystemExit) as e:
             plan.bolts_view(self.FLEET, argparse.Namespace(label="wldn", bolt=None, json=True))
         assert e.value.code == 0
-        assert [a.get("fetch") for a in asks] == [True]
+        assert [[k.get("fetch") for k in a["kits"]] for a in asks] == [[True]]
+
+    def test_crew_bolts_asks_no_fetch_in_the_runners_clone(self, monkeypatch):
+        """drive-state "crew fetches nothing in the runner's clone": box's teams file names the kit's repository, whose
+        container is the folder its runner reported, so crew bolts asks it read as the runner last fetched it."""
+        asks = self.asked(monkeypatch)
+        fleet = dict(self.FLEET, repositories={"host": "box", "named": {KIT: {"dir": "/kit/main", "checkout": "/v/kit"}}})
+        plan.stages_for(fleet, "wldn", self.plan(), self.plan().bolts(), fetch=True)
+        assert [[k.get("fetch") for k in a["kits"]] for a in asks] == [[False]]
+        other = dict(self.FLEET, repositories={"host": "deneb", "named": {KIT: {"dir": "/kit/main", "checkout": "/v/kit"}}})
+        asks.clear()
+        plan.stages_for(other, "wldn", self.plan(), self.plan().bolts(), fetch=True)
+        assert [[k.get("fetch") for k in a["kits"]] for a in asks] == [[True]]
 
     def test_a_read_on_every_team_read_fetches_nothing(self, monkeypatch):
         """bolt-plan "The board does not fetch"."""
         asks = self.asked(monkeypatch)
         plan.stages_for(self.FLEET, "wldn", self.plan(), self.plan().bolts())
-        assert [("fetch" in a) for a in asks] == [False]
+        assert [("fetch" in a or any("fetch" in k for k in a["kits"])) for a in asks] == [False]
 
     def test_a_fetching_survey_is_asked_though_the_command_has_read_the_kit(self, monkeypatch):
         asks = self.asked(monkeypatch, kept={"/kit/main": self.KIT_READ})
         plan.stages_for(self.FLEET, "wldn", self.plan(), self.plan().bolts())
         assert asks == []
         st = plan.stages_for(self.FLEET, "wldn", self.plan(), self.plan().bolts(), fetch=True)
-        assert [a.get("fetch") for a in asks] == [True]
+        assert [[k.get("fetch") for k in a["kits"]] for a in asks] == [[True]]
         assert st.kit(self.plan().bolt("b"))[0]["bolts"]["b"]["at"] == "origin/bolt/b"
 
     def test_a_fetch_that_fails_reads_the_kit_unknown_with_gits_words(self, monkeypatch):
