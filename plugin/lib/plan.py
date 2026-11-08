@@ -1519,7 +1519,7 @@ class Stages:
         facts = k["bolts"].get(b.name(), {})
         if facts.get("error"):
             return "unknown"
-        if units and all(x in ("merged", "landed") for x in stages) and kit.verification(facts.get("head"), facts.get("verdict"))[0] == "green":
+        if units and all(x in ("merged", "landed") for x in stages) and kit.verification(facts.get("head"), facts.get("verdict"), facts.get("beside"))[0] == "green":
             return "waits"
         return "active"
 
@@ -2464,7 +2464,7 @@ def preview_listed(doc, branch, head):
     return None
 
 
-def landing_unready(work, head, verdict, fixes):
+def landing_unready(work, head, verdict, fixes, beside=None):
     """Why a bolt does not yet read proven, from its kit alone (record 0031 §1, record 0025), or None: work is each of
     its units and chores as (name, kind, stage); head and verdict, its branch's head and sluice's Sluice-Result there;
     fixes, the fixes of the bolt in flight. It reads proven once every unit and chore has merged, not every one has
@@ -2477,7 +2477,7 @@ def landing_unready(work, head, verdict, fixes):
             return f"{kind} {name} has not merged: it is {stage}"
     if all(stage == "landed" for *_, stage in work):
         return "every unit and chore of it has landed"
-    state, said = kit.verification(head, verdict)
+    state, said = kit.verification(head, verdict, beside)
     if state != "green":
         return f"its verification is not green: {said}"
     return f"{either(sorted(fixes))} is in flight on it" if fixes else None
@@ -3182,7 +3182,7 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     # brief for its words (Decision 10 of teams-cross-to-flume-as-their-bolts-land).
     flume = runner.fixes_in_flight(*runner_facts(fleet, label), bolt) if crossed_bolt(plan, bolt) else {}
     fixes = sorted(flume)
-    why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [])
+    why = landing_unready(work, facts.get("head"), facts.get("verdict"), fixes if fixes_hold else [], facts.get("beside"))
     if why:
         return None, why
     entries = partition_entries(fleet, label)
@@ -10061,7 +10061,7 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                 if silent:
                     data["runners_unread"][silent[0]] = silent[1]
                 bk = (k or {}).get("bolts", {}).get(b.name()) or {}
-                verified = dict(zip(("state", "said"), kit.verification(bk.get("head"), bk.get("verdict")))) if k and bk.get("exists") else None
+                verified = dict(zip(("state", "said"), kit.verification(bk.get("head"), bk.get("verdict"), bk.get("beside")))) if k and bk.get("exists") else None
                 unread = (k or {}).get("submissions_error")
                 rows, landing = submission_rows(None if unread else (k or {}).get("submissions"), b.name(),
                                                 [(u["unit"], u["kind"]) for u in units] + [(f["fix"], "fix") for f in fixes])
@@ -11316,7 +11316,8 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             due, waits = held.get(l, {}).get("due"), held.get(l, {}).get("unanswered") or {}
             outside = [u.name() for u in units if due is not None and u.name() in due]
             unread = sorted({waits[u.name()] for u in units if u.name() in waits})
-            state, verdict = kit.verification(head, k["bolts"].get(b.name(), {}).get("verdict"))
+            bk = k["bolts"].get(b.name(), {})
+            state, verdict = kit.verification(head, bk.get("verdict"), bk.get("beside"))
             if state != "green":  # a bolt's proof is its verification (record 0025, tests.5)
                 lands = [f"lands once its verification is green; now {verdict}"]
             elif due is None and l in held:
