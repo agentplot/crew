@@ -10,4 +10,4 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 
 ## 2. The docs
 
-- [ ] 2.1 README, the crew skill and `crew`'s usage header say a kit's folder is the runner's report where it reports its repositories, else its newest place's of the kit, and unread only where neither names it (`docs.2`; Task notes 2.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 2.1 README, the crew skill and `crew`'s usage header say a kit's folder is the runner's report where it reports its repositories, else its newest place's of the kit, and unread only where neither names it (`docs.2`; Task notes 2.1). Verify `tests/suite t-docs` ends with "0 failed".
