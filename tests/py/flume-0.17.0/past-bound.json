@@ -1,0 +1,747 @@
+{
+  "status": {
+    "places": [
+      {
+        "place": "/Users/chuck/.local/share/flume/places/8fbc1094d53c/change--pull-requests-are-queued-on-the-forge",
+        "repository": "/Users/chuck/.local/share/flywheel/repositories/agentplot/sluice",
+        "kind": "change",
+        "version": 3,
+        "declared": "flume",
+        "identity": "flume/change@3",
+        "kind_from": {
+          "identity": {
+            "source": "flume",
+            "name": "change",
+            "version": 3,
+            "spelled": "flume/change@3"
+          },
+          "source": "flume",
+          "hash": "sha256:faf88896b4bf2be5e0ae9980bc5e17265909f8a6eea3468393548b483c8cb5d3"
+        },
+        "name": "pull-requests-are-queued-on-the-forge",
+        "branch": "change/pull-requests-are-queued-on-the-forge",
+        "base": "bolt/sluice-runs-one-host-process",
+        "base_from": "merge-queue",
+        "mark": "boomdrive:agentplot/362",
+        "lands": true,
+        "phase": "live",
+        "readiness": {
+          "steps": [
+            {
+              "step": "toolchain",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "proto install",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "moon --version",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "moon setup",
+              "passed": true,
+              "words": ""
+            }
+          ]
+        },
+        "stages": [
+          {
+            "name": "construct",
+            "state": "delivered",
+            "starts": 1,
+            "end": {
+              "head": "f046d228ac699a41f5badb14eeb0dca622fe9a53",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false,
+            "answers": [
+              {
+                "question": "pull-requests-are-queued-on-the-forge cannot write its tasks until its scope is ruled. The forge's jobs that 137 and C.8 have take a branch's requests in are not built: there is no `sluice job` and no workflow `sluice init` writes. The change actions-pool designs them (its D2: `sluice job round`, `sluice.yml`, `sluice init actions`), with 0 of its 9 tasks done and keyless signing ahead of them. Today a branch with records on its remote is taken in by whichever host holds its lead (Pulls::takes, crates/sluice/src/profiles/github/pulls.rs:530). Once the host process ends when idle (135), no host would ask for a request opened by hand. Which do you want? (a) This change builds the round job, its workflow and the `sluice init actions` part for it, taken out of actions-pool, which keeps keyless signing and the run, sign and pull-request jobs. (b) This change waits on actions-pool's round job, and until then the instance that holds a branch's lead on its remote, host or job, takes its requests in. Either way, once a sluice with this change is released, a branch that takes pull requests and keeps its records in each host's files takes no requests in until its policy names [signers] and its forge runs the job. Today that is sluice's own main and WilldanGroup/switchboard-kit's main, neither with [signers]. Please also say who moves them, and before which release. And should sluice refuse such a policy, as it refuses pull_requests with no remote, or open the request and say that nothing takes it in?",
+                "words": "Ruling, all three together.\n\n(1) Take (a). This change builds what takes a branch's requests in on the forge: `sluice job round`, the round part of `sluice.yml` (its schedule and wake, and the `sluice` environment that alone holds the branch's credential), the round part of `sluice init actions`, and the round part of `sluice forge check`. Take those tasks out of actions-pool's tasks.md in this change, so the two never build them twice. actions-pool keeps keyless signing, the run, sign and record jobs, `sluice-pr.yml` and head runs. Outcome that must hold: a branch whose records are on its remote and that takes pull requests has its requests taken in, and its rounds run, by the forge's round job with every host off, one round per branch at a time (C.8's row). Its checks are still claimed by standing executors (75, 76, 107). Why not (b): 137 and C.8, record 0093 (the user's), put intake on the forge's jobs. Under (b), once the host process ends when idle (135), a request a person opens by hand waits on nothing until some command on some host happens to start one. switchboard-kit's requests are opened by people. Constraints: no session holds the credential (C.8), core.31's no-daemon rule holds for hosts, and record 0093 stands as written.\n\n(2) Refuse. agentplot/blueprints 75c5ff4 amends 137: a pull request table on a branch whose records each host keeps is refused for that branch alone, naming `[signers]` and the forge's workflow that would take its requests in, as a word sluice no longer keeps is (56, S64). That way no request is opened that nothing takes in. Amend core.33's Rules out in this change to match, citing 75c5ff4 as agentplot-design's.\n\n(3) Moving the two mains is not this change's work. sluice's main is mine: I'm queuing it as a chore after this change lands. switchboard-kit's main is wldn's, and I'm telling them. Constraint: no host serving either branch installs a sluice release that carries this change until that branch names `[signers]` and carries the round workflow. ops and wldn hold those installs. This change owes that only the refusal's words and a line in its release notes saying what such a branch adds before it upgrades.\n\nSources: agentplot/blueprints design/sluice/requirements.md 72, 107, 135, 137 (as amended at 75c5ff4), C.8; agentplot/sluice docs/adr/0093; core.15, core.31, core.33; actions-pool's design D2.",
+                "act": "tell",
+                "at": 1794095595,
+                "session": {
+                  "sent_at": 1794095595,
+                  "received_at": 1794095595
+                },
+                "by": "herdr:w3:p1@/Users/chuck/.config/herdr/sessions/agentplot/herdr.sock",
+                "key": "stage/construct/1/ended-short"
+              }
+            ]
+          },
+          {
+            "name": "code",
+            "state": "delivered",
+            "starts": 4,
+            "end": {
+              "head": "f8762658a579d690a301091490bdc217496b16cc",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          },
+          {
+            "name": "verify",
+            "state": "delivered",
+            "starts": 4,
+            "end": {
+              "head": "9787790f5982b0ecd87dfc6f11a75d41ba831e05",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          }
+        ],
+        "current": "verify",
+        "agent": null,
+        "head": "9787790f5982b0ecd87dfc6f11a75d41ba831e05",
+        "delivered": true,
+        "tasks": [
+          {
+            "text": "1.1 Archive `a-hand-overs-withdrawal-holds-no-request` and `",
+            "ticked": true,
+            "group": 0
+          },
+          {
+            "text": "1.2 Write the record of this change in `docs/adr/`, MADR as ",
+            "ticked": true,
+            "group": 0
+          },
+          {
+            "text": "1.3 Record 0101's construction choices name what the fixes o",
+            "ticked": true,
+            "group": 0
+          },
+          {
+            "text": "1.4 `pull-request-submit`'s delta holds \"A pull request take",
+            "ticked": true,
+            "group": 0
+          },
+          {
+            "text": "1.5 Every requirement this change's deltas modify or add hol",
+            "ticked": true,
+            "group": 0
+          },
+          {
+            "text": "1.6 `actions-pool`'s MODIFIED \"forge check verifies the setu",
+            "ticked": true,
+            "group": 0
+          },
+          {
+            "text": "2.1 `[pools.<name>] runners` is optional in `crates/sluice-c",
+            "ticked": true,
+            "group": 1
+          },
+          {
+            "text": "2.2 `Rules` says which pool's round job keeps the branch whe",
+            "ticked": true,
+            "group": 1
+          },
+          {
+            "text": "3.1 `sluice job round [--branch <b>]` in `crates/sluice/src/",
+            "ticked": true,
+            "group": 2
+          },
+          {
+            "text": "3.2 A submit that opened, updated or marked ready a request ",
+            "ticked": true,
+            "group": 2
+          },
+          {
+            "text": "3.3 A round job started with the state folder the last kept ",
+            "ticked": true,
+            "group": 2
+          },
+          {
+            "text": "3.4 `Actions::wake` starts the round job on the branch the p",
+            "ticked": true,
+            "group": 2
+          },
+          {
+            "text": "3.5 `sluice job round` with no branch reads every branch its",
+            "ticked": true,
+            "group": 2
+          },
+          {
+            "text": "3.6 `the_pools_calls` in `crates/sluice/tests/profiles/forge",
+            "ticked": true,
+            "group": 2
+          },
+          {
+            "text": "4.1 `OnGitHub::new`, `checked`, `checked_policy`, `with_time",
+            "ticked": true,
+            "group": 3
+          },
+          {
+            "text": "5.1 Remove what D12 lists from `crates/sluice/src/profiles/p",
+            "ticked": true,
+            "group": 4
+          },
+          {
+            "text": "5.2 `Requester::HandOver` goes from `crates/sluice-core/src/",
+            "ticked": true,
+            "group": 4
+          },
+          {
+            "text": "5.3 A group submit to a branch the forge keeps opens its dra",
+            "ticked": true,
+            "group": 4
+          },
+          {
+            "text": "6.1 `opening` keeps each request it opens, updates or marks ",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.2 sluice's check names the instance that keeps the branch,",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.3 A `--no-wait` submit answers with its request, `pull_req",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.4 `a_check_per_required_check_per_system` holds what `post",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.5 A submit, a wait and `--status` find the host's own requ",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.6 A request a submit on the host took again at the head it",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.7 No doc comment in `crates/sluice` describes the intake m",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "6.8 `App::open` in `crates/sluice/src/profiles/github/rest.r",
+            "ticked": true,
+            "group": 5
+          },
+          {
+            "text": "7.1 `Policy::rules_for(<b>)` refuses `<b>` alone where its t",
+            "ticked": true,
+            "group": 6
+          },
+          {
+            "text": "8.1 Write `crates/sluice/src/profiles/github/workflows/sluic",
+            "ticked": true,
+            "group": 7
+          },
+          {
+            "text": "8.2 Add `sluice init actions` (`Command::Init`), as D13 says",
+            "ticked": true,
+            "group": 7
+          },
+          {
+            "text": "8.3 `sluice forge check <b>`, for a branch the forge keeps, ",
+            "ticked": true,
+            "group": 7
+          },
+          {
+            "text": "8.4 `sluice init actions` writes `[pools.forge]` with the de",
+            "ticked": true,
+            "group": 7
+          },
+          {
+            "text": "8.5 `sluice forge check <b>` reads the round job on the repo",
+            "ticked": true,
+            "group": 7
+          },
+          {
+            "text": "8.6 The release's binaries are built by the pinned Rust with",
+            "ticked": true,
+            "group": 7
+          },
+          {
+            "text": "9.1 `site/src/content/docs/guides/pull-requests.md` says the",
+            "ticked": true,
+            "group": 8
+          },
+          {
+            "text": "9.2 The `using-sluice` skill's `SKILL.md` and its `verdicts.",
+            "ticked": true,
+            "group": 8
+          },
+          {
+            "text": "9.3 The commands reference's `sluice forge check` and `sluic",
+            "ticked": true,
+            "group": 8
+          },
+          {
+            "text": "9.4 The `setting-up-sluice` skill's `profiles/pull-requests.",
+            "ticked": true,
+            "group": 8
+          }
+        ],
+        "submission": {
+          "read": {
+            "found": {
+              "submission": {
+                "id": "24",
+                "branch": "change/pull-requests-are-queued-on-the-forge",
+                "target": "bolt/sluice-runs-one-host-process",
+                "state": {
+                  "conflict": {
+                    "files": [
+                      "crates/sluice/src/lib.rs",
+                      "crates/sluice/src/overview.rs",
+                      "plugins/sluice/skills/setting-up-sluice/SKILL.md",
+                      "plugins/sluice/skills/using-sluice/SKILL.md",
+                      "plugins/sluice/skills/using-sluice/references/submit.md",
+                      "site/src/content/docs/reference/commands.md",
+                      "site/src/content/docs/reference/state.md"
+                    ],
+                    "words": "[sluice] #24 conflicts on bolt/sluice-runs-one-host-process in crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md. sluice wait 24 shows it."
+                  }
+                }
+              }
+            }
+          },
+          "submits": 1,
+          "send_backs": 3,
+          "verdict": {
+            "conflict": {
+              "files": [
+                "crates/sluice/src/lib.rs",
+                "crates/sluice/src/overview.rs",
+                "plugins/sluice/skills/setting-up-sluice/SKILL.md",
+                "plugins/sluice/skills/using-sluice/SKILL.md",
+                "plugins/sluice/skills/using-sluice/references/submit.md",
+                "site/src/content/docs/reference/commands.md",
+                "site/src/content/docs/reference/state.md"
+              ],
+              "words": "[sluice] #24 conflicts on bolt/sluice-runs-one-host-process in crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md. sluice wait 24 shows it.\n\nThe files contested: crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md.\nThe base's revision the merge queue tested against: cd141bab04742356a3a11959add06aa3b86719b4."
+            }
+          },
+          "waiting": "the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process in crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md. sluice wait 24 shows it.\n\nThe files contested: crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md.\nThe base's revision the merge queue tested against: cd141bab04742356a3a11959add06aa3b86719b4.. The place went back 3 times, as many as its kind allows",
+          "held": false
+        },
+        "refused_acts": [],
+        "cannot_read": [],
+        "failures": [],
+        "recipients": [
+          "agentplot/planner"
+        ],
+        "recipients_from": {
+          "from": "launch"
+        },
+        "hold_words": {},
+        "waiting_on": {
+          "act": "retry",
+          "stage": "code",
+          "why": "past_bound",
+          "since": 1794115637,
+          "words": "the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process in crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md. sluice wait 24 shows it.\n\nThe files contested: crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md.\nThe base's revision the merge queue tested against: cd141bab04742356a3a11959add06aa3b86719b4.. The place went back 3 times, as many as its kind allows"
+        },
+        "stalled": false,
+        "holds": [],
+        "priority": 11,
+        "stream": {
+          "name": "agentplot",
+          "from": "host-repository"
+        },
+        "label": null,
+        "intent": {
+          "from": "launch",
+          "name": "agentplot/sluice-runs-one-host-process",
+          "digest": "13796a1376917a5bdf9c46eabc0b37089478344cc31e69b649634475c4fe0c38"
+        },
+        "moves": [
+          {
+            "on": "stage",
+            "stage": "code",
+            "from": "admin",
+            "to": "amadden",
+            "why": "threshold",
+            "at": 1794112080,
+            "window": "7-day",
+            "until": 1794326400,
+            "cache": "lost"
+          }
+        ],
+        "unsettled": [],
+        "uncarried": [],
+        "ends": [
+          {
+            "of": "stage",
+            "stage": "construct",
+            "start": 1,
+            "state": "ended_short",
+            "end": {
+              "head": null,
+              "report": null,
+              "words": null,
+              "needs": "needs_answer",
+              "addressee": "agentplot/planner",
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": [],
+              "open_until": 1794098919
+            },
+            "read_at": 1794095319,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794095328,
+                "by": "notice"
+              }
+            ],
+            "answer": {
+              "words": "Ruling, all three together.\n\n(1) Take (a). This change builds what takes a branch's requests in on the forge: `sluice job round`, the round part of `sluice.yml` (its schedule and wake, and the `sluice` environment that alone holds the branch's credential), the round part of `sluice init actions`, and the round part of `sluice forge check`. Take those tasks out of actions-pool's tasks.md in this change, so the two never build them twice. actions-pool keeps keyless signing, the run, sign and record jobs, `sluice-pr.yml` and head runs. Outcome that must hold: a branch whose records are on its remote and that takes pull requests has its requests taken in, and its rounds run, by the forge's round job with every host off, one round per branch at a time (C.8's row). Its checks are still claimed by standing executors (75, 76, 107). Why not (b): 137 and C.8, record 0093 (the user's), put intake on the forge's jobs. Under (b), once the host process ends when idle (135), a request a person opens by hand waits on nothing until some command on some host happens to start one. switchboard-kit's requests are opened by people. Constraints: no session holds the credential (C.8), core.31's no-daemon rule holds for hosts, and record 0093 stands as written.\n\n(2) Refuse. agentplot/blueprints 75c5ff4 amends 137: a pull request table on a branch whose records each host keeps is refused for that branch alone, naming `[signers]` and the forge's workflow that would take its requests in, as a word sluice no longer keeps is (56, S64). That way no request is opened that nothing takes in. Amend core.33's Rules out in this change to match, citing 75c5ff4 as agentplot-design's.\n\n(3) Moving the two mains is not this change's work. sluice's main is mine: I'm queuing it as a chore after this change lands. switchboard-kit's main is wldn's, and I'm telling them. Constraint: no host serving either branch installs a sluice release that carries this change until that branch names `[signers]` and carries the round workflow. ops and wldn hold those installs. This change owes that only the refusal's words and a line in its release notes saying what such a branch adds before it upgrades.\n\nSources: agentplot/blueprints design/sluice/requirements.md 72, 107, 135, 137 (as amended at 75c5ff4), C.8; agentplot/sluice docs/adr/0093; core.15, core.31, core.33; actions-pool's design D2.",
+              "act": "tell",
+              "at": 1794095595,
+              "session": {
+                "sent_at": 1794095595,
+                "received_at": 1794095595
+              },
+              "by": "herdr:w3:p1@/Users/chuck/.config/herdr/sessions/agentplot/herdr.sock",
+              "key": "stage/construct/1/ended-short"
+            },
+            "key": "stage/construct/1/ended-short",
+            "pending_for": [],
+            "open_until": 1794098919
+          },
+          {
+            "of": "stage",
+            "stage": "construct",
+            "start": 1,
+            "state": "delivered",
+            "answered": 1,
+            "end": {
+              "head": "f046d228ac699a41f5badb14eeb0dca622fe9a53",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794096850,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794096860,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/construct/1/delivered/1",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "code",
+            "start": 1,
+            "state": "delivered",
+            "end": {
+              "head": "437f501a4726a5d98236d24966590242aa3b5622",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794111261,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794111270,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/code/1/delivered",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "verify",
+            "start": 1,
+            "state": "ended_short",
+            "end": {
+              "head": null,
+              "report": null,
+              "words": null,
+              "needs": "found_work",
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794112065,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794112078,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/verify/1/ended-short",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "code",
+            "start": 2,
+            "state": "delivered",
+            "end": {
+              "head": "25629a7a49edbe24510a0ad564950f208e1ca352",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794113608,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794113618,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/code/2/delivered",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "verify",
+            "start": 2,
+            "state": "ended_short",
+            "end": {
+              "head": null,
+              "report": null,
+              "words": null,
+              "needs": "found_work",
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794113823,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794113834,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/verify/2/ended-short",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "code",
+            "start": 3,
+            "state": "delivered",
+            "end": {
+              "head": "3b884f93bd020a2ee34a3f76b4f4f8b6639c8c7e",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794114024,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794114033,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/code/3/delivered",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "verify",
+            "start": 3,
+            "state": "ended_short",
+            "end": {
+              "head": null,
+              "report": null,
+              "words": null,
+              "needs": "found_work",
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794114284,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794114297,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/verify/3/ended-short",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "code",
+            "start": 4,
+            "state": "delivered",
+            "end": {
+              "head": "f8762658a579d690a301091490bdc217496b16cc",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794114873,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794114882,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/code/4/delivered",
+            "pending_for": []
+          },
+          {
+            "of": "stage",
+            "stage": "verify",
+            "start": 4,
+            "state": "delivered",
+            "end": {
+              "head": "9787790f5982b0ecd87dfc6f11a75d41ba831e05",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794115629,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794115637,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/verify/4/delivered",
+            "pending_for": []
+          },
+          {
+            "of": "submission",
+            "submit": 1,
+            "verdict": {
+              "conflict": {
+                "files": [
+                  "crates/sluice/src/lib.rs",
+                  "crates/sluice/src/overview.rs",
+                  "plugins/sluice/skills/setting-up-sluice/SKILL.md",
+                  "plugins/sluice/skills/using-sluice/SKILL.md",
+                  "plugins/sluice/skills/using-sluice/references/submit.md",
+                  "site/src/content/docs/reference/commands.md",
+                  "site/src/content/docs/reference/state.md"
+                ],
+                "words": "[sluice] #24 conflicts on bolt/sluice-runs-one-host-process in crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md. sluice wait 24 shows it.\n\nThe files contested: crates/sluice/src/lib.rs, crates/sluice/src/overview.rs, plugins/sluice/skills/setting-up-sluice/SKILL.md, plugins/sluice/skills/using-sluice/SKILL.md, plugins/sluice/skills/using-sluice/references/submit.md, site/src/content/docs/reference/commands.md, site/src/content/docs/reference/state.md.\nThe base's revision the merge queue tested against: cd141bab04742356a3a11959add06aa3b86719b4."
+              }
+            },
+            "read_at": 1794115637,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794115638,
+                "by": "notice"
+              }
+            ],
+            "key": "submission/1/conflict",
+            "pending_for": []
+          }
+        ],
+        "clues": {
+          "stage": "verify",
+          "state": "delivered",
+          "title": "verify · delivered",
+          "display_agent": "change--pull-requests-are-queued-on-the-forge",
+          "shown_at": {
+            "place": "herdr:w5C:t1@/Users/chuck/.config/herdr/sessions/agentplot/herdr.sock",
+            "agent": null,
+            "base": null
+          }
+        },
+        "line": {
+          "name": "change--pull-requests-are-queued-on-the-forge",
+          "kind": "change@3",
+          "stage": "verify",
+          "run": 4,
+          "tasks": "37/37",
+          "state": "past its bound",
+          "full": "change--pull-requests-are-queued-on-the-forge · change@3 · verify · run 4 · tasks 37/37 · past its bound",
+          "short": "verify · run 4 · tasks 37/37 · past its bound"
+        },
+        "waits_on": "caller"
+      }
+    ],
+    "host": {
+      "running": 4,
+      "bound": null,
+      "room": null,
+      "queue": [],
+      "streams": [],
+      "pools": [],
+      "terminal_kept": [],
+      "addresses": [],
+      "watch": "none",
+      "terminals": [],
+      "bases": [],
+      "terminal_setup": [],
+      "configuration": {},
+      "sources": []
+    }
+  }
+}

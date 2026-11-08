@@ -287,6 +287,16 @@ def stage(name=None, outcome="launched", base="bolt/crew-runs-its-work-through-f
     return runner.stage_of(work, launch, r["answers"].get(3), r["places"].get(3), r["why"] or True, ["unit/x", "chore/y"])
 
 
+def flume_17(name, n=362, work="unit/pull-requests-are-queued-on-the-forge", base="bolt/sluice-runs-one-host-process"):
+    """A place of flume 0.17.0's status (tests/py/flume-0.17.0/<name>.json) and its piece's stage as stage_of reads it,
+    its launch request n on deneb answered launched at that place and the status carried on one line in places.rec."""
+    status = json.loads((FLUME_17 / f"{name}.json").read_text())
+    p = status["status"]["places"][0]
+    r = runner.host_read("agentplot", "deneb", TIP, branch(answers=answer(n, "launched", p["place"]), places=placed(n, status, p["place"])), {})
+    launch = held(rec(n, "launch", work, Base=base))[0]
+    return p, runner.stage_of(work, launch, r["answers"][n], r["places"][n], True)
+
+
 class TestStageOf:
     """A crossed piece reads its stage from its launch, the runner's answer and Flume's status of its place, in Decision
     8's order, every field of Flume's guarded (read.2)."""
@@ -337,6 +347,30 @@ class TestStageOf:
             "The code stage of the-flake-configures-each-tool-by-its-own-module cannot start:")
         assert p["waiting_on"]["open_until"] and [e["key"] for e in p["ends"]][-1] == "stage/code/1/ended-short"
         assert runner.answer_retry("unit/the-flake-configures-each-tool-by-its-own-module", got) == ("stage", "code")
+
+    def test_a_place_past_its_bound_waits_on_its_caller_at_the_stage_it_waits_to_retry(self):
+        """bolt-plan "A place past its bound", on flume 0.17.0's own status (tests/py/flume-0.17.0/past-bound.json):
+        request 362's place as deneb's runner carried it at 05:27:38Z on 2026-11-08, its fourth verify delivered and its
+        submission #24 in conflict, gone back three times, as often as its kind allows, so Flume says it waits on its
+        caller to retry code past its bound; it reads waits at code with Flume's words, never at verify (Decision 1)."""
+        p, got = flume_17("past-bound")
+        assert (p["current"], p["stages"][2]["state"], p["waiting_on"]["why"]) == ("verify", "delivered", "past_bound")
+        assert got == {"stage": "waits", "of": "code", "why": "past_bound", "words": p["waiting_on"]["words"], "held": False,
+                       "place": p["place"], "tasks": (37, 37)}
+        assert got["words"].startswith("the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process")
+        assert runner.piece_said(got) == ("waits", "waits on its caller at code: " + got["words"].splitlines()[0])
+        assert runner.piece_said(got)[1].endswith("sluice wait 24 shows it.")
+
+    def test_a_place_waiting_on_a_retry_of_its_submission_waits_at_its_submission(self):
+        """bolt-plan "A submission that waits on its retry", on flume 0.17.0's status made from request 362's
+        (tests/py/flume-0.17.0/submission-refused.json): its verify delivered and its submission refused by the merge
+        queue, so Flume says it waits on its caller to retry its submission, naming no stage; it reads waits with no
+        stage, unheld, and its line says it waits at its submission with Flume's words."""
+        p, got = flume_17("submission-refused")
+        assert got == {"stage": "waits", "of": None, "why": "submission", "words": p["waiting_on"]["words"], "held": False,
+                       "place": p["place"], "tasks": (37, 37)}
+        assert runner.piece_said(got) == ("waits", "waits on its caller at its submission: the merge queue refused the submission: "
+                                          + p["submission"]["verdict"]["refused"]["reason"])
 
     def test_refused_by_the_runner_it_is_refused_with_its_words(self):
         r = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "refused", words="no repository afterthought/crew in this runner's configuration")), {})
