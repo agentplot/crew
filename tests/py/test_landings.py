@@ -125,6 +125,19 @@ def test_a_landing_refused_at_the_bolts_present_head_holds_its_row():
     assert plan.refused_at([submitted("y", head, "no")], "y", head) == "no"
 
 
+def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held_for_its_fix():
+    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "A landing sluice sent back is the
+    bolt's fix"): a later crew bolt submit at the head sluice sent back, which sluice's driver refused with nothing
+    submitted and crew recorded stopped, leaves the row held for its fix, never given its box back as a stop of
+    sluice's."""
+    head = "d" * 40
+    entries = [dict(submitted("y", head, "#1474 failed: tests:logic on 41a7c09"), Submission="1474"),
+               dict(submitted("y", head), Outcome="stopped", Why="sluice itself failed (it said nothing), and sluice records no submission")]
+    row, = plan.landing_rows(["y"], {"y": facts("y", head)}, plan.refusals(entries), plan.stops(entries))
+    assert (row["box"], row["why"]) == (False, "landing rejected at ddddddd, open for work: it waits for a fix on the bolt: #1474 "
+                                               "failed: tests:logic on 41a7c09")
+
+
 def test_a_holds_reason_is_sluices_verdict_with_the_conflicts_paths_never_a_place_it_could_not_release():
     """The chore a-holds-reason-is-sluices-verdict-not-a-side-warning: sluice's wait on the landing's submission prints
     its record in conflict and says on standard error only that its round could not release another place (sluice

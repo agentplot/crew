@@ -140,6 +140,17 @@ tm=fix/tenant-environments/take-main-$m
 has "$out" "bolt tenant-environments takes main first: fix tenant-environments--take-main-$m is launched in switchboard-kit (request $(request_of "$tm")) for the runner that keeps it, taking origin/main at $m into the bolt"
 ok "crew bolt submit lands a bolt by a submission to main from a short-lived worktree, and a conflict lands nothing, leaves its pull request a draft, said with its link, and launches the bolt's take-main fix"
 
+# Submitted again at the head sluice sent back, nothing is submitted: the landing is the bolt's fix, not a stop, read
+# from sluice's record of the submission on the kit's host (bolt-teams "A landing sluice sent back is the bolt's fix").
+: > "$CREW_TEST_LOG"
+expect_fail "bolt/tenant-environments was not submitted: sluice sent its landing back at $(short origin/bolt/tenant-environments): #" \
+  crew bolt submit tenant-environments
+has "$out" " in conflict with main on README.md"
+has "$out" "It is the bolt's fix, not a stop: a conflict with what main has landed is the bolt's, and the fix crew launches on reading the refusal takes main into it, so start nothing for it; once that fix has merged into bolt/tenant-environments, crew bolt submit tenant-environments submits the landing again at its new head, on the send that ticked it."
+eq "$(calls | grep -c "^$box wt submit ")" 0
+eq "$(drafted "$pr")" true
+ok "a landing sluice sent back is the bolt's fix: submitted again at the same head, crew submits nothing and says the fix crew launched takes main in"
+
 # The take-main fix's Flume place merges main in, resolving the title, and is submitted to the bolt, which sluice lands
 # there.
 tmp=$T/flume/take-main
