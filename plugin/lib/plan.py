@@ -1190,10 +1190,19 @@ def request(w, act, work, **given):
 
 def appended(w):
     """A write that changes requests.rec only appends to it (runner.append_refusal): its requests at the tip the write
-    is applied to stand unchanged, in order, ahead of those it adds; refused otherwise."""
-    old = Plan(show(w.repo, w.tip, "requests.rec") or "").recs("Request")
-    why = runner.append_refusal([r.fields for r in old], [r.fields for r in Plan(w.files["requests.rec"]).recs("Request")])
+    is applied to stand unchanged, in order, ahead of those it adds, but for each rename the write makes (w.renaming),
+    through which the tip's requests are read, so a request changes by its repository's name alone and only in a
+    rename's write (Decision 6 of a-repository-is-renamed-by-one-explicit-command); refused otherwise."""
+    why = appended_refusal(show(w.repo, w.tip, "requests.rec") or "", w.files["requests.rec"], w.renaming)
     why is None or fail(why)
+
+
+def appended_refusal(was, now, renaming=()):
+    """Why requests.rec's text now is no append to its text at the tip (was), or None (runner.append_refusal), was read
+    through each rename of renaming, (old, new) in order, as the write's rename left it (rename_rec)."""
+    for old, new in renaming:
+        was = rename_rec(was, RENAMED_FIELDS["requests.rec"], old, new)[0]
+    return runner.append_refusal([r.fields for r in Plan(was).recs("Request")], [r.fields for r in Plan(now).recs("Request")])
 
 
 def either(rows):

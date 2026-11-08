@@ -4,6 +4,8 @@ plan's decision-record sources, requests.rec and the run record's entries on the
 kit.rename entry (plan.rename_branch, rename_rec), refused while the repository's work stands (rename_standing) or a host
 still keeps the old name (rename_kept), naming what stands (rename_refusal). The rename's one commit under a real recfix
 is the contract tier's (tests/contract/test_recfix.py)."""
+import pytest
+
 import plan
 import runner
 
@@ -157,3 +159,37 @@ class TestWhatTheRenameRenames:
         assert plan.rename_branch(w, "rocs-kit", "rocs") == 0
         assert (w.plan.text(), w.files["requests.rec"], w.files["runs/deneb/2026-10-30.rec"], w.renaming) == (
             text, SEAM_REQUESTS, DAY, [])
+
+
+class TestAppendOnly:
+    """Decision 6: requests.rec is changed only by appending, or by a rename's write, a request changing by its
+    repository's name alone."""
+
+    def renamed(self):
+        return SEAM_REQUESTS.replace("Repo: flywheel-cloud", "Repo: boomdrive-cloud").replace(
+            "Work: fix/main/flywheel-cloud/x", "Work: fix/main/boomdrive-cloud/x")
+
+    def test_a_renames_write_with_request_3_renamed_passes(self, monkeypatch):
+        assert plan.appended_refusal(SEAM_REQUESTS, self.renamed(), [("flywheel-cloud", "boomdrive-cloud")]) is None
+        w = madswan_branch()
+        plan.rename_branch(w, "flywheel-cloud", "boomdrive-cloud")
+        monkeypatch.setattr(plan, "show", lambda repo, tip, path: SEAM_REQUESTS if path == "requests.rec" else None)
+        plan.appended(w)
+        w.renaming.clear()
+        with pytest.raises(plan.Refusal, match="^request 3 would be changed in requests.rec"):
+            plan.appended(w)
+
+    def test_the_same_change_with_no_rename_on_the_write_is_refused(self):
+        assert plan.appended_refusal(SEAM_REQUESTS, self.renamed()) == (
+            "request 3 would be changed in requests.rec, and a request is never changed or removed: a later request "
+            "retries, drops or reprioritises what it launched")
+
+    def test_a_renames_write_that_also_changes_request_3s_name_is_refused(self):
+        now = self.renamed().replace("Name: x", "Name: y")
+        assert plan.appended_refusal(SEAM_REQUESTS, now, [("flywheel-cloud", "boomdrive-cloud")]).startswith(
+            "request 3 would be changed in requests.rec, and a request is never changed or removed")
+
+    def test_an_append_beside_a_rename_passes(self):
+        now = self.renamed() + "\n" + "\n".join(plan.Rec("Request", runner.request_fields(
+            4, "drop", "fix/main/boomdrive-cloud/x", dict(Of=3), "2026-11-07T12:00:00Z", "chuck@deneb")).lines()) + "\n"
+        assert plan.appended_refusal(SEAM_REQUESTS, now, [("flywheel-cloud", "boomdrive-cloud")]) is None
