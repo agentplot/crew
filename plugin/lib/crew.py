@@ -1796,11 +1796,41 @@ def head_here(root=None):
     return (r.stdout.strip() or None) if r.returncode == 0 else None
 
 
-def crew_version(root=None):
-    """This host's crew: (its checkout's commit, its version), the version being the release tag at or before the
-    commit, with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when
-    git can't read the checkout."""
-    root = str(root or HOME)
+# A build's release file, beside the code that reads it in the plugin folder a session loads: the commit crew's flake was
+# built from and the package's version (crew-flake), written by the build alone and never kept in the tree (code.10).
+RELEASE = "plugin/release.json"
+COMMIT = re.compile(r"[0-9a-f]{40}")
+# A package version that is a release's, as crew's tags name one without their v.
+RELEASED = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+
+
+def release_read(text):
+    """A build's release file checked field by field (read.2): ({"commit", "version"}, None), or (None, why) when it is
+    not a JSON object naming a full commit and a version."""
+    try:
+        got = json.loads(text)
+    except ValueError:
+        return None, "the release file is not JSON"
+    if not isinstance(got, dict):
+        return None, "the release file is not a JSON object"
+    commit, version = got.get("commit"), got.get("version")
+    if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
+        return None, "the release file names no commit"
+    if not isinstance(version, str) or not version:
+        return None, "the release file names no version"
+    return {"commit": commit, "version": version}, None
+
+
+def release_version(version, commit):
+    """The version crew shows for a build, as git describe gives a checkout's: v<x.y.z> where the package's version is a
+    release's, and otherwise the version with the commit's first seven characters, so two builds of a day read apart."""
+    return f"v{version}" if RELEASED.fullmatch(version) else f"{version}+{commit[:7]}"
+
+
+def git_version(root):
+    """A checkout's (commit, version) as git reads them, the version being the release tag at or before the commit,
+    with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when git
+    can't read the checkout."""
     r = subprocess.run(["git", "-C", root, "describe", "--tags", "--long", "--match", "v[0-9]*", "--abbrev=40", "HEAD"],
                        capture_output=True, text=True)
     m = re.fullmatch(r"(v[0-9]\S*)-([0-9]+)-g([0-9a-f]{40})", r.stdout.strip()) if r.returncode == 0 else None
@@ -1808,6 +1838,44 @@ def crew_version(root=None):
         return m.group(3), m.group(1) + ("" if m.group(2) == "0" else f"+{m.group(2)}")
     r = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True, text=True)
     return (r.stdout.strip() or None, None) if r.returncode == 0 else (None, None)
+
+
+def crew_read(root=None):
+    """What a crew root is, as facts: {root, commit, version, from, unread}. A checkout, where root/.git is there, a
+    folder or a linked worktree's file, read by git, from "checkout"; else a build whose release file is there, read
+    from it, from "release"; else nothing, from None. Whether root is a checkout is read from root/.git alone, never
+    from git's search upward, so a build kept under some repository is never read as it. unread says why nothing was
+    read, None when a commit was (read.1)."""
+    root = pathlib.Path(root or HOME)
+    out = {"root": str(root), "commit": None, "version": None, "from": None, "unread": None}
+    if (root / ".git").exists():
+        commit, version = git_version(str(root))
+        out.update({"commit": commit, "version": version, "from": "checkout"})
+        if not commit:
+            out["unread"] = f"git can't read the checkout {root}"
+        return out
+    path = root / RELEASE
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        out["unread"] = f"{root} has neither git nor a release file, {RELEASE}"
+        return out
+    except OSError as e:
+        out["unread"] = f"crew can't read {path}: {e.strerror or e}"
+        return out
+    got, why = release_read(text)
+    if got is None:
+        out["unread"] = f"{why} ({path})"
+        return out
+    out.update({"commit": got["commit"], "version": release_version(got["version"], got["commit"]), "from": "release"})
+    return out
+
+
+def crew_version(root=None):
+    """A crew's (commit, version) as crew_read reads them where it runs: a checkout's from git, a build's from its
+    release file; both None where it reads neither."""
+    got = crew_read(root)
+    return got["commit"], got["version"]
 
 
 def loaded_changed(old, new, root=None):
