@@ -286,36 +286,25 @@ class TestWhereABoltRuns:
         with pytest.raises(plan.Refusal, match="^no runner has reported taking atlas-kit's work yet"):
             plan.kit_at(FLEET, "madswan", "atlas-kit", (self.LAUNCHES, {"deneb": took("deneb", 1)}))
 
-    def test_a_launch_under_a_kits_former_name_is_its_kits_after_the_rename(self):
-        """Decision 3 of a-kit-renamed-on-its-host-is-renamed-across-the-plan: request 1 was launched in flywheel-cloud,
-        which madswan renamed boomdrive-cloud after; read through the renames (plan.launches_now) it is boomdrive-cloud's
-        work, for the kit (plan.kit_at) and for a batch's unit read from its bolt's launches (plan.batch_unit_at), and
-        requests.rec's record itself is left as written."""
-        renames = [("flywheel-cloud", "boomdrive-cloud")]
+    def test_a_launch_read_as_written(self, monkeypatch):
+        """bolt-plan "A launch read as written": request 1 was launched in flywheel-cloud, which madswan renamed
+        boomdrive-cloud after; crew reads it as flywheel-cloud's launch, for the kit (plan.kit_at), and plan.runner_facts
+        and the rail's plan.rail_runs give requests.rec's records as written."""
         launches = [launch(1, "unit/one-seam", "bolt/you-sign-in-to-staging", repo="flywheel-cloud")]
-        reads = {"deneb": took("deneb", 1, repository="/w/boomdrive-cloud")}
-        now = plan.launches_now(launches, renames)
-        at = plan.kit_at(FLEET, "madswan", "boomdrive-cloud", (now, reads))
-        assert (at["machine"], at["kit"]["name"], at["kit"]["main"]) == ("deneb", "boomdrive-cloud", "/w/boomdrive-cloud")
-        assert plan.batch_unit_at(FLEET, "madswan", "you-sign-in-to-staging", "one-seam", (now, reads))["kit"]["repo"] == "boomdrive-cloud"
-        assert [(f, v) for f, v in now[0].fields if f != "Repo"] == [(f, v) for f, v in launches[0].fields if f != "Repo"]
-        assert launches[0].get("Repo") == "flywheel-cloud"
+        reads = {"deneb": took("deneb", 1, repository="/w/flywheel-cloud")}
         with pytest.raises(plan.Refusal, match="^no runner has reported taking boomdrive-cloud's work yet"):
             plan.kit_at(FLEET, "madswan", "boomdrive-cloud", (launches, reads))
-
-    def test_a_commands_launches_are_read_through_the_renames_at_the_tip_they_were_read_at(self, monkeypatch):
-        """plan.runner_facts and the rail's plan.rail_runs read requests.rec and the renames at one tip."""
-        asked, text = [], runner.REQUESTS + "".join(f"\n{f}: {v}" for f, v in launch(1, "unit/a", "bolt/x", repo="flywheel-cloud").fields)
+        at = plan.kit_at(FLEET, "madswan", "flywheel-cloud", (launches, reads))
+        assert (at["machine"], at["kit"]["name"], at["kit"]["main"]) == ("deneb", "flywheel-cloud", "/w/flywheel-cloud")
+        text = runner.REQUESTS + "".join(f"\n{f}: {v}" for f, v in launches[0].fields)
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", "refs/crew/madswan/main"))
         monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "t1")
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: text if path == "requests.rec" else None)
-        monkeypatch.setattr(plan, "renames_at", lambda repo, tip: asked.append(tip) or [("flywheel-cloud", "boomdrive-cloud")])
         monkeypatch.setattr(plan, "runners", lambda repo, label: {})
         requests, _ = plan.runner_facts(FLEET, "madswan")
-        assert [r.get("Repo") for r in requests] == ["boomdrive-cloud"]
+        assert [r.get("Repo") for r in requests] == ["flywheel-cloud"]
         runs = plan.rail_runs([("madswan", "o/state", "t2", plan.Plan(flume_plan([("x", None, "flume")])))])
-        assert [r.get("Repo") for r in runs["madswan"][0]] == ["boomdrive-cloud"] and asked == ["t1", "t2"]
-
+        assert [r.get("Repo") for r in runs["madswan"][0]] == ["flywheel-cloud"]
 
 def test_a_partitions_hosts_are_its_main_levels_and_its_runners():
     """Decision 5: deneb, madswan's main level's, and alpha, where a runner answers for it, each once."""

@@ -248,14 +248,14 @@ class TestTheStartedBoltLands:
                                           {"madswan": run}) if r["group"] == "land"]
 
     def test_one_seam_reads_merged_and_the_bolt_lands_in_the_renamed_clone_on_land_boomdrive_cloud(self):
-        """request 1, launched under flywheel-cloud, is read as boomdrive-cloud's (plan.launches_now), one-seam reads
-        merged at 84393d4 from deneb's place, the bolt is read and landed in the folder deneb's runner reports for
-        agentplot/boomdrive-cloud over the place's stale one, and it is a row of land/boomdrive-cloud; requests.rec is
-        as it was."""
+        """bolt-plan "A started bolt renamed lands in its kit's clone": request 1, launched under flywheel-cloud, is read
+        as written, the bolt's launches found by its branch; one-seam reads merged at 84393d4 from deneb's place, the bolt
+        is read and landed in the folder deneb's runner reports for agentplot/boomdrive-cloud over the place's stale one,
+        and it is a row of land/boomdrive-cloud; requests.rec is as it was."""
         w = written()
         rename(w, "flywheel-cloud", "boomdrive-cloud")
         assert w.files == {"requests.rec": REQUESTS}
-        requests = plan.launches_now(plan.Plan(REQUESTS).recs("Request"), w.renames())
+        requests = plan.Plan(REQUESTS).recs("Request")
         run = (requests, deneb())
         s = runner.piece_stage(requests, run[1], runner.launch_of(requests, f"unit/{SEAM}"))
         assert (s["stage"], s["commit"]) == ("merged", COMMIT)
