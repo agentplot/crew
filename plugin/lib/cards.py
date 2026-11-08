@@ -1767,7 +1767,9 @@ def close_words(got, outcome=None, reason=None):
 
 def close_call(got, card, name, outcome=None, reason=None, here=False):
     """How crew closes a card, from get_request's answer: one the user answered acked at its version with what was
-    done on it, the outcome, or the reason it is withdrawn; one still waiting withdrawn with the reason, or the
+    done on it, the outcome, or, where the event gives only a reason, the reason as its outcome, and closed, never
+    withdrawn, since a withdrawal is for a card nobody answered and the user reads the ack's words as what became of
+    their answer (record 0031 §1; rail-cards "A card the user answered is closed, never withdrawn"); one still waiting withdrawn with the reason, or the
     outcome (close_words), or, with here, the user having answered it in a conversation, as a landing said in ops's
     pane is (plan.16), cancelled as answered there (Pending You's answeredHere) and closed. Either is cut to OUTCOME
     characters, since Pending You refuses a longer one (proposal 142's close on 2026-10-18: "outcome: Too big: expected
@@ -1776,8 +1778,7 @@ def close_call(got, card, name, outcome=None, reason=None, here=False):
     words = close_words(got, outcome, reason)
     said = cut(words, OUTCOME) if isinstance(words, str) else words
     if got.get("status") == "answered":
-        return ("ack_answer", {"requestId": card, "name": name, "expectedVersion": version_of(got, card), "outcome": said},
-                "closed" if outcome is not None else "withdrawn")
+        return "ack_answer", {"requestId": card, "name": name, "expectedVersion": version_of(got, card), "outcome": said}, "closed"
     if here:
         return "cancel_request", {"requestId": card, "name": name, "reason": said, "answeredHere": True}, "closed"
     return "cancel_request", {"requestId": card, "name": name, "reason": said}, "withdrawn"

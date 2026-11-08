@@ -10,7 +10,7 @@ Each pytest check runs from `tests/.venv`, synced by `devenv shell -- moon run t
 
 ## 2. An answered card is closed and keeps its send
 
-- [ ] 2.1 A card the user answered is acked and recorded closed whether its close gives an outcome or only a reason, and a card still waiting is withdrawn as before (design, Decision 4; Task notes 2.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_cards.py` passes.
+- [x] 2.1 A card the user answered is acked and recorded closed whether its close gives an outcome or only a reason, and a card still waiting is withdrawn as before (design, Decision 4; Task notes 2.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_cards.py` passes.
 - [ ] 2.2 Every close of an answered kit's landings card carries the ticked bolts as `Heads`, and a raise that reads its card ended in Pending You records it closed with its answer and send and posts with no row for a bolt the send still lands (design, Decision 4; Task notes 2.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_landings.py` passes.
 - [ ] 2.3 The sweep leaves an answered landings card open, said as waiting on ops, while a bolt it ticked has neither landed nor been dropped, though the kit's row is gone (design, Decision 5; Task notes 2.3). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
 

@@ -2601,6 +2601,16 @@ class TestActDecisions:
         assert built.close_call({"status": "pending", "version": 1}, "req_a", "wldn-ops", reason="A newer head") == (
             "cancel_request", {"requestId": "req_a", "name": "wldn-ops", "reason": "A newer head"}, "withdrawn")
 
+    def test_a_card_the_user_answered_is_closed_with_the_reason_as_its_outcome_and_never_withdrawn(self):
+        """rail-cards "A card the user answered is closed, never withdrawn": agentplot's land/sluice card, approved,
+        closed by the sweep with a reason alone, its row gone (design Decision 4); a card still waiting is withdrawn."""
+        why = "nothing waits to land on sluice's main"
+        assert built.close_call({"status": "answered", "version": 3}, "req_5f", "agentplot-ops", reason=why) == (
+            "ack_answer", {"requestId": "req_5f", "name": "agentplot-ops", "expectedVersion": 3, "outcome": why}, "closed")
+        assert built.close_call({"status": "answered", "version": 3}, "req_5f", "agentplot-ops", outcome="Landed: a")[2] == "closed"
+        assert built.close_call({"status": "pending", "version": 1}, "req_5f", "agentplot-ops", reason=why) == (
+            "cancel_request", {"requestId": "req_5f", "name": "agentplot-ops", "reason": why}, "withdrawn")
+
     def test_a_waiting_card_answered_in_a_conversation_is_cancelled_as_answered_there_and_closed(self):
         """plan.16: a landing said in ops's pane closes its card as answered in the conversation (Pending You's
         cancel_request answeredHere, read from its MCP schema on 2026-10-22); a card the user tapped is acked as before."""
