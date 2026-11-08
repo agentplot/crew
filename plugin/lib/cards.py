@@ -199,21 +199,40 @@ def followed_open(entries, card, by):
     return key
 
 
-def lost(words):
-    """Whether Pending You's refusal says it no longer finds the card: what a card posted under another sign-in reads
-    as to its owner once the host has signed in again (ADR 0005 as amended 2026-10-11)."""
-    return isinstance(words, str) and words.lower().startswith("not found")
+HOLDER = re.compile(r"This is (\S+?)'s card\b")  # Pending You's refusal of a card to any name but its holder's
+
+
+def held_elsewhere(words, owner):
+    """Whether Pending You's refusal of a read, change or close made in the name of the card's recorded owner says
+    another assistant holds it: "This is <name>'s card", <name> not the owner (design Decision 6 of
+    a-wait-on-the-user-is-one-open-card-the-rail-agrees-with), as madswan's batch cards 16 to 31, posted under
+    swancloud-planner's name, were refused to madswan-planner on every close from 2026-10-25."""
+    m = HOLDER.match(words) if isinstance(words, str) and owner else None
+    return bool(m) and m.group(1) != owner
+
+
+def lost(words, owner=None):
+    """Whether Pending You's refusal says the card is lost to its owner: that it no longer finds the card, what a card
+    posted under another sign-in reads as to its owner once the host has signed in again (ADR 0005 as amended
+    2026-10-11); or, given the owner the refused call was made in the name of, that another assistant holds it
+    (held_elsewhere). crew's own asks in its own name, which Pending You refuses as the holder's card by design, give
+    no owner."""
+    return isinstance(words, str) and (words.lower().startswith("not found") or held_elsewhere(words, owner))
 
 
 def lost_said(key, card, words):
     """The refusal of a read of a lost card: the card is still the user's to see, but no longer its owner's to reach. A
     row's card, while its row still waits, the rail's next read posts again under the key, the summary saying the older
-    copy is dead; a question its asker asks again, if it still matters."""
+    copy is dead; a question its asker asks again, if it still matters. A card held in another assistant's name is said
+    so, naming that assistant."""
     again = ("While the row still waits, the rail's next read posts it again under its key, its summary saying an older "
              "copy is dead and to dismiss it in the app" if row_object(key) else
              "Ask it again if it still matters, saying in it that an older copy is dead and to dismiss it in the app")
-    return (f"card {card} under {key} is lost to its owner (Pending You: \"{words}\"): it was posted under another "
-            f"sign-in than this host's, and the user may still see it and answer it, to nobody. {again}")
+    m = HOLDER.match(words) if isinstance(words, str) else None
+    how = (f"Pending You holds it in {m.group(1)}'s name, not its owner's" if m else
+           "it was posted under another sign-in than this host's")
+    return (f"card {card} under {key} is lost to its owner (Pending You: \"{words}\"): {how}, and the user may still "
+            f"see it and answer it, to nobody. {again}")
 
 
 # A name crew raises its own cards in: a partition's planner, main-level ops or design agent (plan.row_owner, the

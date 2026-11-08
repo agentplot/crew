@@ -1618,6 +1618,49 @@ class TestSweep:
         (close,) = acts.emitted
         assert (close["State"], close["Answer"], close["Heads"]) == ("closed", "ticked a, left b", "a@1111111")
 
+    # A card Pending You holds in another assistant's name is lost to its recorded owner (design Decision 6).
+    @staticmethod
+    def held_by(holder):
+        words = f"This is {holder}'s card; leave it. You're \"x\": act only on the cards you posted."
+        return lambda args: (None, words), words
+
+    def test_a_gone_batch_card_held_in_another_name_is_recorded_lost_and_no_longer_a_stray(self):
+        """rail-cards "A batch card posted under another name": as madswan's batch/16 card, here wldn's, posted under
+        swancloud-planner's name, its batch answered in a pane."""
+        b16 = card("batch/16", "req_ea", "wldn-planner")
+        refusal, words = self.held_by("swancloud-planner")
+        answered = did("batch.answer", 60, Key="batch/16", By="wldn-ops")
+        out, acts = swept(cards_=[b16], entries=[answered], answers={"get_request": refusal, "list_pending": ({"requests": []}, None)})
+        assert [(t, a["name"]) for _, t, a in acts.calls] == [("get_request", "crew"), ("list_pending", "wldn-planner"),
+                                                              ("get_request", "wldn-planner")]
+        assert [(e["Act"], e["State"], e["Card"], e["Outcome"]) for e in acts.emitted] == [
+            ("card.close", "lost", "req_ea", f"lost to its owner: {words}")]
+        assert [(d["did"], d["words"]) for d in out["done"]] == [("lost", "its row is gone, so nobody posts it again")]
+        assert plan.swept_cards([b16], out, "mac-studio", NOW) == []
+
+    def test_a_held_rows_card_in_another_name_is_posted_again_in_its_owners_name_saying_the_older_copy_is_dead(self):
+        """rail-cards "A row's card posted under another name": proposal/12's card, wldn-planner's in the run record,
+        refused to wldn-planner as swancloud-planner's."""
+        build = lambda facts: dict(key="proposal/12", card={"kind": "approval", "title": "Proposal 12", "summary": "Two units."})
+        raise_proposal = lambda fleet, r, acts=None: plan.row_card_change(fleet, r["label"], "wldn-planner", build, {}, "x",
+                                                                          ("/kit/main", "github.com/o/k"), acts)
+        p12 = card("proposal/12", "req_69", "wldn-planner")
+        refusal, words = self.held_by("swancloud-planner")
+        out, acts = swept(rows_=[row("proposal/12")], cards_=[p12], proposed=(12,), raises={"proposal": raise_proposal},
+                          answers={"get_request": refusal, "list_pending": ({"requests": []}, None),
+                                   "match_area": ({"decision": "use", "suggestions": [{"areaId": "prj_k"}]}, None),
+                                   "post_request": ({"requestId": "req_70", "version": 1}, None)})
+        posted = next(a for _, t, a in acts.calls if t == "post_request")
+        assert posted["session"]["label"] == "wldn-planner" and posted["summary"].startswith(cards.DEAD)
+        assert [(e["Act"], e.get("State"), e["Card"]) for e in acts.emitted] == [("card.close", "lost", "req_69"), ("card.post", None, "req_70")]
+        assert out["done"] == [dict(label="wldn", key="proposal/12", card="req_69", by="wldn-planner", did="lost", words="posted again as req_70", new="req_70")]
+
+    def test_crews_own_ask_refused_as_another_holders_card_is_not_read_as_lost(self):
+        p12 = card("proposal/12", "req_69", "wldn-planner")
+        refusal, _ = self.held_by("swancloud-planner")
+        out, acts = swept(rows_=[row("proposal/12")], cards_=[p12], proposed=(12,), answers={"get_request": refusal})
+        assert out["done"] == [] and acts.emitted == []
+
     def test_an_owner_whose_list_cant_be_read_has_none_of_its_cards_read(self):
         p57 = card("proposal/57", "req_57", "wldn-planner")
         for listed in [(None, "Pending You refused list_pending: busy"), ({"total": 0}, None)]:

@@ -17,7 +17,7 @@ Each pytest check runs from `tests/.venv`, synced by `devenv shell -- moon run t
 ## 3. A closed card leaves the rail
 
 - [x] 3.1 A card the sweep finds ended in Pending You is recorded closed or withdrawn on that read, sending Pending You nothing, and a row that still waits is then a row with none (design, Decision 5; Task notes 3.1). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
-- [ ] 3.2 A card Pending You refuses to its recorded owner as another assistant's is lost to that owner, posted again in the owner's name while its row waits and by nobody once its row is gone (design, Decision 6; Task notes 3.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_cards.py tests/py/test_rail.py` passes.
+- [x] 3.2 A card Pending You refuses to its recorded owner as another assistant's is lost to that owner, posted again in the owner's name while its row waits and by nobody once its row is gone (design, Decision 6; Task notes 3.2). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_cards.py tests/py/test_rail.py` passes.
 - [ ] 3.3 A row's card line names the one card open in the row owner's name, each other card under its key is named apart as not the row's, and a stray card whose close was refused is listed with the refusal's words (design, Decision 7; Task notes 3.3). Verify `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
 
 ## 4. The rail says what each card waits on

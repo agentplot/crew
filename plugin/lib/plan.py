@@ -3395,7 +3395,7 @@ def kit_card_state(acts, label, key, owner, card, entries):
     except Refusal as e:
         return None, str(e)
     if words is not None:
-        if cards.lost(words):
+        if cards.lost(words, owner):
             card_lost(acts, label, owner, key, card, words)
             return {"status": None}, None
         return None, f"Pending You refused get_request: {words}"
@@ -13505,7 +13505,7 @@ def batch_card_read(fleet, label, key, who, as_json=False, acts=None):
                 got, words = py.answer("get_request", {"requestId": card, "name": owner})
         except Refusal as e:
             words = str(e)
-        if words is not None and cards.lost(words):
+        if words is not None and cards.lost(words, owner):
             card_lost(acts, label, owner, key, card, words)
             card = None
         elif words is not None:
@@ -14943,7 +14943,8 @@ def answer_seen(acts, label, owner, key, card, got, entries, heads=None, offered
 
 
 def card_lost(acts, label, owner, key, card, words):
-    """A card Pending You no longer finds for its owner, recorded closed as lost so it is held no longer."""
+    """A card Pending You no longer finds for its owner, or holds in another assistant's name (cards.lost), recorded
+    closed as lost so it is held no longer, its words naming who holds it when they do."""
     acts.emit(label, "card.close", [cards.row_object(key, acts.kits(label)) or f"agent/{owner}"], by=owner, Card=card, Key=key, State="lost",
               Outcome=f"lost to its owner: {words}")
     print(f"card {key}: {card} is lost to {owner} (Pending You: \"{words}\")", file=sys.stderr)
@@ -14992,7 +14993,7 @@ def row_card_change(fleet, label, owner, build, facts, note, where, acts=None, k
                 change = dict(cards.change_args(b["card"], note), requestId=card, name=owner,
                               expectedVersion=cards.version_of(got, card))
                 got, lost = py.answer("update_request", change)
-            if lost is not None and not cards.lost(lost):
+            if lost is not None and not cards.lost(lost, owner):
                 what = {"closed": "close of the card the user answered", "withdrawn": f"withdrawal of the card, {why}"}
                 fail(f"Pending You refused the {what.get(state, 'change')}: {lost}")
             if lost is None and how == "change":
@@ -15081,7 +15082,7 @@ def card_closed(acts, label, owner, key, outcome, reason, said=None, here=False,
             elif lost is None:
                 tool, args, state = cards.close_call(got, card, owner, outcome if said is None else said, reason, here)
                 _, lost = py.answer(tool, args)
-            if lost is not None and not cards.lost(lost):
+            if lost is not None and not cards.lost(lost, owner):
                 fail(f"Pending You refused the close: {lost}")
     except Refusal as e:
         acts.emit(label, "card.close", [obj], by=owner, refused=str(e), Card=card, Key=key)
@@ -15458,7 +15459,7 @@ def question_close(acts, label, c, words):
             elif lost is None:
                 tool, args, state = cards.close_call(got, card, who, reason=words)
                 _, lost = py.answer(tool, args)
-            if lost is not None and not cards.lost(lost):
+            if lost is not None and not cards.lost(lost, who):
                 fail(f"Pending You refused the close: {lost}")
     except Refusal as e:
         acts.emit(label, "card.close", [f"agent/{who}"], by=who, refused=str(e), Card=card, Key=key)
@@ -15633,7 +15634,9 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
     host's sign-in can't reach, posted from another host or lost to its owner, while the row's owner runs here, is
     posted again through its kind's raise, its summary saying the older copy is dead, the older copy reported lost and
     never asked after nor closed from here, and a raise that posts none reported left (sweep_judged's again, briefs.11,
-    briefs.12, read.1). A host not signed in,
+    briefs.12, read.1). A card its owner's read finds Pending You holds in another assistant's name is lost to its owner
+    (cards.lost given the owner, Decision 6), as one Pending You no longer finds is: its row's card posted again in the
+    owner's name while its row waits, and recorded lost, posted by nobody, once its row is gone. A host not signed in,
     or a bridge that fails, changes nothing more, and is said, as is a partition whose record could not be read from its
     branch, which records no close either (read.1). crew board sweeps nothing (state.4). Returns {done: [{label, key,
     card, by, did, words, new}], unswept: [{label, why}]}, did answered, closed, withdrawn, lost, posted or left, a
@@ -15666,6 +15669,16 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
 
     def did(l, key, card, by, what, words, new=None):
         out["done"].append(dict(label=l, key=key, card=card, by=by, did=what, words=words, new=new))
+
+    def lost_words(c):
+        """Pending You's words when a card is lost to its owner: its own ask's "not found", or the owner's read of it
+        refused as another assistant's card (cards.lost given the owner, design Decision 6), which crew's own ask, in
+        its own name, is refused as by design; None when it is not."""
+        words = found.get(c["card"], (None, None))[1]
+        if cards.lost(words):
+            return words
+        theirs = mine.get(c["card"], (None, None))[1]
+        return theirs if cards.lost(theirs, c["by"]) else None
 
     def raised(l, row, owner):
         """The row's card posted through its kind's raise, in record 0031's key form alone: its id, or None, with
@@ -15711,8 +15724,8 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
         for c, outcome, reason in j["gone"]:
             if c["card"] not in found or c["card"] in waiting:
                 continue
-            words = found[c["card"]][1]
-            if cards.lost(words):
+            words = lost_words(c)
+            if words:
                 card_lost(acts, l, c["by"], c["key"], c["card"], words)
                 did(l, c["key"], c["card"], c["by"], "lost", ("its row is gone" if card_kind(c["key"]) == "row" else "its record is settled")
                     + ", so nobody posts it again")
@@ -15736,10 +15749,11 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
         for c in j["questions"]:
             if c["card"] not in found:
                 continue
-            words = found[c["card"]][1]
-            if cards.lost(words):
+            words = lost_words(c)
+            if words:
                 card_lost(acts, l, c["by"], c["key"] or "", c["card"], words)
-                did(l, c["key"], c["card"], c["by"], "lost", "this host's sign-in no longer reaches it")
+                did(l, c["key"], c["card"], c["by"], "lost", "this host's sign-in no longer reaches it" if cards.lost(words)
+                    else f"Pending You holds it in another name: {words}")
                 continue
             if listed is not None and c["by"] not in listed:
                 continue
@@ -15751,8 +15765,8 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
                 did(l, c["key"], c["card"], c["by"], state or "left", {None: "its close did not go through, as said above",
                                                                        "lost": "this host's sign-in no longer reaches it"}.get(state, f"{c['by']} ended"))
         for c, row in j["held"]:
-            words = found.get(c["card"], (None, None))[1]
-            if not cards.lost(words):
+            words = lost_words(c)
+            if not words:
                 continue
             new, kind_raises = raised(l, row, c["by"])
             if new:
@@ -15761,7 +15775,8 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
                 card_lost(acts, l, c["by"], c["key"], c["card"], words)
                 did(l, c["key"], c["card"], c["by"], "lost", f"crew raises no card for {c['key']} on a rail read, so {c['by']} raises it again with the command that raised it")
             elif kind_raises:
-                did(l, c["key"], c["card"], c["by"], "left", "Pending You no longer finds it, and its raise posted none")
+                did(l, c["key"], c["card"], c["by"], "left", ("Pending You no longer finds it" if cards.lost(words) else
+                                                              "Pending You holds it in another name") + ", and its raise posted none")
         for row, older in j["again"]:
             owner = owners[row["key"]][0]
             new, kind_raises = raised(l, dict(row, dead=older), owner)
@@ -15771,7 +15786,7 @@ def sweep_cards(fleet, read, acts=None, answers=None, listed=None):
                 did(l, row["key"], older, owner, "left",
                     "its batch no longer waits to be read" if row["key"].startswith("batch/") else "its raise posted none")
         for c, row in j["unread"]:
-            if c["card"] not in found or cards.lost(found[c["card"]][1]):
+            if c["card"] not in found or lost_words(c):
                 continue
             try:
                 with acts.bridge(c["by"], SWEEP_LATER) as py:

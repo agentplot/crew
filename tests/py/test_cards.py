@@ -2611,6 +2611,22 @@ class TestActDecisions:
         assert built.close_call({"status": "pending", "version": 1}, "req_5f", "agentplot-ops", reason=why) == (
             "cancel_request", {"requestId": "req_5f", "name": "agentplot-ops", "reason": why}, "withdrawn")
 
+    # madswan-planner's close of its batch/16 card, refused on 2026-10-26 and on every close after: the card was posted
+    # under swancloud-planner's name (rail-cards "A card Pending You holds in another assistant's name is lost to its
+    # owner", design Decision 6).
+    HELD = "This is swancloud-planner's card; leave it. You're \"madswan-planner\": act only on the cards you posted."
+
+    def test_a_card_held_in_another_assistants_name_is_lost_to_its_recorded_owner_alone(self):
+        assert built.held_elsewhere(self.HELD, "madswan-planner") and built.lost(self.HELD, "madswan-planner")
+        assert not built.held_elsewhere(self.HELD, "swancloud-planner") and not built.lost(self.HELD, "swancloud-planner")
+        assert not built.lost(self.HELD), "crew's own ask, in its own name, is refused as the holder's card by design"
+        for words in ["Pending You refused the close: the service is down", "This card is at version 3, not 2: read it again.",
+                      "This request is already closed.", None]:
+            assert not built.lost(words, "madswan-planner") and not built.held_elsewhere(words, "madswan-planner")
+        assert built.lost("Not found: request:req_ea.", "madswan-planner") and built.lost("Not found: request:req_ea.")
+        said = built.lost_said("batch/16", "req_ea", self.HELD)
+        assert "Pending You holds it in swancloud-planner's name, not its owner's" in said
+
     def test_a_waiting_card_answered_in_a_conversation_is_cancelled_as_answered_there_and_closed(self):
         """plan.16: a landing said in ops's pane closes its card as answered in the conversation (Pending You's
         cancel_request answeredHere, read from its MCP schema on 2026-10-22); a card the user tapped is acked as before."""
