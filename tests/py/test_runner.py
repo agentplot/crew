@@ -399,6 +399,106 @@ class TestHostReadPreviews:
         assert "previews" not in r
 
 
+def asked(n, revision="abc1234", done=False, work="bolt/y", host="deneb"):
+    """A preview request as crew card preview writes it."""
+    return rec(n, "preview", work, **runner.preview_fields(host, "crew", "bolt/y" if work == "bolt/y" else "change/a", revision, done))
+
+
+def deneb(answers="", previews=""):
+    """The partition's runners as crew read them: deneb's alone, with these answers and previews."""
+    return {"deneb": runner.host_read("madswan", "deneb", TIP, branch(answers=answers, previews=previews), {})}
+
+
+class TestPreviewReport:
+    """A preview is read from the runner on the host it names alone (drive-state "A preview is read from the runner on
+    the host it names"; Decisions 2, 3 and 6)."""
+
+    def test_each_outcome_of_previews_rec(self):
+        r = asked(12)
+        held_ = runner.preview_report(deneb(previews=previewed(12, "held", words="sluice is at its bound")), r)
+        assert held_ == {"host": "deneb", "head": "abc1234", "at": "2026-11-08T12:03:00Z", "state": "held", "words": "sluice is at its bound"}
+        refused = runner.preview_report(deneb(previews=previewed(12, "refused", words="no [preview] at abc1234")), r)
+        assert (refused["state"], refused["words"]) == ("refused", "no [preview] at abc1234")
+        up = runner.preview_report(deneb(previews=previewed(12, "done", text=UP, status=UP, listed="yes")), r)
+        assert up == {"host": "deneb", "head": "abc1234", "at": "2026-11-08T12:03:00Z", "state": "up", "name": "crew-y",
+                      "addresses": UP["addresses"]}
+        failed = runner.preview_report(deneb(previews=previewed(12, "done", text=UP, status=dict(UP, state="failed"), listed="yes")), r)
+        assert (failed["state"], "addresses" in failed, "output" in failed) == ("failed", False, False)
+
+    def test_sluices_listing_wins_over_its_answer(self):
+        """drive-state "A preview the runner answered": the listing's state, else the answer's."""
+        report = runner.preview_report(deneb(previews=previewed(12, "done", text=dict(UP, state="starting"), status=UP, listed="yes")), asked(12))
+        assert report["state"] == "up"
+        report = runner.preview_report(deneb(previews=previewed(12, "done", text=dict(UP, state="starting"))), asked(12))
+        assert (report["state"], report["addresses"]) == ("starting", UP["addresses"])
+
+    def test_listed_no_reads_unlisted(self):
+        report = runner.preview_report(deneb(previews=previewed(12, "done", text=UP, status=UP, listed="no")), asked(12))
+        assert report["state"] == "unlisted"
+
+    def test_a_refused_answer_is_read_as_refused_in_the_runners_words(self):
+        """drive-state "A runner before previews"."""
+        words = "its Act preview, which crew's implementation does not read"
+        report = runner.preview_report(deneb(answers=answer(12, "refused", words=words)), asked(12))
+        assert (report["state"], report["words"]) == ("refused", words)
+
+    def test_no_answer_reads_asked(self):
+        assert runner.preview_report(deneb(answers=answer(11, "launched", "/p")), asked(12)) == {
+            "host": "deneb", "head": "abc1234", "state": "asked"}
+
+    def test_the_host_unread_reads_unread(self):
+        unread = {"deneb": runner.host_read("madswan", "deneb", TIP, dict(branch(), **{"previews.rec": None}),
+                                            {"previews.rec": "previews.rec fails recfix --check"})}
+        report = runner.preview_report(unread, asked(12))
+        assert (report["state"], report["why"]) == (
+            "unread", "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec fails recfix --check")
+        report = runner.preview_report({}, asked(12))
+        assert (report["state"], report["why"]) == ("unread", "no runner answers on deneb, the host preview 12 names")
+        report = runner.preview_report(deneb(previews=previewed(12, "done", status="{not json", listed="yes")), asked(12))
+        assert report["state"] == "unread" and "previews.rec's Status of the preview of request 12 is no JSON" in report["why"]
+
+    @pytest.mark.parametrize("doc, why", [
+        (dict(UP, state="stopped"), 'gives state "stopped", which crew does not read'),
+        (dict(UP, addresses=["http://deneb:4310"]), "gives addresses that are no object of text"),
+        (dict(UP, name=7), "gives no name crew reads")])
+    def test_a_field_crew_does_not_read_reads_unread_naming_it(self, doc, why):
+        report = runner.preview_report(deneb(previews=previewed(12, "done", status=doc, listed="yes")), asked(12))
+        assert report["state"] == "unread" and report["why"].endswith(why)
+        assert report["why"].startswith("madswan/runner/deneb's previews.rec, request 12: sluice's preview")
+
+    def test_an_ask_stands_until_a_done_or_a_refusal_and_again_after_a_bring_up(self):
+        """drive-state "Put away, then asked again"."""
+        one = held(asked(12))
+        assert runner.previews_standing(one, deneb()) == {("deneb", "crew", "abc1234"): one[0]}
+        two = held(asked(12), asked(13, done=True))
+        assert runner.previews_standing(two, deneb()) == {}
+        three = held(asked(12), asked(13, done=True), asked(14))
+        assert runner.previews_standing(three, deneb()) == {("deneb", "crew", "abc1234"): three[2]}
+        assert runner.previews_standing(one, deneb(previews=previewed(12, "refused", words="no"))) == {}
+        assert runner.previews_standing(one, deneb(answers=answer(12, "refused", words="no"))) == {}
+        assert runner.previews_standing(one, {}) == {("deneb", "crew", "abc1234"): one[0]}
+        other = held(asked(12), asked(13, revision="def5678", done=True))
+        assert list(runner.previews_standing(other, deneb())) == [("deneb", "crew", "abc1234")]
+
+    def test_ask_step_keeps_a_standing_ask_and_asks_again_after_a_failure(self):
+        ask = asked(12)
+        assert runner.ask_step(None, None) == "ask"
+        for state in ("asked", "held", "waiting", "starting", "up"):
+            assert runner.ask_step(ask, {"state": state}) == "keep"
+        for state in ("refused", "failed", "unlisted", "unread"):
+            assert runner.ask_step(ask, {"state": state}) == "ask"
+
+    def test_preview_word_of_each_shape(self):
+        h = {"head": "abc1234"}
+        assert runner.preview_word(dict(h, branch="bolt/y", state="ask")) == "ask"
+        assert [runner.preview_word(dict(h, host="deneb", state=s)) for s in ("asked", "held", "failed", "refused", "unlisted")] == [
+            "asked", "held", "failed", "refused", "unlisted"]
+        assert [runner.preview_word(dict(h, name="n", addresses={}, state=s)) for s in ("waiting", "starting", "up")] == ["coming", "coming", "up"]
+        assert runner.preview_word(dict(h, why="crew can't read it")) == "unread"
+        assert runner.preview_word(dict(h, state="unread", why="crew can't read it")) == "unread"
+        assert runner.preview_word(None) is None
+
+
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 FLUME_17 = pathlib.Path(__file__).parent / "flume-0.17.0"
 CODE ="/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"

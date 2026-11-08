@@ -1209,3 +1209,117 @@ def role_launch(requests, named, label, role, host, stream, repo, name, brief):
     return ("launch", work, {
         "Repo": repo, "Kind": "chore", "Name": name, "Base": ROLE_BASE, "Host": host, "Stream": stream, "Priority": 0,
         "Intent": f"{label}-{role}", "Recipient": f"{label}/{role}", "Brief": brief}), None
+
+
+# ------------------------------------------------------------------------------------------------ a card's preview
+
+# A preview as sluice lists it, and as the runner carries sluice's answer and listing of it (Boomdrive's previews
+# spec): its states, the first while it waits for room on its host.
+PREVIEW_STATES = ("waiting", "starting", "up", "failed")
+# Each state of a card's preview in one word (Decision 4 of a-cards-preview-is-asked-of-the-runner), for a change
+# note and for what a card was told (preview_word).
+PREVIEW_WORDS = {"ask": "ask", "asked": "asked", "held": "held", "waiting": "coming", "starting": "coming", "up": "up",
+                 "failed": "failed", "refused": "refused", "unlisted": "unlisted", "unread": "unread"}
+
+
+def preview_requests(requests):
+    """The preview requests of requests.rec, bring-ups and dones, in its order."""
+    return [r for r in requests if r.get("Act") == "preview"]
+
+
+def sluice_preview(doc, at):
+    """sluice's answer or listing of a preview as the runner carried it (doc), its fields checked where crew reads them
+    (read.2): (name, state, addresses, None), or (None, None, None, why) naming the field that holds nothing crew
+    reads, at naming the file it came from. A failed one's addresses are not read."""
+    if not isinstance(doc, dict):
+        return None, None, None, f"{at}: sluice's preview, as the runner carried it, is no object crew reads"
+    name, state, addresses = doc.get("name"), doc.get("state"), doc.get("addresses")
+    if not (isinstance(name, str) and name):
+        return None, None, None, f"{at}: sluice's preview, as the runner carried it, gives no name crew reads"
+    if state not in PREVIEW_STATES:
+        return None, None, None, f"{at}: sluice's preview {name}, as the runner carried it, gives state {json.dumps(state)}, which crew does not read"
+    if state == "failed":
+        return name, state, {}, None
+    if not (isinstance(addresses, dict) and all(isinstance(k, str) and k and isinstance(v, str) and v for k, v in addresses.items())):
+        return None, None, None, f"{at}: sluice's preview {name}, as the runner carried it, gives addresses that are no object of text"
+    return name, state, dict(addresses), None
+
+
+def preview_report(reads, request):
+    """A preview request as the runner on the host it names reports it (Decisions 2 and 3 of
+    a-cards-preview-is-asked-of-the-runner; drive-state "A preview is read from the runner on the host it names"), from
+    facts alone (code.7): reads, the partition's runners as crew read them (host_read's, by host); request, a
+    preview's record of requests.rec. Returns {state, host, head, and what goes with it}, head the request's revision:
+    from that runner's previews.rec, held with its words; refused with its words; or done, its state, name and
+    addresses from sluice's listing where the runner carried it, else from sluice's answer, unlisted where sluice's last
+    listing no longer held it; else, where that runner refused the request in answers.rec, as one that cannot read it
+    does, refused with its words; else asked, as no runner has answered it yet. unread, with why, where that runner, or
+    the preview's JSON, can't be read (read.1). Each carries when the runner answered it (at), where it did."""
+    n, host = number(request.get("Request")), request.get("Host")
+    out = {"host": host, "head": request.get("Revision")}
+    reading = reads.get(host)
+    if reading is None:
+        return dict(out, state="unread", why=f"no runner answers on {host}, the host preview {n} names")
+    if reading.get("why"):
+        return dict(out, state="unread", why=reading["why"])
+    p = (reading.get("previews") or {}).get(n)
+    if p is not None:
+        out = dict(out, at=p.get("at"))
+        if p["outcome"] == "held":
+            return dict(out, state="held", **({"words": p["words"]} if p.get("words") else {}))
+        if p["outcome"] == "refused":
+            return dict(out, state="refused", words=p.get("words"))
+        if p["outcome"] != "done":
+            return dict(out, state="unread", why=f"{host}'s runner answered preview {n} {p['outcome']}, which crew does not read")
+        if p.get("why"):
+            return dict(out, state="unread", why=p["why"])
+        if p.get("listed") is False:
+            return dict(out, state="unlisted")
+        doc = p["status"] if p.get("status") is not None else p.get("text")
+        if doc is None:
+            return dict(out, state="unread", why=f"{host}'s runner answered preview {n} done, carrying neither sluice's answer nor its listing")
+        name, state, addresses, why = sluice_preview(doc, f"{reading['branch']}'s previews.rec, request {n}")
+        if why:
+            return dict(out, state="unread", why=why)
+        return dict(out, state=state, name=name, **({"addresses": addresses} if state != "failed" else {}))
+    a = reading["answers"].get(n)
+    if a is not None and a.get("Outcome") == "refused":
+        return dict(out, state="refused", words=a.get("Words"), at=a.get("At"))
+    return dict(out, state="asked")
+
+
+def previews_standing(requests, reads):
+    """crew's asks of previews that stand (Decision 2 of a-cards-preview-is-asked-of-the-runner), {(host, repo,
+    revision): the request}: for each host, repository and revision a preview request names, its newest, where that is
+    a bring-up the host's runner has not refused (preview_report). A done ends the ask, and so does the runner's
+    refusal; a bring-up written after a done stands again. One crew can't read stands, nothing ended on a reading crew
+    lacks (read.1)."""
+    newest = {}
+    for r in preview_requests(requests):
+        k = (r.get("Host"), r.get("Repo"), r.get("Revision"))
+        if k not in newest or (number(r.get("Request")) or 0) > (number(newest[k].get("Request")) or 0):
+            newest[k] = r
+    return {k: r for k, r in newest.items() if r.get("Done") != "yes" and preview_report(reads, r)["state"] != "refused"}
+
+
+def ask_step(ask, report):
+    """What crew card preview does with a thing's preview (Decision 6 of a-cards-preview-is-asked-of-the-runner;
+    rail-cards "Asked twice", "Asked again after a refusal"), from facts alone: ask, crew's standing ask of that
+    revision on that host (previews_standing), or None; report, the runner's report of it (preview_report). "keep"
+    while it stands and the runner has neither refused it nor reported it failed, unlisted or unread, the card given
+    back what it reports with no second request; "ask" otherwise, one bring-up written."""
+    if ask is None or report is None or report["state"] in ("refused", "failed", "unlisted", "unread"):
+        return "ask"
+    return "keep"
+
+
+def preview_word(shown):
+    """A card's preview, in the shape cards.preview_said takes it, in one word (Decision 4 of
+    a-cards-preview-is-asked-of-the-runner): ask, asked, held, coming (waiting or starting), up, failed, refused,
+    unlisted or unread, the last for a preview crew can't read ({head, why}); None for none."""
+    if not shown:
+        return None
+    state = shown.get("state")
+    if state is None:
+        return "unread" if shown.get("why") else None
+    return PREVIEW_WORDS.get(state, "unread")
