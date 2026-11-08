@@ -4,7 +4,7 @@
 
 - [x] 1.1 crew reads a root's release where it runs: a checkout's from git, a build's from `plugin/release.json`, checked field by field and shown as `v<x.y.z>` or `<version>+<seven>`, and nothing where it finds neither, saying why (design, Decision 1; Task notes 1.1). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_release.py'` exits 0.
 - [x] 1.2 crew's package writes `plugin/release.json`, the flake's commit and the package's version, where the flake knows its commit, and none where it does not, its `release` giving the same (design, Decision 2; Task notes 1.2). Verify `tests/suite nix:test nix:format nix:lint` ends with "0 failed".
-- [ ] 1.3 `crew _release` prints what its crew is as one line of JSON, from a checkout and from a build, reading nothing else (design, Decision 6; Task notes 1.3). Verify `tests/suite t-session-hook` ends with "0 failed".
+- [x] 1.3 `crew _release` prints what its crew is as one line of JSON, from a checkout and from a build, reading nothing else (design, Decision 6; Task notes 1.3). Verify `tests/suite t-session-hook` ends with "0 failed".
 - [ ] 1.4 `crew _release --help` prints its usage and exits 0, and the help test lists it among the commands crew dispatches (design, Decision 6; Task notes 1.4). Verify `tests/suite t-help` ends with "0 failed".
 - [ ] 1.5 A start from a build records the commit and version its release file names, and one from a build with none records neither (design, Decision 1; Task notes 1.5). Verify `tests/suite t-session-hook` ends with "0 failed".
 

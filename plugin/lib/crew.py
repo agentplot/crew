@@ -17,6 +17,8 @@
   crew.py found <agent>               an agent of this host as herdr lists it, one JSON object, its name given back in
                                       the pane crew keeps for it when herdr dropped it there from the session crew
                                       started (read_agent from another host)
+  crew.py _release                    what this crew is, crew_read of its own root, as one line of JSON, read before the
+                                      teams file and reading nothing else (crew _release)
   crew.py run-name                    the name and partition of the role's run FLUME_PLACE is, as shell assignments of
                                       CREW_AGENT and CREW_LABEL; nothing for a place that is no run
 
@@ -2417,7 +2419,22 @@ def standing(fleet, kind, label, force=False):
     return Agents(fleet, "console", label, label, label, state, (), sess["dir"], host, host, force)
 
 
+def release_cmd(argv):
+    """crew _release: what this crew is, crew_read of its own root, as one line of JSON, and nothing else; its usage
+    for -h or --help (code.11)."""
+    import argparse
+    ap = argparse.ArgumentParser(prog="crew _release", description=(
+        "What this crew is, as one line of JSON: its root, commit and version, where they were read from, \"checkout\" "
+        "from git, \"release\" from a build's plugin/release.json, or null, and why nothing was read where nothing "
+        "was. It reads nothing else and starts nothing, so one crew reads another it cannot import by it."))
+    answer_usage(ap, argv)
+    ap.parse_args(argv)
+    print(json.dumps(crew_read()))
+
+
 def main(a):
+    if a[:1] == ["_release"]:
+        return release_cmd(a[1:])
     fleet = load()
     if a[:1] == ["labels"]:
         print("\n".join(fleet["partitions"]))
