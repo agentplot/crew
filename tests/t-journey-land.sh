@@ -1,7 +1,8 @@
 # A bolt landed through sluice, through the crew command on the stubs (tests.11, record 0022), every team's work built
 # in Flume places (Decision 1 of the-team-machinery-leaves): each place, cut here as Flume cuts it, lands on its bolt
 # through the stub sluice and the runner on the box carries it landed, and a unit's change is recorded read in a
-# batch. crew bolts reads the bolt's verification from sluice's verdict on it; crew bolt land refuses a bolt whose
+# batch. crew bolts reads the bolt's verification from the runner's report of its work's landing at its head (crew
+# record 0056 points 1 and 4); crew bolt land refuses a bolt whose
 # unit's change is on its bolt and not on main; crew bolt submit lands the bolt by a submission to main from a
 # short-lived worktree, a conflict landing nothing, its pull request into main, in a kit whose main takes pull
 # requests, left a draft and said so, and the bolt's take-main fix launched (bolt-teams). Once that fix's place has
@@ -115,8 +116,8 @@ echo "# switchboard-kit, main's" > "$k/README.md"
 rewrite "$k/.config/sluice.toml" '/^\[branches.main\]$/,/^remote/ s/^remote = "origin"$/&\n\n[branches.main.pull_requests]\nreviews = 0/'
 commit_all "$k" "docs: main's title, and main takes pull requests"; push "$k"
 expect_ok crew bolts --label wldn
-has "$out" "verification: green, sluice's verdict on its last landing, $(short origin/bolt/tenant-environments): passed (stub)"
-ok "a unit's place merges into the bolt by a submission, and crew bolts reads the bolt's verification from sluice's verdict on it"
+has "$out" "verification: green, its head $(git -C "$k" rev-parse origin/bolt/tenant-environments | cut -c1-7) is a's landing, as the runner reports it"
+ok "a unit's place merges into the bolt by a submission, and crew bolts reads the bolt's verification from the runner's report of its landing at the bolt's head"
 
 # The bolt lands once its units have: submitted to main, which conflicts on the title.
 expect_fail "unit a has not landed on switchboard-kit's main: its place landed on bolt/tenant-environments at $(short origin/bolt/tenant-environments), which main does not hold" \

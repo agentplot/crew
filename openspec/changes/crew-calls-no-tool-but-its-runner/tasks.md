@@ -23,7 +23,7 @@ Submit nothing, and never run `wt submit --help`.
 - [x] 3.1 The board's follower keeps no sluice watch, asks no overview at its tick and keeps no submission of its own. A moved runner's branch is a host's move, and `crew _follow --once` still ticks once (design Decision 3; Task notes 3.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py'` exits 0.
 - [x] 3.2 A gather of a kit runs no sluice command. Its request hands in no queue, and its answer carries no `submissions`, `decided`, `overview` or `overviews`. crew's requests hand in none, `Kept` keeps none, and `stamped` asks no overview (design Decision 6; Task notes 3.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/contract/test_gather.py tests/py/test_bolt_submissions.py tests/py/test_board.py'` exits 0.
 - [x] 3.3 The running follower starts no `sluice` on any host, and a runner's report of a piece submitted as `#41` shows `submitted #41` on its line at the next refresh after the follower's fetch (design Decisions 3 and 7; Task notes 3.3). Verify `tests/suite t-journey-board` ends with "0 failed".
-- [ ] 3.4 `crew bolts` reads a bolt's verification from the runner's report of its work's landing at its head, end to end (design Decision 4; Task notes 3.4). Verify `tests/suite t-sluice t-journey-land` ends with "0 failed".
+- [x] 3.4 `crew bolts` reads a bolt's verification from the runner's report of its work's landing at its head, end to end (design Decision 4; Task notes 3.4). Verify `tests/suite t-sluice t-journey-land` ends with "0 failed".
 
 ## 4. The words
 
