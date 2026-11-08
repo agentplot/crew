@@ -372,6 +372,18 @@ class TestStageOf:
         assert runner.piece_said(got) == ("waits", "waits on its caller at its submission: the merge queue refused the submission: "
                                           + p["submission"]["verdict"]["refused"]["reason"])
 
+    def test_a_refusal_without_its_carry_says_when_its_runner_last_carried_it(self):
+        """crew answer's refusal of a live place in code with no question, given no carry of the runner's (Decision 2 of
+        a-place-waiting-on-its-caller-reads-waiting): it names the stage as its runner last carried it, with no host or
+        time, and never that there is nothing to answer."""
+        how, why = runner.answer_retry("unit/a", {"stage": "code", "place": "/crew/places/change--a", "tasks": (3, 7)})
+        assert how is None and why == (
+            "unit/a's place /crew/places/change--a was at code when its runner last carried it, with no question and nothing it "
+            "waited on its caller for: a wait Flume has told of since reaches crew with that runner's next carry, so answer "
+            "again once crew bolts shows the place waiting")
+        assert runner.answer_retry("unit/a", {"stage": "code", "place": "/p"}, ("deneb", "2026-11-08T05:26:37Z"))[1].startswith(
+            "unit/a's place /p was at code when deneb's runner carried it, at 2026-11-08T05:26:37Z, with no question")
+
     def test_refused_by_the_runner_it_is_refused_with_its_words(self):
         r = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "refused", words="no repository afterthought/crew in this runner's configuration")), {})
         assert runner.stage_of("unit/a", rec(3, "launch"), r["answers"][3], None, True) == {
