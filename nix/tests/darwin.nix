@@ -1,7 +1,8 @@
 # The crew-flake spec on nix-darwin (record 0058, flake.1, flake.2): the
 # module evaluated in a system of aarch64-darwin whose primary user is
 # alice, at /Users/alice, its activation read as text, its assertions, the
-# system profile, and the system beside the same one without it.
+# system profile, the system beside the same one without it, and the module
+# imported twice.
 t:
 let
   inherit (t) lib;
@@ -36,11 +37,16 @@ let
 
   # The same system without the module, crew installed in its profile by
   # hand, whose applications the activation copies: what differs is what
-  # the module adds beyond the package.
+  # the module adds beyond the package. crew is given one import deep, as
+  # the keyed module gives it, so the profile lists it in the same place.
   off = t.darwinSystem {
     services.crew.enable = lib.mkForce false;
-    environment.systemPackages = [ set.crew ];
+    imports = [ { environment.systemPackages = [ set.crew ]; } ];
   };
+
+  # The module imported again inside another module's imports, as a host
+  # imports it directly and through Boomdrive's.
+  twice = t.darwinSystem { imports = [ { imports = [ t.outputs.darwinModules.crew ]; } ]; };
 
   profileOf = evaluated: map (p: p.outPath) evaluated.config.environment.systemPackages;
   holds = evaluated: path: builtins.elem path (profileOf evaluated);
@@ -88,4 +94,14 @@ in
     ++ t.expect (
       builtins.replaceStrings [ link ] [ "" ] (activationOf base) == activationOf off
     ) "the activation, crew's link removed, is not the system's without crew";
+
+  "The module imported twice on nix-darwin" =
+    let
+      evaluates = (builtins.tryEval twice.system.drvPath).success;
+      declared = builtins.length twice.options.services.crew.enable.declarations;
+    in
+    t.expect evaluates "a system importing the module twice does not evaluate"
+    ++ lib.optionals evaluates (
+      t.expect (declared == 1) "services.crew.enable is declared ${toString declared} times"
+    );
 }
