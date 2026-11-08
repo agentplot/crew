@@ -281,6 +281,42 @@ def bolt_landings(main, ref, now):
     return landed_from(log), None
 
 
+# main's first-parent line as main_landing reads it: each commit, its parents, its committer time and its Sluice-From.
+LANDED = "--format=%H%x1f%P%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e"
+
+
+def main_landing(log, bolt, heads, since):
+    """The landing that landed a bolt on its kit's main (Decision 2 of a-bolts-landing-on-main-reads-landed), from facts:
+    log, `git log --first-parent --since=<since> LANDED <main now> --`, newest first; heads, the bolt's heads crew knows
+    (each Head of its bolt.submit entries, and its branch's head where it was read); since, the bolt's first launch as
+    UTC ISO 8601. The newest merge made at or after since whose Sluice-From names bolt/<bolt>, as the agent or the
+    worktree, or whose second parent is one of heads, as {"commit", "at", "base", "head"}: its first parent the base, its
+    second the head, at as UTC ISO 8601 from its committer time; None where none does. sluice's landing commit always
+    has the entry's head as its second parent (sluice clause 23; read.2), so a commit of fewer than two parents is no
+    landing, and a landing through a pull request names `<agent> (pull/<n>)` and no branch, as 4acecf09 did on swancloud's
+    main, read 2026-11-08, its second parent 900527e9 the Head of the bolt's bolt.submit. A commit older than since is
+    passed over, since a bolt's name is free again once it lands and git may list one past its --since. A decision of
+    facts alone (code.7)."""
+    try:
+        bound = datetime.datetime.strptime(since, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+    named, known = f"bolt/{bolt}", set(heads or ())
+    for rec in log.split("\x1e"):
+        parts = rec.strip("\n").split("\x1f")
+        if len(parts) != 4 or not parts[0] or not parts[2].isdigit():
+            continue
+        parents, at = parts[1].split(), int(parts[2])
+        if len(parents) < 2 or at < bound:
+            continue
+        names = {n for v in (x.strip() for x in parts[3].split("\x1d") if x.strip())
+                 for n in (FROM.match(v).groups() if FROM.match(v) else (v,))}
+        if named in names or parents[1] in known:
+            return {"commit": parts[0], "base": parents[0], "head": parents[1],
+                    "at": datetime.datetime.fromtimestamp(at, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    return None
+
+
 def short(ref):
     """A ref's short form, as git takes it and a person reads it: origin/bolt/<bolt> or bolt/<bolt>; None for None."""
     for long in ("refs/remotes/", "refs/heads/"):
