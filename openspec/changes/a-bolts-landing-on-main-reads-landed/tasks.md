@@ -2,7 +2,7 @@
 
 ## 1. The kit's folder is the runner's report
 
-- [ ] 1.1 `runner.where` takes a kit's folder from the taking runner's `repositories.rec` alone, and a runner that reports no repositories leaves the kit unread naming its host (design, Decision 1; Task notes 1.1). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py -k TestWhere'` ends with "passed" and no "failed".
+- [x] 1.1 `runner.where` takes a kit's folder from the taking runner's `repositories.rec` alone, and a runner that reports no repositories leaves the kit unread naming its host (design, Decision 1; Task notes 1.1). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py -k TestWhere'` ends with "passed" and no "failed".
 - [ ] 1.2 `launched_at`, `kit_at` and `launch_repositories` read no folder from a place the runner carried, of the bolt's work or the kit's other work (design, Decision 1; Task notes 1.2). Verify `devenv shell -- sh -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_kits.py tests/py/test_branch_stands.py'` ends with "passed" and no "failed".
 - [ ] 1.3 Every logic case whose runner reads a kit's folder gives that runner a `repositories.rec` naming it, with no outcome changed beyond the folder's source and the reason's words (design, Decision 1; Task notes 1.3). Verify `tests/suite logic` ends with "0 failed".
 - [ ] 1.4 The stub runner of `tests/lib.sh` reports the repositories each host keeps in `repositories.rec` (design, Decision 4; Task notes 1.4). Verify `tests/suite t-journey-land` ends with "0 failed".
