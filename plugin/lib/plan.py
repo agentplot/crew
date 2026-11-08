@@ -2301,7 +2301,10 @@ def answer_place(w, named, words):
     work = launch.get("Work")
     CONTEXT["work"] = work
     s = runner.piece_stage(requests, w.runners(), launch)
-    how, stage = runner.answer_retry(work, s)
+    n = runner.number(launch.get("Request"))
+    reading = runner.taken(w.runners(), n)[0]
+    carried = (reading["host"], reading["places"][n]["at"]) if reading and n in reading["places"] else None
+    how, stage = runner.answer_retry(work, s, carried)
     how or fail(stage)
     host = w.taker(launch)
     n = request(w, "retry", work, Of=launch.get("Request"), Stage=stage, Submission=how == "submission", Words=words)

@@ -901,7 +901,7 @@ def stage_said(s):
             "merged": "merged", "landed": "landed", "dropped": "dropped"}.get(st, f"at {st}")
 
 
-def answer_retry(work, s):
+def answer_retry(work, s, carried=None):
     """What crew answer asks of a crossed piece's place (Decision 9), from its stage as stage_of gives it: ("stage", the
     stage) to start again with the words, for a place whose stage stopped short asking or that waits on its caller to
     retry a stage, stalled or not; ("submission", None) to submit again with them, for one whose submission waits on its
@@ -910,7 +910,12 @@ def answer_retry(work, s):
     answered it, so no reading says it waits on nothing; its submission waits held for the user's send, which no answer
     gives (state.3); or it neither stopped short nor waits on its caller. A stop-short whose agent Flume keeps open for
     its answer reads needs like any other, and its retry naming the stage is that answer, reaching the session kept
-    open as a tell answering it does (flume 42, 49, 198)."""
+    open as a tell answering it does (flume 42, 49, 198). carried is (host, At) of the runner's places.rec record its
+    stage was read from, None where crew holds none: a live place that neither stopped short nor waits is refused as
+    of that carry, naming its host and time, since a wait Flume has told of since reaches crew only with that runner's
+    next carry, and never as having nothing to answer (read.1; Decision 2 of a-place-waiting-on-its-caller-reads-waiting);
+    work that is over, held for its After work or refused by the runner is refused as having nothing to answer, since
+    Flume refuses any retry of over work (flume 50) and the others were never carried."""
     st, place = s["stage"], f"{work}'s place" + (f" {s['place']}" if s.get("place") else "")
     if st == "unknown":
         return None, f"can't tell whether {work}'s place waits on an answer: {s['why']}"
@@ -927,8 +932,12 @@ def answer_retry(work, s):
                       f"{send}, on the user's word")
     if st in ("waits", "stalled"):
         return "submission", None
-    return None, (f"{place} is {stage_said(s)}, with no question and nothing it waits on its caller for, so there is nothing "
-                  "to answer: crew bolts shows its stage")
+    if st in ("merged", "landed", "dropped", "waiting", "refused"):
+        return None, (f"{place} is {stage_said(s)}, with no question and nothing it waits on its caller for, so there is nothing "
+                      "to answer: crew bolts shows its stage")
+    when = f"when {carried[0]}'s runner carried it, at {carried[1]}" if carried and all(carried) else "when its runner last carried it"
+    return None, (f"{place} was {stage_said(s)} {when}, with no question and nothing it waited on its caller for: a wait Flume "
+                  "has told of since reaches crew with that runner's next carry, so answer again once crew bolts shows the place waiting")
 
 
 def fix_launch(plan, requests, bolt, label, name, words):
