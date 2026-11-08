@@ -1289,18 +1289,25 @@ def preview_report(reads, request):
     return dict(out, state="asked")
 
 
-def previews_standing(requests, reads):
-    """crew's asks of previews that stand (Decision 2 of a-cards-preview-is-asked-of-the-runner), {(host, repo,
-    revision): the request}: for each host, repository and revision a preview request names, its newest, where that is
-    a bring-up the host's runner has not refused (preview_report). A done ends the ask, and so does the runner's
-    refusal; a bring-up written after a done stands again. One crew can't read stands, nothing ended on a reading crew
-    lacks (read.1)."""
+def previews_asked(requests):
+    """crew's asks of previews not put away, {(host, repo, revision): the request}: for each host, repository and
+    revision a preview request names, its newest, where that is a bring-up, whatever the runner answered it; what a
+    card carries of a preview (Decision 2 of a-cards-preview-is-asked-of-the-runner)."""
     newest = {}
     for r in preview_requests(requests):
         k = (r.get("Host"), r.get("Repo"), r.get("Revision"))
         if k not in newest or (number(r.get("Request")) or 0) > (number(newest[k].get("Request")) or 0):
             newest[k] = r
-    return {k: r for k, r in newest.items() if r.get("Done") != "yes" and preview_report(reads, r)["state"] != "refused"}
+    return {k: r for k, r in newest.items() if r.get("Done") != "yes"}
+
+
+def previews_standing(requests, reads):
+    """crew's asks of previews that stand (Decision 2 of a-cards-preview-is-asked-of-the-runner), {(host, repo,
+    revision): the request}: for each host, repository and revision a preview request names, its newest, where that is
+    a bring-up the host's runner has not refused (previews_asked, preview_report). A done ends the ask, and so does the
+    runner's refusal; a bring-up written after a done stands again. One crew can't read stands, nothing ended on a
+    reading crew lacks (read.1)."""
+    return {k: r for k, r in previews_asked(requests).items() if preview_report(reads, r)["state"] != "refused"}
 
 
 def ask_step(ask, report):

@@ -3552,14 +3552,13 @@ def land_read(fleet, label, plan, b, t):
 
 def land_row(fleet, label, bolt, acts=None):
     """crew _land-row <label> <bolt>: a bolt's row on its kit's landings card, on the host its work runs on (bolt_at),
-    where its reading and its preview run (Decision 2): read as land_read reads it; a row that can land with its reading
-    opened, or given again while it serves, twice if it must be, the second time on the landing read afresh
-    (landing_opened), and what brings its preview up, or the one brought up from the card at its head, sluice asked for
-    nothing (landing_preview); a held row, and a bolt that is no row, with its reading ended and its preview released,
-    as a card's close ends them (row_card_close). Returns
-    the row, {bolt, box, why, facts}, its facts carrying its reading's link or why it could not be opened and its
-    preview; or {bolt, why} while it is no row. Refused on any host but the bolt's, naming it, and when what it reads
-    can't be read (read.1)."""
+    where its reading runs (Decision 2): read as land_read reads it; a row that can land with its reading opened, or
+    given again while it serves, twice if it must be, the second time on the landing read afresh (landing_opened); a
+    held row, and a bolt that is no row, with its reading ended, as a card's close ends it (row_card_close). Its preview
+    is no part of it: the raise on the partition's main machine reads it from the runner's report (landings_previews;
+    Decision 7 of a-cards-preview-is-asked-of-the-runner). Returns the row, {bolt, box, why, facts}, its facts carrying
+    its reading's link or why it could not be opened; or {bolt, why} while it is no row. Refused on any host but the
+    bolt's, naming it, and when what it reads can't be read (read.1)."""
     acts = acts or CardActs(fleet)
     plan, b, t = land_held(fleet, label, bolt)
     if not b:
@@ -3571,12 +3570,11 @@ def land_row(fleet, label, bolt, acts=None):
     if row and row["box"]:
         facts = landing_opened(fleet, label, plan, b, t, row["facts"], acts)
         if facts:
-            facts["preview"] = landing_preview(fleet, t, label, bolt, facts, acts)
             return dict(row, facts=facts)
         row, why = None, "read afresh, it no longer reads proven"
-    for said in (acts.end(label, f"land/{bolt}"), acts.release_preview(label, f"land/{bolt}")):
-        if said:
-            print(said)
+    said = acts.end(label, f"land/{bolt}")
+    if said:
+        print(said)
     return row or dict(bolt=bolt, why=why)
 
 
@@ -3701,7 +3699,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     """raise_landings' reads and acts, made under the kit's card's lock."""
     plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so {kit}'s landings card is not raised")
     owner, key = f"{label}-ops", f"land/{kit}"
-    got, unread = {}, set()
+    got, unread, hosts = {}, set(), {}
     run = runner_facts(fleet, label)
     for b in plan.bolts():
         if b.get("Repo") != kit or not started(b):
@@ -3712,6 +3710,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
             unread.add(b.name())
         if not t:  # a bolt no runner has taken work of yet has nothing merged to land
             continue
+        hosts[b.name()] = t["machine"]
         row, why = acts.land_row(label, b.name(), t["machine"])
         if row is None:
             print(f"card {key}: {t['machine']} did not answer for bolt {b.name()} ({why}), so its row is left off", file=sys.stderr)
@@ -3772,6 +3771,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     landed = {next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None): e.get("Head") or ""
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit}
+    told = landings_previews(fleet, label, kit, rows, hosts, unread, run)
     step = landings_step(rows, state, ticked, in_plan, landed, note, bool(pane), work)
     try:
         t = kit_at(fleet, label, kit)
@@ -3806,13 +3806,13 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
         # following the user's send, what changed of a bolt asked again opens the card with the rest (card_posted)
         build = cards.landings_card if facts["follows"] else built_saying(cards.landings_card, said)
         since = [f"{w}." for w in said] + landings_since(earlier, [r for r in rows if r["box"] and r["bolt"] not in dict(asked)])
-        return row_card_change(fleet, label, owner, built_again(build) if dead else build, facts,
-                               "; ".join(said + [note or "Raised as the bolts stand"]), where, acts,
-                               since=since if facts["follows"] else None)
+        return told_kept(label, key, told, row_card_change(fleet, label, owner, built_again(build) if dead else build, facts,
+                                                           "; ".join(said + [note or "Raised as the bolts stand"]), where, acts,
+                                                           since=since if facts["follows"] else None))
     if step[0] == "change":
         _, change, kind_changed, cleared = step
-        return row_card_change(fleet, label, owner, cards.landings_card, dict(facts, left=unticked(cleared)),
-                               "; ".join(said + [change]), where, acts, kind_changed)
+        return told_kept(label, key, told, row_card_change(fleet, label, owner, cards.landings_card, dict(facts, left=unticked(cleared)),
+                                                           "; ".join(said + [change]), where, acts, kind_changed))
     outcome = " ".join([f"{w}." for w in said] + [step[1]])
     if step[0] == "follow":  # closed with the bolts the send still lands as its Heads (landings_sent), the rest following
         _, _, cleared, landing = step
@@ -3820,18 +3820,19 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
         closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(rest)),
                                 Heads=" ".join(f"{b}@{h}" for b, h in landing))
         # the outcome, what changed of each bolt asked again among it (landings_step), opens the card that follows
-        return closed and row_card_change(fleet, label, owner, cards.landings_card, dict(facts, rows=rest, left=waits,
-                                                                                         follows=closed), outcome, where, acts,
-                                          since=[outcome] + (left_waits(waits) if waits else []))
+        return closed and told_kept(label, key, told, row_card_change(
+            fleet, label, owner, cards.landings_card, dict(facts, rows=rest, left=waits, follows=closed), outcome, where, acts,
+            since=[outcome] + (left_waits(waits) if waits else [])))
     _, _, then, standing = step  # the bolts held whose send stands kept as its close's Heads (landings_sent)
     closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(boxed)),
                             Heads=" ".join(f"{b}@{h}" for b, h in standing))  # its own, none when nothing stands (close_kept)
     if then is None or not boxed or not closed:  # a close refused leaves the card open, and nothing follows it yet
         return closed
     waits = unticked(then)
-    return row_card_change(fleet, label, owner, cards.landings_card,
-                           dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
-                           outcome, where, acts, since=[outcome] + (left_waits(waits) if waits else []))
+    return told_kept(label, key, told, row_card_change(
+        fleet, label, owner, cards.landings_card,
+        dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
+        outcome, where, acts, since=[outcome] + (left_waits(waits) if waits else [])))
 
 
 def raise_landings_row(fleet, row, acts=None):
@@ -3870,41 +3871,111 @@ def land_card_cmd(fleet, a):
     raise_landings(fleet, a.label, a.kit, note=a.note, pane=a.pane)
 
 
-def head_previewed(fleet, t, head):
-    """Whether the kit's policy as the bolt's head holds it declares a preview (kit.previewed), as sluice reads it from
-    the previewed revision, read with git in the kit's main checkout on the team's host: (declared, None), or (None,
-    why) when it can't be read (read.1)."""
-    main = t["kit"]["main"]
-    try:
-        _, held = kit_git(fleet, t, main, "ls-tree", "--name-only", head, "--", kit.DECLARATION)
-        text = kit_git(fleet, t, main, "show", f"{head}:{kit.DECLARATION}")[1] if held else None
-        return kit.previewed(text, f"{kit.DECLARATION} at {head[:7]}"), None
-    except Refusal as e:
-        return None, str(e)
-
-
-def landing_preview(fleet, t, label, bolt, card, acts):
-    """The preview a landings row carries (rail-cards "A landing row carries what brings its bolt's preview up", record
-    0043), as cards.landing_card takes it, through acts.preview (preview_row), sluice asked for nothing: what brings it
-    up where the kit's policy at the head declares one (head_previewed), "no preview" where it declares none, the one
-    brought up from the card at this head as sluice lists it, and why where that policy can't be read (read.1)."""
-    declared, why = head_previewed(fleet, t, card["head"])
-    return acts.preview(label, f"land/{bolt}", dict(card, previewed=declared, policy=why))
-
-
 def land_end(fleet, label, bolt):
-    """A bolt's reading and its preview ended on this, its team's, host, with its row on its kit's landings card, held or
-    gone, which no close of a card of the bolt's own ends (row_card_close): what each said, printed."""
-    acts = CardActs(fleet)
-    for said in (acts.end(label, f"land/{bolt}"), acts.release_preview(label, f"land/{bolt}")):
-        if said:
-            print(said)
+    """A bolt's reading ended on this, its team's, host, with its row on its kit's landings card, held or gone, which no
+    close of a card of the bolt's own ends (row_card_close): what it said, printed. Its preview is put away by the raise
+    of its kit's landings card that follows (landings_previews)."""
+    said = CardActs(fleet).end(label, f"land/{bolt}")
+    if said:
+        print(said)
+
+
+def landings_previews(fleet, label, kit, rows, hosts, unread, run):
+    """Each row of a kit's landings card that can land given its preview, from the runner's report alone (Decisions 5
+    and 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A landing row carries what brings its bolt's preview
+    up"), no file of the kit's read: first, in one plan write, the done of each standing ask of a bolt of the kit that no
+    row that can land carries at its host and head (runner.previews_put_away), so a row held for a fix, gone, landed or
+    dropped, or at a moved head, has its ask put away, a bolt whose row crew could not read (unread) keeping its own
+    (read.1), and a write refused said, the next raise trying again; then each row that can land carries crew's ask of
+    its head on its host as the runner reports it (runner.preview_report), or what brings it up, {branch: bolt/<bolt>,
+    head, state: "ask"}, with released where that write put an ask of its bolt at another head away. rows, as the raise
+    holds them, each given its preview in its facts; hosts, {bolt: the host whose runner took its work}; run, the
+    partition's requests and runners (runner_facts). Returns what each row was told, {request: word}, for the raise
+    to keep once it posts or changes the card (told_kept)."""
+    requests, reads = run
+    key = f"land/{kit}"
+    standing = runner.previews_standing(requests, reads)
+    asks = {k: r for k, r in standing.items() if (r.get("Work") or "").startswith("bolt/") and r.get("Repo") == kit}
+    carried = {(hosts.get(r["bolt"]), kit, r["facts"]["head"]) for r in rows if r["box"]}
+    gone = runner.previews_put_away(asks, carried, {f"bolt/{b}" for b in unread})
+    released = {}
+    if gone:
+        things = joined(sorted({r.get("Work")[len("bolt/"):] for r in gone}))
+        try:
+            preview_written(fleet, label, key, things, gone, done=True, made=[])
+            released = {r.get("Work")[len("bolt/"):]: r.get("Revision") for r in gone}
+            print(f"card {key}: put away " + "; ".join(f"{r.get('Work')[len('bolt/'):]}'s preview of {r.get('Revision')[:7]} on "
+                                                       f"{r.get('Host')}" for r in gone))
+        except Refusal as e:
+            print(f"card {key}: the previews of {things} are not put away yet, the next raise trying again: {e}", file=sys.stderr)
+    asked = runner.previews_asked(requests)
+    gone_ids = {r.get("Request") for r in gone} if released else set()
+    told = {}
+    for r in rows:
+        if not r["box"]:
+            continue
+        head = r["facts"]["head"]
+        ask = asked.get((hosts.get(r["bolt"]), kit, head))
+        if ask is not None and ask.get("Request") not in gone_ids:
+            p = runner.preview_report(reads, ask)
+            told[ask.get("Request")] = runner.preview_word(p)
+        else:
+            was = released.get(r["bolt"])
+            p = dict({"branch": f"bolt/{r['bolt']}", "head": head, "state": "ask"}, **({"released": was} if was and was != head else {}))
+        r["facts"] = dict(r["facts"], preview=p)
+    return told
+
+
+def told_path(label):
+    """Where the partition's main machine keeps what each card was last told of each preview it carries (Decision 8
+    of a-cards-preview-is-asked-of-the-runner): beside the card folders and in none, as landings_main keeps a card's
+    main, so no card's close or sweep removes it."""
+    return CARDS / label / "previews.json"
+
+
+def told_read(label):
+    """What each card was last told of each preview it carries, {key: {request: word}}, kept on this host (told_path);
+    a cache of what crew read (state.4), so one lost or unreadable reads as {}, which costs one more change of each
+    card."""
+    try:
+        got = json.loads(told_path(label).read_text())
+    except (OSError, ValueError):
+        return {}
+    return {k: {str(n): w for n, w in v.items() if isinstance(w, str)} for k, v in got.items() if isinstance(v, dict)} \
+        if isinstance(got, dict) else {}
+
+
+def told_keep(label, key, words):
+    """What a card under key was told of each preview it carries, {request: word}, kept on this host for the next rail
+    read to compare (previews_changed), written whole and atomically, as landing_word_keep writes; a card that carries
+    none has its entry removed. What can't be written is said, and costs one more change."""
+    have = told_read(label)
+    if words:
+        have[key] = {str(n): w for n, w in words.items()}
+    else:
+        have.pop(key, None)
+    p = told_path(label)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(f".{p.name}.{os.getpid()}")
+        tmp.write_text(json.dumps(have, sort_keys=True))
+        tmp.replace(p)
+    except OSError as e:
+        print(f"card {key}: crew could not keep what it told the card of its previews: {e.strerror or e}; the next rail "
+              "read changes it once more", file=sys.stderr)
+
+
+def told_kept(label, key, words, card):
+    """A card's post or change (card, its id, None when none was made) passed back, with what it was told of each
+    preview it carries kept once it was made (told_keep)."""
+    if card:
+        told_keep(label, key, words)
+    return card
 
 
 def landing_cards_closed(fleet, t, bolt, outcome, said=None, here=False):
     """At crew bolt land, on the team's host, once the partition's plan no longer holds the bolt (plan.16): any landing
-    card of the bolt's own main-level ops still holds closed with outcome, its reading ended and its preview released
-    (land_end); then the kit's landings card raised on the partition's main machine (land_hand), which closes it once
+    card of the bolt's own main-level ops still holds closed with outcome, its reading ended (land_end); then the kit's landings card raised on the partition's main machine (land_hand), which closes it once
     every bolt the user ticked has landed or been held, naming where GitHub's main holds each. A landing on the user's
     word in ops's pane sends said in place of the outcome, and closes a card still waiting as answered there (here,
     pane_landed): the bolt's own card, and the kit's once no row of it can land. A plan that can't be read closes none,
@@ -14916,16 +14987,6 @@ class CardActs:
     def end(self, label, key):
         """The key's session ended, in words; None when crew recorded none for it on this host."""
         return end_session(label, key)[0] if (CARDS / label / key / "session.json").exists() else None
-
-    def preview(self, label, key, facts):
-        """The preview the row of a landing's bolt, land/<bolt>, carries on its kit's landings card, the one brought up
-        from that card kept or released, nothing asked (preview_row)."""
-        return preview_row(label, f"land/{facts['kit']}", key.split("/", 1)[1], facts["head"], facts["previewed"], facts.get("policy"))
-
-    def release_preview(self, label, key):
-        """The previews of the row of a landing's bolt, land/<bolt>, released (preview_release_row), in words; None when
-        none was recorded."""
-        return preview_release_row(label, key.split("/", 1)[1]) if key.startswith("land/") else None
 
     def release_previews(self, label, key):
         """Every preview brought up from a batch's card released as it closes, on each host its units' bolts' work ran

@@ -551,20 +551,15 @@ class TestSessions:
         assert plan.row_card_close(None, "wldn", "wldn-planner", "batch/3", outcome="Read; no notes", acts=acts) is None
         assert acts.ended == []
 
-    def test_a_landing_cards_close_ends_neither_its_reading_nor_its_preview_and_no_other_cards_releases_one(self, capsys):
-        """rail-cards "The bolt lands" and "A fix holds the landing": a bolt's reading and preview go with its row on its
-        kit's landings card (land_end), never with a card of the bolt's own closed under its key."""
+    def test_a_landing_cards_close_ends_not_its_reading(self, capsys):
+        """rail-cards "The bolt lands" and "A fix holds the landing": a bolt's reading goes with its row on its kit's
+        landings card (land_end), never with a card of the bolt's own closed under its key."""
         landing = [{"Act": "card.post", "Key": "land/b1", "By": "swb-1-conductor", "Card": "req_l1", "On": ["bolt/b1"]}]
-        released = "released land/b1's preview of abc1234, preview/0123456789ab"
         for answers in ({"get_request": ({"status": "pending", "version": 1}, None)},
                         {"get_request": ({"status": "pending", "version": 1}, None), "cancel_request": (None, "Too many requests.")}):
-            acts = ReadingActs(answers, landing, released=released)
+            acts = ReadingActs(answers, landing)
             plan.row_card_close(None, "wldn", "swb-1-conductor", "land/b1", reason="held for a fix: The zone list misses one zone.", acts=acts)
-            assert (acts.ended, acts.releases) == ([], []) and released not in capsys.readouterr().out
-        acts = ReadingActs({"get_request": ({"status": "pending", "version": 1}, None)},
-                           [{"Act": "card.post", "Key": "batch/3", "By": "wldn-planner", "Card": "req_b3", "On": ["batch/3"]}])
-        plan.row_card_close(None, "wldn", "wldn-planner", "batch/3", outcome="Read; no notes", acts=acts)
-        assert acts.releases == []
+            assert acts.ended == []
 
     def test_a_batchs_read_gives_the_cards_note_and_the_readings_annotations_as_the_user_wrote_them(self):
         """review-batches "Notes written in a session" and "Two fine, one with notes", read by crew card read."""
@@ -696,27 +691,16 @@ LANDING = dict(bolt="b1", kit="k", units=["v1"], chores=[], batches={}, head="ab
 
 
 class ReadingActs:
-    """A stand-in for the act's reach (plan.CardActs) where a card's reading session starts and ends, and a landing's
-    preview is asked for and released: a session's link given, or its start refused with why, always (refused) or for
-    each start in turn (refusals, None for a start that opens); the preview given (preview), and its release said
-    (released); what each unit made, by host (made, {host: {"made": …, "previews": …}}, a host missing from it not
+    """A stand-in for the act's reach (plan.CardActs) where a card's reading session starts and ends: a session's link
+    given, or its start refused with why, always (refused) or for each start in turn (refusals, None for a start that
+    opens); what each unit made, by host (made, {host: {"made": …, "previews": …}}, a host missing from it not
     answering); Pending You's tools answered from answers, a (got, words) pair."""
 
-    def __init__(self, answers=None, entries=(), refused=None, started=True, preview=None, released=None, refusals=(),
-                 made=None):
+    def __init__(self, answers=None, entries=(), refused=None, started=True, refusals=(), made=None):
         self.answers, self.held, self.refused, self.started = dict(answers or {}), list(entries), refused, started
-        self.refusals = list(refusals)
-        self.given, self.said, self.made_on = preview, released, made
-        self.sessions, self.ended, self.emitted, self.calls, self.previews, self.releases = [], [], [], [], [], []
+        self.refusals, self.made_on = list(refusals), made
+        self.sessions, self.ended, self.emitted, self.calls = [], [], [], []
         self.batch_releases, self.read = [], []
-
-    def preview(self, label, key, facts):
-        self.previews.append((label, key, facts["head"], facts["previewed"], facts.get("policy")))
-        return self.given
-
-    def release_preview(self, label, key):
-        self.releases.append((label, key))
-        return self.said
 
     def release_previews(self, label, key):
         self.batch_releases.append((label, key))
@@ -1083,28 +1067,21 @@ class TestReadingAgain:
 
 
 class TestLandingPreview:
-    """A bolt's row on its kit's landings card is read with what its preview is, through the act's reach, once the
-    kit's policy at the head is read (rail-cards "A landing row carries what brings its bolt's preview up", record
-    0043), sluice asked for nothing there; a held row and a bolt that is no row end the reading and release the
-    preview (land_row)."""
+    """A bolt's row on its kit's landings card is read with no preview: the raise on the partition's main machine reads
+    it from the runner's report (Decision 7 of a-cards-preview-is-asked-of-the-runner); a held row and a bolt that is
+    no row end the reading, putting nothing away on the bolt's host (land_row)."""
     AT = dict(WHERE["swb-1"], machine="mac-studio")
-    PREVIEW = dict(head=LANDING["head"], name="preview/0123456789ab", state="starting", addresses={"web": "http://web.example"})
 
-    def row(self, monkeypatch, acts, previewed, more=None, why=None):
+    def row(self, monkeypatch, acts, more=None, why=None):
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, BOLT, self.AT))
         monkeypatch.setattr(plan, "land_facts", lambda fleet, label, p, b, t, fixes_hold=True: (None, why) if why else (
             dict(LANDING, host="mac-studio", base="abc0000", **(more or {})), None))
-        monkeypatch.setattr(plan, "head_previewed", lambda fleet, t, head: previewed)
+        monkeypatch.setattr(plan, "kit_git", lambda *a, **k: pytest.fail("a row's read reads no kit's policy"))
         return plan.land_row(FLEET, "wldn", "b1", acts)
 
-    def test_the_kits_declaration_at_the_head_is_handed_to_the_act_and_the_row_carries_what_it_gives(self, monkeypatch):
-        """rail-cards "A kit that declares a preview": a preview brought up from the card listed on it."""
-        acts = ReadingActs(preview=self.PREVIEW)
-        row = self.row(monkeypatch, acts, (True, None))
-        assert row["box"] and row["facts"]["preview"] == self.PREVIEW
-        assert acts.previews == [("wldn", "land/b1", LANDING["head"], True, None)]
-        card = built.landings_card(dict(kit="k", rows=[row["facts"]]))["card"]
-        assert {"label": "Preview: web", "url": "http://web.example"} in card["context"]["links"]
+    def test_a_row_that_can_land_carries_no_preview_and_reads_no_policy(self, monkeypatch):
+        row = self.row(monkeypatch, ReadingActs())
+        assert row["box"] and "preview" not in row["facts"]
 
     def test_a_previews_change_hands_the_card_it_was_asked_from_its_note(self, monkeypatch):
         """rail-cards "The host is busy when the card is raised" and "A line naming a branch sluice does not land": a
@@ -1117,18 +1094,18 @@ class TestLandingPreview:
         assert handed == [("land", "wldn", "switchboard-kit", "b1: Its preview of abc1234 is up"),
                           ("batch", "wldn", 7, "a/demo: Its preview of abc1234 could not be brought up")]
 
-    def test_a_held_row_ends_its_reading_and_releases_its_preview(self, monkeypatch):
-        """rail-cards "A fix holds the landing": the preview is released."""
-        acts = ReadingActs(preview=self.PREVIEW)
-        row = self.row(monkeypatch, acts, (True, None), more=dict(fixes={"fix/b1/gap": "One zone is missing."}))
-        assert (row["box"], row["why"]) == (False, "held for a fix: One zone is missing. (fix/b1/gap)")
-        assert acts.ended == acts.releases == [("wldn", "land/b1")] and acts.sessions == acts.previews == []
-
-    def test_a_bolt_that_is_no_row_ends_its_reading_and_releases_its_preview(self, monkeypatch):
+    def test_a_held_row_ends_its_reading(self, monkeypatch):
+        """rail-cards "A fix holds the landing": its preview is put away by the raise that follows."""
         acts = ReadingActs()
-        assert self.row(monkeypatch, acts, (True, None), why="unit b has not merged: it is verify") == dict(
+        row = self.row(monkeypatch, acts, more=dict(fixes={"fix/b1/gap": "One zone is missing."}))
+        assert (row["box"], row["why"]) == (False, "held for a fix: One zone is missing. (fix/b1/gap)")
+        assert acts.ended == [("wldn", "land/b1")] and acts.sessions == []
+
+    def test_a_bolt_that_is_no_row_ends_its_reading(self, monkeypatch):
+        acts = ReadingActs()
+        assert self.row(monkeypatch, acts, why="unit b has not merged: it is verify") == dict(
             bolt="b1", why="unit b has not merged: it is verify")
-        assert acts.ended == acts.releases == [("wldn", "land/b1")] and acts.sessions == []
+        assert acts.ended == [("wldn", "land/b1")] and acts.sessions == []
 
     def test_off_its_host_a_row_is_refused_naming_it(self, monkeypatch):
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, BOLT, WHERE["swb-1"]))
@@ -1165,7 +1142,6 @@ class TestLandingReading:
             return 0, ""
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, BOLT, self.AT))
         monkeypatch.setattr(plan, "land_facts", facts)
-        monkeypatch.setattr(plan, "head_previewed", lambda fleet, t, head: (False, None))
         monkeypatch.setattr(plan.gather, "has_origin", lambda main: True)
         monkeypatch.setattr(plan, "kit_git", fetch)
         return plan.land_row(FLEET, "wldn", "b1", acts), reads, fetches
