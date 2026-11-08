@@ -1964,32 +1964,32 @@ def former_kept_said(given, now, host, kept):
             f"records from {now}'s, so that repository needs another name in crew")
 
 
-def rename_refusal(label, old, new, kits, renames, bolts, host, spaces):
-    """Why crew kit rename <old> <new> is refused, or None (Decision 2 of
-    a-kit-renamed-on-its-host-is-renamed-across-the-plan), from plain facts (code.7): the partition's kits by their names
-    now (partition_kits), its renames (renames_in), its bolts' names, and its main-level host with what its spaces keep,
-    spaces None where the hosts file lists no such host, else (the repositories they keep, crew.kit_kept's of old, of
-    new). Refused for two names of one kit; for an old name a rename already renamed, or no kit of the partition; for a
-    new name a bolt of the partition holds, since land/<new> would name the bolt; and unless the host keeps a repository
-    by the new name and none by the old, the fleet's word that the rename has happened."""
+def rename_refusal(label, old, new, bolts, stands, unread, kept, unkept, count):
+    """Why crew kit rename <old> <new> is refused, or None (Decision 4 of a-repository-is-renamed-by-one-explicit-command;
+    plan.22), from plain facts (code.7): the partition's bolts' names; what of old's work stands and what crew could not
+    read of it (rename_standing); which hosts keep old and whose keeping crew could not read (rename_kept); and count,
+    the records rename_branch renamed, None before it has run. Refused, in this order: for two names of one repository;
+    for a new name a bolt of the partition holds, since land/<new> would name the bolt; while any of old's work stands or
+    crew can't read whether it does, every one named in one message; while any host keeps old or crew can't read whether
+    one does, since the repository is removed from the runner, Flume and sluice first; and for a name no record of the
+    partition holds, once rename_branch has run."""
     name = new.split("/")[-1]
     if old.split("/")[-1] == name:
-        return f"{old} and {new} name one kit: a rename gives it another name"
-    now = kit_now(old, renames)
-    if now != old:
-        return f"{old} is {now} since its rename: crew kit rename {now} {new} renames it again"
-    if not kit_in(old, kits):
-        return f"{label}'s plan names no kit {old}: neither its plan nor its landings name it"
+        return f"{old} and {new} name one repository: a rename gives it another name"
     if name in bolts:
-        return (f"{name} is the name of bolt {name} of {label}, so land/{name} would name the bolt and not the kit: "
-                "a kit and a bolt of one partition take different names")
-    if spaces is None:
-        return f"{crew.HOSTS} lists no {host}, {label}'s main level's host, so crew can't read whether its spaces keep {new}"
-    repos, kept_old, kept_new = spaces
-    if kept_old is not None:
-        return f"{host}'s spaces still keep {kept_old['repo']}, so it is not renamed there"
-    if kept_new is None:
-        return f"{host}'s spaces keep no {new}, so it is not renamed there: they keep " + (", ".join(repos) or "nothing")
+        return (f"{name} is the name of bolt {name} of {label}, so land/{name} would name the bolt and not the repository: "
+                "a repository and a bolt of one partition take different names")
+    if stands or unread:
+        said = f"crew can't rename {old} while its work stands: " + "; ".join(stands) + "; its work lands or is dropped first" \
+            if stands else f"crew can't rename {old}: it can't read whether its work stands"
+        return said + ((", and crew can't read whether more of it stands: " if stands else ": ") + "; ".join(unread) if unread else "")
+    if kept or unkept:
+        said = f"crew can't rename {old} while a host keeps it: " + "; ".join(kept) if kept else \
+            f"crew can't rename {old}: it can't read whether a host keeps it"
+        said += (", and crew can't read whether another keeps it: " if kept else ": ") + "; ".join(unkept) if unkept else ""
+        return said + f"; {old} is removed from the runner, Flume and sluice before crew renames its records"
+    if count == 0:
+        return f"no record of {label}'s names {old}: neither its plan's sources, its requests nor its run record"
     return None
 
 

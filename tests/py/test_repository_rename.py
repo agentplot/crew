@@ -355,3 +355,53 @@ class TestWhatAHostKeeps:
     def test_no_host_keeping_it(self):
         assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/timber": "/r/timber"}, None),
                                              "mac-studio": (None, ["agentplot/tailrace-web"])}) == ([], [])
+
+
+class TestRefused:
+    """Decision 4: each refusal, in order, its message whole."""
+
+    def refusal(self, old="tailrace", new="timber", bolts=("crew-bolt",), stands=(), unread=(), kept=(), unkept=(), count=None):
+        return plan.rename_refusal("madswan", old, new, list(bolts), list(stands), list(unread), list(kept), list(unkept), count)
+
+    def test_one_repository(self):
+        assert self.refusal(new="agentplot/tailrace", stands=["bolt trc-1 has not landed"]) == \
+            "tailrace and agentplot/tailrace name one repository: a rename gives it another name"
+
+    def test_a_bolts_name(self):
+        assert self.refusal(new="crew-bolt", stands=["bolt trc-1 has not landed"]) == (
+            "crew-bolt is the name of bolt crew-bolt of madswan, so land/crew-bolt would name the bolt and not the repository: "
+            "a repository and a bolt of one partition take different names")
+
+    def test_work_standing_both_named_in_one_message(self):
+        assert self.refusal(stands=["bolt trc-1 has not landed", "madswan-ops's card land/tailrace is open"],
+                            kept=["deneb's runner keeps agentplot/tailrace"]) == (
+            "crew can't rename tailrace while its work stands: bolt trc-1 has not landed; madswan-ops's card land/tailrace is open; "
+            "its work lands or is dropped first")
+        assert self.refusal(stands=["bolt trc-1 has not landed"], unread=["vega's runner can't be read: x"]) == (
+            "crew can't rename tailrace while its work stands: bolt trc-1 has not landed; its work lands or is dropped first, "
+            "and crew can't read whether more of it stands: vega's runner can't be read: x")
+
+    def test_unread_work(self):
+        assert self.refusal(unread=["vega's runner can't be read: x", "crew can't tell how far fix/main/tailrace/x (request 9) has got: y"]) == (
+            "crew can't rename tailrace: it can't read whether its work stands: vega's runner can't be read: x; "
+            "crew can't tell how far fix/main/tailrace/x (request 9) has got: y")
+
+    def test_a_host_keeping_it(self):
+        assert self.refusal(kept=["deneb's runner keeps agentplot/tailrace", "mac-studio's spaces keep agentplot/tailrace"], count=0) == (
+            "crew can't rename tailrace while a host keeps it: deneb's runner keeps agentplot/tailrace; mac-studio's spaces keep "
+            "agentplot/tailrace; tailrace is removed from the runner, Flume and sluice before crew renames its records")
+        assert self.refusal(kept=["deneb's runner keeps agentplot/tailrace"], unkept=["vega: z"]) == (
+            "crew can't rename tailrace while a host keeps it: deneb's runner keeps agentplot/tailrace, and crew can't read whether "
+            "another keeps it: vega: z; tailrace is removed from the runner, Flume and sluice before crew renames its records")
+
+    def test_unread_keeping(self):
+        assert self.refusal(unkept=["vega's runner reports no repositories and the hosts file lists no vega"]) == (
+            "crew can't rename tailrace: it can't read whether a host keeps it: vega's runner reports no repositories and the hosts "
+            "file lists no vega; tailrace is removed from the runner, Flume and sluice before crew renames its records")
+
+    def test_no_record_naming_it(self):
+        assert self.refusal(old="rocs-kit", new="rocs", count=0) == (
+            "no record of madswan's names rocs-kit: neither its plan's sources, its requests nor its run record")
+
+    def test_none_when_all_is_clear(self):
+        assert self.refusal() is None and self.refusal(count=3) is None
