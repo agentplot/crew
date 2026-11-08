@@ -1544,16 +1544,16 @@ class Stages:
 
     def host(self, bolt):
         """The host a started bolt's work runs on, as its head line says it: where it runs (at), or, while the kit's
-        folder there can't be told, the runner that took the newest of its launches has carried no place of it yet,
-        the host of that runner (runner.where), which took the work and whose place of it Flume holds on the bolt's
-        branch; None where no runner has taken it or crew can't tell which did (read.1)."""
+        folder there can't be told, the host of the runner that took the newest of its launches taken
+        (runner.newest_taker), whose report crew reads it by; None where no runner has taken it or crew can't tell which
+        did (read.1)."""
         t, _ = self.at(bolt)
         if t:
             return t["machine"]
         run = self.runner(self.label)
         if isinstance(run, str) or not started(bolt):
             return None
-        took, _ = runner.where(run[1], bolt_launches(run[0], bolt.name()), f"bolt {bolt.name()}", bolt.get("Repo") or "")
+        took, _ = runner.newest_taker(run[1], bolt_launches(run[0], bolt.name()), f"bolt {bolt.name()}")
         return took["host"] if took else None
 
     def kit(self, b):
@@ -8664,19 +8664,20 @@ def bolt_launches(requests, bolt):
 
 def kit_of(repo, folder):
     """A kit as crew reads and acts in it on its host (bolt_at): its name, its repository as the plan names it (repo),
-    and its folder there (folder), where git runs and crew's landing place goes, <folder>/places/land-<bolt>, as Flume's
-    status of a place the runner took names its repository (runner.where)."""
+    and its folder there (folder), where git runs and crew's landing place goes, <folder>/places/land-<bolt>, as the
+    repositories.rec of the runner that took its work reports it (runner.where)."""
     return {"name": repo.split("/")[-1], "repo": repo, "main": folder, "dir": folder}
 
 
 def bolt_at(fleet, label, b, run=None):
     """Where a started bolt's work runs, read and landed, as the runner that took it reported (the user's ruling of
     2026-11-01; Decision 4 of the-team-machinery-leaves; runner.where): {"label", "machine", "stream", "kit" (kit_of)},
-    the host whose runner took the newest of its launches taken, the stream and the kit's folder there as Flume's status
-    of its places names them; None for a bolt not started (started) or naming no kit. crew looks up no kit's host.
-    Refused when no runner has reported taking its work yet, crew can't tell which did, or the runner that did has
-    carried no place naming the kit's folder (read.1). run, the partition's requests and runners as runner_facts reads
-    them, read when not given."""
+    the host whose runner took the newest of its launches taken, the kit's folder there as that runner's
+    repositories.rec reports it, and the stream as Flume's status of its places names it; None for a bolt not started
+    (started) or naming no kit. crew looks up no kit's host. Refused when no runner has reported taking its work yet,
+    crew can't tell which did, or the runner that did reports no repositories or none by the kit's name (read.1;
+    Decision 1 of a-bolts-landing-on-main-reads-landed). run, the partition's requests and runners as runner_facts
+    reads them, read when not given."""
     if not started(b) or not b.get("Repo"):
         return None
     return launched_at(fleet, label, b.name(), b.get("Repo"), run)
@@ -8699,23 +8700,13 @@ def launched_at(fleet, label, bolt, repo, run=None):
     """Where a bolt's work ran, as bolt_at gives it, from its launches, which requests.rec keeps once the bolt has left
     the plan, its kit (repo) as the plan or its landing named it (a landing read after the bolt's close, landing_at); and,
     while no runner has taken any of the bolt's own work, where the runner that took its kit's work reported the kit
-    (kit_at), since the bolt is read and landed in the kit's folder there; and where the runner that took the bolt's
-    work has carried no place of it, every launch refused, as one for a change the bolt already holds is, the kit's folder
-    on that runner's host as its places of the kit's other work name it (kit_at), never another host's."""
+    (kit_at), since the bolt is read and landed in the kit's folder there. The folder is the taking runner's report
+    alone, whatever places it carries (Decision 1 of a-bolts-landing-on-main-reads-landed)."""
     requests, reads = run or runner_facts(fleet, label)
     at, why = runner.where(reads, bolt_launches(requests, bolt), f"bolt {bolt}", repo)
     not why or fail(why)
     if at is None:
         return kit_at(fleet, label, repo, (requests, reads))
-    if not at["dir"]:
-        try:
-            k = kit_at(fleet, label, repo, (requests, reads))
-        except Refusal:
-            k = None
-        if k and k["machine"] == at["host"]:
-            return dict(k, stream=at["stream"] or k["stream"])
-    at["dir"] or fail(f"the runner on {at['host']} took bolt {bolt}'s work and has carried no place of it yet, so crew can't "
-                      f"tell where it keeps {repo} there")
     return {"label": label, "machine": at["host"], "stream": at["stream"], "kit": kit_of(repo, at["dir"])}
 
 
@@ -8752,8 +8743,6 @@ def kit_at(fleet, label, kit, run=None):
     at, why = runner.where(reads, runner.kit_launches(requests, kit), kit, kit)
     not why or fail(why)
     at or fail(f"no runner has reported taking {kit}'s work yet, so crew can't tell where it runs")
-    at["dir"] or fail(f"the runner on {at['host']} took {kit}'s work and has carried no place of it yet, so crew can't tell "
-                      f"where it keeps {kit} there")
     return {"label": label, "machine": at["host"], "stream": at["stream"], "kit": kit_of(kit, at["dir"])}
 
 

@@ -395,21 +395,30 @@ def where(reads, launches, what, kit):
     (None, None) while no runner has taken any of them and every runner was read; or (None, why) when none has and one
     could not be read, naming what (what) and that runner, two runners took the newest, or the one that did reports no
     repositories or none by the kit's name (read.1)."""
+    reading, why = newest_taker(reads, launches, what)
+    if reading is None:
+        return None, why
+    folder, why = kept_folder(reading, kit, what)
+    if why:
+        return None, why
+    mine = sorted((number(x.get("Request")) for x in launches if number(x.get("Request")) in reading["places"]), reverse=True)
+    facts = [f for n in mine for p in [reading["places"][n]] if not p["why"] for f in [flume_facts(p["status"], p["place"])] if f]
+    return {"host": reading["host"], "dir": folder, "stream": next((f["stream"] for f in facts if f["stream"]), None)}, None
+
+
+def newest_taker(reads, launches, what):
+    """The runner that took the newest of launches taken, from the partition's runners as crew read them (reads): (its
+    reading, None); (None, None) while none has taken any and every runner was read; or (None, why) when none has and
+    one could not be read, or two took the newest (read.1). The host it names stands whether or not crew can tell the
+    kit's folder there (drive-state "A started bolt's host is named before its place is carried")."""
     unread = sorted({r["host"]: r["why"] for _, r in reads.items() if r["why"]}.items())
     for l in sorted(launches, key=lambda l: -(number(l.get("Request")) or 0)):
         hits, _ = takers(reads, number(l.get("Request")))
         if len(hits) > 1:
             return None, (f"crew can't tell where {what}'s work runs: request {l.get('Request')} was taken by the runners on "
                           f"{' and '.join(r['host'] for r in hits)}, whose configurations each name its repository")
-        if not hits:
-            continue
-        reading = hits[0]
-        folder, why = kept_folder(reading, kit, what)
-        if why:
-            return None, why
-        mine = sorted((number(x.get("Request")) for x in launches if number(x.get("Request")) in reading["places"]), reverse=True)
-        facts = [f for n in mine for p in [reading["places"][n]] if not p["why"] for f in [flume_facts(p["status"], p["place"])] if f]
-        return {"host": reading["host"], "dir": folder, "stream": next((f["stream"] for f in facts if f["stream"]), None)}, None
+        if hits:
+            return hits[0], None
     return None, (f"no runner has reported taking {what}'s work yet, so crew can't tell where it runs"
                   + "".join(f"; {why}" for _, why in unread)) if unread else None
 
@@ -431,13 +440,11 @@ def launch_repositories(reads, launches, kit):
     configuration names the repository may take the launch; as ([{"host", "dir"}], None), each once. ([], None) while no
     runner has taken any of the kit's work and none reports keeping it: no launch of the partition's has cut a place
     of the kit, and crew can name no repository to read. ([], why) when crew can't tell (read.1): where's own why, the
-    runner that took the kit's work carrying no place naming its folder, or one keeping two repositories by its name."""
+    runner that took the kit's work reporting no repositories or none by its name (Decision 1 of
+    a-bolts-landing-on-main-reads-landed), or one keeping two repositories by its name."""
     at, why = where(reads, launches, kit, kit)
     if why:
         return [], why
-    if at and not at["dir"]:
-        return [], (f"the runner on {at['host']} took {kit}'s work and carries no place of it naming the folder it keeps {kit} "
-                    "in, so crew can't tell where a launch of it would be made")
     out = [{"host": at["host"], "dir": at["dir"]}] if at else []
     for reading in sorted(reads.values(), key=lambda r: r["host"]):
         kept = reading.get("repositories") or {}
