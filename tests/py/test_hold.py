@@ -482,6 +482,20 @@ class TestBands:
         assert board.crew_said({"version": "v0.12.1", "due": True}, "v0.13.0") == "crew v0.12.1 → v0.13.0 at its next stop"
         assert board.crew_said({"version": None, "due": True}, None) == "an older crew → crew as it now is at its next stop"
 
+    def test_a_due_agents_band_shows_the_release_the_host_has_installed(self, monkeypatch):
+        # The planner started on a build whose release names 0.44.1; the host has since installed one naming 0.44.2.
+        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}}}
+        start = dict(STARTED, version="v0.44.1")
+        monkeypatch.setattr(crew, "installed", lambda: build(C2, "v0.44.2"))
+        monkeypatch.setattr(crew, "starts", lambda: {"wldn-planner": start})
+        monkeypatch.setattr(crew, "agents_here", lambda fleet, label=None: ["wldn-planner"])
+        monkeypatch.setattr(crew, "held", lambda: None)
+        monkeypatch.setattr(crew, "launch_now", lambda fleet, label, role: start["launch"])
+        here = board.here_read(fleet, "wldn")
+        assert here == {"host": "mac-studio", "version": "v0.44.2", "held": None,
+                        "agents": {"wldn-planner": {"version": "v0.44.1", "due": True}}}
+        assert board.crew_said(here["agents"]["wldn-planner"], here["version"]).endswith("crew v0.44.1 → v0.44.2 at its next stop")
+
     def test_a_band_ends_its_first_line_with_its_crew_and_one_with_no_recorded_start_is_drawn_as_it_is(self):
         """Each main-level role here with a recorded start (crew.agents_here); no team agent or dispatcher has a band
         (Decision 11 of the-team-machinery-leaves)."""
