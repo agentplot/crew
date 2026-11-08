@@ -254,9 +254,9 @@ class TestBuiltOnItsBolt:
 class TestABoltWhoseLaunchesWereAllRefused:
     """bolt-plan "A unit whose work its bolt's branch holds is built" and drive-state "A bolt whose every launch was
     refused": a bolt whose every launch the runner refused, as for changes the bolt already holds, has no place of its
-    own; crew reads it where that runner reports keeping the kit (plan.launched_at; Decision 1 of
-    a-bolts-landing-on-main-reads-landed), its stream none while the runner carries no place of it, never in a folder
-    another place names, so crew bolts never says where it runs can't be told for it while the runner reports the kit."""
+    own; crew reads it where that runner reports keeping the kit, its stream none while the runner carries no place of
+    it, or, where that runner reports no repositories, as its places of the kit's other work name it (plan.launched_at,
+    kit_at), never another host's, so crew bolts never says where it runs can't be told for it."""
     FLEET = madswan_fleet()
 
     @pytest.fixture(autouse=True)
@@ -277,12 +277,20 @@ class TestABoltWhoseLaunchesWereAllRefused:
                          label="madswan")
         assert (st.unread(p.bolt("x")), st.of("a")["stage"]) == (None, "merged")
 
+    def test_with_no_repositories_reported_it_is_read_where_the_runners_place_of_the_kits_other_work_names(self):
+        from facts import ran
+        p, requests = self.launched()
+        runners = ran({2: "code"}, refused={1: "the base bolt/x already holds a change named a"}, keeps=None)
+        at = plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", "madswan", "/crew/main")
+
     def test_the_kits_folder_on_another_runners_host_is_not_taken(self):
         from facts import ran
         p, requests = self.launched()
         runners = {**ran(refused={1: "the base bolt/x already holds a change named a"}, keeps=None), **ran({2: "code"}, host="alpha")}
-        with pytest.raises(plan.Refusal, match="^the runner on deneb took bolt x's work and reports no repositories it keeps, so "
-                                               "crew can't tell where it keeps crew there$"):
+        with pytest.raises(plan.Refusal, match="^the runner on deneb took bolt x's work, reports no repositories it keeps and "
+                                               "carries no place of crew's work naming its folder, so crew can't tell where "
+                                               "it keeps crew there$"):
             plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
 
 
