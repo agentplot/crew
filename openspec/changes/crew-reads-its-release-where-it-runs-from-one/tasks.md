@@ -24,4 +24,4 @@
 
 ## 4. The docs
 
-- [ ] 4.1 README says crew's commands run the crew the host has installed, what a build's start records, when an install makes an agent due and when the follower catches one, and that crew's package carries `plugin/release.json` (design, Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.1 README says crew's commands run the crew the host has installed, what a build's start records, when an install makes an agent due and when the follower catches one, and that crew's package carries `plugin/release.json` (design, Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
