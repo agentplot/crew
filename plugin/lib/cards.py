@@ -404,34 +404,23 @@ def block(head, name, says):
 
 
 def renamed_drawn(a, before, kits, repo, where, renamed):
-    """A kit's rename as a proposal's card draws it (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan),
-    from what the card has read of the plan so far (kits, {bolt: its kit}; repo, {unit: its kit}; where, {unit: its
-    bolt}), which it renames: its RENAME KIT block, the old name and the new, the bolts it renames, the started ones
-    among them marked so, and its units and chores; and its sections, each renamed bolt, and the new kit's queue where it
-    renames queued work or nothing at all, which the picture draws under the new kit (renamed, {section: (old, new, the
-    queued units it renames)}). It makes nothing new, so it asks no question of its own."""
-    same = lambda k: bool(k) and k.split("/")[-1] == a.old.split("/")[-1]
-    bolts, units = [b for b, k in kits.items() if same(k)], [u for u, k in repo.items() if same(k)]
-    begun = {b for b in bolts if before.bolt(b) is not None and before.bolt(b).get("Path") == "flume"}
-    queued = [u for u in units if not where.get(u)]
-    for b in bolts:
-        kits[b], renamed[("bolt", b)] = a.new, (a.old, a.new, [])
-    for u in units:
-        repo[u] = a.new
-    if queued or not bolts:
-        renamed[("queue", a.new)] = (a.old, a.new, queued)
-    says = (["bolts: " + ", ".join(b + (" (started)" if b in begun else "") for b in bolts)] if bolts else ["no bolt"])
-    says += ["units: " + ", ".join(units)] if units else []
-    secs = [("bolt", b) for b in bolts] + ([("queue", a.new)] if queued or not bolts else [])
-    return secs, block("RENAME KIT", f"{a.old} → {a.new}", [x for l in says for x in wrap(l, SAYS)])
+    """A repository's rename as a proposal's card draws it (Decision 7 of a-repository-is-renamed-by-one-explicit-command;
+    plan-proposals "A proposal's card draws a kit's rename"): its RENAME KIT block, the old name and the new, saying the
+    repository's work is finished and its launches, landings and decision-record sources are renamed. A rename stands
+    with no bolt or unit of the repository (plan.22), so it names none and returns no section, the picture drawing
+    nothing for it; it makes nothing new, so it asks no question of its own. Called as drawn calls every command, with
+    what the card has read of the plan so far (kits, repo, where, renamed), none of which it changes."""
+    says = ["its work is finished; its launches, landings and record sources are renamed"]
+    return [], block("RENAME KIT", f"{a.old} → {a.new}", [x for l in says for x in wrap(l, SAYS)])
 
 
 def drawn(before, after, argvs):
     """A proposal's change, from the plan at the tip, the plan its commands leave and its commands, parsed: each bolt
     they touch and each kit's queue a unit goes to, before and after, as the picture's sections; the change as the
-    card's text, lines of at most forty characters; the counts; and what the card says of each unit, its intent, why
-    it is dropped, the intent an amendment replaces, the bolt a unit moved in comes from, the parts of a split. A
-    function of those facts alone, no kit read (plan.12), shared by every proposal card crew builds."""
+    card's text, lines of at most forty characters, a change drawn in no section, a repository's rename, after the
+    sections; the counts; what the card says of each unit, its intent, why it is dropped, the intent an amendment
+    replaces, the bolt a unit moved in comes from, the parts of a split; and each rename, (old, new). A function of
+    those facts alone, no kit read (plan.12), shared by every proposal card crew builds."""
     where = {u.name(): u.get("Bolt") for u in before.work()}
     repo = {u.name(): u.get("Repo") for u in before.work()}
     # A chore's words are said as its intent, marked as a chore's, on the picture and in its option (plan.11).
@@ -513,7 +502,7 @@ def drawn(before, after, argvs):
             dropped[a.unit] = a.reason
             secs, b = [group(a.unit)], block("DROP", a.unit, wrap(a.reason, SAYS, 3))
         order += [s for s in secs if s not in order]
-        blocks.append((secs[0], b))
+        blocks.append((secs[0] if secs else None, b))
 
     sections, lines = [], []
     for kind, name in order:
@@ -568,9 +557,13 @@ def drawn(before, after, argvs):
                 lines += [f"{r['n']:>2} {r.get('mark', ' ')} {first}"] + ["     " + x for x in rest]
         if kind == "bolt" and not after.bolt(name):
             lines.append("   the bolt is dropped")
+    for sec, b in blocks:  # a change drawn in no section, a repository's rename, after them all
+        if sec is None:
+            lines += ([""] if lines else []) + b
+    renames = [(a.old, a.new) for a in argvs if (a.cmd, a.sub) == ("kit", "rename")]
 
     return {"sections": sections, "lines": lines, "counts": counts, "intent": intent, "dropped": dropped,
-            "amended": amended, "came_from": came_from, "parts": parts, "goals": goals}
+            "amended": amended, "came_from": came_from, "parts": parts, "goals": goals, "renames": renames}
 
 
 # --------------------------------------------------------------------------------- the words rule (briefs.13)
@@ -1356,7 +1349,7 @@ def proposal_card(f):
     f.get("state", "open") == "open" or fail(f"proposal {n} is {f['state']}: it is closed, so it has no card")
     d = drawn(f["before"], f["after"], argvs)
     counts = ", ".join(f"{d['counts'][c]} {c}" for c, _ in COUNTS if d["counts"][c])
-    headings = [s["heading"] for s in d["sections"]]
+    headings = [s["heading"] for s in d["sections"]] or [old for old, _ in d["renames"]]  # a rename draws no section
     room = TITLE - len(f"Plan change to : {counts}")
     to = next(said for k in range(len(headings), 0, -1)
               for said in [joined(headings[:k] + ([f"{len(headings) - k} more"] if k < len(headings) else []))]

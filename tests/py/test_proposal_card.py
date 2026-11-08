@@ -142,33 +142,35 @@ def madswan():
                                        ("ledger", "tailrace", None, [])]), label="madswan")
 
 
-def test_a_kits_rename_is_a_block_of_its_own_naming_what_it_renames_and_the_card_a_plain_approval():
-    """plan-proposals, madswan's renames proposed (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan):
-    each rename is a RENAME KIT block, its old name and its new, the bolts it renames with the started one marked so, and
-    its units; the picture draws each renamed bolt, and the renamed queue, under its new kit; it adds no unit, so the
-    card is a hold to approve of low risk."""
+def test_a_rename_is_a_block_naming_both_names_and_no_bolt(monkeypatch):
+    """plan-proposals, madswan's renames proposed once each repository's work is finished (Decision 7 of
+    a-repository-is-renamed-by-one-explicit-command): each rename is a RENAME KIT block naming its old name and its new
+    and no bolt or unit, the picture draws no section for either, and it adds no unit, so the card is a hold to approve
+    of low risk."""
+    monkeypatch.setattr(plan.record, "reach", lambda label, eid=None: 0)
     dos = ("kit rename flywheel-cloud boomdrive-cloud", "kit rename tailrace timber")
     fleet = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
-             "hosts": {"deneb": keeping("/d/agentplot", "agentplot/boomdrive-cloud", "agentplot/timber")}}
-    w = madswan()
+             "hosts": {"deneb": keeping("/d/agentplot", "afterthought/crew")}}
+    landed = lambda n, repo: f"Id: 2026110{n}T100000Z-deneb-1-{n}\nAt: 2026-11-0{n}T10:00:00Z\nHost: deneb\nBy: chuck\nAct: bolt.land\nRepo: {repo}\n"
+    finished = lambda: FactsWrite(plan_text(bolts=[("crew-bolt", "crew", False)], units=[("crew-unit", "crew", "crew-bolt", [])]),
+                                  label="madswan", files={"runs/deneb/2026-11-05.rec": plan.record.DESCRIPTOR + landed(1, "flywheel-cloud")
+                                                          + "\n" + landed(2, "tailrace")})
+    w = finished()
     apply(w, *dos, ctx=known(w, fleet=fleet, n=1))
     argvs = [plan.do_args("madswan", d) for d in dos]
-    b = cards.proposal_card(dict(n=5, state="open", case="Two kits were renamed on their host. The plan follows.",
-                                 before=madswan().plan, after=w.plan, argvs=argvs, session=None))
+    b = cards.proposal_card(dict(n=5, state="open", case="Two repositories were renamed on their forge. Their records follow.",
+                                 before=finished().plan, after=w.plan, argvs=argvs, session=None))
     c = b["card"]
     assert (c["kind"], c["approve"]["risk"], b["boxes"]) == ("approve", "low", []) and "options" not in c
-    assert c["summary"] == "Two kits were renamed on their host. Hold to apply it whole."
+    assert c["title"] == "Plan change to flywheel-cloud and tailrace"
+    assert c["summary"] == "Two repositories were renamed on their forge. Hold to apply it whole."
     assert [a["kind"] for a in c["artifacts"]] == ["image", "code"]
-    text = "\n".join(c["artifacts"][-1]["lines"])
-    assert ("RENAME KIT\n       flywheel-cloud → boomdrive-cloud\n       bolts: you-sign-in-to-staging\n       (started)\n"
-            "       units:\n       one-seam-turns-every-credential-\n       into-a-principal\n") in text
-    assert "RENAME KIT\n       tailrace → timber\n       bolts: trc-1\n       units: moons, ledger\n" in text
-    assert text.index("flywheel-cloud → boomdrive-cloud") < text.index("tailrace → timber")
-    d = cards.drawn(madswan().plan, w.plan, argvs)
-    assert [(s["heading"], s["line"], [r["name"] for r in s["rows"]], s["counts"]) for s in d["sections"]] == [
-        (STAGING, "In boomdrive-cloud, renamed from flywheel-cloud. 1 unit now; 1 once approved", [SEAM], []),
-        ("trc-1", "In timber, renamed from tailrace. 1 unit now; 1 once approved", ["moons"], []),
-        ("the timber queue", "In timber, renamed from tailrace. 1 queued now; 1 once approved", ["ledger"], [])]
+    assert c["artifacts"][-1]["lines"] == [
+        "RENAME KIT", "       flywheel-cloud → boomdrive-cloud", "       its work is finished; its", "       launches, landings and record",
+        "       sources are renamed", "", "RENAME KIT", "       tailrace → timber", "       its work is finished; its",
+        "       launches, landings and record", "       sources are renamed"]
+    d = cards.drawn(finished().plan, w.plan, argvs)
+    assert d["sections"] == [] and d["renames"] == [("flywheel-cloud", "boomdrive-cloud"), ("tailrace", "timber")]
     assert png(b["picture"])[0] == 1560
 
 
@@ -404,7 +406,6 @@ class OnTheTip:
             monkeypatch.setattr(plan, name, lambda *a, name=name, **kw: self.called.append((name, a, kw)) or "req_2")
         # no runner has reported taking the kit's work, so the card is filed in the partition's blueprints (plan.kit_at)
         monkeypatch.setattr(plan, "runners", lambda repo, label: {})
-        monkeypatch.setattr(plan, "renames_at", lambda repo, tip: [])  # no kit renamed
         monkeypatch.setattr(plan, "kit_at", lambda fleet, label, kit, run=None: plan.fail(f"no runner has reported taking {kit}'s work yet"))
 
 

@@ -77,8 +77,8 @@ DESCRIPTOR = """\
 # conflicting Paths and how it Reached the later unit (told, prompt or settle) or the conductor (wait), a slot.free's Paths (the
 # place of its slot's work the tidy in its command removed, plan.9), a stage start's Forecast (the forecast entries its prompt carries), a review batch's
 # Batch (its number) and Units (each unit as <unit>:<team>@<the commit its change was read at>), a batch due's Count, a
-# kit.rename's Repo (the kit's new name, its On kit/<name> and its From the kit/<old> it had) and Count (the plan's
-# records it renamed), a
+# kit.rename's Repo (the repository's new name, its On kit/<name> and its From the kit/<old> it had) and Count (every
+# record it renamed, the plan's sources, requests.rec's and the run record's together), a
 # card act's Card (the Pending You card's id), Key (the rail row's card key) and Unread (why its reading could not open,
 # crew's own message, on a card's post or change raised without it), a card's close's Answer (what the user answered
 # on it, in crew's words made from names alone, cards.answer_said), a landing's Repo (the kit it landed on),

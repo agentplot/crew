@@ -125,18 +125,23 @@
 #                                      the planner or the user, and a drop of launched work says the name stays taken
 #                                      while Flume keeps its branch
 #   crew kit   rename <old> <new> [--label L]
-#                                      a kit renamed on its host renamed across the plan, the user's at a shell or a
-#                                      proposal's, the planner's own run refused naming crew plan propose and any other
-#                                      agent's naming the planner: in one commit the Repo of every Bolt and Unit record
-#                                      naming <old>, by its name or <owner>/<name>, set to <new>, and a kit.rename entry
-#                                      in the run record naming both, with Count the records renamed; nothing else
-#                                      rewritten, no request appended and nothing launched, so a started bolt goes on as
-#                                      it stood; refused, nothing written, for an old name that is no kit of the
-#                                      partition or that a rename already renamed, while the partition's main-level
-#                                      host's spaces keep a repository by <old> or none by <new>, for a new name a
-#                                      bolt's, for two names of one kit, and when the hosts file can't be read. What
-#                                      crew recorded under a former name and never rewrites is read under the name now,
-#                                      and bolt new, unit add and chore add given one write the name now and say so
+#                                      a repository renamed in crew's records once its work is finished, after its
+#                                      removal from the runner, Flume and sluice and its rename on its forge, before it
+#                                      is added back under <new>; the user's at a shell or a proposal's, the planner's
+#                                      own run refused naming crew plan propose and any other agent's naming the
+#                                      planner: in one commit <old> renamed <new> in the plan's decision-record sources,
+#                                      each request's Repo and a fix of its main's Work, and the run record's entries on
+#                                      the drive's branch, their Repo, On and From, and a kit.rename entry naming both,
+#                                      with Count every record renamed; Goals, words, keys, every earlier kit.rename
+#                                      entry and each host's own run record left as written; refused, nothing written
+#                                      and all that stands named, while <old>'s work stands (a bolt, unit or chore, a
+#                                      fix of main or a role's work not landed, a live place, an open or lost card under
+#                                      land/<old> or record/<old>/<n>, an unanswered batch holding its work, an open
+#                                      proposal naming it), while a host's runner, or its spaces where the runner
+#                                      reports none, keeps <old>, for a new name a bolt's, for two names of one
+#                                      repository, and when no record names <old>. Run again, it renames what an
+#                                      earlier one left, its host's kept entries pushed first. No command renames a
+#                                      partition. Every record is read as written, no reader mapping a former name
 #   crew plan  propose|proposed|approve|answer|drop ...
 #                                      the planner's proposals: a change to the plan, waiting on the user alone and applied
 #                                      once the user approves it,

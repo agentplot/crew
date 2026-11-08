@@ -5,12 +5,12 @@
 # it, each closing the card, a proposal is dropped and replaced, its card withdrawn or changed in place, one resting on
 # a record its kit's main does not hold accepted is refused, a unit from a signal is routed, a move of launched work is
 # refused, an amendment of a launched unit, approved or the user's own, retries its construct with its words, two
-# writes racing on one branch, or on two branches of one repository, both land, and a kit renamed on the main level's
-# host is renamed across the plan by the user's crew kit rename, the planner's own run refused, or by a proposal the
-# user approves (Decision 2 of a-kit-renamed-on-its-host-is-renamed-across-the-plan). Whether a proposal holds, whom it
-# waits on, what its page and card say, who may write the plan, what a write asks of the runner and what a rename
-# renames or refuses are logic cases (tests/py/test_proposals.py, test_proposal_life.py, test_proposal_card.py,
-# test_plan_roles.py, test_cross.py, test_kit_rename.py); each step here checks a command's wiring once.
+# writes racing on one branch, or on two branches of one repository, both land, and a repository whose work is finished
+# is renamed across its records by the user's crew kit rename, the planner's own run refused, or by a proposal the user
+# approves (a-repository-is-renamed-by-one-explicit-command). Whether a proposal holds, whom it waits on, what its page
+# and card say, who may write the plan, what a write asks of the runner and what a rename renames or refuses are logic
+# cases (tests/py/test_proposals.py, test_proposal_life.py, test_proposal_card.py, test_plan_roles.py, test_cross.py,
+# test_repository_rename.py); each step here checks a command's wiring once.
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
 blueprints WilldanGroup/willdan-blueprints >/dev/null
@@ -278,43 +278,55 @@ has "$out" "$(git --git-dir "$ws" log -1 --format='%h %s' "$(act_tip)") removed 
 eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/WilldanGroup/crew-state.git" rev-parse --is-bare-repository)" "true"
 ok "two racing writes both land, one after the other, never merged; a write whose unit was dropped meanwhile is refused, naming that commit"
 
-# Two kits renamed on the box, the main level's host, its spaces keeping atlas-kit as atlas and breadboard-kit as
-# breadboard: the user renames the first at a shell, the planner's own run is refused, and the planner proposes the
-# second, which the user approves.
-kit $box willdan atlas-kit >/dev/null
+# Two repositories renamed on their forge once their work is finished (record 0060's order): atlas-kit's bolt landed and
+# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every host's spaces; the user
+# renames the first at a shell, the planner's own run is refused, and the planner proposes the second, which the user
+# approves.
+a=$(kit $box willdan atlas-kit)
 expect_ok crew bolt new atlas-pages "The atlas has pages." --repo atlas-kit
 expect_ok crew unit add an-atlas-page "The atlas has a page." --bolt atlas-pages
+expect_ok crew main fix atlas-kit red-build "The build is red."
+runner_writes $box "$(request_of fix/main/atlas-kit/red-build)" "$T/flume/main--red-build" "$(landed_status "$T/flume/main--red-build" "$(git -C "$a" rev-parse main)")"
+mkdir -p "$a/openspec/changes/archive/2026-11-07-an-atlas-page"; echo "# an-atlas-page" > "$a/openspec/changes/archive/2026-11-07-an-atlas-page/proposal.md"
+commit_all "$a" "chore(openspec): archive an-atlas-page"; push "$a"
+expect_ok crew bolt land atlas-pages
 expect_ok crew bolt new boards "Boards are listed." --repo breadboard-kit
-edit hosts "for s in d['hosts']['$box']['sessions'].values():
-    s['repos'] = [{'WilldanGroup/atlas-kit': 'WilldanGroup/atlas', 'WilldanGroup/breadboard-kit': 'WilldanGroup/breadboard'}.get(r, r) for r in s['repos']]"
+expect_ok crew main fix breadboard-kit red-tests "The tests are red."
+expect_ok crew main fix breadboard-kit red-tests --drop
+expect_ok crew bolt drop boards "breadboard-kit is renamed first"
+edit hosts "for h in d['hosts'].values():
+    for s in h['sessions'].values():
+        s['repos'] = [r for r in s['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
+day=$(date -u +%F)
 before=$(tip)
 expect_ok crew kit rename atlas-kit atlas
-eq "$(tail -1 <<<"$out")" "atlas-kit is atlas in wldn's plan: 2 records renamed"
+eq "$(tail -1 <<<"$out")" "atlas-kit is atlas in wldn's records: 3 records renamed"
 eq "$(acts_since "$before")" "1"
 eq "$(git --git-dir "$ws" log -1 --format=%s "$(act_tip)")" "plan(kit): rename atlas-kit atlas ($me@mac-studio)"
-eq "$(git --git-dir "$ws" diff --name-only "$before" wldn/main | grep -v '^runs/')" "plan.rec"
-eq "$(plan -t Bolt -e "Bolt = 'atlas-pages'" -P Repo) $(plan -t Unit -e "Bolt = 'atlas-pages'" -P Repo)" "atlas atlas"
+eq "$(requests -e "Act = 'launch' && Work = 'fix/main/atlas/red-build'" -P Repo) $(requests -e "Work = 'fix/main/atlas-kit/red-build'" -c)" "atlas 0"
+eq "$(git --git-dir "$ws" show "wldn/main:runs/mac-studio/$day.rec" | recsel -t Entry -e "Act = 'bolt.land' && On = 'bolt/atlas-pages'" -P Repo)" "atlas"
+eq "$(field mac-studio bolt.land Repo bolt/atlas-pages)" "atlas-kit"
 eq "$(field mac-studio kit.rename From kit/atlas) $(field mac-studio kit.rename Repo kit/atlas) $(field mac-studio kit.rename Count kit/atlas)" \
-  "kit/atlas-kit atlas 2"
+  "kit/atlas-kit atlas 3"
 CREW_AGENT=wldn-planner expect_fail "the planner changes the plan through a proposal: crew plan propose, not crew kit rename" \
   crew kit rename breadboard-kit breadboard
-ok "the user's crew kit rename renames the kit's bolts and units in one commit with its kit.rename entry, and the planner's own run is refused, naming crew plan propose"
+ok "the user's crew kit rename of a repository whose work is finished renames its request and landing on the branch in one commit with its kit.rename entry, the host's own run record as written, and the planner's own run is refused, naming crew plan propose"
 
 export CREW_AGENT=wldn-planner
 : > "$CREW_TEST_LOG"
-expect_ok crew plan propose "$(proposal 'Case: breadboard-kit is breadboard on its host.' 'Do: kit rename breadboard-kit breadboard')"
+expect_ok crew plan propose "$(proposal 'Case: breadboard-kit is breadboard on its forge, its work finished.' 'Do: kit rename breadboard-kit breadboard')"
 n=$(last)
 has "$out" "proposal $n is open, waiting on the user"
 has "$out" "card proposal/$n: req_stub-"
 has "$(calls)" "RENAME KIT"
-eq "$(plan -t Bolt -e "Bolt = 'boards'" -P Repo)" "breadboard-kit"
+eq "$(requests -e "Work = 'fix/main/breadboard-kit/red-tests'" -c)" "2"
 before=$(tip)
 CREW_AGENT= expect_ok crew plan approve "$n"
 eq "$(acts_since "$before")" "1"
-eq "$(plan -t Bolt -e "Bolt = 'boards'" -P Repo)" "breadboard"
+eq "$(requests -e "Work = 'fix/main/breadboard/red-tests'" -c) $(requests -e "Work = 'fix/main/breadboard-kit/red-tests'" -c)" "2 0"
 eq "$(field mac-studio kit.rename From kit/breadboard)" "kit/breadboard-kit proposal/$n"
 unset CREW_AGENT
-ok "a proposal holding a rename is checked, its card drawing the rename, and the user's approval renames the kit in its one commit"
+ok "a proposal holding a rename is checked, its card drawing the rename, and the user's approval renames the repository's records in its one commit"
 
 # madswan and swancloud share afterthought/crew-state, each on its own branch: neither is replayed for the other.
 blueprints afterthought/blueprints >/dev/null; blueprints agentplot/blueprints >/dev/null; as=$(remote afterthought/crew-state)

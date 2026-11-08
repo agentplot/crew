@@ -100,11 +100,19 @@ A clone of a drive's branch SHALL be recutils files that `recsel` and `recfix` r
 - **THEN** the plan's units are printed
 
 ### Requirement: crew asks a host's runner for work by requests on the drive's branch
-crew SHALL write every request for a host's runner as a record of `requests.rec` on the drive's branch: a launch of a place, or a retry, drop or priority of one it launched. Each SHALL be numbered once, appended by a crew command in the commit of the plan write that occasions it, checked by `recfix --check` and crew's own rules, and never changed or removed.
+crew SHALL write every request for a host's runner as a record of `requests.rec` on the drive's branch: a launch of a place, or a retry, drop or priority of one it launched. Each SHALL be numbered once, appended by a crew command in the commit of the plan write that occasions it, and checked by `recfix --check` and crew's own rules. A request SHALL never be removed. It SHALL never be changed, except by `crew kit rename`, which renames a repository's name in a request's `Repo` and in a fix of its main's `Work`, in the rename's one commit. Any other write that changes a request SHALL be refused.
 
 #### Scenario: Never renumbered
 - **WHEN** `requests.rec` holds requests 1 to 7 and a drop is written
 - **THEN** it is request 8, and requests 1 to 7 are as they were
+
+#### Scenario: A rename's write changes a request's repository
+- **WHEN** the user renames `flywheel-cloud` to `boomdrive-cloud` and request 3 has `Repo: flywheel-cloud`
+- **THEN** the write passes crew's append check with request 3's `Repo` renamed and nothing else of it changed
+
+#### Scenario: Any other write that changes a request
+- **WHEN** a write other than a rename would change request 3's `Repo`
+- **THEN** it is refused, saying a request is never changed or removed, and nothing is pushed
 
 ### Requirement: A launch names everything the runner passes to Flume
 A launch of a kit's work SHALL name the work it serves, its repository as the plan names it, its kind, name and base, its priority, intent and recipient, and its brief, and SHALL name no host or stream, a runner whose configuration names its repository taking it, in the stream its host's Flume configuration maps the repository to; a launch of a role's work SHALL also name the host and stream its role runs in. A launch MAY name launches that must land first and a held submission. A retry, drop or priority SHALL name the launch it acts on and no host. crew's rules SHALL refuse a request that lacks what its act needs or names what its act does not take.
@@ -160,11 +168,11 @@ crew SHALL read a launched piece's stage from the runner whose answers hold its 
 
 Where crew must act on or say where a bolt's work runs, it SHALL read what the runner reported for the work it took. This covers the bolt's landing, its reads of the bolt and its kit, its reading and preview, the sweep after a landing or a drop, its site row, and its ledger's host and stream.
 - The host is the one whose runner took the newest of the bolt's launches taken. While no runner has taken any of the bolt's own work, it is the host whose runner took its kit's newest work taken.
-- The kit's folder there is the one that runner's `repositories.rec` names for the repository of the kit's name now. Where that runner reports no repositories, it is the folder Flume's status of its newest place names. Where that runner has carried no place of the bolt's, every launch of it refused, it is the folder that runner's places of the kit's other work name, on that host alone.
+- The kit's folder there is the one that runner's `repositories.rec` names for the kit's repository, by the name or forge address the plan gives the kit. Where that runner reports no repositories, it is the folder Flume's status of its newest place names. Where that runner has carried no place of the bolt's, every launch of it refused, it is the folder that runner's places of the kit's other work name, on that host alone.
 - The stream is the one Flume's status of that runner's place names.
 
 The kit SHALL be named as unread, nothing of it landed and every other bolt read as it stands, in each of these cases:
-- a runner that reports its repositories names none for the kit's name now. The refusal names the host, the repositories it keeps and `crew kit rename`;
+- a runner that reports its repositories names none by the kit's name. The refusal names the host, the repositories it keeps and `crew kit rename`;
 - no runner has reported the bolt or the kit;
 - the runner that took it reports two repositories by the kit's name, and the plan names the kit by its name alone;
 - two runners took the bolt's newest launch.
@@ -190,11 +198,11 @@ The kit SHALL be named as unread, nothing of it landed and every other bolt read
 - **THEN** a landing of `x` is refused naming that no runner has reported taking its work, and a piece of it reads launching
 
 #### Scenario: A kit renamed under its place
-- **WHEN** deneb's runner carries request 1's place, Flume's status naming its repository `/r/flywheel-cloud`, its `repositories.rec` names `agentplot/boomdrive-cloud` at `/r/boomdrive-cloud`, and the bolt's kit reads `boomdrive-cloud`
+- **WHEN** deneb's runner carries request 1's place, Flume's status naming its repository `/r/flywheel-cloud`, its `repositories.rec` names `agentplot/boomdrive-cloud` at `/r/boomdrive-cloud`, and the bolt's kit is `boomdrive-cloud`, as the plan gives it
 - **THEN** the bolt is read and landed on deneb in `/r/boomdrive-cloud`
 
 #### Scenario: A runner that does not keep the kit
-- **WHEN** deneb's `repositories.rec` names only `agentplot/boomdrive-cloud`, and the bolt's kit reads `flywheel-cloud`, with no rename
+- **WHEN** deneb's `repositories.rec` names only `agentplot/boomdrive-cloud`, and the bolt's kit is `flywheel-cloud`, as the plan gives it
 - **THEN** its landing is refused naming deneb, `flywheel-cloud`, the repositories deneb's runner keeps and `crew kit rename`, and nothing is landed
 
 ### Requirement: What comes before a runner takes a kit's work is done on the main-level host
@@ -249,3 +257,10 @@ A decision SHALL read a drive's branch at its tip, or, while one of its newest t
 #### Scenario: The entry arrives
 - **WHEN** the write's entry reaches the branch
 - **THEN** `crew plan proposed 6` reads the tip, prints proposal 6, and says nothing of a read below the tip
+
+### Requirement: A partition is never renamed
+A partition's label SHALL be fixed once it is made, and no crew command SHALL rename one; `crew kit rename` renames a repository within the one partition it runs as. A label that changes in the teams file SHALL be read as one partition removed and another added: the new label's state is its own branch, `<new label>/main`, nothing of the old label's branch is read as the new partition's, and a command naming the old label is refused as naming no partition.
+
+#### Scenario: A label changed in the teams file
+- **WHEN** the teams file names `afterthought` where it named `swancloud`
+- **THEN** crew reads afterthought's state from `afterthought/main` of its state repository, and a command run with `--label swancloud` is refused naming the partitions the teams file has
