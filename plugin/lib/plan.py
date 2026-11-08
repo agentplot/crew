@@ -2776,10 +2776,9 @@ def send_stands(sent, head, work):
     (rail-cards "A ticked bolt's approval stands while its own work is unchanged", record 0031 as amended 2026-10-24):
     the heads one by prefix, or the bolt's own work, its non-merge commits main lacks, read between them (work,
     bolt_work's {head, gained, lost, why}) with nothing gained and nothing lost. Work not read, or read with why, holds
-    no send at another head (read.1). A decision of facts alone (code.7)."""
-    if sent and head and (head.startswith(sent) or sent.startswith(head)):
-        return True
-    return bool(work) and not work.get("why") and not work.get("gained") and not work.get("lost")
+    no send at another head (read.1). A decision of facts alone (code.7), runner.send_stood's, by which the lands a send
+    makes due are judged too (runner.lands_due)."""
+    return runner.send_stood(sent, head, work)
 
 
 SAID_COMMITS = 5  # the subjects a bolt asked again names of each list, before how many more

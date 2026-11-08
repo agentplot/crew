@@ -1931,3 +1931,99 @@ def test_the_sweeps_raise_of_a_kits_card_handed_an_older_copy_posts_it_saying_th
     assert plan.raise_landings_row(FLEET, r, plain) == "req_k1"
     dead, bare = [next(a for t, a in x.calls if t == "post_request")["summary"] for x in (acts, plain)]
     assert dead == f"{cards.DEAD}\n\n{bare}"
+
+
+# ------------------------------------------------------------------------- the lands a send makes due (runner.lands_due)
+
+class TestLandsDue:
+    """rail-cards "A landings row is due one land for each send and head" (crew-lands-each-bolt-through-flumes-base-place,
+    Decisions 4 and 5): runner.lands_due over the card's rows, the sends standing for them, requests.rec and the runner's
+    report, each row due one land of its launch per send and head, in the card's order with the fixes of main first."""
+    FIX = "fix/main/crew/red"
+
+    def requests(self, *more):
+        """requests.rec: y's base place 1, z's 2, a unit of y 3, the fix of crew's main main--red 4, then more."""
+        import runner
+        from test_runner import BOLT, held, rec
+        return held(rec(1, "launch", "bolt/y", **dict(BOLT, Name="y")), rec(2, "launch", "bolt/z", **dict(BOLT, Name="z")),
+                    rec(3, "launch", "unit/a", Base="bolt/y"),
+                    rec(4, "launch", self.FIX, Kind="fix", Name="main--red", Base="main", Hold="submission", Intent="swancloud/main/crew",
+                        Recipient="swancloud/ops"), *more)
+
+    def reads(self, **more):
+        """The runner on deneb: y's, z's and the fix's places launched, live with nothing submitted (or as more gives)."""
+        from facts import ran
+        launched = {1: "flume-0.17.0/bolt-submitted", 2: "flume-0.17.0/bolt-submitted", 4: "held", **more.pop("launched", {})}
+        return ran(launched, label="swancloud", **more)
+
+    def rows(self, *bolts, fix=False):
+        out = ([dict(bolt="main--red", work=self.FIX, box=True, facts=dict(head=H2))] if fix else []) + [box(b) for b in bolts]
+        return out
+
+    def due(self, rows, sent, requests=None, reads=None, posted=(), work=None):
+        import runner
+        requests = requests if requests is not None else self.requests()
+        # none of the fixtures has submitted anything: a base place live with no land reads none (runner.landing_of)
+        return runner.lands_due(rows, sent, requests, reads or self.reads(), posted, work)
+
+    def test_two_rows_in_the_cards_order(self):
+        assert self.due(self.rows("z", "y"), {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_1", H1[:7])}) == [("bolt/z", 2), ("bolt/y", 1)]
+
+    def test_a_fix_of_main_first(self):
+        sent = {"bolt/y": ("req_1", H1[:7]), self.FIX: ("req_1", H2[:7])}
+        assert self.due([box("y"), dict(bolt="main--red", work=self.FIX, box=True, facts=dict(head=H2))], sent) == [
+            (self.FIX, 4), ("bolt/y", 1)]
+
+    def test_a_send_read_twice_posts_once(self):
+        """Once posted, at its head, nothing more: posted names it, and the land stands undecided."""
+        import runner
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests, posted=posted) == []
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests) == []
+
+    def test_a_row_taking_main_first_posts_nothing_then_once_at_its_new_head(self):
+        """The user ticked y at abc1234 and its land conflicted; its take-main fix merged, y proven at def5678, its own
+        work unchanged: nothing while it takes main in, then one land at the new head on the same send."""
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        reads = self.reads(launched={1: "flume-0.17.0/bolt-conflict"}, unplaced={5: "-"})
+        sent = {"bolt/y": ("req_1", H1[:7])}
+        assert self.due([taking_main("y")], sent, requests, reads, posted) == []
+        assert self.due([box("y", H2)], sent, requests, reads, posted, work={"y": work()}) == [("bolt/y", 1)]
+        assert self.due([box("y", H2)], sent, requests, reads, posted + [dict(work="bolt/y", card="req_1", head=H2[:7], request=6)],
+                        work={"y": work()}) == []
+
+    def test_a_stopped_row_posts_nothing_on_the_same_send_and_once_on_a_new_one(self):
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        reads = self.reads(refused={5: "flume refused the submission: a place on bolt/y is live"})
+        assert self.due([box("y", H2)], {"bolt/y": ("req_1", H1[:7])}, requests, reads, posted, work={"y": work()}) == []
+        assert self.due([box("y", H2)], {"bolt/y": ("req_2", H2[:7])}, requests, reads, posted) == [("bolt/y", 1)]
+
+    def test_a_bolt_started_before_bolts_were_base_places_posts_nothing(self):
+        """It has no launch of its own, and its row no box (rail-cards "A bolt started before bolts were base places has
+        no box"); a box given it all the same posts nothing."""
+        assert self.due([box("w")], {"bolt/w": ("req_1", H1[:7])}) == []
+
+    def test_a_held_row_posts_nothing(self):
+        """A bolt carrying another bolt's work, held with no box (landing_rows), and a bolt whose units wait on a batch
+        the user has not answered, no row at all (land_facts): whatever send stands, nothing is posted."""
+        sent = {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_1", H1[:7])}
+        assert self.due([hold("y", "held: carries bolt x's work, its landing 1a2b3c4, which main lacks")], sent) == []
+        assert self.due([], sent) == []
+
+    def test_an_outcome_crew_cant_tell_posts_nothing_again_at_that_head(self):
+        import runner
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        unread = {"deneb": runner.host_read("swancloud", "deneb", "5e1f0c2a" + "0" * 32, {}, {"answers.rec": "recfix refused it"})}
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests, unread) == []
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests, unread,
+                        [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]) == []
+
+    def test_a_send_whose_bolts_own_work_changed_posts_nothing(self):
+        assert self.due([box("y", H2)], {"bolt/y": ("req_1", H1[:7])}, work={"y": work([LEASE])}) == []
