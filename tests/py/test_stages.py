@@ -124,15 +124,36 @@ class TestCrossed:
         st = self.stages(None, runs=([], ran()))
         assert (st.of("a")["stage"], st.of("a")["why"]) == ("unknown", "unit/a has no launch in requests.rec")
 
+    def with_tidy(self, runners, bolt=None):
+        """Stages of x (stages) with its fix tidy launched as request 4 at 2026-11-08T04:00:00Z."""
+        st = self.stages(runners, bolt=bolt)
+        requests, _ = st.runs["madswan"]
+        fix = plan.Rec("Request", [("Request", "4"), ("Act", "launch"), ("Work", "fix/x/tidy"), ("Name", "x--tidy"),
+                                   ("Base", "bolt/x"), ("Kind", "fix"), ("Date", "2026-11-08T04:00:00Z")])
+        st.runs["madswan"] = (requests + [fix], st.runs["madswan"][1])
+        return st
+
     def test_a_crossed_bolts_fixes_read_their_stages_from_the_runner(self):
         """bolt-plan's requirement holds for a fix: fix/x/tidy, launched as request 4, read at code."""
         from facts import ran
-        st = self.stages(ran({4: "code"}))
-        requests, _ = st.runs["madswan"]
-        fix = plan.Rec("Request", [("Request", "4"), ("Act", "launch"), ("Work", "fix/x/tidy"), ("Name", "x--tidy"),
-                                   ("Base", "bolt/x"), ("Kind", "fix")])
-        st.runs["madswan"] = (requests + [fix], st.runs["madswan"][1])
+        st = self.with_tidy(ran({4: "code"}))
         assert [(w, s["stage"]) for w, _, s in st.fixes(st.plan.bolt("x"))] == [("fix/x/tidy", "code")]
+
+    def test_a_crossed_bolts_landed_fix_reads_merged_from_its_bolts_landing(self):
+        """bolt-plan "A fix whose place's landing its bolt's branch holds is merged": tidy's place last carried at
+        submitted and x's landing of fix/x--tidy after its launch, it reads merged there, as crew bolts and the board
+        show it; with x's landings unread, or the landing made before its launch, it reads submitted (read.1)."""
+        from facts import ran
+        landed = {"fix/x--tidy": {"commit": "4" * 40, "at": "2026-11-08T04:18:32Z"}}
+        st = self.with_tidy(ran({4: "submitted"}), bolt={"landings": landed})
+        [(w, _, s)] = st.fixes(st.plan.bolt("x"))
+        assert (w, s["stage"], s["commit"], s["landed"], s["on"], s["branch"]) == (
+            "fix/x/tidy", "merged", "4" * 40, "2026-11-08T04:18:32Z", "bolt", "fix/x--tidy")
+        assert runner.piece_said(s) == ("merged", "fix/x--tidy landed on its bolt at 4444444")
+        unread = self.with_tidy(ran({4: "submitted"}), bolt={"landings_error": "git could not list the landings on origin/bolt/x"})
+        assert [s["stage"] for _, _, s in unread.fixes(unread.plan.bolt("x"))] == ["submitted"]
+        before = self.with_tidy(ran({4: "submitted"}), bolt={"landings": {"fix/x--tidy": dict(landed["fix/x--tidy"], at="2026-11-08T03:59:59Z")}})
+        assert [s["stage"] for _, _, s in before.fixes(before.plan.bolt("x"))] == ["submitted"]
 
 
 # ------------------------------------------------------------------- a unit whose work its bolt's branch already holds
@@ -203,7 +224,8 @@ class TestBuiltOnItsBolt:
     def test_a_unit_another_partitions_place_built_with_no_launch_here_is_merged_by_its_branch_alone(self):
         """Whichever partition's launch made a's place, its branch is change/a, the unit's own name: this partition
         holds no launch of a at all, so the runner's records give it none, and x's landing of change/a makes it merged;
-        a landing naming another branch builds nothing, and a fix's work is never read from the landings."""
+        a landing naming another branch builds nothing, and a fix's work is read from the landing naming its own place's
+        branch alone."""
         from facts import ran
         st = self.stages(ran({2: "code"}), bolt={"landings": LANDED})
         requests, reads = st.runs["madswan"]
@@ -211,7 +233,8 @@ class TestBuiltOnItsBolt:
         assert (st.of("a")["stage"], st.of("a")["flume"]["commit"]) == ("merged", "1" * 40)
         other = self.stages(ran({2: "code"}), bolt={"landings": {"change/ab": LANDED["change/a"], "unit/a": LANDED["change/a"]}})
         assert other.of("a")["stage"] == "launching"
-        assert runner.built_on_bolt("fix/x/tidy", {"stage": "code"}, {"fix/x--tidy": LANDED["change/a"]}) == {"stage": "code"}
+        assert runner.built_on_bolt("fix/x/tidy", {"stage": "code"}, {"fix/x--tidy": LANDED["change/a"]})["stage"] == "merged"
+        assert runner.built_on_bolt("fix/x/tidy", {"stage": "code"}, {"fix/x--gap": LANDED["change/a"]}) == {"stage": "code"}
 
     def test_landings_crew_could_not_read_leave_the_runners_reading(self):
         """read.1: x's landings unread (landings_error, no landings) build nothing; the runner's stage stands."""
@@ -229,10 +252,11 @@ class TestBuiltOnItsBolt:
 
 
 class TestABoltWhoseLaunchesWereAllRefused:
-    """bolt-plan "A unit whose work its bolt's branch holds is built": a bolt whose every launch the runner refused, as
-    for changes the bolt already holds, has no place of its own naming the kit's folder; crew reads it where the same
-    runner keeps the kit, as its places of the kit's other work name it (plan.launched_at, kit_at), never another
-    host's, so crew bolts never says where it runs can't be told for it."""
+    """bolt-plan "A unit whose work its bolt's branch holds is built" and drive-state "A bolt whose every launch was
+    refused": a bolt whose every launch the runner refused, as for changes the bolt already holds, has no place of its
+    own; crew reads it where that runner reports keeping the kit, its stream none while the runner carries no place of
+    it, or, where that runner reports no repositories, as its places of the kit's other work name it (plan.launched_at,
+    kit_at), never another host's, so crew bolts never says where it runs can't be told for it."""
     FLEET = madswan_fleet()
 
     @pytest.fixture(autouse=True)
@@ -248,14 +272,95 @@ class TestABoltWhoseLaunchesWereAllRefused:
         p, requests = self.launched()
         runners = ran({2: "code"}, refused={1: "the base bolt/x already holds a change named a"})
         at = plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
-        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", "madswan", "/crew/main")
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", None, "/crew/main")
         st = plan.Stages(self.FLEET, p, crew_read(bolts={"x": {"landings": LANDED}, "y": {}}), runs={"madswan": (requests, runners)},
                          label="madswan")
         assert (st.unread(p.bolt("x")), st.of("a")["stage"]) == (None, "merged")
 
+    def test_with_no_repositories_reported_it_is_read_where_the_runners_place_of_the_kits_other_work_names(self):
+        from facts import ran
+        p, requests = self.launched()
+        runners = ran({2: "code"}, refused={1: "the base bolt/x already holds a change named a"}, keeps=None)
+        at = plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
+        assert (at["machine"], at["stream"], at["kit"]["main"]) == ("deneb", "madswan", "/crew/main")
+
     def test_the_kits_folder_on_another_runners_host_is_not_taken(self):
         from facts import ran
         p, requests = self.launched()
-        runners = {**ran(refused={1: "the base bolt/x already holds a change named a"}), **ran({2: "code"}, host="alpha")}
-        with pytest.raises(plan.Refusal, match="the runner on deneb took bolt x's work and has carried no place of it yet"):
+        runners = {**ran(refused={1: "the base bolt/x already holds a change named a"}, keeps=None), **ran({2: "code"}, host="alpha")}
+        with pytest.raises(plan.Refusal, match="^the runner on deneb took bolt x's work, reports no repositories it keeps and "
+                                               "carries no place of crew's work naming its folder, so crew can't tell where "
+                                               "it keeps crew there$"):
             plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
+
+
+class TestABoltLandedOnMain:
+    """bolt-plan "A landed bolt's pieces are read from its landing" and bolt-teams "A bolt whose landing main holds closes
+    whatever the runner carried of its places" (Decision 3 of a-bolts-landing-on-main-reads-landed): x landed on main
+    through a pull request and GitHub deleted bolt/x, so the kit's read gives x's facts with no branch, its landing on main
+    and the landings on that landing's line (gather.kit); deneb's runner answered a's launch launched and carries no place
+    of it, as deneb's runner carried none on 2026-11-08. a reads landed through its landing, x reads landed and its close
+    passes; a piece the landing does not name keeps x open, named; a landing crew can't read builds nothing (read.1)."""
+    FLEET = madswan_fleet()
+    LANDING = {"commit": "4acecf09" + "0" * 32, "at": "2026-11-08T16:02:45Z", "base": "b45e0000" + "0" * 32, "head": "900527e9" + "0" * 32}
+    A = {"change/a": {"commit": "1" * 40, "at": "2026-11-08T15:00:00Z"}}
+    PLACES = {1: "/crew/main/places/change--a"}
+
+    @pytest.fixture(autouse=True)
+    def writer(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
+
+    def launched(self, units):
+        from facts import launched
+        return launched(["x"], work=[(u, "x", [], "unit", []) for u in units], fleet=self.FLEET)
+
+    def stages(self, units, runners, facts):
+        """x of units, started and launched, crew's kit read on deneb holding a on main and x's facts as gather gives a
+        bolt with no branch (gather.kit), over facts."""
+        p, requests = self.launched(units)
+        gone = {"exists": False, "head": None, "head_at": None, "verdict": None}
+        return p, plan.Stages(self.FLEET, p, crew_read(main=["a"], bolts={"x": dict(gone, **facts)}),
+                              runs={"madswan": (requests, runners)}, label="madswan")
+
+    def test_a_landed_bolt_whose_branch_and_places_are_gone_reads_landed_and_closes(self):
+        """bolt-plan "The landed unit of a bolt whose branch and places are gone"; bolt-teams "A landed bolt whose branch
+        and places are gone"."""
+        from facts import ran
+        p, st = self.stages(["a"], ran(unplaced=self.PLACES), {"landed": self.LANDING, "landings": self.A})
+        assert (st.of("a")["stage"], st.of("a")["flume"]["commit"]) == ("landed", "1" * 40)
+        assert st.bolt_state(p.bolt("x")) == "landed"
+        assert plan.land_refusal("x", ["a"], st.of, [], "madswan", {"1" * 40: 0}, "crew") is None
+
+    def test_a_piece_its_landing_does_not_name_keeps_the_bolt_open_named(self):
+        """bolt-teams "A piece its landing does not hold"; bolt-plan "A piece its landing does not name"."""
+        from facts import ran
+        p, st = self.stages(["a", "b"], ran({2: "code"}, unplaced=self.PLACES), {"landed": self.LANDING, "landings": self.A})
+        assert (st.of("a")["stage"], st.of("b")["stage"]) == ("landed", "code")
+        assert st.bolt_state(p.bolt("x")) != "landed"
+        assert plan.land_refusal("x", ["a", "b"], st.of, [], "madswan", {"1" * 40: 0}, "crew") == (
+            "unit b has not merged into bolt/x: it is code")
+
+    def test_a_landing_crew_cant_read_builds_nothing(self):
+        """bolt-plan "main's line can't be read"."""
+        from facts import ran
+        _, st = self.stages(["a"], ran(unplaced=self.PLACES),
+                            {"landed_error": "git could not list main's first-parent line at origin/main since 2026-11-08T10:00:00Z: fatal"})
+        assert st.of("a")["stage"] == "launching"
+
+    def test_stages_for_seeks_each_started_bolts_landing_from_its_launch_and_the_heads_crew_submitted(self, monkeypatch):
+        """stages_for asks the survey for x with seek, its first launch's Date and its bolt.submit's head
+        (landing_sought), the survey faked as gather would answer it."""
+        from facts import ran
+        import record
+        p, requests = self.launched(["a"])
+        submits = record.acts_in(f"Id: 1\nAt: 2026-11-08T15:40:00Z\nAct: bolt.submit\nOn: bolt/x\nOutcome: queued\n"
+                                 f"Head: {self.LANDING['head']}\n", "bolt.submit")
+        asked = []
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, ran(unplaced=self.PLACES)))
+        monkeypatch.setattr(plan, "submits_read", lambda fleet, label: submits)
+        monkeypatch.setattr(plan, "survey", lambda fleet, held, fetch=False: asked.extend(held) or crew_read(
+            main=["a"], bolts={"x": {"exists": False, "head": None, "landed": self.LANDING, "landings": self.A}}))
+        st = plan.stages_for(self.FLEET, "madswan", p, [p.bolt("x")])
+        since = min(r.get("Date") for r in requests if r.get("Base") == "bolt/x")
+        assert [(t["machine"], b, sought) for t, b, sought in asked] == [("deneb", "x", {"since": since, "heads": [self.LANDING["head"]]})]
+        assert st.of("a")["stage"] == "landed"

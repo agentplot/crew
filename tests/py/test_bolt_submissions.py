@@ -219,7 +219,7 @@ def bolts(at="code", carries=None, logs=None):
                                                                          **({"carries": carries} if carries else {})}}}
     sv = {BOX: {"ok": True, "kits": {"/kit/main": kit}}}
     return plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, w.plan)], sv, {},
-                           runs={"wldn": (requests, ran({1: at}, host=BOX, label="wldn", repository="/kit/main"))},
+                           runs={"wldn": (requests, ran({1: at}, host=BOX, label="wldn", repository="/kit/main", keeps=("WilldanGroup/switchboard-kit",)))},
                            logs={"wldn": logs} if logs is not None else None)
 
 

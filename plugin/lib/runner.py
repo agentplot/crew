@@ -363,10 +363,11 @@ def taken(reads, n):
 def kept_folder(reading, kit, what):
     """The folder a host's runner keeps a kit's clone in, as its repositories.rec reports it (roles.9: where a kit lives
     on a host is its runner's report), from host_read's reading and the kit as the plan gives it (kit), matched by its
-    name or forge address: (folder, None); (None, None) for a runner that reports no
-    repositories, whose folder Flume's status of a place names (where); or (None, why) where it reports none by the
-    kit's name, naming the host, what it keeps and the rename that may be why, or two by it (read.1). A kit named by
-    its forge address is the repository of that address before any other of its name."""
+    name or forge address: (folder, None); (None, None) for a runner that reports no repositories, which is not refused
+    for that alone, since Flume's status of a place it carries may name the folder (where; drive-state "A runner that
+    reports no repositories"); or (None, why) where it reports none by the kit's name, naming the host, what it keeps
+    and the rename that may be why, or two by it (read.1). A kit named by its forge address is the repository of that
+    address before any other of its name."""
     kept = reading.get("repositories")
     if kept is None:
         return None, None
@@ -386,28 +387,38 @@ def where(reads, launches, what, kit):
     """Where a runner reported taking work (the user's ruling of 2026-11-01; Decision 4), from the partition's runners as
     crew read them (reads), the launches of the work (launches, requests.rec's records, a bolt's on its branch or a
     kit's) and the kit as the plan gives it (kit): the host whose runner took the newest of them taken (takers); the
-    kit's folder there as that runner's repositories.rec reports it (kept_folder), or, where it reports none, as
-    Flume's status of the newest place it carries of them names it; and the stream its work runs in, as that status
-    names it (roles.9); each None where it carries no place
-    naming it yet; as ({"host", "dir", "stream"}, None); (None, None) while no runner has taken any of them and every
+    kit's folder there as that runner's repositories.rec reports it where it reports its repositories (kept_folder),
+    else as Flume's status of the newest place it carries of them names it; and the stream its work runs in, as that
+    status names it; each None where it carries no place naming it yet (roles.9; drive-state "A runner that reports no
+    repositories"); as ({"host", "dir", "stream"}, None); (None, None) while no runner has taken any of them and every
     runner was read; or (None, why) when none has and one could not be read, naming what (what) and that runner, two
-    runners took the newest, or the one that did keeps no repository by the kit's name (read.1)."""
+    runners took the newest, or the one that did reports its repositories and none by the kit's name, or two by it
+    (read.1)."""
+    reading, why = newest_taker(reads, launches, what)
+    if reading is None:
+        return None, why
+    folder, why = kept_folder(reading, kit, what)
+    if why:
+        return None, why
+    mine = sorted((number(x.get("Request")) for x in launches if number(x.get("Request")) in reading["places"]), reverse=True)
+    facts = [f for n in mine for p in [reading["places"][n]] if not p["why"] for f in [flume_facts(p["status"], p["place"])] if f]
+    return {"host": reading["host"], "dir": folder or next((f["repository"] for f in facts if f["repository"]), None),
+            "stream": next((f["stream"] for f in facts if f["stream"]), None)}, None
+
+
+def newest_taker(reads, launches, what):
+    """The runner that took the newest of launches taken, from the partition's runners as crew read them (reads): (its
+    reading, None); (None, None) while none has taken any and every runner was read; or (None, why) when none has and
+    one could not be read, or two took the newest (read.1). The host it names stands whether or not crew can tell the
+    kit's folder there (drive-state "A started bolt's host is named before its place is carried")."""
     unread = sorted({r["host"]: r["why"] for _, r in reads.items() if r["why"]}.items())
     for l in sorted(launches, key=lambda l: -(number(l.get("Request")) or 0)):
         hits, _ = takers(reads, number(l.get("Request")))
         if len(hits) > 1:
             return None, (f"crew can't tell where {what}'s work runs: request {l.get('Request')} was taken by the runners on "
                           f"{' and '.join(r['host'] for r in hits)}, whose configurations each name its repository")
-        if not hits:
-            continue
-        reading = hits[0]
-        folder, why = kept_folder(reading, kit, what)
-        if why:
-            return None, why
-        mine = sorted((number(x.get("Request")) for x in launches if number(x.get("Request")) in reading["places"]), reverse=True)
-        facts = [f for n in mine for p in [reading["places"][n]] if not p["why"] for f in [flume_facts(p["status"], p["place"])] if f]
-        return {"host": reading["host"], "dir": folder or next((f["repository"] for f in facts if f["repository"]), None),
-                "stream": next((f["stream"] for f in facts if f["stream"]), None)}, None
+        if hits:
+            return hits[0], None
     return None, (f"no runner has reported taking {what}'s work yet, so crew can't tell where it runs"
                   + "".join(f"; {why}" for _, why in unread)) if unread else None
 
@@ -429,13 +440,14 @@ def launch_repositories(reads, launches, kit):
     configuration names the repository may take the launch; as ([{"host", "dir"}], None), each once. ([], None) while no
     runner has taken any of the kit's work and none reports keeping it: no launch of the partition's has cut a place
     of the kit, and crew can name no repository to read. ([], why) when crew can't tell (read.1): where's own why, the
-    runner that took the kit's work carrying no place naming its folder, or one keeping two repositories by its name."""
+    runner that took the kit's work reporting no repositories and carrying no place of it naming its folder, or one
+    keeping two repositories by its name."""
     at, why = where(reads, launches, kit, kit)
     if why:
         return [], why
     if at and not at["dir"]:
-        return [], (f"the runner on {at['host']} took {kit}'s work and carries no place of it naming the folder it keeps {kit} "
-                    "in, so crew can't tell where a launch of it would be made")
+        return [], (f"the runner on {at['host']} took {kit}'s work, reports no repositories it keeps and carries no place of "
+                    f"it naming its folder, so crew can't tell where a launch of it would be made")
     out = [{"host": at["host"], "dir": at["dir"]}] if at else []
     for reading in sorted(reads.values(), key=lambda r: r["host"]):
         kept = reading.get("repositories") or {}
@@ -643,25 +655,36 @@ def stage_of(work, launch, answer, place, read, after=()):
 
 
 def place_branch(work):
-    """The branch Flume cuts a unit's or chore's place on, as Flume's status names it (`branch`): <kind>/<name>, the
-    kind and name its launch gives (reach), a unit's kind change; the same whichever partition's launch made the place,
-    since it is the work's own name and carries no partition's (crew record 0055, rejected). None for a fix or a role's
-    work, which the bolt's landings do not build."""
+    """The branch Flume cuts a piece's place on, as Flume's status names it (`branch`) and sluice's landing on the bolt
+    names it (sluice clause 23): <kind>/<name>, the kind and name its launch gives (reach), a unit's kind change; the
+    same whichever partition's launch made the place, since it is the work's own name and carries no partition's (crew
+    record 0055, rejected). A fix on a bolt, fix/<bolt>/<name>, is Flume's fix kind named <bolt>--<name> (fix_launch),
+    so fix/<bolt>--<name>. None for a fix of a kit's main, fix/main/<kit>/<name>, which lands on main and never on a
+    bolt, and for a role's work, which the bolt's landings do not build."""
     kind, _, name = work.partition("/")
+    if kind == "fix":
+        parts = name.split("/")
+        return f"fix/{parts[0]}--{parts[1]}" if len(parts) == 2 and all(parts) else None
     return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
 
 
-def built_on_bolt(work, s, landings):
+def built_on_bolt(work, s, landings, launched=None):
     """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
     work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
-    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read. Once a landing
+    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read; launched, a fix's
+    launch's Date, UTC ISO 8601 to the second as requests.rec writes it, None for a unit or chore. Once a landing
     names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
     of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
     whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
     from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
-    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit)."""
+    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit). A
+    landing made before launched builds nothing: a fix's name is free on its bolt again once its launch is dropped, so
+    such a landing is a dropped launch's of the same name, which a fix launched again under it must not inherit (design
+    of a-bolts-landed-fix-reads-merged, Decision 2); both times compare as text."""
     landing = (landings or {}).get(place_branch(work) or "")
     if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
+        return s
+    if launched and landing["at"] < launched:
         return s
     kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
     return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
@@ -910,7 +933,7 @@ def stage_said(s):
             "merged": "merged", "landed": "landed", "dropped": "dropped"}.get(st, f"at {st}")
 
 
-def answer_retry(work, s):
+def answer_retry(work, s, carried=None):
     """What crew answer asks of a crossed piece's place (Decision 9), from its stage as stage_of gives it: ("stage", the
     stage) to start again with the words, for a place whose stage stopped short asking or that waits on its caller to
     retry a stage, stalled or not; ("submission", None) to submit again with them, for one whose submission waits on its
@@ -919,7 +942,12 @@ def answer_retry(work, s):
     answered it, so no reading says it waits on nothing; its submission waits held for the user's send, which no answer
     gives (state.3); or it neither stopped short nor waits on its caller. A stop-short whose agent Flume keeps open for
     its answer reads needs like any other, and its retry naming the stage is that answer, reaching the session kept
-    open as a tell answering it does (flume 42, 49, 198)."""
+    open as a tell answering it does (flume 42, 49, 198). carried is (host, At) of the runner's places.rec record its
+    stage was read from, None where crew holds none: a live place that neither stopped short nor waits is refused as
+    of that carry, naming its host and time, since a wait Flume has told of since reaches crew only with that runner's
+    next carry, and never as having nothing to answer (read.1; Decision 2 of a-place-waiting-on-its-caller-reads-waiting);
+    work that is over, held for its After work or refused by the runner is refused as having nothing to answer, since
+    Flume refuses any retry of over work (flume 50) and the others were never carried."""
     st, place = s["stage"], f"{work}'s place" + (f" {s['place']}" if s.get("place") else "")
     if st == "unknown":
         return None, f"can't tell whether {work}'s place waits on an answer: {s['why']}"
@@ -936,8 +964,12 @@ def answer_retry(work, s):
                       f"{send}, on the user's word")
     if st in ("waits", "stalled"):
         return "submission", None
-    return None, (f"{place} is {stage_said(s)}, with no question and nothing it waits on its caller for, so there is nothing "
-                  "to answer: crew bolts shows its stage")
+    if st in ("merged", "landed", "dropped", "waiting", "refused"):
+        return None, (f"{place} is {stage_said(s)}, with no question and nothing it waits on its caller for, so there is nothing "
+                      "to answer: crew bolts shows its stage")
+    when = f"when {carried[0]}'s runner carried it, at {carried[1]}" if carried and all(carried) else "when its runner last carried it"
+    return None, (f"{place} was {stage_said(s)} {when}, with no question and nothing it waited on its caller for: a wait Flume "
+                  "has told of since reaches crew with that runner's next carry, so answer again once crew bolts shows the place waiting")
 
 
 def fix_launch(plan, requests, bolt, label, name, words):
@@ -1019,13 +1051,15 @@ def fixes_on(requests, reads, base):
             if l.get("Base") == base and (l.get("Work") or "").startswith("fix/")]
 
 
-def fixes_in_flight(requests, reads, bolt):
-    """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}: each whose launch
-    stands and whose place has not merged into the bolt, landed or been dropped, its stage read from the runner that
-    took it (fixes_on), one crew can't read counted in flight (read.1). A fix in flight holds the bolt's landing as
-    today's does (plan.landing_unready, landing_rows)."""
-    return {l.get("Work"): l.get("Brief") for l, s in fixes_on(requests, reads, f"bolt/{bolt}")
-            if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
+def fixes_in_flight(fixes, bolt):
+    """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}, from facts:
+    fixes, each fix whose launch stands on the bolt as (its work, its launch, its stage) as plan.Stages.fixes reads
+    them, from the runner that took it and the bolt's landings (fixes_on, built_on_bolt): each whose place has not
+    merged into the bolt, landed or been dropped, one crew can't read counted in flight (read.1). A fix in flight holds
+    the bolt's landing as today's does (plan.landing_unready, landing_rows); one read merged from its bolt's landing
+    holds it no longer (bolt-plan "A fix read merged from its bolt's landing holds nothing")."""
+    return {w: l.get("Brief") for w, l, s in fixes
+            if w.startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
 
 
 # ------------------------------------------------------------------------------------------------ a fix of main

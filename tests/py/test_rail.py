@@ -75,7 +75,7 @@ def runs(p=None, at=None, before=None, numbered=None, read=True):
     n = {r.get("Work").split("/", 1)[1]: r.get("Request") for r in requests if r.get("Act") == "launch"}
     at = dict({"zone-one": "landed"}, **(at or {}))
     carried = dict({n[u]: f for u, f in at.items() if f and u in n}, **{str(k): f for k, f in (numbered or {}).items()})
-    return {"wldn": (requests, ran(carried, host=BOX, label="wldn", repository="/kit/main") if read else {})}
+    return {"wldn": (requests, ran(carried, host=BOX, label="wldn", repository="/kit/main", keeps=(f"WilldanGroup/{KIT}",)) if read else {})}
 
 
 def rows(props=(), times=None, held=None, sv=None, at=None):

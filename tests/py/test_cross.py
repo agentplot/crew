@@ -305,16 +305,44 @@ class TestAnswer:
         w, _ = self.answered(at)
         assert (requests(w)[1]["Stage"], requests(w)[1]["Words"]) == ("code", "madswan's")
 
-    def test_nothing_to_answer_is_refused_naming_its_stage(self):
-        """a's place is in code with no question, and crew answer a "yes" runs."""
-        with pytest.raises(plan.Refusal, match=rf"^unit/a's place {path_at('code')} is at code, with no question and nothing it "
-                                               r"waits on its caller for, so there is nothing to answer: crew bolts shows its stage$"):
-            self.answered("code", words="yes")
+    def test_a_place_past_its_bound_is_retried_at_the_stage_it_waits_to_retry(self):
+        """bolt-teams "A place past its bound": the runner carries flume 0.17.0's status of a's place waiting on its
+        caller to retry code past its bound, its verify delivered (tests/py/flume-0.17.0/past-bound.json), and the
+        planner runs crew answer a: the retry of code with the answer's words is appended."""
+        w, got = self.answered("flume-0.17.0/past-bound", words="Take the bolt in and resolve the conflict.")
+        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "unit/a", "Of": "1", "Stage": "code",
+                                  "Words": "Take the bolt in and resolve the conflict."}
+        assert got == dict(n=2, work="unit/a", host="deneb", place=path_at("flume-0.17.0/past-bound"), what="code")
 
-    @pytest.mark.parametrize("at, said", [("submitted", "submitted to sluice (413)"), ("landed", "merged"), ("queued", "queued for room at construct")])
+    def test_a_place_waiting_on_a_retry_of_its_submission_is_submitted_again(self):
+        """bolt-teams "A submission that waits on its retry": the runner carries flume 0.17.0's status of a's place
+        waiting on its caller to retry its submission, which the merge queue refused (tests/py/flume-0.17.0/
+        submission-refused.json), and the planner runs crew answer a: a retry of its submission, naming no stage."""
+        w, got = self.answered("flume-0.17.0/submission-refused", words="Submit it again.")
+        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "unit/a", "Of": "1", "Submission": "yes", "Words": "Submit it again."}
+        assert got["what"] == "submission"
+
+    def test_nothing_to_answer_is_refused_as_of_the_runners_carry(self):
+        """bolt-teams "Nothing to answer": deneb's runner last carried a's place in code with no question at 12:02Z, Flume
+        may since have told the planner it waits on its caller, and crew answer a "yes" runs: it is refused naming the
+        stage as that runner carried it, its host and when, never that there is nothing to answer, and nothing is
+        appended (Decision 2 of a-place-waiting-on-its-caller-reads-waiting; read.1)."""
+        with pytest.raises(plan.Refusal, match=rf"^unit/a's place {re.escape(path_at('code'))} was at code when deneb's runner carried "
+                                               r"it, at 2026-10-31T12:02:00Z, with no question and nothing it waited on its caller "
+                                               r"for: a wait Flume has told of since reaches crew with that runner's next carry, so "
+                                               r"answer again once crew bolts shows the place waiting$") as e:
+            self.answered("code", words="yes")
+        assert "nothing to answer" not in str(e.value)
+
+    @pytest.mark.parametrize("at, said", [("submitted", "submitted to sluice (413)"), ("queued", "queued for room at construct")])
     def test_a_place_further_on_is_refused_naming_where_it_is(self, at, said):
-        with pytest.raises(plan.Refusal, match=rf"^unit/a's place .* is {re.escape(said)}, with no question"):
+        with pytest.raises(plan.Refusal, match=rf"^unit/a's place .* was {re.escape(said)} when deneb's runner carried it, at "
+                                               r"2026-10-31T12:02:00Z, with no question and nothing it waited on its caller for: ") as e:
             self.answered(at)
+        assert "nothing to answer" not in str(e.value)
+        with pytest.raises(plan.Refusal, match=r"^unit/a's place .* is merged, with no question and nothing it waits on its caller "
+                                               r"for, so there is nothing to answer: crew bolts shows its stage$"):
+            self.answered("landed")
 
     def test_a_fix_is_answered_by_its_places_name(self):
         from facts import ran
