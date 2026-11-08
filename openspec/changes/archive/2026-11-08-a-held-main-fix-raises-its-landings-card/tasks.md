@@ -10,4 +10,4 @@
 ## 2. The docs and the change's tests
 
 - [x] 2.1 README, the crew skill, `crew`'s usage header and ops's brief say the card carries a held fix of main and the read gives its command (`docs.2`, `tests.6`). Verify `tests/suite t-docs t-briefs` ends with "0 failed".
-- [ ] 2.2 The tests the change affects pass. Verify `tests/suite --affected` ends with "0 failed".
+- [x] 2.2 The tests the change affects pass. Verify `tests/suite --affected` ends with "0 failed".
