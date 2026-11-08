@@ -1281,7 +1281,7 @@ class ReadSent:
     def __init__(self, monkeypatch, got, told=(), branch=(), held=PLAN, now=None):
         import argparse
         self.entries = [post("land/crew", "swancloud-ops", "req_k1", Heads="y@abc1234 z@abc1234")]
-        self.raised, self.calls, self.worked = [], [], []
+        self.raised, self.calls, self.worked, self.emitted = [], [], [], []
         acts = self
 
         class Bridge(Py):
@@ -1292,7 +1292,11 @@ class ReadSent:
             print("card land/crew: req_k1 is left as it is, the user having answered it")
             self.raised.append(kit)
             self.entries += list(told)
+        def emit(label, act, on, **fields):  # this host's run record, the read's own acts among it
+            self.emitted.append(dict(fields, Act=act, On=on))
+            self.entries.append(dict(fields, Act=act, On=on, By=fields.get("by")))
         monkeypatch.setattr(cards, "Bridge", Bridge)
+        monkeypatch.setattr(plan.record, "emit", emit)
         monkeypatch.setattr(cards, "host_entries", lambda record, label, host: list(self.entries))
         monkeypatch.setattr(plan, "card_asker", lambda fleet, a: ("swancloud", "swancloud-ops"))
         monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
@@ -1383,7 +1387,36 @@ def test_a_plan_that_cant_be_read_refuses_the_read_of_what_the_send_lands(monkey
 def test_a_card_still_waiting_on_the_user_is_not_raised(monkeypatch, capsys):
     read = ReadSent(monkeypatch, {"status": "pending", "turn": "you", "version": 2})
     read.run()
-    assert read.raised == []
+    assert read.raised == [] and read.emitted == []
+
+
+def test_reading_a_sent_landings_card_records_the_users_answer_once_before_its_raise(monkeypatch, capsys):
+    """rail-cards "crew records the user's answer the first time it reads it": crew card read is one of the three acts."""
+    read = ReadSent(monkeypatch, TICKED)
+    read.run()
+    assert [(e["Act"], e["On"], e["by"], e["Card"], e["Answer"], e["Heads"]) for e in read.emitted] == [
+        ("card.answer", ["kit/crew"], "swancloud-ops", "req_k1", "ticked y and z", "y@abc1234 z@abc1234")]
+    read.run()
+    assert len(read.emitted) == 1
+
+
+def test_reading_an_answered_proposal_card_records_its_answer(monkeypatch, tmp_path, capsys):
+    entries = [post("proposal/57", "wldn-planner", "req_57")]
+    got = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+    acts = Acts(entries=entries, caller="wldn-planner")
+
+    class Bridge(Py):
+        def __init__(self, name, later, held=None):
+            Py.__init__(self, acts, {"get_request": (got, None)})
+    monkeypatch.setattr(cards, "Bridge", Bridge)
+    monkeypatch.setattr(cards, "host_entries", lambda record, label, host: list(entries))
+    monkeypatch.setattr(plan, "card_asker", lambda fleet, a: ("wldn", "wldn-planner"))
+    monkeypatch.setattr(crew, "this_host", lambda: "chuck-herdr-alpha")
+    monkeypatch.setattr(plan, "CARDS", tmp_path)
+    plan.card_read({}, argparse.Namespace(key="proposal/57", label=None, json=False, sub="read"), acts)
+    assert [(e["Act"], e["On"], e["Card"], e["Key"], e["Answer"]) for e in acts.emitted] == [
+        ("card.answer", ["proposal/57"], "req_57", "proposal/57", "approved")]
+    assert capsys.readouterr().out.splitlines()[0] == "card proposal/57: req_57, answered, your turn: the user has answered"
 
 
 # ------------------------------------------------------------ crew card preview, on the user's words (record 0043)

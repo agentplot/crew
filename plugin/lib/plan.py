@@ -3384,7 +3384,8 @@ def kit_card_state(acts, label, key, owner, card, entries):
     ({status, heads, taking}, ticked), status "answered" once the user answered it, else "waiting", heads its rows as
     its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking); (None,
     why) when Pending You could not be read or no longer finds it, so the raise changes nothing (read.1), but a lost
-    card, recorded lost, reads as none held, for a new one to be posted."""
+    card, recorded lost, reads as none held, for a new one to be posted. A card read answered has the user's answer
+    recorded, once, with the bolts they ticked at the heads it showed (answer_seen)."""
     try:
         with acts.bridge(owner, "Its landings card is not changed.") as py:
             got, words = py.answer("get_request", {"requestId": card, "name": owner})
@@ -3397,9 +3398,11 @@ def kit_card_state(acts, label, key, owner, card, entries):
         return None, f"Pending You refused get_request: {words}"
     recorded = next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and not e.get("Refused")
                      and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)
-    heads = card_heads(recorded)
+    heads, taking = card_heads(recorded), heads_taking(recorded)
+    if got.get("status") == "answered":  # the user's answer recorded the first time crew reads it (Decision 1)
+        answer_seen(acts, label, owner, key, card, got, entries, heads, [f"land:{b}" for b, _, _ in heads if b not in taking])
     return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads,
-            "taking": heads_taking(recorded), "ticked": ticked_of(got, heads)}, None
+            "taking": taking, "ticked": ticked_of(got, heads)}, None
 
 
 def said_heads(entries, left=()):
@@ -13351,7 +13354,7 @@ def landings_unopened(fleet, a, label, who, kit, entries, acts=None):
                                                                                           stops(entries))))
 
 
-def card_read(fleet, a):
+def card_read(fleet, a, acts=None):
     """crew card read <key> [--label L] [--json]: where the card the asker holds under the key stands, read from
     Pending You: its status, whose turn it is, and on the asker's turn the user's answer and words; for a kit's
     landings card, land/<kit>, the bolts they ticked in the card's order and the crew bolt submit that lands them,
@@ -13368,8 +13371,11 @@ def card_read(fleet, a):
     together, closing the card and recording the batch read (batch_card_read); a bolt's reading, land/<bolt>, its
     decision alone, to main-level ops (land_reading_read), unless the caller holds a card of the bolt's own under
     the key, as a conductor posted one before a kit had its landings card, which is read as any card; a long
-    proposal's, its reading's decision after the card's answer, a decided one set aside."""
+    proposal's, its reading's decision after the card's answer, a decided one set aside. A card read answered has the
+    user's answer recorded first, once, in crew's words, a kit's landings card's with the bolts they ticked at the
+    heads it showed (answer_seen), before a declined approval is closed or the kit's card raised."""
     import cards
+    acts = acts or CardActs(fleet)
     label, who = card_asker(fleet, a)
     kind = land_key(a.key, kits_read(fleet, label))
     if re.fullmatch(r"batch/\d+", a.key):
@@ -13384,6 +13390,13 @@ def card_read(fleet, a):
     card = card_held(label, who, a.key)
     with cards.Bridge(who, "Read it again later.", (a.key, card)) as py:
         got = py.call("get_request", {"requestId": card, "name": who})
+        if got.get("status") == "answered":  # the user's answer recorded first, the first time crew reads it (Decision 1)
+            held = cards.host_entries(record, label, crew.this_host())
+            shown = next((e.get("Heads") for e in reversed(held) if e.get("Card") == card and not e.get("Refused")
+                          and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)
+            heads = card_heads(shown) if kind and kind[0] == "kit" else None
+            answer_seen(acts, label, who, a.key, card, got, held, heads,
+                        [f"land:{b}" for b, _, _ in heads or [] if b not in heads_taking(shown)])
         words = cards.declined(got)
         if words is not None:
             tool, args, _ = cards.close_call(got, card, who, cards.declined_outcome(words))
