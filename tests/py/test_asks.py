@@ -420,7 +420,7 @@ Began: 2026-10-31T10:01:00Z
 
 
 class Branch:
-    """madswan's drive branch as a role command sees it: its files, each write applied to them, and the entries each
+    """madswan's branch as a role command sees it: its files, each write applied to them, and the entries each
     write emitted."""
 
     def __init__(self, files):
@@ -428,7 +428,7 @@ class Branch:
 
 
 def on_branch(monkeypatch, fleet, files):
-    """madswan's drive branch in memory holding files, each write of a command on deneb applied to it and each
+    """madswan's branch in memory holding files, each write of a command on deneb applied to it and each
     entry it emitted kept (Branch)."""
     import crew
     import plan

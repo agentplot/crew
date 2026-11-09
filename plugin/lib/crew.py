@@ -475,7 +475,7 @@ def asks_instead(run, status, unread):
 
 def tell_ask(fleet, run, text, frm, what="tell"):
     """A tell to a role that runs as its kind, run (label, role), written as an ask of the role on its drive's
-    drive branch (plan.ask_write), from frm, carrying the text, typed into no pane; `asked <label>-<role>` once it is
+    branch (plan.ask_write), from frm, carrying the text, typed into no pane; `asked <label>-<role>` once it is
     written. Whether it was written: an ask crew could not write is said, as a tell not typed is."""
     import plan  # plan imports this module
     name = f"{run[0]}-{run[1]}"
