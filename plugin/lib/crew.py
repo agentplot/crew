@@ -536,26 +536,47 @@ def teams_text(data):
     return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+def settable(data):
+    """A teams file's data, as readable gives it, in the shape crew drive set needs to keep what each part holds beside
+    the drive (record 0065, point 8): refused, naming the key, where `drives` is no list of objects, or `hosts`,
+    `consoles` or `repositories` is no object, since the set could neither read nor keep what such a part holds. A
+    part that is absent or null holds nothing to keep, and passes. Every other check is fleet_of's, of the file the set
+    would write."""
+    drives = data.get("drives")
+    drives is None or isinstance(drives, list) or fail(
+        f"{TEAMS}: 'drives' lists each drive as an object, not {json.dumps(drives)[:80]}")
+    for d in drives or []:
+        isinstance(d, dict) or fail(f"{TEAMS}: 'drives' lists {json.dumps(d)[:80]}, which is no drive's object")
+    for key in ("hosts", "consoles", "repositories"):
+        v = data.get(key)
+        v is None or isinstance(v, dict) or fail(f"{TEAMS}: '{key}' is an object, not {json.dumps(v)[:80]}")
+
+
 def teams_set(data, given, here):
     """The teams file's data (None for no file) with the drive given (drive_given) set in it, and the path of each key
-    it changed, never its value: the drive's entry replaced whole, drives.<label> for a new drive, else
-    drives.<label>.<key> for each key that changed; each host given set, hosts.<host>; the drive's console set or
-    removed, consoles.<label>; each kept repository given set, and one the file holds kept only while another drive
-    whose machine is here lists it in its repos, repositories.<owner/name>; the drives in the order of their labels;
-    the version crew's own; every other key the file holds kept as it is, and a consoles or repositories left empty
-    left out."""
+    it changed, never its value: the drive's entry replaced whole, drives.<label> for a new drive or one the file lists
+    more than once, which is written once, else drives.<label>.<key> for each key that changed; each host given set,
+    hosts.<host>; the drive's console set or removed, consoles.<label>; each kept repository given set, and one the file
+    holds kept only while another drive whose machine is here lists it in its repos, repositories.<owner/name>; the
+    drives with a label that is a string in the order of their labels, then any other in the file's order; the version
+    crew's own; every other key the file holds kept as it is, every other drive as the file holds it, its repos read
+    only where they are a list and only their strings, and a consoles or repositories left empty left out. A file's
+    data settable refuses is refused in its words, with nothing set (record 0065, point 8)."""
+    if data is not None:
+        settable(data)
     was = data if data is not None else {}
     drive = given["drive"]
     label = drive["label"]
     new = dict(was, version=VERSION)
-    old = next((d for d in was.get("drives") or [] if d.get("label") == label), None)
+    mine = [d for d in was.get("drives") or [] if d.get("label") == label]
     others = [d for d in was.get("drives") or [] if d.get("label") != label]
-    new["drives"] = sorted(others + [drive], key=lambda d: d["label"])
+    new["drives"] = sorted(others + [drive], key=lambda d: (0, d["label"]) if isinstance(d.get("label"), str) else (1, ""))
     new["hosts"] = dict(was.get("hosts") or {}, **given["hosts"])
     consoles = {k: v for k, v in (was.get("consoles") or {}).items() if k != label}
     if given["console"] is not None:
         consoles[label] = given["console"]
-    kept_by = {r for d in others if d.get("machine") == here for r in d.get("repos") or []}
+    kept_by = {r for d in others if d.get("machine") == here and isinstance(d.get("repos"), list)
+               for r in d["repos"] if isinstance(r, str)}
     repositories = {r: e for r, e in (was.get("repositories") or {}).items() if r in kept_by}
     repositories.update(given["repositories"])
     for key, value in (("consoles", consoles), ("repositories", repositories)):
@@ -566,6 +587,7 @@ def teams_set(data, given, here):
 
     def same(x, y):
         return teams_text(x) == teams_text(y)
+    old = mine[0] if len(mine) == 1 else None
     changed = [f"drives.{label}"] if old is None else [
         f"drives.{label}.{k}" for k in sorted(set(old) | set(drive)) if k not in old or k not in drive or not same(old[k], drive[k])]
     was_hosts = was.get("hosts") or {}

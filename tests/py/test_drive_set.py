@@ -176,9 +176,35 @@ def lab_flags(**more):
                      folder=["/Users/pat/lab"], console=["/Users/pat/lab"], repositories=None), **more)
 
 
+class TestSettable:
+    """drive-setup, A part of another shape (a-drive-set-mends-what-it-replaces, Decision 3): crew.settable refuses a
+    teams file's data whose parts crew drive set could not keep beside the drive, naming the key."""
+
+    def refused(self, data, said):
+        with pytest.raises(crew.Refusal) as e:
+            crew.settable(data)
+        assert said in str(e.value), str(e.value)
+
+    def test_absent_and_null_parts_pass(self):
+        assert crew.settable({"version": 6}) is None
+        assert crew.settable({"version": 6, "drives": None, "hosts": None, "consoles": None, "repositories": None}) is None
+
+    @pytest.mark.parametrize("drives", [{}, "pat"])
+    def test_drives_that_are_no_list_are_refused(self, drives):
+        self.refused({"version": 6, "drives": drives}, "'drives' lists each drive as an object, not ")
+
+    def test_a_drive_that_is_no_object_is_refused(self):
+        self.refused({"version": 6, "drives": ["pat"]}, "'drives' lists \"pat\", which is no drive's object")
+
+    @pytest.mark.parametrize("key, value", [("hosts", []), ("consoles", []), ("repositories", "x")])
+    def test_hosts_consoles_or_repositories_that_are_no_object_are_refused(self, key, value):
+        self.refused({"version": 6, key: value}, f"'{key}' is an object, not ")
+
+
 class TestTeamsSet:
     """drive-setup, "The drive's facts are replaced and the rest of the file is kept", "A kept repository stays while a
-    drive of the host keeps it" and "The file is written as crew's module writes it" (design, Decisions 3, 4 and 10)."""
+    drive of the host keeps it" and "The file is written as crew's module writes it" (design, Decisions 3, 4 and 10;
+    a-drive-set-mends-what-it-replaces, Decisions 3 and 4)."""
 
     def set(self, data, here=MAC, **kw):
         return crew.teams_set(data, given(here, **kw), here)
@@ -270,6 +296,21 @@ class TestTeamsSet:
         first, _ = self.set(None)
         data, changed = self.set(json.loads(crew.teams_text(first)))
         assert changed == [] and crew.teams_text(data) == crew.teams_text(first)
+
+    def test_a_drive_listed_twice_is_written_once_and_named_whole(self):
+        """drive-setup, The drive listed twice: pat once, as the flags give it, and drives.pat changed."""
+        first, _ = self.set(None)
+        data, changed = self.set(json.loads(crew.teams_text(dict(first, drives=first["drives"] * 2))))
+        assert crew.teams_text(data) == crew.teams_text(first) and changed == ["drives.pat"]
+
+    def test_other_drives_of_any_shape_are_kept_as_the_file_holds_them(self):
+        """A drive with no label and one whose repos is no list, both on this host: set with no traceback, the
+        labelled drives in the order of their labels, then the other, each as the file held it."""
+        first, _ = self.set(None)
+        nameless = {"machine": MAC, "repos": ["pat/blueprints", {"by": "hand"}]}
+        lab = {"label": "lab", "machine": MAC, "repos": 7}
+        data, changed = self.set(dict(first, drives=first["drives"] + [nameless, lab]))
+        assert data["drives"] == [lab, given()["drive"], nameless] and changed == []
 
     @pytest.mark.parametrize("name", ["deneb.json", "runner.json"])
     def test_the_module_files_are_written_again_byte_for_byte(self, name):
