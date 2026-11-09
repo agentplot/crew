@@ -375,3 +375,61 @@ class TestTeamsStep:
         assert said.endswith("Nothing was written.")
         self.refused("the teams file crew drive set would write is refused", text=self.written(),
                      accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
+
+
+class TestDriveSaid:
+    """drive-setup, "Its answer is plain or JSON" (design, Decision 12): a line for a moved file, one for the teams
+    file and one for the state, or one JSON object, from what was done."""
+
+    FILE = "/Users/pat/.config/crew/teams.json"
+    TIP = "0123456789abcdef0123456789abcdef01234567"
+    MADE = {"repository": "pat/crew-state", "branch": "pat/main", "tip": TIP, "outcome": "made",
+            "did": ["started an empty plan", "added moves.rec with 0 moves of pat/blueprints"]}
+    EXISTS = {"repository": "pat/crew-state", "branch": "pat/main", "tip": TIP, "outcome": "exists", "did": []}
+
+    def done(self, state, **teams):
+        return {"label": "pat", "teams": dict({"file": self.FILE}, **teams), "state": state}
+
+    def test_a_new_drive_in_plain_lines(self):
+        said = crew.drive_said(self.done(self.MADE, outcome="written", changed=["drives.pat", "hosts.pats-mac", "consoles.pat"]), False)
+        assert said.split("\n") == [
+            f"{self.FILE}: drive pat set, changing drives.pat, hosts.pats-mac, consoles.pat",
+            "pat/main of pat/crew-state 0123456: started an empty plan; added moves.rec with 0 moves of pat/blueprints"]
+
+    def test_a_new_drive_as_one_json_object(self):
+        """drive-setup, Setup reads the answer: teams.outcome written, state.outcome made."""
+        said = crew.drive_said(self.done(self.MADE, outcome="written", changed=["drives.pat"]), True)
+        assert "\n" not in said
+        assert json.loads(said) == {"label": "pat",
+                                    "teams": {"file": self.FILE, "outcome": "written", "aside": None, "changed": ["drives.pat"]},
+                                    "state": self.MADE}
+
+    def test_run_again_it_says_unchanged_and_exists(self):
+        """drive-setup, Set twice: it says unchanged and exists."""
+        done = self.done(self.EXISTS, outcome="unchanged")
+        assert crew.drive_said(done, False).split("\n") == [f"{self.FILE} names drive pat as given: nothing written",
+                                                            "pat/main of pat/crew-state exists, at 0123456: nothing to do"]
+        said = json.loads(crew.drive_said(done, True))
+        assert (said["teams"]["outcome"], said["teams"]["changed"], said["state"]["outcome"]) == ("unchanged", [], "exists")
+
+    def test_a_link_says_it_is_crews_modules_and_names_its_target(self):
+        done = self.done(dict(self.MADE, outcome="finished", did=["added moves.rec with 0 moves of pat/blueprints"]),
+                         outcome="linked", target="/nix/store/abc-crew-teams.json")
+        assert crew.drive_said(done, False).split("\n")[0] == (
+            f"{self.FILE} is a link to /nix/store/abc-crew-teams.json, which crew's module writes: nothing written there, and it "
+            "names drive pat as given")
+        said = json.loads(crew.drive_said(done, True))
+        assert said["teams"]["outcome"] == "linked" and said["state"]["outcome"] == "finished"
+
+    def test_a_file_moved_aside_is_named_first_with_why(self):
+        done = self.done(self.MADE, outcome="written", changed=["drives.pat"], aside=f"{self.FILE}.before-drive-set",
+                         reason=f"{self.FILE} is version 5, and crew reads only version 6.")
+        lines = crew.drive_said(done, False).split("\n")
+        assert lines[0] == (f"{self.FILE} moved to {self.FILE}.before-drive-set: crew could not load it: {self.FILE} is version 5, "
+                            "and crew reads only version 6.")
+        assert len(lines) == 3
+        assert json.loads(crew.drive_said(done, True))["teams"]["aside"] == f"{self.FILE}.before-drive-set"
+
+    def test_a_rewrite_that_changes_no_key_says_so(self):
+        said = crew.drive_said(self.done(self.EXISTS, outcome="written", changed=[]), False)
+        assert said.split("\n")[0] == f"{self.FILE}: drive pat set, no key changed"
