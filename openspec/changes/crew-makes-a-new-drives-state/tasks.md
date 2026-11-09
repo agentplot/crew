@@ -27,4 +27,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 5. The docs
 
-- [ ] 5.1 README, the crew skill, crew's usage and `openspec/config.yaml` name `crew drive set` and what it writes, and none says the crew command never writes the teams file (design, Decisions 1 to 13; Task notes 5.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 5.1 README, the crew skill, crew's usage and `openspec/config.yaml` name `crew drive set` and what it writes, and none says the crew command never writes the teams file (design, Decisions 1 to 13; Task notes 5.1). Verify `tests/suite t-docs` ends with "0 failed".
