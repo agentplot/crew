@@ -1623,8 +1623,8 @@ class TestLandings:
                "try/1a2b3c4, whose worktree no longer exists). Your send of it is spent: ticked again, it lands on this send.")
 
     def test_one_row_stopped_says_so_on_its_face_and_keeps_its_approval(self):
-        """rail-cards "A landing sluice or its host stopped keeps its box": the one row's card is today's approve, its
-        summary saying what stopped its last landing at its head and who submits it again."""
+        """rail-cards "A landing the runner or Flume stopped keeps its box": the one row's card is today's approve, its
+        summary saying what stopped its last landing at its head and that the send of it is spent."""
         b = built.landings_card(dict(kit="crew", rows=[landings_row("b1", stopped=self.STOP)], ops="wldn-ops"))
         c = b["card"]
         assert c["kind"] == "approve" and self.STOPPED in c["summary"] and b["heads"] == ["b1@abc1234"]

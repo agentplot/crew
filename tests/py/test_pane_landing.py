@@ -61,8 +61,9 @@ def leave(monkeypatch):
 
 
 class TestTheStop:
-    """main-level "A landing stopped in ops's pane is recorded as the user's words"; rail-cards "A bolt stopped in
-    ops's pane is shown as left"."""
+    """main-level "A stop said in ops's pane is read as the user's words", "A stop crew cannot read as the user's words
+    is refused" and "A stop is recorded holding none of the user's words"; rail-cards "A bolt stopped in ops's pane is
+    shown as left"."""
 
     def test_the_users_words_record_a_stop_at_the_bolts_head_holding_none_of_them_and_raise_its_kits_card(self, leave):
         got = leave["run"]()

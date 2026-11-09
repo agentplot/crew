@@ -2587,17 +2587,16 @@ def last_submits(entries):
 
 
 def sent_back(entries):
-    """Each bolt whose landing sluice sent back for the bolt's own content (landing_end) and whose sent-back landing
-    still stands as sluice's record has it (rail-cards "A refused landing is held on its row", bolt-teams "A landing
-    sluice sent back is the bolt's fix"), from the run record's entries, oldest first: {bolt: {head, words, n}}, from
-    its last bolt.submit refused naming a head: the head submitted, the words it was refused with, sluice's verdict
-    when it gave one (landing_said, recorded), and sluice's number for the submission, None when the entry names none.
-    It stands through every bolt.submit after it that submitted nothing at its head, which leaves sluice's record of
-    the sent-back landing as it was: a refusal of crew's own before anything was submitted, naming no head (a submit
-    crew refused at that head among them), and a stop naming no submission of sluice's at that head, as a `wt submit`
-    that read nothing and submitted nothing (the Willdan box's 22:28Z stop of 2026-11-06, signal
-    2026-11-06-wldn-ops-ea539623/01). Any other entry lifts it: a submission queued, left standing or landed, a stop
-    naming a submission of its own, or one at another head. A decision of facts alone (code.7)."""
+    """Each bolt whose landing Flume's verdict sent back for the bolt's own content, a failed check or a conflict, as
+    crew recorded it from the runner's report (landing_entry), and whose refusal still stands (rail-cards "A refused
+    landing is held on its row", bolt-teams "A landing Flume's verdict sent back is the bolt's fix"), from the run
+    record's entries, oldest first: {bolt: {head, words, n}}, from its last bolt.submit refused naming a head: the head
+    its land carried, the words it was refused with (runner.landing_said), and the merge queue's entry Flume named,
+    None when the entry names none. It stands through every bolt.submit after it that landed nothing at its head, since
+    crew posts no land at a head sent back: a refusal naming no head, and a stop naming no entry of the merge queue's
+    at that head, as an older crew recorded of a submit that submitted nothing (the Willdan box's 22:28Z stop of
+    2026-11-06, signal 2026-11-06-wldn-ops-ea539623/01). Any other entry lifts it: a land asked or submitted, a
+    landing, a stop naming an entry of its own, or one at another head. A decision of facts alone (code.7)."""
     out = {}
     for e in entries:
         if e.get("Act") != "bolt.submit":
@@ -2614,20 +2613,21 @@ def sent_back(entries):
 
 
 def refusals(entries):
-    """Each bolt whose landing sluice refused for the bolt's own content and still stands so (sent_back), from the run
-    record's entries, oldest first: {bolt: (head, words)}, the head that was submitted and the words it was refused
-    with; a bolt whose landing since landed, was submitted again or was stopped at a submission of its own, or that
+    """Each bolt whose landing Flume's verdict refused for the bolt's own content and still stands so (sent_back), from
+    the run record's entries, oldest first: {bolt: (head, words)}, the head its land carried and the words it was
+    refused with; a bolt whose landing since landed, was asked again or was stopped with an entry of its own, or that
     has none, is not in it."""
     return {b: (r["head"], r["words"]) for b, r in sent_back(entries).items()}
 
 
 def stops(entries):
-    """Each bolt whose last landing sluice or its host stopped, nothing of the bolt's (rail-cards "A landing sluice or
-    its host stopped keeps its box", landing_end), from the run record's entries, oldest first: {bolt: (head, words)},
-    the head that was submitted and the words for what stopped it, from each bolt's last bolt.submit entry when it is
-    marked Outcome stopped and names its Head; a bolt whose last one landed or was refused, or that has none, is not in
-    it, nor one whose stop names no head, which nothing of the bolt was submitted at, nor one whose landing sluice sent
-    back still stands (sent_back), which a stop that submitted nothing leaves the bolt's fix."""
+    """Each bolt whose last landing the runner or Flume stopped, nothing of the bolt's (rail-cards "A landing the runner
+    or Flume stopped keeps its box", landing_entry), from the run record's entries, oldest first: {bolt: (head,
+    words)}, the head its land carried and the runner's or Flume's words for what stopped it, from each bolt's last
+    bolt.submit entry when it is marked Outcome stopped and names its Head; a bolt whose last one landed or was
+    refused, or that has none, is not in it, nor one whose stop names no head, which no land of the bolt carried, nor
+    one whose refusal Flume's verdict sent back still stands (sent_back), which a stop that landed nothing at its head
+    leaves the bolt's fix."""
     held = sent_back(entries)
     return {b: (e["Head"], e.get("Why") or "") for b, e in last_submits(entries).items()
             if e.get("Outcome") == "stopped" and e.get("Head") and not e.get("Refused") and b not in held}
@@ -2713,17 +2713,18 @@ def landing_rows(order, rows, held, stopped=None, takes_main=None, left=()):
     """The rows of a kit's landings card (rail-cards, record 0031 as amended 2026-10-23), from facts alone: order, the
     plan's bolts of the kit by name, in its order; rows, {bolt: facts} for each that reads proven as a fix in flight on
     it leaves it (land_row), its facts carrying its head and its fixes in flight, {fix: the words it started with or
-    None}; held, each bolt's last landing sluice refused for its own content, {bolt: (head, words)} (refusals);
-    stopped, each bolt's last landing sluice or its host stopped, nothing of the bolt's, the same (stops); takes_main,
-    each bolt forecast to conflict with what main holds at its present head, {bolt: (main's short sha, [paths])}, by
-    the card's forecast or the run record's (main_conflict). In the plan's order, each {bolt, box: True, facts}, a row
-    the user ticks, its facts carrying stopped, (head, words), when its last landing was stopped at its present head
-    (stopped_at), which holds nothing (rail-cards "A landing sluice or its host stopped keeps its box"); or {bolt, box:
-    False, why, facts}, held with no box: while its facts say it carries another bolt's work main lacks, or that what
-    it carries can't be read (carries, carries_error; carries_said), whatever else holds it, so no landing card is raised
-    for it nor its row marked able to land (plan.8); for a fix in flight on it, in the fix's words, or for sluice's rejection of its
-    landing at its present head, the row saying the landing was rejected and the bolt is open for work, until a fix on
-    the bolt moves the head; or, marked takes_main, taking main first,
+    None}; held, each bolt's last landing Flume's verdict refused for its own content, {bolt: (head, words)}
+    (refusals); stopped, each bolt's last landing the runner or Flume stopped, nothing of the bolt's, the same (stops);
+    takes_main, each bolt forecast to conflict with what main holds at its present head, {bolt: (main's short sha,
+    [paths])}, by the card's forecast or the run record's (main_conflict). In the plan's order, each {bolt, box: True,
+    facts}, a row the user ticks, its facts carrying stopped, (head, words), when its last landing was stopped at its
+    present head (stopped_at), which holds nothing (rail-cards "A landing the runner or Flume stopped keeps its box");
+    or {bolt, box: False, why, facts}, held with no box: while its facts say it carries another bolt's work main lacks,
+    or that what it carries can't be read (carries, carries_error; carries_said), whatever else holds it, so no landing
+    card is raised for it nor its row marked able to land (plan.8); for a fix in flight on it, in the fix's words, or
+    for Flume's refusal of its landing at its present head, in Flume's words, the row saying the landing was rejected
+    and the bolt is open for work, until a fix on the bolt moves the head (rail-cards "A refused landing is held on its
+    row"); or, marked takes_main, taking main first,
     forecast to conflict with main, or with only take-main fixes in flight (TAKE_MAIN), each named with its words; but a
     bolt the user left (left, left_now) marked takes_main keeps its box, its facts marked would_main, (main's short
     sha, [paths]), for its row to say it would take main first once ticked (rail-cards "A row the user left says
@@ -3955,9 +3956,9 @@ def pane_words(acts, words, refusal):
 
 
 def leave_word_refusal(bolt, v):
-    """Why crew bolt leave records no stop of the bolt (main-level "A landing stopped in ops's pane is recorded as the
-    user's words"), or None, judging the words as words_refusal judges every word said in a pane, holding none of them
-    (record.3). A decision of facts alone (code.7)."""
+    """Why crew bolt leave records no stop of the bolt (main-level "A stop said in ops's pane is read as the user's
+    words", "A stop crew cannot read as the user's words is refused"), or None, judging the words as words_refusal
+    judges every word said in a pane, holding none of them (record.3). A decision of facts alone (code.7)."""
     return words_refusal(f"crew records no stop of bolt {bolt}", v, "stop a landing",
                          "the user stops a landing on its kit's landings card or in main-level ops's pane")
 
@@ -4067,18 +4068,17 @@ def landing_pending(entries, bolt):
 
 def landing_phase(entries, bolt):
     """Where the bolt's landing stands in the run record (plan.8; bolt-teams "A landing queued holds its bolt's work"),
-    from the partition's entries, oldest first, each state its own: queued, {state, n, head}, while its last submission
-    sluice queued has no outcome recorded (landing_pending) and no earlier one of it was rejected; again, the same with
-    rejected, (its number or None, its head), the newest earlier submission of it sluice rejected; rejected, {state, n,
-    head, words}, once sluice rejected its newest submission for the bolt's own content, a conflict or a failed check,
-    recorded refused with the head submitted (landing_entry), until it is submitted again, its number None for one
-    sluice refused in its answer, standing through a later submit that submitted nothing at its head (sent_back); else
-    None: never submitted, landed, stopped by sluice or its host, nothing of the bolt's, or refused by crew before
-    anything was submitted, which names no head. asked, {state, n, head}, a land crew posted on the user's send whose
-    outcome is not recorded, with rejected as again has it where an earlier land of the bolt was refused; stopped,
-    {state, n, head, words}, once its last landing was recorded stopped at a head, nothing of the bolt's (stops). queued,
-    again and asked hold the bolt's work (landing_hold); rejected and stopped hold none. A decision of facts alone
-    (code.7)."""
+    from the partition's entries, oldest first, each state its own: asked, {state, n, head}, a land crew posted on the
+    user's send whose outcome is not recorded (landing_pending), n its request, with rejected, (the merge queue's entry
+    or None, its head), where an earlier land of the bolt was refused; queued, {state, n, head}, while a submission an
+    older crew recorded queued has no outcome recorded and no earlier one of it was refused, and again, the same with
+    rejected as asked has it; rejected, {state, n, head, words}, once Flume's verdict refused its newest landing for the
+    bolt's own content, a conflict or a failed check, as crew recorded it from the runner's report with the head its
+    land carried (landing_entry), until a land is asked again, n the merge queue's entry or None where Flume named
+    none, standing through a later entry that landed nothing at its head (sent_back); stopped, {state, n, head, words},
+    once its last landing was recorded stopped at a head by the runner or Flume, nothing of the bolt's (stops); else
+    None: never asked, landed, or refused naming no head. asked, queued and again hold the bolt's work
+    (landing_hold); rejected and stopped hold none. A decision of facts alone (code.7)."""
     mine = [e for e in entries if e.get("Act") == "bolt.submit" and f"bolt/{bolt}" in (e.get("On") or [])]
     rejected = lambda e: bool(e.get("Refused") and e.get("Head"))
     q = landing_pending(entries, bolt)
@@ -4394,16 +4394,16 @@ def bolt_submit(fleet, a):
 
 def bolt_leave(fleet, a):
     """crew bolt leave <bolt>... --excerpt "<the user's words>" [--label L]: main-level ops's record of the user's own
-    words in its pane stopping the landing of bolts waiting on a kit's landings card (main-level "A landing stopped in
-    ops's pane is recorded as the user's words", rail-cards "A bolt stopped in ops's pane is shown as left"): the words
-    read first in the caller's own session transcript on this host (acts.heard), and
+    words in its pane stopping the landing of bolts waiting on a kit's landings card (main-level "A stop said in ops's
+    pane is read as the user's words", "A stop crew cannot read as the user's words is refused", "A stop is recorded
+    holding none of the user's words", rail-cards "A bolt stopped in ops's pane is shown as left"): the words read first
+    in the caller's own session transcript on this host (acts.heard), and
     nothing recorded unless crew reads them as the user's (pane_words, leave_word_refusal); refused too, recording
     nothing, for a bolt the plan does not hold, one not started and one that does not read proven (land_read), which
     have no landing to stop. Each bolt's stop recorded as a bolt.leave naming its head as its row reads it, the
     transcript record the words were read from and their length, none of the words (record.3); then each kit's landings
     card raised on the partition's main machine (land_hand), saying the bolts were stopped on the user's words, which
-    shows them unticked as left until the user ticks them on a send, ops lands them on the user's words or their head
-    moves (left_now)."""
+    shows them unticked as left until the user ticks them on a send or their head moves (left_now)."""
     bolts = list(a.bolt)
     label, _, _, plan = locate(fleet, "Bolt", bolts[0], default_label(fleet, a))
     CONTEXT["label"] = label
@@ -11618,16 +11618,17 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     {row: request}, lands_posted), or that none is posted yet, crew's next raise of the card posting it, and no command
     for any agent to run (crew-lands-each-bolt-through-flumes-base-place, Decision 10), or that none was ticked, so nothing lands;
     nothing while it waits on them, nor with no card open (got {}, heads []). The bolts an earlier send still lands
-    (earlier, sent_left), its card closed, come first, said while this one waits too or with none open, and the submit
-    lands them before this card's; each sent bolt crew can't tell of (unknown, [(bolt, why)]) is said, and left out of
-    it (main-level "Ops lands a bolt on a send that still stands"). Each ticked bolt the run record holds forecast to
-    conflict with main at the head the card showed (main_first, main_conflict) is left out of it too, said to take main
-    first with the user's send standing for it (rail-cards "Ticking a left bolt that conflicts with main starts its
-    take-main fix"). Each ticked bolt that landed since the card was posted or left the plan (gone, ticked_gone) is said
-    so and left out of it, so a send some of whose bolts landed gives the rest alone (main-level "Ops lands a bolt on a
-    send that still stands"). Each bolt it lands whose last landing sluice or its host stopped (stopped, {bolt: (head,
-    words)}, stops) is said with what stopped it and the head it was at, and that it lands again only on the user's next
-    send, with no land named for it, its last land being spent (rail-cards "A landing stopped keeps its box")."""
+    (earlier, sent_left), its card closed, come first, said while this one waits too or with none open, crew's raise
+    posting their lands before this card's; each sent bolt crew can't tell of (unknown, [(bolt, why)]) is said, and
+    left out of it (rail-cards "The landings card's read prints the lands crew posted"). Each ticked bolt the run
+    record holds forecast to conflict with main at the head the card showed (main_first, main_conflict) is left out of
+    it too, said to take main first with the user's send standing for it (rail-cards "A send stands for a ticked bolt
+    taking main in"). Each ticked bolt that landed since the card was posted or left the plan (gone, ticked_gone) is
+    said so and left out of it, so a send some of whose bolts landed gives the rest alone (rail-cards "The landings
+    card's read prints the lands crew posted"). Each bolt it lands whose last landing the runner or Flume stopped
+    (stopped, {bolt: (head, words)}, stops) is said with what stopped it and the head it was at, and that it lands
+    again only on the user's next send, with no land named for it, its last land being spent (rail-cards "A landing the
+    runner or Flume stopped keeps its box")."""
     ticked, earlier, stopped, gone = ticked_of(got, heads), list(earlier), stopped or {}, gone or {}
     lands = [b for b in ticked or [] if b not in main_first and b not in gone]
     lines = [f"  can't tell whether the user's earlier send still lands {b}: {why}" for b, why in unknown]
@@ -11723,8 +11724,9 @@ def landings_earlier(fleet, label, kit, key, who, entries, heads, acts=None):
 
 
 def landings_unopened(fleet, a, label, who, kit, entries, acts=None):
-    """crew card read land/<kit> when who holds no landings card of the kit open (main-level "Ops lands a bolt on a
-    send that still stands"): that no card is open, then what an earlier send still lands at each bolt's head now and
+    """crew card read land/<kit> when who holds no landings card of the kit open (rail-cards "The landings card's read
+    prints the lands crew posted", "A send's lands are posted by the first act that reads it"): that no card is open,
+    then what an earlier send still lands at each bolt's head now and
     the land crew posted for it, and each bolt crew can't tell of, left out of it (landings_earlier,
     landing_lines); with --json, the same as {key, card: null, earlier, unknown}. Refuses nothing but what it can't read
     (read.1)."""

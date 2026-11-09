@@ -50,9 +50,9 @@ class TestTheStops:
         assert plan.stops([refused, stopped]) == {"b": (TIP, self.STOP["Why"])} and plan.refusals([refused, stopped]) == {}
 
     def test_a_stop_that_submitted_nothing_leaves_a_sent_back_landing_the_bolts_fix(self):
-        """bolt-teams "A landing sluice sent back is the bolt's fix": the Willdan box's 22:28Z stop of 2026-11-06, a
-        submit at the head sluice sent back that submitted nothing, leaves the refusal standing and says no stop; a
-        refusal of crew's own before anything was submitted leaves it too; a stop at another head, or anything queued,
+        """bolt-teams "A landing Flume's verdict sent back is the bolt's fix": a stop an older crew recorded at the head
+        sent back, of a submit that submitted nothing (the Willdan box's 22:28Z stop of 2026-11-06), leaves the refusal
+        standing and says no stop; a refusal naming no head leaves it too; a stop at another head, or anything queued,
         lifts it. The landing's state reads rejected through it (landing_phase)."""
         refused = submitted("b", Refused="#1474 failed: tests:logic on 1234567", Submission="1474")
         crews = submitted("b", head=None, Refused="bolt/b was not submitted: sluice sent its landing back")
@@ -594,10 +594,10 @@ def ran(code, out="", err=""):
 
 
 class TestTheLandingsAsks:
-    """A bolt's landing asks the planner and the design agent that run as their kinds in the landing's commit, and one
-    that did not land asks main-level ops with sluice's words, keyed by the submission (design Decisions 5 and 12;
-    role-runs "A capture and a landing are asks" and "Main-level ops's landing from a run does not wait"); a role that
-    stands is asked nothing."""
+    """A bolt's landing, as crew's read of the runner's report records it, asks the planner and the design agent that
+    run as their kinds in the landing's commit, and one that did not land asks main-level ops with Flume's or the
+    runner's words, keyed by the land's request (design Decisions 5 and 12; role-runs "A capture and a landing are
+    asks" and "Main-level ops's run lands nothing"); a role that stands is asked nothing."""
 
     def fleet(self, **flume):
         import crew

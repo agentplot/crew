@@ -918,9 +918,10 @@ def row_bits(r):
 
 def stopped_said(r):
     """What a landings row says of its last landing at its head when the runner or Flume stopped it, nothing of the
-    bolt's (rail-cards "A landing stopped keeps its box"; crew-lands-each-bolt-through-flumes-base-place, Decision 7):
-    r's stopped, (head, words), as plan.landing_rows gives it, and that the send that ticked it is spent, so it lands
-    again only on the user's next send; "" when none was stopped."""
+    bolt's (rail-cards "A landing the runner or Flume stopped keeps its box";
+    crew-lands-each-bolt-through-flumes-base-place, Decision 7): r's stopped, (head, words), as plan.landing_rows gives
+    it, and that the send that ticked it is spent, so it lands again only on the user's next send; "" when none was
+    stopped."""
     if not r.get("stopped"):
         return ""
     head, words = r["stopped"]

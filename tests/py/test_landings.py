@@ -134,10 +134,9 @@ def test_a_landing_refused_at_the_bolts_present_head_holds_its_row():
 
 
 def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held_for_its_fix():
-    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "A landing sluice sent back is the
-    bolt's fix"): a later crew bolt submit at the head sluice sent back, which sluice's driver refused with nothing
-    submitted and crew recorded stopped, leaves the row held for its fix, never given its box back as a stop of
-    sluice's."""
+    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "A landing Flume's verdict sent back
+    is the bolt's fix"): a stop an older crew recorded at the head sent back, of a submit that submitted nothing,
+    leaves the row held for its fix, never given its box back as a stop of the runner's or Flume's."""
     head = "d" * 40
     entries = [dict(submitted("y", head, "#1474 failed: tests:logic on 41a7c09"), Submission="1474"),
                dict(submitted("y", head), Outcome="stopped", Why="sluice itself failed (it said nothing), and sluice records no submission")]
@@ -158,7 +157,7 @@ def test_a_landing_after_a_refusal_holds_nothing():
 
 
 def test_a_landing_stopped_at_the_bolts_present_head_keeps_its_box_saying_what_stopped_it():
-    """rail-cards "A landing sluice or its host stopped keeps its box": recorded stopped, its row a box whose facts
+    """rail-cards "A landing the runner or Flume stopped keeps its box": recorded stopped, its row a box whose facts
     carry the head it was stopped at and what stopped it; once its head moves, its row says nothing of it."""
     head = "d" * 40
     stop = dict(submitted("y", head), Why="check:dagger could not run: the Dagger engine did not answer", Outcome="stopped")
@@ -313,8 +312,8 @@ def test_a_bolt_the_user_left_forecast_to_conflict_with_main_keeps_its_box_marke
 
 
 def test_a_left_bolt_whose_landing_was_stopped_keeps_both_marks():
-    """A stop holds nothing (rail-cards "A landing sluice or its host stopped keeps its box"), and a left bolt forecast
-    to conflict with main keeps its box: its row says both."""
+    """A stop holds nothing (rail-cards "A landing the runner or Flume stopped keeps its box"), and a left bolt
+    forecast to conflict with main keeps its box: its row says both."""
     head = "a" * 40
     entries = [dict(submitted("z", head), Why="sluice exited 3", Outcome="stopped")]
     row, = plan.landing_rows(["z"], {"z": facts("z", head)}, {}, plan.stops(entries),
@@ -836,7 +835,8 @@ def test_a_stopped_bolt_beside_one_proven_since_closes_the_card_and_the_one_that
 
 
 def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_naming_no_land_for_it():
-    """rail-cards "A landing stopped keeps its box": crew card read land/crew says what stopped z's last landing and
+    """rail-cards "A landing the runner or Flume stopped keeps its box", "The landings card's read prints the lands crew
+    posted": crew card read land/crew says what stopped z's last landing and
     at which head, that it lands again only on the user's next send, and names no land of it, its land being spent; a
     bolt it does not land says nothing, nor does one whose last landing was not stopped."""
     sent = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:y", "land:z"]}}
@@ -945,7 +945,8 @@ def test_what_an_earlier_send_still_lands_leaves_out_the_landed_the_asked_again_
 
 
 def test_an_earlier_send_lands_a_refused_bolt_once_its_fix_only_took_main_in_and_names_one_it_cant_tell_of():
-    """main-level "Ops lands a bolt on a send that still stands": "No card open" and "A head crew cannot read"."""
+    """rail-cards "The landings card's read prints the lands crew posted", with no card open: an earlier send still
+    lands a refused bolt once its fix only took main in, and a bolt whose head crew cannot read is named."""
     sent = {"z": "abc1234", "w": "abc1234", "q": "abc1234"}
     refused = {"z": ("abc1234" + "0" * 33, "sluice: conflict in plugin/lib/plan.py")}
     unread = "bolt/w is on no branch crew can read in /c/main on mac-studio, GitHub's or the host's"
@@ -997,7 +998,8 @@ def read_unopened(monkeypatch, capsys, closes, works, json=False):
 
 
 def test_with_no_card_open_ops_reads_what_an_earlier_send_still_lands_and_the_command_that_lands_it(monkeypatch, capsys):
-    """main-level "Ops lands a bolt on a send that still stands", "No card open": refuses nothing."""
+    """rail-cards "The landings card's read prints the lands crew posted", with no card open: refuses nothing, and
+    names the land crew's next raise posts, no command."""
     closes = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234"),
               dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
     assert read_unopened(monkeypatch, capsys, closes, {"z": work()}) == (
@@ -1007,7 +1009,8 @@ def test_with_no_card_open_ops_reads_what_an_earlier_send_still_lands_and_the_co
 
 
 def test_with_no_card_open_a_sent_bolt_whose_head_crew_cant_read_is_named_and_left_out_of_the_command(monkeypatch, capsys):
-    """main-level "A head crew cannot read"."""
+    """rail-cards "The landings card's read prints the lands crew posted", with no card open: a sent bolt whose head
+    crew cannot read is named and left out of what lands."""
     closes = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
     assert read_unopened(monkeypatch, capsys, closes, {"y": work(head=H1)}) == (
         "card land/crew: no landings card of crew is open\n"

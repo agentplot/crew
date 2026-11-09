@@ -1257,8 +1257,8 @@ def test_a_bolt_ticked_that_the_record_holds_taking_main_first_is_left_out_of_th
 
 
 def test_a_ticked_bolt_that_landed_or_left_the_plan_is_said_and_left_out_of_the_submit():
-    """main-level "Ops lands a bolt on a send that still stands", "Read again after part of the send landed": z landed
-    on the send, w left the plan, y takes main in, so the submit lands y alone."""
+    """rail-cards "The landings card's read prints the lands crew posted", read again after part of the send landed:
+    z landed on the send and w left the plan, so the read names y's land alone."""
     heads = plan.card_heads("y@abc1234 z@abc1234 w@abc1234")
     got = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:y", "land:z", "land:w"]}}
     assert plan.landing_lines("swancloud", got, heads, gone={"z": "landed", "w": "left the plan"}) == [
@@ -1387,9 +1387,9 @@ def test_a_ticked_bolt_with_no_conflict_lands_as_any_and_the_json_answer_is_left
 
 
 def test_a_send_read_again_after_part_of_it_landed_gives_the_rest_alone_to_land(monkeypatch, capsys):
-    """main-level "Read again after part of the send landed": crew bolt submit y z landed y, closed and gone from the
-    plan, and sluice refused z for a conflict with main, launching its take-main fix, the answered card still open; the
-    read prints the submit of z alone, naming y as landed, and none naming a bolt that landed."""
+    """rail-cards "The landings card's read prints the lands crew posted", read again after part of the send landed: y
+    landed, closed and gone from the plan, the answered card still open; the read names z alone to land, crew's next
+    raise posting its land, and y as landed, naming no land of a bolt that landed."""
     landed = [dict(Act="bolt.submit", On=["bolt/y"], Outcome="landed", At="2026-10-12T10:05:00Z", Id="e-2"),
               dict(Act="bolt.land", On=["bolt/y"], At="2026-10-12T10:05:30Z", Id="e-3")]
     read = ReadSent(monkeypatch, TICKED, branch=landed, held="%rec: Bolt\n\nBolt: z\nRepo: crew\n\n%rec: Unit\n\n")
