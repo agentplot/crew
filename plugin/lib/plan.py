@@ -16554,6 +16554,26 @@ def parser(cls=argparse.ArgumentParser, only=None):
     st = sub.add_parser("state").add_subparsers(dest="sub", required=True)
     i = st.add_parser("init")
     i.add_argument("label")
+    # crew drive set: every key crew's module writes for a drive, and for the hosts, console and kept repositories it
+    # needs, a flag named as the file names it, with no default and none required here, so drive_given refuses a flag
+    # left out or given past its count in crew's own words (code.2, code.5); a flag of several words takes them apart.
+    d = sub.add_parser("drive").add_subparsers(dest="sub", required=True)
+    i = d.add_parser("set", prog="crew drive set")
+    i.add_argument("label")
+    i.add_argument("--state", action="append", metavar="OWNER/NAME")
+    i.add_argument("--blueprints", action="append", metavar="OWNER/NAME")
+    i.add_argument("--machine", action="append", metavar="HOST")
+    i.add_argument("--session", action="append", metavar="NAME")
+    i.add_argument("--folder", action="append", metavar="PATH")
+    i.add_argument("--repos", action="append", metavar="OWNER/NAME")
+    i.add_argument("--accounts", action="append", nargs=2, metavar=("ROLE", "ACCOUNT"))
+    i.add_argument("--flume", action="append", nargs=2, metavar=("ROLE", "FALSE_OR_STREAM"))
+    i.add_argument("--review", action="append", nargs=2, metavar=("EVERY", "HOURS"))
+    i.add_argument("--hosts", action="append", nargs=3, metavar=("HOST", "SSH", "KIND"))
+    i.add_argument("--roles", action="append", nargs=3, metavar=("ROLE", "KEY", "VALUE"))
+    i.add_argument("--console", action="append", metavar="PATH")
+    i.add_argument("--repositories", action="append", nargs=3, metavar=("OWNER/NAME", "DIR", "CHECKOUT"))
+    i.add_argument("--json", action="store_true")
 
     v = sub.add_parser("bolts")
     v.add_argument("bolt", nargs="?")
