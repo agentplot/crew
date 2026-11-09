@@ -32,10 +32,10 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 - [x] 4.2 `t-journey-board` passes with the new fixture, its subscriptions unchanged (Task notes 4.2–4.23). Verify `tests/suite t-journey-board` ends with "0 failed".
 - [x] 4.3 `t-journey-review` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-review` ends with "0 failed".
 - [x] 4.4 `t-journey-plan` passes with the new fixture, its hosts-file edit made in the teams file (Task notes 4.2–4.23). Verify `tests/suite t-journey-plan` ends with "0 failed".
-- [ ] 4.5 `t-hold` passes with the new fixture, `crew go` opening the consoles `consoles` names (Task notes 4.2–4.23). Verify `tests/suite t-hold` ends with "0 failed".
-- [ ] 4.6 `t-journey-main` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-main` ends with "0 failed".
-- [ ] 4.7 `t-briefs` expects each role's account as the drive's `accounts` gives it (Task notes 4.2–4.23). Verify `tests/suite t-briefs` ends with "0 failed".
-- [ ] 4.8 `t-roles` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-roles` ends with "0 failed".
+- [x] 4.5 `t-hold` passes with the new fixture, `crew go` opening the consoles `consoles` names (Task notes 4.2–4.23). Verify `tests/suite t-hold` ends with "0 failed".
+- [x] 4.6 `t-journey-main` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-main` ends with "0 failed".
+- [x] 4.7 `t-briefs` expects each role's account as the drive's `accounts` gives it (Task notes 4.2–4.23). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 4.8 `t-roles` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-roles` ends with "0 failed".
 - [ ] 4.9 `t-journey-cross` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-cross` ends with "0 failed".
 - [ ] 4.10 `t-flume-source` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-flume-source` ends with "0 failed".
 - [ ] 4.11 `t-help` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-help` ends with "0 failed".
