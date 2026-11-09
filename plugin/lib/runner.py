@@ -1185,10 +1185,30 @@ def fixes_on(requests, reads, base):
 def fixes_in_flight(requests, reads, bolt):
     """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}: each whose launch
     stands and whose place has not merged into the bolt, landed or been dropped, its stage read from the runner that
-    took it (fixes_on), one crew can't read counted in flight (read.1). A fix in flight holds the bolt's landing as
-    today's does (plan.landing_unready, landing_rows)."""
-    return {l.get("Work"): l.get("Brief") for l, s in fixes_on(requests, reads, f"bolt/{bolt}")
-            if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
+    took it (fixes_on), one crew can't read counted in flight (read.1); and the live landing fix of the bolt's base
+    place, read from the runner that took bolt/<bolt> (landing_fix; crews-bolt-kind-names-its-landing-fix, Decision
+    5), keyed by Flume's name for it, <bolt>-<n>, which no fix of crew's shares, with its note (landing_fix_note). A fix
+    in flight holds the bolt's landing as today's does (plan.landing_unready, landing_rows)."""
+    own = {l.get("Work"): l.get("Brief") for l, s in fixes_on(requests, reads, f"bolt/{bolt}")
+           if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
+    f = base_facts(launch_of(requests, f"bolt/{bolt}"), reads)
+    live = (landing_fix(f) or {}).get("live")
+    return dict(own, **{live["name"]: landing_fix_note(f, live)}) if live else own
+
+
+def landing_fix_note(f, fix):
+    """A live landing fix's note, as a fix in flight on its bolt is worded (crews-bolt-kind-names-its-landing-fix,
+    Decision 5), from plain facts: f, Flume's status of the bolt's base place (flume_facts); fix, the live fix
+    (fix_facts). A forecast or a conflict takes main in, beginning as every take-main fix's words do (plan.TAKE_MAIN),
+    so the bolt's row takes main first: `Take main into the bolt: Flume's landing fix <name> merges main at <onto>`,
+    the revision the forecast was formed on, or the refused entry's base, seven, where Flume names one; a failed
+    submission's makes the failed checks pass, with the first line of Flume's words."""
+    if fix["cause"] == "failed":
+        words = (f.get("verdict_words") or f.get("waiting_words") or "").strip()
+        first = words.splitlines()[0] if words else ""
+        return f"Flume's landing fix {fix['name']} makes the failed checks pass" + (f": {first}" if first else "")
+    main = fix.get("onto") if fix["cause"] == "forecast" else f.get("entry_base")
+    return f"Take main into the bolt: Flume's landing fix {fix['name']} merges main" + (f" at {main[:7]}" if main else "")
 
 
 def base_drop_asked(plan, requests):

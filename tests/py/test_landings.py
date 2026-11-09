@@ -254,6 +254,65 @@ def test_a_take_main_fix_in_flight_holds_its_row_as_taking_main_first_in_its_wor
     assert z["why"] == f'held for a fix: A zone is missing. (fix/z/gap); takes main first: take-main-e4f5a6b taking main in: "{words}"'
 
 
+class TestALiveLandingFixHoldsItsRow:
+    """bolt-teams "A live landing fix holds its bolt" and rail-cards "A row held by Flume's landing fix says so"
+    (crews-bolt-kind-names-its-landing-fix, Decision 5): a live landing fix of a bolt's base place is a fix in flight on
+    it (runner.fixes_in_flight), so its row has no box, takes main first or is held in its words, and no land is posted
+    while it runs; once a fix that took main in has landed, the standing send lands the bolt."""
+
+    def in_flight(self, fixture, status=None):
+        import runner
+        from facts import ran
+        reads = ran({1: f"flume-0.19.0/{fixture}"}, label="swancloud")
+        if status is not None:
+            reads["deneb"]["places"][1]["status"] = status
+        return runner.fixes_in_flight(TestLandsDue().requests(), reads, "y")
+
+    def test_a_conflicts_live_landing_fix_takes_main_first_beside_a_row_that_can_land(self):
+        x, y = plan.landing_rows(["x", "y"], {"x": facts("x"), "y": facts("y", fixes=self.in_flight("bolt-conflict-fixing"))}, {})
+        assert (x["box"], y["box"], y["takes_main"]) == (True, False, True)
+        assert y["why"] == ('takes main first: y-1 taking main in: "Take main into the bolt: Flume\'s landing fix y-1 merges main '
+                            'at 9f1c2ab"')
+        assert [(r["bolt"], r["box"]) for r in plan.card_rows([x, y])] == [("x", True), ("y", False)]
+
+    def test_a_forecasts_live_landing_fix_takes_main_first_and_the_raise_appends_no_request(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        (y,) = plan.landing_rows(["y"], {"y": facts("y", H1, fixes=self.in_flight("bolt-forecast-fixing"))}, {})
+        assert (y["box"], y["takes_main"]) == (False, True) and "Flume's landing fix y-1 merges main at 9f1c2ab" in y["why"]
+        w = TestTheRaisePostsTheLands().write()
+        before = w.files["requests.rec"]
+        from facts import ran
+        with pytest.raises(plan.Unposted):
+            plan.lands_change(w, "crew", [y], {"bolt/y": ("req_1", H1[:7])}, ran({1: "flume-0.19.0/bolt-forecast-fixing"}, label="swancloud"))
+        assert w.files["requests.rec"] == before
+
+    def test_a_failed_checks_live_landing_fix_holds_its_row_in_its_words(self):
+        from facts import flume_fixture
+        status = json.loads(flume_fixture("flume-0.19.0/bolt-failed-fix-due").read_text())
+        status["status"]["places"][0]["fixes"] = [{"number": 1, "name": "y-1", "place": "fix--y-1", "launched": 1794176400,
+                                                   "cause": {"failed": {"submission": "412"}}, "ended": "live"}]
+        fixes = self.in_flight("bolt-failed-fix-due", status)
+        (y,) = plan.landing_rows(["y"], {"y": facts("y", fixes=fixes)}, {})
+        assert (y["box"], y.get("takes_main")) == (False, None)
+        assert y["why"] == ("held for a fix: Flume's landing fix y-1 makes the failed checks pass: check-full failed: tests:logic "
+                            "3 failed (tests/py/test_landing.py) (y-1)")
+
+    def test_no_land_is_posted_while_it_runs_and_one_once_the_fix_that_took_main_in_has_landed(self):
+        from facts import ran
+        from test_runner import rec
+        requests = TestLandsDue().requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        sent = {"bolt/y": ("req_1", H1[:7])}
+        import runner
+        for fixture in ("bolt-conflict-fixing", "bolt-forecast-fixing"):
+            reads = ran({1: f"flume-0.19.0/{fixture}"}, label="swancloud", unplaced={5: "-"})
+            (y,) = plan.landing_rows(["y"], {"y": facts("y", H1, fixes=runner.fixes_in_flight(requests, reads, "y"))}, {})
+            assert runner.lands_due([y], sent, requests, reads, posted) == []
+        reads = ran({1: "flume-0.19.0/bolt-fixed-landed"}, label="swancloud", unplaced={5: "-"})
+        assert runner.fixes_in_flight(requests, reads, "y") == {}
+        assert runner.lands_due([box("y", H2)], sent, requests, reads, posted, work={"y": work()}) == [("bolt/y", 1)]
+
+
 class TestCrossedTakesMain:
     """A crossed team's landing refused for a conflict with main launches its take-main fix with sluice's words, once,
     and its row says it takes main first (Decision 10 of teams-cross-to-flume-as-their-bolts-land, plan.8)."""

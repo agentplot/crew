@@ -605,6 +605,25 @@ class TestBasePlaceFixes:
         assert [x["name"] for x in f["fixes"]] == ["y-3"]
         assert f["fixes_unread"] == ("y-1", "y-2", "fix 4 of 4")
 
+    def test_a_live_landing_fix_is_a_fix_in_flight_on_its_bolt(self):
+        """bolt-teams "A live landing fix holds its bolt" (Decision 5): fixes_in_flight on y's base place with y-1 live
+        for a conflict gives y-1 taking main in at the refused entry's base; once y-1 has landed, nothing."""
+        rs = held(rec(1, "launch", "bolt/y", **dict(BOLT, Name="y")))
+        assert runner.fixes_in_flight(rs, ran({1: "flume-0.19.0/bolt-conflict-fixing"}), "y") == {
+            "y-1": "Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab"}
+        assert runner.fixes_in_flight(rs, ran({1: "flume-0.19.0/bolt-fixed-landed"}), "y") == {}
+        assert runner.fixes_in_flight(rs, ran({1: "flume-0.19.0/bolt-forecast-fixing"}), "y") == {
+            "y-1": "Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab"}
+        assert runner.fixes_in_flight(rs, ran({1: "flume-0.17.0/bolt-conflict"}), "y") == {}
+
+    def test_a_live_failed_checks_landing_fix_is_worded_for_the_checks(self):
+        status = status_19("bolt-failed-fix-due")
+        status["status"]["places"][0]["fixes"] = [{"number": 1, "name": "y-1", "place": Y_FIX, "cause": {"failed": {"submission": "412"}},
+                                                   "launched": 1794176400, "ended": "live"}]
+        f = runner.flume_facts(status, Y)
+        assert runner.landing_fix_note(f, f["fixes"][0]) == (
+            "Flume's landing fix y-1 makes the failed checks pass: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")
+
     def test_a_field_of_another_shape_reads_none(self):
         status = status_19("bolt-conflict-fixing")
         p = status["status"]["places"][0]
