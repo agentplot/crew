@@ -8,7 +8,7 @@ Run once, as CLAUDE.md's *Tests* names them for a finished change: `tests/suite 
 
 **Outcome: passed.** `35 passed (4 replayed), 0 failed`, exit 0. Replayed from a pass on this host with identical inputs: `mod`, `nix:format`, `nix:lint`, `t-docs`. Run: `contract`, `logic`, `nix:test`, `nix:typecheck` and every affected end-to-end test, `t-drive-set` among them.
 
-`openspec validate a-drive-set-mends-what-it-replaces --strict`: valid.
+`openspec validate a-drive-set-mends-what-it-replaces --strict`: valid. After the archive, `openspec validate --specs --strict` gives 4 passed, 23 failed, as it does at the commit before it: the failures are the specs' own (no `## Purpose` section, among others), and the archive adds none.
 
 ## Tasks
 
