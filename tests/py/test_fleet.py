@@ -12,27 +12,29 @@ NOW = datetime.datetime(2026, 10, 23, 12, 0, tzinfo=datetime.timezone.utc)
 SINCE = "2026-10-16T12:00:00Z"
 
 
-def sess(partition, account="madswan"):
-    return {"dir": "/w", "partition": partition, "repos": [], **({"account": account} if account else {})}
+ROLES = ("design", "planner", "ops", "operator", "reviewer")
 
 
-def main(label, machine, session, sessions=None):
-    roles = dict.fromkeys(("design", "planner", "ops", "operator", "reviewer"), session)
-    return {"label": label, "machine": machine, "session": session, "sessions": dict(roles, **(sessions or {}))}
+def main(label, machine, session, account, sessions=None, accounts=None):
+    """A drive as crew.load gives it: each role's session, its main level's unless named apart, and each role's Claude
+    account, account unless named apart (record 0064)."""
+    return {"label": label, "machine": machine, "session": session,
+            "sessions": dict(dict.fromkeys(ROLES, session), **(sessions or {})),
+            "accounts": dict(dict.fromkeys(ROLES, account), **(accounts or {}))}
 
 
 # madswan, swancloud and wldn, in the teams file's order, each a main level, the one kind of agent crew starts
-# (the-team-machinery-leaves). swancloud's main level runs on deneb in its session swancloud, its operator in
-# swancloud-3, a session the hosts file names no account for; deneb's swancloud-2, on another account, and agentplot-2,
-# on madswan, hold no agent of any drive; chuck-herdr-alpha, where wldn's runner takes its work, holds none either.
+# (the-team-machinery-leaves), each role on the account its drive's `accounts` gives it. swancloud's main level runs on
+# deneb in its session swancloud, on madswan, its operator in swancloud-3 on madswan-2; wldn's on mac-studio in wldn on
+# willdan-alex, its planner and reviewer in wldn-1 on ia; chuck-herdr-alpha, where wldn's runner takes its work, holds no
+# agent of crew's. deneb's herdr may run other sessions, agentplot-2 among them, which crew knows nothing of.
 FLEET = {
-    "hosts": {"deneb": {"sessions": {"madswan": sess("business"), "swancloud": sess("personal"), "swancloud-2": sess("personal", "madswan-2"),
-                                     "swancloud-3": sess("personal", None), "agentplot-2": sess("agentplot")}},
-              "mac-studio": {"sessions": {"wldn": sess("clients/willdan", "willdan-alex")}},
-              "chuck-herdr-alpha": {"sessions": {"wldn-1": sess("clients/willdan", "ia")}}},
-    "drives": {"madswan": main("madswan", "deneb", "madswan"),
-                   "swancloud": main("swancloud", "deneb", "swancloud", {"operator": "swancloud-3"}),
-                   "wldn": main("wldn", "mac-studio", "wldn")},
+    "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}, "mac-studio": {"ssh": "mac-studio", "kind": "darwin"},
+              "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}},
+    "drives": {"madswan": main("madswan", "deneb", "madswan", "madswan"),
+               "swancloud": main("swancloud", "deneb", "swancloud", "madswan", {"operator": "swancloud-3"}, {"operator": "madswan-2"}),
+               "wldn": main("wldn", "mac-studio", "wldn", "willdan-alex", {"planner": "wldn-1", "reviewer": "wldn-1"},
+                            {"planner": "ia", "reviewer": "ia"})},
 }
 
 
@@ -118,20 +120,14 @@ class TestWhereItRuns:
         assert (hosts["deneb"]["answered"], hosts["deneb"]["why"], hosts["deneb"]["said"]) == (True, None, "answered")
         assert hosts["mac-studio"]["sessions"] == [] and hosts["deneb"]["sessions"]  # a runner's host holds no agent of crew's
 
-    def test_each_session_names_its_agents_and_its_account_and_one_no_agent_runs_in_is_left_out(self):
-        """fleet-page "Two sessions on two accounts": deneb's swancloud holds the main level but its operator, account
-        madswan; swancloud-2, the drive's, holds none of its agents."""
+    def test_each_session_names_its_agents_and_the_account_its_roles_name(self):
+        """fleet-page "Two sessions of one main level": deneb's swancloud holds the main level but its operator, whose
+        roles swancloud's `accounts` gives madswan, and swancloud-3 its operator, on madswan-2; no session is shown with
+        no account, and none that no agent of the drive runs in."""
         deneb = next(h for h in of(fleet(), "swancloud")["hosts"] if h["host"] == "deneb")
-        assert [(s["session"], s["agents"], s["account"]) for s in deneb["sessions"]] == [
-            ("swancloud", ["swancloud-design", "swancloud-planner", "swancloud-ops", "swancloud-reviewer"], "madswan"),
-            ("swancloud-3", ["swancloud-operator"], None)]
-        assert deneb["sessions"][0]["account_said"] == "account madswan"
-
-    def test_a_session_the_hosts_file_names_no_account_for_says_so(self):
-        """fleet-page "No account named": never blank (read.2); swancloud's operator's session names none."""
-        deneb = next(h for h in of(fleet(), "swancloud")["hosts"] if h["host"] == "deneb")
-        assert [(s["session"], s["account"], s["account_said"]) for s in deneb["sessions"] if s["session"] == "swancloud-3"] == [
-            ("swancloud-3", None, "no account named in herdr-hosts")]
+        assert [(s["session"], s["agents"], s["account"], s["account_said"]) for s in deneb["sessions"]] == [
+            ("swancloud", ["swancloud-design", "swancloud-planner", "swancloud-ops", "swancloud-reviewer"], "madswan", "account madswan"),
+            ("swancloud-3", ["swancloud-operator"], "madswan-2", "account madswan-2")]
 
     def test_the_main_levels_host_is_listed_when_the_board_did_not_ask_it_and_said_not_asked(self):
         """wldn's main level runs on mac-studio, which the board did not ask; chuck-herdr-alpha, where its runner takes
@@ -139,7 +135,8 @@ class TestWhereItRuns:
         hosts = {h["host"]: h for h in of(fleet(), "wldn")["hosts"]}
         assert list(hosts) == ["chuck-herdr-alpha", "mac-studio"]
         assert (hosts["mac-studio"]["answered"], hosts["mac-studio"]["said"]) == (None, "not asked")
-        assert [(s["session"], s["agents"]) for s in hosts["mac-studio"]["sessions"]] == [("wldn", ["wldn-design", "wldn-planner", "wldn-ops", "wldn-operator", "wldn-reviewer"])]
+        assert [(s["session"], s["agents"], s["account"]) for s in hosts["mac-studio"]["sessions"]] == [
+            ("wldn", ["wldn-design", "wldn-ops", "wldn-operator"], "willdan-alex"), ("wldn-1", ["wldn-planner", "wldn-reviewer"], "ia")]
         assert hosts["chuck-herdr-alpha"]["sessions"] == []
 
 
@@ -321,8 +318,9 @@ def ago(m):
 
 
 class TestSubscriptions:
-    def test_every_account_of_the_sessions_and_of_the_readings_by_name(self):
-        """fleet-page "Accounts from sessions and from readings": fable-test is published for and no session names it."""
+    def test_every_account_of_the_drives_roles_and_of_the_readings_by_name(self):
+        """fleet-page "Accounts from sessions and from readings": fable-test is published for and no role's account
+        names it."""
         assert list(subs(("deneb", MADSWAN), ("deneb", made("fable-test", ago(3))))) == ["fable-test", "ia", "madswan", "madswan-2", "willdan-alex"]
 
     def test_the_madswan_reading_as_published_with_a_model_the_server_names_and_no_opus_line(self):
@@ -380,30 +378,30 @@ class TestSubscriptions:
 
 class TestOnASubscription:
     def test_two_drives_on_one_subscription_each_session_with_its_agents(self):
-        """fleet-page "Two drives on one subscription" and "A session crew runs nothing in": madswan's main level in
-        deneb's madswan, swancloud's but its operator in its swancloud, and agentplot-2 running none."""
+        """fleet-page "Two main levels on one subscription" and "A main-level session that runs nothing": madswan's main
+        level in deneb's madswan and swancloud's but its operator in its swancloud, every one on madswan; deneb's
+        agentplot-2, which no drive's role runs in, on no subscription."""
         m = subs()["madswan"]
         assert [(s["host"], s["session"], s["agents"], s["said"]) for s in m["sessions"]] == [
             ("deneb", "madswan", ["madswan-design", "madswan-planner", "madswan-ops", "madswan-operator", "madswan-reviewer"],
              "madswan-design, madswan-planner, madswan-ops, madswan-operator, madswan-reviewer"),
             ("deneb", "swancloud", ["swancloud-design", "swancloud-planner", "swancloud-ops", "swancloud-reviewer"],
-             "swancloud-design, swancloud-planner, swancloud-ops, swancloud-reviewer"),
-            ("deneb", "agentplot-2", [], "runs no crew agent")]
+             "swancloud-design, swancloud-planner, swancloud-ops, swancloud-reviewer")]
         assert not any("teams" in s for s in m["sessions"])
         assert (m["drives"], m["sessions_said"], m["drives_said"]) == ([{"label": "madswan", "link": None}, {"label": "swancloud", "link": None}], None, None)
 
-    def test_a_session_no_agent_runs_in_and_one_with_no_account_on_no_subscription(self):
+    def test_each_subscription_lists_the_sessions_whose_roles_name_it(self):
         s = subs()
-        assert [(x["host"], x["session"], x["said"]) for x in s["madswan-2"]["sessions"]] == [("deneb", "swancloud-2", "runs no crew agent")]
-        assert (s["madswan-2"]["drives"], s["madswan-2"]["drives_said"]) == ([], "no drive's agents run on it")
-        assert [(x["host"], x["session"], x["agents"]) for x in s["ia"]["sessions"]] == [("chuck-herdr-alpha", "wldn-1", [])]
+        assert [(x["host"], x["session"], x["said"]) for x in s["madswan-2"]["sessions"]] == [("deneb", "swancloud-3", "swancloud-operator")]
+        assert (s["madswan-2"]["drives"], s["madswan-2"]["drives_said"]) == ([{"label": "swancloud", "link": None}], None)
+        assert [(x["host"], x["session"], x["agents"]) for x in s["ia"]["sessions"]] == [("mac-studio", "wldn-1", ["wldn-planner", "wldn-reviewer"])]
         assert [(x["host"], x["session"]) for x in s["willdan-alex"]["sessions"]] == [("mac-studio", "wldn")]
-        assert all(x["session"] != "swancloud-3" for v in s.values() for x in v["sessions"])
+        assert all(x["session"] != "agentplot-2" for v in s.values() for x in v["sessions"])
 
     def test_a_subscription_no_session_runs_on_says_so(self):
         f = subs(("deneb", made("fable-test", ago(3))))["fable-test"]
         assert (f["sessions"], f["sessions_said"], f["drives"], f["drives_said"]) == (
-            [], "no session of herdr-hosts is on it", [], "no drive's agents run on it")
+            [], "no drive's main-level role runs on it", [], "no drive's agents run on it")
 
     def test_where_a_drive_runs_reads_the_same_placement(self):
         assert page.agents_in(FLEET, "swancloud") == {

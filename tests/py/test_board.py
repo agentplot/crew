@@ -21,10 +21,11 @@ import plan
 BOX = "chuck-herdr-alpha"
 KIT = {"name": "switchboard-kit", "main": "/kit/main", "dir": "/kit"}
 FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio",
-                                 "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state"}},
-         "hosts": {BOX: {"kind": "nixos", "ssh": BOX},
-                   "mac-studio": {"kind": "darwin", "ssh": "mac-studio",
-                                  "sessions": {"wldn": {"dir": "/m", "repos": ["WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit"]}}}}}
+                                 "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state",
+                                 "folder": "/m", "repos": ["WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit"],
+                                 "accounts": {r: "madswan" for r in ("design", "planner", "reviewer", "ops", "operator")}}},
+         "hosts": {BOX: {"kind": "nixos", "ssh": BOX}, "mac-studio": {"kind": "darwin", "ssh": "mac-studio"}},
+         "consoles": {"wldn": "/m"}}
 # Where work runs, as the runner that took it reported (plan.bolt_at), for a survey of the kits it runs in: two pieces
 # of work in switchboard-kit and one in breadboard-kit on the box, and one in atlas-kit on mac-studio.
 WHERE = {"a": {"label": "wldn", "machine": BOX, "stream": "wldn", "kit": KIT},

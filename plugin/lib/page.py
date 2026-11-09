@@ -33,7 +33,7 @@ the board read, at the commit the entries were read at, which a command fetches 
 (record.3). The deploys are the ops entries of the main level's host and the landings, as ops.environments reads them
 (plan.14), a deploy's release notes the proposals the lineage joins to each bolt it carried. The fleet page is the
 board of every drive from the one read crew board makes of them all, its landings read from the run record in
-the board's window (read.5), and each session's account from the hosts file (code.5);
+the board's window (read.5), and each session's account from the drives' `accounts` in the teams file (code.5);
 its subscriptions' use is what each host published in this host's ~/.local/state/crew/usage/, which swancloud's
 reader writes and crew only reads, by no ssh and no credential (read.5), beside the work of the sessions on each.
 Each file holds its data, style and script, and loads nothing. Nothing reads it, it is never committed, and making it
@@ -50,7 +50,6 @@ FLEET = LIB / "fleet.html"
 DATA = "/*{{DATA}}*/"
 # The run record's window on the fleet page: record.when's default, the board's.
 WINDOW = datetime.timedelta(days=7)
-NO_ACCOUNT = "no account named in herdr-hosts"
 DRIVES = "<!--{{DRIVES}}-->"
 # The page's columns, in the flow's order; a chore stands in the units' column (plan.11).
 COLUMNS = ("signals/", "agenda/", "proposal/", ("unit/", "chore/"), "bolt/")
@@ -225,29 +224,37 @@ def fleet_drive(fleet, part, unread, entries, since):
             "cards_said": board.many(len(part["cards"]), "card open", "cards open")}
 
 
-def account_said(account):
-    return f"account {account}" if account else NO_ACCOUNT
+def placed_on(fleet):
+    """Where every drive's main-level agents run and on which Claude account, from the teams file alone (record 0064):
+    each (label, host, session, agent, account), in the teams file's order, each role in its session (agents_in) with
+    the account the drive's `accounts` gives it; two roles in one session name one account, which crew.load holds to.
+    Every reader of a session's account reads it here: crew knows only the sessions its roles run in."""
+    out = []
+    for label, p in fleet["drives"].items():
+        for r in crew.MAIN_STANDING + ("reviewer",):
+            out.append((label, p["machine"], p["sessions"][r], f"{label}-{r}", p["accounts"][r]))
+    return out
 
 
 def where(fleet, label, asked):
     """Each host the drive runs on, by name: those the board asked (asked, {host: True or why it did not answer},
     its main level's and its runners', plan.hosts_of) and its main level's, marked answered, not, or not asked; under
-    each, in the hosts file's order, each session an agent of the drive runs in, its main level's standing roles
-    in it, and the account the hosts file gives the session, said when it names none (read.2). A session no agent of
-    the drive runs in is left out."""
+    each, each session an agent of the drive runs in, its main level's standing roles in it, and the account the
+    drive's `accounts` gives the roles in it (placed_on). A session no agent of the drive runs in is not shown."""
     p = fleet["drives"][label]
-    placed = agents_in(fleet, label)
+    mine = [x for x in placed_on(fleet) if x[0] == label]
     out = []
     for h in sorted(set(asked) | {p["machine"]}):
-        agents = {s: v for (x, s), v in placed.items() if x == h}
-        known = fleet["hosts"].get(h, {}).get("sessions", {})
+        here = [x for x in mine if x[1] == h]
+        sessions = {}
+        for _, _, s, agent, account in here:
+            sessions.setdefault(s, {"agents": [], "account": account})["agents"].append(agent)
         v = asked.get(h)
         answered = None if h not in asked else v is True
         out.append({"host": h, "answered": answered, "why": None if answered in (True, None) else v,
                     "said": "answered" if answered else "not asked" if answered is None else f"did not answer ({v})",
-                    "sessions": [{"session": s, "agents": agents[s], "account": known.get(s, {}).get("account") or None,
-                                  "account_said": account_said(known.get(s, {}).get("account"))}
-                                 for s in dict.fromkeys(list(known) + list(agents)) if s in agents]})
+                    "sessions": [{"session": s, "agents": x["agents"], "account": x["account"], "account_said": f"account {x['account']}"}
+                                 for s, x in sessions.items()]})
     return out
 
 
@@ -462,11 +469,11 @@ def reading_said(r, now):
 
 
 def subscriptions(fleet, readings, now):
-    """Every Claude subscription, by name: each account a session of the hosts file names and each a reading is of
-    (usage_checked). Each shows the figures of its newest reading made, which host read it and how long before now; each
+    """Every Claude subscription, by name: each account a drive's `accounts` gives a role (placed_on) and each a reading
+    is of (usage_checked). Each shows the figures of its newest reading made, which host read it and how long before now; each
     other reading, its host's and how long ago, or the host's words for why it could not read; else that its use could
     not be read, or that no host has published it. Nothing is made of the figures but their words (record 0038 §5)."""
-    named = {s["account"] for h in fleet["hosts"].values() for s in h.get("sessions", {}).values() if s.get("account")}
+    named = {x[4] for x in placed_on(fleet)}
     out = []
     for a in sorted(named | {r["account"] for r in readings}):
         mine = sorted((r for r in readings if r["account"] == a), key=lambda r: (-board.when(r["at"]).timestamp(), r["host"]))
@@ -483,22 +490,19 @@ def subscriptions(fleet, readings, now):
 
 
 def on_subscription(fleet, account):
-    """The sessions and drives on a subscription, beside its use and computed from nothing of it: each session the
-    hosts file gives account, by host and on each in the file's order, with crew's agents in it across every drive,
-    the main levels' roles (agents_in); and the drives with an agent in one of them, in the teams file's order, each
-    linked to its page at the subscription's dock (linked)."""
+    """The sessions and drives on a subscription, beside its use and computed from nothing of it: each session a drive's
+    main-level role runs in under account, as the drive's `accounts` gives it (placed_on), by host, with crew's agents
+    in it on that account across every drive, the main levels' roles; and the drives with an agent in one of them, in
+    the teams file's order, each linked to its page at the subscription's dock (linked)."""
     labels = list(fleet["drives"])
-    placed = {l: agents_in(fleet, l) for l in labels}
-    sessions, on = [], set()
-    for h in sorted(fleet["hosts"]):
-        for s, v in fleet["hosts"][h].get("sessions", {}).items():
-            if v.get("account") != account:
-                continue
-            here = [(l, a) for l in labels for a in placed[l].get((h, s), [])]
-            agents = [a for _, a in here]
-            on |= {l for l, _ in here}
-            sessions.append({"host": h, "session": s, "agents": agents, "said": ", ".join(agents) or "runs no crew agent"})
-    return {"sessions": sessions, "sessions_said": None if sessions else "no session of herdr-hosts is on it",
+    held = {}
+    for label, h, s, agent, a in placed_on(fleet):
+        if a == account:
+            held.setdefault((h, s), []).append((label, agent))
+    sessions = [{"host": h, "session": s, "agents": [a for _, a in held[(h, s)]], "said": ", ".join(a for _, a in held[(h, s)])}
+                for h, s in sorted(held, key=lambda k: k[0])]
+    on = {l for v in held.values() for l, _ in v}
+    return {"sessions": sessions, "sessions_said": None if sessions else "no drive's main-level role runs on it",
             "drives": [{"label": l, "link": None} for l in labels if l in on],
             "drives_said": None if on else "no drive's agents run on it"}
 
@@ -612,8 +616,8 @@ def docks(d, fleet, label):
             w["dock"] = f"operation:{e['env']}/{w['key']}"
             waits.setdefault(w["dock"], {"env": e["env"], "markers": []}).update({k: v for k, v in w.items() if k != "markers"})
             waits[w["dock"]]["markers"] = w.get("markers") or waits[w["dock"]]["markers"]
-    known = fleet["hosts"].get(p["machine"], {}).get("sessions", {})
-    sessions = {role: (s, known.get(s, {}).get("account")) for role, s in p["sessions"].items()}  # the main level's
+    # the main level's, each role's session with the account the drive's `accounts` gives it (placed_on)
+    sessions = {agent[len(label) + 1:]: (s, a) for l, _, s, agent, a in placed_on(fleet) if l == label}
     keys = {x["dock"] for x in walk(B, d["deploys"])} | {f"subscription:{a}" for _, a in sessions.values() if a}
 
     def link(key):
