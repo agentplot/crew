@@ -587,6 +587,16 @@ def stage(name=None, outcome="launched", base="bolt/crew-runs-its-work-through-f
     return runner.stage_of(work, launch, r["answers"].get(3), r["places"].get(3), r["why"] or True, ["unit/x", "chore/y"])
 
 
+def flume_17(name, n=362, work="unit/pull-requests-are-queued-on-the-forge", base="bolt/sluice-runs-one-host-process"):
+    """A place of flume 0.17.0's status (tests/py/flume-0.17.0/<name>.json) and its piece's stage as stage_of reads it,
+    its launch request n on deneb answered launched at that place and the status carried on one line in places.rec."""
+    status = json.loads((FLUME_17 / f"{name}.json").read_text())
+    p = status["status"]["places"][0]
+    r = runner.host_read("agentplot", "deneb", TIP, branch(answers=answer(n, "launched", p["place"]), places=placed(n, status, p["place"])), {})
+    launch = held(rec(n, "launch", work, Base=base))[0]
+    return p, runner.stage_of(work, launch, r["answers"][n], r["places"][n], True)
+
+
 class TestStageOf:
     """A crossed piece reads its stage from its launch, the runner's answer and Flume's status of its place, in Decision
     8's order, every field of Flume's guarded (read.2)."""
@@ -637,6 +647,42 @@ class TestStageOf:
             "The code stage of the-flake-configures-each-tool-by-its-own-module cannot start:")
         assert p["waiting_on"]["open_until"] and [e["key"] for e in p["ends"]][-1] == "stage/code/1/ended-short"
         assert runner.answer_retry("unit/the-flake-configures-each-tool-by-its-own-module", got) == ("stage", "code")
+
+    def test_a_place_past_its_bound_waits_on_its_caller_at_the_stage_it_waits_to_retry(self):
+        """bolt-plan "A place past its bound", on flume 0.17.0's own status (tests/py/flume-0.17.0/past-bound.json):
+        request 362's place as deneb's runner carried it at 05:27:38Z on 2026-11-08, its fourth verify delivered and its
+        submission #24 in conflict, gone back three times, as often as its kind allows, so Flume says it waits on its
+        caller to retry code past its bound; it reads waits at code with Flume's words, never at verify (Decision 1)."""
+        p, got = flume_17("past-bound")
+        assert (p["current"], p["stages"][2]["state"], p["waiting_on"]["why"]) == ("verify", "delivered", "past_bound")
+        assert got == {"stage": "waits", "of": "code", "why": "past_bound", "words": p["waiting_on"]["words"], "held": False,
+                       "place": p["place"], "tasks": (37, 37)}
+        assert got["words"].startswith("the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process")
+        assert runner.piece_said(got) == ("waits", "waits on its caller at code: " + got["words"].splitlines()[0])
+        assert runner.piece_said(got)[1].endswith("sluice wait 24 shows it.")
+
+    def test_a_place_waiting_on_a_retry_of_its_submission_waits_at_its_submission(self):
+        """bolt-plan "A submission that waits on its retry", on flume 0.17.0's status made from request 362's
+        (tests/py/flume-0.17.0/submission-refused.json): its verify delivered and its submission refused by the merge
+        queue, so Flume says it waits on its caller to retry its submission, naming no stage; it reads waits with no
+        stage, unheld, and its line says it waits at its submission with Flume's words."""
+        p, got = flume_17("submission-refused")
+        assert got == {"stage": "waits", "of": None, "why": "submission", "words": p["waiting_on"]["words"], "held": False,
+                       "place": p["place"], "tasks": (37, 37)}
+        assert runner.piece_said(got) == ("waits", "waits on its caller at its submission: the merge queue refused the submission: "
+                                          + p["submission"]["verdict"]["refused"]["reason"])
+
+    def test_a_refusal_without_its_carry_says_when_its_runner_last_carried_it(self):
+        """crew answer's refusal of a live place in code with no question, given no carry of the runner's (Decision 2 of
+        a-place-waiting-on-its-caller-reads-waiting): it names the stage as its runner last carried it, with no host or
+        time, and never that there is nothing to answer."""
+        how, why = runner.answer_retry("unit/a", {"stage": "code", "place": "/crew/places/change--a", "tasks": (3, 7)})
+        assert how is None and why == (
+            "unit/a's place /crew/places/change--a was at code when its runner last carried it, with no question and nothing it "
+            "waited on its caller for: a wait Flume has told of since reaches crew with that runner's next carry, so answer "
+            "again once crew bolts shows the place waiting")
+        assert runner.answer_retry("unit/a", {"stage": "code", "place": "/p"}, ("deneb", "2026-11-08T05:26:37Z"))[1].startswith(
+            "unit/a's place /p was at code when deneb's runner carried it, at 2026-11-08T05:26:37Z, with no question")
 
     def test_refused_by_the_runner_it_is_refused_with_its_words(self):
         r = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "refused", words="no repository afterthought/crew in this runner's configuration")), {})
@@ -781,18 +827,40 @@ class TestVerification:
 class TestWhere:
     """Where a bolt's or a kit's work runs is what the runner that took it reported (the user's ruling of 2026-11-01;
     runner.where): the host whose runner took its newest launch taken, the kit's folder as that runner's
-    repositories.rec reports it, or as Flume's status of its place there names it where it reports none, and the
-    stream as that status names it (roles.9)."""
+    repositories.rec reports it where it reports its repositories, else as Flume's status of its newest place of the
+    work names it, and the stream as that status names it (roles.9; drive-state
+    "A runner that reports no repositories")."""
 
     def test_the_host_folder_and_stream_of_the_newest_launch_taken(self):
-        """A runner that reports no repositories: the folder is the one Flume's status of its place names."""
+        """deneb's repositories.rec names afterthought/crew: the folder is the one it reports, the stream the place's;
+        the same reading with no repositories.rec takes the folder its place's status names."""
         code = json.loads(fixture("code"))
-        deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE)), {})
-        alpha = runner.host_read("madswan", "alpha", TIP, branch("alpha", answers=answer(1, "launched", "/old")), {})
+        report = kept(("afterthought/crew", "/Users/chuck/Code/github_afterthought/crew"))
+        deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE),
+                                                                repositories=report), {})
+        alpha = runner.host_read("madswan", "alpha", TIP, branch("alpha", answers=answer(1, "launched", "/old"), repositories=kept(
+            ("afterthought/crew", "/a/crew"))), {})
         launches = held(rec(1, "launch"), rec(2, "launch", "unit/b"), rec(3, "launch", "unit/c"))
         assert runner.where({"deneb": deneb, "alpha": alpha}, launches, "bolt b", "afterthought/crew") == (
             {"host": "deneb", "dir": "/Users/chuck/Code/github_afterthought/crew", "stream": "default"}, None)
-        assert runner.where({"alpha": alpha}, launches, "bolt b", "afterthought/crew") == ({"host": "alpha", "dir": None, "stream": None}, None)
+        assert runner.where({"alpha": alpha}, launches, "bolt b", "afterthought/crew") == ({"host": "alpha", "dir": "/a/crew", "stream": None}, None)
+        bare = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE)), {})
+        assert runner.where({"deneb": bare, "alpha": alpha}, launches, "bolt b", "afterthought/crew") == (
+            {"host": "deneb", "dir": code["status"]["places"][0]["repository"], "stream": "default"}, None)
+
+    def test_a_runner_that_reports_no_repositories_is_read_by_its_newest_place_of_the_work(self):
+        """drive-state "A runner that reports no repositories": deneb's runner answers launch 1 of x's unit a and carries
+        Flume's status of its place, naming its repository /w/crew, and its branch holds no repositories.rec: x is read
+        in /w/crew on deneb, as crew main reads it; carrying no place of the work, its folder is None, which the callers
+        refuse naming deneb (plan.launched_at, plan.kit_at, launch_repositories)."""
+        code = json.loads(fixture("code"))
+        code["status"]["places"][0]["repository"] = "/w/crew"
+        deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(1, "launched", CODE), places=placed(1, code, CODE)), {})
+        assert runner.where({"deneb": deneb}, held(rec(1, "launch")), "bolt x", "crew") == (
+            {"host": "deneb", "dir": "/w/crew", "stream": "default"}, None)
+        bare = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(1, "launched", CODE)), {})
+        assert runner.where({"deneb": bare}, held(rec(1, "launch")), "bolt x", "crew") == (
+            {"host": "deneb", "dir": None, "stream": None}, None)
 
     def test_work_no_runner_has_taken_is_nowhere_and_two_runners_are_told_apart_by_none(self):
         silent = runner.host_read("madswan", "alpha", TIP, {}, {"runner.rec": "recfix refused it"})

@@ -537,7 +537,9 @@ expect_ok crewpy brief wldn planner
 for want in "## A bolt's work in Flume" "so \`bolt order\` is how you move one ahead" "keep chains short" \
   "**Plan writes reach its places by their approval.**" "naming drop and add as the way on, so propose the drop and the add" \
   "by your address \`wldn/planner\`" "answer <work> \"<the answer, in the words of whoever gave it>\"\`" \
-  "when the place neither stopped short nor waits on its caller" "**Its fixes are yours to start.**" \
+  "when the place neither stopped short nor waits on its caller" \
+  "as its runner last carried it, naming the host and when, so a wait Flume told you of since is answered again once \`$CREW/plugin/bin/crew bolts\` shows the place waiting" \
+  "**Its fixes are yours to start.**" \
   "fix <bolt> <name> \"<what is wrong, in the words of whoever found it>\"\`" "fix <bolt> <name> --drop\`" \
   "is in a batch only once its place has merged into its bolt"; do has "$out" "$want"; done
 expect_ok crewpy brief wldn main-ops

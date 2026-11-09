@@ -32,8 +32,10 @@
 # recorded. A landing outlives the crew bolt submit that queued it (plan.21): killed once sluice has queued the landing,
 # a unit added to the bolt meanwhile is refused naming the landing (plan.8),
 # its waiter on the box calls sluice wait again while sluice is undecided, then reads the landing from sluice's record,
-# recording it landed and closing the bolt; and with the waiter stopped too, ops's crew bolt land reads it from sluice's
-# record first, records it landed and closes it. With wldn's ops, planner and design agent running as their kinds, a
+# recording it landed and closing the bolt; and with the waiter stopped too, GitHub having deleted the bolt's branch and
+# the box's runner carrying no place of its work, ops's crew bolt land reads it from sluice's record first, records it
+# landed, naming the commit main holds, and closes it (bolt-teams "A landed bolt whose branch and places are gone";
+# Decision 3 of a-bolts-landing-on-main-reads-landed). With wldn's ops, planner and design agent running as their kinds, a
 # bolt submitted from ops's run returns once it is queued, and the landing's read asks the planner and the design
 # agent, or ops with sluice's words for one refused. A bolt no team holds lands once its unit's change is on main; a
 # delete sluice refuses is named in its words, the branch kept on GitHub; a bolt made before gives went through sluice
@@ -565,13 +567,19 @@ stopped "$waiter"
 until_ok bash -c 'for p; do ! kill -0 "$p" 2>/dev/null || exit 1; done' _ "$waiter" $loop || fail "the waiter was not stopped"
 rm "$T/sluice-wait-holds"
 eq "$(plan -t Bolt -e "Bolt = 'near-reach'" -c) $(field $box bolt.submit Outcome bolt/near-reach)" "1 "
+# GitHub deleted bolt/near-reach once its pull request merged, and Flume tidied the box's places, its runner answering
+# each launch and carrying no place of any (bolt-teams "A landed bolt whose branch and places are gone").
+git --git-dir "$(remote WilldanGroup/switchboard-kit)" update-ref -d refs/heads/bolt/near-reach
+runner_tidies $box $(jq -r 'keys[]' "$T/runner/$box/kept.json")
+[[ $(git --git-dir "$ws" show "wldn/runner/$box:places.rec" | recsel -t Place -c) == 0 ]] || fail "the box's runner still carries a place"
 out=$(export CREW_AGENT=wldn-ops; crew bolt land near-reach 2>&1) || fail "ops's crew bolt land near-reach failed:"$'\n'"$out"
 has "$out" "bolt/near-reach landed on switchboard-kit's main at"
 has "$out" "bolt near-reach is closed: crew's read of its landing closed it"
 eq "$(plan -t Bolt -e "Bolt = 'near-reach'" -c)" "0"
 eq "$(field $box bolt.submit Outcome bolt/near-reach) $(field $box bolt.land By bolt/near-reach)" "landed wldn-ops"
+eq "$(field $box bolt.land Head bolt/near-reach)" "$(git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse main)"
 has "$(field $box bolt.land Why bolt/near-reach)" "read from sluice's record by wldn-ops"
-ok "a landing whose submitter and waiter were both stopped before sluice decided is read by ops's crew bolt land, which records it landed from sluice's record and closes the bolt, saying so"
+ok "a landing whose submitter and waiter were both stopped before sluice decided, its branch deleted from GitHub and the box's runner carrying no place, is read by ops's crew bolt land, which records it landed from sluice's record, naming the commit main holds, and closes the bolt, saying so"
 
 # wldn's ops, planner and design agent run as their kinds: a bolt submitted from ops's run returns once sluice has
 # queued it, waiting on nothing, and its waiter's read of the landing asks the planner and the design agent in the

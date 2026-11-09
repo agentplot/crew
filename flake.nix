@@ -49,6 +49,15 @@
           default = crew;
         }
       );
+
+      # A module of a platform, keyed as Flume's flake keys its own, so a
+      # configuration that imports it twice, directly and through
+      # Boomdrive's module, declares services.crew once (flake.1).
+      moduleOf = platform: file: {
+        _file = file;
+        key = "github:agentplot/crew#${platform}Modules.crew";
+        imports = [ (import file { inherit packages; }) ];
+      };
     in
     {
       inherit packages;
@@ -56,11 +65,11 @@
       # services.crew, which writes crew's teams file (flake.1, flake.2),
       # its package the flake's own above.
       darwinModules = rec {
-        crew = import ./nix/modules/darwin.nix { inherit packages; };
+        crew = moduleOf "darwin" ./nix/modules/darwin.nix;
         default = crew;
       };
       nixosModules = rec {
-        crew = import ./nix/modules/nixos.nix { inherit packages; };
+        crew = moduleOf "nixos" ./nix/modules/nixos.nix;
         default = crew;
       };
     };
