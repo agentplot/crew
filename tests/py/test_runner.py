@@ -540,8 +540,9 @@ class TestABasePlacesStatus:
 
 class TestVerification:
     """A bolt's verification is its work's landing at its head, as the runner reports it (merge-gate "A bolt's
-    verification is its work's landing at its head"; runner.verification): green once some unit, chore or fix of it
-    reads merged or landed at the head's commit, none for any other head, unknown with no head."""
+    verification is its work's landing at its head, as the runner reports it"; runner.verification): green once some
+    unit, chore or fix of it reads merged or landed at the head's commit, none for any other head, unknown with no
+    head."""
 
     HEAD = "d185a879b51dba33555c036392b50443f4dfc5e8"
     OTHER = "0123abc" + "0" * 33
@@ -931,10 +932,11 @@ class TestLandingOf:
 
 
 class TestBaseDrop:
-    """bolt-teams "A bolt's drop drops its base place last, and asks it again after a refusal" (Decision 8): a drop of a
-    started bolt appends its pieces' drops and then its base place's (plan.op_bolt_drop, reach), and once the runner
-    refused the base place's drop, the next plan write that finds the bolt gone from the plan, its launch standing and
-    no piece of it live asks the drop again (runner.base_drop_due), once for each refusal."""
+    """bolt-teams "A bolt's drop drops its base place last" and "A base place's drop the runner refused is asked again
+    once nothing on its branch is live" (Decision 8): a drop of a started bolt appends its pieces' drops and then its
+    base place's (plan.op_bolt_drop, reach), and once the runner refused the base place's drop, the next plan write that
+    finds the bolt gone from the plan, its launch standing and no piece of it live asks the drop again
+    (runner.base_drop_due), once for each refusal."""
     FLEET = madswan_fleet()
 
     def dropped(self, monkeypatch):

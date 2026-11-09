@@ -114,9 +114,9 @@ def test_a_fix_in_flight_holds_its_row_in_its_words_with_no_box():
 
 
 def test_a_bolt_started_before_bolts_were_base_places_has_no_box_beside_one_that_can_land():
-    """rail-cards "A bolt started before bolts were base places", beside a bolt that can land (Decision 9): its row is
-    held with no box in the words that say it lands under the crew that started it, and the card shows the other
-    alone."""
+    """rail-cards "A bolt started before bolts were base places has no box", beside a bolt that can land (Decision 9):
+    its row is held with no box in the words that say it lands under the crew that started it, and the card shows the
+    other alone."""
     import runner
     rows = plan.landing_rows(["y", "z"], {"y": facts("y", legacy=runner.legacy_said("y")), "z": facts("z")}, {})
     assert [(r["bolt"], r["box"], r.get("why")) for r in rows] == [
@@ -2095,9 +2095,10 @@ class TestTheRaisePostsTheLands:
 
 
 def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_ssh_refused(monkeypatch):
-    """bolt-teams "Read from any host" (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners'
-    branches are the partition's state, so a host that is not the kit's reads y's landing from the runner's report and
-    records it, reaching no host."""
+    """bolt-teams "A landing's record rests on the state repository alone", its scenario "Read away from the kit's host"
+    (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners' branches are the partition's
+    state, so a host that is not the kit's reads y's landing from the runner's report and records it, reaching no
+    host."""
     from test_landing import ASKED, base_run
 
     def refused(*a, **k):

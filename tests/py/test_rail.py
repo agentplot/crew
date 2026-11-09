@@ -214,8 +214,8 @@ class TestRows:
         return land["what"][1].split(": ", 1)[1], land["bolts"][0]["can"], m
 
     def test_the_runners_landing_on_the_land_line_holds_its_work_and_is_no_bolt_that_can_land(self):
-        """crew-rail "A landing asked", "A landing in the merge queue" and "A landing crew can't tell": asked with its
-        request, #412 waiting or under test with Flume's entry, or can't be told and why, each holding the bolt's work."""
+        """crew-rail "A land asked", "A landing queued" and "A landing crew can't tell": asked with its request, #412
+        waiting or under test with Flume's entry, or can't be told and why, each holding the bolt's work."""
         joins = ": no unit, chore or fix joins it until its outcome is read"
         line, can, m = self.runner_rows(answered=False)
         assert (line, can) == (f"landing asked, request {m}{joins}", False)
@@ -237,8 +237,7 @@ class TestRows:
         assert line.startswith("landing asked, request ") and "refused" not in line and can is False
 
     def test_a_refusal_at_the_head_its_land_was_posted_at_holds_the_line_in_flumes_words_recorded_or_not(self):
-        """crew-rail "A landing refused for a failed check" and "A landing refused in conflict": before the read records
-        it and after."""
+        """crew-rail "A refused landing" and "A landing refused in conflict": before the read records it and after."""
         asked = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=BOLT_HEAD, Request="9", Outcome="asked")]
         line, can, _ = self.runner_rows("bolt-failed", entries=asked)
         assert line.startswith("landing refused at d185a87, a check failed, the bolt's, open for work: ") and can is False

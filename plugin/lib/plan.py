@@ -4169,7 +4169,7 @@ def landing_line(landing, phase, head, bolt=None):
 def phase_at(w, bolt):
     """The bolt's landing as the run record holds it at the tip the write is applied to (landing_phase), with the merge
     queue's entry Flume names for a land asked, as the runners the write read report it (runner.landing_of), where they
-    can be read, so a refusal of work joining it names that entry (bolt-teams "A fix while the landing is under test")."""
+    can be read, so a refusal of work joining it names that entry (bolt-teams "A fix while the landing is queued")."""
     phase = landing_phase(w.entries(), bolt)
     if phase and phase["state"] == "asked":
         try:
@@ -4190,7 +4190,7 @@ def landing_hold(phase, bolt, what):
     lands the head it was given and work merged into the bolt meanwhile would be left out of main's landing; once
     sluice has rejected it, or with no landing in flight, nothing is refused. A land asked names its request, and once
     Flume names the merge queue's entry (phase's entry, Reads.landing) that too, and the refusal before it where one was
-    (bolt-teams "A fix while the landing is under test" and "Landing again"). A decision of facts alone (code.7)."""
+    (bolt-teams "A fix while the landing is queued" and "Landing again"). A decision of facts alone (code.7)."""
     if not phase or phase["state"] not in ("queued", "again", "asked"):
         return None
     if phase["state"] == "asked":  # crew-lands-each-bolt-through-flumes-base-place, Decision 7

@@ -679,9 +679,9 @@ ASKED = dict(Act="bolt.submit", On=["bolt/y"], Card="req_k1", Head=TIP, Request=
 
 
 def test_a_fix_while_the_landing_is_under_test_is_refused_naming_its_entry():
-    """bolt-teams "A fix while the landing is under test": the runner carries y's base place with its submission #412
-    under test, and crew fix y logic is refused naming #412, its land's request beside it, at the tip it is applied
-    to (plan.phase_at)."""
+    """bolt-teams "A fix while the landing is queued": the runner carries y's base place with its submission #412 under
+    test, and crew fix y logic is refused naming #412, its land's request beside it, at the tip it is applied to
+    (plan.phase_at)."""
     import runner
     from facts import FactsWrite
     requests, reads = base_run("bolt-submitted")
@@ -734,10 +734,11 @@ class TestTheLandingsRecord:
 
 
 class TestTheFirstReadActs:
-    """bolt-teams "The first read after a landing's outcome records it and acts on it" (Decision 7): plan.landing_read,
-    on whichever host reads it, with no ssh: a landing closes the bolt at Flume's commit in ops's name; a failed check
-    asks ops with Flume's words, its row held by the record (refusals); a conflict launches the take-main fix once,
-    keyed by main's revision; a stop asks ops and keeps the row's box (stops); a second read records nothing more."""
+    """bolt-teams "A landing is recorded by the first act that reads it in the runner's report" (Decision 7):
+    plan.landing_read, on whichever host reads it, with no ssh: a landing closes the bolt at Flume's commit in ops's
+    name; a failed check asks ops with Flume's words, its row held by the record (refusals); a conflict launches the
+    take-main fix once, keyed by main's revision; a stop asks ops and keeps the row's box (stops); a second read records
+    nothing more."""
 
     @pytest.fixture(autouse=True)
     def acts(self, monkeypatch):
@@ -867,8 +868,8 @@ class TestTheFirstReadActs:
 
 
 class TestALandingIsRecordedInTheRunRecordAsAsked:
-    """bolt-teams "A landing asked holds its bolt's work" (Decision 7): while a land crew posted stands undecided in the
-    run record, the bolt's landing reads asked with its request, and no unit, chore or fix joins it."""
+    """bolt-teams "A landing queued holds its bolt's work" (Decision 7): while a land crew posted stands undecided in
+    the run record, the bolt's landing reads asked with its request, and no unit, chore or fix joins it."""
 
     def test_asked_until_its_outcome_is_recorded(self):
         assert plan.landing_phase([ASKED], "y") == dict(state="asked", n="2", head=TIP)

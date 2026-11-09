@@ -58,8 +58,9 @@ class TestEmit:
         assert "Submission" in text.split("%allowed:", 1)[1].splitlines()[0].split()
 
     def test_a_lands_request_is_kept_on_its_entry_and_read_back(self, here):
-        """run-record "A land's entry names its request" (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the
-        land crew posted on the user's send, on its bolt.submit marked asked with the card and the head it ticked."""
+        """run-record "A land crew posts is one entry naming its request"
+        (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the land crew posted on the user's send, on its
+        bolt.submit marked asked with the card and the head it ticked."""
         record.emit("wldn", "bolt.submit", ["bolt/z"], Outcome="asked", Request="57", Card="req_1", Head="a" * 7)
         text = next(here.glob("*.rec")).read_text()
         e, = record.parse(text)

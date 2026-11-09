@@ -105,8 +105,8 @@ class TestAnswersNothing:
         return transcript.Verdict("verified", raw=b'{"type": "user"}', n=4, value={"uuid": "u-60"}, asserted_by="user", board=board)
 
     def test_a_stop_asked_from_the_board_records_nothing(self):
-        """board-page "A word from the board lands nothing" (crew-lands-each-bolt-through-flumes-base-place): no word in
-        a pane lands a bolt, so the board's words are judged where a pane's still count, a stop of a landing."""
+        """board-page "A word from the board answers nothing" (crew-lands-each-bolt-through-flumes-base-place): no word
+        in a pane lands a bolt, so the board's words are judged where a pane's still count, a stop of a landing."""
         assert plan.leave_word_refusal("y", self.heard(True)) == (
             f"crew records no stop of bolt y: {self.FROM_BOARD}; the user stops a landing on its kit's landings card or in "
             "main-level ops's pane")

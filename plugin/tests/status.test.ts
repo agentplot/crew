@@ -97,7 +97,7 @@ test("an answered card's line is drawn above ops's view as the views give it", a
   expect(at(/curation-and-holds/)).toBe(-1)
 })
 
-// crew-board "A bolt's landing on its head line and in the bands" (Decision 10 of
+// crew-board "A landing asked" and "A landing standing in sluice" (Decision 10 of
 // crew-lands-each-bolt-through-flumes-base-place): ops's band names a landing asked of the runner with its land's request
 // on its card's row, and one in the merge queue with Flume's entry on a row of its own, as board.py's ops_view draws them
 // from the runner's report (record_landing), and the band shows them as they are.

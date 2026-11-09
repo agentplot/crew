@@ -89,7 +89,8 @@ class TestStart:
 
     @pytest.fixture(autouse=True)
     def no_host(self, monkeypatch):
-        """Every host read refused: a start reads none (drive-state "What comes before a runner takes a kit's work")."""
+        """Every host read refused: a start reads none (drive-state "What comes before a runner takes a kit's work is
+        done on the main-level host")."""
         import crew
 
         def refused(*a, **k):

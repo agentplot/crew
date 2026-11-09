@@ -14,7 +14,7 @@ KD = "/kit"
 
 
 class TestTheTidy:
-    """bolt-teams "crew deletes no bolt branch and removes no landing worktree" (Decision 8)."""
+    """bolt-teams "crew removes no worktree, and names a landing's left from before" (Decision 8)."""
 
     @pytest.fixture
     def trees(self, monkeypatch):

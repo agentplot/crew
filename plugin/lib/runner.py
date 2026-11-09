@@ -1162,13 +1162,13 @@ def base_drop_asked(plan, requests):
 
 def base_drop_due(plan, requests, reads):
     """The drops a plan write asks again of a bolt's base place (crew-lands-each-bolt-through-flumes-base-place,
-    Decision 8; bolt-teams "A bolt's drop drops its base place last, and asks it again after a refusal"), from plain
-    facts: plan, as the write leaves it; requests, requests.rec's records; reads, the partition's runners as crew read
-    them. For each launch of bolt/<bolt> whose bolt has left the plan, that a drop names, the newest drop of it answered
-    refused by the runner that took the launch, as Flume refuses one while a place on its branch is live: its drop
-    asked again, (act, work, its fields), once no piece of the bolt reads live, each piece's launch on its branch read
-    dropped, merged, landed or refused, and once for each refusal, a drop asked and not yet answered asking none. None
-    where crew can't tell (read.1)."""
+    Decision 8; bolt-teams "A bolt's drop drops its base place last" and "A base place's drop the runner refused is
+    asked again once nothing on its branch is live"), from plain facts: plan, as the write leaves it; requests,
+    requests.rec's records; reads, the partition's runners as crew read them. For each launch of bolt/<bolt> whose bolt
+    has left the plan, that a drop names, the newest drop of it answered refused by the runner that took the launch, as
+    Flume refuses one while a place on its branch is live: its drop asked again, (act, work, its fields), once no piece
+    of the bolt reads live, each piece's launch on its branch read dropped, merged, landed or refused, and once for each
+    refusal, a drop asked and not yet answered asking none. None where crew can't tell (read.1)."""
     out = []
     for l in requests:
         work = l.get("Work") or ""

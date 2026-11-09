@@ -2109,10 +2109,10 @@ class TestLandingsUnderAnotherName:
 
 
 class TestALandingFromTheRunnersReport:
-    """crew-board "A bolt's landing on its head line and in the bands" (crew-lands-each-bolt-through-flumes-base-place,
-    Decision 10): a bolt's head line, the rail and ops's band say its landing as the runner reports it beside what the
-    run record holds (plan.landing_line, board.head_said, board.record_landing), under the ledger's key landing, which
-    the mod's view reads with the rest (code.8)."""
+    """crew-board "Construction shows each bolt in flight as a ledger, with no server for a started bolt's work"
+    (crew-lands-each-bolt-through-flumes-base-place, Decision 10): a bolt's head line, the rail and ops's band say its
+    landing as the runner reports it beside what the run record holds (plan.landing_line, board.head_said,
+    board.record_landing), under the ledger's key landing, which the mod's view reads with the rest (code.8)."""
     ASKED = {"state": "asked", "n": "57", "head": "a" * 40}
 
     def ledger(self, landing=None, record=None, state="waits"):
