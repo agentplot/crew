@@ -22,7 +22,7 @@ runner_writes() {
 runner_rec=$(printf '%%rec: Runner\n%%key: Host\n%%type: Since date\n%%mandatory: Host Version Since\n%%allowed: Host Version Since\n\nHost: %s\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n' "$box")
 runner_writes runner
 
-# wldn's plan names switchboard-kit by a bolt planned on it, so the kit is one of wldn's (plan.partition_kits).
+# wldn's plan names switchboard-kit by a bolt planned on it, so the kit is one of wldn's (plan.drive_kits).
 expect_ok crew bolt new smoke-follow-up "Smoke's follow-up." --repo switchboard-kit
 
 : > "$CREW_TEST_CLAUDE_LOG"

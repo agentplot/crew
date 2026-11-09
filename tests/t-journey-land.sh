@@ -6,7 +6,7 @@
 # unit's change is on its bolt and not on main; crew bolt submit lands the bolt by a submission to main from a
 # short-lived worktree, a conflict landing nothing, its pull request into main, in a kit whose main takes pull
 # requests, left a draft and said so, and the bolt's take-main fix launched (bolt-teams). Once that fix's place has
-# merged, the rail's read on the partition's main machine raises the kit's landings card in main-level ops's name, the
+# merged, the rail's read on the drive's main machine raises the kit's landings card in main-level ops's name, the
 # bolt its one row, with the row's reading started first, tried a second time when its first start fails, and linked
 # from it, which crew card session gives again, and what brings a preview of its head up, which the kit's policy there
 # declares, sluice asked for nothing (record 0043); ops's crew card preview, on the user's words on the card, brings it
@@ -172,7 +172,7 @@ mkdir -p "${refusals%/*}"; echo 1 > "$refusals"  # the reading's first start fai
 on_box() { HOST=$box crew "$@"; }
 : > "$CREW_TEST_LOG"
 expect_ok on_box rail --label wldn
-# The rail's read on the partition's main machine finds the bolt proven and raises the kit's landings card in
+# The rail's read on the drive's main machine finds the bolt proven and raises the kit's landings card in
 # main-level ops's name, keyed by the kit, the bolt its one row, carrying what brings a preview of its head up, sluice
 # asked for nothing.
 card=$(grep -o "^card land/switchboard-kit: req_stub-[0-9]*" <<<"$out" | cut -d' ' -f3)
@@ -678,7 +678,7 @@ eq "$(record_of $box | grep -c "^On: bolt/kept-work")" "1"
 ok "a dropped bolt holding a merge main lacks is kept on GitHub and the host, marked, named in sluice's words and recorded once"
 git -C "$k" merge -q --no-edit bolt/kept-work && push "$k"  # a landing that carried its work
 
-# Two bolts of one kit proven at once: one landings card in main-level ops's name, on the partition's main machine, a
+# Two bolts of one kit proven at once: one landings card in main-level ops's name, on the drive's main machine, a
 # box a bolt in the plan's order, the lower row forecast to conflict with the one above it; a merge that moves the
 # second's head changes the card in place, naming it. Each bolt's work is a chore Flume builds, writing the file it
 # names, and lands on the bolt, so the bolt reads proven at sluice's green head.
@@ -798,7 +798,7 @@ calls | grep -q "^$box pendingyou post_request " && fail "a landings card was po
 ok "a ticked bolt taking main in keeps the user's send through its take-main fix, no card asking for it again, and crew bolt submit of it, run again after its landing stood in sluice, waits on that landing again, submitting nothing, lands it and closes the card with what its send landed"
 
 # Main moving under a proven row: GitHub's main lands a change to the file far's chore added, and the builder's host
-# has it as origin/main, as the fleet's timer fetches it; crew rail on the main level's host, the partition's main
+# has it as origin/main, as the fleet's timer fetches it; crew rail on the main level's host, the drive's main
 # machine, raises the kit's landings card again, which forecasts far against main after a fetch, holds far taking main
 # first, an unticked box beside west, so the one card is changed in place and never withdrawn and posted again; a
 # second crew rail, main not having moved, raises nothing.
