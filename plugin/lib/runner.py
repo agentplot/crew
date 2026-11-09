@@ -558,6 +558,36 @@ def text(v):
     return v if isinstance(v, str) else None
 
 
+def count(v):
+    """A JSON count as an int, None for anything else, a bool among them (read.2)."""
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+FIX_CAUSES = {"forecast": ("head", "onto"), "failed": ("submission",), "conflicted": ("submission",)}
+FIX_ENDS = {"live": None, "landed": "commit", "dropped": None, "refused": "reason"}
+
+
+def fix_facts(x):
+    """One fix Flume launched for a base place, as flume 0.19.0's status lists it in `fixes` (BaseFix,
+    tests/py/flume-0.19.0/; crews-bolt-kind-names-its-landing-fix, Decision 3): {number, name, place, cause, submission,
+    head, onto, ended, commit, reason}, its cause forecast, failed or conflicted, submission the merge queue's entry it
+    names for a failed or conflicting submission, head and onto the revisions a forecast was formed on, ended live,
+    landed with its commit, dropped, or refused with Flume's reason; None where crew can't read it whole, a field
+    absent, of another shape, or a cause or an end crew does not know, so nothing of it is guessed (read.1, read.2)."""
+    if not isinstance(x, dict):
+        return None
+    cause, cf = tagged(x.get("cause"))
+    ended = text(x.get("ended"))
+    if count(x.get("number")) is None or not text(x.get("name")) or cause not in FIX_CAUSES or ended not in FIX_ENDS:
+        return None
+    if any(not text(cf.get(k)) for k in FIX_CAUSES[cause]) or (FIX_ENDS[ended] and not text(x.get(FIX_ENDS[ended]))):
+        return None
+    return {"number": x["number"], "name": x["name"], "place": text(x.get("place")), "cause": cause,
+            "submission": text(cf.get("submission")), "head": text(cf.get("head")), "onto": text(cf.get("onto")),
+            "ended": ended, "commit": text(x.get("commit")) if ended == "landed" else None,
+            "reason": text(x.get("reason")) if ended == "refused" else None}
+
+
 def flume_facts(status, place):
     """What crew reads of Flume's status of a place (Decision 8), as flume 0.3.6's `flume status --json <place>` gives it
     and the runner carried it (tests/py/flume-0.3.6/), each field guarded so one absent or of another shape reads None
@@ -566,9 +596,14 @@ def flume_facts(status, place):
     landed; its current stage, that stage's state and end; its tasks, ticked and in all; its submission: the merge
     queue's entry's number and state, why Flume could not read it, the pull request its last submit opened, how often
     it was submitted and sent back, the last verdict and its words, and whether it is held; what it waits on its caller
-    for, the stage named, why, Flume's words and since when, in seconds, and whether it is stalled. None when status
-    holds no entry for it. Each also names the folder of the place's repository on its host, and the stream it runs in,
-    which say where the runner that took it keeps the kit (where)."""
+    for, the stage named, why, Flume's words and since when, in seconds, and whether it is stalled; and, for a bolt's
+    base place as flume 0.19.0 gives it, its landing fix (crews-bolt-kind-names-its-landing-fix, Decision 3): fix_kind,
+    the identity its fixes run as, spelled, None where its status names none, as flume 0.17.0's never does; fix_limit,
+    how many fixes it runs before it waits on its caller; fixes, each fix Flume launched for it (fix_facts), in its
+    order; and fixes_unread, the name, or the place in the list, of each fix crew can't read whole, which is left out
+    of fixes and counted toward no outcome (read.1). None when status holds no entry for it. Each also names the folder
+    of the place's repository on its host, and the stream it runs in, which say where the runner that took it keeps
+    the kit (where)."""
     places = at(status, "status", "places")
     mine = [p for p in places if isinstance(p, dict) and isinstance(p.get("place"), str)
             and (p["place"] == place or p["place"].startswith(f"{place}@"))] if isinstance(places, list) and place else []
@@ -587,8 +622,9 @@ def flume_facts(status, place):
     read, rf = tagged(sub.get("read"))
     entry = at(rf, "submission") if read == "found" else None
     verdict, vf = tagged(sub.get("verdict"))
-    count = lambda v: v if isinstance(v, int) and not isinstance(v, bool) else None
     waiting = p.get("waiting_on") if isinstance(p.get("waiting_on"), dict) else {}
+    listed = p.get("fixes") if isinstance(p.get("fixes"), list) else []
+    fixes = [fix_facts(x) for x in listed]
     entry_state, ef = tagged(at(entry, "state"))
     return {
         "repository": text(p.get("repository")), "stream": text(at(p, "stream", "name")), "head": text(p.get("head")),
@@ -604,6 +640,9 @@ def flume_facts(status, place):
         "verdict": verdict, "verdict_words": text(vf.get("words")) or text(vf.get("reason")), "held": sub.get("held") is True,
         "waiting": text(waiting.get("why")), "waiting_stage": text(waiting.get("stage")), "waiting_words": text(waiting.get("words")),
         "waiting_since": count(waiting.get("since")), "stalled": p.get("stalled") is True,
+        "fix_kind": text(at(p, "fix_kind", "identity", "spelled")), "fix_limit": count(p.get("fix_limit")),
+        "fixes": tuple(x for x in fixes if x is not None),
+        "fixes_unread": tuple((text(at(x, "name")) or f"fix {i + 1} of {len(listed)}") for i, x in enumerate(listed) if fixes[i] is None),
     }
 
 
