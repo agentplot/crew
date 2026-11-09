@@ -115,11 +115,11 @@ A new decision of plain facts, `runner.landing_fix(f)`, gives the base place's l
 | The base place's status | `by` | crew |
 |---|---|---|
 | no fix kind | `crew` | launches the take-main fix for a conflict and asks ops for a failed check, as before |
-| a fix whose cause names the refused submission is live, or landed | `flume` | launches nothing, asks nothing |
+| a fix of Flume's is live, whatever its cause, or the newest fix naming the refused submission has landed | `flume` | launches nothing, asks nothing |
 | no fix names the refused submission, and `ran` is below `limit` | `flume`, marked `due` | launches nothing, asks nothing: Flume launches it at its next settle, acting on each submission once |
 | no fix names it and `ran` is at `limit`, or the newest fix naming it ended `dropped` or `refused` | `caller`, with Flume's words and `ran` | asks ops (Decision 4) |
 
-A forecast fix names no submission: it holds the bolt as Decision 5 has it, whatever the landing's outcome.
+A forecast fix names no submission: it holds the bolt as Decision 5 has it, whatever the landing's outcome. A live fix makes the way on Flume's whatever it names, so crew never asks ops for a fix while one of Flume's runs on the bolt, as when a fix naming the refusal was dropped and Flume's next forecast launched another; the table's later rows read only once no fix is live. Path not taken: holding a live fix to the refusal it names, which would ask ops past a dropped fix while Flume's next one runs.
 
 Path not taken: reading the host's Flume version. crew names no tool's version in what it decides (record 0056 point 1), and a base place launched before an upgrade keeps no fix kind whatever runs now. The status says per bolt what Flume holds.
 
@@ -148,7 +148,7 @@ So, through `landing_rows` as it stands:
 
 ### Decision 6: the views
 
-- **`runner.landing_said`.** It ends a refused landing's words with one clause: `; Flume's landing fix <name> takes main in` or `… makes the failed checks pass`, `; Flume launches its landing fix`, or `; Flume ran its <ran> landing fixes, and it waits on ops`. For any outcome with a live forecast fix, it says `Flume's landing fix <name> takes main in` where it said nothing. The bolt's head line, `crew bolts` and ops's band draw these words as they stand.
+- **`runner.landing_said`.** It ends a refused landing's words with one clause: `; Flume's landing fix <name> takes main in` or `… makes the failed checks pass`, `; Flume's landing fix <name> has landed at <commit, seven>`, `; Flume launches its landing fix`, or `; Flume ran its <ran> landing fixes, and it waits on ops`, or, for a fix dropped or not launched, `; Flume's landing fix <name> was dropped, and it waits on ops` or `… could not be launched, and it waits on ops` (`runner.fix_clause`). Given the bolt, as its row and head line are, a refused landing whose base place names a landing fix ends with that clause in place of crew's take-main words or ops's `crew fix` command, naming no command for ops. For any outcome with a live forecast fix, it says `Flume's landing fix <name> takes main in` where it said nothing. The bolt's head line, `crew bolts` and ops's band draw these words as they stand.
 - **`board.flume_waits`.** Its `fixing`, ops's band's fixes in flight, gains each live landing fix of a started bolt, read from the ledger's `landing` (`plan.Stages.landing`): `{fix: <name>, repo, host, stage: "landing fix", said: <its note>}`, after the take-main fixes. The band's head line counts it among the fixes in flight.
 - **`plugin/hooks/status.js`** draws a view's segments as given, so it is unchanged. A case in `plugin/tests/` draws ops's band with a landing fix in flight (`code.8`).
 - **The ledger's rows** list crew's fixes with their stages, and Flume's landing fixes are left out of them. crew reads no stage of such a fix but its end, and the head line names it.
