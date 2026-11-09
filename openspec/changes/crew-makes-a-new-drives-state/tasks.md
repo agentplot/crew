@@ -23,7 +23,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 4. The operator's brief
 
-- [ ] 4.1 The operator's brief says a teams file that is no link into the Nix store changes through Boomdrive's setup, which writes crew's entry with `crew drive set`, never by a hand edit, and keeps the swancloud steps for a link (design, Decision 14; Task notes 4.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 4.1 The operator's brief says a teams file that is no link into the Nix store changes through Boomdrive's setup, which writes crew's entry with `crew drive set`, never by a hand edit, and keeps the swancloud steps for a link (design, Decision 14; Task notes 4.1). Verify `tests/suite t-briefs` ends with "0 failed".
 
 ## 5. The docs
 
