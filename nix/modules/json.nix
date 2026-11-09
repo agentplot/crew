@@ -4,7 +4,9 @@
 # keys and adds no space, with no newline after. That is what the fleet's
 # writer gives (swancloud's lib/herdr-published.nix `teamsJsonFor`), so for
 # the same drives the module's file holds the same bytes, and the gate
-# compares the text without building it.
+# compares the text without building it. The drives, keyed by label in
+# the settings, are written as the file's list, in the order of their
+# labels, which is the order builtins.attrValues gives.
 { lib }:
 let
   clean =
@@ -16,4 +18,4 @@ let
     else
       value;
 in
-settings: builtins.toJSON (clean settings)
+settings: builtins.toJSON (clean (settings // { drives = builtins.attrValues settings.drives; }))

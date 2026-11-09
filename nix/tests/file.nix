@@ -1,9 +1,10 @@
 # The crew-flake spec's file (record 0058, flake.2), over options.nix
-# evaluated alone beside a system's `assertions`: deneb's drives
-# render nix/tests/files/deneb.json byte for byte, with its kept
-# repositories nix/tests/files/runner.json (record 0061), the version is crew's,
-# and what crew refuses fails evaluation, by tryEval where the module
-# system refuses it and by the assertions' messages where the module does.
+# evaluated alone beside a system's `assertions`: deneb's drives, keyed by
+# label, render nix/tests/files/deneb.json byte for byte, their list in
+# label order, with its kept repositories nix/tests/files/runner.json
+# (record 0061), the version is crew's, and what crew refuses fails
+# evaluation, by tryEval where the module system refuses it and by the
+# assertions' messages where the module does.
 t:
 let
   inherit (t) lib;
@@ -48,19 +49,39 @@ let
     lib.head (builtins.match ".*\nVERSION = ([0-9]+)\n.*" (builtins.readFile ../../plugin/lib/crew.py))
   );
 
-  # deneb's drives with the first one changed by `change`.
+  # deneb's drives with afterthought's changed by `change`.
   first =
     change:
     deneb
     // {
-      drives = [ (change (lib.head deneb.drives)) ] ++ lib.tail deneb.drives;
+      drives = deneb.drives // {
+        afterthought = change deneb.drives.afterthought;
+      };
     };
   noState = first (p: removeAttrs p [ "state" ]);
+  noMachine = first (p: removeAttrs p [ "machine" ]);
   dispatcher = first (p: lib.recursiveUpdate p { flume.dispatcher = false; });
   planner = first (p: lib.recursiveUpdate p { flume.planner = true; });
-  madswan = lib.elemAt deneb.drives 2;
-  twice = deneb // {
-    drives = deneb.drives ++ [ madswan ];
+  # madswan's drive with the label the host sets.
+  labelled = deneb // {
+    drives = deneb.drives // {
+      madswan = deneb.drives.madswan // {
+        label = "madswan";
+      };
+    };
+  };
+  # madswan's drive under a name crew does not accept.
+  capital = deneb // {
+    drives = removeAttrs deneb.drives [ "madswan" ] // {
+      Madswan = deneb.drives.madswan;
+    };
+  };
+  # deneb's drives as the file's list, each with its label.
+  listed = deneb // {
+    drives = lib.mapAttrsToList (label: d: d // { inherit label; }) deneb.drives;
+  };
+  none = deneb // {
+    drives = { };
   };
   teams = deneb // {
     teams = [ ];
@@ -100,6 +121,14 @@ in
       ++ t.expect (
         !(lib.head rendered.drives) ? roles
       ) "afterthought's drive, which gives no roles, renders a roles key"
+      ++ t.expect (
+        map (d: d.label) rendered.drives == [
+          "afterthought"
+          "agentplot"
+          "madswan"
+          "wldn"
+        ]
+      ) "the drives render as ${toString (map (d: d.label or null) rendered.drives)}, not in label order"
     );
 
   "A runner host's kept repositories" =
@@ -150,20 +179,33 @@ in
 
   "A drive with no state repository" = t.expect (!renders noState) "a drive with no state evaluates";
 
-  "A label twice" =
-    t.expect (
-      failures twice != [ ]
-    ) "services.crew.settings.drives lists madswan twice, and no assertion fails"
+  "A drive with no machine" = t.expect (!renders noMachine) "a drive with no machine evaluates";
+
+  "A label the host sets" = t.expect (
+    !renders labelled
+  ) "the host's settings give madswan the label madswan, and evaluation holds";
+
+  "A name crew does not accept" = t.expect (
+    !renders capital
+  ) "services.crew.settings.drives names Madswan, and evaluation holds";
+
+  "Drives as a list" = t.expect (
+    !renders listed
+  ) "services.crew.settings.drives is a list of deneb's drives, and evaluation holds";
+
+  "No drive" =
+    t.expect (failures none != [ ]) "services.crew.settings.drives names no drive, and no assertion fails"
     ++
       lib.concatMap
-        (words: t.expect (says twice words) "the failure names no ${words}: ${toString (failures twice)}")
+        (words: t.expect (says none words) "the failure names no ${words}: ${toString (failures none)}")
         [
           "services.crew.settings.drives"
-          "madswan"
+          "names no drive"
         ];
 
+  # With no `drives`, the drives are none, which the assertion fails.
   "Drives under `partitions`" = t.expect (
-    !renders partitions
+    !renders partitions || says partitions "services.crew.settings.drives names no drive"
   ) "services.crew.settings lists its drives under partitions with no drives, and evaluation holds";
 
   "A role crew has no kind for" =

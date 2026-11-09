@@ -5,9 +5,11 @@
 # crew's teams file, each key named as the file names it, free-form JSON
 # with what crew.load requires declared for its type and with no default
 # (code.5), so a key the module does not declare passes to the file and
-# crew judges it (RFC 42); `repositories`, the host's kept repositories
-# (record 0061), each exactly an absolute `dir` and `checkout`. `version` is crew's own, read from
-# plugin/lib/crew.py, and no host sets it.
+# crew judges it (RFC 42); `drives`, keyed by each drive's label, which
+# json.nix writes as the file's list in label order; `repositories`, the
+# host's kept repositories (record 0061), each exactly an absolute `dir`
+# and `checkout`. `version` is crew's own, read from plugin/lib/crew.py,
+# and no host sets it.
 { packages }:
 {
   config,
@@ -40,7 +42,7 @@ let
       lib.toInt (lib.head (lib.head versions));
 
   # A name crew mints or accepts (code.4), and a GitHub repository.
-  name = types.strMatching "[a-z0-9][a-z0-9-]*";
+  crewName = types.strMatching "[a-z0-9][a-z0-9-]*";
   repository = types.strMatching "[^/[:space:]]+/[^/[:space:]]+";
 
   # crew.py's KIND_ROLES, MAIN_ROLES and EFFORTS.
@@ -96,7 +98,7 @@ let
     options = lib.genAttrs kindRoles (
       role:
       mkOption {
-        type = types.either (types.enum [ false ]) name;
+        type = types.either (types.enum [ false ]) crewName;
         description = "The ${role}'s Flume setting: false while it stands, or the name of the Flume stream its runs run in.";
       }
     );
@@ -110,13 +112,18 @@ let
     };
   };
 
-  drive = types.submodule {
-    freeformType = json;
-    options = {
-      label = mkOption {
-        type = name;
-        description = "The drive's label, which names its main level and its state branch `<label>/main`.";
-      };
+  # A drive, under its label's name in services.crew.settings.drives.
+  drive = types.submodule (
+    { name, ... }:
+    {
+      freeformType = json;
+      options = {
+        label = mkOption {
+          type = crewName;
+          default = name;
+          readOnly = true;
+          description = "The drive's label, its name under services.crew.settings.drives, which names its main level and its state branch `<label>/main`; no host sets it.";
+        };
       blueprints = mkOption {
         type = types.nonEmptyListOf repository;
         description = "The drive's blueprints repositories, each `owner/name`, the first the one its main level works in.";
@@ -126,7 +133,7 @@ let
         description = "The drive's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record.";
       };
       machine = mkOption {
-        type = name;
+        type = crewName;
         description = "The host its main level runs on, as `hostname -s` names it.";
       };
       session = mkOption {
@@ -144,8 +151,9 @@ let
       roles = unset (types.submodule {
         options = lib.genAttrs mainRoles (main: unset role "The ${main}'s model, effort or session.");
       }) "Each main-level role's model, effort or session, over its definition's; none where unset.";
-    };
-  };
+      };
+    }
+  );
 
   # A kept repository of this host (record 0061): exactly the folder crew
   # names as the kit's, where worktrees are cut, and the working tree it
@@ -169,9 +177,6 @@ let
   addresses =
     if cfg.settings.repositories == null then [ ] else builtins.attrNames cfg.settings.repositories;
   unaddressed = lib.filter (r: builtins.match "[^/[:space:]]+/[^/[:space:]]+" r == null) addresses;
-
-  labels = map (p: p.label) cfg.settings.drives;
-  twice = lib.unique (lib.filter (label: lib.count (l: l == label) labels > 1) labels);
 in
 {
   options.services.crew = {
@@ -185,7 +190,7 @@ in
     };
 
     host = mkOption {
-      type = name;
+      type = crewName;
       example = "deneb";
       description = "This host, as `hostname -s` names it and the drives' `machine` names a host. It is no key of the file: crew reads its host from `hostname -s`.";
     };
@@ -201,8 +206,8 @@ in
             description = "The teams file's version, crew's own, read from plugin/lib/crew.py; no host sets it.";
           };
           drives = mkOption {
-            type = types.nonEmptyListOf drive;
-            description = "Every drive, listed once, with its `machine`.";
+            type = types.attrsOf drive;
+            description = "Every drive, by its label, with its `machine`.";
           };
           repositories = unset (types.attrsOf kept) "The repositories this host keeps, each by its address, `owner/name`, with its `dir` and its `checkout`, which crew names on this host as the kit's folder and checkout; none where unset, and the file then names none.";
         };
@@ -214,8 +219,8 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = twice == [ ];
-        message = "services.crew.settings.drives lists ${lib.concatStringsSep ", " twice} twice: each drive is listed once, by its label.";
+        assertion = cfg.settings.drives != { };
+        message = "services.crew.settings.drives names no drive: crew's teams file lists every drive, by its label.";
       }
       {
         assertion = unaddressed == [ ];
