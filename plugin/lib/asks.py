@@ -11,8 +11,8 @@ lost run's, superseded by the new turn, which takes its asks again, and answers 
 the runner launches each role's run from, written to match the teams file.
 
 Every function here decides on what it is given, the files' text and the runner's records as plan.py read them: it
-starts no process and reads nothing, and imports only the standard library (code.1). plan.py writes what these decide
-through land() (state.1)."""
+starts no process and reads nothing, and imports only the standard library, and crew's fail where it refuses (code.1,
+code.2). plan.py writes what these decide through land() (state.1)."""
 import json
 import re
 
@@ -324,6 +324,30 @@ def ends_owed(address, requests, places):
         where = p.get("Place") or (st.get("place") if isinstance(st.get("place"), str) else None)
         out += [(end_key(n, d), n, work, where, k, d, x) for k, d, x in owed_to(st, address)]
     return sorted(out, key=lambda e: int(e[1]))
+
+
+def turn_confirms(took, requests):
+    """The confirms a turn's end asks of the runners (design Decisions 4 and 6, role-runs "A run's end asks the runners to
+    confirm each end its turn took"): from the turn's Took, its end/<request>/<delivery key> lines grouped by request,
+    [(request, its launch's work, [delivery key, ...])], oldest request first, each request's keys in the order taken;
+    none for a turn that took no end. A key splits at its first two slashes, since Flume's holds slashes of its own.
+    requests, the Request records of requests.rec as dicts. A line that does not split so, or whose request is no
+    launch, is refused naming it (read.1): nothing in crew writes one."""
+    launches = {r["Request"]: r for r in requests if r.get("Act") == "launch" and whole(r.get("Request"))}
+    by = {}
+    for t in took:
+        if not t.startswith("end/"):
+            continue
+        parts = t.split("/", 2)
+        n, key = (parts[1], parts[2]) if len(parts) == 3 else (None, None)
+        if not (whole(n) and key):
+            from crew import fail
+            fail(f"the turn took {t}, which is no end/<request>/<delivery key>: crew can't tell which launch's end it is, and asks no confirm")
+        if n not in launches:
+            from crew import fail
+            fail(f"the turn took {t}, whose request {n} is no launch in requests.rec: crew can't tell whose place's end it is, and asks no confirm")
+        by.setdefault(n, []).append(key)
+    return [(n, launches[n].get("Work"), keys) for n, keys in sorted(by.items(), key=lambda x: int(x[0]))]
 
 
 def indented(words):

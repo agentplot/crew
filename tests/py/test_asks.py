@@ -385,6 +385,37 @@ class TestEndsTaken:
         assert asks.taken_ends(self.ENDS, [launch(12)], "madswan/planner") == self.ENDS
 
 
+class TestTurnConfirms:
+    """The confirms a turn's end asks for (design Decisions 4 and 6; role-runs "A run's end asks the runners to confirm
+    each end its turn took")."""
+
+    def test_two_launches_ends_are_one_confirm_each_oldest_first_their_keys_in_the_order_taken(self):
+        """role-runs, Two places' ends: two of request 12's place and one of request 14's."""
+        took = ["ask/1", "place/7@1793440000", f"end/14/{DELIVERY}stage/code/1/delivered", f"end/12/{DELIVERY}stage/code/1/delivered",
+                f"end/12/{DELIVERY}stage/construct/1/delivered"]
+        assert asks.turn_confirms(took, [launch(12), launch(14, "chore/b"), launch(7)]) == [
+            ("12", "unit/a", [f"{DELIVERY}stage/code/1/delivered", f"{DELIVERY}stage/construct/1/delivered"]),
+            ("14", "chore/b", [f"{DELIVERY}stage/code/1/delivered"])]
+
+    def test_a_turn_with_only_asks_and_waits_asks_none(self):
+        """role-runs, A turn with no ends."""
+        assert asks.turn_confirms(["ask/1", "place/7@1793440000", "landed/9"], [launch(7)]) == []
+        assert asks.turn_confirms([], []) == []
+
+    def test_a_flume_key_holding_slashes_is_kept_whole(self):
+        key = "fix--b/0a1b2c3d/submission/2/conflict"
+        assert asks.turn_confirms([f"end/3/{key}"], [launch(3, "fix/b/n")]) == [("3", "fix/b/n", [key])]
+
+    @pytest.mark.parametrize("line, why", [("end/12", "end/12, which is no end/<request>/<delivery key>"),
+                                           ("end/x/a/b", "end/x/a/b, which is no end/<request>/<delivery key>"),
+                                           ("end/12/", "end/12/, which is no end/<request>/<delivery key>"),
+                                           ("end/9/a/b", "end/9/a/b, whose request 9 is no launch in requests.rec")])
+    def test_a_malformed_line_or_one_of_no_launch_is_refused_by_name(self, line, why):
+        import crew
+        with pytest.raises(crew.Refusal, match=re.escape(f"the turn took {why}")):
+            asks.turn_confirms(["ask/1", line], [launch(12), launch(9, act="retry")])
+
+
 MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
 
 
