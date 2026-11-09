@@ -34,4 +34,4 @@ Option 1.
 ### Consequences
 
 - A unit makes crew run from its own file alone. `crew-makes-a-new-drives-state` follows it, so a new drive's entry holds every fact crew then reads.
-- swancloud gives crew those facts through crew's module options on each host it configures. At the switch that takes the crew release reading its own file alone, an agent moves each host's facts from the hosts file into those options by hand. No code reads the hosts file meanwhile.
+- swancloud gives crew those facts through crew's module options on each host it configures, filled at build time from its own one list of hosts (swancloud `herdr.1`), in the change that takes the crew release reading its own file alone. That is swancloud reading its own list. No code of crew's reads the hosts file, which swancloud keeps publishing for its other readers.
