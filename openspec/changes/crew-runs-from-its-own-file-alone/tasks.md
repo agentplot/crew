@@ -14,7 +14,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 - [x] 2.2 The module's typecheck evaluates with the new keys given (design, Decision 10; Task notes 2.2). Verify `tests/suite nix:typecheck` ends with "0 failed".
 - [x] 2.3 The nix files tasks 2.1 and 2.2 touched are as nixfmt writes them (Task notes 2.3–2.4). Verify `tests/suite nix:format` ends with "0 failed".
 - [x] 2.4 The nix files tasks 2.1 and 2.2 touched pass statix and deadnix (Task notes 2.3–2.4). Verify `tests/suite nix:lint` ends with "0 failed".
-- [ ] 2.5 crew loads `deneb.json` and `runner.json` with no hosts file: four drives, wldn's planner and reviewer on ia and its other roles on willdan-alex, and the four consoles on deneb (design, Decision 10; Task notes 2.5). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_module_file.py'` exits 0.
+- [x] 2.5 crew loads `deneb.json` and `runner.json` with no hosts file: four drives, wldn's planner and reviewer on ia and its other roles on willdan-alex, and the four consoles on deneb (design, Decision 10; Task notes 2.5). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_module_file.py'` exits 0.
 
 ## 3. What crew reads of a host and an account
 
