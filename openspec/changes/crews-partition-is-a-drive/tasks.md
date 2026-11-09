@@ -5,7 +5,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 ## 1. The teams file and the module
 
 - [x] 1.1 crew loads the teams file at version 6, its drives under `drives`, each named by its label with no `partition`, reads no session's `partition` in the hosts file, refuses a version-5 file and a version-6 file with no `drives` naming the fix, and gives every reader in `plugin/lib/` and `plugin/hooks/` the fleet's `drives` (design, Decisions 2 and 3; Task notes 1.1). Verify `tests/suite logic` ends with "0 failed".
-- [ ] 1.2 The end-to-end tests' teams file is version 6 with its drives under `drives`, and `t-teams` proves a version-5 file refused naming version 6 and a session's `partition` read by nothing (design, Decisions 2 and 3; Task notes 1.2). Verify `tests/suite t-teams` ends with "0 failed".
+- [x] 1.2 The end-to-end tests' teams file is version 6 with its drives under `drives`, and `t-teams` proves a version-5 file refused naming version 6 and a session's `partition` read by nothing (design, Decisions 2 and 3; Task notes 1.2). Verify `tests/suite t-teams` ends with "0 failed".
 - [ ] 1.3 crew's module lists `services.crew.settings.drives`, each a `drive` with no `partition` option, writes deneb's drives at version 6 byte for byte as its files hold them, and fails evaluation for settings that list `partitions` and no `drives` (design, Decision 4; Task notes 1.3). Verify `tests/suite nix:test` ends with "0 failed".
 
 ## 2. crew's names
