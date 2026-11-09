@@ -6,10 +6,10 @@ Keeps each drive's own records (its plan, its moves, its run record, and what la
 ## Requirements
 
 ### Requirement: A drive's state is one branch of its state repository
-Each partition SHALL name one state repository in the teams file, as `state`. The partition's drive SHALL keep its state as files on the branch `<label>/main` of that repository. The branch SHALL hold no other drive's files and SHALL share no history with another drive's branch.
+Each drive SHALL name one state repository in the teams file, as `state`. The drive SHALL keep its state as files on the branch `<label>/main` of that repository. The branch SHALL hold no other drive's files and SHALL share no history with another drive's branch.
 
 #### Scenario: Willdan's drive
-- **WHEN** the `wldn` partition names `WilldanGroup/crew-state` as its state repository
+- **WHEN** the `wldn` drive names `WilldanGroup/crew-state` as its state repository
 - **THEN** its plan, moves and run record are files on the branch `wldn/main` of that repository
 
 #### Scenario: Two drives of one organisation
@@ -74,7 +74,7 @@ crew SHALL fetch and push only the branch of the drive a command acts for. A wri
 - **THEN** crew fetches `wldn/main` and no other branch
 
 ### Requirement: A drive's branch is created, and adopts what it had
-`crew state init <label>` SHALL create `<label>/main` in the partition's state repository with an empty plan and an empty moves file. Where a blueprints repo of the partition holds `plan/<label>`, the branch SHALL start from that plan's history, and the moves in the first blueprints repo's `signals/moves.rec` SHALL be copied with the commit they were read at. Run again, it SHALL change nothing.
+`crew state init <label>` SHALL create `<label>/main` in the drive's state repository with an empty plan and an empty moves file. Where a blueprints repo of the drive holds `plan/<label>`, the branch SHALL start from that plan's history, and the moves in the first blueprints repo's `signals/moves.rec` SHALL be copied with the commit they were read at. Run again, it SHALL change nothing.
 
 #### Scenario: Willdan's plan is adopted
 - **WHEN** `crew state init wldn` runs while willdan-blueprints holds `plan/wldn` and two moves
@@ -130,8 +130,8 @@ A launch of a kit's work SHALL name the work it serves, its repository as the pl
 - **THEN** the write is refused naming request 9
 
 ### Requirement: crew reads each host's runner from that runner's own branch
-crew SHALL read a host's runner from `<label>/runner/<host>` of the partition's state repository, fetched with `<label>/main` in one fetch, and SHALL never write it. The branch holds four files:
-- `runner.rec` says a runner serves the partition there;
+crew SHALL read a host's runner from `<label>/runner/<host>` of the drive's state repository, fetched with `<label>/main` in one fetch, and SHALL never write it. The branch holds four files:
+- `runner.rec` says a runner serves the drive there;
 - `answers.rec` says where each request stands;
 - `places.rec` holds Flume's status of each place, as Flume gave it;
 - `repositories.rec` holds each repository the runner keeps on its host, by its forge address with the folder of its clone.
@@ -221,9 +221,9 @@ Some of what crew does on a kit comes before any runner has taken the work in ha
 - a bolt never started, landed by its close alone;
 - the design agent's records, and a proposal's records, read in the kit;
 - the board's explorations on the kit's main;
-- the main level's folders of the partition's kits.
+- the main level's folders of the drive's kits.
 
-That work SHALL be done in the checkout the partition's main-level host keeps of the kit, found by the kit's forge address or, for a kit the plan names by its name alone, by that name. Where the main-level host is the host crew runs on and its teams file names the repository among its `repositories`, the kit's checkout SHALL be that entry's `checkout` and its folder that entry's `dir`, whether or not a session's space lists the repository. Otherwise they SHALL be the checkout and folder that host's spaces in the hosts file keep, `<session dir>/<name>/main` and `<session dir>/<name>`. Nothing SHALL be asked of a runner for it. It SHALL be refused, naming the host and the kit, where that host keeps none or keeps two repositories by the kit's name, counting those its teams file names with those its spaces keep. A refusal for a kit the host keeps none of SHALL also name `crew kit rename <kit> <new>` as the way on for a kit renamed on its host.
+That work SHALL be done in the checkout the drive's main-level host keeps of the kit, found by the kit's forge address or, for a kit the plan names by its name alone, by that name. Where the main-level host is the host crew runs on and its teams file names the repository among its `repositories`, the kit's checkout SHALL be that entry's `checkout` and its folder that entry's `dir`, whether or not a session's space lists the repository. Otherwise they SHALL be the checkout and folder that host's spaces in the hosts file keep, `<session dir>/<name>/main` and `<session dir>/<name>`. Nothing SHALL be asked of a runner for it. It SHALL be refused, naming the host and the kit, where that host keeps none or keeps two repositories by the kit's name, counting those its teams file names with those its spaces keep. A refusal for a kit the host keeps none of SHALL also name `crew kit rename <kit> <new>` as the way on for a kit renamed on its host.
 
 #### Scenario: A kit's first bolt is started
 - **WHEN** `crew bolt start x` runs for crew's first bolt, no runner has taken any of crew's work, and deneb, madswan's main-level host, keeps `afterthought/crew` at `/d/madswan/crew/main`
@@ -283,9 +283,9 @@ A decision SHALL read a drive's branch at its tip, or, while one of its newest t
 - **WHEN** the write's entry reaches the branch
 - **THEN** `crew plan proposed 6` reads the tip, prints proposal 6, and says nothing of a read below the tip
 
-### Requirement: A partition is never renamed
-A partition's label SHALL be fixed once it is made, and no crew command SHALL rename one; `crew kit rename` renames a repository within the one partition it runs as. A label that changes in the teams file SHALL be read as one partition removed and another added: the new label's state is its own branch, `<new label>/main`, nothing of the old label's branch is read as the new partition's, and a command naming the old label is refused as naming no partition.
+### Requirement: A drive is never renamed
+A drive's label SHALL be fixed once it is made, and no crew command SHALL rename one; `crew kit rename` renames a repository within the one drive it runs as. A label that changes in the teams file SHALL be read as one drive removed and another added: the new label's state is its own branch, `<new label>/main`, nothing of the old label's branch is read as the new drive's, and a command naming the old label is refused as naming no drive.
 
 #### Scenario: A label changed in the teams file
 - **WHEN** the teams file names `afterthought` where it named `swancloud`
-- **THEN** crew reads afterthought's state from `afterthought/main` of its state repository, and a command run with `--label swancloud` is refused naming the partitions the teams file has
+- **THEN** crew reads afterthought's state from `afterthought/main` of its state repository, and a command run with `--label swancloud` is refused naming the drives the teams file has

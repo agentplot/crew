@@ -5,34 +5,38 @@ Above a drive's bolt teams: a design agent that elaborates on main, a planner ac
 
 ## Requirements
 
-### Requirement: Partitions are declared in the teams file
-`teams.json` SHALL list each partition with a main level. Beside its partitions it MAY name, for the host it is written on, each repository that host keeps, and nothing else. Each partition's entry gives the partition's label (`wldn`, `madswan`, `swancloud`), its swancloud name, its blueprints repos, its state repository (`state`, as `<owner>/<name>`), the machine and session its main level runs in, and `flume`, naming each of its five main-level roles, `design`, `planner`, `reviewer`, `ops` and `operator`, as `false` while it stands or as the Flume stream its runs run in on the main level's host. The first blueprints repo listed SHALL be the one the partition's signals and elaboration go to by default. A partition with no `state` or no `flume` SHALL be an error naming the field and the machine's configuration as the fix, never a default, and so SHALL a `flume` that leaves a role out, names another key, or gives a role anything but `false` or a stream's name. crew SHALL read version 5 of the file alone: a file at any other version, or one holding `teams`, SHALL be refused naming swancloud's `lib/crew-teams.nix` as the fix, with nothing done. A partition's `roles.<role>` MAY name a `session` for a main-level role, a session of the main level's machine in the partition, where that role runs while it stands; any other session SHALL be an error naming it.
+### Requirement: Drives are declared in the teams file
+`teams.json` SHALL list each drive with a main level, under `drives`. Beside its drives it MAY name, for the host it is written on, each repository that host keeps, and nothing else. Each drive's entry gives the drive's label (`wldn`, `madswan`, `agentplot`), which is its one name, its blueprints repos, its state repository (`state`, as `<owner>/<name>`), the machine and session its main level runs in, and `flume`, naming each of its five main-level roles, `design`, `planner`, `reviewer`, `ops` and `operator`, as `false` while it stands or as the Flume stream its runs run in on the main level's host. The first blueprints repo listed SHALL be the one the drive's signals and elaboration go to by default. A drive with no `state` or no `flume` SHALL be an error naming the field and the machine's configuration as the fix, never a default, and so SHALL a `flume` that leaves a role out, names another key, or gives a role anything but `false` or a stream's name. crew SHALL read version 6 of the file alone: a file at any other version, version 5 and its `partitions` among them, or one holding `teams`, SHALL be refused naming swancloud's `lib/crew-teams.nix` as the fix, with nothing done; crew SHALL read no `partitions` key and no entry's `partition`. A drive's `roles.<role>` MAY name a `session` for a main-level role, a session the hosts file lists on the main level's machine, where that role runs while it stands; any other session SHALL be an error naming it. crew SHALL read no session's `partition` in the hosts file: the drive names its sessions, and the fleet's configuration checks what it writes there.
 
 The host's kept repositories, where the file names them, SHALL be its `repositories`. That is an object keyed by each repository's address, `<owner>/<name>`, each giving exactly its `dir`, the folder crew names as the kit's, and its `checkout`, the working tree crew names as the kit's checkout, each an absolute path. crew SHALL check every entry when it loads the file, before any is used. A `repositories` that is no object, a key that is no `<owner>/<name>`, or an entry that lacks `dir` or `checkout`, gives another key, or gives a path that is not absolute SHALL be refused, naming the file, the repository and the machine's configuration as the fix, with nothing done. A file with no `repositories` SHALL load as before, naming no repository.
 
 #### Scenario: clients/willdan
-- **WHEN** `teams.json` lists `wldn` as `clients/willdan` with willdan-blueprints and `WilldanGroup/crew-state`, running on the box in `wldn-2`
+- **WHEN** `teams.json` lists the drive `wldn` with willdan-blueprints and `WilldanGroup/crew-state`, running on the box in `wldn-2`, a session the hosts file puts in `clients/willdan`
 - **THEN** `crew main up wldn` starts its main level in `wldn-2` on the box, and wldn's plan is read from `wldn/main` of `WilldanGroup/crew-state`
 
 #### Scenario: A drive with no state repository
-- **WHEN** a partition's entry has no `state`
-- **THEN** crew refuses to load the teams file, naming the partition and the missing field
+- **WHEN** a drive's entry has no `state`
+- **THEN** crew refuses to load the teams file, naming the drive and the missing field
 
 #### Scenario: The planner in a session of its own
-- **WHEN** swancloud's entry names `roles.planner.session` as `swancloud-2`, a session of deneb in partition personal
-- **THEN** `swancloud-planner` runs in `swancloud-2` and its other main-level roles in the main level's session
+- **WHEN** wldn's entry names `roles.planner.session` as `wldn-1`, a session the hosts file lists on chuck-herdr-alpha
+- **THEN** `wldn-planner` runs in `wldn-1` and its other main-level roles in the main level's session
 
 #### Scenario: A session of another drive
-- **WHEN** swancloud's `roles.planner.session` names `madswan-1`, a session of partition business
-- **THEN** crew refuses to load the teams file, naming the planner, the session and its partition
+- **WHEN** wldn's `roles.planner.session` names `madswan`, another drive's session, which the hosts file lists on deneb and not on chuck-herdr-alpha
+- **THEN** crew refuses to load the teams file, naming the planner, the session and the machine
+
+#### Scenario: A session's `partition` in the hosts file
+- **WHEN** the hosts file gives wldn's session `wldn-2` a `partition` of `clients/willdan`, of `business`, or none
+- **THEN** crew loads the teams file the same each time, reading nothing of it
 
 #### Scenario: A drive with no flume
-- **WHEN** a partition's entry has no `flume`
-- **THEN** crew refuses to load the teams file, naming the partition, the field and swancloud's `lib/crew-teams.nix`
+- **WHEN** a drive's entry has no `flume`
+- **THEN** crew refuses to load the teams file, naming the drive, the field and swancloud's `lib/crew-teams.nix`
 
 #### Scenario: A role crew has no kind for
 - **WHEN** madswan's `flume` names `dispatcher`, leaves out `operator`, or gives `planner` the value `true`
-- **THEN** crew refuses to load the teams file, naming the partition and the role
+- **THEN** crew refuses to load the teams file, naming the drive and the role
 
 #### Scenario: The file before version 4
 - **WHEN** `teams.json` is at version 3
@@ -42,13 +46,25 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **WHEN** `teams.json` is at version 4, its `teams` listing a team for each kit
 - **THEN** crew refuses to load it, naming its version and swancloud's `lib/crew-teams.nix`, and does nothing
 
+#### Scenario: The file at version 5
+- **WHEN** `teams.json` is at version 5, its `partitions` each naming its `partition`, as deneb's file held them on 2026-11-08
+- **THEN** crew refuses to load it, naming its version, that crew reads only version 6, and swancloud's `lib/crew-teams.nix`, and does nothing
+
 #### Scenario: The box's file at version 2
 - **WHEN** `teams.json` is at version 2, its `partitions` and its `teams` as chuck-herdr-alpha's file holds them for wldn's teams
-- **THEN** crew refuses to load it, naming its version, that crew reads only version 5, and swancloud's `lib/crew-teams.nix`, and does nothing
+- **THEN** crew refuses to load it, naming its version, that crew reads only version 6, and swancloud's `lib/crew-teams.nix`, and does nothing
 
 #### Scenario: A version-5 file that lists teams
 - **WHEN** `teams.json` is at version 5 and holds a `teams` key beside its `partitions`
-- **THEN** crew refuses to load it, saying version 5 has no place for teams since crew runs none, naming swancloud's `lib/crew-teams.nix`, and does nothing
+- **THEN** crew refuses to load it, naming its version, that crew reads only version 6, and swancloud's `lib/crew-teams.nix`, and does nothing
+
+#### Scenario: A version-6 file that lists teams
+- **WHEN** `teams.json` is at version 6 and holds a `teams` key beside its `drives`
+- **THEN** crew refuses to load it, saying version 6 has no place for teams since crew runs none, naming swancloud's `lib/crew-teams.nix`, and does nothing
+
+#### Scenario: A version-6 file whose drives are under `partitions`
+- **WHEN** `teams.json` is at version 6 and lists its drives under `partitions`, with no `drives`
+- **THEN** crew refuses to load it, saying it lists no drives, naming swancloud's `lib/crew-teams.nix`, and does nothing
 
 #### Scenario: A runner host's kept repositories
 - **WHEN** deneb's `teams.json` gives `repositories` naming `agentplot/crew` with `dir` `/Users/chuck/.local/share/flywheel/repositories/agentplot/crew` and `checkout` `/Users/chuck/Code/boomdrive/agentplot/crew`
@@ -63,9 +79,9 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **THEN** crew loads it, and names every kit's folder and checkout as the sessions in the hosts file keep it, `<session dir>/<name>` and `<session dir>/<name>/main`
 
 ### Requirement: The main level is one herdr workspace
-`crew main up <label>` SHALL open a herdr workspace named `<label>` in the main level's session. It SHALL hold a `design` tab with the design agent, a `planner` tab with the planner, an `ops` tab with the main-level ops and an `operator` tab with the partition's operator, each only while it stands, and start each, and nothing else. A role that runs as its kind SHALL get no tab and no start: `crew main up` SHALL instead write its role record to match the teams file, and SHALL end a standing agent of it still running once that agent is not working, leaving one working and saying so.
+`crew main up <label>` SHALL open a herdr workspace named `<label>` in the main level's session. It SHALL hold a `design` tab with the design agent, a `planner` tab with the planner, an `ops` tab with the main-level ops and an `operator` tab with the drive's operator, each only while it stands, and start each, and nothing else. A role that runs as its kind SHALL get no tab and no start: `crew main up` SHALL instead write its role record to match the teams file, and SHALL end a standing agent of it still running once that agent is not working, leaving one working and saying so.
 
-Every agent crew starts, the main level's standing roles, SHALL be greeted once it is up, exactly once per start: told to read where the partition stands and carry on with what is its role's. The greeting SHALL be marked as crew's. An agent brought back by `crew revive` or `crew main up` after the main level was taken down SHALL be greeted the same way, so none sits idle until someone tells it what to do. `crew revive` SHALL bring back no role its partition runs as its kind.
+Every agent crew starts, the main level's standing roles, SHALL be greeted once it is up, exactly once per start: told to read where the drive stands and carry on with what is its role's. The greeting SHALL be marked as crew's. An agent brought back by `crew revive` or `crew main up` after the main level was taken down SHALL be greeted the same way, so none sits idle until someone tells it what to do. `crew revive` SHALL bring back no role its drive runs as its kind.
 
 #### Scenario: The main level comes up
 - **WHEN** `crew main up wldn` runs and wldn's `flume` names every role `false`
@@ -100,7 +116,7 @@ Every agent crew starts, the main level's standing roles, SHALL be greeted once 
 - **THEN** the command says so, names the `crew tell` that would greet it, and still succeeds
 
 ### Requirement: The design agent elaborates on main
-The design agent SHALL keep the partition's design true on main: the books, specs and constitution in its blueprints repos and kits, the decision records, and the curation of signals with the moves `attach`, `challenge`, `new-territory`, `answered` and `drop`, each written only through `crew signal move`. It SHALL answer a design question a stage, the planner or ops brings it. Work its elaboration calls for SHALL be queued as units, never put into a bolt by the design agent, each with an intent that names the outcome and sources that name the records governing it, never the mechanism.
+The design agent SHALL keep the drive's design true on main: the books, specs and constitution in its blueprints repos and kits, the decision records, and the curation of signals with the moves `attach`, `challenge`, `new-territory`, `answered` and `drop`, each written only through `crew signal move`. It SHALL answer a design question a stage, the planner or ops brings it. Work its elaboration calls for SHALL be queued as units, never put into a bolt by the design agent, each with an intent that names the outcome and sources that name the records governing it, never the mechanism.
 
 A ruling the design agent gives about how a service or a system behaves SHALL name, in the message that carries it, the documentation page or the reading it rests on. Before ruling about something that exists, the design agent SHALL read it itself with the credentials it has: the live configuration, the stack, the policy, the code on main. Where it has neither documentation nor a reading, it SHALL say so and ask for the reading, and SHALL give no ruling on that point until the reading is back. A ruling SHALL say what must be true and what must not change, and SHALL leave the steps to the construct. A construct's linked questions SHALL be answered together, in one answer, after reading.
 
@@ -160,7 +176,7 @@ The main-level ops SHALL land bolts whose verification is green on the user's wo
 - **THEN** the main-level ops holds nothing on `y`'s row, records what stopped it as a signal and tells the planner, `z` lands all the same, and once the host runs checks again ops runs `crew bolt submit y` on the user's send that still stands, asking the user nothing
 
 ### Requirement: Signals reach the plan only through a route
-Signals SHALL stay in the partition's first blueprints repo, in the signals model its `signals/README.md` gives. A bolt's agents SHALL record a finding outside their bolt as a signal there with `crew signal`. A signal SHALL become work only through a `route` move written by `crew unit add --signal`.
+Signals SHALL stay in the drive's first blueprints repo, in the signals model its `signals/README.md` gives. A bolt's agents SHALL record a finding outside their bolt as a signal there with `crew signal`. A signal SHALL become work only through a `route` move written by `crew unit add --signal`.
 
 #### Scenario: A finding from a bolt
 - **WHEN** ops on swb-1 finds a defect in a shared service the bolt does not own
@@ -189,7 +205,7 @@ Whenever the main-level ops reports the results of a landing's checks, of main's
 - **THEN** its message opens with a ✅ bullet for the checks, with their counts, and one for main's deploy, before it says the bolt is closed
 
 ### Requirement: A deploy and every operation are approved and recorded through crew
-A kit's deployer SHALL ask crew for each deploy of a `manual` environment with `crew ops offer <env> --to <sha> --from <sha|none> [--notes <file>] [--steps <file>]`, the notes file the kit's release notes for the range from the environment's last deployed commit to the offered one as the kit's changelog tool writes them, the steps file the range's after-deploy steps one a line as the deployer gathers them (`step <n> <doer> <when> <environments> <why> <text>`), which SHALL raise the deploy's card in main-level ops's name, keyed `deploy/<env>`, with the notes and the steps on its face and nothing of them written by crew, change it when a newer head is offered, post it again when the commit already offered is offered again with the same files and main-level ops holds no card open under `deploy/<env>`, writing no second offer, and tell main-level ops the line that adopts it, `call get_request (requestId <id>, name <role>)`; the user's word SHALL be holding that card, recorded with `crew ops approve`. `crew ops record --act end` SHALL close the card with the deploy's outcome when that end spends the user's word, naming the deploy and the commit the user approved when the deploy is a newer one. `crew ops step` SHALL raise a step's card, keyed `op/<env>/<n>`, when the step's doer is the user or the step is marked held for the user's word, SHALL change it when the step is recorded again while it is open with other words, another doer or another hold, printing the line that adopts it whether it changed it or not, and SHALL close it when the step is recorded done or declined. `crew ops word` SHALL give the commit the word is for until the end is recorded of that deploy or of a newer deploy of the environment, one whose start is recorded after the word was given, whatever its outcome; the end of a deploy running when the word was given, or of one whose start the record lacks, SHALL leave the word standing. Every `crew ops` command SHALL run where the partition's main level runs.
+A kit's deployer SHALL ask crew for each deploy of a `manual` environment with `crew ops offer <env> --to <sha> --from <sha|none> [--notes <file>] [--steps <file>]`, the notes file the kit's release notes for the range from the environment's last deployed commit to the offered one as the kit's changelog tool writes them, the steps file the range's after-deploy steps one a line as the deployer gathers them (`step <n> <doer> <when> <environments> <why> <text>`), which SHALL raise the deploy's card in main-level ops's name, keyed `deploy/<env>`, with the notes and the steps on its face and nothing of them written by crew, change it when a newer head is offered, post it again when the commit already offered is offered again with the same files and main-level ops holds no card open under `deploy/<env>`, writing no second offer, and tell main-level ops the line that adopts it, `call get_request (requestId <id>, name <role>)`; the user's word SHALL be holding that card, recorded with `crew ops approve`. `crew ops record --act end` SHALL close the card with the deploy's outcome when that end spends the user's word, naming the deploy and the commit the user approved when the deploy is a newer one. `crew ops step` SHALL raise a step's card, keyed `op/<env>/<n>`, when the step's doer is the user or the step is marked held for the user's word, SHALL change it when the step is recorded again while it is open with other words, another doer or another hold, printing the line that adopts it whether it changed it or not, and SHALL close it when the step is recorded done or declined. `crew ops word` SHALL give the commit the word is for until the end is recorded of that deploy or of a newer deploy of the environment, one whose start is recorded after the word was given, whatever its outcome; the end of a deploy running when the word was given, or of one whose start the record lacks, SHALL leave the word standing. Every `crew ops` command SHALL run where the drive's main level runs.
 
 #### Scenario: A deploy offered and approved
 - **WHEN** the deployer offers mac-studio a deploy of main's head and the user holds its card
@@ -347,7 +363,7 @@ A gate's step SHALL be recorded done when the deployer's run shows the gate pass
 - **THEN** the panes recorded in `swancloud-2` are set aside and said, and no agent of `swancloud-1` at the same pane id is taken for one of the main level's
 
 ### Requirement: A main-level role starts only on its main level's host
-`crew-role <label> design|planner|ops|operator|reviewer`, fresh or with `resume`, SHALL start its agent only on the host the teams file names for that partition's main level. On any other host it SHALL refuse, naming the agent, the main level's host and this host, and start no Claude.
+`crew-role <label> design|planner|ops|operator|reviewer`, fresh or with `resume`, SHALL start its agent only on the host the teams file names for that drive's main level. On any other host it SHALL refuse, naming the agent, the main level's host and this host, and start no Claude.
 
 #### Scenario: The planner started on the standby
 - **WHEN** the teams file puts swancloud's main level on deneb and `crew-role swancloud planner` runs on mac-studio
@@ -358,7 +374,7 @@ A gate's step SHALL be recorded done when the deployer's run shows the gate pass
 - **THEN** the planner starts as it does today
 
 ### Requirement: A record settled in the pane takes the user's words, read as theirs
-`crew record … --proposed --settled-in-pane` SHALL record the record settled in the pane only from the user's words, given with `--excerpt`, which crew reads in the caller's own session transcript on this host as the user's (`signals.5`), and only when the caller is the partition's design agent. Otherwise it SHALL refuse with the reason, record nothing and raise no card. Either flag without the other SHALL be refused.
+`crew record … --proposed --settled-in-pane` SHALL record the record settled in the pane only from the user's words, given with `--excerpt`, which crew reads in the caller's own session transcript on this host as the user's (`signals.5`), and only when the caller is the drive's design agent. Otherwise it SHALL refuse with the reason, record nothing and raise no card. Either flag without the other SHALL be refused.
 
 #### Scenario: The design agent's own words
 - **WHEN** the design agent runs `crew record crew 31 --proposed --settled-in-pane --excerpt "<words>"`, and the words are only in what the design agent wrote itself
@@ -377,7 +393,7 @@ A gate's step SHALL be recorded done when the deployer's run shows the gate pass
 - **THEN** crew refuses with that reason and records nothing
 
 #### Scenario: Another caller
-- **WHEN** an agent other than the partition's design agent, or the user at a terminal, runs `crew record … --proposed --settled-in-pane --excerpt "<words>"`
+- **WHEN** an agent other than the drive's design agent, or the user at a terminal, runs `crew record … --proposed --settled-in-pane --excerpt "<words>"`
 - **THEN** crew refuses, saying only the design agent records a record settled in its pane, and records nothing
 
 #### Scenario: A flag without the other
@@ -466,7 +482,7 @@ When the user's own words in main-level ops's pane stop a bolt's landing, ops SH
 - **THEN** the stop ends, and the bolt is no longer left
 
 ### Requirement: A red main's fix is a fix place on main in the kit's repository
-`crew main fix <kit> <name> "<the failure's words>"`, main-level ops's or the user's on reading the kit's main red after a landing, SHALL append a launch of the fix kind on `main`, named `main--<name>`, its brief the failure's words, its submission held and its recipient `<label>/ops`, in the kit's repository as the partition's kits name it and naming no host or stream, for a runner whose configuration names the repository to take, in the stream its host maps it to. It SHALL take no `--team`. `--drop` SHALL drop it.
+`crew main fix <kit> <name> "<the failure's words>"`, main-level ops's or the user's on reading the kit's main red after a landing, SHALL append a launch of the fix kind on `main`, named `main--<name>`, its brief the failure's words, its submission held and its recipient `<label>/ops`, in the kit's repository as the drive's kits name it and naming no host or stream, for a runner whose configuration names the repository to take, in the stream its host maps it to. It SHALL take no `--team`. `--drop` SHALL drop it.
 
 #### Scenario: Main red after a landing
 - **WHEN** crew's main fails its checks after a landing and ops runs `crew main fix crew a-test-reads-its-fixture "<the check's words>"`
@@ -480,7 +496,7 @@ Once a fix of main's code has delivered and its submission waits held, the kit's
 - **THEN** ops's `crew main fix crew a-test-reads-its-fixture --send` appends a retry of its submission
 
 ### Requirement: A role that runs as its kind is not started by crew-role
-`crew-role <label> <role>`, fresh or with `resume`, SHALL refuse a role its partition runs as its kind, naming `crew role open <role> --label <label>`, and start no Claude. `crew main status <label>` SHALL say of each such role that it runs as its kind, whether the runner's records show a run of it standing, and how many asks wait for it since when.
+`crew-role <label> <role>`, fresh or with `resume`, SHALL refuse a role its drive runs as its kind, naming `crew role open <role> --label <label>`, and start no Claude. `crew main status <label>` SHALL say of each such role that it runs as its kind, whether the runner's records show a run of it standing, and how many asks wait for it since when.
 
 #### Scenario: The planner started by hand
 - **WHEN** madswan's planner runs as its kind and `crew-role madswan planner` runs
@@ -518,7 +534,7 @@ An intent the planner writes SHALL name the outcome, and the unit's sources SHAL
 ### Requirement: Any agent crew starts is reached by its name
 `crew tell <agent> "<text>"` SHALL prompt any agent crew starts, by its name alone, in the host and session where it runs. An agent that is not up SHALL be reported and the command SHALL fail, with nothing sent. An agent waiting on a question in its pane SHALL be reported the same way, naming the wait, and nothing SHALL be typed into the question: a tell is delivered as a prompt the agent receives, never as text that lands in a dialog and is lost. An agent is waiting on a question when herdr reports it blocked, or when it has opened a question or a plan for the user's answer in Claude Code and that call has no answer yet in its session, however the dialog looks on screen. The agent's session is the one herdr names for its pane, or, when herdr names none, the newest session crew recorded of that agent starting in that pane. When neither names a session, herdr's reading of the pane alone SHALL guard the tell, and a missing session SHALL NOT refuse it. When crew cannot read whether the agent is waiting on a question, it SHALL refuse the same way, naming what it could not read, and type nothing. crew's greetings and notices SHALL be delivered on the same terms.
 
-A tell to a role its partition runs as its kind, `<label>-<role>`, whose standing agent is not up, SHALL NOT fail for it: it SHALL be written as an ask of the role, from the sender, `crew` for crew's own notice, carrying the text, and the command SHALL say it asked the role and type nothing. A standing agent of that role still up SHALL be told as today.
+A tell to a role its drive runs as its kind, `<label>-<role>`, whose standing agent is not up, SHALL NOT fail for it: it SHALL be written as an ask of the role, from the sender, `crew` for crew's own notice, carrying the text, and the command SHALL say it asked the role and type nothing. A standing agent of that role still up SHALL be told as today.
 
 #### Scenario: The planner asks the design agent
 - **WHEN** `wldn-planner` on the box runs `crew tell wldn-design "<question>"`
@@ -576,7 +592,7 @@ A greeting crew sends to any agent it starts SHALL be sent only once the agent i
 - **THEN** crew clears the planner's input, sends the greeting once more, and says it was greeted once the transcript shows it
 
 ### Requirement: A main-level agent resumed off its host is given no identity, and nothing else of crew's is
-When herdr resumes a session without crew's environment and crew's record of it names a partition's design agent, planner, ops, operator or reviewer, crew SHALL give it its name, identity, pane name and brief back only on the host the teams file names for that main level. On any other host the session SHALL get none of them, its record SHALL be left as it was, and it SHALL be told at each start that it is no agent of crew's there, which host the main level runs on, and to do nothing of crew's.
+When herdr resumes a session without crew's environment and crew's record of it names a drive's design agent, planner, ops, operator or reviewer, crew SHALL give it its name, identity, pane name and brief back only on the host the teams file names for that main level. On any other host the session SHALL get none of them, its record SHALL be left as it was, and it SHALL be told at each start that it is no agent of crew's there, which host the main level runs on, and to do nothing of crew's.
 
 #### Scenario: A replayed pane on the standby
 - **WHEN** the teams file puts swancloud's main level on deneb, and herdr on mac-studio resumes a session whose record there names `swancloud-planner`
@@ -598,8 +614,8 @@ When herdr resumes a session without crew's environment and crew's record of it 
 - **WHEN** herdr resumes a session whose record names `crw-5-conductor` or `swancloud-dispatch-deneb`
 - **THEN** it is given no name, identity or brief, crew modelling no such agent
 
-### Requirement: A red main's fix stays a bolt of one chore where no runner answers for the partition
-Where no runner answers for the partition, its state repository holding no `<label>/runner/<host>`, `crew main fix` SHALL be refused, naming the kit and a bolt of one chore, proposed first among the planned, as the way.
+### Requirement: A red main's fix stays a bolt of one chore where no runner answers for the drive
+Where no runner answers for the drive, its state repository holding no `<label>/runner/<host>`, `crew main fix` SHALL be refused, naming the kit and a bolt of one chore, proposed first among the planned, as the way.
 
 #### Scenario: No runner answers for the drive
 - **WHEN** wldn's state repository holds no runner's branch and ops runs `crew main fix switchboard-kit gate-word "<words>"`
@@ -617,12 +633,16 @@ The design agent's brief SHALL name its default blueprints repository's checkout
 - **THEN** the design brief names `/Users/chuck/Code/github_agentplot/crew/main` as crew's checkout, in the folder `/Users/chuck/Code/github_agentplot/crew`
 
 ### Requirement: The operator's brief names swancloud's checkout and folder as its host keeps them
-The operator's brief SHALL name swancloud's checkout and folder as its main level's host keeps `afterthought/swancloud`, found as the design agent's are, for its fetch, its worktree under `<folder>/places/` and that worktree's removal. Where that host keeps none, the brief SHALL say so in words, never leaving a token blank.
+The operator's brief SHALL name swancloud's checkout and folder as its main level's host keeps `afterthought/swancloud`, found as the design agent's are, for its worktree under `<folder>/places/`, cut from `origin/main`, and that worktree's removal. It SHALL fetch swancloud's checkout first, but where that checkout is the runner's clone, where it SHALL fetch nothing and cut from `origin/main` as the runner last fetched it. Where that host keeps none, the brief SHALL say so in words, never leaving a token blank.
 
 #### Scenario: The operator's swancloud on a runner host
 - **WHEN** deneb's teams file names `afterthought/swancloud` with its container and its view, and afterthought's operator's brief is built on deneb
-- **THEN** it fetches in swancloud's view and cuts its `crew-teams-<label>` worktree under the container's `places/`, naming no `~/Code/github_afterthought/swancloud`
+- **THEN** it cuts its `crew-teams-<label>` worktree from swancloud's view under the container's `places/` with no fetch, from `origin/main` as the runner last fetched it, naming no `~/Code/github_afterthought/swancloud` and no `fetch -q origin`
+
+#### Scenario: The operator's swancloud on a Mac with no runner's clone
+- **WHEN** mac-studio's spaces keep `afterthought/swancloud` and its teams file names none
+- **THEN** the operator's brief fetches in swancloud's checkout first and cuts its worktree from `origin/main`, as before
 
 #### Scenario: A box's operator
 - **WHEN** wldn's main level runs on the box, whose spaces and file keep no `afterthought/swancloud`
-- **THEN** the operator's brief builds with every token filled, saying the host keeps no checkout of swancloud, and sends a change to the teams to a partition whose main level keeps one
+- **THEN** the operator's brief builds with every token filled, saying the host keeps no checkout of swancloud, and sends a change to the teams to a drive whose main level keeps one

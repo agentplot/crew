@@ -24,7 +24,7 @@ When a host cannot be reached, `crew sites` SHALL list its bolts from the plan w
 - **THEN** its bolts are listed from the plan, marked unreachable, and every other host's sites are listed as usual
 
 ### Requirement: Sites are listed by bolt, with no server for a started bolt's work
-`crew sites [<label>] [--json]` SHALL list, for each of the partition's hosts, its main level's and each its runners answer on, each bolt in flight there, as the runner that took its work reported. A started bolt SHALL be listed with no place and no dev server, saying its work runs in Flume's places, whose servers crew does not show yet, until the runner reports a place's addresses. A host that does not answer SHALL be named, with its bolts from the plan.
+`crew sites [<label>] [--json]` SHALL list, for each of the drive's hosts, its main level's and each its runners answer on, each bolt in flight there, as the runner that took its work reported. A started bolt SHALL be listed with no place and no dev server, saying its work runs in Flume's places, whose servers crew does not show yet, until the runner reports a place's addresses. A host that does not answer SHALL be named, with its bolts from the plan.
 
 #### Scenario: A started bolt's work shows no server
 - **WHEN** `an-installs-apex-is-its-own-zone` is a unit of started bolt `apex-zones`, and `devurl-serve` runs in a worktree of its kit on the box

@@ -17,7 +17,7 @@ Every crew command SHALL answer `-h` or `--help` among its own arguments by prin
 - **THEN** crew prints the usage of `crew fix` and exits 0, and no fix is launched: no request and no entry
 
 #### Scenario: Every command
-- **WHEN** any command crew dispatches is run with arguments of its own shape and `--help` or `-h` among them, the internal `_` commands, `crew hold <host> "<why>" --help`, `crew send <partition> "<text>" --help`, `crew main up <label> --help` and `crew revive --help` among them
+- **WHEN** any command crew dispatches is run with arguments of its own shape and `--help` or `-h` among them, the internal `_` commands, `crew hold <host> "<why>" --help`, `crew send <drive> "<text>" --help`, `crew main up <label> --help` and `crew revive --help` among them
 - **THEN** it prints its usage and exits 0, with no call to herdr, ssh, sluice or any other tool, no agent started, no entry on any host and no write to the state branch; a command `crew` reads itself prints its own lines of `crew`'s usage header, and a command `crew` hands to a Python parser prints that parser's usage
 
 #### Scenario: crew's own usage

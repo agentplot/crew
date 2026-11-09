@@ -21,7 +21,7 @@ crew SHALL remove only the landing worktrees it cut, `<kit>/places/land-<bolt>` 
 - **THEN** crew leaves it as it is
 
 #### Scenario: A plan that can't be read
-- **WHEN** crew lands a bolt while the plan of a partition whose work is in the kit cannot be fetched
+- **WHEN** crew lands a bolt while the plan of a drive whose work is in the kit cannot be fetched
 - **THEN** no worktree is removed, and crew says why
 
 ### Requirement: A landing records the commit main holds
@@ -263,7 +263,7 @@ When a landed bolt's close is refused, crew SHALL record a `bolt.land` entry on 
 - **THEN** the read closes `z`, the run record holds its `bolt.land`, and no head line for `z` remains
 
 ### Requirement: A started bolt's work is launched whole
-`crew bolt start <bolt>` SHALL check the kit's policy and have sluice make `bolt/<bolt>` from the kit's main, in the checkout the partition's main-level host keeps of the kit, and SHALL be refused while that host keeps none or is held, or no runner answers for the partition. Its one plan write SHALL set `Path: flume` on the bolt, and no `Team`, and append a launch for each of its units and chores in the file's order, cut from `bolt/<bolt>`, in the kit's repository and naming no host or stream, for a runner whose configuration names the repository to take. It SHALL start, restart and greet no agent.
+`crew bolt start <bolt>` SHALL check the kit's policy and have sluice make `bolt/<bolt>` from the kit's main, in the checkout the drive's main-level host keeps of the kit, and SHALL be refused while that host keeps none or is held, or no runner answers for the drive. Its one plan write SHALL set `Path: flume` on the bolt, and no `Team`, and append a launch for each of its units and chores in the file's order, cut from `bolt/<bolt>`, in the kit's repository and naming no host or stream, for a runner whose configuration names the repository to take. It SHALL start, restart and greet no agent.
 
 #### Scenario: A bolt of three
 - **WHEN** `crew bolt start x` runs, `x` holding units `a` and `b`, `b` after `a`, and chore `c`, and a runner answers for madswan
@@ -313,7 +313,7 @@ A move out of a started bolt, a split, or a change of `After` on work whose laun
 `crew answer <work> "<words>"`, the planner's, the design agent's or main-level ops's, SHALL append a retry of the stage the work's place stopped short on or waits on, carrying the words, its agent kept open for the answer or not, and past its kind's bound or not, whatever stage it last delivered; or of its submission where that waits on its caller unheld. It SHALL be refused naming the place's stage when the place neither stopped short nor waits on its caller. For a live place, the refusal SHALL name that stage as the runner carried it, with the runner's host and when it carried it, and say that a wait Flume has told of since reaches crew with that runner's next carry. It SHALL be refused naming what crew could not read when it can't tell whether the place waits. It SHALL never say that a live place has nothing to answer.
 
 #### Scenario: A construct that asked
-- **WHEN** the runner's record shows `a`'s construct stopped short asking "Which partition's rail?", and the planner runs `crew answer a "madswan's"`
+- **WHEN** the runner's record shows `a`'s construct stopped short asking "Which drive's rail?", and the planner runs `crew answer a "madswan's"`
 - **THEN** `requests.rec` gains a retry of `a`'s construct with the words `madswan's`
 
 #### Scenario: A stop-short whose agent is kept open
@@ -401,7 +401,7 @@ Bolts whose verification is green SHALL be landed by main-level ops on the user'
 - **THEN** the command says `y` landed and was not closed, naming why and that crew's next read of the bolt closes it once that is mended, the run record holds a refused `bolt.land` on `bolt/y` with those words, and the command goes on to the next bolt
 
 ### Requirement: A bolt whose work is on main lands by its close alone
-`crew bolt land` SHALL land a bolt with no merge to make, on the user's word, once its kit's main holds each of its units' changes, open or archived, and each of its chores, read in the checkout the partition's main-level host keeps of its kit, since no runner took any of its work, recording the landing as any landing; it SHALL be refused for such a bolt with no units or chores, whose kit that host keeps no checkout of, or while any unit's change is not on main.
+`crew bolt land` SHALL land a bolt with no merge to make, on the user's word, once its kit's main holds each of its units' changes, open or archived, and each of its chores, read in the checkout the drive's main-level host keeps of its kit, since no runner took any of its work, recording the landing as any landing; it SHALL be refused for such a bolt with no units or chores, whose kit that host keeps no checkout of, or while any unit's change is not on main.
 
 #### Scenario: A bolt built outside its branch
 - **WHEN** the plan holds the bolt `deploys-go-through-crew`, nothing has merged into its branch, and each of its units' changes is archived on crew's main
