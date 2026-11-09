@@ -146,7 +146,7 @@ For every unit, chore and fix of a bolt marked `Path: flume`, crew SHALL read it
 - **THEN** every piece launched on deneb reads unknown, and `crew bolts` names deneb
 
 ### Requirement: A launched place's stage is where Flume's status has it
-Once launched, a unit, chore or fix SHALL read queued while Flume waits for room; construct, code with its ticked tasks of all, or verify while a stage runs; needing an answer with the agent's question when it stopped short asking; its stage, sent back, with sluice's words when a submission failed or conflicted; submitted with sluice's number; waiting on its caller with Flume's words past its bound; stalled; merged once it has landed on its bolt and landed once its bolt has; or dropped.
+Once launched, a unit, chore or fix SHALL read queued while Flume waits for room; construct, code with its ticked tasks of all, or verify while a stage runs; needing an answer with the agent's question when it stopped short asking; its stage, sent back, with sluice's words when a submission failed or conflicted; submitted with sluice's number; waiting on its caller, with Flume's words and the stage it waits to retry or its submission, whenever Flume's status says it waits on its caller for a retry, past its kind's bound among them, whatever stage it last delivered; stalled once Flume's status says it is stalled; merged once it has landed on its bolt and landed once its bolt has; or dropped.
 
 #### Scenario: A unit in code
 - **WHEN** deneb's runner record for `a`'s launch carries Flume's status of its place in code with three of seven tasks ticked
@@ -159,6 +159,14 @@ Once launched, a unit, chore or fix SHALL read queued while Flume waits for room
 #### Scenario: A stop-short whose agent is kept open
 - **WHEN** the runner carries Flume 0.17.0's status of `a`'s place, its code ended short needing an answer, its agent kept open for it until `open_until`, its end keyed `stage/code/1/ended-short`
 - **THEN** `a` reads needing an answer at code, with the agent's words, and `crew bolts` shows it so
+
+#### Scenario: A place past its bound
+- **WHEN** the runner carries Flume 0.17.0's status of `a`'s place after its fourth verify delivered and its submission conflicted, the place having gone back as often as its kind allows, so Flume says it waits on its caller to retry code past its bound
+- **THEN** `a` reads waiting on its caller at code with Flume's words, never at verify, and `crew bolts`, the board's ledger and the planner's band show it so
+
+#### Scenario: A submission that waits on its retry
+- **WHEN** the runner carries Flume 0.17.0's status of `a`'s place, its last stage delivered and its submission refused by the merge queue, so Flume says it waits on its caller to retry its submission
+- **THEN** `a` reads waiting on its caller at its submission with Flume's words, and `crew bolts` shows it so
 
 #### Scenario: Sent back by sluice
 - **WHEN** the runner's record shows `b`'s place back in code after sluice found its submission in conflict on `plugin/lib/plan.py`
@@ -323,6 +331,66 @@ crew SHALL read a started bolt's unit or chore as `merged`, at the landing's com
 #### Scenario: Landings crew can't read
 - **WHEN** git can't list the landings on `bolt/x`
 - **THEN** each piece of `x` reads as the runner's records give it
+
+### Requirement: A fix whose place's landing its bolt's branch holds is merged
+crew SHALL read a fix on a started bolt as `merged`, at the landing's commit and time, once a landing sluice made on the bolt's first-parent line names the fix's place's branch, `fix/<bolt>--<name>`, in its `Sluice-From`, whatever the runner last carried of its place. A landing whose time is before the fix's launch SHALL build nothing of that fix. A fix of a kit's main SHALL never be read from a bolt's landings. Where crew can't read the bolt's landings, the runner's reading SHALL stand.
+
+#### Scenario: A landed fix whose place the runner last carried at submitted
+- **WHEN** fix `x--tidy`'s place was last carried by the runner at submitted, Flume having tidied it after it landed, and `bolt/x` holds sluice's landing naming `fix/x--tidy`, made after the fix's launch
+- **THEN** `fix/x/tidy` reads `merged` at that landing, and `crew bolts` shows it merged, naming `fix/x--tidy` and the landing's commit
+
+#### Scenario: A fix launched again under a landed fix's name
+- **WHEN** `bolt/x` holds a landing naming `fix/x--tidy` made before the standing launch of `fix/x/tidy`, an earlier launch of that name having been dropped after its place landed
+- **THEN** `fix/x/tidy` reads its stage from the runner's records
+
+#### Scenario: Landings crew can't read
+- **WHEN** git can't list the landings on `bolt/x`, and the runner last carried `fix/x/tidy`'s place at submitted
+- **THEN** `fix/x/tidy` reads submitted
+
+### Requirement: A fix read merged from its bolt's landing holds nothing
+`crew bolts`, the board, the bolt's landing and `crew fix <bolt> <name> --drop` SHALL read a fix through its bolt's landings alike. A fix read merged SHALL hold its bolt's landing no longer, and its drop SHALL be refused as any merged fix's is.
+
+#### Scenario: A landed fix holds its bolt's landing no longer
+- **WHEN** every unit of `x` has merged, sluice passed the landing at `x`'s head, and `fix/x/tidy` reads merged from its landing while the runner last carried it at submitted
+- **THEN** no fix is in flight on `x`, and `x` reads proven
+
+#### Scenario: A landed fix is not dropped
+- **WHEN** `fix/x/tidy` reads merged from its landing on `bolt/x`, and the planner runs `crew fix x tidy --drop`
+- **THEN** it is refused, saying the fix has merged into `bolt/x`, and nothing is appended to `requests.rec`
+
+#### Scenario: A fix whose landings crew can't read still holds
+- **WHEN** git can't list the landings on `bolt/x`, and the runner last carried `fix/x/tidy`'s place at submitted
+- **THEN** `fix/x/tidy` is in flight on `x`, and holds its landing
+
+### Requirement: A bolt's landing is read from its kit's main
+crew SHALL read a started bolt's landing from its kit's main's first-parent line, branch standing or not: the newest merge there since the bolt's first launch whose `Sluice-From` names `bolt/<bolt>`, or whose second parent is a head crew submitted of the bolt or its branch's head. An older merge SHALL be no landing of it. Where git can't read main's line, the landing SHALL be unread, said so.
+
+#### Scenario: A bolt landed through a pull request, its branch gone
+- **WHEN** swancloud's main holds `4acecf09`, with `Sluice-From: afterthought-ops (pull/377)` and second parent `900527e9`, the head of `x`'s `bolt.submit`, and GitHub has deleted `bolt/x`
+- **THEN** `x`'s landing reads `4acecf09`
+
+#### Scenario: A landing that names the bolt's branch
+- **WHEN** main holds a merge whose `Sluice-From` is `bolt/x (bolt/x)`, made after `x`'s first launch, and crew recorded no submission of `x`
+- **THEN** `x`'s landing reads that merge
+
+#### Scenario: An earlier bolt of the same name
+- **WHEN** main holds a merge whose `Sluice-From` names `bolt/x`, made before the standing `x`'s first launch by an `x` that landed and left the plan
+- **THEN** it is no landing of the standing `x`
+
+#### Scenario: main's line can't be read
+- **WHEN** git can't list main's first-parent line in `x`'s kit
+- **THEN** `x`'s landing is unread, said so, and nothing of `x` reads landed from it
+
+### Requirement: A landed bolt's pieces are read from its landing
+Once main holds a started bolt's landing, crew SHALL read the bolt's landings, by the branches they name, from that landing's second parent back to its first parent. It SHALL read each unit, chore and fix of the bolt from them, as "A unit whose work its bolt's branch holds is built" and "A fix whose place's landing its bolt's branch holds is merged" have it, whatever the runner carried of its places. A bolt whose every piece reads landed SHALL read landed.
+
+#### Scenario: The landed unit of a bolt whose branch and places are gone
+- **WHEN** `x`'s landing on main is `4acecf09`, `900527e9`'s first-parent line holds sluice's landing naming `change/a`, GitHub has deleted `bolt/x`, and deneb's runner answered `a`'s launch `launched` and carries no place of it
+- **THEN** `a` reads `landed`, and `x` reads landed in `crew bolts` and on the board
+
+#### Scenario: A piece its landing does not name
+- **WHEN** `x`'s landing on main holds a landing naming `change/a` and none naming `change/b`, and the runner reads `b` at code
+- **THEN** `a` reads `landed`, `b` reads code, and `x` does not read landed
 
 ### Requirement: crew reads each kit by the name its record gives it
 crew SHALL read a kit by the name each of its records gives it: a `Repo` in the plan, `requests.rec` or the run record; the kit in a fix of main's work or a card key; and the repository a source names. No reader SHALL map one kit's name to another's, through `kit.rename` entries or any list of former names. A partition's kits SHALL be the names its plan and its landings give, each once.

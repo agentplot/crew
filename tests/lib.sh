@@ -320,8 +320,9 @@ flume_world() {
   runner_writes chuck-herdr-alpha; runner_writes mac-studio
 }
 # keeps <host> <kit> <folder> [<stream>]: the runner on <host> keeps <kit> in <folder>, as its configuration names them,
-# and the host's Flume configuration maps the kit to <stream> (wldn by default): the repository and stream Flume's status
-# of each place it takes of the kit names, which runner_writes gives a status naming none
+# and the host's Flume configuration maps the kit to <stream> (wldn by default): the repository its repositories.rec
+# names (runner_writes), and the repository and stream Flume's status of each place it takes of the kit names, which
+# runner_writes gives a status naming none
 keeps() {
   local d=$T/runner/$1; mkdir -p "$d"
   python3 -c 'import json, os, sys
@@ -332,16 +333,19 @@ kept[sys.argv[2]] = [sys.argv[3], sys.argv[4]]; json.dump(kept, open(f, "w"))' "
 # runner writes it, and crew never does: its runner.rec, and each request named answered launched at its place with
 # Flume's status of the place as the runner carried it, beside those an earlier call named, a status naming no
 # repository or stream given the folder the runner keeps the request's kit in and the stream its host maps it to
-# (keeps), as Flume's status names them
+# (keeps), as Flume's status names them; and its repositories.rec, as Boomdrive's runner reports what it keeps, each kit
+# kept on the host (keeps) by its forge address, <owner>/<kit>, the owner of the kit's stub remote where the test made
+# one and any owner else, since crew matches a kit by its name, with its folder (runner.REPOSITORIES; Decision 1 of
+# a-bolts-landing-on-main-reads-landed)
 runner_writes() {
   local h=$1 d=$T/runner/$1 tree parent f; shift
   mkdir -p "$d"
   git --git-dir "$ws" show wldn/main:requests.rec > "$d/requests.rec" 2>/dev/null || : > "$d/requests.rec"
-  python3 - "$CREW/plugin/lib" "$d" "$h" "$@" <<'EOF'
-import json, os, sys
+  python3 - "$CREW/plugin/lib" "$d" "$h" "$T/remotes" "$@" <<'EOF'
+import glob, json, os, sys
 sys.path.insert(0, sys.argv[1])
 import runner
-d, h, args = sys.argv[2], sys.argv[3], sys.argv[4:]
+d, h, remotes, args = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:]
 f = os.path.join(d, "kept.json")
 kept = json.load(open(f)) if os.path.exists(f) else {}
 keeps = json.load(open(os.path.join(d, "keeps.json"))) if os.path.exists(os.path.join(d, "keeps.json")) else {}
@@ -357,10 +361,17 @@ for i in range(0, len(args), 3):
             p.setdefault("stream", {"name": stream, "from": "intent"})
     kept[args[i]] = [args[i + 1], status]
 json.dump(kept, open(f, "w"))
+t = os.path.join(d, "tidied.json")
+tidied = set(json.load(open(t)) if os.path.exists(t) else []) - set(args[0::3])
+json.dump(sorted(tidied), open(t, "w"))
 at = "2026-10-31T12:01:00Z"
 files = {"runner": runner.RUNNER + f"\nHost: {h}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n",
          "answers": runner.ANSWERS + "".join(f"\nRequest: {n}\nOutcome: launched\nPlace: {p}\nAt: {at}\n" for n, (p, _) in sorted(kept.items(), key=lambda x: int(x[0]))),
-         "places": runner.PLACES + "".join(f"\nRequest: {n}\nPlace: {p}\nAt: {at}\nStatus: {json.dumps(s)}\n" for n, (p, s) in sorted(kept.items(), key=lambda x: int(x[0])))}
+         "places": runner.PLACES + "".join(f"\nRequest: {n}\nPlace: {p}\nAt: {at}\nStatus: {json.dumps(s)}\n" for n, (p, s) in sorted(kept.items(), key=lambda x: int(x[0])) if n not in tidied),
+         "repositories": runner.REPOSITORIES}
+for kit, (folder, _) in sorted(keeps.items()):
+    owners = sorted(os.path.basename(os.path.dirname(r)) for r in glob.glob(os.path.join(remotes, "*", f"{kit}.git")))
+    files["repositories"] += f"\nRepository: {(owners or ['WilldanGroup'])[0]}/{kit}\nFolder: {folder}\n"
 for name, text in files.items():
     open(os.path.join(d, f"{name}.rec"), "w").write(text)
 EOF
@@ -370,7 +381,7 @@ EOF
 # previews.rec among them once runner_previews has written one
 runner_commit() {
   local h=$1 d=$T/runner/$1 tree parent f
-  tree=$(for f in runner answers places previews; do
+  tree=$(for f in runner answers places repositories previews; do
       [[ $f != previews || -e $d/$f.rec ]] || continue
       printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"
     done | git --git-dir "$ws" mktree)
@@ -406,6 +417,17 @@ open(os.path.join(d, "previews.rec"), "w").write(runner.PREVIEWS + "".join(
     "\n" + "".join(f"{k}: {v}\n" for k, v in r.items()) for _, r in sorted(kept.items(), key=lambda x: int(x[0]))))
 EOF
   runner_commit "$h"
+}
+# runner_tidies <host> <request>...: wldn/runner/<host> rewritten as its runner writes it once Flume has tidied those
+# requests' places: each request's answer kept, launched at its place, and its place dropped from places.rec, as deneb's
+# runner on afterthought/runner/deneb answered request 88 launched and carried no place at all on 2026-11-08; a later
+# runner_writes naming one of them carries it again
+runner_tidies() {
+  local h=$1; shift
+  python3 -c 'import json, os, sys
+t = sys.argv[1]; tidied = set(json.load(open(t)) if os.path.exists(t) else [])
+json.dump(sorted(tidied | set(sys.argv[2:])), open(t, "w"))' "$T/runner/$h/tidied.json" "$@"
+  runner_writes "$h"
 }
 # landed_status <place> <commit>: Flume's status of a place whose work has landed at the commit, as runner_writes takes it
 landed_status() { printf '{"status":{"places":[{"place":"%s","phase":{"over":{"over":{"landed":{"commit":"%s"}}}},"current":"verify","stages":[]}]}}' "$1" "$2"; }

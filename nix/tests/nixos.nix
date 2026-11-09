@@ -1,7 +1,8 @@
 # The crew-flake spec on NixOS (record 0058, flake.1, flake.2): the module
 # evaluated in a system of x86_64-linux whose normal users are alice, who
 # runs crew, and bob, its user activation read as text, its assertions,
-# the system profile, and the system beside the same one without it.
+# the system profile, the system beside the same one without it, and the
+# module imported twice.
 t:
 let
   inherit (t) lib;
@@ -40,6 +41,10 @@ let
     services.crew.enable = lib.mkForce false;
     environment.systemPackages = [ set.crew ];
   };
+
+  # The module imported again inside another module's imports, as a host
+  # imports it directly and through Boomdrive's.
+  twice = t.nixosSystem { imports = [ { imports = [ t.outputs.nixosModules.crew ]; } ]; };
 
   profileOf = evaluated: map (p: p.outPath) evaluated.config.environment.systemPackages;
   holds = evaluated: path: builtins.elem path (profileOf evaluated);
@@ -123,4 +128,14 @@ in
     ++ t.expect (
       without "crew" (activationOf base) == activationOf off
     ) "the user activation, crew's snippet removed, is not the system's without crew";
+
+  "The module imported twice on NixOS" =
+    let
+      evaluates = (builtins.tryEval twice.config.system.build.toplevel.drvPath).success;
+      declared = builtins.length twice.options.services.crew.enable.declarations;
+    in
+    t.expect evaluates "a system importing the module twice does not evaluate"
+    ++ lib.optionals evaluates (
+      t.expect (declared == 1) "services.crew.enable is declared ${toString declared} times"
+    );
 }

@@ -1,7 +1,7 @@
 # merge-gate Specification
 
 ## Purpose
-Every merge into a bolt and every landing on main is a submission sluice tests on the checks the kit's policy requires and lands only when they pass; a bolt's verification is sluice's verdict on its last landing, and crew's own policy requires its whole suite.
+Every merge into a bolt and every landing on main is a submission sluice tests on the checks the kit's policy requires and lands only when they pass; a bolt's verification is its work's landing at its head, as the runner reports it, and crew's own policy requires its whole suite.
 
 ## Requirements
 

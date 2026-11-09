@@ -587,3 +587,39 @@ def test_a_bolts_landings_name_each_place_landed_on_it_before_and_after_the_bolt
     assert gather.bolt_landings(str(repo.path), "refs/heads/bolt/empty", "refs/heads/main") == ({}, None)
     assert gather.bolt_landings(str(repo.path), "refs/heads/bolt/gone", "refs/heads/main") == (
         None, "git could not read bolt/gone's head at bolt/gone")
+
+
+def test_a_landed_bolts_landings_are_read_from_its_landing_on_main_once_its_branch_is_gone(repo, tmp_path):
+    """bolt-plan "A bolt's landing is read from its kit's main" and "A landed bolt's pieces are read from its landing"
+    (Decisions 2 and 3 of a-bolts-landing-on-main-reads-landed): bolt/te holds sluice's landing of change/a; main merges
+    bolt/te through a pull request, its Sluice-From ops (pull/1), naming no branch, as swancloud's 4acecf09 did on
+    2026-11-08; GitHub deletes bolt/te. The kit's read, seeking te's landing since before its start by the head crew
+    submitted, finds the merge on main's first-parent line and reads te's landings from it, change/a at its commit; with
+    no head, or since after the merge, it finds none. git's log is the contract: --first-parent, --since and the
+    trailers' format as gather.LANDED asks them."""
+    k = Kit(repo, tmp_path)
+    bolt = k.dir / "bolts" / "te"
+    repo.git("-C", str(bolt), "branch", "change/a")
+    place = tmp_path / "change--a"
+    repo.git("worktree", "add", "-q", str(place), "change/a")
+    (place / "a").write_text("a\n")
+    k.commit(place, "feat: a")
+    a = landing(repo, bolt, "change/a", 1)
+    head = repo.git("rev-parse", "bolt/te")
+    base = repo.git("rev-parse", "main")
+    repo.git("merge", "-q", "--no-ff", "-m", "chore(land): #3 bolt/te\n\nSluice-From: ops (pull/1)", "bolt/te")
+    merge = repo.git("rev-parse", "main")
+    repo.commit("chore: main moves on after the landing", None)
+    repo.git("worktree", "remove", "--force", str(bolt))
+    repo.git("worktree", "remove", "--force", str(place))
+    repo.git("branch", "-D", "bolt/te", "change/a")
+
+    def read(heads, since="2000-01-01T00:00:00Z"):
+        return gather.kit({"main": str(repo.path), "dir": str(k.dir), "bolts": ["te"],
+                           "seek": {"te": {"since": since, "heads": heads}}})["bolts"]["te"]
+    got = read([head])
+    assert got["exists"] is False
+    assert got["landed"] == {"commit": merge, "at": utc_of(repo, merge), "base": base, "head": head}
+    assert (got["landings"], "landings_error" in got) == ({"change/a": {"commit": a, "at": utc_of(repo, a)}}, False)
+    assert read([])["landed"] is None and "landings" not in read([])
+    assert read([head], "2999-01-01T00:00:00Z")["landed"] is None
