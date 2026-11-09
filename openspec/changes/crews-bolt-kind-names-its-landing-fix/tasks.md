@@ -14,7 +14,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 2. The kind names its landing fix
 
-- [ ] 2.1 `plugin/flume/kinds/bolt@1/kind.toml` names `landing_fix = "flume/fix@1"` and `max_landing_fixes = 3`, and the logic case pinning its bytes holds them (design Decision 2; Task notes 2.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_source.py'` exits 0.
+- [x] 2.1 `plugin/flume/kinds/bolt@1/kind.toml` names `landing_fix = "flume/fix@1"` and `max_landing_fixes = 3`, and the logic case pinning its bytes holds them (design Decision 2; Task notes 2.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_source.py'` exits 0.
 
 ## 3. crew reads the landing fix
 
