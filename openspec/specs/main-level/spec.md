@@ -14,7 +14,7 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **WHEN** `teams.json` lists `wldn` as `clients/willdan` with willdan-blueprints and `WilldanGroup/crew-state`, running on the box in `wldn-2`
 - **THEN** `crew main up wldn` starts its main level in `wldn-2` on the box, and wldn's plan is read from `wldn/main` of `WilldanGroup/crew-state`
 
-#### Scenario: A partition with no state repository
+#### Scenario: A drive with no state repository
 - **WHEN** a partition's entry has no `state`
 - **THEN** crew refuses to load the teams file, naming the partition and the missing field
 
@@ -22,11 +22,11 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **WHEN** swancloud's entry names `roles.planner.session` as `swancloud-2`, a session of deneb in partition personal
 - **THEN** `swancloud-planner` runs in `swancloud-2` and its other main-level roles in the main level's session
 
-#### Scenario: A session of another partition
+#### Scenario: A session of another drive
 - **WHEN** swancloud's `roles.planner.session` names `madswan-1`, a session of partition business
 - **THEN** crew refuses to load the teams file, naming the planner, the session and its partition
 
-#### Scenario: A partition with no flume
+#### Scenario: A drive with no flume
 - **WHEN** a partition's entry has no `flume`
 - **THEN** crew refuses to load the teams file, naming the partition, the field and swancloud's `lib/crew-teams.nix`
 
@@ -601,7 +601,7 @@ When herdr resumes a session without crew's environment and crew's record of it 
 ### Requirement: A red main's fix stays a bolt of one chore where no runner answers for the partition
 Where no runner answers for the partition, its state repository holding no `<label>/runner/<host>`, `crew main fix` SHALL be refused, naming the kit and a bolt of one chore, proposed first among the planned, as the way.
 
-#### Scenario: No runner answers for the partition
+#### Scenario: No runner answers for the drive
 - **WHEN** wldn's state repository holds no runner's branch and ops runs `crew main fix switchboard-kit gate-word "<words>"`
 - **THEN** it is refused, naming switchboard-kit and a bolt of one chore proposed first among the planned
 

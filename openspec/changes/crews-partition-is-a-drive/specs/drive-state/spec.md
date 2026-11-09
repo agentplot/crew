@@ -24,7 +24,7 @@ Each drive SHALL name one state repository in the teams file, as `state`. The dr
 - **WHEN** `crew state init wldn` runs while willdan-blueprints holds `plan/wldn` and two moves
 - **THEN** `wldn/main` holds the same bolts and units, its history reaches back to the plan's first commit, and `moves.rec` holds both moves
 
-#### Scenario: A partition with two plans
+#### Scenario: A drive with two plans
 - **WHEN** `crew state init madswan` runs while afterthought/blueprints and agentplot/blueprints each hold `plan/madswan`
 - **THEN** `madswan/main` holds one plan with the bolts and units of both, the second plan's records added in one commit that names where they came from
 

@@ -185,11 +185,11 @@ Every later `crew console up <label>`, a tab named or not, SHALL keep each conso
 ### Requirement: Anything sent to another partition reaches its operator
 `crew send <partition> "<text>"` SHALL deliver the text to the operator of the partition it names by its label, `<label>-operator`, wherever that agent runs. The text SHALL arrive marked as every tell is, `[crew tell from <sender>]`, the sender being the agent that ran the command or `<user>@<host>`, followed by `(sent to <partition>)`, then the text. A name that is no partition's label SHALL be refused, naming the partitions there are. A send by the operator to its own partition SHALL be refused, saying it carries with `crew tell`. An operator that is not up, or waits on a question in its pane, SHALL get nothing typed, and the send SHALL fail saying so, as a tell does. To a partition that runs its operator as its kind, with no standing operator up, the send SHALL be written as an ask of the operator from the sender, carrying whom it was sent to and the text, and SHALL not fail for the operator not being up.
 
-#### Scenario: An agent sends to another partition
+#### Scenario: An agent sends to another drive
 - **WHEN** `swancloud-planner` runs `crew send wldn "The zone check fails on tenants with no region"`
 - **THEN** `wldn-operator` is prompted with `[crew tell from swancloud-planner] (sent to wldn) The zone check fails on tenants with no region`
 
-#### Scenario: A partition by its label
+#### Scenario: A drive by its label
 - **WHEN** the user, at a shell on mac-studio, runs `crew send wldn "<text>"`
 - **THEN** `wldn-operator` is prompted with `[crew tell from <user>@mac-studio] (sent to wldn) <text>`
 

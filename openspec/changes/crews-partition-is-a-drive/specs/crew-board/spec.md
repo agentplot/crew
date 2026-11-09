@@ -22,7 +22,7 @@ After the bolts landed in the last seven days, the Operation lane SHALL show eac
 - **WHEN** `crew board --label wldn` runs on a drive whose plan holds no bolt, no queued unit and no open proposal
 - **THEN** it prints wldn's header and the four lanes in order, each saying none
 
-#### Scenario: Every partition
+#### Scenario: Every drive
 - **WHEN** `crew board` runs with no label outside any agent
 - **THEN** it prints one board per drive in the teams file, one after another
 
@@ -99,7 +99,7 @@ When the host's follower refreshes, crew SHALL read the plan, the kits and the r
 - **WHEN** the host's follower refreshes for a drive with three units in flight on one host
 - **THEN** that host's kits are read once and the state branch fetched once for both frames
 
-#### Scenario: Two partitions on one host
+#### Scenario: Two drives on one host
 - **WHEN** the host's follower on mac-studio, which holds operator sessions of wldn and swancloud, makes its first refresh, and both drives' teams build kits on the box
 - **THEN** the box's kits are gathered once for both drives, and wldn's and swancloud's rail frames, board frames and agents' views are each written from that one read
 
@@ -129,7 +129,7 @@ Before it reads, the host's follower SHALL check whether anything the refresh ac
 - **WHEN** the box runs wldn's runner and holds a kit of wldn's, and the box's runner reports, or wldn's branch moves
 - **THEN** the follower's next refresh asks the box for its kits' and readings' stamps in one ssh, and the refresh after it, with nothing moved since, asks the box nothing
 
-#### Scenario: A partition with nothing on the box moves
+#### Scenario: A drive with nothing on the box moves
 - **WHEN** swancloud's branch moves, and no kit, runner or card session of swancloud's is on the box
 - **THEN** the follower's next refresh asks the box nothing
 
@@ -179,7 +179,7 @@ The host's follower SHALL fetch once a minute on its own clock, never faster, ea
 - **WHEN** a place's runner on the box reports, or an agent on the box writes an entry, and wldn's branch gains it
 - **THEN** mac-studio's follower shows it at its clock's next fetch, within a minute, and fetched nothing in between
 
-#### Scenario: Two partitions in one state repository
+#### Scenario: Two drives in one state repository
 - **WHEN** the follower follows madswan and swancloud, whose branches are both in afterthought/crew-state
 - **THEN** each tick fetches afterthought/crew-state once, both drives' branches and their runners' in that one fetch
 

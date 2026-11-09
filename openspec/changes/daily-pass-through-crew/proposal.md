@@ -8,7 +8,7 @@ This change gives the daily pass crew's path. It is the last step of the finding
 
 ## What Changes
 
-- **`crew signal land <capture-dir>`** takes a capture directory written anywhere on disk (a `capture.md` and its signal files, in the shape the blueprints' `signals/README.md` gives), checks it, and writes it to `signals/` on main of the partition's first blueprints repo by crew's path: fetched, applied to the tip, pushed without force, applied again when someone pushed first. Landing the same directory again writes nothing.
+- **`crew signal land <capture-dir>`** takes a capture directory written anywhere on disk (a `capture.md` and its signal files, in the shape the blueprints' `signals/README.md` gives), checks it, and writes it to `signals/` on main of the drive's first blueprints repo by crew's path: fetched, applied to the tip, pushed without force, applied again when someone pushed first. Landing the same directory again writes nothing.
 - **It checks what it lands**: the capture names its source and event date; each signal has a kind, an asserter, an assertion and a quoted excerpt; ids match their paths; nothing that looks like raw material is among the files.
 - **A landed signal is never changed.** A signal file that differs from one already on main is refused. A capture may change only from unread to read, with its count.
 - **Each landed capture and signal leaves a `capture` entry**, so a meeting signal's trace begins where an agent's does.
@@ -31,7 +31,7 @@ Where meeting signals live is unchanged by this change: the blueprints. The user
 - `plugin/lib/plan.py`: `signal land` (the checks, the write by paths to the blueprints repo's main, the entries).
 - `plugin/bin/crew`, `README.md`, `plugin/skills/crew/SKILL.md`, the usage header, `tests/`.
 - The blueprints repos with a daily pass (willdan-blueprints today): `signals/bin/sweep`, `.claude/skills/signal-capture/SKILL.md`, `.gitignore`, `signals/README.md`.
-- The Mac that runs the daily pass needs crew on its `PATH` for the job, and the partition's label.
+- The Mac that runs the daily pass needs crew on its `PATH` for the job, and the drive's label.
 - Depends on `run-record` and `checked-capture` (the one lookup of signals across both homes).
 
 ## Touches

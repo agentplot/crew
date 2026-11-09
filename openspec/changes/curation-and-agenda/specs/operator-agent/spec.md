@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: The operator agent works for the user
-The operator agent SHALL answer where the partition's work stands from `crew bolts`, `crew status` and `crew sites`, and what waits on the user from `crew agenda` and `crew plan proposed`. It SHALL carry a request to the agent whose job it is, in the user's words:
+The operator agent SHALL answer where the drive's work stands from `crew bolts`, `crew status` and `crew sites`, and what waits on the user from `crew agenda` and `crew plan proposed`. It SHALL carry a request to the agent whose job it is, in the user's words:
 
 - what to build and in what order: the planner;
 - a design question, or an agenda item the user wants to take up: the design agent;

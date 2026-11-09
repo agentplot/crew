@@ -45,7 +45,7 @@ With the board view and the dock, the page SHALL still be one file that holds it
 ### Requirement: The header names every drive and links to its page
 The page's header SHALL name every drive in the teams file, in its order, with the page's own drive marked as current. Each other drive SHALL be a link to that drive's page in the layout of this page's own file: `<label>.html` beside it when this page's file is named for its drive, `../<label>/` with the same file name when this page's folder is named for its drive, both when both are. When neither names its drive, the other drives SHALL be named and not linked, and `crew page` SHALL say so. Before the drives the header SHALL link to the fleet page in the same layout: `index.html` beside a page whose file alone is named for its drive, as the board is served, and `../page.html` from a page written as `page.html` in a folder named for its drive, as crew writes them; a page in any other layout SHALL have no link to the fleet page, since crew cannot tell where the fleet page is.
 
-#### Scenario: Three partitions
+#### Scenario: Three drives
 - **WHEN** the teams file holds madswan, swancloud and wldn and `crew page swancloud` writes `~/.local/state/crew/swancloud/page.html`
 - **THEN** the header links to the fleet page at `../page.html`, then shows madswan, swancloud marked as current, and wldn, and madswan links to `../madswan/page.html` and wldn to `../wldn/page.html`
 
@@ -53,11 +53,11 @@ The page's header SHALL name every drive in the teams file, in its order, with t
 - **WHEN** `crew page swancloud --out <folder>/swancloud.html` writes the page, as swancloud's board asks for it
 - **THEN** the header links to the fleet page at `index.html`, madswan links to `madswan.html` and wldn to `wldn.html`, so on the board served as `<label>.html` side by side each link opens that drive's page
 
-#### Scenario: A folder and a file both named for the partition
+#### Scenario: A folder and a file both named for the drive
 - **WHEN** the page is written to `<folder>/wldn/wldn.html`
 - **THEN** madswan links to `../madswan/madswan.html`, and the header has no link to the fleet page
 
-#### Scenario: A page written where its layout names no partition
+#### Scenario: A page written where its layout names no drive
 - **WHEN** `crew page wldn --out <folder>/board.html` writes the page
 - **THEN** the header has no link to the fleet page and names madswan and swancloud without linking them, and `crew page` prints a line saying the other drives are not linked because the page's file and folder are not named for wldn
 

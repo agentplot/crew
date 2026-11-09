@@ -19,7 +19,7 @@ Each role crew starts SHALL be an agent definition, `plugin/roles/<role>.md` in 
 ### Requirement: The teams file overrides a role's model or effort
 A partition's main level in `teams.json` MAY set `roles.<role>.model` or `roles.<role>.effort` for its design agent, planner, main-level ops, operator or reviewer. crew SHALL start that role there with the override instead of its definition's value. An override naming a role or an effort level that does not exist SHALL be refused with a message naming it.
 
-#### Scenario: One partition's planner
+#### Scenario: One drive's planner
 - **WHEN** wldn's partition entry sets `roles.planner.effort` to `max`
 - **THEN** wldn's planner starts at max, and madswan's at its definition's xhigh
 

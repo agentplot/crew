@@ -8,7 +8,7 @@ The fleet page: every drive in the teams file at once, where it runs, the kits i
 ### Requirement: The fleet page shows every partition at once
 `crew page --fleet` SHALL write one page holding every partition in the teams file, in its order, each as a block of its own, from one read of all of them that is the read `crew board` makes. The page SHALL say when that read was made and, for each partition, the commit of its plan it was read at. A host that did not answer, or a plan that could not be read, SHALL be named in its partition's block and in what the command prints, and everything else SHALL still be shown.
 
-#### Scenario: Three partitions
+#### Scenario: Three drives
 - **WHEN** the teams file holds madswan, swancloud and wldn and `crew page --fleet` is run
 - **THEN** the page holds a block for madswan, then swancloud, then wldn, and says as of when and which commit of each plan
 
@@ -113,7 +113,7 @@ A partition's block SHALL list each of its kits, the repositories its plan and i
 ### Requirement: Each partition's page is a link away, and a subscription's dock on it
 Each partition's name on the fleet page SHALL link to that partition's page, and each partition a subscription names to that page with the subscription's dock open, in the layout of the fleet page's own file: `<label>.html` beside it when the fleet page's file is `index.html`, as the board is served; `<label>/page.html` beside it when its file is `page.html`, crew's own layout. For any other name the partitions SHALL be named and not linked, and the command SHALL say so.
 
-#### Scenario: Served beside the partitions' pages
+#### Scenario: Served beside the drives' pages
 - **WHEN** `crew page --fleet --out <folder>/index.html` writes the page
 - **THEN** wldn's name links to `wldn.html`, and swancloud under the madswan subscription to swancloud's page with madswan's dock open
 

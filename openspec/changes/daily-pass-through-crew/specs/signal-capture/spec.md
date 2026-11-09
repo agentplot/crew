@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: A capture written outside crew is landed through crew
-`crew signal land <capture-dir>` SHALL write a capture directory, its `capture.md` and its signal files, to `signals/<capture>/` on main of the partition's first blueprints repo, by crew's path: fetched over https, applied to the tip, committed by its own paths alone, pushed without force, and applied again to the new tip when the push is refused. Landing a directory whose files are all on main already SHALL write nothing.
+`crew signal land <capture-dir>` SHALL write a capture directory, its `capture.md` and its signal files, to `signals/<capture>/` on main of the drive's first blueprints repo, by crew's path: fetched over https, applied to the tip, committed by its own paths alone, pushed without force, and applied again to the new tip when the push is refused. Landing a directory whose files are all on main already SHALL write nothing.
 
 #### Scenario: The morning's meeting
 - **WHEN** the daily pass has written a capture and its seventeen signals in a scratch directory and runs `crew signal land` on it

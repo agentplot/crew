@@ -9,14 +9,14 @@
 ### Requirement: Each standing main-level role is declared at its address as its agent
 On a host that is the machine of one or more drives, crew's roles file, `~/.local/state/crew/flume/roles.toml`, SHALL hold one entry at `<label>/<role>` for each main-level role, `design`, `planner`, `reviewer`, `ops` and `operator`, of each such drive whose teams-file `flume` names that role `false`, `<label>` being the drive's label. Each entry SHALL give `agent`, the name crew gives that role's agent, `<label>-<role>`.
 
-#### Scenario: deneb's three partitions
+#### Scenario: deneb's three drives
 - **WHEN** crew writes the file on deneb from a teams file whose drives agentplot, madswan and swancloud have deneb as their machine and name every role `false`
 - **THEN** the file holds fifteen entries, five for each of `agentplot`, `madswan` and `swancloud`, among them `agentplot/planner` with `agent = "agentplot-planner"` and `madswan/ops` with `agent = "madswan-ops"`
 
 ### Requirement: An entry names the session crew opens its agent in
 Each entry SHALL give `session`, the herdr session crew opens the role's agent in: the role's own where the drive's `roles` names one, the reviewer beside the planner where only the planner's is named, else the drive's.
 
-#### Scenario: Sessions of the partitions' names
+#### Scenario: Sessions of the drives' names
 - **WHEN** crew writes the file on deneb from a teams file whose drives agentplot, madswan and swancloud run in sessions of the same names and name no role's session
 - **THEN** every `agentplot/` entry gives `session = "agentplot"`, every `madswan/` entry `session = "madswan"` and every `swancloud/` entry `session = "swancloud"`
 

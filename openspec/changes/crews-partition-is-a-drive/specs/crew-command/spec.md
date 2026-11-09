@@ -30,7 +30,7 @@ Every crew command SHALL answer `-h` or `--help` among its own arguments by prin
 ### Requirement: crew runs itself on another host from the checkout of the repository it is
 When a crew command runs crew on another host, as a tell, a send, an ops act or a command forwarded to a main level's host does, it SHALL run the crew in the checkout that host keeps of the repository crew is, found as the host's sessions in the hosts file keep it. Where none of the host's sessions keeps that repository, the command SHALL be refused, naming the host and the repository crew looked for, and nothing SHALL be run there. No former address of crew's SHALL be followed.
 
-#### Scenario: A send reaches another host's partition
+#### Scenario: A send reaches another host's drive
 - **WHEN** crew is `agentplot/crew`, chuck-herdr-alpha's sessions keep `agentplot/crew` at `/workspace`, and the user runs `crew send wldn "<text>"` on deneb
 - **THEN** crew runs `/workspace/crew/main/plugin/bin/crew` on chuck-herdr-alpha, and wldn-operator receives the text
 

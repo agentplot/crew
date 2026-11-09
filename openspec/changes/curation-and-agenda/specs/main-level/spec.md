@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: The design agent elaborates on main
-The design agent SHALL keep the partition's design true on main: the books, specs and constitution in its blueprints repos and kits, and the decision records. It SHALL NOT curate signals or read the unmoved ones. It SHALL work the agenda items the user takes up, reading each with `crew agenda <n>`, and SHALL record what a session decides as decision records, intents and queued units that cite the item, then close the item with them. It SHALL answer a conductor's design question. Work its elaboration calls for SHALL be queued as units, never put into a bolt by the design agent.
+The design agent SHALL keep the drive's design true on main: the books, specs and constitution in its blueprints repos and kits, and the decision records. It SHALL NOT curate signals or read the unmoved ones. It SHALL work the agenda items the user takes up, reading each with `crew agenda <n>`, and SHALL record what a session decides as decision records, intents and queued units that cite the item, then close the item with them. It SHALL answer a conductor's design question. Work its elaboration calls for SHALL be queued as units, never put into a bolt by the design agent.
 
 #### Scenario: Elaboration produces work
 - **WHEN** a session on item 7 records a decision that needs building
@@ -29,7 +29,7 @@ The planner SHALL be the only agent that proposes bolts, the placing of units in
 - **THEN** the planner sends it to the design lane with the decision it needs, and proposes nothing from it
 
 ### Requirement: Signals reach the plan only through a route
-A signal recorded through crew SHALL live on the drive's branch of its state repository, and a signal read from a meeting or a channel in the partition's first blueprints repo, both in the signals model that repo's `signals/README.md` gives. An agent that notices something outside its own unit SHALL record it as a signal with `crew signal`, quoting the words that show it, and SHALL tell no other agent about it. A signal SHALL reach the plan only after it has been curated: through a plan item the planner proposes a unit from, or a design item a session decides. The one exception SHALL be what the user tells the planner directly.
+A signal recorded through crew SHALL live on the drive's branch of its state repository, and a signal read from a meeting or a channel in the drive's first blueprints repo, both in the signals model that repo's `signals/README.md` gives. An agent that notices something outside its own unit SHALL record it as a signal with `crew signal`, quoting the words that show it, and SHALL tell no other agent about it. A signal SHALL reach the plan only after it has been curated: through a plan item the planner proposes a unit from, or a design item a session decides. The one exception SHALL be what the user tells the planner directly.
 
 #### Scenario: A finding from a bolt
 - **WHEN** ops on swb-1 finds a defect in a shared service the bolt does not own

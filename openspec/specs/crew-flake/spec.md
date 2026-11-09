@@ -34,7 +34,7 @@ The flake SHALL give `darwinModules.crew` and `nixosModules.crew`, each also as 
 ### Requirement: The module writes crew's teams file from options named as the file names them
 With `services.crew.enable`, the module SHALL write crew's teams file from `services.crew.settings`, each key named as the file names it: `partitions`; `repositories`, where the host gives its kept repositories; and `version`, which the module SHALL set to the version `plugin/lib/crew.py` reads and which no host SHALL set. The file SHALL be the settings as JSON with every unset key left out, so that for the same partitions and repositories it holds the same bytes the fleet's writer gives.
 
-#### Scenario: deneb's partitions
+#### Scenario: deneb's drives
 - **WHEN** `services.crew.settings.partitions` lists afterthought, agentplot and madswan on deneb and wldn on chuck-herdr-alpha, with its planner in `wldn-1`, as deneb's teams file held them on 2026-11-07
 - **THEN** the module's file holds, byte for byte, `nix/tests/files/deneb.json`, the bytes of deneb's `~/.config/crew/teams.json` read that day, and a partition that gives no `roles` has no `roles` key, and the file has no `repositories` key
 
@@ -57,7 +57,7 @@ With `services.crew.enable`, the module SHALL write crew's teams file from `serv
 ### Requirement: Every partition is listed once, with every key crew requires
 The module SHALL give no default for a key crew requires of a partition (`label`, `partition`, `blueprints`, `state`, `machine`, `session`, `review` and `flume`), and SHALL fail evaluation, naming what is wrong, for a partition that lacks one, a label listed twice, a `flume` that names a role crew has no kind for or gives a role neither `false` nor a stream's name, and a `teams` key, which the version crew reads has no place for.
 
-#### Scenario: A partition with no state repository
+#### Scenario: A drive with no state repository
 - **WHEN** a partition in `services.crew.settings.partitions` gives no `state`
 - **THEN** evaluation fails, naming `state`
 

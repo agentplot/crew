@@ -267,7 +267,7 @@ As main is read (plan.18), crew SHALL read a bolt on GitHub as the host last fet
 - **WHEN** the user approves a proposal holding `crew bolt start b`, a bolt of switchboard-kit with two units, and a runner answers for wldn
 - **THEN** `bolt/b` is made on GitHub by sluice, `b` is marked `Path: flume`, two launch requests name switchboard-kit and no host or stream, no agent starts, and the run record has `bolt.start` on `bolt/b`
 
-#### Scenario: A partition no runner answers for
+#### Scenario: A drive no runner answers for
 - **WHEN** `crew bolt start b` runs and wldn's state repository holds no runner's branch
 - **THEN** it is refused, naming that no runner answers for wldn, the plan is unchanged and no branch is made
 

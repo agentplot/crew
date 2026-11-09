@@ -18,7 +18,7 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **WHEN** `teams.json` lists the drive `wldn` with willdan-blueprints and `WilldanGroup/crew-state`, running on the box in `wldn-2`, a session the hosts file puts in `clients/willdan`
 - **THEN** `crew main up wldn` starts its main level in `wldn-2` on the box, and wldn's plan is read from `wldn/main` of `WilldanGroup/crew-state`
 
-#### Scenario: A partition with no state repository
+#### Scenario: A drive with no state repository
 - **WHEN** a drive's entry has no `state`
 - **THEN** crew refuses to load the teams file, naming the drive and the missing field
 
@@ -26,7 +26,7 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **WHEN** wldn's entry names `roles.planner.session` as `wldn-1`, a session the hosts file lists on chuck-herdr-alpha
 - **THEN** `wldn-planner` runs in `wldn-1` and its other main-level roles in the main level's session
 
-#### Scenario: A session of another partition
+#### Scenario: A session of another drive
 - **WHEN** wldn's `roles.planner.session` names `madswan`, another drive's session, which the hosts file lists on deneb and not on chuck-herdr-alpha
 - **THEN** crew refuses to load the teams file, naming the planner, the session and the machine
 
@@ -34,7 +34,7 @@ The host's kept repositories, where the file names them, SHALL be its `repositor
 - **WHEN** the hosts file gives wldn's session `wldn-2` a `partition` of `clients/willdan`, of `business`, or none
 - **THEN** crew loads the teams file the same each time, reading nothing of it
 
-#### Scenario: A partition with no flume
+#### Scenario: A drive with no flume
 - **WHEN** a drive's entry has no `flume`
 - **THEN** crew refuses to load the teams file, naming the drive, the field and swancloud's `lib/crew-teams.nix`
 
@@ -317,7 +317,7 @@ When herdr resumes a session without crew's environment and crew's record of it 
 ### Requirement: A red main's fix stays a bolt of one chore where no runner answers for the drive
 Where no runner answers for the drive, its state repository holding no `<label>/runner/<host>`, `crew main fix` SHALL be refused, naming the kit and a bolt of one chore, proposed first among the planned, as the way.
 
-#### Scenario: No runner answers for the partition
+#### Scenario: No runner answers for the drive
 - **WHEN** wldn's state repository holds no runner's branch and ops runs `crew main fix switchboard-kit gate-word "<words>"`
 - **THEN** it is refused, naming switchboard-kit and a bolt of one chore proposed first among the planned
 
