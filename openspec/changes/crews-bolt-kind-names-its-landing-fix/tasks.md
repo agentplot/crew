@@ -10,7 +10,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 1. The place holds the bolt's first unit
 
-- [ ] 1.1 The place holds `crew-lands-each-bolt-through-flumes-base-place` as `bolt/crew-lands-through-the-runners-land-message` landed it, merged in from `origin`. Where the bolt does not hold it yet, the stage stops short naming that unit, and builds nothing (design Decision 1; Task notes 1.1). Verify `test -f plugin/flume/kinds/bolt@1/kind.toml && grep -q "crew's bolt kind is a base place" openspec/specs/flume-source/spec.md` exits 0.
+- [x] 1.1 The place holds `crew-lands-each-bolt-through-flumes-base-place` as `bolt/crew-lands-through-the-runners-land-message` landed it, merged in from `origin`. Where the bolt does not hold it yet, the stage stops short naming that unit, and builds nothing (design Decision 1; Task notes 1.1). Verify `test -f plugin/flume/kinds/bolt@1/kind.toml && grep -q "crew's bolt kind is a base place" openspec/specs/flume-source/spec.md` exits 0.
 
 ## 2. The kind names its landing fix
 
