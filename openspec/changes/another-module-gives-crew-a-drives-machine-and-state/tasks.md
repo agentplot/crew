@@ -10,4 +10,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 2. The words
 
-- [ ] 2.1 README's The flake says the drives are keyed by label and listed in label order, that another module can give a drive its `machine` and `state`, each written once, and what fails evaluation, with no "a label listed twice" (design, Decisions 1 to 3; Task notes 1.4). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 2.1 README's The flake says the drives are keyed by label and listed in label order, that another module can give a drive its `machine` and `state`, each written once, and what fails evaluation, with no "a label listed twice" (design, Decisions 1 to 3; Task notes 1.4). Verify `tests/suite t-docs` ends with "0 failed".
