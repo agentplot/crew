@@ -352,6 +352,42 @@ class TestLoad:
         assert read == []
 
 
+class TestReadable:
+    """crew.readable: the data of a teams file crew can read at all, and the refusal of one it cannot, no JSON, no
+    UTF-8, no object or at a version this crew does not read, in the words crew.load gives for the same file (record
+    0065, point 6; a-drive-set-loses-no-drive-and-no-record, Decision 1). A file it gives the data of is at crew's own
+    version, and fleet_of makes every later check."""
+
+    def load_said(self, tmp_path, monkeypatch, raw):
+        (tmp_path / "teams.json").write_bytes(raw)
+        crew.load.cache_clear()
+        try:
+            with pytest.raises(crew.Refusal) as said:
+                crew.load()
+        finally:
+            crew.load.cache_clear()
+        return str(said.value)
+
+    @pytest.mark.parametrize("raw", [b"{\"version\": 6,", b"version: 6", b"\xff\xfe{}", b"[]", b"{}", b"{\"version\":\"6\"}",
+                                     b"{\"version\":true}", b"{\"version\":5}"])
+    def test_a_file_crew_cannot_read_at_all_is_refused_in_loads_words(self, tmp_path, monkeypatch, raw):
+        monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+        with pytest.raises(crew.Refusal) as said:
+            crew.readable(raw)
+        assert str(said.value) == self.load_said(tmp_path, monkeypatch, raw)
+        assert crew.WRITER in str(said.value)
+
+    @pytest.mark.parametrize("data, refused", [({"version": 6, "drives": [], "hosts": {}}, "lists no drives"),
+                                               ({"version": 6, "teams": []}, "lists teams, which version 6 has no place for")])
+    def test_a_file_at_crews_own_version_is_read_and_fleet_of_refuses_it(self, tmp_path, monkeypatch, data, refused):
+        monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+        raw = json.dumps(data).encode()
+        assert crew.readable(raw) == data and crew.readable(raw.decode()) == data
+        with pytest.raises(crew.Refusal, match=refused) as said:
+            crew.fleet_of(crew.readable(raw), "mac-studio")
+        assert str(said.value) == self.load_said(tmp_path, monkeypatch, raw)
+
+
 class TestKeptRepositories:
     """main-level, A runner host's kept repositories (record 0061; Decisions 3 and 4 of
     a-kept-repositorys-folder-is-the-runners-container): the teams file may name, for the host it is written on, each
