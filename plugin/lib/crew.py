@@ -260,8 +260,8 @@ def consoles_of(data, labels):
 
 
 def read_teams(text):
-    """The teams file's data from its text: refused, naming the file and the JSON parser's words, where the text is no
-    JSON, never a traceback (code.2)."""
+    """The teams file's data from its text, or its bytes as read: refused, naming the file and the JSON parser's words,
+    where it is no JSON, or no UTF-8, never a traceback (code.2)."""
     try:
         return json.loads(text)
     except ValueError as e:
@@ -276,7 +276,7 @@ def load():
     it, or by the machine's configuration (WRITER); no file of swancloud's or of any fleet's is read. This host is read
     only where the file names kept repositories. A missing file is refused naming its writers."""
     TEAMS.exists() or fail(f"{TEAMS} is missing: it must be written by {WRITER}; crew has done nothing.")
-    return fleet_of(read_teams(TEAMS.read_text()), this_host)
+    return fleet_of(read_teams(TEAMS.read_bytes()), this_host)
 
 
 def fleet_of(data, here):
@@ -559,7 +559,7 @@ def teams_set(data, given, here):
 def teams_step(f):
     """What crew drive set does to the teams file, from plain facts (f): whether it is a link (linked) and where it
     points (target), its text or None where there is none or it cannot be read (text), whether its aside is taken
-    (aside_taken), the drive given (drive_given) and this host (here). One of: {"step": "write", "text", "changed"},
+    (aside_taken), the drive given (drive_given) and this host (here), the text as read in bytes or as a string. One of: {"step": "write", "text", "changed"},
     a new file or the drive set in one that loads; {"step": "unchanged"}, the text it would write being the file's
     own; {"step": "aside", "reason", "text", "changed"}, a file crew cannot load moved once to its aside and the file
     written new; {"step": "linked", "target"}, a link whose file names the drive as given, written nothing. Refused,
@@ -604,7 +604,8 @@ def teams_step(f):
         return {"step": "aside", "reason": str(e), "text": teams_text(checked(data)), "changed": changed}
     data, changed = teams_set(old, given, here)
     text = teams_text(checked(data))
-    return {"step": "unchanged"} if text == f["text"] else {"step": "write", "text": text, "changed": changed}
+    now = f["text"].decode() if isinstance(f["text"], bytes) else f["text"]  # UTF-8, since it loaded
+    return {"step": "unchanged"} if text == now else {"step": "write", "text": text, "changed": changed}
 
 
 def state_said(st):

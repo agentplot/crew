@@ -1214,7 +1214,9 @@ def state_init(fleet, a):
     pushed as the branch, so the plan's history is the branch's, else the branch starts with an empty plan; each other
     blueprints repo's plan/<label> is joined in one commit naming where it came from; the plan's record descriptors are
     brought in step with crew's; then moves.rec, with the first blueprints repo's moves. Every step is its own push and first checks whether the branch already shows it, so a
-    run that stopped partway is finished by running it again, and a finished branch is only reported."""
+    run that stopped partway is finished by running it again, and a finished branch is only reported. Returns what it
+    did, {"repository", "branch", "tip", "outcome", "did"}: made where the branch was not there, finished where it
+    stood and a step was taken, exists where none was; its caller says it (crew.state_said)."""
     p = crew.drive_of(fleet, a.label)
     label = p["label"]
     repo, ref = state_of(fleet, label)
@@ -1231,6 +1233,7 @@ def state_init(fleet, a):
     joins = [o for o in old if o is not first]
     did = []
     tip = fetch(repo, ref)
+    absent = tip is None
     if tip is None:
         if first:
             bp, t, _ = first
@@ -1275,10 +1278,70 @@ def state_init(fleet, a):
                 files["proposals.rec"] = PROPOSALS
         tip = init_step(repo, ref, label, f"state({label}): moves.rec, with the {len(recs)} moves of {src}'s signals/moves.rec{at}", start_moves)
         did.append(f"added moves.rec with {len(recs)} moves of {src}{at}")
-    if did:
-        print(f"{ref} of {repo} {tip[:7]}: " + "; ".join(did))
-    else:
-        print(f"{ref} of {repo} exists, at {tip[:7]}: nothing to do")
+    return {"repository": repo, "branch": ref, "tip": tip, "outcome": "made" if absent else "finished" if did else "exists", "did": did}
+
+
+def state_init_cmd(fleet, a):
+    """crew state init <label>: the drive's branch made or finished (state_init), and what was done said."""
+    print(crew.state_said(state_init(fleet, a)))
+
+
+# ------------------------------------------------------------------------------------------- crew drive set
+
+def drive_set(a):
+    """crew drive set <label> (drive-setup; design of crew-makes-a-new-drives-state, Decision 6): the drive its flags
+    give (crew.drive_given) named in this host's teams file and its state made, run on the host it is invoked on and
+    never forwarded (Decision 11), before any teams file is loaded. The flags are checked first; then <label>/main of
+    the state repository is fetched, refused naming the repository where crew cannot fetch from it, nothing written
+    (read.1); then, under a lock on the file's folder, the file is read, decided on (crew.teams_step) and written by a
+    new file renamed over it (teams.9), a file crew cannot load linked to its aside first, which a taken aside refuses;
+    then crew loads the file afresh, the state is made by crew state init's own steps (state_init), and, where a key of
+    the file changed, one drive.set entry names each by its path (Decision 10). Its answer is crew.drive_said's."""
+    here = crew.this_host()
+    given = crew.drive_given(a, here)
+    label, teams = a.label, crew.TEAMS
+    CONTEXT["label"] = label
+    tip_of(given["drive"]["state"], f"{label}/main")
+    aside = crew.aside_of(teams)
+    teams.parent.mkdir(parents=True, exist_ok=True)
+    with open(teams.parent / ".teams.lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        linked = teams.is_symlink()
+        step = crew.teams_step({"linked": linked, "target": os.readlink(teams) if linked else None,
+                                "text": teams.read_bytes() if teams.exists() else None, "aside_taken": os.path.lexists(aside),
+                                "given": given, "here": here})
+        if step["step"] in ("write", "aside"):
+            new = teams.with_name(f"{teams.name}.{os.getpid()}.new")
+            new.write_text(step["text"])
+            if step["step"] == "aside":
+                try:
+                    os.link(teams, aside)
+                except FileExistsError:
+                    new.unlink()
+                    fail(f"{aside}, where crew drive set moves a teams file it cannot load once, is taken: {teams} and it are "
+                         "left as they are, and nothing was written")
+            os.replace(new, teams)
+    crew.load.cache_clear()
+    st = state_init(crew.load(), a)
+    changed = step.get("changed") or []
+    if changed:
+        record.emit(label, "drive.set", [f"drive/{label}"], why="set " + ", ".join(changed))
+    outcome = {"write": "written", "aside": "written", "unchanged": "unchanged", "linked": "linked"}[step["step"]]
+    done = {"label": label, "state": st,
+            "teams": {"file": str(teams), "outcome": outcome, "aside": str(aside) if step["step"] == "aside" else None,
+                      "reason": step.get("reason"), "target": step.get("target"), "changed": changed}}
+    print(crew.drive_said(done, a.json))
+
+
+def drive_set_refused(a, e):
+    """A refused crew drive set, in the drive's run record where the teams file loads and names the drive, as any
+    refused command's is; elsewhere said alone, there being no drive's record to hold it (Decision 10)."""
+    try:
+        fleet = crew.load()
+    except Refusal:
+        return
+    if a.label in fleet["drives"]:
+        refused(fleet, a, ("drive", "set"), e)
 
 
 def shared_name(label, plans):
@@ -16876,7 +16939,7 @@ def parser(cls=argparse.ArgumentParser, only=None):
 
 
 COMMANDS = {
-    ("state", "init"): state_init, ("bolts", None): bolts_view, ("rail", None): rail_view,
+    ("state", "init"): state_init_cmd, ("bolts", None): bolts_view, ("rail", None): rail_view,
     ("card", "preview"): card_preview, ("card", "session"): card_session, ("card", "wait"): card_wait, ("card", "end"): card_end, ("card", "sweep"): card_sweep,
     ("card", "read"): card_read, ("card", "answer"): batch_answer,
     ("record", None): record_status, ("answer", None): answer, ("fix", None): fix, ("main", "fix"): main_fix,
@@ -16902,10 +16965,10 @@ COMMANDS = {
     ("plan", "approve"): plan_approve, ("plan", "drop"): plan_drop, ("plan", "answer"): plan_answer,
 }
 # The commands on a main level and on a kit's host, each one process on the host it acts on.
-HOST_COMMANDS = {(c, None) for c in ("_sweep", "_main", "_review", "_console", "_revive")}
+HOST_COMMANDS = {(c, None) for c in ("_sweep", "_main", "_review", "_console", "_revive")} | {("drive", "set")}
 # The act a command that moves work records, done or refused. A command that only reads records nothing.
 ACTS = {
-    ("state", "init"): "state.init", ("bolt", "new"): "bolt.new", ("bolt", "start"): "bolt.start", ("bolt", "order"): "bolt.order",
+    ("state", "init"): "state.init", ("drive", "set"): "drive.set", ("bolt", "new"): "bolt.new", ("bolt", "start"): "bolt.start", ("bolt", "order"): "bolt.order",
     ("bolt", "drop"): "bolt.drop", ("bolt", "land"): "bolt.land", ("bolt", "submit"): "bolt.submit", ("bolt", "leave"): "bolt.leave",
     ("unit", "add"): "unit.add", ("unit", "split"): "unit.split",
     ("unit", "amend"): "unit.amend",
@@ -16932,6 +16995,8 @@ def named(a):
         out.append(f"signals/{pathlib.Path(a.dir).name}")
     if a.cmd == "state":
         out.append(f"plan/{a.label}")
+    if a.cmd == "drive":
+        out.append(f"drive/{a.label}")
     if a.cmd == "kit":
         out.append(f"kit/{a.old}")
     if a.cmd == "plan" and getattr(a, "n", None) is not None:
@@ -16956,10 +17021,16 @@ def main(argv):
     crew.answer_usage(ap, argv)
     need_recutils()
     args = ap.parse_args(argv)
-    fleet = crew.load()
     key = (args.cmd, getattr(args, "sub", None))
     if key in HOST_COMMANDS:  # one process says what each of its steps did, in the order they did it
         sys.stdout.reconfigure(line_buffering=True)
+    if key == ("drive", "set"):  # writes this host's own teams file, so it runs before any is loaded, and asks no may_write
+        try:
+            return drive_set(args)
+        except Refusal as e:
+            drive_set_refused(args, e)
+            raise
+    fleet = crew.load()
     try:
         may_write(fleet, key, args)
         COMMANDS[key](fleet, args)
