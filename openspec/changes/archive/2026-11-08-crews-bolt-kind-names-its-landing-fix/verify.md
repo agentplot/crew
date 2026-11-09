@@ -64,4 +64,5 @@ All 11 tasks in `tasks.md` are ticked, from 1.1 to 6.2.
 ## Notes
 
 - The proposal's Impact lists `tests/t-docs.sh`, but the change leaves it as it was. No requirement asks it to pin the new README or skill words, and `t-docs` passes on them, as task 6.2 asks.
+- After the archive, `openspec validate --specs --strict` gives 5 passed and 21 failed, where it gave 6 and 20 before. `flume-source`, which passed before, now fails strict on one warning: "Requirement text is very long (>500 characters)", on *crew's bolt kind is a base place, and a version of it never changes*. It has no errors. The other 20 specs that fail, the four others this change touches among them, were failing before it. The change's own `--strict` validation passes.
 - Nothing in this change waits on a person, so no decision is open.
