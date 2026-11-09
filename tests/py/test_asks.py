@@ -416,6 +416,40 @@ class TestTurnConfirms:
             asks.turn_confirms(["ask/1", line], [launch(12), launch(9, act="retry")])
 
 
+class TestEndsSaid:
+    """What a start, a report and a run's view say of the ends a turn took (design Decision 7; role-runs "A run's start
+    gives its brief and what it took" and "A turn's report counts its ends"; crew-board "A role that runs as its kind has
+    its view")."""
+
+    ENDS = [owed(12, "stage/construct/1/delivered"), owed(12, "stage/code/1/delivered", expired=True), owed(14, "stage/code/1/delivered", "chore/b")]
+
+    def test_a_start_prints_one_line_for_each_launch_with_each_key_and_the_expired_marked(self):
+        """role-runs, The ends it took: unit a's construct's and code's ends of request 12, the code's expired."""
+        assert asks.ends_said(self.ENDS) == [
+            "Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):",
+            "unit/a (the place /p12, request 12): stage/construct/1/delivered, stage/code/1/delivered (expired)",
+            "chore/b (the place /p14, request 14): stage/code/1/delivered"]
+        assert asks.ends_said([]) == []
+        assert asks.ends_said([(self.ENDS[0][0], "12", None, None) + self.ENDS[0][4:]])[1] == (
+            "request 12 (the place Flume has not named, request 12): stage/construct/1/delivered")
+
+    def test_the_report_counts_the_ends_by_request_after_the_asks_and_waits(self):
+        """role-runs, Three ends of two places."""
+        took = ["ask/1", "place/7@1793440000"] + [e[0] for e in self.ENDS]
+        assert asks.took_said(took, [ask(1)]) == ["- ask/1: tell from crew", "- place/7@1793440000",
+                                                 "- 3 ends of requests 12 and 14, their confirmation asked of the runners"]
+        assert asks.took_said(["ask/1", self.ENDS[0][0]], [ask(1)])[-1] == "- 1 end of request 12, their confirmation asked of the runners"
+        assert asks.took_said(["ask/1"], [ask(1)]) == ["- ask/1: tell from crew"]
+        t = dict(turn(3, took), Run="madswan-planner")
+        assert "- 3 ends of requests 12 and 14, their confirmation asked of the runners\n" in asks.report(t, [ask(1)], "done", "2026-10-31T10:20:00Z")
+
+    def test_a_runs_view_counts_the_ends_its_turn_took_and_lists_none(self):
+        """crew-board, Ends counted."""
+        (v, waiting) = asks.run_view([ask(1)], [turn(3, ["ask/1"] + [e[0] for e in self.ENDS])], "planner")
+        assert v == {"turn": "3", "ended": False, "ends": 3, "took": [{"took": "ask/1", "what": "tell", "from": "crew", "names": None}]}
+        assert waiting == [] and asks.run_view([], [turn(1, ["ask/1"])], "planner")[0]["ends"] == 0
+
+
 MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
 
 

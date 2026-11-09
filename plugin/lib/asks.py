@@ -370,23 +370,58 @@ def wait_said(wait):
     return [f"{work or f'request {n}'} {how}: the place {place or 'Flume has not named'}, launched by request {n} ({key})"] + indented(words)
 
 
+def ends_said(ends):
+    """The ends a run's start took that Flume holds for its role (taken_ends), as the start prints them (design Decision
+    7, role-runs "A run's start gives its brief and what it took"): under a line saying Flume holds them for the role and
+    they are confirmed when the turn ends, one line for each launch, its work, its place and its request, then each end's
+    key in the order taken, an expired one marked so; nothing for none."""
+    by = {}
+    for _, n, work, place, key, _, expired in ends:
+        by.setdefault(n, (work, place, []))[2].append(key + (" (expired)" if expired else ""))
+    if not by:
+        return []
+    return ["Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):"] + [
+        f"{work or f'request {n}'} (the place {place or 'Flume has not named'}, request {n}): {', '.join(keys)}" for n, (work, place, keys) in by.items()]
+
+
+def is_end(took):
+    """Whether a turn's Took line is an end Flume held for the role (end_key), not an ask or a waiting place."""
+    return took.startswith("end/")
+
+
+def listed(items):
+    """Words in a list: a, a and b, a, b and c."""
+    items = list(items)
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
 def took_said(took, held):
-    """What a turn took, one line each, as its report names it: an ask by its number, what it is and who asked, a
-    waiting place by its key."""
+    """What a turn took, as its report names it (design Decision 7): an ask by its number, what it is and who asked, a
+    waiting place by its key, one line each; then one line counting the ends it took that Flume held for the role, by
+    the requests that launched their places, their confirmation asked of the runners (role-runs "A turn's report counts
+    its ends")."""
     by = {took_of(a): a for a in held}
     out = []
     for t in took:
+        if is_end(t):
+            continue
         a = by.get(t)
         out.append(f"- {t}: {a.get('What')} from {a.get('From')}" + (f" on {a['Names']}" if a.get("Names") else "") if a else f"- {t}")
+    ends = [t for t in took if is_end(t)]
+    if ends:
+        ns = sorted({t.split("/", 2)[1] for t in ends}, key=lambda n: int(n) if n.isdigit() else 0)
+        out.append(f"- {len(ends)} {'end' if len(ends) == 1 else 'ends'} of {'request' if len(ns) == 1 else 'requests'} {listed(ns)}, "
+                   "their confirmation asked of the runners")
     return out
 
 
 def run_view(asks, turns, role):
     """What a role's run's view shows of it (crew-board "A role that runs as its kind has its view"): the role's newest
-    turn not superseded, {turn, ended, took}, None while it has none, each thing it took as {took, what, from, names},
-    an ask's fields from asks.rec and a waiting place's key alone; and each ask of the role that waits for its next run,
-    oldest first: pending (no ended turn took it) and not taken by that turn while it is open. A waiting place is not an
-    ask, and is not counted."""
+    turn not superseded, {turn, ended, took, ends}, None while it has none, each ask and waiting place it took as {took,
+    what, from, names}, an ask's fields from asks.rec and a waiting place's key alone, and how many ends Flume held for
+    the role it took, counted and never listed (design Decision 7); and each ask of the role that waits for its next
+    run, oldest first: pending (no ended turn took it) and not taken by that turn while it is open. A waiting place is
+    not an ask, and is not counted."""
     mine = [t for t in turns if t["Role"] == role and not t.get("Superseded")]
     t = max(mine, key=lambda t: int(t["Turn"]), default=None)
     by = {took_of(a): a for a in asks}
@@ -394,7 +429,8 @@ def run_view(asks, turns, role):
     turn = None if t is None else {
         "turn": t["Turn"], "ended": bool(t.get("Ended")),
         "took": [{"took": x, "what": (by.get(x) or {}).get("What"), "from": (by.get(x) or {}).get("From"), "names": (by.get(x) or {}).get("Names")}
-                 for x in t["Took"]]}
+                 for x in t["Took"] if not is_end(x)],
+        "ends": sum(1 for x in t["Took"] if is_end(x))}
     return turn, [a for a in pending(asks, [], turns, role)[0] if took_of(a) not in taken]
 
 
