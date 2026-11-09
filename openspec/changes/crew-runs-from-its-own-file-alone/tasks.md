@@ -10,7 +10,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 2. crew's module
 
-- [ ] 2.1 crew's module declares `settings.hosts`, `settings.consoles` and each drive's `folder`, `repos` and `accounts`, with no default. It fails evaluation for each case the crew-flake delta names, and writes deneb's drives, hosts and consoles byte for byte as `nix/tests/files/deneb.json` and `runner.json`, which are written again (design, Decision 10; Task notes 2.1). Verify `tests/suite nix:test` ends with "0 failed".
+- [x] 2.1 crew's module declares `settings.hosts`, `settings.consoles` and each drive's `folder`, `repos` and `accounts`, with no default. It fails evaluation for each case the crew-flake delta names, and writes deneb's drives, hosts and consoles byte for byte as `nix/tests/files/deneb.json` and `runner.json`, which are written again (design, Decision 10; Task notes 2.1). Verify `tests/suite nix:test` ends with "0 failed".
 - [ ] 2.2 The module's typecheck evaluates with the new keys given (design, Decision 10; Task notes 2.2). Verify `tests/suite nix:typecheck` ends with "0 failed".
 - [ ] 2.3 The nix files tasks 2.1 and 2.2 touched are as nixfmt writes them (Task notes 2.3–2.4). Verify `tests/suite nix:format` ends with "0 failed".
 - [ ] 2.4 The nix files tasks 2.1 and 2.2 touched pass statix and deadnix (Task notes 2.3–2.4). Verify `tests/suite nix:lint` ends with "0 failed".
