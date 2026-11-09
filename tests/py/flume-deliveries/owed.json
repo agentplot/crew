@@ -1,0 +1,449 @@
+{
+  "status": {
+    "places": [
+      {
+        "place": "/Users/chuck/.local/share/flume/places/f3a444f5e38a/change--the-flake-configures-each-tool-by-its-own-module",
+        "repository": "/Users/chuck/.local/share/flywheel/repositories/agentplot/boomdrive",
+        "kind": "change",
+        "version": 3,
+        "declared": "flume",
+        "identity": "flume/change@3",
+        "kind_from": {
+          "identity": {
+            "source": "flume",
+            "name": "change",
+            "version": 3,
+            "spelled": "flume/change@3"
+          },
+          "source": "flume",
+          "hash": "sha256:faf88896b4bf2be5e0ae9980bc5e17265909f8a6eea3468393548b483c8cb5d3"
+        },
+        "name": "the-flake-configures-each-tool-by-its-own-module",
+        "branch": "change/the-flake-configures-each-tool-by-its-own-module",
+        "base": "bolt/the-boomdrive-flake-configures-the-whole-host",
+        "base_from": "merge-queue",
+        "mark": "boomdrive:agentplot/323",
+        "lands": true,
+        "phase": "live",
+        "readiness": {
+          "steps": [
+            {
+              "step": "toolchain",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "proto install",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "moon --version",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "moon setup",
+              "passed": true,
+              "words": ""
+            }
+          ]
+        },
+        "stages": [
+          {
+            "name": "construct",
+            "state": "delivered",
+            "starts": 2,
+            "end": {
+              "head": "c5fb46b879b111b7e038facf7b5b179ba06f2c54",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          },
+          {
+            "name": "code",
+            "state": "ended_short",
+            "starts": 1,
+            "end": {
+              "head": null,
+              "report": null,
+              "words": "The code stage of the-flake-configures-each-tool-by-its-own-module cannot start: its design (Dependencies) and tasks 1.1 to 1.3 need a release tag of Flume, sluice and crew whose flake gives darwinModules.<tool> and nixosModules.<tool>, and none has one as of 2026-11-07. Flume's newest tag v0.17.1 has no flake.nix, and no flake.nix is on its main (only record 0055 accepted); sluice's newest tag v0.74.3 has a flake with packages only, its module on the unreleased branch bolt/sluices-own-module-writes-a-hosts-settings; crew's newest tag v0.41.11 has no flake.nix, and its main has none. The tasks forbid carrying a module in a tool's place (design Decision 1), so nothing of the change can be built in order. I need this stage held, or launched again, once flume-publishes-its-own-flake-and-module, sluice-publishes-a-module-for-its-host-settings and crew-publishes-a-flake-whose-module-writes-its-host-file have each landed and been released. Nothing was committed on the branch.",
+              "needs": "needs_answer",
+              "addressee": "agentplot/planner",
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": [],
+              "open_until": 1794089296
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          },
+          {
+            "name": "verify",
+            "state": "not_reached",
+            "starts": 0,
+            "end": null,
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          }
+        ],
+        "current": "code",
+        "agent": {
+          "identity": "flume:f3a444f5e38a:change--the-flake-configures-each-tool-by-its-own-module:code:1",
+          "stage": "code",
+          "program": "claude",
+          "settings": {
+            "program": "claude",
+            "model": null,
+            "instructions": null,
+            "beside": null,
+            "mode": "full",
+            "keep_open": "1h",
+            "env": {},
+            "from": {}
+          },
+          "account": {
+            "pool": "madswan",
+            "name": "admin",
+            "from": "affinity"
+          },
+          "state": "waiting",
+          "started": "yes",
+          "asking": "no",
+          "own_work": "no",
+          "past_limit": false,
+          "screen": null,
+          "printed": null,
+          "last_words": null,
+          "notes": [],
+          "mode": {
+            "passed": "bypassPermissions",
+            "entry": null,
+            "read_back": true
+          },
+          "session": {
+            "name": "agentplot",
+            "from": "stream-name"
+          },
+          "terminal": {
+            "profile": "herdr",
+            "from": "host"
+          }
+        },
+        "head": "c5fb46b879b111b7e038facf7b5b179ba06f2c54",
+        "delivered": false,
+        "tasks": [
+          {
+            "text": "1.1 sluice's input names sluice's newest release tag whose f",
+            "ticked": false,
+            "group": 0
+          },
+          {
+            "text": "1.2 Flume's input is Flume's flake at its newest release tag",
+            "ticked": false,
+            "group": 0
+          },
+          {
+            "text": "1.3 crew's flake is an input at its newest release tag whose",
+            "ticked": false,
+            "group": 0
+          },
+          {
+            "text": "1.4 The type check's set holds `crew` (Task notes 1.4). True",
+            "ticked": false,
+            "group": 0
+          },
+          {
+            "text": "1.5 The tags check holds crew to a release tag (design Decis",
+            "ticked": false,
+            "group": 0
+          },
+          {
+            "text": "1.6 The runner's tests pass with the set's Flume and sluice ",
+            "ticked": false,
+            "group": 0
+          },
+          {
+            "text": "2.1 `darwinModules` and `nixosModules` give `boomdrive`, key",
+            "ticked": false,
+            "group": 1
+          },
+          {
+            "text": "2.2 Each tool's module installs its own package. `nix/module",
+            "ticked": false,
+            "group": 1
+          },
+          {
+            "text": "2.3 A host's own `enable` or `package` of a tool wins over t",
+            "ticked": false,
+            "group": 1
+          },
+          {
+            "text": "2.4 The Boomdrive module writes no file of the other tools' ",
+            "ticked": false,
+            "group": 1
+          },
+          {
+            "text": "2.5 The modules' default packages, crew's among them, are th",
+            "ticked": false,
+            "group": 1
+          },
+          {
+            "text": "3.1 The README's **Installing with nix** names crew in the s",
+            "ticked": false,
+            "group": 2
+          },
+          {
+            "text": "3.2 CLAUDE.md and `openspec/config.yaml` name crew in the se",
+            "ticked": false,
+            "group": 2
+          },
+          {
+            "text": "3.3 core.46's sentence reads \"the flake's modules run the ru",
+            "ticked": false,
+            "group": 2
+          },
+          {
+            "text": "3.4 The spec deltas archive into specs that pass openspec's ",
+            "ticked": false,
+            "group": 2
+          }
+        ],
+        "submission": {
+          "read": "none",
+          "submits": 0,
+          "send_backs": 0,
+          "verdict": null,
+          "waiting": null,
+          "held": false
+        },
+        "refused_acts": [],
+        "cannot_read": [],
+        "failures": [],
+        "recipients": [
+          "agentplot/planner",
+          "boomdrive"
+        ],
+        "recipients_from": {
+          "from": "launch"
+        },
+        "hold_words": {},
+        "waiting_on": {
+          "act": "retry",
+          "stage": "code",
+          "why": "answer",
+          "since": 1794085696,
+          "words": "The code stage of the-flake-configures-each-tool-by-its-own-module cannot start: its design (Dependencies) and tasks 1.1 to 1.3 need a release tag of Flume, sluice and crew whose flake gives darwinModules.<tool> and nixosModules.<tool>, and none has one as of 2026-11-07. Flume's newest tag v0.17.1 has no flake.nix, and no flake.nix is on its main (only record 0055 accepted); sluice's newest tag v0.74.3 has a flake with packages only, its module on the unreleased branch bolt/sluices-own-module-writes-a-hosts-settings; crew's newest tag v0.41.11 has no flake.nix, and its main has none. The tasks forbid carrying a module in a tool's place (design Decision 1), so nothing of the change can be built in order. I need this stage held, or launched again, once flume-publishes-its-own-flake-and-module, sluice-publishes-a-module-for-its-host-settings and crew-publishes-a-flake-whose-module-writes-its-host-file have each landed and been released. Nothing was committed on the branch.",
+          "open_until": 1794089296
+        },
+        "stalled": false,
+        "holds": [
+          {
+            "on": "waiting",
+            "words": "agentplot-planner retries code once flume-publishes-its-own-flake-and-module, sluice-publishes-a-module-for-its-host-settings and crew-publishes-a-flake-whose-module-writes-its-host-file have each landed on its main and been released, as this stage asked; the design's order stands, with no module carried in a tool's place",
+            "since": 1794085910
+          }
+        ],
+        "priority": 11,
+        "stream": {
+          "name": "agentplot",
+          "from": "host-repository"
+        },
+        "label": null,
+        "intent": {
+          "from": "launch",
+          "name": "agentplot/the-boomdrive-flake-configures-the-whole-host",
+          "digest": "9a5cd63f961bb19e0a37bd95b35dcd5400f8124728a831993b3b662f6cdc3a32"
+        },
+        "moves": [],
+        "unsettled": [],
+        "uncarried": [],
+        "ends": [
+          {
+            "of": "stage",
+            "stage": "construct",
+            "start": 1,
+            "state": "lost",
+            "end": {
+              "head": null,
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794084461,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794084468,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/construct/1/lost",
+            "pending_for": [
+              "boomdrive"
+            ],
+            "delivery": "change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/stage/construct/1/lost",
+            "expires_at": 1794088061,
+            "owed": [
+              {
+                "recipient": "boomdrive",
+                "expired": true,
+                "known": true
+              }
+            ],
+            "confirmed": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794084700
+              }
+            ]
+          },
+          {
+            "of": "stage",
+            "stage": "construct",
+            "start": 2,
+            "state": "delivered",
+            "end": {
+              "head": "c5fb46b879b111b7e038facf7b5b179ba06f2c54",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "read_at": 1794085061,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794085061,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/construct/2/delivered",
+            "pending_for": [
+              "agentplot/planner",
+              "boomdrive"
+            ],
+            "delivery": "change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/stage/construct/2/delivered",
+            "expires_at": 1794088661,
+            "owed": [
+              {
+                "recipient": "agentplot/planner",
+                "expired": true,
+                "known": true
+              },
+              {
+                "recipient": "boomdrive",
+                "expired": true,
+                "known": true
+              }
+            ],
+            "confirmed": []
+          },
+          {
+            "of": "stage",
+            "stage": "code",
+            "start": 1,
+            "state": "ended_short",
+            "end": {
+              "head": null,
+              "report": null,
+              "words": null,
+              "needs": "needs_answer",
+              "addressee": "agentplot/planner",
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": [],
+              "open_until": 1794089296
+            },
+            "read_at": 1794085696,
+            "deliveries": [
+              {
+                "recipient": "agentplot/planner",
+                "at": 1794085703,
+                "by": "notice"
+              }
+            ],
+            "key": "stage/code/1/ended-short",
+            "pending_for": [
+              "agentplot/planner",
+              "boomdrive"
+            ],
+            "open_until": 1794089296,
+            "delivery": "change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/stage/code/1/ended-short",
+            "expires_at": 1794089296,
+            "owed": [
+              {
+                "recipient": "agentplot/planner",
+                "expired": false,
+                "known": true
+              },
+              {
+                "recipient": "boomdrive",
+                "expired": false,
+                "known": true
+              }
+            ],
+            "confirmed": []
+          }
+        ],
+        "clues": {
+          "stage": "code",
+          "state": "waiting",
+          "title": "code · waiting",
+          "display_agent": "change--the-flake-configures-each-tool-by-its-own-module",
+          "shown_at": {
+            "place": "herdr:w3B:t2@/Users/chuck/.config/herdr/sessions/agentplot/herdr.sock",
+            "agent": "herdr:w3B:p2@/Users/chuck/.config/herdr/sessions/agentplot/herdr.sock",
+            "base": null
+          }
+        },
+        "line": {
+          "name": "change--the-flake-configures-each-tool-by-its-own-module",
+          "kind": "change@3",
+          "stage": "code",
+          "run": 1,
+          "tasks": "0/15",
+          "state": "waiting on an answer",
+          "full": "change--the-flake-configures-each-tool-by-its-own-module · change@3 · code · run 1 · tasks 0/15 · waiting on an answer",
+          "short": "code · run 1 · tasks 0/15 · waiting on an answer"
+        },
+        "waits_on": "caller"
+      }
+    ],
+    "host": {
+      "running": 7,
+      "bound": null,
+      "room": null,
+      "queue": [],
+      "streams": [],
+      "pools": [],
+      "terminal_kept": [],
+      "addresses": [],
+      "watch": "none",
+      "terminals": [],
+      "bases": [],
+      "terminal_setup": [],
+      "configuration": {},
+      "sources": []
+    }
+  }
+}

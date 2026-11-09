@@ -270,7 +270,75 @@ class TestWaitsOn:
         assert [w[1] for w in asks.waits_on("madswan/planner", reqs, places)] == ["3", "12"]
 
 
-MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+def delivered(name="flume-deliveries/owed"):
+    """A Flume status fixture's text (facts.flume_fixture), as the runner carries it in places.rec."""
+    from facts import flume_fixture
+    return flume_fixture(name).read_text()
+
+
+DELIVERY = "change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/"
+
+
+def an_end(key, owed, delivery=None, **more):
+    """An end of a place's status as Flume gives it by record 0061: its key, its delivery's key and whom it is owed to."""
+    return dict({"key": key, "delivery": DELIVERY + key if delivery is None else delivery, "owed": owed, "confirmed": []}, **more)
+
+
+class TestEndsOwed:
+    """The ends Flume owes a role's address, read from a place's carried status (design Decision 1; role-runs "A run's
+    start takes every end Flume holds for its role" and "An end crew cannot read is not taken"), on Flume's facts as
+    tests/py/flume-deliveries/ holds them."""
+
+    def test_the_ends_owed_to_the_address_are_given_with_their_keys_and_the_expired_one_marked(self):
+        """role-runs, A unit's ends taken: the fixture's construct's second start delivered, expired, and its code ended
+        short, both owed to agentplot/planner, of request 12's place."""
+        got = asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "12", "Place": "/kit/places/change--a", "Status": delivered()}])
+        assert got == [
+            (f"end/12/{DELIVERY}stage/construct/2/delivered", "12", "unit/a", "/kit/places/change--a", "stage/construct/2/delivered",
+             f"{DELIVERY}stage/construct/2/delivered", True),
+            (f"end/12/{DELIVERY}stage/code/1/ended-short", "12", "unit/a", "/kit/places/change--a", "stage/code/1/ended-short",
+             f"{DELIVERY}stage/code/1/ended-short", False)]
+
+    def test_an_end_the_address_confirmed_or_owed_to_another_alone_is_not_given(self):
+        """role-runs, An end owed to another role: the construct's lost start, confirmed by agentplot/planner and owed to
+        boomdrive alone."""
+        st = asks.status_of(delivered())
+        assert "stage/construct/1/lost" not in [k for k, _, _ in asks.owed_to(st, "agentplot/planner")]
+        assert [k for k, _, _ in asks.owed_to(st, "boomdrive")] == ["stage/construct/1/lost", "stage/construct/2/delivered", "stage/code/1/ended-short"]
+        assert asks.owed_to(st, "agentplot/operator") == []
+
+    def test_a_status_from_a_flume_before_record_0061_gives_none(self):
+        """role-runs, A status with no delivery keys: flume 0.17.0's own, its ends with no delivery and no owed."""
+        st = asks.status_of(delivered("flume-0.17.0/kept-open"))
+        assert len(st["ends"]) == 2 and asks.owed_to(st, "agentplot/planner") == []
+        assert asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "12", "Status": delivered("flume-0.17.0/kept-open")}]) == []
+
+    def test_each_field_is_guarded_so_a_missing_value_never_becomes_a_key(self):
+        me = {"recipient": "madswan/planner", "expired": False, "known": True}
+        good = an_end("stage/code/1/delivered", [me])
+        assert asks.owed_to({"ends": [good]}, "madswan/planner") == [("stage/code/1/delivered", DELIVERY + "stage/code/1/delivered", False)]
+        for bad in (dict(good, delivery=7), dict(good, delivery=None), dict(good, owed={"recipient": "madswan/planner"}),
+                    dict(good, owed=[me, {"expired": True}]), dict(good, owed=[{"recipient": None}]), dict(good, key=None), "stage/code/1"):
+            assert asks.owed_to({"ends": [bad]}, "madswan/planner") == []
+        assert asks.owed_to({"ends": [dict(good, owed=[dict(me, expired="yes")])]}, "madswan/planner")[0][2] is False
+        assert asks.owed_to({"ends": [dict(good, owed=[dict(me, expired=True)])]}, "madswan/planner")[0][2] is True
+        assert asks.owed_to({"ends": None}, "madswan/planner") == [] and asks.owed_to({}, "madswan/planner") == []
+
+    def test_a_status_that_cant_be_read_or_a_place_of_no_launch_gives_none(self):
+        for bad in ("not json", json.dumps({"status": {"places": []}}), None):
+            assert asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "12", "Status": bad}]) == []
+        assert asks.ends_owed("agentplot/planner", [launch(12, act="retry")], [{"Request": "12", "Status": delivered()}]) == []
+        assert asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "13", "Status": delivered()}]) == []
+
+    def test_ends_come_by_request_oldest_first_whatever_the_launch_names_as_its_recipient(self):
+        """design Decision 1: Flume's owed is the one truth of whom an end is owed to."""
+        places = [{"Request": n, "Place": f"/p{n}", "Status": delivered()} for n in ("12", "3")]
+        got = asks.ends_owed("agentplot/planner", [launch(12, recipient="agentplot/ops"), launch(3, "chore/b")], places)
+        assert [(e[1], e[2], e[4]) for e in got] == [("3", "chore/b", "stage/construct/2/delivered"), ("3", "chore/b", "stage/code/1/ended-short"),
+                                                     ("12", "unit/a", "stage/construct/2/delivered"), ("12", "unit/a", "stage/code/1/ended-short")]
+
+
+MADSWAN ={"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
 
 
 @pytest.fixture

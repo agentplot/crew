@@ -253,6 +253,55 @@ def waits_on(address, requests, places):
     return sorted(out, key=lambda w: int(w[1]))
 
 
+def owed_to(place, address):
+    """Each end of a place that Flume owes the role at address, <label>/<role>, read from the place's status as status_of
+    gives it by the facts of flume record 0061 (agentplot/flume 3573e0f0, `EndStatus`; design Decision 1): (its end key,
+    its delivery's key, whether its delivery has expired for the address), in the status's order, for each end whose
+    `owed` names the address. Every field is guarded (read.2): an end with no string key or delivery, or whose owed is
+    no list of entries each naming its recipient, gives nothing, and expired is true only where Flume gives true; so a
+    status from a Flume before record 0061, whose ends give neither, gives none."""
+    ends = place.get("ends") if isinstance(place, dict) else None
+    out = []
+    for e in ends if isinstance(ends, list) else []:
+        if not isinstance(e, dict):
+            continue
+        key, delivery, owed = e.get("key"), e.get("delivery"), e.get("owed")
+        if not (isinstance(key, str) and key and isinstance(delivery, str) and delivery and isinstance(owed, list)
+                and all(isinstance(o, dict) and isinstance(o.get("recipient"), str) for o in owed)):
+            continue
+        mine = next((o for o in owed if o["recipient"] == address), None)
+        if mine is not None:
+            out.append((key, delivery, mine.get("expired") is True))
+    return out
+
+
+def end_key(request, delivery):
+    """How a turn's Took names an end it took (design Decision 6): end/<request>/<delivery key>, the launch whose place's
+    end it is and Flume's key, which holds slashes of its own."""
+    return f"end/{request}/{delivery}"
+
+
+def ends_owed(address, requests, places):
+    """Every end Flume owes the role at address of a place crew launched (design Decision 1, role-runs "A run's start
+    takes every end Flume holds for its role"), each a plain tuple (took key, request, work, place, end key, delivery
+    key, expired), by request, oldest first, then in its status's order: the took key end_key's, by which a turn
+    records it and its confirm names it. requests, the Request records of requests.rec; places, each host's places.rec
+    records as waits_on takes them, Request, Place and Status. Whatever the launch's Recipient: Flume's `owed` is the
+    one truth of whom an end is owed to (roles.5). A place whose request is no launch, or whose status can't be read,
+    gives nothing."""
+    launches = {r["Request"]: r for r in requests if r.get("Act") == "launch" and whole(r.get("Request"))}
+    out = []
+    for p in places:
+        r = launches.get(p.get("Request"))
+        st = status_of(p.get("Status")) if r is not None else None
+        if r is None or st is None:
+            continue
+        n, work = r["Request"], r.get("Work")
+        where = p.get("Place") or (st.get("place") if isinstance(st.get("place"), str) else None)
+        out += [(end_key(n, d), n, work, where, k, d, x) for k, d, x in owed_to(st, address)]
+    return sorted(out, key=lambda e: int(e[1]))
+
+
 def indented(words):
     """Words a run reads under the line that names them, each of their lines indented two spaces; nothing for none."""
     return [f"  {l}" for l in (words or "").split("\n")] if words else []
