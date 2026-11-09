@@ -60,7 +60,7 @@ The flags are the keys crew's module declares for a drive, for the hosts and for
 | `--repositories <owner/name> <dir> <checkout>` | `repositories` | optional, each address once |
 | `--json` | | the answer as one JSON object |
 
-A flag left out, given twice where once is its count, or given a value crew does not accept is refused naming the flag, before anything is read or written (`read.1`, `code.2`). So is the first `--blueprints` not among `--repos`, the drive's machine not among `--hosts`, an address of `--repositories` not among `--repos`, and `--repositories` where `--machine` is not this host, since `repositories` names the kept repositories of the host the file is written on. A flag that takes several words takes them as separate arguments, since a path may hold any character a separator would be.
+A flag left out, given twice where once is its count, or given a value crew does not accept is refused naming the flag, before anything is read or written (`read.1`, `code.2`). So is the first `--blueprints` not among `--repos`, the drive's machine not among `--hosts`, an address of `--repositories` not among `--repos`, and `--repositories` where `--machine` is not this host, since `repositories` names the kept repositories of the host the file is written on. A value a repeated flag gives twice, a blueprints repo, a repository, a host, a role or a role's key, is refused the same way, and so is `--flume <role> true`, which reads as the JSON `true` the file refuses rather than a stream's name. A flag that takes several words takes them as separate arguments, since a path may hold any character a separator would be.
 
 `--repos` is required with at least one address, since the drive's first blueprints repo is among them (the last check above). A drive whose machine keeps a repository through the runner gives it in `--repos` and in `--repositories`, as deneb's file does for every repository its runner keeps.
 
@@ -93,7 +93,7 @@ The file is written as `json.dumps(data, sort_keys=True, separators=(",", ":"), 
 
 `crew.load`'s checks become `crew.fleet_of(data, here)`, a function of the file's data and this host's name, which `load` calls with the data it reads (`code.7`). `load` reads `here` only when the file names `repositories`, as now. The command checks the file it would write with `fleet_of`, and refuses with nothing written, giving `fleet_of`'s words after "the teams file crew drive set would write is refused:" and ending "nothing was written". Its own flag checks (Decision 2) catch what a flag can break alone, so `fleet_of` refuses only what the flags break together with the file, such as two roles in one session under two accounts.
 
-A file that is no JSON is refused by `load` naming the file and the parser's words, never a traceback (`code.2`).
+A file that is no JSON is refused by `load` naming the file and the parser's words, never a traceback (`code.2`), and so are a file that is no UTF-8, since `load` reads the file's bytes, and JSON that is no object. `fleet_of`'s `here` may be the function that reads this host, which it calls only where the file names kept repositories, so a file whose kept repositories are named wrongly is still refused before any process starts.
 
 ### 6. The order of its acts
 
@@ -111,7 +111,7 @@ The file comes before the state because `state init` and the run record read the
 `crew.teams_step` decides from plain facts: whether `~/.config/crew/teams.json` is a link and where it points, the file's text or none, whether `teams.json.before-drive-set` exists, the flags, the label and this host.
 - **No file**: written new.
 - **A file that loads** (`fleet_of`): the drive set in it (Decision 3). Where the text the command would write is the file's own, nothing is written and it says the file names the drive as given. Otherwise it is written.
-- **A file that does not load**, for its JSON, its version or any check: moved once to `teams.json.before-drive-set`, and both paths named with the reason crew could not load it, then written new. Where `teams.json.before-drive-set` already exists, both are left and the command refuses, naming both, with nothing written, as crew's module's activation does (`read.4`).
+- **A file that does not load**, for its JSON, its version or any check: moved once to `teams.json.before-drive-set`, and both paths named with the reason crew could not load it, then written new. The move is a hard link to the aside, which fails where the aside is taken, and the new file renamed over the old, so the host is never without a teams file between the two. Where `teams.json.before-drive-set` already exists, both are left and the command refuses, naming both, with nothing written, as crew's module's activation does (`read.4`).
 - **A link**, as crew's module and the fleet's home-manager make it: nothing is written there (`read.4`). The command says the file is a link, naming its target, and that crew's module writes it. Where the linked file loads and names the drive with every fact the flags give, its hosts, console and kept repositories among them, the command goes on to make the state. Otherwise it refuses, naming each key that differs or is missing and `services.crew.settings.drives.<label>`, with nothing made.
 
 Not taken:
