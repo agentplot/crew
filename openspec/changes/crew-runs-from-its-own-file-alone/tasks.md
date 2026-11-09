@@ -24,7 +24,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 - [x] 3.4 A batch row for a report on another host opens it by its path under the home ssh starts in, over the host's `ssh` name (design, Decision 7; Task notes 3.4). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_rail.py'` exits 0.
 - [x] 3.5 A drive's console opens only on a host whose `consoles` names it, in the folder given. A host's follower and `crew go` act on the drives its `consoles` names (design, Decision 6; Task notes 3.5). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py tests/py/test_console.py tests/py/test_hold.py'` exits 0.
 - [x] 3.6 Every other logic case builds its fleet from the teams file's facts, with no hosts file's sessions (Task notes 3.6). Verify `tests/suite logic` ends with "0 failed".
-- [ ] 3.7 The contract cases build their fleets the same way (Task notes 3.7). Verify `tests/suite contract` ends with "0 failed".
+- [x] 3.7 The contract cases build their fleets the same way (Task notes 3.7). Verify `tests/suite contract` ends with "0 failed".
 
 ## 4. The end-to-end tests
 
