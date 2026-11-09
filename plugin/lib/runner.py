@@ -740,32 +740,10 @@ def place_branch(work):
     return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
 
 
-def built_on_bolt(work, s, landings, launched=None):
-    """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
-    work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
-    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read; launched, a fix's
-    launch's Date, UTC ISO 8601 to the second as requests.rec writes it, None for a unit or chore. Once a landing
-    names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
-    of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
-    whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
-    from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
-    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit). A
-    landing made before launched builds nothing: a fix's name is free on its bolt again once its launch is dropped, so
-    such a landing is a dropped launch's of the same name, which a fix launched again under it must not inherit (design
-    of a-bolts-landed-fix-reads-merged, Decision 2); both times compare as text."""
-    landing = (landings or {}).get(place_branch(work) or "")
-    if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
-        return s
-    if launched and landing["at"] < launched:
-        return s
-    kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
-    return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
-
-
 def verification(head, pieces):
     """A bolt's verification (record 0025 point 4, crew record 0056 points 1 and 4; read.1, read.2), from plain facts:
     head, the bolt's head as read where the bolt lives (gather.bolt_read), None where there is none; pieces, its units,
-    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of or built_on_bolt gives it.
+    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of gives it.
     Returns (state, words): "green", naming the head and the work, for the first piece in the order given that reads
     merged or landed with its commit the head, since every piece lands on its bolt through a submission sluice lands
     only on its required checks passing, or beside its queue when none of them reads its changes (teams.5, sluice
@@ -1126,10 +1104,10 @@ def fixes_on(requests, reads, base):
 def fixes_in_flight(fixes, bolt):
     """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}, from facts:
     fixes, each fix whose launch stands on the bolt as (its work, its launch, its stage) as plan.Stages.fixes reads
-    them, from the runner that took it and the bolt's landings (fixes_on, built_on_bolt): each whose place has not
-    merged into the bolt, landed or been dropped, one crew can't read counted in flight (read.1). A fix in flight holds
-    the bolt's landing as today's does (plan.landing_unready, landing_rows); one read merged from its bolt's landing
-    holds it no longer (bolt-plan "A fix read merged from its bolt's landing holds nothing")."""
+    them, from the runner that took it alone (fixes_on): each whose place has not merged into the bolt, landed or been
+    dropped, one crew can't read counted in flight (read.1). A fix in flight holds the bolt's landing as today's does
+    (plan.landing_unready, landing_rows); one the runner reports merged, a record Flume holds for the runner among them,
+    holds it no longer (bolt-plan "A fix the runner reports merged holds nothing")."""
     return {w: l.get("Brief") for w, l, s in fixes
             if w.startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
 
