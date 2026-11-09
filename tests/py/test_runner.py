@@ -969,7 +969,7 @@ class TestLandingOf:
     def test_a_failed_check_is_refused_the_bolts_with_flumes_words(self):
         got = self.of(ran({1: "flume-0.17.0/bolt-failed"}, unplaced={2: "-"}))
         assert got == {"outcome": "refused", "request": 2, "why": "failed", "entry": "412",
-                       "words": "check-full failed: tests:logic 3 failed (tests/py/test_landing.py)"}
+                       "words": "check-full failed: tests:logic 3 failed (tests/py/test_landing.py)", "fix": {"by": "crew"}}
 
     def test_a_conflict_is_refused_naming_the_files_and_mains_revision(self):
         got = self.of(ran({1: "flume-0.17.0/bolt-conflict"}, unplaced={2: "-"}))
@@ -1007,6 +1007,66 @@ class TestLandingOf:
         reading["places"][1]["status"] = status
         got = self.of({"deneb": reading})
         assert got["outcome"] == "refused" and "None" not in repr(got["words"]) and got["words"] == ""
+
+
+class TestLandingFix:
+    """bolt-teams "A bolt's landing fix is read from its base place's status" (crews-bolt-kind-names-its-landing-fix,
+    Decision 3): landing_of gives a bolt's landing with its base place's landing fix as fix, and for a refusal whose
+    its way on is, one case per row of the design's table, on flume 0.19.0's shapes (tests/py/flume-0.19.0/) and flume
+    0.17.0's, which name no fix kind."""
+
+    def of(self, name, lands=1):
+        return TestLandingOf().of(ran({1: name}, unplaced={n: "-" for n in range(2, lands + 2)}), lands=lands)
+
+    def test_a_status_naming_no_fix_kind_leaves_the_way_on_crews(self):
+        got = self.of("flume-0.17.0/bolt-failed")
+        assert (got["outcome"], got["why"], got["fix"]) == ("refused", "failed", {"by": "crew"})
+        assert "fix" not in self.of("flume-0.17.0/bolt-landed") and "fix" not in self.of("flume-0.17.0/bolt-submitted", lands=0)
+        assert runner.landing_fix(None) is None
+        assert runner.landing_fix(runner.flume_facts(json.loads((FLUME_17 / "bolt-failed.json").read_text()), TestLandingOf.PLACE)) is None
+
+    def test_a_conflict_whose_landing_fix_is_live_is_flumes(self):
+        got = self.of("flume-0.19.0/bolt-conflict-fixing")
+        assert (got["outcome"], got["why"], got["main"], got["entry"]) == ("refused", "conflict", MAIN_9F, "412")
+        fix = got["fix"]
+        assert (fix["by"], fix["kind"], fix["limit"], fix["ran"], fix["live"]["name"], fix["named"]["name"]) == (
+            "flume", "flume/fix@1", 3, 1, "y-1", "y-1")
+        assert "due" not in fix and "why" not in fix
+
+    def test_a_failure_with_no_fix_yet_is_flumes_and_due(self):
+        fix = self.of("flume-0.19.0/bolt-failed-fix-due")["fix"]
+        assert (fix["by"], fix.get("due"), fix["ran"], fix["live"]) == ("flume", True, 0, None)
+
+    def test_a_failure_past_the_bound_is_its_callers(self):
+        got = self.of("flume-0.19.0/bolt-failed-spent")
+        fix = got["fix"]
+        assert (got["outcome"], got["entry"], fix["by"], fix["why"], fix["ran"], fix["limit"], fix["live"]) == (
+            "refused", "415", "caller", "spent", 3, 3, None)
+        assert "named" not in fix
+
+    def test_a_fix_dropped_is_its_callers_naming_the_drop(self):
+        fix = self.of("flume-0.19.0/bolt-conflict-dropped")["fix"]
+        assert (fix["by"], fix["why"], fix["named"]["name"], fix["named"]["ended"]) == ("caller", "dropped", "y-1", "dropped")
+
+    def test_a_fix_whose_launch_was_refused_is_its_callers(self):
+        status = status_19("bolt-conflict-dropped")
+        status["status"]["places"][0]["fixes"][0].update(ended="refused", reason="no place could be made")
+        lf = runner.landing_fix(runner.flume_facts(status, Y))
+        fix = runner.landing_way(lf, "412")
+        assert (fix["by"], fix["why"], fix["named"]["reason"]) == ("caller", "refused", "no place could be made")
+
+    def test_a_fix_landed_for_the_refusal_is_flumes(self):
+        fix = self.of("flume-0.19.0/bolt-fixed-landed")["fix"]
+        assert (fix["by"], fix["named"]["name"], fix["named"]["ended"], fix["live"]) == ("flume", "y-1", "landed", None)
+
+    def test_a_forecast_fix_live_with_no_land_posted(self):
+        got = self.of("flume-0.19.0/bolt-forecast-fixing", lands=0)
+        assert got["outcome"] == "none" and got["fix"]["live"]["name"] == "y-1" and got["fix"]["live"]["cause"] == "forecast"
+        assert "by" not in got["fix"]
+
+    def test_a_bound_crew_cant_read_is_its_callers(self):
+        lf = dict(runner.landing_fix(runner.flume_facts(status_19("bolt-failed-fix-due"), Y)), limit=None)
+        assert runner.landing_way(lf, "412")["by"] == "caller"
 
 
 class TestBaseDrop:

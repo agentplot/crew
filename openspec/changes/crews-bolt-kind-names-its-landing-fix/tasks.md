@@ -19,7 +19,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 ## 3. crew reads the landing fix
 
 - [x] 3.1 `runner.flume_facts` reads a base place's fix kind, bound and fixes from Flume 0.19.0's status, guarded, and reads none from Flume 0.17.0's, on new fixtures in `tests/py/flume-0.19.0/` (design Decision 3; Task notes 3.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py'` exits 0.
-- [ ] 3.2 `runner.landing_fix` and `landing_of`'s `fix` say whose a refused landing's way on is: crew's with no fix kind, Flume's while its fix is live, landed or due, and its caller's past the bound or after a fix dropped or not launched (design Decision 3; Task notes 3.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py'` exits 0.
+- [x] 3.2 `runner.landing_fix` and `landing_of`'s `fix` say whose a refused landing's way on is: crew's with no fix kind, Flume's while its fix is live, landed or due, and its caller's past the bound or after a fix dropped or not launched (design Decision 3; Task notes 3.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py'` exits 0.
 
 ## 4. crew acts on it
 

@@ -1241,7 +1241,71 @@ def lands_of(requests, launch):
     return [r for r in requests if r.get("Act") == "land" and n is not None and r.get("Of") == n]
 
 
+def base_facts(launch, reads):
+    """Flume's status of a launch's place as the runner that took it carried it (flume_facts), or None where crew can't
+    read that runner, the launch is not answered launched, or no status of its place is carried."""
+    if launch is None:
+        return None
+    n = number(launch.get("Request"))
+    reading, why = taken(reads, n)
+    answer = reading["answers"].get(n) if reading and not why else None
+    if answer is None or answer.get("Outcome") != "launched":
+        return None
+    place = reading["places"].get(n)
+    return flume_facts(place["status"], place["place"]) if place is not None and not place.get("why") else None
+
+
+def landing_fix(f):
+    """A bolt's landing fix as Flume holds it on its base place (crews-bolt-kind-names-its-landing-fix, Decision 3), from
+    plain facts (code.7): f, Flume's status of the base place (flume_facts). None where f names no fix kind, so Flume
+    launches no fix for the bolt: its Flume predates 0.19.0, or the base place was launched before its host had one.
+    Otherwise {kind, limit, ran, live, fixes}: kind, the identity its fixes run as; limit, how many Flume runs before
+    the base place waits on its caller, None where crew can't read it; ran, every fix Flume listed that crew reads,
+    one whose launch was refused among them; live, the one fix whose end is live, or None; fixes, each as fix_facts
+    gives it."""
+    if not f or not f.get("fix_kind"):
+        return None
+    fixes = list(f.get("fixes") or ())
+    return {"kind": f["fix_kind"], "limit": f.get("fix_limit"), "ran": len(fixes),
+            "live": next((x for x in fixes if x["ended"] == "live"), None), "fixes": fixes}
+
+
+def landing_way(lf, entry):
+    """Whose a refused landing's way on is (crews-bolt-kind-names-its-landing-fix, Decision 3), from plain facts: lf,
+    its base place's landing fix (landing_fix); entry, the merge queue's entry Flume refused. Returns lf with by and
+    what goes with it: crew, where the base place names no fix kind, crew launching the take-main fix for a conflict
+    and ops starting the fix for a failed check, as before; flume, while a fix of Flume's is live, or once the newest
+    fix naming the refused entry has landed, with that fix as named; flume and due, where no fix names it and Flume has
+    run fewer than its bound, so Flume launches it at its next settle; caller, with why, spent where no fix names it
+    and Flume has run its bound or crew can't read the bound, dropped or refused where the newest fix naming it ended
+    so, with that fix as named, the base place then waiting on its caller."""
+    if lf is None:
+        return {"by": "crew"}
+    named = [x for x in lf["fixes"] if entry and x["cause"] in ("failed", "conflicted") and x["submission"] == str(entry)]
+    last = named[-1] if named else None
+    if lf["live"]:
+        return dict(lf, by="flume", **({"named": last} if last else {}))
+    if last and last["ended"] == "landed":
+        return dict(lf, by="flume", named=last)
+    if last:
+        return dict(lf, by="caller", why=last["ended"], named=last)
+    if lf["limit"] is not None and lf["ran"] < lf["limit"]:
+        return dict(lf, by="flume", due=True)
+    return dict(lf, by="caller", why="spent")
+
+
 def landing_of(launch, lands, reads):
+    """A bolt's landing as landing_outcome reads it, with its base place's landing fix (crews-bolt-kind-names-its-
+    landing-fix, Decision 3) as fix wherever Flume's status of the base place names one (landing_fix), and, for a
+    refusal, whose its way on is as fix's by (landing_way), {by: crew} where the status names no fix kind."""
+    l = landing_outcome(launch, lands, reads)
+    lf = landing_fix(base_facts(launch, reads))
+    if l["outcome"] == "refused":
+        return dict(l, fix=landing_way(lf, l.get("entry")))
+    return dict(l, fix=lf) if lf else l
+
+
+def landing_outcome(launch, lands, reads):
     """A bolt's landing, or a fix of main's, as the runner reports it (crew-lands-each-bolt-through-flumes-base-place,
     Decision 6; bolt-teams "A landing's outcome is read from the runner's report"), from plain facts: launch, the
     newest launch not dropped of bolt/<bolt> or fix/main/<kit>/<name> (launch_of); lands, the land requests of it
