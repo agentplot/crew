@@ -11,7 +11,8 @@
 # construct and coder crew's conventions for its changes (docs.6): each task names its check, no proof list, tick a
 # task once its check passes. The README and the opening comment of crew's .config/sluice.toml say crew readies no
 # worktree, sluice equipping a place at Flume's asking, `sluice equip` (Flume's record 0036), and the comment cites no
-# plan.17, which is retired.
+# plan.17, which is retired. README and the skill say a role's run's start takes the ends Flume holds for its role and
+# its end asks the runners to confirm them, and README's requests.rec names a confirm.
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -149,7 +150,11 @@ for doc in usage readme skill; do
     "ended at its next stop" "never restarted"; do has "${!doc}" "$want"; done
 done
 for doc in usage readme; do has "${!doc}" "turns/<role>.md"; done
-ok "the README, the skill and the usage say a partition's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
+for doc in readme skill; do
+  for want in "the ends Flume holds for" "asks the runners to confirm each end"; do has "${!doc}" "$want"; done
+done
+has "$readme" "and a confirm, which a role's run's end appends for each launch whose place's ends its turn took"
+ok "the README, the skill and the usage say a partition's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
 
 # The teams file may name its host's kept repositories (record 0061): README and the skill say what crew names there, and
 # the spaces' folders where it names none.

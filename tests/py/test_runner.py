@@ -94,7 +94,7 @@ class TestRequests:
         assert runner.request_refusal(have, rec(2, "drop", Of=1, Words="Gone.", Stream="madswan")) == (
             "drop 2 for unit/a carries Stream, Words, which a drop does not take")
         assert runner.request_refusal([], rec(1, "reorder")) == (
-            "request 1 is a reorder, and a request is a launch, a retry, a drop, a priority, a land or a preview")
+            "request 1 is a reorder, and a request is a launch, a retry, a drop, a priority, a land, a preview or a confirm")
 
     def test_the_work_is_named_as_crew_names_it(self):
         for work in ("bolt/b", "unit/a", "chore/bump", "fix/b/tidy", "fix/main/crew/red", "role/design/record-0053"):
@@ -193,6 +193,67 @@ class TestBoltRequests:
             "land 3 for bolt/b names request 9, which is no launch: requests.rec does not hold it")
 
 
+KEYS = ["change--a/3f9a61c2/stage/construct/1/delivered", "change--a/3f9a61c2/stage/code/1/delivered"]
+
+
+class TestConfirmRequest:
+    """A confirm asks the runner that holds a launch to confirm to Flume, as a role's address, each end of its place the
+    role's turn took (design Decision 4; drive-state "A launch names everything the runner passes to Flume")."""
+
+    def test_a_confirm_of_a_launch_with_two_deliveries_is_written_in_the_files_order_and_passes(self):
+        """drive-state, A confirm in a turn's end."""
+        have = held(rec(1, "launch"), *[rec(n, "priority", Of=1, Priority=n) for n in range(2, 8)])
+        r = rec(8, "confirm", Of=1, Recipient="madswan/planner", Delivery=KEYS)
+        assert r.fields == [("Request", "8"), ("Act", "confirm"), ("Work", "unit/a"), ("Recipient", "madswan/planner"), ("Of", "1"),
+                            ("Delivery", KEYS[0]), ("Delivery", KEYS[1]), ("Date", AT), ("By", BY)]
+        assert runner.request_refusal(have, r) is None
+        assert runner.request_refusal(have, rec(8, "confirm", Of=1, Recipient="wldn-2/ops", Delivery=KEYS[:1])) is None
+
+    def test_a_confirm_with_no_key_or_no_recipient_is_refused_naming_what_it_lacks(self):
+        """drive-state, A confirm with no key, or for no role."""
+        have = held(rec(1, "launch"))
+        assert runner.request_refusal(have, rec(2, "confirm", Of=1, Recipient="madswan/planner")) == (
+            "confirm 2 for unit/a names no Delivery: a confirm carries Request, Act, Work, Date, By, Of, Recipient, Delivery")
+        assert runner.request_refusal(have, rec(2, "confirm", Of=1, Delivery=KEYS)) == (
+            "confirm 2 for unit/a names no Recipient: a confirm carries Request, Act, Work, Date, By, Of, Recipient, Delivery")
+
+    @pytest.mark.parametrize("recipient", ["madswan/coder", "madswan", "boomdrive", "madswan/planner/x", "Madswan/planner"])
+    def test_a_confirm_for_no_roles_address_is_refused_naming_the_recipient(self, recipient):
+        """drive-state, A confirm with no key, or for no role: madswan/coder is no role of crew's."""
+        assert runner.request_refusal(held(rec(1, "launch")), rec(2, "confirm", Of=1, Recipient=recipient, Delivery=KEYS)) == (
+            f"confirm 2 for unit/a names {recipient} as its recipient, and a confirm is for the address of one of crew's roles, "
+            "<label>/design, planner, reviewer, ops or operator")
+
+    def test_a_confirm_of_no_launch_or_of_another_works_is_refused(self):
+        have = held(rec(1, "launch"), rec(2, "drop", Of=1))
+        assert runner.request_refusal(have, rec(3, "confirm", Of=9, Recipient="madswan/planner", Delivery=KEYS)) == (
+            "confirm 3 for unit/a names request 9, which is no launch: requests.rec does not hold it")
+        assert runner.request_refusal(have, rec(3, "confirm", Of=2, Recipient="madswan/planner", Delivery=KEYS)) == (
+            "confirm 3 for unit/a names request 2, which is no launch")
+        assert runner.request_refusal(have, rec(3, "confirm", "unit/b", Of=1, Recipient="madswan/planner", Delivery=KEYS)) == (
+            "confirm 3 for unit/b names launch 1, which is unit/a's")
+
+    def test_a_confirm_of_a_bolts_base_place_is_bolt_work(self):
+        """drive-state, A bolt's work is its base place's and its preview's: the base place's ends are owed to ops's
+        address as every place crew launches is, so ops's turn confirms them as bolt/<bolt>'s; a preview of it is no launch."""
+        have = held(rec(1, "launch", "bolt/b", **BOLT), rec(2, "preview", "bolt/b", **PREVIEW))
+        assert runner.request_refusal(have, rec(3, "confirm", "bolt/b", Of=1, Recipient="madswan/ops", Delivery=KEYS)) is None
+        assert runner.request_refusal(have, rec(3, "confirm", "bolt/b", Of=2, Recipient="madswan/ops", Delivery=KEYS)) == (
+            "confirm 3 for bolt/b names request 2, which is no launch")
+
+    def test_a_confirm_carrying_what_it_does_not_take_is_refused(self):
+        assert runner.request_refusal(held(rec(1, "launch")), rec(2, "confirm", Of=1, Recipient="madswan/planner", Delivery=KEYS,
+                                                                  Stage="code")) == (
+            "confirm 2 for unit/a carries Stage, which a confirm does not take")
+
+    def test_the_descriptor_takes_a_confirm_and_its_deliveries_after_words(self):
+        lines = runner.REQUESTS.splitlines()
+        allowed = next(l for l in lines if l.startswith("%allowed:")).split()[1:]
+        assert allowed[allowed.index("Words") + 1] == "Delivery" and allowed == list(runner.FIELDS)
+        assert next(l for l in lines if l.startswith("%type: Act enum")).split()[-1] == "confirm"
+        assert "or a confirm, as the role whose address is Recipient, of each Delivery" in next(l for l in lines if l.startswith("%doc:"))
+
+
 PREVIEW = dict(Host="deneb", Repo="crew", Branch="bolt/y", Revision="abc1234" + "0" * 33)
 
 
@@ -259,7 +320,7 @@ class TestPreviewRequest:
 
     def test_the_descriptor_takes_a_preview_last_its_done_and_its_fields_after_base(self):
         lines = runner.REQUESTS.splitlines()
-        assert "%type: Act enum launch retry drop priority land preview" in lines
+        assert "%type: Act enum launch retry drop priority land preview confirm" in lines
         assert lines[lines.index("%type: Submission bool") + 1] == "%type: Done bool"
         allowed = next(l for l in lines if l.startswith("%allowed:")).split()[1:]
         assert allowed[allowed.index("Base") + 1:allowed.index("Base") + 4] == ["Branch", "Revision", "Done"]
