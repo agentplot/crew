@@ -36,14 +36,14 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 - [x] 4.6 `t-journey-main` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-main` ends with "0 failed".
 - [x] 4.7 `t-briefs` expects each role's account as the drive's `accounts` gives it (Task notes 4.2–4.23). Verify `tests/suite t-briefs` ends with "0 failed".
 - [x] 4.8 `t-roles` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-roles` ends with "0 failed".
-- [ ] 4.9 `t-journey-cross` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-cross` ends with "0 failed".
-- [ ] 4.10 `t-flume-source` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-flume-source` ends with "0 failed".
-- [ ] 4.11 `t-help` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-help` ends with "0 failed".
-- [ ] 4.12 `t-journey-land` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-land` ends with "0 failed".
-- [ ] 4.13 `t-journey-ops` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-ops` ends with "0 failed".
-- [ ] 4.14 `t-journey-state` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-state` ends with "0 failed".
-- [ ] 4.15 `t-journey-signals` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-signals` ends with "0 failed".
-- [ ] 4.16 `t-journey-roles` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-roles` ends with "0 failed".
+- [x] 4.9 `t-journey-cross` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-cross` ends with "0 failed".
+- [x] 4.10 `t-flume-source` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-flume-source` ends with "0 failed".
+- [x] 4.11 `t-help` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-help` ends with "0 failed".
+- [x] 4.12 `t-journey-land` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-land` ends with "0 failed".
+- [x] 4.13 `t-journey-ops` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-ops` ends with "0 failed".
+- [x] 4.14 `t-journey-state` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-state` ends with "0 failed".
+- [x] 4.15 `t-journey-signals` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-signals` ends with "0 failed".
+- [x] 4.16 `t-journey-roles` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-roles` ends with "0 failed".
 - [ ] 4.17 `t-journey-main-fix` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-main-fix` ends with "0 failed".
 - [ ] 4.18 `t-session-hook` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-session-hook` ends with "0 failed".
 - [ ] 4.19 `t-cards` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-cards` ends with "0 failed".
