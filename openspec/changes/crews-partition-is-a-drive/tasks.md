@@ -12,7 +12,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 - [x] 2.1 Every function, constant, method and test of crew's named for a partition is named for a drive, with every caller, and no `.partition(` call is touched (design, Decision 5; Task notes 2.1). Verify `tests/suite logic` ends with "0 failed".
 - [x] 2.2 A board word on a drive is on the item kind `drive`, and a word naming no drive is refused naming the drives (design, Decision 5; Task notes 2.2). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board_word.py'` exits 0.
-- [ ] 2.3 The page and the fleet page carry their drives as `drives`, the page's header placeholder is `{{DRIVES}}`, the fleet page names each drive by its label, and `crew sites --json` lists `drives` (design, Decisions 3 and 5; Task notes 2.3). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_page.py tests/py/test_fleet.py'` exits 0.
+- [x] 2.3 The page and the fleet page carry their drives as `drives`, the page's header placeholder is `{{DRIVES}}`, the fleet page names each drive by its label, and `crew sites --json` lists `drives` (design, Decisions 3 and 5; Task notes 2.3). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_page.py tests/py/test_fleet.py'` exits 0.
 
 ## 3. crew's words
 

@@ -141,6 +141,15 @@ class TestFile:
             '<a class="part fleet" href="../page.html" title="every drive">fleet</a>'
             '<span class="part" aria-current="page">wldn</span><a class="part" href="../madswan/page.html">madswan</a>')
 
+    def test_the_header_draws_the_pages_drives_in_its_drives_placeholder(self):
+        """board-page "Three drives": the template's header is <!--{{DRIVES}}-->, labelled Drives, filled from the page's
+        `drives` with the page's own label current."""
+        assert page.DRIVES == "<!--{{DRIVES}}-->" and page.TEMPLATE.read_text().count(page.DRIVES) == 1
+        assert '<nav class="parts" aria-label="Drives"><!--{{DRIVES}}--></nav>' in page.TEMPLATE.read_text()
+        out = page.render({"drives": ["wldn", "madswan"], "label": "wldn"}, PurePath("/s/wldn/page.html"))
+        assert ('<nav class="parts" aria-label="Drives"><a class="part fleet" href="../page.html" title="every drive">fleet</a>'
+                '<span class="part" aria-current="page">wldn</span><a class="part" href="../madswan/page.html">madswan</a></nav>') in out
+
     def test_a_page_named_for_its_drive_links_the_others_beside_it_as_they_are_served(self):
         """board-page "Pages written side by side as they are served": <label>.html links <other>.html, and the fleet
         page as index.html beside it."""

@@ -103,6 +103,11 @@ class TestWhereItRuns:
         assert of(d, "madswan")["unread"] == {"the plan of madswan": "fetch failed: timed out"} and of(d, "wldn")["unread"] == {}
         b = dict(BOARD, drives=[part("wldn", {"chuck-herdr-alpha": True}, plan=None)], unread={})
         assert of(fleet(b), "wldn")["commit"] == "wldn/main not started"
+        # Each drive is named by its label alone (main-level "Drives are declared in the teams file"): no grouping of a
+        # session's is carried, and the page's block draws the label, its plan's commit and its cards.
+        assert all("partition" not in p for p in d["drives"]) and of(d, "madswan")["label"] == "madswan"
+        script = page.FLEET.read_text()
+        assert 'h2.append(link(p.link, "pt-name", p.label));' in script and "pt-of" not in script
 
     def test_a_host_that_did_not_answer_is_named_with_its_why_and_the_rest_shown(self):
         """fleet-page "A host that does not answer"."""
