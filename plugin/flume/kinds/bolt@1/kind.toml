@@ -1,0 +1,8 @@
+# crew's bolt as a Flume base place, naming its landing fix (record 0056; crew-lands-each-bolt-through-flumes-base-place, Decision 2; crews-bolt-kind-names-its-landing-fix, Decision 2).
+[kinds.bolt]
+version = 1
+branch = "bolt"
+lands = true
+stages = []
+landing_fix = "flume/fix@1"
+max_landing_fixes = 3

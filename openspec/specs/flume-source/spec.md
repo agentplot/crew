@@ -88,9 +88,43 @@ When crew cannot read the teams file, it SHALL leave the roles file as it is and
 - **WHEN** the teams file is rewritten at version 4, and the follower runs
 - **THEN** the roles file is left as it was, and the follower says why it could not read the teams file, naming it
 
-### Requirement: crew's kinds folder exists and holds nothing yet
-Wherever crew writes a roles file with an entry, it SHALL make the folder `~/.local/share/flume/kinds/crew` when it is missing, and SHALL put nothing in it.
+### Requirement: crew's kinds folder holds its bolt kind
+Wherever crew writes a roles file with an entry, it SHALL make the folder `~/.local/share/flume/kinds/crew` when it is missing, and keep in it crew's one kind package, `bolt@1/kind.toml`, byte for byte as crew ships it in `plugin/flume/kinds/bolt@1/kind.toml`, and nothing else (record 0056). Where it writes the roles file with no entry, it SHALL make no folder and write no package.
 
-#### Scenario: The folder beside the file
+#### Scenario: The package beside the file
 - **WHEN** crew's follower first writes the roles file on mac-studio
-- **THEN** `~/.local/share/flume/kinds/crew` exists there and is empty
+- **THEN** `~/.local/share/flume/kinds/crew/bolt@1/kind.toml` holds crew's bolt kind byte for byte, and the folder holds nothing else
+
+#### Scenario: A main level started
+- **WHEN** `crew main up wldn` starts wldn's main level on chuck-herdr-alpha
+- **THEN** chuck-herdr-alpha's kinds folder holds `bolt@1/kind.toml`
+
+#### Scenario: A host with no main level
+- **WHEN** crew writes the roles file on a host that is no partition's machine, where no kinds folder is
+- **THEN** no kinds folder is made and no package is written
+
+### Requirement: crew's bolt kind is a base place, and a version of it never changes
+The package SHALL declare the kind `bolt` at version 1, its places' branches `bolt/<bolt>`, that lands with no stages, so a launch naming `crew/bolt` is a bolt's base place. It SHALL name its landing fix, the kind Flume runs when the merge queue sends the bolt's branch back or forecasts it in conflict with main, as `landing_fix = "flume/fix@1"`, Flume's own fix kind by its whole identity with its version, and the most landing fixes Flume runs before the base place waits on its caller as `max_landing_fixes = 3` (weir record 0005; flume record 0056). A version's bytes SHALL never change once released: a change to the kind is a new version beside it.
+
+#### Scenario: The package's bytes
+- **WHEN** `plugin/flume/kinds/bolt@1/kind.toml` is read
+- **THEN** its one table is `kinds.bolt`, with `version = 1`, `branch = "bolt"`, `lands = true`, `stages = []`, `landing_fix = "flume/fix@1"` and `max_landing_fixes = 3` and no other key, and its bytes are those crew's logic case pins
+
+#### Scenario: The landing fix is named by identity
+- **WHEN** the package's `landing_fix` is read
+- **THEN** it names a source, a kind and a version, `flume`, `fix` and `1`, and `max_landing_fixes` is a positive count
+
+### Requirement: The package is written whole and renamed over the old one, only when it differs
+crew SHALL write the package whole to a new file beside it and rename it over the old one, never editing it in place, and only when its bytes differ from the file's. It SHALL run no `flume` command for it and lock no kind: the lock of `crew/bolt@1` is the host's.
+
+#### Scenario: Nothing moved
+- **WHEN** crew's follower runs again on mac-studio with the package in the kinds folder as crew ships it
+- **THEN** the package is not written, and its modification time is as it was
+
+#### Scenario: Renamed over
+- **WHEN** a second link is kept to the package in the kinds folder, its bytes differ from crew's, and the follower runs again
+- **THEN** the package holds crew's bytes, and the old link still holds the file as it was
+
+#### Scenario: No flume command
+- **WHEN** crew's follower writes the package on mac-studio
+- **THEN** no `flume` command runs, and no lock file of the host's is written

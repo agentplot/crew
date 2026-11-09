@@ -39,7 +39,9 @@ class TestLandingPhase:
 
     def test_landed_stopped_or_never_submitted_holds_no_state(self):
         assert plan.landing_phase(AGAIN + [submit(Outcome="landed", Submission="415", Head=H2)], "x") is None
-        assert plan.landing_phase(QUEUED + [submit(Outcome="stopped", Submission="412", Head=H1, Why="sluice itself failed")], "x") is None
+        assert plan.landing_phase(QUEUED + [submit(Outcome="stopped", Submission="412", Head=H1, Why="sluice itself failed")], "x") == dict(
+            state="stopped", n=None, head=H1, words="sluice itself failed")  # holding nothing (landing_hold)
+        assert plan.landing_hold(dict(state="stopped", n=None, head=H1, words="x"), "x", "unit a") is None
         assert plan.landing_phase([], "x") is None
         assert plan.landing_phase(QUEUED, "y") is None
 

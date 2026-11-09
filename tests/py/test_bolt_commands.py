@@ -1,15 +1,16 @@
 """crew bolt new|order|drop|start on the plan (bolt-plan spec): each applied to a plan in memory, with the stages a drop
 reads given; when a bolt lands (plan.land_refusal), started or not (plan.unheld_stages, plan.unheld_refusal,
-plan.main_kit); and what a start checks and says around sluice's create of the bolt's branch (plan.main_kit,
-plan.start_check, plan.give_check, plan.made_said, plan.started_said, plan.unstarted_said). The branch a start makes
-and land removes, and the commits every write makes, are the journey's (t-journey-units and t-journey-land)."""
+plan.main_kit); and what a start appends, its base place's launch and then its pieces', reading no host
+(crew-lands-each-bolt-through-flumes-base-place, Decision 3). The commits every write makes are the journey's
+(t-journey-units and t-journey-land)."""
 import base64
 import pathlib
 
 import pytest
-from facts import FLEET, FactsWrite, apply, keeping, known, plan_text, units_of
+from facts import FLEET, FactsWrite, apply, keeping, known, plan_text, ran, units_of
 
 import plan
+import runner
 
 KIT, BOARD = "switchboard-kit", "breadboard-kit"
 
@@ -73,241 +74,98 @@ class TestDrop:
         assert units_of(w, repo=KIT) == ["a-console-page", "a-console-filter"]
         assert w.plan.unit("a-console-filter").all("After") == []
 
-RECORDED = pathlib.Path(__file__).parent / "sluice-0.36.4"
 WHERE = "/kit/main/.config/sluice.toml"
 POLICY = '[branches."bolt/*"]\nrequired = ["#check-full"]\nremote = "origin"\n'
 
 
-def recorded(name):
-    """What sluice 0.36.4 printed for a branch command, and its exit, as the folder's README lists them."""
-    codes = dict(l.split("\t")[:2] for l in (RECORDED / "README").read_text().splitlines() if "\texit " in l)
-    return (RECORDED / name).read_text(), int(codes[name].split()[1])
-
-
-def deleted(name, policy=POLICY):
-    """What BOLT_DELETE prints when sluice says what it recorded: a bolt on GitHub, or on the host for a policy naming
-    no remote, its own branch at aaaaaaa."""
-    out, code = recorded(name)
-    return (f"LOCAL={'a' * 40}\nTRACKED={'a' * 40}\nAT_LOCAL={base64.b64encode(policy.encode()).decode()}\nAT_TRACKED=-\n"
-            f"RC={code}\nSAID={base64.b64encode(out.encode()).decode()}\n")
-
-
-class TestDropDeletes:
-    """bolt-plan "A bolt is created, dropped and landed through crew" (plan.19, record 0003): a drop of a started bolt
-    has sluice delete its branch, asked on its kit's host; what is said of it
-    (plan.dropped_said). That it is marked dropped and recorded once is the journey's (t-journey-land)."""
-    HOST = "chuck-herdr-alpha"
-    KEPT = "it is the drop's unmerged work, the user's to keep or delete, and crew asks sluice again once main holds its tip"
-
-    def said(self, name, policy=POLICY, again=False):
-        return plan.dropped_said("b", self.HOST, 0, deleted(name, policy), "", again)
-
-    def test_a_dropped_bolt_whose_tip_main_holds_is_deleted_from_github(self):
-        """bolt-plan "Dropping a bolt in flight"."""
-        assert self.said("delete.json") == "sluice deleted bolt/b from GitHub at 22eef85"
-
-    def test_a_dropped_bolt_made_before_is_deleted_from_its_host(self):
-        assert self.said("delete.json", '[branches."bolt/*"]\nrequired = ["#check-full"]\n') == (
-            "sluice deleted bolt/b from chuck-herdr-alpha at 22eef85")
-
-    def test_a_branch_already_gone_refuses_nothing(self):
-        assert self.said("delete-not-found.json") == "bolt/b is gone already: no branch bolt/b"
-
-    def test_a_dropped_bolt_holding_work_main_lacks_is_kept_and_named_as_the_users(self):
-        """bolt-plan "A dropped bolt holds work main lacks"."""
-        assert self.said("delete-not-landed.json") == (
-            "bolt/b is kept on GitHub at aaaaaaa: bolt b was dropped, and sluice did not delete it: bolt/b at "
-            f"22eef8585855b2ef8feb0e08177e34d15f131182 has not landed into main; submit it there first; {self.KEPT}")
-        assert self.said("delete-not-landed.json", '[branches."bolt/*"]\nrequired = ["#check-full"]\n').startswith(
-            "bolt/b is kept on chuck-herdr-alpha at aaaaaaa: bolt b was dropped")
-
-    def test_one_with_a_submission_queued_is_kept_in_sluices_words(self):
-        assert self.said("delete-queued.json") == (
-            "bolt/b is kept on GitHub at aaaaaaa: bolt b was dropped, and sluice did not delete it: #1 still queued on "
-            f"bolt/b; wait for them to land, or withdraw them; {self.KEPT}")
-
-    def test_a_host_that_does_not_answer_names_the_command_for_the_next_read(self):
-        """bolt-plan "The drop's host does not answer"."""
-        assert plan.dropped_said("b", self.HOST, 255, "", "ssh: connect to host") == (
-            "chuck-herdr-alpha did not answer, so sluice was not asked to delete bolt/b: sluice branch delete bolt/b "
-            "--into main there; the kit's next read asks it")
-
-    def test_words_crew_cannot_read_leave_it_to_the_next_read(self):
-        """read.2: what is not sluice's document decides nothing."""
-        assert plan.dropped_said("b", self.HOST, 0, deleted("delete.json").replace("RC=0", "RC=x"), "").startswith(
-            "bolt/b may still stand on GitHub: crew can't read what sluice's branch delete said from:")
-        assert plan.dropped_said("b", self.HOST, 0, deleted("delete.json").replace("RC=0", "RC=x"), "").endswith(
-            "; the kit's next read asks sluice again")
-
-    def test_asked_again_once_main_holds_its_tip(self):
-        """bolt-plan "Main comes to hold a dropped bolt's work"."""
-        assert self.said("delete.json", again=True) == (
-            "bolt/b is removed: main now holds bolt b's tip, and sluice deleted it from GitHub at 22eef85")
-        assert self.said("delete-queued.json", again=True) == (
-            "bolt/b is still kept: #1 still queued on bolt/b; wait for them to land, or withdraw them")
-
-
 class TestStart:
-    """bolt-plan "A bolt's work starts by crew bolt start" (Decision 14 of the-team-machinery-leaves; plan.19): the start
-    makes the bolt's branch in the checkout its partition's main-level host keeps of its kit (plan.main_kit; the user's
-    ruling of 2026-11-01), since no runner has taken any of its work yet, and is refused, with the plan unchanged and no
-    branch made, for a bolt started already, a kit that host keeps no checkout of, a held host, or a partition no runner
-    answers for (plan.start_check), before the kit's policy and sluice are read. Its launches are the cross tests'
-    (test_cross.py); its commit and branch the cross journey's (t-journey-cross)."""
+    """bolt-plan "A bolt's work starts by crew bolt start" and bolt-teams "A start launches the bolt's base place before
+    its pieces" (crew-lands-each-bolt-through-flumes-base-place, Decision 3): one plan write marks the bolt Path: flume
+    and appends its base place's launch and then its pieces', reading no host and making no branch; refused, the plan
+    unchanged and nothing requested, while no runner answers for the partition, and for a bolt started already, but one
+    whose own launch the runner refused, which it launches anew (runner.restart). Its pieces' launches are the cross
+    tests' (test_cross.py); its commit the cross journey's (t-journey-cross)."""
     HOST = "mac-studio"
 
-    @pytest.fixture
-    def reads(self, monkeypatch):
-        """What start_check reads, each answered as the case sets it (self.held, self.tips, self.policy), every read
-        recorded in order."""
+    @pytest.fixture(autouse=True)
+    def no_host(self, monkeypatch):
+        """Every host read refused: a start reads none (drive-state "What comes before a runner takes a kit's work is
+        done on the main-level host")."""
         import crew
-        self.read, self.held, self.tips = [], None, {self.HOST: "a" * 40}
-        self.policy = (POLICY, "origin/main", "c" * 40, "sluice 0.36.4")
-        monkeypatch.setattr(crew, "held_on", lambda fleet, host: self.read.append(("hold", host)) or self.held)
-        monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
-        monkeypatch.setattr(plan, "runner_tips", lambda repo, label: self.read.append(("runners", repo, label)) or self.tips)
-        monkeypatch.setattr(plan, "kit_policy", lambda fleet, t: self.read.append(("policy", t["kit"]["main"])) or self.policy)
 
-    def checked(self, fleet=None):
-        fleet = fleet or FLEET
-        return plan.start_check(fleet, "wldn", plan.main_kit(fleet, "wldn", KIT), "b")
+        def refused(*a, **k):
+            raise AssertionError("a start reads no host")
+        monkeypatch.setenv("CREW_AGENT", "chuck")
+        monkeypatch.setattr(crew, "on_machine", refused)
+        monkeypatch.setattr(plan, "host_run", refused)
 
-    def test_a_bolts_branch_is_made_in_the_checkout_the_main_level_host_keeps_of_its_kit(self):
-        assert [(t["label"], t["machine"], t["stream"], t["kit"]) for t in (plan.main_kit(FLEET, "wldn", k) for k in (KIT, f"WilldanGroup/{BOARD}"))] == [
-            ("wldn", self.HOST, None, {"name": KIT, "repo": f"WilldanGroup/{KIT}", "dir": f"/w/{KIT}", "main": f"/w/{KIT}/main"}),
-            ("wldn", self.HOST, None, {"name": BOARD, "repo": f"WilldanGroup/{BOARD}", "dir": f"/w/{BOARD}", "main": f"/w/{BOARD}/main"})]
-        assert plan.main_kit(FLEET, "wldn", "rocs-kit") is None and plan.main_kit(FLEET, "wldn", f"agentplot/{KIT}") is None
-        two = dict(FLEET, hosts={self.HOST: keeping("/w", f"WilldanGroup/{KIT}", f"agentplot/{KIT}")})
-        assert plan.main_kit(two, "wldn", f"agentplot/{KIT}")["kit"]["main"] == f"/w/{KIT}/main"
-        with pytest.raises(plan.Refusal, match=f"^{self.HOST}'s spaces keep WilldanGroup/{KIT} and agentplot/{KIT} by the name {KIT}, "
-                                               "so crew can't tell which is meant$"):
-            plan.main_kit(two, "wldn", KIT)
-
-    def test_a_bolt_started_already_is_refused(self):
-        assert refusal(fresh(), "bolt start tenant-environments") == "bolt tenant-environments is started already"
-
-    def test_a_kit_the_main_level_host_keeps_no_checkout_of_is_refused_naming_it(self):
+    def write(self, requests="", refused=None, launched=None, held=()):
+        """wldn's plan of fresh() with requests.rec holding requests (records' text), and its runner on deneb answering
+        each request in refused, launched and held as facts.ran does."""
         w = fresh()
+        w.files["requests.rec"] = runner.REQUESTS + requests
+        reads = ran(label="wldn", refused=refused, held=held) if launched is None else ran(label="wldn", launched=launched, refused=refused, held=held)
+        return FactsWrite(w.plan.text(), files=w.files, runners=reads)
+
+    def requests(self, w):
+        return [(r.get("Request"), r.get("Act"), r.get("Work"), r.get("Base"), r.get("Of"), r.get("Kind"))
+                for r in plan.Plan(w.files["requests.rec"]).recs("Request")]
+
+    def test_a_start_launches_the_base_place_then_its_pieces_in_one_write_reading_no_host(self):
+        w = self.write()
+        run(w, "bolt start console-pages")
+        assert plan.started(w.plan.bolt("console-pages"))
+        assert self.requests(w) == [
+            ("1", "launch", "bolt/console-pages", "main", None, "crew/bolt"),
+            ("2", "launch", "unit/a-console-page", "bolt/console-pages", None, "change"),
+            ("3", "launch", "unit/a-console-filter", "bolt/console-pages", None, "change")]
+        bolt, = [r for r in plan.Plan(w.files["requests.rec"]).recs("Request") if r.get("Work") == "bolt/console-pages"]
+        assert (bolt.get("Name"), bolt.get("Repo"), bolt.get("Intent"), bolt.get("Recipient"), bolt.get("Brief"), bolt.all("After")) == (
+            "console-pages", KIT, "wldn/console-pages", "wldn/ops", None, [])
+
+    def test_a_start_where_the_main_level_host_keeps_no_checkout_of_the_kit_goes_on(self):
+        w = self.write()
         fleet = dict(FLEET, hosts={self.HOST: keeping("/w", f"WilldanGroup/{BOARD}")})
+        apply(w, "bolt start console-pages", ctx=known(w, fleet=fleet))
+        assert [r[2] for r in self.requests(w)] == ["bolt/console-pages", "unit/a-console-page", "unit/a-console-filter"]
+
+    def test_a_partition_no_runner_answers_for_is_refused_and_nothing_is_requested(self):
+        w = fresh()
         with pytest.raises(plan.Refusal) as e:
-            apply(w, "bolt start console-pages", ctx=known(w, fleet=fleet))
-        assert str(e.value) == (f"wldn's main level runs on {self.HOST}, and no space there keeps {KIT}, so crew can't make bolt/console-pages"
-                                f"; if it was renamed on its host, crew kit rename {KIT} <new> names it so in the plan")
-        assert not plan.started(w.plan.bolt("console-pages"))
+            run(w, "bolt start console-pages")
+        assert str(e.value).startswith("no runner answers for wldn: its state repository holds no wldn/runner/<host>")
+        assert not plan.started(w.plan.bolt("console-pages")) and "requests.rec" not in w.files
 
-    def test_a_held_host_is_refused_before_anything_else_is_read(self, reads):
-        self.held = {"by": "chuck", "why": "upgrading herdr", "at": "2026-10-31T10:00:00Z"}
-        with pytest.raises(plan.Refusal) as e:
-            self.checked()
-        assert str(e.value) == (f"{self.HOST} is held by chuck since 2026-10-31T10:00:00Z: upgrading herdr. crew starts no agent there "
-                                f"until crew go {self.HOST}")
-        assert self.read == [("hold", self.HOST)]
+    def test_a_bolt_started_before_bolts_were_base_places_is_refused_as_started_already(self):
+        w = self.write()
+        assert refusal(w, "bolt start tenant-environments") == (
+            "bolt tenant-environments is started already, before bolts were base places, and lands under the crew that started it")
+        assert self.requests(w) == []
 
-    def test_a_partition_no_runner_answers_for_is_refused_before_the_kit_is_read(self, reads):
-        self.tips = {}
-        with pytest.raises(plan.Refusal) as e:
-            self.checked()
-        assert str(e.value).startswith("no runner answers for wldn: its state repository holds no wldn/runner/<host>, so nothing "
-                                       "would take the bolt's work")
-        assert self.read == [("hold", self.HOST), ("runners", "WilldanGroup/crew-state", "wldn")]
+    BOLT = "\nRequest: 1\nAct: launch\nWork: bolt/console-pages\nRepo: switchboard-kit\nKind: crew/bolt\nName: console-pages\nBase: main\nPriority: 2\nIntent: wldn/console-pages\nRecipient: wldn/ops\nDate: 2026-11-08T12:00:00Z\nBy: chuck\n"
+    PIECE = "\nRequest: 2\nAct: launch\nWork: unit/a-console-page\nRepo: switchboard-kit\nKind: change\nName: a-console-page\nBase: bolt/console-pages\nPriority: 2\nIntent: wldn/console-pages\nRecipient: wldn/planner\nBrief: Unit a-console-page.\nDate: 2026-11-08T12:00:00Z\nBy: chuck\n"
 
-    def test_a_free_host_with_its_runner_answering_has_the_kits_policy_and_sluice_checked(self, reads):
-        assert self.checked() == "origin"
-        assert self.read[-1] == ("policy", f"/w/{KIT}/main")
-        self.policy = ('[branches."bolt/*"]\nrequired = ["#check-full"]\n', "origin/main", "c" * 40, "sluice 0.36.4")
-        with pytest.raises(plan.Refusal, match=f"^{KIT} starts bolts only on GitHub"):
-            self.checked()
+    def started_write(self, **answers):
+        w = self.write(self.BOLT + self.PIECE, **answers)
+        w.plan.bolt("console-pages").set("Path", "flume")
+        return w
 
+    def test_started_again_after_the_runner_refused_its_launch_it_drops_its_unlaunched_pieces_and_launches_anew(self):
+        """bolt-teams "Started again": one write appends a drop of a's launch, then a launch of bolt/x and a launch of a
+        after it, and a-console-filter, never launched, after them."""
+        w = self.started_write(refused={1: "flume refused the launch: crew/bolt@1 is not locked on deneb"})
+        run(w, "bolt start console-pages")
+        assert self.requests(w)[2:] == [
+            ("3", "drop", "unit/a-console-page", None, "2", None),
+            ("4", "launch", "bolt/console-pages", "main", None, "crew/bolt"),
+            ("5", "launch", "unit/a-console-page", "bolt/console-pages", None, "change"),
+            ("6", "launch", "unit/a-console-filter", "bolt/console-pages", None, "change")]
 
-class TestStartThroughSluice:
-    """bolt-plan "A bolt's work starts by crew bolt start" (plan.19): what a start checks of the kit before sluice makes
-    the branch, every refusal coming before the plan write, so the plan is unchanged and no branch made; what sluice's
-    create says; and a write refused after it, which has sluice delete the branch again."""
-
-    def check(self, text=POLICY, version="sluice 0.36.4 "):
-        return plan.give_check(KIT, WHERE, "origin/main", text, "b", version, "chuck-herdr-alpha")
-
-    def test_a_kit_on_github_with_a_sluice_that_makes_branches_starts_on_its_remote(self):
-        assert self.check() == "origin"
-
-    def test_a_kit_whose_bolts_have_no_remote_is_refused_naming_the_file_and_the_key(self):
-        with pytest.raises(plan.Refusal) as e:
-            self.check('[branches."bolt/*"]\nrequired = ["#check-full"]\n')
-        assert str(e.value).startswith(f"{KIT} starts bolts only on GitHub, and its {WHERE} on origin/main names no remote")
-
-    def test_a_kit_with_no_bolt_checks_is_refused_first(self):
-        with pytest.raises(plan.Refusal, match="names no checks for its bolt branches"):
-            self.check('[branches."bolt/*"]\nremote = "origin"\n')
-
-    @pytest.mark.parametrize("version, said", [("sluice 0.18.0 ", "sluice 0.18.0"), ("", "nothing")])
-    def test_a_host_whose_sluice_is_older_or_unread_is_refused(self, version, said):
-        with pytest.raises(plan.Refusal) as e:
-            self.check(version=version)
-        assert str(e.value) == ("a bolt is started through sluice 0.20.0 or later, which has `branch create`, and sluice "
-                                f"--version on chuck-herdr-alpha said: {said}")
-
-    MADE = "c0da39bae0a5d89da0febc3f46f58607c2ad08a7"
-    OWN = "22eef8585855b2ef8feb0e08177e34d15f131182"
-    PRESENT = f"sluice did not make bolt/b for {KIT} on chuck-herdr-alpha: bolt/b is already there, at {MADE}"
-
-    def made(self, name="create-present.json", **found):
-        return plan.made_said("b", KIT, "chuck-herdr-alpha", *recorded(name), found and {"read": None, **found}, "origin")
-
-    def refused(self, **found):
-        with pytest.raises(plan.Refusal) as e:
-            self.made(**found)
-        return str(e.value)
-
-    def test_sluices_create_is_the_commit_it_made_the_branch_at(self):
-        assert self.made("create.json") == (self.MADE, False)
-
-    def test_a_create_sluice_refuses_is_refused_in_its_words(self):
-        assert self.refused() == self.PRESENT
-
-    @pytest.mark.parametrize("own", [MADE, None])
-    def test_a_branch_a_start_left_at_mains_tip_with_no_commit_of_its_own_is_taken_and_the_start_goes_on(self, own):
-        """A start that failed after sluice made the branch leaves it on GitHub at main's tip, and the host's own copy
-        there too or none: the start run again takes it rather than refuse it as already there."""
-        assert self.made(own=own, there=self.MADE, main=self.MADE) == (self.MADE, True)
-
-    def test_a_branch_with_commits_of_its_own_is_still_refused_by_name(self):
-        assert self.refused(own=self.OWN, there=self.OWN, main=self.MADE) == (
-            f"{self.PRESENT}; bolt/b on origin is at 22eef85 and origin's main at c0da39b, so it is no branch a start left "
-            "empty at main, and crew starts no bolt onto it")
-
-    def test_a_branch_whose_hosts_copy_stands_elsewhere_is_refused_by_name(self):
-        assert self.refused(own=self.OWN, there=self.MADE, main=self.MADE) == (
-            f"{self.PRESENT}; chuck-herdr-alpha's own bolt/b is at 22eef85, not at origin's c0da39b, and crew starts no "
-            "bolt onto it")
-        assert self.refused(own=self.OWN, there=None, main=self.MADE) == (
-            f"{self.PRESENT}; chuck-herdr-alpha's own bolt/b is at 22eef85 and origin has none, and crew starts no bolt "
-            "onto it")
-
-    def test_a_branch_crew_cannot_read_on_its_remote_is_refused_with_gits_words(self):
-        assert self.refused(read="fatal: could not read from remote repository") == (
-            f"{self.PRESENT}; and crew could not read bolt/b on origin: fatal: could not read from remote repository")
-
-    def test_a_refusal_that_finds_no_branch_is_sluices_words_alone(self):
-        assert self.refused(own=None, there=None, main=self.MADE) == self.PRESENT
-
-    def test_a_start_names_github_the_commit_and_the_kits_host(self):
-        assert plan.started_said("b", KIT, "origin", self.MADE, "chuck-herdr-alpha") == (
-            f"b is started: sluice made bolt/b on GitHub (origin) from {KIT}'s main at c0da39b, built on chuck-herdr-alpha "
-            "and merged into only through sluice")
-
-    def test_a_start_that_took_the_branch_says_so(self):
-        assert plan.started_said("b", KIT, "origin", self.MADE, "chuck-herdr-alpha", adopted=True) == (
-            "b is started: crew took bolt/b, which sluice made on GitHub (origin) for a start that did not finish, at "
-            f"{KIT}'s main c0da39b, built on chuck-herdr-alpha and merged into only through sluice")
-
-    def test_a_write_refused_after_the_create_has_sluice_delete_the_branch_again(self):
-        assert plan.unstarted_said("b", deleted("delete.json"), 0) == "sluice deleted bolt/b again, so nothing of the start is left"
-
-    def test_a_delete_sluice_refuses_then_names_the_branch_left_standing(self):
-        assert plan.unstarted_said("b", deleted("delete-queued.json"), 0) == (
-            "bolt/b, which sluice made for the start, still stands, since sluice did not delete it: #1 still queued on "
-            "bolt/b; wait for them to land, or withdraw them")
-        assert plan.unstarted_said("b", "", 255).endswith("since sluice did not delete it: its delete exited 255: nothing was said")
+    @pytest.mark.parametrize("answers", [{}, {"held": (1,)}, {"launched": {1: "flume-0.17.0/bolt-submitted"}}])
+    def test_a_bolt_whose_launch_is_unanswered_held_or_launched_is_refused_as_started_already(self, answers):
+        w = self.started_write(**answers)
+        assert refusal(w, "bolt start console-pages") == "bolt console-pages is started already"
+        assert len(self.requests(w)) == 2
 
 
 class TestLand:
@@ -519,6 +377,25 @@ class TestCrewBoltsCrossed:
                                                                                            ("b", "waiting", None, None)]
         assert x["units"][1]["flume"] == {"stage": "waiting", "after": ["unit/a"]}
 
+    def test_crew_bolts_says_a_landing_the_runner_reports_and_writes_nothing(self, monkeypatch):
+        """bolt-teams "crew bolts reads it" (state.4): x's land posted, the runner's report has its base place landed at
+        a7c3e9f and no read has recorded it; crew bolts says x landed at that commit and writes and records nothing."""
+        import runner
+        from facts import crew_read, launched, madswan_fleet, ran
+        monkeypatch.setattr(plan, "write", lambda *a, **k: pytest.fail("crew bolts made a plan write"))
+        monkeypatch.setattr(plan.record, "emit", lambda *a, **k: pytest.fail("crew bolts recorded an entry"))
+        fleet = madswan_fleet()
+        p, requests = launched(["x"], work=[("a", "x", [], "unit", [])], fleet=fleet)
+        base = runner.launch_of(requests, "bolt/x").get("Request")
+        m = runner.next_request(requests)
+        requests = requests + [plan.Rec("Request", runner.request_fields(m, "land", "bolt/x", {"Of": base}, "2026-11-08T12:00:00Z",
+                                                                         "madswan-ops"))]
+        reads = ran({1: "landed", base: "flume-0.17.0/bolt-landed"}, unplaced={m: "-"})
+        d = plan.bolts_data(fleet, ["madswan"], [("madswan", "afterthought/crew-state", "abcdef1" + "0" * 33, p)],
+                            crew_read(bolts={"x": {}}), {}, None, runs={"madswan": (requests, reads)})
+        assert self.bolts(d)["x"]["landing"]["outcome"] == "landed"
+        assert "landed at a7c3e9f" in plan.bolts_text(d)
+
     def test_the_text_names_a_crossed_teams_stream_and_each_pieces_stage_and_place(self):
         """bolt-plan "A unit in code" and "A dependent waits"."""
         from facts import ran
@@ -610,3 +487,62 @@ class TestCrewBoltsCrossed:
         out = plan.bolts_text(self.data(ran({1: "stopped-short", 2: "sent-back"})))
         assert f"  {'a':<40} {'needs':<12} flume/change--agent-mode-is-a-layered-setting  asks at code: Head 118ec46 is ready" in out
         assert "code 26/26   flume/change--teams-cross-to-flume-as-their-bolts-land  sent back by sluice: check-full failed" in out
+
+
+class TestSubmit:
+    """bolt-teams "A bolt lands on the user's send alone, carried to the runner as a land" (crew-lands-each-bolt-through-
+    flumes-base-place, Decision 1): crew bolt submit is kept as a word and refuses at once, with any arguments, before
+    it reads anything, naming the card's send as the way."""
+
+    @pytest.mark.parametrize("args", [[], ["y"], ["y", "z", "--label", "wldn"], ["y", "--excerpt", "Land y."]])
+    def test_it_refuses_with_any_arguments_before_anything_is_read(self, monkeypatch, args):
+        import crew
+
+        def unread(*a, **k):
+            raise AssertionError("a refused submit reads nothing")
+        for name in ("locate", "default_label", "partition_entries", "plan_of", "runner_facts"):
+            monkeypatch.setattr(plan, name, unread)
+        monkeypatch.setattr(crew, "on_machine", unread)
+        a = plan.parser().parse_args(["bolt", "submit", *args])
+        with pytest.raises(plan.Refusal) as e:
+            plan.bolt_submit(FLEET, a)
+        who = {0: "a bolt lands on the user's send of its row on its kit's", 1: "y lands on the user's send of its row on its kit's",
+               2: "y and z land on the user's send of their rows on their kit's"}[len(a.bolt)]
+        assert str(e.value) == plan.submit_refused(a.bolt) == (
+            f"crew bolt submit lands nothing: {who} landings card, which crew carries to the runner as a land")
+
+    def test_its_refusal_records_no_act(self):
+        assert ("bolt", "submit") not in plan.ACTS
+
+
+class TestDropOfAStartedBolt:
+    """bolt-plan "A bolt is created and dropped through crew" and bolt-teams "A bolt's drop drops its base place last"
+    (crew-lands-each-bolt-through-flumes-base-place, Decision 8): the drop's own commit drops each piece's launch and
+    then the bolt's, and the drop asks nothing of sluice or any host for its branch, sweeping only what its units made
+    where its work ran."""
+
+    def started(self):
+        w = TestStart().write(TestStart.BOLT + TestStart.PIECE)
+        w.plan.bolt("console-pages").set("Path", "flume")
+        return w
+
+    def test_its_commit_drops_the_pieces_and_then_the_base_place(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "chuck")
+        w = self.started()
+        run(w, 'bolt drop console-pages "Not now."')
+        rs = plan.Plan(w.files["requests.rec"]).recs("Request")
+        assert [(r.get("Act"), r.get("Work"), r.get("Of")) for r in rs[2:]] == [("drop", "unit/a-console-page", "2"),
+                                                                                 ("drop", "bolt/console-pages", "1")]
+
+    def test_after_it_nothing_is_asked_of_any_host(self, monkeypatch, capsys):
+        """bolt-plan "The drop's host does not answer": what follows the drop's write reaches no host, and says nothing
+        of the branch of a bolt with a base place, which Flume tidies."""
+        import crew
+        monkeypatch.setenv("CREW_AGENT", "chuck")
+        monkeypatch.setattr(crew, "on_machine", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        monkeypatch.setattr(plan, "host_run", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        w = self.started()
+        op = plan.op_bolt_drop(known(w), plan.do_args("wldn", 'bolt drop console-pages "Not now."'))
+        op.change(w)
+        op.after("WilldanGroup/crew-state", "a" * 40)
+        assert capsys.readouterr().out == ""

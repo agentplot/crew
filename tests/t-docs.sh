@@ -1,8 +1,10 @@
 # README, the crew skill and crew's usage name the same commands: every command in the README is in the usage,
 # and none of the removed ones is in any of them. CLAUDE.md names how an agent runs crew's tools through the shell
 # per command, and no role brief or crew skill does (tests.7); a landing pushes nothing and levels no host in each of
-# them (docs.2, plan.18), and a start, a land and a drop go through sluice's branch create and delete, a dropped bolt's
-# branch kept while main lacks its tip (plan.19); CLAUDE.md
+# them (docs.2, plan.18); a start launches the bolt's base place and makes no branch, a drop drops it last, and crew
+# deletes no branch, a dropped bolt's kept by sluice while it holds work main lacks; a bolt lands on the user's send,
+# which crew carries to the runner, `crew bolt submit` and `crew main fix --send` refused (Decision 11 of
+# crew-lands-each-bolt-through-flumes-base-place); CLAUDE.md
 # says a host loads crew live from crew/live/plugin or released at a tag swancloud pins, never from a checkout on main,
 # which nobody pulls or levels (plan.18, plan.19); a checkout carries the .envrc a person's direnv enters the shell
 # with, and ignores devenv's and direnv's working files and the tests' .venv. crew's openspec/config.yaml hands crew's
@@ -69,14 +71,14 @@ for want in "crew card session <key>" "crew card end <key>" "crew card read <key
 lacks "$skill" "crew card wait <key>"
 for doc in usage readme skill; do
   has "${!doc}" "crew card wait"; has "${!doc}" "refused at once, naming"
-  has "${!doc}" "standing in sluice"
+  has "${!doc}" "beside the run record"
 done
 for doc in usage readme skill; do has "${!doc}" "what an earlier send still lands, with or without a card open"; done
 for doc in usage readme skill; do has "${!doc}" "preview <key> <thing> [--done]"; done
 has "$skill" "crew card preview <key> <thing> [--done]"
 expect_fail "invalid choice: 'post'" crew card post land/x
 expect_fail "invalid choice: 'card'" crew plan card 1
-ok "the README, the skill and the usage give crew ops offer's notes and steps and crew ops approve's ticked steps, crew record and crew card read, session, end and preview, crew card wait refused naming the read, crew card read land/<kit> with no card open, each submission standing in sluice on its row, and no crew plan card or crew card post, change or close, which crew no longer has"
+ok "the README, the skill and the usage give crew ops offer's notes and steps and crew ops approve's ticked steps, crew record and crew card read, session, end and preview, crew card wait refused naming the read, crew card read land/<kit> with no card open, each landing as the runner reports it beside the run record, and no crew plan card or crew card post, change or close, which crew no longer has"
 
 for doc in usage readme skill; do
   has "${!doc}" "pushes nothing and levels no host"; has "${!doc}" "origin/main"; lacks "${!doc}" "behind GitHub's"
@@ -84,14 +86,30 @@ done
 ok "the README, the skill and the usage say a landing pushes nothing and levels no host, and a bolt is cut from origin/main"
 
 for doc in usage readme skill; do
-  has "${!doc}" "sluice branch create"; has "${!doc}" "sluice branch delete"; has "${!doc}" "0.20.0"
-  has "${!doc}" "stays local until it lands"
+  for want in "base place" "crew/bolt" "holds work main lacks" "lands under the crew that started it" "crew carries"; do
+    has "${!doc}" "$want"
+  done
+  for gone in "sluice branch create" "sluice branch delete" "0.20.0" "stays local until it lands" "while main lacks its tip" \
+    "have sluice delete" "standing in sluice" "landing queued as" "submitted only once crew reads them" "wt submit main"; do
+    lacks "${!doc}" "$gone"
+  done
 done
 for doc in readme skill; do has "${!doc}" "origin/bolt/<bolt>"; done
-for doc in usage readme skill; do has "${!doc}" "while main lacks its tip"; lacks "${!doc}" "a dropped bolt's whatever it holds"; done
-has "$usage" "land and drop have sluice delete it"; has "$skill" "\`crew bolt land\` and \`crew bolt drop\` have sluice delete"
-has "$readme" "for a started bolt, it then has sluice delete the bolt's branch"
-ok "the README, the skill and the usage say a start has sluice make the bolt's branch on GitHub and a land and a drop have sluice delete it, a dropped bolt's kept while main lacks its tip, a start refused below sluice 0.20.0, every place cut from the bolt on GitHub, and a bolt made before local until it lands"
+has "$usage" "start, the user's or a proposal's, makes no branch and reads no host"
+has "$usage" "drop drops each"; has "$usage" "last its base place's"
+has "$usage" "refused at once, before it reads anything, with any arguments"; has "$usage" "refused at once, before it reads anything, naming the way: a fix of main lands on"
+has "$readme" "and last the launch of its base place, which Flume refuses while a place on its branch is live"
+has "$readme" "\`crew bolt submit\`, with any arguments, is refused at once, before it reads anything, naming the card's send as the way"
+has "$readme" "\`crew main fix <kit> <name> --send\`, with or without \`--excerpt\`, is refused at once"
+has "$skill" "crew deletes no bolt branch"; has "$skill" "\`crew bolt submit <bolt>...\` is refused at once, naming the card's send"
+has "$skill" "\`crew main fix <kit> <name> --send\` is refused at once, naming the card's send"
+claude=$(cat "$CREW/CLAUDE.md")
+for want in "a bolt lands on the user's send of its row on its kit's landings card, and on nothing else" \
+  "no agent runs \`crew bolt submit\`, which is refused" "crew's read of Flume's refusal launches a fix on the bolt"; do
+  has "$claude" "$want"
+done
+lacks "$claude" "ops submits the bolt with"; lacks "$claude" "run in the background and waited on to its end"
+ok "the README, the skill and the usage say a start launches the bolt's base place and makes no branch, a drop drops it last, crew deletes no branch, a dropped bolt's kept while it holds work main lacks, a bolt started before lands under its crew, and a bolt and a fix of main land on the user's send, which crew carries to the runner, crew bolt submit and crew main fix --send refused; CLAUDE.md says no agent runs a landing"
 
 for doc in usage readme skill; do
   has "${!doc}" '<bolt> <name> "<what is wrong>"'; has "${!doc}" "start"; has "${!doc}" "started already"; has "${!doc}" "waits to land"

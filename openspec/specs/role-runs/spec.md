@@ -56,11 +56,19 @@ A `crew tell` to a role its partition runs as its kind, by an agent or the user,
 - **THEN** an ask of the planner from crew says the proposal was approved, where today the planner is told
 
 ### Requirement: A capture and a landing are asks
-A signal captured through crew SHALL be an ask of a design agent that runs as its kind, one per signal, keyed by the signal's id. A bolt's landing, as crew's read of it records it, SHALL be an ask of a planner and of a design agent that run as their kinds, keyed by the bolt; a landing that did not land SHALL be an ask of a main-level ops that runs as its kind, with sluice's words, keyed by the submission.
+A signal captured through crew SHALL be an ask of a design agent that runs as its kind, one per signal, keyed by the signal's id. A bolt's landing, as crew's read of the runner's report records it, SHALL be an ask of a planner and of a design agent that run as their kinds, keyed by the bolt. A landing crew's read records refused or stopped SHALL be an ask of a main-level ops that runs as its kind, with Flume's or the runner's words, keyed by the land's request, so an outcome read twice asks once (record 0056 point 4).
 
 #### Scenario: A landing
-- **WHEN** a bolt of swancloud lands and crew's read of the landing records it, while swancloud's planner and design agent run as their kinds
+- **WHEN** the runner reports a swancloud bolt's base place landed and crew's read records the landing, while swancloud's planner and design agent run as their kinds
 - **THEN** that write holds an ask of the planner and one of the design agent, each naming the bolt
+
+#### Scenario: A landing that conflicts
+- **WHEN** ops runs as its kind, the user's send of bolt `y` was carried to the runner as land request 57, and the runner reports `y`'s base place refused for a conflict with main
+- **THEN** crew's read writes one ask of ops naming `bolt/y` with Flume's words, keyed by request 57, however often the outcome is read, and ops's next run takes it
+
+#### Scenario: A land the runner refused
+- **WHEN** ops runs as its kind, and the runner answers `y`'s land request 57 refused, a place on `bolt/y` still live
+- **THEN** crew's read records `y`'s landing stopped and writes one ask of ops naming `bolt/y` with the runner's words, keyed by request 57
 
 ### Requirement: A card's answer, an opening and a batch are asks
 A change on a card in the name of a role that runs as its kind, the user's answer among them, as Pending You's notice names it to the host's follower, SHALL be an ask of that role, keyed by the card's request and version; the follower SHALL read nothing of the card, and SHALL write nothing for a card in any other name. The user opening a role SHALL be an ask of it. A batch from `crew review` SHALL be an ask of a reviewer that runs as its kind, and a batch delivered an ask of the planner.
@@ -240,19 +248,23 @@ A turn that took an open ask SHALL greet the user in its pane and keep the conve
 - **WHEN** the design agent's run took the user's open ask and the user talks a design through in its pane
 - **THEN** the run's turn goes on until the user says they are done, and then it runs `crew role end`
 
-### Requirement: Main-level ops's landing from a run does not wait
-`crew bolt submit`, run in ops's run, SHALL return once each bolt is queued, leaving the landing's waiter on the host as today, and crew's read of each landing SHALL write its asks.
-
-#### Scenario: A landing that conflicts
-- **WHEN** ops's run submits bolt `y` on the user's send, its turn ends, and `y`'s landing conflicts with main
-- **THEN** crew's read of the landing writes an ask of ops with sluice's words, and ops's next run takes it
-
 ### Requirement: A run's model is its definition's
 A role record SHALL name the model and the effort of the role's definition after the teams file's `roles.<role>` override, the runner's launch SHALL pass the model, and the kinds file SHALL name neither.
 
 #### Scenario: An override
 - **WHEN** wldn's teams entry sets `roles.planner.model` and wldn's planner runs as its kind
 - **THEN** wldn's planner's role record names that model, and madswan's names the definition's
+
+### Requirement: Main-level ops's run lands nothing
+Main-level ops's run SHALL land, submit and wait on nothing for a bolt or a fix of main: the user's send of a row on a kit's landings card is carried to the runner by crew's own act, whether or not a run of ops stands (record 0056 point 5), and each landing's end SHALL reach ops's next run only as the ask crew's read of the runner's report writes for it. Ops's brief, for a partition that runs ops as its kind, SHALL say so in its turn's words and SHALL name no `crew bolt submit`.
+
+#### Scenario: The turn's words
+- **WHEN** main-level ops's brief prints for a partition that runs ops as its kind
+- **THEN** its turn's words say that a landing's end reaches ops's next run as an ask when it does not land, and the planner's and the design agent's when it does, and it names no `crew bolt submit`
+
+#### Scenario: A send while no run of ops stands
+- **WHEN** ops runs as its kind, no run of it stands, and the user sends `land/crew` with `y` ticked
+- **THEN** `y`'s land is posted by crew's raise of the card, which waits on no run of ops
 
 ### Requirement: A run's start takes every end Flume holds for its role
 `crew role start` SHALL take into its turn, beside the asks and the places that wait on the role, each end that a place's status in the runners' records gives as owed to the role's address `<label>/<role>`, by its delivery key.

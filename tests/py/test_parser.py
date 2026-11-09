@@ -37,7 +37,7 @@ def test_a_landing_takes_the_users_words_and_has_none_by_default():
 
 
 def test_a_stop_takes_the_users_words_and_none_is_refused(capsys):
-    """main-level "A landing stopped in ops's pane is recorded as the user's words": a stop is only ever on them."""
+    """main-level "A stop said in ops's pane is read as the user's words": a stop is only ever on them."""
     assert plan.parser().parse_args(["bolt", "leave", "b", "--excerpt", "Hold it"]).excerpt == "Hold it"
     with pytest.raises(SystemExit):
         plan.parser().parse_args(["bolt", "leave", "b"])
