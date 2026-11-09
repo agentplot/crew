@@ -344,19 +344,22 @@ class TestRange:
 
 
 class TestRangesKits:
-    """Where a deploy's range is read (Decision 8 of a-kept-repositorys-folder-is-the-runners-container): in each
-    repository its main level's session keeps, at the checkout the host keeps it at (crew.session_checkouts), the teams
-    file's where it names the repository for that host."""
-    SESS = {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/flume"]}
+    """Where a deploy's range is read (Decision 8 of a-kept-repositorys-folder-is-the-runners-container; record 0064): in
+    each repository the teams file keeps on the drive's main-level host (crew.kept), at the file's checkout where it
+    names the repository for that host, else in the folder of a drive there that lists it."""
+    DRIVE = {"label": "madswan", "machine": "deneb", "session": "madswan", "folder": "/d/agentplot",
+             "repos": ["agentplot/crew", "agentplot/flume"]}
     FILE = {"host": "deneb", "named": {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"}}}
 
-    def test_a_session_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
+    def test_a_drive_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
         import crew
-        fleet = {"hosts": {}, "drives": {}, "repositories": self.FILE}
-        assert crew.session_checkouts(fleet, "deneb", self.SESS) == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
-        assert crew.session_checkouts(fleet, "mac-studio", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
-        assert crew.session_checkouts({"hosts": {}}, "deneb", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
-        assert crew.session_checkouts(fleet, "deneb", {"dir": "/d/x"}) == []
+        fleet = {"hosts": {}, "drives": {"madswan": self.DRIVE}, "repositories": self.FILE}
+        assert [k["main"] for k in crew.kept(fleet, "deneb")] == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
+        moved = {"hosts": {}, "drives": {"madswan": dict(self.DRIVE, machine="mac-studio")}, "repositories": self.FILE}
+        assert [k["main"] for k in crew.kept(moved, "mac-studio")] == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert [k["main"] for k in crew.kept({"hosts": {}, "drives": {"madswan": self.DRIVE}}, "deneb")] == [
+            "/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert crew.kept({"hosts": {}, "drives": {"madswan": dict(self.DRIVE, repos=[])}}, "deneb") == []
 
     def test_the_range_is_read_in_the_checkouts_the_host_keeps(self, monkeypatch, tmp_path):
         """ops.kit_range probes the resolver's checkouts, here git standing in for the tool."""
@@ -364,8 +367,8 @@ class TestRangesKits:
         import subprocess
         view = tmp_path / "v/agentplot/crew"
         view.mkdir(parents=True)
-        fleet = {"hosts": {"deneb": {"sessions": {"madswan": dict(self.SESS, dir=str(tmp_path / "d"))}}},
-                 "drives": {"madswan": {"label": "madswan", "machine": "deneb", "session": "madswan"}},
+        fleet = {"hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}},
+                 "drives": {"madswan": dict(self.DRIVE, folder=str(tmp_path / "d"))},
                  "repositories": {"host": "deneb", "named": {"agentplot/crew": {"dir": str(tmp_path / "r"), "checkout": str(view)}}}}
         asked = []
 
@@ -376,6 +379,14 @@ class TestRangesKits:
         monkeypatch.setattr(pathlib.Path, "is_dir", lambda self: str(self) in (str(view), str(tmp_path / "d/flume/main")))
         assert ops.kit_range(fleet, "madswan", S1, S2) == (None, None, f"{S2[:7]} is a commit of 2 kits madswan's main level keeps on deneb")
         assert asked == [(str(view), "cat-file"), (str(tmp_path / "d/flume/main"), "cat-file")]
+
+    def test_an_environments_host_is_checked_against_the_teams_files_hosts(self):
+        """main-level: a host the teams file's `hosts` does not name is refused before anything is read of it."""
+        import argparse
+        import crew
+        fleet = {"hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}, "drives": {}}
+        with pytest.raises(crew.Refusal, match="^macbook-pro is no host the teams file's hosts name. hosts: deneb$"):
+            ops.quiet(fleet, argparse.Namespace(env="macbook-pro", label="madswan"))
 
 
 class TestOfferedAgain:

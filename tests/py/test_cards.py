@@ -17,7 +17,7 @@ import re
 
 import pytest
 
-from facts import FLEET as BASE, START, keeping
+from facts import FLEET as BASE, HOSTS, START
 
 import crew
 import plan
@@ -30,7 +30,7 @@ _loader.exec_module(cards)
 
 KIT = {"name": "switchboard-kit", "repo": "WilldanGroup/switchboard-kit", "main": "/kit/main", "dir": "/kit"}
 FLEET = {"drives": {"wldn": BASE["drives"]["wldn"], "madswan": {"label": "madswan", "machine": "mac-studio"}},
-         "hosts": {"mac-studio": keeping("/w", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit")}}
+         "hosts": {"mac-studio": HOSTS["mac-studio"]}}
 # Where work ran, as the runner that took it reported (plan.bolt_at, plan.batch_unit_at), by the name a case gives it: a
 # bolt's, or the team a batch entry written before names in its place.
 WHERE = {"swb-1": {"label": "wldn", "machine": "chuck-herdr-alpha", "stream": "wldn", "kit": KIT},
@@ -2283,7 +2283,7 @@ class TestRecordCommand:
         assert str(e.value) == f"crew refuses the alternatives for record 0032 in switchboard-kit: {said}. Nothing is raised."
 
     @pytest.mark.parametrize("kit, n, status, more, said", [
-        ("flywheel-next", 32, "proposed", {}, "wldn's main level runs on mac-studio, and no space there keeps flywheel-next, so crew can't read its records"),
+        ("flywheel-next", 32, "proposed", {}, "wldn's main level runs on mac-studio, and the teams file keeps no flywheel-next there, so crew can't read its records"),
         ("atlas-kit", 0, "proposed", {}, "a record's number is its one to four digits, not 0"),
         ("atlas-kit", 21, "accepted", {"settled_in_pane": True}, "--settled-in-pane and --alternatives go with --proposed"),
         ("atlas-kit", 21, "rejected", {"alternatives": "a.md"}, "--settled-in-pane and --alternatives go with --proposed"),

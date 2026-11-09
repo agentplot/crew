@@ -42,10 +42,10 @@ The fleet page SHALL be one file that holds its own data, style and script and f
 - **THEN** the page shows those characters as they are, and its data block is not ended by them
 
 ### Requirement: The fleet page shows every Claude subscription
-The fleet page SHALL hold a section of Claude subscriptions, one for each account the hosts file gives a session and each account a host published a reading for, by name, apart from the drives' blocks.
+The fleet page SHALL hold a section of Claude subscriptions, one for each account a drive's `accounts` in the teams file gives a role and each account a host published a reading for, by name, apart from the drives' blocks.
 
 #### Scenario: Accounts from sessions and from readings
-- **WHEN** the hosts file gives sessions the accounts madswan, madswan-2 and ia, and deneb has published a reading for madswan and for fable-test, which no session names
+- **WHEN** the teams file gives the drives' roles the accounts madswan, madswan-2 and ia, and deneb has published a reading for madswan and for fable-test, which no role's account names
 - **THEN** the subscriptions section holds fable-test, ia, madswan and madswan-2, in that order
 
 ### Requirement: A subscription shows its use as it was published
@@ -74,7 +74,7 @@ A reading a host published as not made SHALL be marked so on its subscription wi
 - **THEN** credits shows no figures, says its use could not be read, and names deneb with "the usage endpoint answered 401" and when it tried
 
 #### Scenario: Nothing published
-- **WHEN** ia is given to a session in the hosts file and no host published a reading for it
+- **WHEN** wldn's `accounts` gives its planner ia and no host published a reading for ia
 - **THEN** ia says no host has published its use
 
 ### Requirement: What crew cannot read of the published use is named
@@ -89,11 +89,11 @@ A published file the fleet page cannot read, or a reading in it that is not of t
 - **THEN** the page is written, each subscription says no host has published its use, and the command prints that no use is published
 
 ### Requirement: Each drive shows where its main level runs and on which account
-A drive's block SHALL name each host the board asked for it, its main level's and its runners', one that did not answer marked so, and its main level's host, marked not asked where the board did not ask it; and under each host each herdr session an agent of the drive runs in: its main-level agents in it (design agent, planner, ops, operator), and the Claude account the hosts file gives the session. A session whose entry names no account SHALL say so, never be shown blank. A session no agent of the drive runs in SHALL not be shown, and no team SHALL be named.
+A drive's block SHALL name each host the board asked for it, its main level's and its runners', one that did not answer marked so, and its main level's host, marked not asked where the board did not ask it; and under each host each herdr session an agent of the drive runs in: its main-level agents in it (design agent, planner, ops, operator), and the Claude account the drive's `accounts` gives the roles in that session. A session no agent of the drive runs in SHALL not be shown, and no team SHALL be named.
 
 #### Scenario: Two sessions of one main level
-- **WHEN** swancloud's design agent, planner and ops run in deneb's session swancloud on account madswan, and its operator in deneb's session swancloud-3, which names no account
-- **THEN** swancloud's block shows deneb with session swancloud, its design agent, planner and ops, account madswan, and session swancloud-3, its operator, saying no account is named for it in the hosts file
+- **WHEN** swancloud's design agent, planner and ops run in deneb's session swancloud and its operator in deneb's session swancloud-3, and swancloud's `accounts` gives the first three madswan and its operator madswan-2
+- **THEN** swancloud's block shows deneb with session swancloud, its design agent, planner and ops, account madswan, and session swancloud-3, its operator, account madswan-2
 
 #### Scenario: A runner's host
 - **WHEN** wldn's runner on chuck-herdr-alpha takes its work and its main level runs on mac-studio, which the board did not ask
@@ -122,12 +122,12 @@ Each drive's name on the fleet page SHALL link to that drive's page, and each dr
 - **THEN** the drives are named and not linked, and the command prints a line saying so
 
 ### Requirement: A subscription shows the main levels' sessions and drives on it beside its use
-A subscription SHALL list each session the hosts file gives its account, by host, with crew's agents in it, the main levels' roles, and SHALL name the drives whose agents run in those sessions. A session no crew agent runs in SHALL be listed as running none. Nothing SHALL be computed from the use and the work together, and no team or slot SHALL be named.
+A subscription SHALL list each session a drive's main-level role runs in under its account, as the drive's `accounts` gives it, by host, with crew's agents in it, the main levels' roles, and SHALL name the drives whose agents run in those sessions. Nothing SHALL be computed from the use and the work together, and no team or slot SHALL be named.
 
 #### Scenario: Two main levels on one subscription
-- **WHEN** madswan's main level runs in deneb's session madswan and swancloud's design agent, planner and ops in deneb's session swancloud, both on account madswan
+- **WHEN** madswan's main level runs in deneb's session madswan and swancloud's design agent, planner and ops in deneb's session swancloud, every one of those roles on account madswan
 - **THEN** madswan lists deneb's sessions madswan, with madswan's design agent, planner, ops and operator, and swancloud, with swancloud's design agent, planner and ops, and names the drives madswan and swancloud
 
 #### Scenario: A main-level session that runs nothing
-- **WHEN** deneb's session agentplot-2 is on account madswan and no agent of any drive runs there
-- **THEN** madswan lists deneb's agentplot-2 as running no crew agent
+- **WHEN** deneb's herdr runs a session agentplot-2, which no drive's role runs in, and madswan is the account of every role of madswan's main level
+- **THEN** madswan lists madswan's sessions alone, and no subscription lists agentplot-2

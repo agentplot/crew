@@ -202,7 +202,7 @@ class TestReach:
         monkeypatch.setattr(plan.crew, "kit_kept", lambda fleet, host, kit: kept)
         assert plan.drop_at(FLEET, "madswan", b) == ({"label": "madswan", "machine": "deneb", "stream": None, "kit": kept}, None)
         monkeypatch.setattr(plan.crew, "kit_kept", lambda fleet, host, kit: None)
-        assert plan.drop_at(FLEET, "madswan", b) == (None, "madswan's main level runs on deneb, and no space there keeps crew, so "
+        assert plan.drop_at(FLEET, "madswan", b) == (None, "madswan's main level runs on deneb, and the teams file keeps no crew there, so "
                                                            "crew can't ask sluice to delete bolt/x there; if it was renamed on its host, crew kit rename crew <new> names it so in the plan")
         w = given(("y", None, None), work=[unit("q", bolt="y")])
         assert plan.drop_at(FLEET, "madswan", w.plan.bolt("y")) == (None, None)

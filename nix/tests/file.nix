@@ -1,8 +1,9 @@
 # The crew-flake spec's file (record 0058, flake.2), over options.nix
 # evaluated alone beside a system's `assertions`: deneb's drives, keyed by
-# label, render nix/tests/files/deneb.json byte for byte, their list in
-# label order, with its kept repositories nix/tests/files/runner.json
-# (record 0061), the version is crew's, and what crew refuses fails
+# label, with their hosts and consoles (record 0064), render
+# nix/tests/files/deneb.json byte for byte, their list in label order,
+# with its kept repositories nix/tests/files/runner.json (record 0061),
+# the version is crew's, and what crew refuses fails
 # evaluation, by tryEval where the module system refuses it and by the
 # assertions' messages where the module does.
 t:
@@ -66,6 +67,7 @@ let
   split = [ (giving settings.given) ];
   own = {
     drives = settings.own;
+    inherit (deneb) hosts consoles;
   };
   # agentplot's machine or state given, beside the host's every key.
   machineTwice = [ (giving { agentplot.machine = "deneb"; }) ];
@@ -91,6 +93,41 @@ let
     };
   noState = first (p: removeAttrs p [ "state" ]);
   noMachine = first (p: removeAttrs p [ "machine" ]);
+  noFolder = first (p: removeAttrs p [ "folder" ]);
+  noRepos = first (p: removeAttrs p [ "repos" ]);
+  noAccounts = first (p: removeAttrs p [ "accounts" ]);
+  relativeFolder = first (p: p // { folder = "work/madswan"; });
+  ownerlessRepo = first (p: p // { repos = [ "blueprints" ]; });
+  noReviewer = first (p: p // { accounts = removeAttrs p.accounts [ "reviewer" ]; });
+  dispatcherAccount = first (p: lib.recursiveUpdate p { accounts.dispatcher = "madswan"; });
+  capitalAccount = first (p: lib.recursiveUpdate p { accounts.planner = "Madswan"; });
+
+  # deneb's hosts, and deneb's entry among them changed by `change`.
+  denebHost =
+    change:
+    deneb
+    // {
+      hosts = deneb.hosts // {
+        deneb = change deneb.hosts.deneb;
+      };
+    };
+  noHosts = removeAttrs deneb [ "hosts" ];
+  macos = denebHost (h: h // { kind = "macos"; });
+  home = denebHost (h: h // { home = "/Users/chuck"; });
+  noSsh = denebHost (h: removeAttrs h [ "ssh" ]);
+  noKind = denebHost (h: removeAttrs h [ "kind" ]);
+  capitalHost = deneb // {
+    hosts = deneb.hosts // {
+      Deneb = deneb.hosts.deneb;
+    };
+  };
+  # deneb's consoles, wldn's at a relative folder; and none.
+  relativeConsole = deneb // {
+    consoles = deneb.consoles // {
+      wldn = "Code/clients/github_willdan";
+    };
+  };
+  noConsoles = removeAttrs deneb [ "consoles" ];
   dispatcher = first (p: lib.recursiveUpdate p { flume.dispatcher = false; });
   planner = first (p: lib.recursiveUpdate p { flume.planner = true; });
   # madswan's drive with the label the host sets.
@@ -153,6 +190,12 @@ in
         !(lib.head rendered.drives) ? roles
       ) "afterthought's drive, which gives no roles, renders a roles key"
       ++ t.expect (
+        rendered ? hosts && rendered ? consoles && !(rendered ? repositories)
+      ) "deneb's file renders without its hosts or consoles, or with repositories"
+      ++ t.expect (lib.all (d: d ? folder && d ? repos && d ? accounts && !(d ? partition))
+        rendered.drives
+      ) "a drive of deneb's file renders without its folder, repos or accounts, or with a partition"
+      ++ t.expect (
         map (d: d.label) rendered.drives == [
           "afterthought"
           "agentplot"
@@ -201,10 +244,6 @@ in
     !renders noCheckout
   ) "a kept repository with no checkout evaluates";
 
-  "A relative folder" = t.expect (
-    !renders relative
-  ) "a kept repository whose dir is relative evaluates";
-
   "A repository named with no owner" =
     t.expect (
       failures ownerless != [ ]
@@ -234,6 +273,71 @@ in
   "A drive with no state repository" = t.expect (!renders noState) "a drive with no state evaluates";
 
   "A drive with no machine" = t.expect (!renders noMachine) "a drive with no machine evaluates";
+
+  "A drive with no folder, repos or accounts" =
+    t.expect (!renders noFolder) "a drive with no folder evaluates"
+    ++ t.expect (!renders noRepos) "a drive with no repos evaluates"
+    ++ t.expect (!renders noAccounts) "a drive with no accounts evaluates";
+
+  "A relative folder" =
+    t.expect (!renders relativeFolder) "a drive whose folder is work/madswan evaluates"
+    ++ t.expect (!renders relative) "a kept repository whose dir is relative evaluates";
+
+  "A repos entry with no owner" = t.expect (
+    !renders ownerlessRepo
+  ) "a drive whose repos names blueprints, with no owner, evaluates";
+
+  "An account left out" =
+    t.expect (!renders noReviewer) "a drive whose accounts gives no reviewer evaluates"
+    ++ t.expect (!renders dispatcherAccount) "a drive whose accounts names dispatcher evaluates"
+    ++ t.expect (!renders capitalAccount) "a drive whose planner's account is Madswan evaluates";
+
+  "No hosts" =
+    t.expect (
+      !renders noHosts || failures noHosts != [ ]
+    ) "settings giving deneb's drives and no hosts evaluate, and no assertion fails"
+    ++ lib.optionals (renders noHosts) (
+      lib.concatMap
+        (
+          words: t.expect (says noHosts words) "the failure names no ${words}: ${toString (failures noHosts)}"
+        )
+        [
+          "services.crew.settings.hosts"
+          "names no host"
+        ]
+    );
+
+  "A kind crew does not read" = t.expect (!renders macos) "a host whose kind is macos evaluates";
+
+  "A host's key crew has no place for" =
+    t.expect (!renders home) "a host giving home beside its ssh and kind evaluates"
+    ++ t.expect (!renders noSsh) "a host with no ssh evaluates"
+    ++ t.expect (!renders noKind) "a host with no kind evaluates";
+
+  "A host's name crew does not accept" =
+    t.expect (
+      failures capitalHost != [ ]
+    ) "services.crew.settings.hosts names Deneb, and no assertion fails"
+    ++
+      lib.concatMap
+        (
+          words:
+          t.expect (says capitalHost words) "the failure names no ${words}: ${toString (failures capitalHost)}"
+        )
+        [
+          "services.crew.settings.hosts"
+          "Deneb, which is no name crew accepts"
+        ];
+
+  "A relative console folder" = t.expect (
+    !renders relativeConsole
+  ) "services.crew.settings.consoles.wldn is Code/clients/github_willdan, and evaluation holds";
+
+  "No consoles" =
+    t.expect (renders noConsoles) "settings giving no consoles do not evaluate"
+    ++ t.expect (
+      renders noConsoles && !(builtins.fromJSON (text noConsoles) ? consoles)
+    ) "settings giving no consoles render a consoles key";
 
   "A label the host sets" = t.expect (
     !renders labelled

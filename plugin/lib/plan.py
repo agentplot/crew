@@ -1705,8 +1705,8 @@ def kit_labels(fleet, kit):
 
 def main_kit(fleet, label, kit):
     """Where crew acts on a kit before any runner has taken the work in hand (the user's ruling of 2026-11-01; Decision 4
-    of the-team-machinery-leaves): the checkout the drive's main-level host keeps of it, as that host's spaces keep
-    it (crew.kit_kept), in the shape bolt_at gives a bolt's, {"label", "machine", "stream" None, "kit"}; None where the
+    of the-team-machinery-leaves): the checkout the drive's main-level host keeps of it, as the teams file keeps it
+    there (crew.kit_kept), in the shape bolt_at gives a bolt's, {"label", "machine", "stream" None, "kit"}; None where the
     host keeps none. A start's branch and checks, a new unit's name, a bolt never started landed, the design agent's
     records, a proposal's records and the board's explorations are read and acted on there."""
     host = crew.drive_of(fleet, label)["machine"]
@@ -1716,7 +1716,7 @@ def main_kit(fleet, label, kit):
 
 def main_kit_read(fleet, label, kit):
     """A kit's checkout on its drive's main-level host (main_kit) for a view, None where crew can't tell it, its
-    spaces keeping none or two by the kit's name: the board shows no explorations of it then."""
+    teams file keeping none or two by the kit's name there: the board shows no explorations of it then."""
     try:
         return main_kit(fleet, label, kit)
     except Refusal:
@@ -1728,7 +1728,7 @@ def main_kit_said(fleet, label, kit, what):
     and, since a kit renamed on its host is kept there by its new name alone, the way on when it was (Decision 2 of
     a-kit-renamed-on-its-host-is-renamed-across-the-plan)."""
     host = crew.drive_of(fleet, label)["machine"]
-    return (f"{label}'s main level runs on {host}, and no space there keeps {kit}, so crew can't {what}; if it was "
+    return (f"{label}'s main level runs on {host}, and the teams file keeps no {kit} there, so crew can't {what}; if it was "
             f"renamed on its host, crew kit rename {kit} <new> names it so in the plan")
 
 
@@ -1941,10 +1941,11 @@ def rename_standing(old, plan, requests, reads, entries, proposals, own):
 def rename_kept(old, hosts):
     """Which hosts still keep a repository, so crew kit rename <old> <new> waits for its removal (Decision 3 of
     a-repository-is-renamed-by-one-explicit-command; plan.22), from plain facts (code.7): hosts, {host: (report,
-    spaces)} for each host with a runner branch of the drive and its main-level host, report the repositories its
+    filed)} for each host with a runner branch of the drive and its main-level host, report the repositories its
     runner's repositories.rec names, None for a runner that reports none or a host with no runner branch, or why its
-    runner can't be read, and spaces the repositories its sessions keep in the hosts file, None for a host it doesn't
-    list. A host's keeping is its runner's report where it gives one, else its spaces; a host keeps old where a repository
+    runner can't be read, and filed the repositories the teams file keeps there (crew.kept, record 0064), None for a
+    host that is neither the one the file is written on nor a drive's machine, whose keeping the file does not give. A
+    host's keeping is its runner's report where it gives one, else the teams file's; a host keeps old where a repository
     it keeps has old's name, or is old's address when old is given as one, each such repository named. Reads only
     whether a host still keeps the name, to refuse, never where a kit's work runs (roles.9). No host needs to keep the
     new name: the repository is added back under it after the rename. Returns (what keeps old, what crew could not read),
@@ -1952,21 +1953,21 @@ def rename_kept(old, hosts):
     names = (lambda r: r == old) if "/" in old else (lambda r: r.split("/")[-1] == old)
     kept, unread = [], []
     for host in sorted(hosts):
-        report, spaces = hosts[host]
+        report, filed = hosts[host]
         if isinstance(report, str):
             unread.append(report)
         elif report is not None:
             kept += [f"{host}'s runner keeps {r}" for r in sorted(report) if names(r)]
-        elif spaces is None:
-            unread.append(f"{host}'s runner reports no repositories and {crew.HOSTS} lists no {host}, so crew can't read "
-                          f"whether it keeps {old}")
+        elif filed is None:
+            unread.append(f"{host}'s runner reports no repositories, and {host} is neither the host the teams file is "
+                          f"written on nor one a drive runs on, so crew can't read whether it keeps {old}")
         else:
-            kept += [f"{host}'s spaces keep {r}" for r in sorted(set(spaces)) if names(r)]
+            kept += [f"{host}'s teams file keeps {r}" for r in sorted(set(filed)) if names(r)]
     return kept, unread
 
 
 # A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
-# the hosts file lists it, the owner as GitHub has it.
+# the teams file lists it, the owner as GitHub has it.
 KIT = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]*/)?[a-z0-9][a-z0-9-]*$")
 
 
@@ -6687,7 +6688,7 @@ def op_kit_rename(ctx, a):
     are renamed with the rest, a refused push refusing the rename. Refused, with nothing written, by rename_refusal at
     the tip it is applied to (plan.1): while old's work stands (rename_standing), the proposal applying it excepted, or
     any host still keeps old (rename_kept), each host with a runner branch of the drive read with its main-level
-    host, by its runner's report or else its spaces in the hosts file; and for a name no record holds. Run again, it
+    host, by its runner's report or else what the teams file keeps there; and for a name no record holds. Run again, it
     renames what an earlier rename left. A proposal may hold it, and the user runs it directly (roles.1, may_write)."""
     label, fleet = ctx.kit(a.old), ctx.fleet
     host = crew.drive_of(fleet, label)["machine"]
@@ -6707,9 +6708,11 @@ def op_kit_rename(ctx, a):
         reads = w.runners()
         stands, unread = rename_standing(a.old, w.plan, requests_of(w).recs("Request"), reads, entries,
                                          proposals(w).recs("Proposal"), own)
-        spaces = lambda h: [r for s in fleet["hosts"][h].get("sessions", {}).values() for r in s.get("repos") or []] \
-            if h in fleet["hosts"] else None
-        hosts = {h: ((reads[h].get("why") or reads[h].get("repositories")) if h in reads else None, spaces(h))
+        # What the teams file keeps on a host (record 0064): read for the host it is written on and each a drive
+        # runs on, and for no other, whose keeping the file does not give.
+        here, machines = crew.this_host(), {p["machine"] for p in fleet["drives"].values()}
+        filed = lambda h: [k["repo"] for k in crew.kept(fleet, h)] if h == here or h in machines else None
+        hosts = {h: ((reads[h].get("why") or reads[h].get("repositories")) if h in reads else None, filed(h))
                  for h in sorted({host, *reads})}
         kept, unkept = rename_kept(a.old, hosts)
         bolts = [b.name() for b in w.plan.bolts()]
@@ -9623,7 +9626,7 @@ def forwarded(fleet, machine):
     command there as the one asking, and stops, having touched nothing."""
     if machine == crew.this_host():
         return
-    said = sh(MACHINE=machine, SSH_TARGET=fleet["hosts"][machine]["ssh"], **crew.reach(fleet, machine))
+    said = sh(MACHINE=machine, SSH_TARGET=crew.ssh_of(fleet, machine), **crew.reach(fleet, machine))
     try:
         os.write(3, (said + "\n").encode())
     except OSError:
@@ -10186,7 +10189,9 @@ def console_tabs(asked, recorded, follower):
 
 def console_cmd(fleet, a):
     """crew console up|down <label> [flow] [rail] [board]: the drive's console on this host, in the `console`
-    workspace of this host's `<label>` session, starting no agent (record 0035): a shell tab with the crew the host has
+    workspace of this host's `<label>` session, its tabs in the folder this host's teams file's `consoles` gives the
+    drive and refused, with nothing opened, where it names none (crew.operator_session; record 0064), starting no agent
+    (record 0035): a shell tab with the crew the host has
     installed on its path (crew.crew_command), the crew every tab runs, and the tabs named after the label: flow,
     following the run record; rail, the rail the host's follower writes above and a shell below; and board, drawn from
     the same read. The rail tab opens of itself too while no host job
@@ -11153,7 +11158,7 @@ def reading_command(fleet, label, bolt, sha, unit, archived=False):
     ran (batch_unit_at); a started unit's change archived at the commit of its bolt that holds it (archived; Decision 13
     of teams-cross-to-flume-as-their-bolts-land), its folder found under the archive first."""
     t, here = batch_unit_at(fleet, label, bolt, unit), fleet["drives"][label]["machine"]
-    pre = "" if t["machine"] == here else f"ssh -o BatchMode=yes {fleet['hosts'].get(t['machine'], {}).get('ssh') or t['machine']} "
+    pre = "" if t["machine"] == here else f"ssh -o BatchMode=yes {crew.ssh_of(fleet, t['machine'])} "
     folder = f"openspec/changes/{unit}/"
     if archived:
         folder = "<folder>/"
@@ -11522,10 +11527,11 @@ def age(at, now):
 
 def opener(fleet, host, here, path):
     """The command that opens a file or folder on a host in plannotator: beside the rail when the host is the one it
-    runs on, else inline over ssh, quoted again for the shell on the other end."""
+    runs on, else inline over ssh by the name the teams file's `hosts` gives the host (crew.ssh_of), quoted again for
+    the shell on the other end; a path relative to the home ssh starts in there opens the file under that home."""
     if host == here:
         return f"plannotator-tui herdr open {shlex.quote(path)}"
-    return f"ssh -t {fleet['hosts'][host]['ssh']} plannotator-tui {shlex.quote(shlex.quote(path))}"
+    return f"ssh -t {crew.ssh_of(fleet, host)} plannotator-tui {shlex.quote(shlex.quote(path))}"
 
 
 # How far back the rail reads the run record for the cards still open.
@@ -11680,8 +11686,10 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             for key, part in batch_cards(n, units, h.get("posts", set())):
                 if key in h["closed"]:
                     continue
-                home = fleet["hosts"].get(main, {}).get("home")
-                f = str(batch_file(l, n)) if main == here else f"{home}/.local/state/crew/{l}-main/reports/batch-{l}-{n}.md" if home else None
+                # On another host, the report by its path under the home ssh starts in there (record 0064, Decision 7),
+                # for a host the teams file's `hosts` names, opened over its ssh name (opener).
+                f = (str(batch_file(l, n)) if main == here else
+                     f".local/state/crew/{l}-main/reports/batch-{l}-{n}.md" if main in fleet["hosts"] else None)
                 k = key.partition("-")[2]
                 card = f", card {k} of {-(-len(units) // 5)}" if k else ""
                 rows.append(dict(group="batches", label=l, key=key, at=utc(at), doc=("batch", l, n),

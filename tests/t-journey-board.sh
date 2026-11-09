@@ -327,7 +327,9 @@ eq "$(j '.drives[0].link') $(j '.subscriptions.items[] | select(.account == "cre
   "wldn/page.html wldn/page.html#dock=subscription:credits"
 eq "$(block "$mine/page.html" | jq -r '.docks["subscription:credits"].title') $(j '.drives[0] | has("teams")')" "credits false"
 eq "$(j '.drives[0].kits[] | select(.kit == "switchboard-kit") | .said[1]')" "tenant-environments in construction; 1 bolt planned; 1 unit queued"
-eq "$(j '[.subscriptions.items[] | .account + " " + .state] | join(", ")')" "credits none, ia none, madswan none, willdan-alex none"
+# The subscriptions are the accounts the drives' roles run under, as the teams file's `accounts` gives them (record
+# 0064): wldn's on credits, madswan's and swancloud's on madswan; a herdr session no drive's role runs in names none.
+eq "$(j '[.subscriptions.items[] | .account + " " + .state] | join(", ")')" "credits none, madswan none"
 expect_ok crew page --fleet --out "$T/served/index.html"
 eq "$(block "$T/served/index.html" | jq -r '.drives[0].link')" "wldn.html"
 lacks "$out" "not linked"

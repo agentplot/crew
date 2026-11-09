@@ -1060,10 +1060,13 @@ def follower_here():
 
 
 def labels_here(fleet, host):
-    """The drives with an operator session on the host, which its follower refreshes: each label that names a session
-    there, as crew.operator_session reads it, in the teams file's order."""
-    sessions = fleet["hosts"].get(host, {}).get("sessions", {})
-    return [l for l in fleet["drives"] if sessions.get(l)]
+    """The drives with an operator session on the host, which its follower refreshes: those the teams file's `consoles`
+    names, for the host the file is written on alone, as crew.operator_session reads it, in the teams file's order, and
+    none on another host (record 0064)."""
+    consoles = fleet.get("consoles") or {}
+    if not consoles or host != crew.this_host():
+        return []
+    return [l for l in fleet["drives"] if l in consoles]
 
 
 def rail_path(label):
@@ -1408,8 +1411,8 @@ class Follower:
         self.notice = None
 
     def fleet(self):
-        """The teams file and the hosts file read afresh, not as this process first read them, the drives followed
-        with them, and crew's Flume roles file kept from them (crew.keep_roles, teams.25); a teams file crew refuses
+        """The teams file read afresh, not as this process first read it, the drives its `consoles` names followed
+        (labels_here), and crew's Flume roles file kept from it (crew.keep_roles, teams.25); a teams file crew refuses
         leaves both as they were, said (read.1)."""
         crew.load.cache_clear()
         try:

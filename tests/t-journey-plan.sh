@@ -279,7 +279,8 @@ eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/WilldanGroup/crew-state.git"
 ok "two racing writes both land, one after the other, never merged; a write whose unit was dropped meanwhile is refused, naming that commit"
 
 # Two repositories renamed on their forge once their work is finished (record 0060's order): atlas-kit's bolt landed and
-# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every host's spaces; the user
+# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every drive's repos in every
+# host's teams file; the user
 # renames the first at a shell, the planner's own run is refused, and the planner proposes the second, which the user
 # approves.
 a=$(kit $box willdan atlas-kit)
@@ -294,9 +295,8 @@ expect_ok crew bolt new boards "Boards are listed." --repo breadboard-kit
 expect_ok crew main fix breadboard-kit red-tests "The tests are red."
 expect_ok crew main fix breadboard-kit red-tests --drop
 expect_ok crew bolt drop boards "breadboard-kit is renamed first"
-edit hosts "for h in d['hosts'].values():
-    for s in h['sessions'].values():
-        s['repos'] = [r for r in s['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
+edit teams "for p in d['drives']:
+    p['repos'] = [r for r in p['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
 day=$(date -u +%F)
 before=$(tip)
 expect_ok crew kit rename atlas-kit atlas

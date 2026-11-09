@@ -29,12 +29,20 @@ def madswan(extra_units=()):
 
 
 def fleet(*repos):
-    """madswan's fleet, its main level on deneb, whose spaces keep repos (owner/name)."""
-    return {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
-            "hosts": {"deneb": keeping("/d/agentplot", *repos)}}
+    """madswan's fleet, its main level on deneb, its folder keeping repos (owner/name) there, as the teams file gives
+    them (record 0064)."""
+    return {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "flume": STANDING}, **keeping("/d/agentplot", *repos))},
+            "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
 
 
-# deneb's spaces after the user's rename of 2026-11-05: the new names, and neither old one.
+@pytest.fixture(autouse=True)
+def on_deneb(monkeypatch):
+    """crew runs on deneb, madswan's main-level host, so the teams file it reads is deneb's."""
+    import crew
+    monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+
+
+# deneb's keeping after the user's rename of 2026-11-05: the new names, and neither old one.
 RENAMED = fleet("agentplot/boomdrive", "agentplot/boomdrive-cloud", "agentplot/boomdrive-web", "agentplot/flywheel",
                 "agentplot/flywheel-next", "agentplot/timber", "afterthought/crew")
 

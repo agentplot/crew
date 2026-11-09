@@ -14,42 +14,34 @@ DENEB, BOX = "deneb", "chuck-herdr-alpha"
 STANDING = {r: False for r in crew.KIND_ROLES}
 
 
-def hosts(tmp_path):
-    """deneb's sessions of agentplot, madswan and swancloud, and the box's wldn-1 and wldn-2, as read 2026-11-07."""
-    def sess(space, partition, repos):
-        return {"dir": f"{tmp_path}/{space}", "partition": partition, "repos": repos}
-    afterthought = ["afterthought/blueprints", "afterthought/crew"]
-    willdan = ["WilldanGroup/willdan-blueprints"]
-    return {DENEB: {"ssh": DENEB, "sessions": {"agentplot": sess("agentplot", "agentplot", ["agentplot/blueprints"]),
-                                               "madswan": sess("madswan", "business", afterthought),
-                                               "swancloud": sess("swancloud", "personal", afterthought)}},
-            BOX: {"ssh": BOX, "sessions": {"wldn-1": sess("willdan-1", "clients/willdan", willdan),
-                                           "wldn-2": sess("willdan-2", "clients/willdan", willdan)}}}
+# deneb and the box, as the teams file's `hosts` names them (record 0064).
+HOSTS = {DENEB: {"ssh": DENEB, "kind": "darwin"}, BOX: {"ssh": BOX, "kind": "nixos"}}
+AFTERTHOUGHT = ["afterthought/blueprints", "afterthought/crew"]
 
 
 def teams(flume=None):
     """deneb's teams file as read 2026-11-07 16:30Z: agentplot, madswan and swancloud on deneb in sessions of their
-    labels' names, wldn on the box in wldn-2 with its planner in wldn-1, every role standing; flume gives a drive's
-    setting in its place."""
+    labels' names, wldn on the box in wldn-2 with its planner in wldn-1, every role standing, each drive's folder,
+    repos and accounts as deneb's hosts file gave its sessions; flume gives a drive's setting in its place."""
     flume = flume or {}
-    def part(label, blueprints, machine, session, **more):
+    def part(label, blueprints, machine, session, folder, repos, accounts, **more):
         return dict({"label": label, "blueprints": [blueprints], "machine": machine,
                      "session": session, "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+                     "folder": folder, "repos": repos, "accounts": {r: accounts.get(r, accounts["*"]) for r in crew.KIND_ROLES},
                      "flume": flume.get(label, STANDING)}, **more)
-    return {"version": 6, "drives": [
-        part("agentplot", "agentplot/blueprints", DENEB, "agentplot"),
-        part("madswan", "afterthought/blueprints", DENEB, "madswan"),
-        part("swancloud", "afterthought/blueprints", DENEB, "swancloud"),
-        part("wldn", "WilldanGroup/willdan-blueprints", BOX, "wldn-2", roles={"planner": {"session": "wldn-1"}})]}
+    return {"version": 6, "hosts": HOSTS, "drives": [
+        part("agentplot", "agentplot/blueprints", DENEB, "agentplot", "/d/agentplot", ["agentplot/blueprints"], {"*": "madswan"}),
+        part("madswan", "afterthought/blueprints", DENEB, "madswan", "/d/madswan", AFTERTHOUGHT, {"*": "madswan"}),
+        part("swancloud", "afterthought/blueprints", DENEB, "swancloud", "/d/swancloud", AFTERTHOUGHT, {"*": "madswan"}),
+        part("wldn", "WilldanGroup/willdan-blueprints", BOX, "wldn-2", "/workspace", ["WilldanGroup/willdan-blueprints"],
+             {"*": "willdan-alex", "planner": "ia", "reviewer": "ia"}, roles={"planner": {"session": "wldn-1"}})]}
 
 
 @pytest.fixture
 def fleet(tmp_path, monkeypatch):
-    """crew.load over deneb's teams file, or one whose drives' `flume` the case gives, and the hosts file."""
+    """crew.load over deneb's teams file, or one whose drives' `flume` the case gives, and no other file."""
     def loaded(flume=None):
-        (tmp_path / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts(tmp_path)}))
         (tmp_path / "teams.json").write_text(json.dumps(teams(flume)))
-        monkeypatch.setattr(crew, "HOSTS", tmp_path / "herdr-hosts.json")
         monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
         crew.load.cache_clear()
         try:

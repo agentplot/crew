@@ -78,6 +78,15 @@ for role in design planner main-ops operator reviewer; do
   has "$out" "of wldn"; lacks "$out" "fable"
   echo "$role: $(wc -c <<<"$out" | tr -d ' ') characters"
 done
+# Each role's session is named with the account the drive's `accounts` gives the role (record 0064), read from the
+# teams file alone: wldn's every role in wldn-3 on credits; with its planner and reviewer on ia in wldn-1, those two
+# there on ia.
+for r in design planner ops operator reviewer; do has "$out" "\`wldn-$r\` in session wldn-3 (account credits)"; done
+edit teams "$(part wldn)['roles'] = {'planner': {'session': 'wldn-1'}}; $(part wldn)['accounts'].update(planner='ia', reviewer='ia')"
+expect_ok crewpy brief wldn design
+has "$out" "\`wldn-design\` in session wldn-3 (account credits); \`wldn-planner\` in session wldn-1 (account ia); \`wldn-ops\` in session wldn-3 (account credits); \`wldn-operator\` in session wldn-3 (account credits); \`wldn-reviewer\` in session wldn-1 (account ia)"
+fixtures
+ok "a brief names each role's session with the account the drive's accounts gives it"
 expect_ok crewpy brief wldn design
 for want in attach challenge new-territory answered drop "unit add" "tell wldn-planner" "tell <agent>" "## Answering a design question" \
   "a design question the planner, \`wldn-ops\` or a Flume place brings" \
@@ -577,5 +586,5 @@ for want in "on your main level's host, \`$v/afterthought/swancloud\`, in its fo
   "cut from GitHub's main, as the runner last fetched it, with no fetch of your own, since this host's runner alone fetches swancloud's clone: \`git -C $v/afterthought/swancloud worktree add -b crew-teams/<label> $r/afterthought/swancloud/places/crew-teams-<label> origin/main\`" \
   "\`wt -C $r/afterthought/swancloud/places/crew-teams-<label> remove --foreground\`"; do has "$out" "$want"; done
 lacks "$out" "~/Code/github_afterthought/swancloud"; lacks "$out" "$(space mac-studio madswan)/swancloud"; lacks "$out" "fetch -q origin"
-teams_json > "$tf"
+teams_json mac-studio > "$tf"
 ok "on a runner host the design agent's and the operator's briefs name the teams file's checkouts with the folders it gives, and fetch nothing in the runner's clone"

@@ -850,8 +850,8 @@ def landing(monkeypatch, tmp_path):
     madswan's branch in memory, and a brief over two lines in a file."""
     import plan
     swancloud = dict(madswan(), label="swancloud", blueprints=["afterthought/blueprints"])
-    fleet = {"drives": {"madswan": madswan(design="madswan-main"), "swancloud": swancloud},
-             "hosts": {"deneb": {"sessions": {"madswan": {"dir": "/w", "repos": [CREW_KIT["repo"]]}}}}}
+    fleet = {"drives": {"madswan": dict(madswan(design="madswan-main"), folder="/w", repos=[CREW_KIT["repo"]]), "swancloud": swancloud},
+             "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
     monkeypatch.setenv("FLUME_PLACE", RUN_PLACE)
     b = on_branch(monkeypatch, fleet, {})
     monkeypatch.setattr(plan, "read", lambda repo, ref, tip: plan.Plan(

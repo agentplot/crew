@@ -218,7 +218,7 @@ class TestMade:
 
 
 class TestSites:
-    FLEET = {"hosts": {"mac-studio": {"kind": "darwin"}, "chuck-herdr-alpha": {"kind": "nixos"}}}
+    FLEET = {"hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}, "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}}}
     SITE = {"here": "https://unit-a--kit.local", "tailnet": "https://unit-a--kit--studio.dev.swancloud.net"}
     ROUTES = [{"name": "unit-a--kit", "url": "https://unit-a--kit.local"}]
 
@@ -228,6 +228,12 @@ class TestSites:
     def test_another_hosts_opens_by_its_tailnet_name_from_a_mac_only(self):
         assert sites.url_of(self.FLEET, "mac-studio", "chuck-herdr-alpha", self.SITE, self.ROUTES) == (self.SITE["tailnet"], None)
         assert sites.url_of(self.FLEET, "chuck-herdr-alpha", "mac-studio", self.SITE, self.ROUTES) == (self.SITE["tailnet"], "open from a Mac")
+
+    def test_where_the_teams_file_names_no_such_host_crew_says_it_cant_tell(self):
+        """read.1: the kind of the host crew runs on is read from the teams file's `hosts`, and a host it does not name is
+        neither a Mac nor not one."""
+        assert sites.url_of(self.FLEET, "macbook-pro", "mac-studio", self.SITE, self.ROUTES) == (
+            self.SITE["tailnet"], "open from a Mac: the teams file's hosts name no macbook-pro, so crew can't tell whether it is one")
 
     def test_none_where_none_runs_or_is_published(self):
         assert sites.url_of(self.FLEET, "mac-studio", "mac-studio", self.SITE, []) == (None, None)
@@ -334,7 +340,7 @@ class TestDocks:
     unit, tenant-environments started, its work taken by the box's runner in stream wldn, with a in code, b at construct
     and a fix, atlas-maps landed and deployed to mac-studio, a newer deploy waiting on the word, and operations waiting
     on the environment; and wldn's main level on mac-studio, its design agent, planner and reviewer in its session wldn
-    on account madswan-2, ops in ops on willdan, and its operator in op, which names no account."""
+    on account madswan-2, ops in ops on willdan, and its operator in op on credits, as wldn's `accounts` gives them."""
     SIG = "2026-10-01-planning/01-zones"
 
     @pytest.fixture(autouse=True)
@@ -346,9 +352,8 @@ class TestDocks:
         import copy
         from test_board import BOX, FLEET
         f = copy.deepcopy(FLEET)
-        f["hosts"][BOX]["sessions"] = {"crew-a": {"account": "madswan-2"}}  # where the runner takes the work, no agent of crew's
-        f["hosts"]["mac-studio"]["sessions"] = {"wldn": {"account": "madswan-2"}, "ops": {"account": "willdan"}, "op": {}}
         f["drives"]["wldn"]["sessions"] = dict({r: "wldn" for r in ("design", "planner", "reviewer")}, ops="ops", operator="op")
+        f["drives"]["wldn"]["accounts"] = dict({r: "madswan-2" for r in ("design", "planner", "reviewer")}, ops="willdan", operator="credits")
         return f
 
     def paged(self, label=None):
@@ -499,14 +504,16 @@ class TestDocks:
         assert d["docks"]["operation:mac-studio/restart-roles/1"]["tail"] == "on mac-studio · handed to wldn-ops"
 
     def test_a_subscriptions_dock_lists_the_main_levels_sessions_on_it(self):
-        """board-page "A subscription's dock lists its sessions": madswan-2's dock lists the design agent, the planner and
-        the reviewer in mac-studio's session wldn, and willdan's ops; op names no account, so no dock lists it."""
+        """board-page "One account for three roles": madswan-2's dock lists the design agent, the planner and the reviewer
+        in mac-studio's session wldn, and willdan's ops, each account as wldn's `accounts` gives its roles."""
         d = self.paged()
         s = d["docks"]["subscription:madswan-2"]
         assert (s["title"], s["tail"]) == ("madswan-2", "Claude account")
         assert s["parts"] == [{"title": "sessions on it", "rows": [{"text": f"wldn-{r} · mac-studio session wldn"} for r in ("design", "planner", "reviewer")]}]
         assert [r["text"] for r in d["docks"]["subscription:willdan"]["parts"][0]["rows"]] == ["wldn-ops · mac-studio session ops"]
-        assert sorted(k for k in d["docks"] if k.startswith("subscription:")) == ["subscription:madswan-2", "subscription:willdan"]
+        assert [r["text"] for r in d["docks"]["subscription:credits"]["parts"][0]["rows"]] == ["wldn-operator · mac-studio session op"]
+        assert sorted(k for k in d["docks"] if k.startswith("subscription:")) == [
+            "subscription:credits", "subscription:madswan-2", "subscription:willdan"]
 
     def rest(self):
         return re.sub(r'(<script type="application/json" id="data">).*?(</script>)', r"\1\2", page.render(TestFile.D, PurePath("/s/wldn/page.html")), flags=re.S)

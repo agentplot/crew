@@ -303,16 +303,15 @@ def range_landings(commits, merged, lands):
 
 def kit_range(fleet, label, frm, to):
     """What a deploy from frm to to carries on its kit's main, read with git on this host, the drive's main level's,
-    in the main checkouts of the repos its main-level session keeps, each where the host keeps it (crew.session_checkouts:
-    the teams file's checkout where it names the repo for this host): the kit is the one that holds to. (commits, merged)
+    in the main checkouts the teams file keeps on that host (crew.kept: the file's checkout where it names the repo for
+    this host, else the one in the folder of a drive there that lists it): the kit is the one that holds to. (commits, merged)
     as range_landings takes them, and None; or (None, None, why) naming what git could not read (read.1)."""
     import plan
     p = crew.drive_of(fleet, label)
-    sess = fleet["hosts"].get(p["machine"], {}).get("sessions", {}).get(p["session"]) or {}
 
     def git(where, *args):
         return subprocess.run(["git", "-C", where, *args], capture_output=True, text=True, env=plan.gitenv())
-    held = [m for m in crew.session_checkouts(fleet, p["machine"], sess)
+    held = [m for m in (k["main"] for k in crew.kept(fleet, p["machine"]))
             if pathlib.Path(m).is_dir() and git(m, "cat-file", "-e", f"{to}^{{commit}}").returncode == 0]
     if len(held) != 1:
         return None, None, (f"{to[:7]} is a commit of {len(held)} kits {label}'s main level keeps on {p['machine']}" if held
@@ -1091,7 +1090,7 @@ print(busy)
 def quiet(fleet, a):
     """Whether the environment's host is quiet: no Flume place of the drive's with a stage working there
     (places_working), and no test of crew's running."""
-    a.env in fleet["hosts"] or fail(f"{a.env} is no host of the fleet's hosts file")
+    a.env in fleet["hosts"] or fail(f"{a.env} is no host the teams file's hosts name. hosts: " + (" ".join(sorted(fleet["hosts"])) or "none"))
     working = places_working(fleet, a.label, a.env)
     not isinstance(working, str) or fail(f"crew can't tell whether a place works on {a.env}: {working}")
     said = [f"{w} is working" for w in working]

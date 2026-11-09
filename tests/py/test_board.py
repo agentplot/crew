@@ -21,10 +21,11 @@ import plan
 BOX = "chuck-herdr-alpha"
 KIT = {"name": "switchboard-kit", "main": "/kit/main", "dir": "/kit"}
 FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio",
-                                 "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state"}},
-         "hosts": {BOX: {"kind": "nixos", "ssh": BOX},
-                   "mac-studio": {"kind": "darwin", "ssh": "mac-studio",
-                                  "sessions": {"wldn": {"dir": "/m", "repos": ["WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit"]}}}}}
+                                 "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state",
+                                 "folder": "/m", "repos": ["WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit"],
+                                 "accounts": {r: "madswan" for r in ("design", "planner", "reviewer", "ops", "operator")}}},
+         "hosts": {BOX: {"kind": "nixos", "ssh": BOX}, "mac-studio": {"kind": "darwin", "ssh": "mac-studio"}},
+         "consoles": {"wldn": "/m"}}
 # Where work runs, as the runner that took it reported (plan.bolt_at), for a survey of the kits it runs in: two pieces
 # of work in switchboard-kit and one in breadboard-kit on the box, and one in atlas-kit on mac-studio.
 WHERE = {"a": {"label": "wldn", "machine": BOX, "stream": "wldn", "kit": KIT},
@@ -293,8 +294,7 @@ class TestText:
     def test_an_operator_host_with_no_team_is_never_named_for_its_run_record(self):
         """crew-board, "An operator host asleep": the run record is read from the branch, so a host that runs no team
         is asked for nothing and named for nothing, and the landings and cards read from wldn/main are drawn whole."""
-        fleet = dict(FLEET, hosts=dict(FLEET["hosts"], **{"macbook-pro": {"kind": "darwin", "ssh": "macbook-pro",
-                                                                           "sessions": {"wldn": {"partition": "clients/willdan"}}}}))
+        fleet = dict(FLEET, hosts=dict(FLEET["hosts"], **{"macbook-pro": {"kind": "darwin", "ssh": "macbook-pro"}}))
         sv = dict(kits(), **{"macbook-pro": {"ok": False, "error": "ssh: connect to host macbook-pro port 22: Operation timed out"}})
         landed = [dict(label="wldn", bolt="tenant-environments", units=["a", "b"], at=plan.utc(ago(5)), by="wldn-ops", host="macbook-pro")]
         d = board.board_data(fleet, ["wldn"], read(sv=sv, unread={"wldn": {}}, landings=landed), NOW)
@@ -389,17 +389,16 @@ class TestFollower:
     def test_who_follows_is_read_from_the_lock_and_an_unreadable_holder_is_unknown(self, line, free, who):
         assert board.follower_of(line, free) == who
 
-    def test_it_follows_each_drive_whose_label_names_a_session_on_the_host(self):
-        """A session named for a drive's label is the drive's, as swancloud names and checks each drive's sessions: the
-        hosts file's `partition` of a session, swancloud's, is read by nothing, so madswan's session in another and
-        agentplot's in none are followed as wldn's and swancloud's are, and wldn-5, no drive's label, is not."""
-        fleet = {"drives": {"wldn": {}, "swancloud": {}, "madswan": {}, "agentplot": {}, "atlas": {}},
-                 "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "wldn-5": {"partition": "clients/willdan"},
-                                                       "swancloud": {"partition": "personal"}, "madswan": {"partition": "personal"},
-                                                       "agentplot": {"partition": None}}},
-                           BOX: {"sessions": {"wldn": {"partition": "clients/willdan"}}}}}
-        assert board.labels_here(fleet, "mac-studio") == ["wldn", "swancloud", "madswan", "agentplot"]
-        assert board.labels_here(fleet, BOX) == ["wldn"] and board.labels_here(fleet, "macbook-pro") == []
+    def test_it_follows_the_drives_its_teams_files_consoles_name(self, monkeypatch):
+        """operator-agent, The drives a host follows: deneb's `consoles` names afterthought, agentplot, madswan and wldn,
+        and its teams file lists swancloud too, which it does not follow; the file names this host's consoles alone, so
+        another host follows none of them, and a file that names none follows none (record 0064)."""
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        fleet = {"drives": {"afterthought": {}, "agentplot": {}, "swancloud": {}, "madswan": {}, "wldn": {}},
+                 "consoles": {"wldn": "/w", "madswan": "/a", "agentplot": "/p", "afterthought": "/a"}}
+        assert board.labels_here(fleet, "deneb") == ["afterthought", "agentplot", "madswan", "wldn"]
+        assert board.labels_here(fleet, "mac-studio") == [] and board.labels_here(fleet, BOX) == []
+        assert board.labels_here(dict(fleet, consoles={}), "deneb") == []
 
     @pytest.mark.parametrize("m, kept, crew_read, how", [
         ({"crew": True, "read": True, "any": True}, False, True, "read"), ({"crew": True, "read": True, "any": True}, True, True, "update"),
@@ -536,7 +535,7 @@ class TestRefresh:
                                      "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}},
                             "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["o/bp"],
                                           "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}},
-             "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "swancloud": {"partition": "personal"}}}}}
+             "hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}, "consoles": {"wldn": "/w", "swancloud": "/s"}}
 
     @pytest.fixture
     def follower(self, tmp_path, monkeypatch):

@@ -323,30 +323,36 @@ class TestWhatStands:
 
 
 class TestWhatAHostKeeps:
-    """Decision 3: a host's keeping is its runner's report where it gives one, else its spaces in the hosts file."""
+    """bolt-plan "A rename waits until no host keeps the old name"; Decision 3: a host's keeping is its runner's report
+    where it gives one, else what the teams file keeps there (record 0064)."""
 
     def test_a_runner_reporting_it(self):
         assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/tailrace": "/r/tailrace", "agentplot/timber": "/r/timber"},
                                                        ["agentplot/timber"])}) == (["deneb's runner keeps agentplot/tailrace"], [])
 
-    def test_the_runners_report_wins_over_the_spaces(self):
+    def test_the_runners_report_wins_over_the_teams_file(self):
         assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/timber": "/r/timber"}, ["agentplot/tailrace"])}) == ([], [])
 
-    def test_a_runner_reporting_none_read_by_its_hosts_spaces(self):
+    def test_a_runner_reporting_none_read_by_the_teams_file(self):
+        """A runner that reports no repositories: deneb's runner branch holds no repositories.rec and a drive on deneb
+        lists agentplot/tailrace."""
         assert plan.rename_kept("tailrace", {"deneb": (None, ["agentplot/tailrace", "afterthought/crew"])}) == (
-            ["deneb's spaces keep agentplot/tailrace"], [])
+            ["deneb's teams file keeps agentplot/tailrace"], [])
 
-    def test_a_runner_reporting_none_on_a_host_the_hosts_file_doesnt_list_is_unread(self):
+    def test_a_runner_reporting_none_on_a_host_the_teams_file_gives_no_keeping_for_is_unread(self):
+        """What crew can't read: a runner's host that reports no repositories, is not the host the rename runs on, and
+        runs no drive of the teams file."""
         assert plan.rename_kept("tailrace", {"vega": (None, None)}) == (
-            [], [f"vega's runner reports no repositories and {plan.crew.HOSTS} lists no vega, so crew can't read whether it keeps tailrace"])
+            [], ["vega's runner reports no repositories, and vega is neither the host the teams file is written on nor one a "
+                 "drive runs on, so crew can't read whether it keeps tailrace"])
 
     def test_an_unreadable_runner_is_unread(self):
         why = "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: repositories.rec holds agentplot/timber twice"
         assert plan.rename_kept("tailrace", {"deneb": (why, ["agentplot/tailrace"])}) == ([], [why])
 
-    def test_the_main_level_host_with_no_runner_branch_by_its_spaces(self):
+    def test_the_main_level_host_with_no_runner_branch_by_the_teams_file(self):
         assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/timber": "/r/timber"}, []), "mac-studio": (None, ["tailrace"])}) == (
-            ["mac-studio's spaces keep tailrace"], [])
+            ["mac-studio's teams file keeps tailrace"], [])
 
     def test_two_repositories_by_the_name_both_named(self):
         assert plan.rename_kept("tailrace", {"deneb": ({"agentplot/tailrace": "/a", "afterthought/tailrace": "/b"}, None)}) == (
@@ -389,17 +395,18 @@ class TestRefused:
             "crew can't tell how far fix/main/tailrace/x (request 9) has got: y")
 
     def test_a_host_keeping_it(self):
-        assert self.refusal(kept=["deneb's runner keeps agentplot/tailrace", "mac-studio's spaces keep agentplot/tailrace"], count=0) == (
-            "crew can't rename tailrace while a host keeps it: deneb's runner keeps agentplot/tailrace; mac-studio's spaces keep "
+        assert self.refusal(kept=["deneb's runner keeps agentplot/tailrace", "mac-studio's teams file keeps agentplot/tailrace"], count=0) == (
+            "crew can't rename tailrace while a host keeps it: deneb's runner keeps agentplot/tailrace; mac-studio's teams file keeps "
             "agentplot/tailrace; tailrace is removed from the runner, Flume and sluice before crew renames its records")
         assert self.refusal(kept=["deneb's runner keeps agentplot/tailrace"], unkept=["vega: z"]) == (
             "crew can't rename tailrace while a host keeps it: deneb's runner keeps agentplot/tailrace, and crew can't read whether "
             "another keeps it: vega: z; tailrace is removed from the runner, Flume and sluice before crew renames its records")
 
     def test_unread_keeping(self):
-        assert self.refusal(unkept=["vega's runner reports no repositories and the hosts file lists no vega"]) == (
-            "crew can't rename tailrace: it can't read whether a host keeps it: vega's runner reports no repositories and the hosts "
-            "file lists no vega; tailrace is removed from the runner, Flume and sluice before crew renames its records")
+        said = "vega's runner reports no repositories, and vega is neither the host the teams file is written on nor one a drive runs on"
+        assert self.refusal(unkept=[said]) == (
+            f"crew can't rename tailrace: it can't read whether a host keeps it: {said}; tailrace is removed from the runner, "
+            "Flume and sluice before crew renames its records")
 
     def test_no_record_naming_it(self):
         assert self.refusal(old="rocs-kit", new="rocs", count=0) == (
@@ -410,12 +417,20 @@ class TestRefused:
 
 
 def fleet(*repos):
-    """madswan's fleet, its main level on deneb, whose spaces keep repos (owner/name)."""
-    return {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
-            "hosts": {"deneb": keeping("/d/agentplot", *repos)}}
+    """madswan's fleet, its main level on deneb, its folder keeping repos (owner/name) there, as the teams file gives
+    them (record 0064)."""
+    return {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "flume": STANDING}, **keeping("/d/agentplot", *repos))},
+            "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
 
 
-# deneb's spaces once flywheel-cloud is removed and before boomdrive-cloud is added back (record 0060's order).
+@pytest.fixture(autouse=True)
+def on_deneb(monkeypatch):
+    """crew runs on deneb, madswan's main-level host, so the teams file it reads is deneb's."""
+    import crew
+    monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+
+
+# deneb's keeping once flywheel-cloud is removed and before boomdrive-cloud is added back (record 0060's order).
 REMOVED = fleet("agentplot/timber", "afterthought/crew")
 
 
@@ -456,7 +471,7 @@ class TestTheCommand:
 
     def test_a_host_keeping_the_old_name_refuses(self):
         w = madswan_branch()
-        with pytest.raises(plan.Refusal, match="^crew can't rename flywheel-cloud while a host keeps it: deneb's spaces keep "
+        with pytest.raises(plan.Refusal, match="^crew can't rename flywheel-cloud while a host keeps it: deneb's teams file keeps "
                                                "agentplot/flywheel-cloud; flywheel-cloud is removed from the runner"):
             command(w, f=fleet("agentplot/flywheel-cloud")).change(w)
 

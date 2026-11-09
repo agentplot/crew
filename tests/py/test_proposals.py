@@ -140,8 +140,8 @@ class TestRecordSources:
 class TestRestsOnAccepted:
     """A proposal's new work and the records it rests on (plan.record_items, plan.unaccepted): each named record not
     accepted on its main refuses the proposal with one line naming the work, the record and what main holds."""
-    FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio"}},
-             "hosts": {"mac-studio": keeping("/w", "WilldanGroup/switchboard-kit")}}
+    FLEET = {"drives": {"wldn": dict({"label": "wldn", "machine": "mac-studio"}, **keeping("/w", "WilldanGroup/switchboard-kit"))},
+             "hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}}
     REPO = "WilldanGroup/switchboard-kit"
     FILE = "docs/adr/0033-a-record.md"
 
@@ -228,8 +228,8 @@ class TestRestsOnAccepted:
 
     def test_work_of_a_kit_its_main_level_host_keeps_no_checkout_of_naming_a_record_is_refused(self):
         said, _ = refused(self.items, 'unit add n "N." --repo breadboard-kit --source docs/adr/0001')
-        assert said == ("unit n names a decision record, and wldn's main level runs on mac-studio, and no space there keeps "
-                        "breadboard-kit, so crew can't tell whose it is; if it was renamed on its host, crew kit rename breadboard-kit <new> names it so in the plan")
+        assert said == ("unit n names a decision record, and wldn's main level runs on mac-studio, and the teams file keeps no "
+                        "breadboard-kit there, so crew can't tell whose it is; if it was renamed on its host, crew kit rename breadboard-kit <new> names it so in the plan")
         assert self.items('unit add m "M." --repo breadboard-kit --source docs/architecture/core.md') == []
 
 
@@ -240,7 +240,7 @@ class TestStartProposed:
     (plan.start_check), marks the bolt Path: flume and launches each unit of it in its repository, naming no host or
     stream, starting no agent. One naming a bolt started already is refused whole. sluice's branch and the commit are
     the cross journey's (t-journey-cross)."""
-    FLEET = FLEET  # wldn's main level on mac-studio, whose spaces keep its kits
+    FLEET = FLEET  # wldn's main level on mac-studio, whose folder keeps its kits
     DOS = ("bolt start pages",)
 
     @pytest.fixture(autouse=True)

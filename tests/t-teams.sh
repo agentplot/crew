@@ -1,9 +1,11 @@
 # crew reads teams.json version 6 alone: drives under `drives`, each named by its label, with their main levels, role
 # overrides, and errors for anything missing or inconsistent; a file at another version, version 5 and its
 # `partitions` among them, or one listing teams, is refused naming crew's own module, services.crew, or the machine's
-# configuration that writes it, and no swancloud module (main-level "Drives are declared in the teams file"). A
-# session's `partition` in the hosts file is swancloud's and read by nothing. What a drive's session resolves its main
-# level to is the logic tier's (tests/py/test_teams.py).
+# configuration that writes it, and no swancloud module (main-level "Drives are declared in the teams file"). The
+# teams file is the one file crew reads of a host's drives (record 0064): swancloud's hosts file, present or not, is
+# read for nothing, and a drive with no folder, or whose machine keeps none of its first blueprints repo, is refused.
+# What a drive's entry resolves its main level to is the logic tier's (tests/py/test_teams.py).
+# Reads: plugin/roles/
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
 
@@ -60,17 +62,31 @@ expect_fail "drive swancloud in" crewpy labels; has "$out" "has no 'flume'"; has
 fixtures
 ok "a drive without its flume is refused, naming the field and the fix"
 
-edit hosts "d['hosts']['mac-studio']['sessions']['madswan-1']['partition'] = None"
+expect_ok crewpy brief wldn planner; brief=$out
+for h in mac-studio chuck-herdr-alpha; do
+  mkdir -p "$(home_of $h)/.config/swancloud"
+  printf '{"version": 1, "hosts": {"chuck-herdr-alpha": {"ssh": "elsewhere", "kind": "darwin", "sessions": {"wldn-3": {"dir": "/nowhere", "account": "ia", "partition": "business", "repos": []}}}}}\n' \
+    > "$(home_of $h)/.config/swancloud/herdr-hosts.json"
+done
 expect_ok crewpy labels; eq "$out" $'wldn\nmadswan\nswancloud'
-edit hosts "del d['hosts']['mac-studio']['sessions']['madswan-1']['partition']"
+expect_ok crewpy brief wldn planner; eq "$out" "$brief"
+lacks "$out" "/nowhere"; lacks "$out" "account ia"
+echo "not json" > "$(home_of mac-studio)/.config/swancloud/herdr-hosts.json"
 expect_ok crewpy labels
-fixtures
-ok "a session's partition in the hosts file, none or missing, is read by nothing"
+for h in mac-studio chuck-herdr-alpha; do rm -r "$(home_of $h)/.config/swancloud"; done
+ok "a hosts file present, whatever it gives a drive's session, is read for nothing"
 
-edit hosts "d['hosts']['chuck-herdr-alpha']['sessions']['wldn-3']['repos'].remove('WilldanGroup/willdan-blueprints')"
-expect_fail "the space of chuck-herdr-alpha's session wldn-3 does not keep WilldanGroup/willdan-blueprints" crewpy labels
+edit teams "$(part wldn)['repos'].remove('WilldanGroup/willdan-blueprints')"
+expect_fail "drive wldn: chuck-herdr-alpha keeps no WilldanGroup/willdan-blueprints, its first blueprints repo" crewpy labels
+has "$out" "crew's own module, services.crew, or the machine's configuration that writes it"
 fixtures
-ok "a main level in a session whose space does not keep its blueprints is refused"
+ok "a drive whose machine keeps none of its first blueprints repo is refused, naming the fix"
+
+edit teams "del $(part madswan)['folder']"
+expect_fail "drive madswan in" crewpy labels; has "$out" "has no 'folder', the absolute folder of its herdr session on mac-studio"
+has "$out" "crew's own module, services.crew, or the machine's configuration that writes it"
+fixtures
+ok "a drive with no folder is refused, naming the field and the fix"
 
 for v in 1 2 3 4 5; do
   fixtures $v
