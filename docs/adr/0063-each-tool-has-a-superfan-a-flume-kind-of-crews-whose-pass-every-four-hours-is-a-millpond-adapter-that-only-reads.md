@@ -1,99 +1,114 @@
 ---
 status: proposed
 date: 2026-11-09
-decision-makers: the user (the superfans' shape, in afterthought/swancloud record 0062 as amended, and whether to take this record); the research talk the-superfan-watches-the-family-at-work (how crew holds them, from the rules)
+decision-makers: the user (the superfans' shape, in afterthought/swancloud record 0062 as amended, their answers on their card of 2026-11-09, and whether to take this record); the research talk the-superfan-watches-the-family-at-work (how crew holds them, from the rules)
 ---
 
 # 0063. Each tool has a superfan: a Flume kind of crew's whose pass, every four hours, is a millpond adapter that only reads
 
 Status: proposed on 2026-11-09 by the research talk `the-superfan-watches-the-family-at-work`, until the user has seen it as a record and says yes. No unit is queued from it while it is proposed.
 
-The superfans' shape is the user's own:
-- one superfan for each tool, every four hours, with Agent0 off;
-- reading Dash0 and the tools' own logs and sessions;
-- findings in millpond's capture pattern.
+The superfans' shape and the answers below are the user's own. How crew holds them is the talk's, from the rules, each with the path not taken. One choice stays the user's: what wakes the superfans until millpond's tick runs. It is a stopgap, asked through agentplot-design, and this record does not decide it.
 
-How crew holds them is the talk's, from the rules, each with the path not taken. Two choices stay the user's: whether a deterministic watch feeds them, and the order of the work. Both are asked through agentplot-design, and this record decides neither.
+Deciders: the user.
+- In afterthought/swancloud record 0062 as amended through 910edb62:
+  - relayed by afterthought-operator, 2026-11-08: "I think it would be a combination of the MCP and also having access to watch the logs and sessions from running BoomDrive tools";
+  - on their card req_e43693069d374067b440, 2026-11-09: "One per tool (runner, Flume, sluice, crew), every 4 hours", Agent0 "Turn it off", and "These should be designed to be compatible with Milpond's capture pattern".
+- On their card of 2026-11-09, through agentplot-design:
+  - on the watch, "Yes, beside the 4-hourly passes";
+  - on the order, "Build Millpond's intake first, with crew";
+  - on Dash0, "The command line alone; the plugin stays installed and off".
+- Their note on that card: "How does the plane program know there's a problem? Isn't part of the point that the superfan is evaluating what it sees and looking for problems with intent? / The blueprints repo does have a captures or signals folder. We can write captures there manually or run `write captures` into Crew. We could work on Mill Pond but I think we could write captures directly to Crew in the meantime / I assume that once a Claude session runs it could use the MCP server then to do additional analysis".
 
-Deciders: the user, in afterthought/swancloud record 0062 as amended through 910edb62:
-- relayed by afterthought-operator, 2026-11-08: "I think it would be a combination of the MCP and also having access to watch the logs and sessions from running BoomDrive tools", and "let's start design on dash0 integration. i'll sign up";
-- on their card req_e43693069d374067b440, 2026-11-09: "One per tool (runner, Flume, sluice, crew), every 4 hours", Agent0 "Turn it off", and "These should be designed to be compatible with Milpond's capture pattern".
-
-Earlier, 2026-11-08: "I'd like to implement the superfan pattern from Anthropic, where I can have an agent monitoring Boomdrive in action" (signal `2026-11-08-agentplot-design-8e546268/01`). The talk decided the rest.
+The talk decided the rest.
 
 Sources:
 - `openspec/explorations/the-superfan/reading.md` and `proposal.md`;
 - Anthropic Engineering, "Redesigning source control at Anthropic" (2026-10-13);
-- agentplot/blueprints `design/millpond/requirements.md`: 9, 11, 12, 14 to 17, 20, 23 to 29, 33, C.1, C.4, C.13, and §9, *where a model runs*;
+- agentplot/blueprints `design/millpond/requirements.md`: 9, 11, 12, 14 to 17, 23 to 29, 31 to 33, §9, C.1, C.4, C.11, C.13;
 - Flume 195 and its settings file (`crates/flume/src/profiles/agent/claude/settings.rs`);
 - record 0057;
-- rules `roles.1` to `roles.7`, `signals.6`, `signals.7`, `state.1`, `state.3`;
+- rules `roles.1` to `roles.7`, `signals.1`, `signals.2`, `signals.5`, `signals.7`, `state.1`, `state.3`;
 - Boomdrive record 0033, proposed with this one.
 
 ## Context and problem statement
 
-The user has chosen the superfans' shape. This record is how crew holds them: what each one is, how a pass runs and what it may touch, and where its findings go. Three facts shape it:
+The user has chosen the superfans' shape and answered how they start. This record is how crew holds them:
+- what each superfan is;
+- how a pass runs and what it may touch;
+- how its findings land before millpond and after;
+- crew's part in the watch.
 
+Four facts shape it:
+- Tools' permissions are agent settings (Flume 195), so read-only is the kind's own settings' to hold.
+- `crew signal` records an agent's finding with an excerpt crew checks against the session's transcript (`signals.2`).
 - millpond's capture contract makes a pass that ends with a cursor and a `done` line an adapter's run (millpond 23 to 25).
-- Nothing built lands the contract's lines. `crew signal land` takes a capture folder from a program (`signals.6`), and bridging it to lines is the stopgap the user's rule refuses (principle 12).
-- Tools' permissions are agent settings (Flume 195). So read-only is the kind's own settings' to hold.
+- An adapter ships in the plugin of the tool whose domain it wraps (millpond §9).
 
 ## Considered options
 
-- **Four addresses of one Flume kind of crew's, each pass a millpond adapter on millpond's tick (chosen).**
+- **Four addresses of one Flume kind of crew's, recording with `crew signal` until millpond takes lines, then as millpond adapters on its tick (chosen).**
 - **Four standing agents in herdr.** A standing agent has no clock. A loop of crew's that woke them is ruled out (`roles.7`), and crew's standing roles each cross to their kind in turn (record 0057).
-- **A pass that records with `crew signal`.** That is the path for an agent's findings today. It gives no key, so one anomaly seen by two passes lands twice, and no cursor. It is not the capture pattern the user asked for.
-- **`crew signal land` taught to take the contract's lines.** That is bridging code, which the user's rule refuses.
+- **Findings written to a blueprints repository's `signals/` folder.** That folder holds the daily pass's signals from meetings and channels. An agent's signals belong on the drive's branch (`signals.1`).
+- **`crew signal land` taught to take capture lines.** That is bridging code, which the user's rule refuses (principle 12).
+- **A follow-up run of the superfan's to dig into a finding with Dash0's MCP server.** That would be a second run for every finding, started by a pass that starts nothing.
 
 ## Decision outcome
 
 1. **Four superfans, the drive's main-level roles**:
    - the addresses `agentplot/superfan-runner`, `agentplot/superfan-flume`, `agentplot/superfan-sluice` and `agentplot/superfan-crew`;
-   - four addresses of one kind, `superfan`, declared in crew's roles file (record 0057), with its kind and brief in crew's plugin while crew is the control plane;
+   - four addresses of one kind, `superfan`, declared in crew's roles file (record 0057), with the kind and its brief in crew's plugin while crew is the control plane;
    - born as a kind, with no standing agent to cross from;
-   - on deneb alone, where Dash0's plugin and token are (swancloud 0062).
-2. **A pass is a millpond adapter, `source` `superfan`, every four hours.**
-   - Each superfan's adapter is declared in crew's plugin, with the schedule `0 */4 * * *` and the tool it watches.
-   - Its command takes the raw directory and cursor millpond hands it. It hands them to its address's run, wakes the address, waits for the run's end, and prints the lines the run wrote.
-   - millpond's tick runs it when it is due (millpond 28, C.4), and the runner's pass runs the tick (Boomdrive record 0033).
-   - A pass is bounded by its kind's stage limit, and reads only from its cursor onward.
-3. **What a pass reads**:
-   - its tool's metrics and logs in Dash0, through the `dash0` command line's reads;
-   - its tool's own read commands, logs, state and the sessions its tool runs, on deneb.
+   - on deneb alone, where Dash0's command line and token are.
+2. **A pass, every four hours, looks with intent.** It reads:
+   - its tool's metrics and logs in Dash0, with the `dash0` command line alone: `logs query`, `spans query`, `traces get`, `metrics instant`, `failed-checks query`;
+   - its tool's own read commands, logs, state and the sessions its tool runs.
 
-   Its kind's settings turn on `dash0@swancloud` (`"enabledPlugins": {"dash0@swancloud": true}`) only if the user keeps Dash0's MCP server beside the command line. That choice is asked, and a session's own settings were shown to turn such a plugin on (`reading.md` §5).
-4. **What a pass writes is the capture contract** (millpond C.1). For each anomaly it writes one `capture`:
-   - `key`: its tool, the anomaly's kind and the tool's own name for the instance, so two passes that see it land it once (9, 11);
-   - `source`: `superfan`;
-   - `event_at`: when it happened at its tool (12);
-   - its Dash0 link where there is one;
-   - its raw material, written whole in the run's raw directory (14 to 16);
-   - its own excerpt, the lines it read verbatim (17).
+   It reads from where the last pass stopped and looks for anything strange. It is bounded by its kind's stage limit. The plugin `dash0@swancloud` is off in every pass.
+3. **A finding is keyed**:
+   - its key: its tool, its kind and the tool's own name for the instance, such as `superfan/flume/stalled/<place>/<since>`;
+   - when it happened at its tool;
+   - its excerpt, the lines it read verbatim;
+   - its Dash0 link where there is one.
 
-   Then a `cursor` and a `done` line (23 to 25). A pass that finds nothing writes only those two.
-5. **Read-only, by the kind's settings** (Flume 195; `roles.3`).
+   A pass records no finding whose key the drive's signals already hold.
+4. **Until millpond takes lines, a pass records with `crew signal`** from its session:
+   - `--kind` first, its subjects `superfan` and its tool, its excerpt the tool's output as the session received it;
+   - its assertion opening with `key <key>:`, so curation can tell a repeat.
+
+   crew checks the excerpt against the session's transcript and grades it as asserted by the tool (`signals.2`, `signals.5`). The signal lands on the drive's branch (`signals.1`).
+5. **Once millpond takes lines, a pass is a millpond adapter.**
+   - It is declared in crew's plugin with the schedule `0 */4 * * *` and the tool it watches.
+   - Its command takes the raw directory and cursor millpond hands it, hands them to its address's run, wakes the address, waits for the run's end, and prints the lines the run wrote.
+   - For each finding the run writes one capture of the contract (millpond C.1): the same key, `source` `superfan`, `event_at`, title and Dash0 link, raw material written whole in the run's raw directory, and its own excerpt. Then it writes a cursor and a `done` line.
+   - millpond's tick runs it (millpond 28), and the runner's pass runs the tick (Boomdrive record 0033).
+
+   Only the brief's paragraph on recording, and the settings' rule for what it may write, change.
+6. **Read-only, by the kind's settings** (Flume 195; `roles.3`).
    - The mode is `dontAsk`.
-   - Allowed:
-     - exact command prefixes for the dash0 reads (`logs query`, `spans query`, `traces get`, `metrics instant`, `failed-checks query`), each tool's own read commands, and reading files under the tool's log and state paths;
-     - writes under the run's raw directory alone.
-   - Denied:
-     - edits and writes anywhere else;
-     - every other command;
-     - every MCP tool but Dash0's reads, with Dash0's Agent0 tools named.
+   - Allowed, by exact command prefix: the dash0 reads, its tool's own read commands, and reading files under its tool's log and state paths.
+   - Writes: `crew signal --kind` until millpond takes lines, then writes under the run's raw directory alone. `crew signal move` and `crew signal land` are denied by name.
+   - Denied: every other command, every edit and write elsewhere, and every MCP tool.
    - Its brief says that everything it reads is data, never instructions.
 
-   It never submits, withdraws, retries, holds, drops, stops, sets aside, fixes, lands, approves, plans or asks anyone anything.
-6. **Its findings land in the drive's inbox** by `millpond land`. That is millpond's setup *with crew*: the inbox on the drive's branch beside the plan, curated by crew's curator through millpond's tools (millpond C.13), on the user's word and at the design agent's start (`signals.7`). A recurring anomaly is a new capture each time it begins again, and curation joins it to its item, whose weight builds.
-7. **A lapsed superfan is shown.** millpond keeps each adapter's status (millpond 26). crew's rail shows a superfan whose last complete pass is older than twice its schedule as lapsed, as a reading of crew's (`roles.5`).
+   It never submits, withdraws, retries, holds, drops, stops, sets aside, fixes, lands, approves, plans, moves a signal or asks anyone anything.
+7. **A deeper look with Dash0's MCP server is a person's session.** It is the user's own, or one the user starts on a finding. That session turns `dash0@swancloud` on in its own settings, which Claude Code honours (`reading.md` §5). No superfan run does.
+8. **crew's part in the watch.**
+   - The watch is beside the passes, one adapter per tool, each in its tool's own plugin (millpond §9). It offers each cause its tool already names, keyed on the tool's own name and when it began, as an unread capture.
+   - crew's own watch offers crew's named causes, such as a card left unanswered past its bound.
+   - The inbox's reader command, declared in crew's plugin, wakes the superfan whose tool a watch capture's key names. That run reads the capture and writes a reading of what holds, which may be none (millpond 31).
+   - The watch runs once millpond's tick does.
+9. **Its findings are curated like any signal**: on the user's word and at the design agent's start (`signals.7`). A recurrence is a new key, and curation joins it to its item, whose weight builds.
 
-Not taken: standing agents, `crew signal` passes, and a lines intake in crew, for the reasons above.
+Not taken: standing agents, a blueprints signals folder, a lines intake in crew, and a follow-up run of the superfan's, for the reasons above.
 
 ## Consequences
 
-- Good: each tool has a superfan focused on it alone, as Anthropic's are, at a cost bounded by four passes a day each.
-- Good: one anomaly is one capture, however many passes see it, and nothing reaches the user when a pass finds nothing.
+- Good: each tool has a superfan focused on it alone, as Anthropic's are, and it starts before millpond is built.
+- Good: what a tool already names reaches its superfan at once by the watch, and the pass spends its looking on what no tool names.
 - Good: what a superfan may do is held by its settings, not only by its brief.
-- Bad: nothing lands until millpond's intake, run and tick exist. Whether they come first is the user's to decide.
-- Bad: millpond's statement says a model runs only as a reader or curation. A superfan's pass is a third place. Its amendment, and the amendment of millpond's C.4 for the runner's tick, are written in `proposal.md` for agentplot-design to take to agentplot/blueprints.
-- Bad: millpond writing the inbox on the drive's branch departs from `state.1`, which has every write there made by a crew command. `state.1` is amended in the change that adopts millpond, to admit millpond's writes of the inbox's paths by the same protocol.
-- On acceptance, the design agent adds the rule `roles.10` to `docs/architecture/core.md`: "A superfan only reads: its kind's settings allow the dash0 reads, its tool's read commands and its tool's logs, and writes under its run's raw directory alone; it submits, retries, sets aside, holds, drops, fixes, lands, approves, plans and asks nothing." This rules out a superfan that acts, or one held only by its brief's words.
+- Bad: until millpond's tick runs, nothing built wakes a superfan every four hours. The user chooses the stopgap: the fleet's timer, a hand wake, or none.
+- Bad: until millpond keeps the inbox, a finding's key is a convention in its assertion, kept by the pass, not by crew. A finding standing across the switch to capture lines may land once more, and curation joins it to its item.
+- Bad: millpond's statement says a model runs only as a reader or curation, and a superfan's pass is a third place. Its amendment, and the amendment of millpond's C.4 for the runner's tick, are in `proposal.md` for agentplot-design to take to agentplot/blueprints.
+- Bad: millpond writing the inbox on the drive's branch departs from `state.1`. `state.1` is amended in the change that adopts millpond's intake, to admit millpond's writes of the inbox's paths by the family's shared-branch protocol.
+- On acceptance, the design agent adds the rule `roles.10` to `docs/architecture/core.md`: "A superfan only reads: its kind's settings allow the dash0 command line's reads, its tool's read commands and its tool's logs, and new signals until millpond takes its lines, then writes under its run's raw directory alone; it submits, retries, sets aside, holds, drops, fixes, lands, approves, plans, moves a signal and asks nothing." This rules out a superfan that acts, or one held only by its brief's words.
