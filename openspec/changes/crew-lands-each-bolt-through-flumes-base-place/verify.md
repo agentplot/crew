@@ -1,67 +1,76 @@
 # Verify: crew-lands-each-bolt-through-flumes-base-place
 
-Read 2026-11-08 on `change/crew-lands-each-bolt-through-flumes-base-place` at `95d7d475`. **Verdict: not ready to archive.** The whole checks pass and every requirement name the deltas cite resolves. But crew's code and tests still cite six requirements that this change removes. Once archived, each of those citations names a requirement no spec holds. The change goes back to its code stage with what follows.
+Read 2026-11-08 on `change/crew-lands-each-bolt-through-flumes-base-place` at `98144f4d`. **Verdict: not ready to archive.** The whole checks pass, every task is ticked, and no function or case cites a requirement this change removes. But 18 lines in `plugin/` and `tests/` cite, by name, a requirement or scenario that no spec holds, before this change is archived or after. Every one of them was added on this change's branch. The change goes back to its code stage with what follows.
 
 ## The whole checks
 
-`tests/suite` was run once from the worktree's root. It runs every project's `check-full` tasks, as sluice selects them. Result: **33 passed (33 replayed), 0 failed**, exit 0.
+`tests/suite` was run once from the worktree's root. It runs every project's `check-full` tasks, as sluice selects them. Result: **33 passed (5 replayed), 0 failed**, exit 0.
 
-Each task was replayed from an earlier passing run on identical inputs: `contract`, `logic`, `mod`, `nix:format`, `nix:lint`, `nix:test`, `nix:typecheck`, `t-briefs`, `t-cards`, `t-docs`, `t-flume-source`, `t-help`, `t-hold`, `t-journey-board`, `t-journey-cross`, `t-journey-land`, `t-journey-main`, `t-journey-main-fix`, `t-journey-ops`, `t-journey-plan`, `t-journey-review`, `t-journey-roles`, `t-journey-signals`, `t-journey-state`, `t-roles`, `t-runner`, `t-session-hook`, `t-slot`, `t-sluice`, `t-stage-facts`, `t-suite`, `t-teams`, `t-waits`. The one commit since the last verify (`95d7d475`) changes only `specs/run-record/spec.md` and `tasks.md`, which no task takes as an input.
+Run afresh: `contract`, `logic`, and every end-to-end test (`t-briefs`, `t-cards`, `t-docs`, `t-flume-source`, `t-help`, `t-hold`, `t-journey-board`, `t-journey-cross`, `t-journey-land`, `t-journey-main`, `t-journey-main-fix`, `t-journey-ops`, `t-journey-plan`, `t-journey-review`, `t-journey-roles`, `t-journey-signals`, `t-journey-state`, `t-roles`, `t-runner`, `t-session-hook`, `t-slot`, `t-sluice`, `t-stage-facts`, `t-suite`, `t-teams`, `t-waits`). Replayed from an earlier passing run on identical inputs: `mod`, `nix:format`, `nix:lint`, `nix:test`, `nix:typecheck`.
 
 ## Tasks
 
-All 40 tasks in `tasks.md` are ticked. `openspec validate crew-lands-each-bolt-through-flumes-base-place --strict` passes.
+All 41 tasks in `tasks.md` are ticked. `openspec validate crew-lands-each-bolt-through-flumes-base-place --strict` passes.
 
-Task 9.5's check holds. run-record's "A landing's Submission is the merge queue's entry Flume names" now cites bolt-teams "A landing is recorded by the first act that reads it in the runner's report", and the task's grep prints 0.
+Task 5.11's check holds. Its grep prints nothing. The six files its pytest names are in the logic tier, which passed.
 
-## Words in the delta
+The one commit since the last verify (`98144f4d`) changes only docstrings and comments. Each changed Python file parses to the same syntax tree as at `95d7d475` once docstrings are blanked.
 
-Every quoted `<capability> "<requirement>"` citation in the deltas, `design.md`, `proposal.md` and `tasks.md` was checked against the requirements each capability holds once the change is applied. That set is the main specs, plus each delta's ADDED and MODIFIED names, less its REMOVED ones. All 8 citations resolve.
+## How the citations were checked
 
-## Requirements the code still cites after their removal
+crew's convention is that a function or case names the requirement or scenario it serves, as `<capability> "<name>"`, so a case reads as its spec's scenario.
 
-crew's convention is that a function or case names the requirement it serves, so the case reads as its spec's scenario. The deltas remove 27 requirements, and each REMOVED entry's Migration names what replaces it. Six of those removed names are still cited in `plugin/lib/plan.py` and `tests/py/`. After `openspec archive`, every citation below names a requirement no spec holds.
+Every such citation in `plugin/`, `tests/` and the change's own documents was read, including the later names of a list (`"A", "B" and "C"`) and a citation wrapped across lines. Each was checked against the names its capability holds once the change is applied: requirements and scenarios. That set is the main specs, less each delta's REMOVED requirements, with its ADDED and MODIFIED requirements and their scenarios in their place.
 
-Task 5.9 has "the docstrings and usage lines naming crew's sluice landing go". The leftovers the first verify named are gone. These citations, and the sluice-landing wording around them, remain:
+The same check was run on the branch's base (`4b813f18`) against the specs there, and only the citations new on this branch are reported. The base already held unresolved citations, mostly shorthand. They are not this change's and are left out.
 
-| Removed requirement | Its Migration | Cited at |
+- **No citation names a requirement this change removes.**
+- **The deltas, `design.md`, `proposal.md` and `tasks.md` cite only names that resolve.**
+- **18 lines added on this branch cite names that resolve nowhere.**
+
+## Citations that name nothing in any spec
+
+Each cited name below is in no spec, main or delta, under any capability. The functions and cases are right, and their behaviour matches the scenario they mean. Only the name is wrong. Each should cite the name its spec holds:
+
+| Cited at | Cites | The spec's name |
 |---|---|---|
-| bolt-teams "A landing sluice sent back is the bolt's fix" | "A landing Flume's verdict sent back is the bolt's fix" | `plan.py:2591-2592` (`sent_back`); `test_landing.py:53`; `test_landings.py:137-138` |
-| rail-cards "A landing sluice or its host stopped keeps its box" | "A landing the runner or Flume stopped keeps its box"; a failed verdict as "A refused landing is held on its row" | `plan.py:2625-2626` (`stops`), `2721` (`landing_rows`); `test_landings.py:161`, `316`; `test_cards.py:1626` |
-| main-level "Ops lands a bolt on a send that still stands" | crew's own raise carries a standing send; what `crew card read land/<kit>` prints is rail-cards' ("The landings card's read prints the lands crew posted") | `plan.py:11623`, `11627-11628` (the card's read), `11726-11727` (`landings_unopened`); `test_landings.py:948`, `1000`; `test_card_commands.py:1260` |
-| main-level "A landing stopped in ops's pane is recorded as the user's words" | main-level "A stop said in ops's pane is read as the user's words", "A stop crew cannot read as the user's words is refused", "A stop is recorded holding none of the user's words" | `plan.py:3958` (`leave_word_refusal`), `4397-4398` (`crew bolt leave`); `test_pane_landing.py:64`; `test_parser.py:40` |
-| role-runs "Main-level ops's landing from a run does not wait" | role-runs "A capture and a landing are asks" and "Main-level ops's run lands nothing" | `test_landing.py:599` (`TestTheLandingsAsks`) |
+| `plugin/lib/plan.py:4172`, `4193`; `tests/py/test_landing.py:682` | bolt-teams "A fix while the landing is under test" | Scenario "A fix while the landing is queued", of requirement "A landing queued holds its bolt's work" |
+| `tests/py/test_landing.py:870` | bolt-teams "A landing asked holds its bolt's work" | "A landing queued holds its bolt's work" |
+| `tests/py/test_landing.py:737` | bolt-teams "The first read after a landing's outcome records it and acts on it" | "A landing is recorded by the first act that reads it in the runner's report" |
+| `tests/py/test_landings.py:2098` | bolt-teams "Read from any host" | "A landing's record rests on the state repository alone", whose scenario is "Read away from the kit's host" |
+| `plugin/lib/runner.py:1165`; `tests/py/test_runner.py:934` | bolt-teams "A bolt's drop drops its base place last, and asks it again after a refusal" | Two requirements: "A bolt's drop drops its base place last" and "A base place's drop the runner refused is asked again once nothing on its branch is live" |
+| `tests/py/test_tidy.py:17` | bolt-teams "crew deletes no bolt branch and removes no landing worktree" | "crew removes no worktree, and names a landing's left from before" |
+| `plugin/tests/status.test.ts:100`; `tests/py/test_board.py:2112` | crew-board "A bolt's landing on its head line and in the bands" | No crew-board requirement or scenario has this name. The head line's landing is in crew-board "Construction shows each bolt in flight as a ledger, with no server for a started bolt's work" (scenarios "A landing asked", "A landing standing in sluice"). The code stage names the one each case proves. |
+| `tests/py/test_board_word.py:108` | board-page "A word from the board lands nothing" | "A word from the board answers nothing" |
+| `tests/py/test_rail.py:217` | crew-rail "A landing asked" and "A landing in the merge queue" | crew-rail's scenarios "A land asked" and "A landing queued". The third name on the line, "A landing crew can't tell", resolves. |
+| `tests/py/test_rail.py:240` | crew-rail "A landing refused for a failed check" | crew-rail's scenario "A refused landing". The second name on the line, "A landing refused in conflict", resolves. |
+| `tests/py/test_record.py:61` | run-record "A land's entry names its request" | "A land crew posts is one entry naming its request" |
 
-The same docstrings still describe crew's own sluice landing as current:
+Three more lines added on this branch cite a requirement by the start of its name only. Task 5.11 counts a shorthand as something to fix:
 
-- `sent_back` (`plan.py:2589-2600`): "sluice's number for the submission", and a stop from "a `wt submit` that read nothing and submitted nothing".
-- `refusals` and `stops` (`plan.py:2616-2631`): "sluice refused", "sluice or its host stopped".
-- `landing_rows` (`plan.py:2716-2724`): "sluice refused", "sluice's rejection of its landing".
-- `landing_phase` (`plan.py:4068-4080`): "sluice queued", "sluice refused in its answer, standing through a later submit that submitted nothing at its head".
-- The card's read (`plan.py:11620-11628`): "the submit lands them before this card's".
-- `TestTheLandingsAsks` (`test_landing.py:597-599`): "asks main-level ops with sluice's words, keyed by the submission".
-- `test_landing.py:52-56` and `test_landings.py:136-140`: "a later crew bolt submit at the head sluice sent back".
+| Cited at | Cites | The spec's name |
+|---|---|---|
+| `tests/py/test_bolt_commands.py:92` | drive-state "What comes before a runner takes a kit's work" | "What comes before a runner takes a kit's work is done on the main-level host" |
+| `tests/py/test_landings.py:117` | rail-cards "A bolt started before bolts were base places" | "A bolt started before bolts were base places has no box", which line 1983 of the same file cites whole |
+| `tests/py/test_runner.py:542-543` | merge-gate "A bolt's verification is its work's landing at its head" | "A bolt's verification is its work's landing at its head, as the runner reports it" |
 
-The delta now reads a refusal or a stop from Flume's verdict as the runner reports it. `crew bolt submit` lands nothing.
-
-No behaviour is wrong: the cases pass, and the functions still serve live requirements under their new names. Each citation should name the requirement its Migration gives, and each docstring should say the landing as the runner reports it. A check that proves this, written to run as it stands:
+A check that proves the fix, written to run as it stands. It prints these 18 lines at `98144f4d` and nothing once the work is done:
 
 ```
-grep -rnE "sent back is the bolt's fix|pane is recorded as the|host stopped keeps its box|send that still stands\"|landing from a run does not|^ *bolt's fix\"" plugin tests
+grep -rnE 'landing is under test"|asks it again after a refusal"|head line and in the bands"|board lands nothing"|A landing asked holds|records it and acts on it"|"Read from any host"|crew-rail "A landing asked"|"A landing in the merge queue"|refused for a failed check"|entry names its request"|removes no landing worktree"|"What comes before a runner takes a kit.s work"|rail-cards "A bolt started before bolts were base places"|^ *verification is its work.s landing at its head"' plugin tests
 ```
-
-The fragments are chosen so that a citation wrapped across two lines is still caught. The check prints 19 lines at `95d7d475` and nothing once the work is done. `docs/architecture/` and `docs/adr/` are the design agent's (`docs.7`) and are left out of it.
 
 ## What holds
 
 Apart from the citations above, the work holds against the delta:
 
 - The whole checks pass.
-- Every task is ticked.
-- The deltas' citations resolve.
-- The leftovers the first verify named are gone from `plugin/`: `landing_ended`, `landing_not_landed`, `land_delete`, `landing_split`, `LAND_COPIES`, plan.py's `LANDINGS`, and the card's sluice words. gather.py's `LANDINGS` is a different thing: it reads sluice's merges into a bolt.
-- `crew bolt submit`'s usage line says it refuses at once.
-- The pieces spot-checked against the delta are where it says they are:
+- Every task is ticked, and task 5.11's check prints nothing.
+- No code or case cites a removed requirement.
+- The deltas' own citations resolve.
+- The last verify's spot checks still stand, since the only commit since then changes docstrings alone:
+  - The leftovers of crew's own sluice landing are gone from `plugin/`.
+  - `crew bolt submit`'s usage says it refuses at once.
   - `plugin/flume/kinds/bolt@1/kind.toml` lands with no stages on `bolt` branches.
   - `tests/py/test_no_tool_for_a_bolt.py` pins that no command runs a tool for a bolt.
   - The start's and landing's sluice scripts and `kit.policy_said` are gone.
