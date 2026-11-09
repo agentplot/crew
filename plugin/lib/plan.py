@@ -19,9 +19,12 @@ five times. A write that changes several files is one commit; its run-record ent
            [--console F] [--repositories <repo> <dir> <checkout>]... [--json]
                                              the drive named in this host's teams file from its flags, every key a flag
                                              with no default, the rest of the file kept, nothing written where it is a
-                                             link and a file crew cannot load moved aside once; then <label>/main made
-                                             as crew state init makes it; run on the host it is invoked on, never
-                                             forwarded, at Boomdrive's setup's asking where Nix does not link the file
+                                             link, a file crew cannot read at all moved aside once and one at crew's own
+                                             version that fails a check refused; its drive.set entry written once the
+                                             file is; then <label>/main made as crew state init makes it, pushing the
+                                             entry, a state not made refused as a state.init that the same command again
+                                             makes; run on the host it is invoked on, never forwarded, at Boomdrive's
+                                             setup's asking where Nix does not link the file
   crew bolts [<bolt>] [--label L] [--json]   every bolt, unit and chore of the plans, each one's stage read from its kit,
                                              and each merge and landing standing in sluice with its number and state
   crew rail [--label L]                      what waits on the user: open proposals, review batches and bolts to
@@ -1333,7 +1336,7 @@ def drive_set(a):
                     os.link(teams, aside)
                 except FileExistsError:
                     new.unlink()
-                    fail(f"{aside}, where crew drive set moves a teams file it cannot load once, is taken: {teams} and it are "
+                    fail(f"{aside}, where crew drive set moves a teams file it cannot read at all once, is taken: {teams} and it are "
                          "left as they are, and nothing was written")
             os.replace(new, teams)
     crew.load.cache_clear()

@@ -64,12 +64,17 @@
 #                                      the drive's entry whole, keeps every other drive, host, console and kept
 #                                      repository the file names, writes the file as crew's module writes it, refused
 #                                      with nothing written when crew would refuse that file, moves a file crew cannot
-#                                      load aside once, to teams.json.before-drive-set, and writes nothing where the
-#                                      file is a link, going on only where the linked file names the drive as given;
+#                                      read at all (no JSON, no object, or at a version this crew does not read) aside
+#                                      once, to teams.json.before-drive-set, refuses one at crew's own version that
+#                                      fails a check, in crew's words, with nothing written, and writes nothing where
+#                                      the file is a link, going on only where the linked file names the drive as given;
 #                                      then makes <label>/main of its state repository as crew state init does, a
 #                                      repository crew cannot fetch from refused before anything is written. Run again
 #                                      with the same flags it changes nothing; a change of the file is one drive.set
-#                                      entry naming each key it changed; --json answers in one JSON object
+#                                      entry naming each key it changed, written once the file is and pushed with the
+#                                      state; a state not made is refused saying the file names the drive, recorded as a
+#                                      refused state.init, and the same command again makes it, pushing the set's entry
+#                                      first; --json answers in one JSON object
 #   crew bolts [<bolt>] [--label L] [--json]
 #                                      every bolt, unit and chore of the plans, each one's stage read from its kit,
 #                                      or, in a started bolt, from the records of the runner that took it of Flume's

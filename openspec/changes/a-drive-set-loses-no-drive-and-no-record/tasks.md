@@ -15,4 +15,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 3. The docs
 
-- [ ] 3.1 README, the crew skill and the usage headers of `crew` and `plan.py` say that only a teams file crew cannot read at all is moved aside, that one at crew's own version that fails a check is refused, and how a set's entry reaches the branch when its state is not made (design, Decisions 1 to 6; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.1 README, the crew skill and the usage headers of `crew` and `plan.py` say that only a teams file crew cannot read at all is moved aside, that one at crew's own version that fails a check is refused, and how a set's entry reaches the branch when its state is not made (design, Decisions 1 to 6; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
