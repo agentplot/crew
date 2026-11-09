@@ -18,5 +18,5 @@ Work the tasks in order, each in the place's worktree, from its root. Each check
 
 ## 3. The docs and the journey
 
-- [ ] 3.1 README, the crew skill and `crew`'s usage header say a piece's end is read from the runner's report, the record Flume holds for the runner after its tidy among them, and a landed bolt closes once each piece reads landed so, and none of them names `Sluice-From` or a landing on the bolt or main as what makes a piece merged or a bolt landed (`docs.2`; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.1 README, the crew skill and `crew`'s usage header say a piece's end is read from the runner's report, the record Flume holds for the runner after its tidy among them, and a landed bolt closes once each piece reads landed so, and none of them names `Sluice-From` or a landing on the bolt or main as what makes a piece merged or a bolt landed (`docs.2`; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
 - [ ] 3.2 `tests/t-journey-land.sh`'s near-reach case cites bolt-teams "A landed bolt closes on its pieces' ends as the runner reports them" and no decision of `a-bolts-landing-on-main-reads-landed`, and the journey passes with no case resting on a bolt's landing commits (Task notes 3.2). Verify `tests/suite t-journey-land` ends with "0 failed".
