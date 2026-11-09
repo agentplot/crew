@@ -6,7 +6,7 @@ Every merge into a bolt and every landing on main is a submission sluice tests o
 ## Requirements
 
 ### Requirement: Every merge into a bolt or onto main is a submission sluice gates
-Every merge into a bolt, every landing on main, and every commit that reaches a kit's main, the user's and the design agent's among them, SHALL be a submission to sluice from a branch, landed as a merge commit only when the checks the kit's policy requires of the target pass with it merged, and otherwise landing nothing. Nothing of crew's SHALL move a bolt's branch or main by git, or run a merge gate or verification of its own.
+Every merge into a bolt, every landing on main, and every commit that reaches a kit's main, the user's and the design agent's among them, SHALL be a submission to sluice from a branch, landed as a merge commit only when the checks the kit's policy requires of the target pass with it merged, and otherwise landing nothing. A bolt's landing on main SHALL be the runner's submission of the bolt's base place through Flume, `sluice submit main --head bolt/<bolt>`, and a fix of main's the runner's submission of the fix's place, each on the land crew posts for the user's send (record 0056 points 3 and 5); crew SHALL submit nothing to sluice for either, and run no sluice, `wt` or `gh` command for a landing. Nothing of crew's SHALL move a bolt's branch or main by git, or run a merge gate or verification of its own.
 
 #### Scenario: A red check refuses a unit's merge
 - **WHEN** a unit's place holds a change under which a required check fails, and its merge stage runs `sluice submit bolt/<bolt> --no-wait --json`
@@ -21,8 +21,12 @@ Every merge into a bolt, every landing on main, and every commit that reaches a 
 - **THEN** it commits the record on a branch in a worktree of its own, submits it with `sluice submit main --no-wait --json` and waits on it with `sluice wait`, and the kit's main holds it only once sluice lands it, when the agent removes the worktree and its branch
 
 #### Scenario: A landing is gated the same way
-- **WHEN** main-level ops runs `crew bolt submit <bolt>` and a required check of main fails on main with the bolt merged
-- **THEN** nothing lands, and main is at the commit it was at before
+- **WHEN** crew has posted the land of bolt `b` on the user's send, and the runner reports `b`'s base place refused, a required check of main failing on main with the bolt merged
+- **THEN** nothing lands, main is at the commit it was at before, and crew reads `b`'s landing refused in Flume's words
+
+#### Scenario: crew submits nothing for a landing
+- **WHEN** a bolt runs on the stubs from its start to its close, its land posted on the user's send and its base place reported landed by the runner
+- **THEN** the stubs' log holds no `sluice`, `wt` or `gh` call, and no scratch kit's `HEAD`, index or refs moved but its remotes'
 
 #### Scenario: A submission is never read from a listing
 - **WHEN** an agent waits on its submission to a kit's main or a bolt
@@ -35,7 +39,7 @@ crew's `.config/sluice.toml` SHALL require the `check-full` tasks of every `bolt
 - **WHEN** crew's `.config/sluice.toml` is read
 - **THEN** `[branches."bolt/*"]` and `[branches.main]` each require `#check-full` and trust `open` alone, and its executor is `open`
 
-### Requirement: A bolt's verification is its work's landing at its head, as the runner reports it
+### Requirement: A bolt's verification is its work's landing at its head, as the runner reports it alone
 A bolt's verification SHALL be green when its head, read where the bolt lives, is the commit at which one of its units, chores or fixes reads merged or landed as the runner reports it, a record Flume holds for the runner after its tidy among them; none when the head is no such commit; and unknown with no head to read. Its words SHALL name the head and the work. crew SHALL read no `Sluice-Result` or `Sluice-From` trailer and run no sluice command for it.
 
 #### Scenario: A bolt after its last unit's landing
@@ -46,7 +50,7 @@ A bolt's verification SHALL be green when its head, read where the bolt lives, i
 - **WHEN** Flume landed unit `a`'s place on `bolt/b` at its head and tidied it, holding its record for the runner, and the runner carries that record as `a`'s status, tidied and landed at the head
 - **THEN** the bolt's verification is green, naming the head and `a`, as the runner reports it
 
-#### Scenario: A landing read from the bolt's own landings
+#### Scenario: A head only a landing commit names
 - **WHEN** unit `a`'s place was tidied before the runner carried its end, the runner last carrying it at submitted, and the landing commit at `bolt/b`'s head names `a`'s branch in its `Sluice-From`
 - **THEN** crew reads no such landing: the bolt's verification reads none, and the bolt is not offered for landing
 

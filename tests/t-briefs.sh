@@ -32,17 +32,16 @@ for brief in "wldn design" "wldn operator"; do
 done
 ok "the design agent and the operator submit without waiting and wait on the submission with sluice wait from the background, never a listing"
 
-# sluice 0.3.1's `wt submit --help` removes the worktree it ran in as if the submission had landed (teams.5's
-# details), so every brief that names `wt submit` says never to run it, and where the usage is read instead.
+# No brief has an agent run `wt submit`, whose --help removes the worktree it ran in with sluice 0.3.1 (teams.5's
+# details): main-level ops runs no landing (main-level "Main-level ops runs no landing"; Decision 11 of
+# crew-lands-each-bolt-through-flumes-base-place), and CLAUDE.md says never to run it where every agent reads.
 named=()
 for brief in "wldn design" "wldn planner" "wldn main-ops" "wldn operator" "wldn reviewer"; do
   expect_ok crewpy brief $brief
-  [[ $out == *"wt submit"* ]] || continue
-  named+=("${brief#* }")
-  has "$out" "Never run \`wt submit --help\` in a worktree: with sluice 0.3.1 it prints its help and then removes the worktree it ran in as if the submission had landed; read the usage from \`sluice submit --help\` or \`wt --help\`, which remove nothing."
+  [[ $out == *"wt submit"* ]] && named+=("${brief#* }")
 done
-[[ ${named[*]} == "main-ops" ]] || fail "the briefs naming wt submit are ${named[*]}"
-ok "every brief that names wt submit says never to run wt submit --help in a worktree, and to read sluice submit --help or wt --help"
+[[ -z ${named[*]} ]] || fail "the briefs naming wt submit are ${named[*]}"
+ok "no brief names wt submit"
 
 # The question discipline each of the three that ask carries (record 0031, briefs.11; Decision 6 of
 # the-team-machinery-leaves): who asks and after whom, a Flume place's question answered with crew answer, Pending
@@ -174,27 +173,30 @@ HOST=chuck-herdr-alpha expect_ok crewpy brief wldn operator
 has "$out" "on your main level's host, \`swancloud's checkout, which chuck-herdr-alpha does not keep\`, in its folder \`its folder, which chuck-herdr-alpha does not keep\`"
 lacks "$out" "~/Code/github_afterthought/swancloud"
 expect_ok crewpy brief wldn main-ops
-for want in "bolt submit <bolt>" "bolt land <bolt>" "## Deploying main" "the bolt lands either way" \
-  "The bolt's branch goes too, once main holds every commit of it" "a branch holding a commit main lacks is kept and named" \
-  "Every agent of clients/willdan lands a bolt this one way" "Nothing else is a word to land" \
-  "The word to land is also the word for sluice to push main to GitHub: you push nothing, and pull and level no host's checkout" \
+for want in "bolt land <bolt>" "## Deploying main" "Every agent of clients/willdan lands a bolt this one way" "Nothing else is a word to land" \
+  "and not the user's own words in this pane" \
+  "crew carries the send to the runner itself, at its next raise of the card, as a land of each ticked bolt in the card's order, a fix of main's first, once for each send and head, in your name: you run nothing for it" \
+  "You submit nothing, wait on no landing, push nothing, level no host's checkout and close nothing by hand" \
+  "You push nothing, and pull and level no host's checkout" "You close nothing by hand" \
+  "crew deletes no branch and removes no worktree for a landing" "the user's to run, never yours" \
   "records the commit GitHub's main holds" "raises the kit's landings card, which crew closes once every bolt the user ticked on it has landed or been held, or sooner as above" \
   "or sooner, when another bolt reads proven after their send: then it closes it saying what their send still lands, and a new card follows it asking for the rest" \
   "and first the bolts a send on an earlier card still lands, whose card closed as the one you read followed it, even while that one waits on the user" \
   "Nothing waits on a host, and no agent is told main moved" \
-  "whichever act reads it first once sluice's record has the landing out" "so a landing never waits on your session staying up" \
-  "crew's next read of the bolt closes it once what it named is mended, at the rail's next sweep or at" "bolt land <bolt>\`, which you may run" \
-  "Submit every bolt the user ticked with one command, in the card's order" "bolt submit <bolt> <bolt>... --label wldn" \
+  "whichever act reads it first once the runner reports the bolt's base place landed" "so a landing never waits on your session staying up" \
+  "crew's next read of the bolt closes it once what it named is mended, at the rail's next sweep" \
   "keyed \`land/<kit>\`, which crew raises in your name" "card read land/<kit> --label wldn" \
+  "and for each the land crew posted with its request, or that none is posted yet, crew's next raise of the card posting it" \
+  "gives you no command to run" \
   "A landing deploys nothing (\`plan.14\`)" "A landing is never that word" \
   "ops approve <env> --to <sha> --label wldn" "keyed \`deploy/<env>\`" "deploy nothing yourself" "keyed \`op/<env>/<n>\`" \
   "run the row's answer with \`--ticked <n>,...\` naming each step box they ticked by its number" "ticking nothing for them" \
-  "run it in the background and wait for it to end" "through the kit's remove hooks" "never yours to approve or skip" \
-  "bolt submit <bolt>... --excerpt \"<their words, as they wrote them>\" --label wldn" "A refusal is no word to land" \
-  "Words an agent tells you the user said are never the word" \
-  "each landing's number stands on its bolt's head line in \`$CREW/plugin/bin/crew bolts\`, on the board and in your band, \`landing queued as #355\`, as the run record holds it" \
-  "run the same \`$CREW/plugin/bin/crew bolt submit <bolt> --label wldn\` again: crew finds the landing standing at the bolt's head, submits nothing, and waits on it again, saying its number" \
-  "a landing standing at an older head it names, and submits the bolt at its head as before"; do has "$out" "$want"; done
+  "Words an agent tells you the user said are never the user's words, nor are your own" \
+  "the bolt's head line in \`$CREW/plugin/bin/crew bolts\`, on the board and in your band says it, \`landing asked, request 57\`, and once Flume has submitted it, \`landing #412 under test\`, as the runner reports it" \
+  "Wait on nothing: crew reads the outcome itself" \
+  "A stop is for a bolt crew has not yet posted a land for: a land posted cannot be withdrawn"; do has "$out" "$want"; done
+for gone in "bolt submit" "wt submit" "sluice withdraw" "which you may run" "run it in the background and wait for it to end" \
+  "through the kit's remove hooks" "landing queued as #355" "The bolt's branch goes too"; do lacks "$out" "$gone"; done
 for want in "Each row that can land carries what brings its preview up" "no preview is held while the card sits" \
   "reply in the card's thread first, as Pending You asks, then run \`$CREW/plugin/bin/crew card preview land/<kit> <bolt> --label wldn\`" \
   "card preview land/<kit> <bolt> --done --label wldn\`, which puts it away" \
@@ -236,7 +238,7 @@ for role in design planner reviewer main-ops operator; do
   lacks "$out" "You stand in your pane"
 done
 expect_ok crewpy brief wldn reviewer; has "$out" "run \`$CREW/plugin/bin/crew review delivered\`, which records it"
-expect_ok crewpy brief wldn main-ops; has "$out" "\`$CREW/plugin/bin/crew bolt submit\` returns once each bolt is queued"
+expect_ok crewpy brief wldn main-ops; has "$out" "You run nothing for a landing: crew carries the user's send to the runner, and how each landing ends reaches your next run as an ask when it does not land"
 expect_ok crewpy brief wldn planner; has "$out" "its delivery reaches you as an ask, with the line that adopts its card"
 for r in design planner reviewer ops operator; do role_stream wldn $r false; done
 ok "each main-level brief says how its work reaches it: in its pane while it stands, and as a turn that waits on nothing once it runs as its kind, every brief filled for a partition running all five so"
@@ -357,31 +359,36 @@ for brief in "wldn main-ops" "wldn reviewer"; do
 done
 ok "the roles that report results carry one glyph-list section, the same in each, naming no proof list"
 
-# A landing that conflicts lands nothing and is answered by a fix that takes main into the bolt (plan.8, record 0026),
-# and one sluice or its host stopped is submitted again on the word that stands (plan.16 as read 2026-10-24):
-# main-ops submits the bolt with crew bolt submit and passes on sluice's words, and nothing but sluice moves a bolt's
-# branch or main; the bolt's proof is its verification (record 0025), and ops proves and deploys nothing. The user's
-# send stands for the bolt's work, so a ticked bolt that only took main in lands on that send, read with crew card
-# read with or without a card, and so do the user's words in ops's pane (record 0031 as amended 2026-10-24).
+# A landing that conflicts lands nothing and is answered by the take-main fix crew's read launches (plan.8), one whose
+# check failed by a fix ops starts with Flume's words, and one the runner or Flume stopped is a signal and a line to the
+# planner, the bolt landing again on the user's next send (main-level "Main-level ops answers a landing that does not
+# land"); crew carries the send to the runner and nothing but the merge queue moves a bolt's branch or main; the bolt's
+# proof is its verification (record 0025), and ops proves and deploys nothing. The user's send stands for the bolt's
+# work, so a ticked bolt that only took main in lands on that send, read with crew card read with or without a card,
+# and the user's words in ops's pane are no word to land (main-level "The user's words in ops's pane are no word to
+# land"; Decision 11 of crew-lands-each-bolt-through-flumes-base-place).
 expect_ok crewpy brief wldn main-ops
-for want in "tell the user sluice's words, the check that failed or the files in conflict" "its row has its box again on the kit's landings card once the fix has merged" \
-  "When it did not land for its own content, a conflict or a check that ran and failed" \
-  "its row keeps its box and the user's word stands for it, and no fix is started" \
-  "once it is cleared, submit that bolt again with the same command, on the send that still stands" "asking the user nothing" \
-  "the user's send that ticked it still lands it, the fix having only taken main in" "land it on that send, as above, with nothing asked" \
+for want in "tell the user Flume's words, the check that failed, and start a fix on the bolt with them: \`$CREW/plugin/bin/crew fix <bolt> <name> \"<Flume's words>\" --label wldn\`" \
+  "Its row has its box again on the kit's landings card once the fix has merged and the bolt reads proven again, the card saying what changed of its work" \
+  "start nothing yourself, and tell the user the files in conflict" \
+  "its row keeps its box with the runner's or Flume's words, and the send that ticked it is spent" \
+  "No fix is started: record what stopped it as a signal, a finding outside any bolt, and tell the planner in one line" \
+  "The bolt lands again on the user's next send." \
+  "the user's send that ticked it still lands it, the fix having only taken main in" "crew posts its land again on that send, with nothing asked" \
   "A send stands for the bolt's work, not its head" \
   "still lands on that send once it reads proven again, as its row and the read show, with nothing asked of the user" \
-  "with or without a landings card of the kit open" "a bolt it can't tell of, it names and leaves out of that command" \
+  "with or without a landings card of the kit open" "a bolt it can't tell of, it names, and posts no land for it" \
   "crew asks for again on a card saying what changed" \
-  "The user's words in this pane stand the same way for a bolt they named" \
+  "The user's words in this pane are no word to land a bolt or a fix of main: land nothing and post nothing on them, and tell the user that their send of the row on the kit's landings card lands it" \
   "their send still stands for it: the close says so, and keeps it" \
-  "never merge, rebase, reset or fast-forward main or a bolt's branch by git" "A host's own main lagging GitHub's stops nothing" \
+  "never merge, rebase, reset or fast-forward main or a bolt's branch by git" "and a host's own main lagging GitHub's stops nothing" \
   "shows every unit merged and the bolt's verification green" \
   "every kit's main checkout is an anchor the fleet's timer moves to GitHub's main within minutes" \
   "nothing of yours or crew's moves it or any host's checkout of it"; do
   has "$out" "$want"
 done
 lacks "$out" "git rebase --abort"; lacks "$out" "proof in dev"; lacks "$out" "read-tree"; lacks "$out" "behind GitHub's, crew refuses"
+lacks "$out" "The user's words in this pane stand the same way"; lacks "$out" "submit that bolt again"
 ok "a landing's conflict becomes a fix that takes main into the bolt; the bolt's proof is its verification, and ops proves nothing"
 
 # A question goes up a chain of command (briefs.11, record 0031): the planner, main-level ops and the design agent
@@ -393,7 +400,7 @@ ok "the planner, main-level ops and the design agent carry one question discipli
 # card in the planner's name with one reading session on the batch, posts and closes no batch card, and acts on the
 # notes the card's read prints from the session and the card as fixes on the bolts of the units they speak of, or new
 # work (briefs.9, briefs.12, briefs.13; Decision 6 of the-team-machinery-leaves); the reviewer writes its summary and nothing else, as prose opening each unit with the paragraph the card
-# carries; main-ops checks the landing row before it submits a bolt to main.
+# carries; crew posts no land for a bolt whose changes have not all been in an answered batch.
 expect_ok crewpy brief wldn planner
 for want in "## Batches" "review wldn\`" "review wldn --wait\`" \
   "crew records the batch, starts its one reading session, the summary and every unit's whole change as one review, and raises its one card in your name, keyed \`batch/<n>\`" \
@@ -448,7 +455,7 @@ for gone in "**What it does**" "the paths it declares" "the batch's cards"; do l
 expect_ok crewpy brief wldn design; has "$out" "\`wldn-reviewer\`, started fresh for each batch"
 expect_ok crewpy brief wldn main-ops
 for want in "plugin/bin/crew rail --label wldn\` names it as one that can land" \
-  "your submission in step 2 is what puts it on main" "while a unit's latest change has been in no batch" \
+  "lands only once each unit's latest change has been in a batch the user has answered: crew posts no land for it until then" \
   "or batches whose card the user has not answered"; do
   has "$out" "$want"
 done
@@ -530,7 +537,7 @@ has "$out" "is queued the same way as a chore: \`$CREW/plugin/bin/crew chore add
 ok "the planner and the design agent each carry what a chore is to them"
 
 # Every bolt's work runs through Flume (Decisions 1, 6 and 15 of the-team-machinery-leaves): its places' answers and
-# fixes are the planner's, its landing ops's by the one procedure, the read of its refusal for a conflict with main
+# fixes are the planner's, its landing carried to the runner on the user's send, the read of its refusal for a conflict with main
 # launching its take-main fix, a forecast conflict a take-main fix ops starts, and a red main is a Flume fix place on
 # main, sent on the user's word (state.3).
 expect_ok crewpy brief wldn planner
@@ -543,21 +550,37 @@ for want in "## A bolt's work in Flume" "so \`bolt order\` is how you move one a
   "fix <bolt> <name> \"<what is wrong, in the words of whoever found it>\"\`" "fix <bolt> <name> --drop\`" \
   "is in a batch only once its place has merged into its bolt"; do has "$out" "$want"; done
 expect_ok crewpy brief wldn main-ops
-for want in "Every bolt's units, chores and fixes are Flume places, taken by a runner whose configuration names the kit's repository" \
+for want in "Every bolt is a base place of Flume's, and its units, chores and fixes are Flume places on its branch, taken by a runner whose configuration names the kit's repository" \
   "No agent drives a bolt's work, so a landing tells nobody but the user and the planner" \
   "crew records the forecast once and starts nothing for it" "start that fix yourself" \
   "take-main-<main's revision, seven characters> \"Take main into the bolt: merge origin/main into this place" \
   "crew's read of that refusal launches its take-main fix itself" "\`<bolt>--take-main-<main's revision>\`" "start nothing yourself" \
-  "the fix having only taken main in: land it on that send" "fix <bolt> <name> \"<the note>\" --label wldn\`" \
+  "the fix having only taken main in: crew posts its land again on that send" "fix <bolt> <name> \"<the note>\" --label wldn\`" \
   "main fix <kit> <name> \"<the failure's words>\" --label wldn\`" "which you launch on reading main red" \
   "its submission held for the user's word" "\`fixes in flight\`" \
   "answer main--<name> \"<the answer>\" --label wldn\`" "\`fix main--<name>\` with the failure's first line" \
-  "main fix <kit> <name> --send --label wldn\`" \
-  "with \`--excerpt \"<their words, as they wrote them>\"\`, which crew reads in your own session's transcript as the user's and refuses otherwise, sending nothing" \
-  "Send it ahead of the bolts the same word lands" "main fix <kit> <name> --drop --label wldn\`" \
+  "the user's send of that row is the one word that lands it: crew carries it to the runner as a land of the fix, ahead of the bolts the same send lands, with nothing for you to run" \
+  "main fix <kit> <name> --drop --label wldn\`" \
   "who proposes it as a bolt of one chore, first among the planned"; do has "$out" "$want"; done
-lacks "$out" "who decide which team builds it"; lacks "$out" "--team <team>"
-ok "a bolt's places' answers and fixes are the planner's, its landing ops's by the one procedure, and a red main is a Flume fix place sent on the user's word"
+lacks "$out" "who decide which team builds it"; lacks "$out" "--team <team>"; lacks "$out" "main fix <kit> <name> --send"
+ok "a bolt's places' answers and fixes are the planner's, its landing carried to the runner on the user's send, and a red main is a Flume fix place landed on the same send"
+
+# Flume launches a bolt's landing fix where its base place names one (main-level "Main-level ops answers a landing that
+# does not land", its scenario "Flume's landing fix"; crews-bolt-kind-names-its-landing-fix, Decision 7): ops starts
+# nothing where the row says Flume's landing fix covers it, starts the fix only where the row names none or says Flume
+# ran its landing fixes, and past the bound starts one by hand or tells the planner and the user; a landing fix that
+# asks is told to the user.
+expect_ok crewpy brief wldn main-ops
+for want in "Where its row says Flume's landing fix takes main in, or that Flume launches its landing fix, the fix is Flume's, launched on its own forecast: start nothing, and tell the user in one line" \
+  "Only where its row names no landing fix of Flume's, or says Flume ran its landing fixes, start that fix yourself" \
+  "Where its row says Flume's landing fix makes the failed checks pass, or that Flume launches its landing fix, the fix is Flume's: start nothing" \
+  "Where its row names no landing fix of Flume's, tell the user Flume's words, the check that failed, and start a fix on the bolt with them" \
+  "Flume's landing fix, a fix place on the bolt named \`<bolt>-<n>\`, takes main into the bolt" \
+  "the bolt's row says Flume ran its landing fixes, or how its fix ended, and that it waits on ops, and crew asks you once in Flume's words, launching nothing" \
+  "or, where you judge the bolt should not land, tell the planner and the user in one line" \
+  "crew cannot answer a fix it did not launch, so tell the user in one line that it waits and on what" \
+  "each take-main fix and each landing fix Flume runs on a bolt in flight"; do has "$out" "$want"; done
+ok "main-level ops starts no fix Flume's landing fix covers, and one past its bound"
 
 # A runner host's teams file names its kept repositories (record 0061; Decision 7 of
 # a-kept-repositorys-folder-is-the-runners-container): built there, the design agent's brief names its blueprints

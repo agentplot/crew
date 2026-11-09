@@ -85,9 +85,13 @@ class TestDrop:
 
 
 class TestSend:
-    """The main-level spec's "The user's send": once the runner's record shows the fix's code delivered and its
-    submission held (tests/py/flume-0.3.6/held.json), ops's crew main fix crew <name> --send on the user's send appends
-    the retry of its submission, once."""
+    """main-level "A fix of main lands on the user's send" (crew-lands-each-bolt-through-flumes-base-place, Decision 5):
+    crew main fix --send, with or without --excerpt, refuses at once, before it reads anything, and appends nothing; once
+    the runner's record shows the fix's code delivered and its submission held (tests/py/flume-0.3.6/held.json), the
+    user's send of its row on its kit's landings card makes one land of its launch due (runner.lands_due), and the land
+    standing for it is the newest the runner did not refuse (runner.sent_of)."""
+    HEAD = "bf67379258f5c2165f8c8ee7454753332cab33f3"
+
     def launched(self, at="held"):
         """crew main fix crew a-test-reads-its-fixture launched as request 1, deneb's runner showing its place at the flume
         fixture named."""
@@ -95,42 +99,42 @@ class TestSend:
         plan.main_fix_change(madswan_fleet(), w, "crew", "a-test-reads-its-fixture", "start", WORDS)
         return w
 
-    def test_the_users_send_appends_the_retry_of_its_submission(self):
-        w = self.launched()
-        assert plan.main_fix_change(madswan_fleet(), w, "crew", "a-test-reads-its-fixture", "send", None) == dict(n=2, host="deneb")
-        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "fix/main/crew/a-test-reads-its-fixture", "Of": "1",
-                                  "Submission": "yes"}
-        assert w.subject == "plan(main): send fix a-test-reads-its-fixture of crew"
+    @pytest.mark.parametrize("more", [["--send"], ["--send", "--excerpt", "Land the fix."], ["--excerpt", "Land the fix."]])
+    def test_a_send_by_hand_is_refused_before_anything_is_read(self, monkeypatch, more):
+        def unread(*a, **k):
+            raise AssertionError("a refused send reads nothing")
+        monkeypatch.setattr(plan, "kits_read", unread)
+        monkeypatch.setattr(plan, "default_label", unread)
+        a = plan.parser().parse_args(["main", "fix", "crew", "a-test-reads-its-fixture", *more])
+        with pytest.raises(plan.Refusal) as e:
+            plan.main_fix(madswan_fleet(), a)
+        assert str(e.value) == plan.send_refused("crew", "a-test-reads-its-fixture") == (
+            "crew main fix --send lands nothing: fix a-test-reads-its-fixture of crew's main lands on the user's send of its "
+            "row, main--a-test-reads-its-fixture, on crew's landings card, land/crew, which crew carries to the runner as a land")
 
-    def test_a_send_is_made_once(self):
+    def test_its_rows_send_makes_one_land_of_its_launch_due(self):
         w = self.launched()
-        plan.main_fix_change(madswan_fleet(), w, "crew", "a-test-reads-its-fixture", "send", None)
-        with pytest.raises(plan.Refusal, match="^fix/main/crew/a-test-reads-its-fixture was sent on the user's word by request 2, which "
-                                               "the runner that took it acts on, so it is not sent twice$"):
-            plan.main_fix_change(madswan_fleet(), w, "crew", "a-test-reads-its-fixture", "send", None)
+        rs = plan.Plan(w.files["requests.rec"]).recs("Request")
+        f, = runner.main_fixes_waiting(rs, w.runners())
+        assert (f["head"], f["launch"], f["sent"]) == (self.HEAD, 1, None)
+        row = plan.fix_row("crew", f)
+        assert (row["bolt"], row["work"], row["box"]) == ("main--a-test-reads-its-fixture", "fix/main/crew/a-test-reads-its-fixture", True)
+        sent = {row["work"]: ("req_k1", self.HEAD[:7])}
+        assert runner.lands_due([row], sent, rs, w.runners()) == [("fix/main/crew/a-test-reads-its-fixture", 1)]
 
-    def test_a_send_the_runner_refused_is_made_again_and_one_crew_cant_read_stands(self):
+    def test_a_land_posted_stands_and_one_the_runner_refused_does_not(self):
         reading = ran({1: "held"})["deneb"]
-        reading["answers"][2] = plan.Rec("Answer", [("Request", "2"), ("Outcome", "refused"), ("At", "2026-10-31T12:03:00Z")])
         rs = [plan.Rec("Request", [("Request", "1"), ("Act", "launch"), ("Work", "fix/main/crew/x")]),
-              plan.Rec("Request", [("Request", "2"), ("Act", "retry"), ("Of", "1"), ("Submission", "yes")])]
+              plan.Rec("Request", [("Request", "2"), ("Act", "land"), ("Work", "fix/main/crew/x"), ("Of", "1")])]
+        assert runner.sent_of(rs, {"deneb": reading}, rs[0]) is rs[1]
+        reading["answers"][2] = plan.Rec("Answer", [("Request", "2"), ("Outcome", "refused"), ("At", "2026-10-31T12:03:00Z")])
         assert runner.sent_of(rs, {"deneb": reading}, rs[0]) is None
         assert runner.sent_of(rs, {"deneb": dict(reading, why="unread")}, rs[0]) is rs[1]
 
-    def test_a_fix_whose_code_has_not_delivered_is_not_sent(self):
-        w = self.launched("code")
-        with pytest.raises(plan.Refusal, match=r"^fix/main/crew/a-test-reads-its-fixture's place \S+ is at code, and a fix of main is sent "
-                                               r"only once its code has delivered and its submission waits held$"):
-            plan.main_fix_change(madswan_fleet(), w, "crew", "a-test-reads-its-fixture", "send", None)
-
-    def test_one_crew_cant_read_or_with_no_launch_is_not_sent(self):
-        w = self.launched()
-        w.runners = lambda: {}
-        with pytest.raises(plan.Refusal, match="^can't tell whether fix/main/crew/a-test-reads-its-fixture's submission waits held, so it "
-                                               "is not sent: no runner answers for the partition"):
-            plan.main_fix_change(madswan_fleet(), w, "crew", "a-test-reads-its-fixture", "send", None)
-        with pytest.raises(plan.Refusal, match="^no launch of fix/main/crew/red stands in requests.rec, so there is no fix of main to send$"):
-            plan.main_fix_change(madswan_fleet(), w, "crew", "red", "send", None)
+    def test_a_fix_whose_head_flume_names_none_has_no_box(self):
+        row = plan.fix_row("crew", dict(name="x", head=None, brief=WORDS, host="deneb", carried=None, sent=None))
+        assert (row["box"], row["why"]) == (False, "crew can't tell its head: Flume's status of its place, as the runner on deneb "
+                                                   "carried it, names none")
 
 
 class TestCommand:
@@ -149,8 +153,8 @@ class TestCommand:
 
 class TestReadAsWritten:
     """bolt-plan "A fix of main read as written": a fix of main launched as fix/main/tailrace/x, read at a tip whose run
-    record holds a kit.rename of tailrace to timber, is tailrace's: on tailrace's landings row, reached by that row's send,
-    crew main fix tailrace x --send, and crew main fix timber x --send is refused as no launch of fix/main/timber/x."""
+    record holds a kit.rename of tailrace to timber, is tailrace's: on tailrace's landings row, the user's send of that row
+    posting a land with Work fix/main/tailrace/x and Of 1, and no land naming fix/main/timber/x."""
     RENAME = {"Id": "20261105T100000Z-1-deneb-1-1", "At": "2026-11-05T10:00:00Z", "Act": "kit.rename", "On": ["kit/timber"],
               "From": ["kit/tailrace"], "Commit": [], "Repo": "timber", "Count": "21"}
 
@@ -170,11 +174,14 @@ class TestReadAsWritten:
         land, = [r for r in plan.rail_rows(madswan_fleet(), [("madswan", "o/state", "tip", w.plan)], {}, [], {}, None,
                                             {"madswan": (written, w.runners())}) if r["group"] == "land"]
         assert land["key"] == "land/tailrace"
-        assert land["what"][1].endswith("can land: madswan-ops sends it with crew main fix tailrace x --send")
+        assert land["what"][1].endswith("can land on your send of land/tailrace")
+        assert land["cmds"] == []
 
     def test_its_kits_send_reaches_it_and_another_name_is_refused(self):
-        with pytest.raises(plan.Refusal, match="^no launch of fix/main/timber/x stands in requests.rec"):
-            plan.main_fix_change(madswan_fleet(), self.launched(), "timber", "x", "send", None)
         w = self.launched()
-        assert plan.main_fix_change(madswan_fleet(), w, "tailrace", "x", "send", None) == dict(n=2, host="deneb")
-        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "fix/main/tailrace/x", "Of": "1", "Submission": "yes"}
+        rs = plan.Plan(w.files["requests.rec"]).recs("Request")
+        f, = runner.main_fixes_waiting(rs, w.runners())
+        row = plan.fix_row(f["kit"], f)
+        assert runner.lands_due([row], {row["work"]: ("req_k1", f["head"][:7])}, rs, w.runners()) == [("fix/main/tailrace/x", 1)]
+        other = dict(row, work="fix/main/timber/x")
+        assert runner.lands_due([other], {"fix/main/timber/x": ("req_k1", f["head"][:7])}, rs, w.runners()) == []

@@ -71,7 +71,7 @@ A kit's landings card SHALL never be landed from a key in Herdr's popup. With on
 - **THEN** the card is one list of two boxes with `highStakes` set, `y` ticked and `z` unticked
 
 ### Requirement: An answer wakes the owner, which acts on the user's word
-An answer on a crew card SHALL be acted on by the role whose row it is, woken in its session by the card it adopted, and by no other: the planner applies or rewrites the proposal, and reads a batch's answer with `crew card read batch/<n>`; main-level ops lands the bolts the user ticked on a kit's landings card, in the card's order, and passes a note naming a defect in a bolt to that bolt's conductor, who starts a fix on it; main-level ops runs the deploy's approval or the step's state; the design agent sets the record's status. crew SHALL then close the card at that act's event. No process of crew's SHALL wait on a card's answer. Where the role runs as its kind, the host's follower SHALL write an ask of the role for each change Pending You's notice names on a card in the role's name, once per version of the card, reading nothing of the card, and the role's next run SHALL read the card in the role's own name and act on it as the woken session would.
+An answer on a crew card SHALL be acted on by the role whose row it is, woken in its session by the card it adopted, and by no other: the planner applies or rewrites the proposal, and reads a batch's answer with `crew card read batch/<n>`; main-level ops passes a note on a kit's landings card naming a defect in a bolt to that bolt's conductor, who starts a fix on it; main-level ops runs the deploy's approval or the step's state; the design agent sets the record's status. No role SHALL land the bolts and fixes of main the user ticked on a kit's landings card: crew's own raise of the card posts their lands, as "The user's send on a kit's landings card posts one land for each row it lands" has it. crew SHALL then close the card at that act's event. No process of crew's SHALL wait on a card's answer. Where the role runs as its kind, the host's follower SHALL write an ask of the role for each change Pending You's notice names on a card in the role's name, once per version of the card, reading nothing of the card, and the role's next run SHALL read the card in the role's own name and act on it as the woken session would.
 
 #### Scenario: A proposal approved from the phone
 - **WHEN** the user approves the card for proposal 4 on the phone
@@ -83,7 +83,7 @@ An answer on a crew card SHALL be acted on by the role whose row it is, woken in
 
 #### Scenario: Landing approved
 - **WHEN** the user leaves `a` and `c` ticked on `land/crew`, clears `b`, and sends
-- **THEN** swancloud-ops is woken, `crew card read land/crew` prints `a` then `c` and the command that lands them in that order, and no conductor is asked to pass anything on
+- **THEN** crew's next raise of `land/crew` posts a land of `a` and then one of `c`, `crew card read land/crew` prints them with their requests and no command, and no agent is asked to land or pass anything on
 
 #### Scenario: A defect noted on a row
 - **WHEN** the user's note on `land/crew` names a defect in bolt `b`
@@ -231,7 +231,7 @@ A card act Pending You refuses SHALL be refused in Pending You's own words and r
 - **THEN** the offer is recorded, no card posts, and the command says this computer is not signed in to Pending You
 
 ### Requirement: The landing card is posted once the bolt's verification is green
-crew SHALL keep one landings card for each kit with a proven bolt waiting on its main, keyed `land/<kit>`, in the name of the partition's main-level ops, posted on the partition's main host. A bolt SHALL be a row that can land once every unit and chore of it has merged, every unit's latest change has been in a batch whose card the user has answered, its verification is green, its head the landing of its work as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it"), and no fix of it is in flight. Rows SHALL be in the plan's order. The card SHALL ask only for the landing.
+crew SHALL keep one landings card for each kit with a proven bolt waiting on its main, keyed `land/<kit>`, in the name of the partition's main-level ops, posted on the partition's main host. A bolt SHALL be a row that can land once every unit and chore of it has merged, every unit's latest change has been in a batch whose card the user has answered, its verification is green, its head the landing of its work as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it alone"), and no fix of it is in flight. Rows SHALL be in the plan's order. The card SHALL ask only for the landing.
 
 #### Scenario: A green bolt
 - **WHEN** every unit and chore of bolt `y` of crew has merged, each unit's latest change has been in a batch the user has answered, `y`'s head `abc1234` is the landing of its last unit as the runner reports it, and no other bolt of crew can land
@@ -567,8 +567,8 @@ crew SHALL close each of its cards at the event that ends what it asks, with a o
 - **THEN** the card is withdrawn with those words
 
 #### Scenario: A bolt landed
-- **WHEN** main-level ops runs `crew bolt land y` after the landing's submission
-- **THEN** `land/y`'s card is closed "landed on GitHub's main at <its commit>; every host's folder follows by swancloud's timer within minutes"
+- **WHEN** `y` is the one bolt the user ticked on `land/crew`, the runner's report carries `y`'s base place landed at its commit, and crew's next raise of `land/crew` reads it
+- **THEN** `y` is closed in main-level ops's name, and `land/crew`'s card is closed naming `y` landed on GitHub's main at that commit and that every host's folder follows by swancloud's timer within minutes
 
 #### Scenario: A deploy fails
 - **WHEN** the deployer records the end of srv's deploy of `abc1234` with its `guests` step failed
@@ -689,8 +689,8 @@ A proposal's card SHALL hold the proposal whole, picture, text and case, linking
 - **THEN** it names the units and chores that land, sluice's verdict and when, and how far main has moved, as before; its details open with the link to `land/y`'s session and say the reading lands nothing; the link is among its links, after which sluice's pull request when it has one; and it is an approval of risk high, the approval being the word to land
 
 #### Scenario: A landing approved without opening its reading
-- **WHEN** the user approves `land/y`'s card without opening its session
-- **THEN** the conductor tells main-level ops to land `y` as before, and nothing waits on the session
+- **WHEN** the user approves `land/crew`'s card, its one row `y`, without opening `y`'s reading
+- **THEN** crew's raise posts `y`'s land on that approval as on any send, and nothing waits on the reading
 
 ### Requirement: A preview that fails is said on the card and holds nothing
 A preview the runner refuses, in its own words or in sluice's as it carried them, or one crew cannot ask for or cannot read in the runner's report, SHALL be said on its row or line with that reason, the card changed in place while it waits on the user. A preview the runner has not answered yet, or has answered held, SHALL be said as asked and not there yet, naming the host whose runner brings it up. A preview whose addresses were listed and that sluice's listing, as the runner carried it, then shows failed SHALL change the card in place to say it did not come up, its addresses no longer listed; one sluice no longer lists SHALL change the card in place to say so; one that comes up after the card said it was not there yet SHALL change the card in place to list its addresses. A card the user has answered SHALL be left as it is. None of this SHALL hold the landing.
@@ -857,23 +857,23 @@ Each row SHALL carry the conflicts crew forecasts when its bolt is merged onto t
 - **THEN** the read raises no landings card and fetches nothing for it
 
 ### Requirement: A refused landing is held on its row
-A bolt whose landing sluice refused for its own content, its submission in conflict or blamed for a check that ran and failed, SHALL be held on its row at that head, with no box, the row saying its landing was rejected and the bolt is open for work, sluice's words, and that it waits for a fix on the bolt, while the bolts after it go on. A later submit at that head that submitted nothing SHALL leave it held. Once its head moves and it reads proven, it SHALL land on the user's send that ticked it when that send still stands for its work, and SHALL otherwise have a box again. A landing that did not land for any other cause SHALL NOT hold its row. No row SHALL name a team.
+A bolt whose landing Flume refused for its own content, its verdict at that head failed or in conflict as the runner's report carries it, SHALL be held on its row at that head with no box, in Flume's words, while the bolts after it go on (record 0056 point 4). A failed check's row SHALL say its landing was refused and the bolt is open for work, and that it waits for a fix on the bolt, which main-level ops starts with Flume's words. A conflict's row SHALL say it takes main first, its take-main fix launched once however often the refusal is read (bolt-teams "A landing that conflicts with main takes main in by a fix place"). crew SHALL post no land of it again at that head. Once its head moves and it reads proven, crew SHALL post its land on the user's send that ticked it when that send still stands for its work, and it SHALL otherwise have a box again. A landing whose outcome crew can't tell from the runner's report SHALL hold nothing: its row SHALL say its landing can't be told and why, and crew SHALL post no land of it again at that head (`read.1`). A landing that did not land for any other cause SHALL NOT hold its row. No row SHALL name a team.
 
 #### Scenario: The second of three is refused
-- **WHEN** the user sends `land/crew` with `y`, `z` and `w` ticked, and sluice refuses `z` for a conflict on `plugin/lib/plan.py`
-- **THEN** `y` and `w` land, `z` stays on crew's landing row held with no box, saying its landing was rejected and the bolt is open for work, with sluice's words, and that it waits for a fix on the bolt, and the next landings card raised carries `z` held with no box
+- **WHEN** the user sends `land/crew` with `y`, `z` and `w` ticked, and Flume's verdict on `z`'s submission is a conflict with main on `plugin/lib/plan.py`
+- **THEN** `y` and `w` land, `z` stays on crew's landing row held with no box, saying in Flume's words that its landing was refused in conflict and that it takes main first, its take-main fix is launched once, and the next landings card raised carries `z` held with no box
 
 #### Scenario: A check fails
-- **WHEN** sluice blames `z`'s landing for `tests:logic`, which ran and failed
-- **THEN** `z` is held on its row with no box, saying its landing was rejected and the bolt is open for work, with sluice's words, and that it waits for a fix on the bolt
+- **WHEN** Flume's verdict on `z`'s submission is failed, waiting on its caller, its words naming `tests:logic`
+- **THEN** `z` is held on its row with no box, saying its landing was refused and the bolt is open for work, in Flume's words, and that it waits for a fix on the bolt
 
 #### Scenario: Submitted again with nothing submitted
-- **WHEN** `z` was refused at `977138a`, and a later `crew bolt submit z` at `977138a` is recorded stopped with no submission of sluice's
-- **THEN** `z` is still held on its row with no box for a fix on the bolt, and the row says nothing of a stop
+- **WHEN** `z` was refused for a failed check at `977138a`, and later raises read the runner's report with `z` still at `977138a`
+- **THEN** crew posts no land of `z` again, so nothing of it is submitted, and `z` is still held on its row with no box for a fix on the bolt, its row saying nothing of a stop
 
 #### Scenario: The fix merges
 - **WHEN** a fix taking main in, launched on `z`, merges into `z` and `z` reads proven at its new head, its own work unchanged since the user's send
-- **THEN** `z` has no box on any landings card and lands on that send
+- **THEN** `z` has no box on any landings card, and crew posts its land on that send
 
 #### Scenario: A fix that changes the bolt's work merges
 - **WHEN** `z` was refused for a failed check, and a fix on `z` commits a change and merges, and `z` reads proven at its new head
@@ -883,8 +883,12 @@ A bolt whose landing sluice refused for its own content, its submission in confl
 - **WHEN** the user cleared `z` on their send of `land/crew`, and main then lands a change `z` also makes
 - **THEN** `z` keeps its box on the card that follows, unticked, and is not held taking main first
 
+#### Scenario: An outcome crew can't tell
+- **WHEN** crew posted `z`'s land, and the branch of the runner that took `z`'s work can't be read
+- **THEN** `z` is not held, its row says its landing can't be told and why, and no land of `z` is posted again at that head
+
 ### Requirement: The landings card closes when nothing waits
-A landings card the user has answered SHALL be left as it is until every bolt they ticked has landed or been held, then closed naming what landed and where GitHub's main holds it, what was held and why, and what was left; a new card SHALL follow it while rows can land. The close SHALL keep the user's send for each ticked bolt that was held and still stands for its work, saying so. A send ticking none SHALL close it, landing nothing. With no row that can land, no card SHALL be open, and the next proven bolt SHALL raise one, following nothing.
+A landings card the user has answered SHALL be left as it is until every bolt they ticked has landed, been held or been stopped, then closed naming what landed and where GitHub's main holds it, what was held and why, what was stopped and in whose words, and what was left; a new card SHALL follow it while rows can land. The close SHALL keep the user's send for each ticked bolt that was held and still stands for its work, saying so. A send ticking none SHALL close it, landing nothing. With no row that can land, no card SHALL be open, and the next proven bolt SHALL raise one, following nothing.
 
 #### Scenario: Everything ticked lands
 - **WHEN** the user sent `land/crew` with `y` and `z` ticked and both land
@@ -899,8 +903,12 @@ A landings card the user has answered SHALL be left as it is until every bolt th
 - **THEN** `land/crew` is posted with `w` as its one row, following no card
 
 #### Scenario: A ticked bolt held at the close
-- **WHEN** the user sent `land/crew` with `y` and `z` ticked, `y` lands and sluice refuses `z`
-- **THEN** the card is closed saying `y` landed and `z` was held and why, and that the send stands for `z`: it lands once its team's fix has only taken main in and sluice has proven it, with nothing asked
+- **WHEN** the user sent `land/crew` with `y` and `z` ticked, `y` lands and Flume refuses `z` for a failed check
+- **THEN** the card is closed saying `y` landed and `z` was held and why, and that the send stands for `z` while its own work is unchanged
+
+#### Scenario: A ticked bolt stopped at the close
+- **WHEN** the user sent `land/crew` with `y` and `z` ticked, `y` lands and the runner answers `z`'s land refused
+- **THEN** the card is closed saying `y` landed and `z` was stopped, in the runner's words, and a new card follows it with `z` as a row with its box
 
 ### Requirement: A bolt's own landing card gives way to its kit's
 An open landing card under `land/<bolt>`, in a conductor's name, SHALL be withdrawn by the rail's sweep on the team's host, saying the bolt is now a row of its kit's landings card, and that card SHALL be raised for the bolt. crew SHALL raise no card under `land/<bolt>`. A bolt SHALL NOT be added to the plan under a name that is a kit's of its partition.
@@ -914,15 +922,15 @@ An open landing card under `land/<bolt>`, in a conductor's name, SHALL be withdr
 - **THEN** its approval is refused, naming the kit, and nothing is written
 
 ### Requirement: A ticked bolt's approval stands while its own work is unchanged
-The user's send on a kit's landings card SHALL stand for each bolt they ticked, at any later head whose own work is the same as at the head they ticked. A bolt's own work SHALL be the non-merge commits its head holds that GitHub's main does not. A bolt whose send stands SHALL be no row of any later landings card, and SHALL land on that send once it reads proven at its new head, with no card asking for it.
+The user's send on a kit's landings card SHALL stand for each bolt they ticked, at any later head whose own work is the same as at the head they ticked. A bolt's own work SHALL be the non-merge commits its head holds that GitHub's main does not. A bolt whose send stands SHALL be no row of any later landings card, and crew SHALL post its land on that send once it reads proven at its new head, with no card asking for it.
 
 #### Scenario: A refused bolt takes main in
-- **WHEN** the user sent `land/crew` with `z` ticked at `abc1234`, sluice refused `z` for a conflict with main, and `z`'s team's take-main fix, resolving the conflict in its merge, merged into `z`, which reads proven at `def5678`
-- **THEN** no landings card asks for `z`, and `crew card read land/crew` names `z` among the bolts the user's earlier send lands, with the `crew bolt submit` that lands it
+- **WHEN** the user sent `land/crew` with `z` ticked at `abc1234`, Flume refused `z`'s landing in conflict with main, and `z`'s take-main fix, resolving the conflict in its merge, merged into `z`, which reads proven at `def5678`
+- **THEN** no landings card asks for `z`, crew posts `z`'s land at `def5678` on that send, and `crew card read land/crew` names `z` among the bolts the user's earlier send lands, with that land's request
 
 #### Scenario: The head moves by taking main in before the landing
-- **WHEN** the user sent `land/crew` with `y` and `z` ticked, `y` is landing, and a take-main fix moves `z`'s head before ops submits it
-- **THEN** the card is left as it is, and once `z` reads proven at its new head it lands on the same send
+- **WHEN** the user sent `land/crew` with `y` and `z` ticked, `y` is landing, and a take-main fix moves `z`'s head before crew posts its land
+- **THEN** the card is left as it is, and once `z` reads proven at its new head crew posts its land on the same send
 
 #### Scenario: The host's copy is brought level
 - **WHEN** the user ticked `z` at the host copy's head `abc1234`, and the copy is brought level with GitHub's `def5678`, whose merges bring in only main's commits
@@ -948,7 +956,7 @@ A bolt the user ticked whose head now holds commits of its own the ticked head d
 - **THEN** `z` is asked again, and the card says crew could not tell whether `z`'s own work changed since the send, in git's words
 
 ### Requirement: A card that follows one the user answered says so first
-Every card crew posts that follows a card the user answered SHALL open its summary, and its details, with one paragraph saying that the user answered the earlier card, when the earlier card was posted and by when crew recorded their answer, what they answered, and what has changed since, before anything else the card says, so a card asked again is never read as a repeat. A card the user answered is one the run record shows closed after their answer, declined among them, and one whose follow-on crew withheld (below). What they answered SHALL be the answer crew recorded at the earlier card's close; where the run record holds none, the paragraph SHALL say crew holds no record of what they answered. What changed SHALL be the sentences the event that raised the card gives: a record's new commit; a proposal's rewrite read against the proposal it replaces; a deploy's newer head; a step's place after the card it follows; what the user's send on a kit's landings card landed, held and left, and the bolts proven or moved since.
+Every card crew posts that follows a card the user answered SHALL open its summary, and its details, with one paragraph saying that the user answered the earlier card, when the earlier card was posted and by when crew recorded their answer, what they answered, and what has changed since, before anything else the card says, so a card asked again is never read as a repeat. A card the user answered is one the run record shows closed after their answer, declined among them, and one whose follow-on crew withheld (below). What they answered SHALL be the answer crew recorded at the earlier card's close; where the run record holds none, the paragraph SHALL say crew holds no record of what they answered. What changed SHALL be the sentences the event that raised the card gives: a record's new commit; a proposal's rewrite read against the proposal it replaces; a deploy's newer head; a step's place after the card it follows; what the user's send on a kit's landings card landed, held, stopped and left, and the bolts proven or moved since.
 
 #### Scenario: A record revised after the user's note
 - **WHEN** the user answered record 0019's card `req_1`, posted 2026-10-23 13:10 UTC, with a note, crew recorded it by 14:02 UTC, and the design agent revises the record at `4be21c0`
@@ -965,6 +973,10 @@ Every card crew posts that follows a card the user answered SHALL open its summa
 #### Scenario: The landings card after a send that left a bolt
 - **WHEN** the user sent `land/crew` with `y` ticked and `z` cleared, and `y` lands
 - **THEN** the card that follows opens saying the user sent the earlier card, when, ticking `y` and leaving `z`, and that `y` landed and `z`, which they left, waits on this card
+
+#### Scenario: The landings card after a send whose bolt was stopped
+- **WHEN** the user sent `land/crew` with `z` ticked, and the runner answered `z`'s land refused
+- **THEN** the card that follows opens saying the user sent the earlier card, when, ticking `z`, and that `z`'s landing was stopped, in the runner's words, so `z` waits on this card
 
 #### Scenario: An answer crew holds no record of
 - **WHEN** a card that follows one the user answered is posted, and the run record's close of the earlier card holds no answer, as a close made before crew recorded answers
@@ -1032,11 +1044,11 @@ While any row of a kit's landings card can land, each row taking main first, for
 - **THEN** no landings card of crew is open until `z` can land
 
 ### Requirement: A send stands for a ticked bolt taking main in
-When the user has sent a landings card with a bolt ticked, and that bolt then takes main first, by a forecast or a take-main fix in flight, or they ticked it while its row took main first, crew SHALL keep the send standing for it: the card SHALL be left, and SHALL NOT be closed counting that bolt as held, while it takes main in. `crew card read land/<kit>` SHALL leave such a bolt out of the submit it prints only while the bolt still stands at the head the card showed or the run record holds a conflict at its head now, read where the bolt lives; once its take-main fix has moved it, its own work unchanged, the read SHALL give it to land on that send.
+When the user has sent a landings card with a bolt ticked, and that bolt then takes main first, by a forecast or a take-main fix in flight, or they ticked it while its row took main first, crew SHALL keep the send standing for it: the card SHALL be left, and SHALL NOT be closed counting that bolt as held, while it takes main in. crew SHALL post no land of such a bolt while it still stands at the head the card showed or the run record holds a conflict at its head now, read where the bolt lives; once its take-main fix has moved it, its own work unchanged, and it reads proven, the next raise SHALL post its land on that send, and `crew card read land/<kit>` SHALL name it with that land's request.
 
 #### Scenario: Ticked, then forecast to conflict
-- **WHEN** the user sent `land/crew` with `y` ticked, and before ops submits it main moves so that `y` is forecast to conflict with it
-- **THEN** `land/crew` is left as it is, its send still standing for `y`, and no agent is told
+- **WHEN** the user sent `land/crew` with `y` ticked, and main moves so that `y` is forecast to conflict with it before a raise posts `y`'s land
+- **THEN** `land/crew` is left as it is, its send still standing for `y`, no land of `y` is posted, and no agent is told
 
 #### Scenario: Ticked beside one that lands
 - **WHEN** the user sent `land/crew` with `y` and `z` ticked, `z` lands, and `y` takes main first
@@ -1047,30 +1059,11 @@ When the user has sent a landings card with a bolt ticked, and that bolt then ta
 - **THEN** `y` lands, the card is left while `z` takes main in, and `z` lands on that send once it reads proven, its own work unchanged
 
 #### Scenario: Read after the take-main fix
-- **WHEN** the run record holds `z` forecast to conflict with main at `abc1234`, the head the card showed, the user ticked `z`, and `z`'s take-main fix has moved it to `def5678`, with no conflict recorded there
-- **THEN** `crew card read land/crew` gives `z` to land beside the other ticked bolts, in the card's order
-
-### Requirement: A landing sluice or its host stopped keeps its box
-A bolt whose landing did not land for a cause that is not its own content (sluice itself failing, a refusal or answer with no conflict or failed check in sluice's record, checks the host could not run, a withdrawal, or an outcome crew can't tell) SHALL keep its box and the user's word it has. Its row SHALL say what stopped the landing at that head, that it was nothing of the bolt's, and that main-level ops submits it again once that is cleared.
-
-#### Scenario: Checks that never ran
-- **WHEN** the user sent `land/crew` with `z` ticked, and sluice's record has `z`'s submission failed with every required check left without a result, the host unable to run them
-- **THEN** `z` is not held: `land/crew` is left as the user answered it, `crew card read land/crew` names `z` as still landing on their send, saying what stopped it, with the command that lands it, and no new card asks for `z`
-
-#### Scenario: sluice itself fails
-- **WHEN** `crew bolt submit z` ends with sluice exiting 3 and main not holding `z`, and sluice's record of the submission has it neither in conflict nor blamed for a check that ran
-- **THEN** `z` keeps its box at that head, and its row says sluice itself failed, in sluice's words, and that ops submits it again once that is cleared
-
-#### Scenario: A new card while it is stopped
-- **WHEN** `z`'s landing was stopped and a card of crew's landings follows the one the user answered
-- **THEN** the closed card's outcome names `z` as still landing on their send with what stopped it, and the card that follows does not ask for `z` again
-
-#### Scenario: The head moves
-- **WHEN** `z`'s landing was stopped at `abc1234` and `z`'s head moves to a new head that reads proven
-- **THEN** `z`'s row says nothing of the stop
+- **WHEN** the run record holds `z` forecast to conflict with main at `abc1234`, the head the card showed, the user ticked `z`, and `z`'s take-main fix has moved it to `def5678`, with no conflict recorded there, and `z` reads proven
+- **THEN** the next raise posts a land of `z` on that send, and `crew card read land/crew` names `z` with that land's request
 
 ### Requirement: A bolt the user left stays left until they tick it
-A bolt SHALL be left when the user cleared it on their send of its kit's landings card, or when main-level ops recorded the user's words in its pane stopping its landing. It SHALL stay left, shown unticked on each card that follows, until the user ticks it on a later send or ops lands it on the user's words, or until its head moves. crew SHALL move no left bolt's head: it starts no take-main fix for it while it is left.
+A bolt SHALL be left when the user cleared it on their send of its kit's landings card, or when main-level ops recorded the user's words in its pane stopping its landing. It SHALL stay left, shown unticked on each card that follows, until the user ticks it on a later send, or until its head moves. crew SHALL move no left bolt's head: it starts no take-main fix for it while it is left.
 
 #### Scenario: Cleared on a send
 - **WHEN** the user sends `land/swancloud` with `x` ticked and `builds-reach-the-phone` cleared
@@ -1104,7 +1097,7 @@ Each row of a bolt the user left SHALL be forecast against main whenever the car
 - **THEN** its row says no conflict is forecast
 
 ### Requirement: A bolt stopped in ops's pane is shown as left
-A bolt whose landing main-level ops recorded the user's words stopping SHALL be shown on its kit's landings card unticked, as a bolt the user left, at the head it had when the stop was recorded, and SHALL be treated as left until the user ticks it on a send or ops lands it on their words.
+A bolt whose landing main-level ops recorded the user's words stopping SHALL be shown on its kit's landings card unticked, as a bolt the user left, at the head it had when the stop was recorded, and SHALL be treated as left until the user ticks it on a send.
 
 #### Scenario: Stopped, then the card is raised
 - **WHEN** ops records the user's words stopping `z`'s landing, and `land/crew` is raised
@@ -1131,7 +1124,7 @@ Each bolt's row on its kit's landings card that can land SHALL carry what brings
 
 #### Scenario: Approved without a preview
 - **WHEN** the user sends `land/crew` with `y` ticked and never asked for its preview
-- **THEN** main-level ops lands `y` as for any ticked row, and `requests.rec` holds no preview of `y`
+- **THEN** crew posts `y`'s land as for any ticked row, and `requests.rec` holds no preview of `y`
 
 ### Requirement: The user asks for a preview by writing on the card
 A card that carries a thing that must run SHALL say, in its words, that the user brings it up by writing on the card naming it, and puts it away by writing that they are done. The card's owner, woken by the user's words, SHALL run `crew card preview <key> <thing>` to ask for it and `crew card preview <key> <thing> --done` to put it away, `<thing>` a landings row's bolt or a batch line's `<unit>/<name>`. No card SHALL ask the user to run a command.
@@ -1273,7 +1266,12 @@ crew SHALL refuse a post, change or close from any role but the three, naming th
 - **THEN** the call is refused, saying the card is crew's
 
 ### Requirement: A row forecast to conflict with main takes main first until a fix takes main in
-A row whose bolt is forecast to conflict with what the kit's main holds, by the card's forecast or by one the run record holds at the bolt's present head, SHALL take main first, saying so, the files, and that it does until a fix taking main in moves its head. The raise that first finds the conflict at a bolt head and revision of main SHALL record it once, as a `forecast` on the bolt, and SHALL tell no agent and start nothing: a fix taking main in is launched when sluice refuses the bolt's landing for a conflict with main, as "A landing that conflicts with main takes main in by a fix place" has it, or by a fix launched on the bolt by hand. It SHALL NOT be ticked or offered to land while it conflicts: beside a row that can land it SHALL stay on the card as an unticked box, as "A row taking main first changes the card in place" has it, and with none that can land it SHALL be held, no card raised for it. It SHALL be ticked as crew proposes again once the bolt reads proven at a new head with no conflict forecast. A conflict only with a bolt above it holds nothing. A row whose bolt the user left SHALL NOT take main first so: it keeps its box and says it would take main first, as "A row the user left says whether it would take main first" has it.
+A row whose bolt is forecast to conflict with what the kit's main holds, by the card's forecast or by one the run record holds at the bolt's present head, SHALL take main first, saying so, the files, and that it does until a fix taking main in moves its head. The raise that first finds the conflict at a bolt head and revision of main SHALL record it once, as a `forecast` on the bolt, and SHALL tell no agent and start nothing. A fix taking main in is launched in one of three ways:
+- by Flume, as the bolt's landing fix, on Flume's own forecast or on its refusal of the bolt's landing, where the bolt's base place names a landing fix;
+- by crew, when Flume refuses the bolt's landing in conflict with main and the base place names none, as the runner's report carries it and "A landing that conflicts with main takes main in by a fix place" has it;
+- by a fix launched on the bolt by hand.
+
+The row SHALL NOT be ticked or offered to land while it conflicts. Beside a row that can land it SHALL stay on the card as an unticked box, as "A row taking main first changes the card in place" has it. With none that can land it SHALL be held, and no card raised for it. It SHALL be ticked as crew proposes again once the bolt reads proven at a new head with no conflict forecast. A conflict only with a bolt above it holds nothing. A row whose bolt the user left SHALL NOT take main first so: it keeps its box and says it would take main first, as "A row the user left says whether it would take main first" has it.
 
 #### Scenario: Main landed a change the bolt also made
 - **WHEN** `x` and `y` read proven, and main has landed a change to `openspec/specs/artifact-buckets/spec.md` that `y`'s own archive also changed
@@ -1290,6 +1288,10 @@ A row whose bolt is forecast to conflict with what the kit's main holds, by the 
 #### Scenario: The fix merges
 - **WHEN** a fix taking main in merges into `y` and `y` reads proven at its new head with no conflict forecast against main
 - **THEN** `y` is ticked on `land/crew` again
+
+#### Scenario: Flume's forecast fix
+- **WHEN** `y` is forecast to conflict with main and its base place lists `y-1`, for a forecast, live
+- **THEN** `y` takes main first, naming `y-1` taking main in, and crew appends no launch for it
 
 #### Scenario: A bolt the user left
 - **WHEN** the user cleared `z` on their send of `land/crew`, and main then lands a change `z` also makes
@@ -1405,11 +1407,11 @@ Every close of a kit's landings card the user answered SHALL carry as `Heads` th
 - **THEN** crew records it closed as ended in Pending You already, with its Answer and `Heads: a@1111111`, and the card it posts has no row for `a`
 
 ### Requirement: The sweep leaves an answered landings card while a bolt it ticked waits to land
-The rail's sweep SHALL NOT close a kit's landings card the user answered while a bolt they ticked on it has neither landed nor been dropped, even when the kit's row is gone from the read. It SHALL leave the card, saying it waits on main-level ops to land what was ticked. The event that ends the send closes it.
+The rail's sweep SHALL NOT close a kit's landings card the user answered while a bolt they ticked on it has neither landed nor been dropped, even when the kit's row is gone from the read. It SHALL leave the card, saying it waits on the runner to land what was ticked. The event that ends the send closes it.
 
 #### Scenario: The row is gone for a moment
 - **WHEN** the user approved `land/sluice`'s card ticking `a`, `a` has no `bolt.land` or `bolt.drop` since, and the rail's read finds no `land/sluice` row
-- **THEN** the sweep leaves the card open and says it waits on agentplot-ops to land `a`; nothing is withdrawn
+- **THEN** the sweep leaves the card open and says it waits on the runner to land `a`; nothing is withdrawn
 
 #### Scenario: The ticked bolt landed
 - **WHEN** `a` has landed and no other ticked bolt waits, and the read finds no `land/sluice` row
@@ -1436,6 +1438,103 @@ A card whose read, change or close in the name of the owner the run record gives
 #### Scenario: A row's card posted under another name
 - **WHEN** `proposal/12`'s card is open in the run record in wldn-planner's name, and Pending You refuses the sweep's read of it in wldn-planner's name as swancloud-planner's card
 - **THEN** the card is recorded lost, and `proposal/12`'s card is posted again in the planner's name, saying the older copy is dead
+
+### Requirement: The user's send on a kit's landings card posts one land for each row it lands
+When an act of crew's that raises a kit's landings card reads the user's send on it, the raise SHALL post one `land` request for each row the send lands, a bolt's or a fix of main's, of that row's launch, in the card's order with the fixes of main first, by one plan write before it acts on the card, each land recorded in the run record as asked with its request (record 0056 points 3 and 6). No agent SHALL run anything for the landing (record 0056 point 5).
+
+#### Scenario: Two bolts sent
+- **WHEN** the user sends `land/crew` with `y` and `z` ticked, `y` first, and crew's next raise of `land/crew` reads the send
+- **THEN** that raise appends to `requests.rec`, in one plan write, a land of `y`'s launch and then one of `z`'s, each recorded in the run record as asked with its request, and no agent is told to run anything
+
+#### Scenario: A fix of main beside a bolt
+- **WHEN** the user sends `land/crew` with `y` and `fix main--a-test-reads-its-fixture` ticked
+- **THEN** the raise posts the fix's land first, of the fix's launch, and then `y`'s
+
+### Requirement: A landings row is due one land for each send and head
+A row of a kit's landings card SHALL be due a land when its box was ticked on a send that stands for it at its head now, it can land, and no land of its launch was posted at that head nor stands undecided. A send read twice SHALL post once, and a send that stands through a take-main fix SHALL post again once the bolt reads proven at its new head. A write replayed on a tip that already holds the lands SHALL write nothing.
+
+#### Scenario: The send read again
+- **WHEN** a later raise reads the user's send on `land/crew` with `y` and `z` still at the heads they were ticked at, their lands posted
+- **THEN** it posts no land
+
+#### Scenario: A ticked bolt taking main in
+- **WHEN** the user ticked `z` at `abc1234`, Flume refused `z`'s landing in conflict with main, and `z`'s take-main fix merged, so `z` reads proven at `def5678` with its own work unchanged
+- **THEN** no land of `z` is posted while it takes main in, and the first raise after it reads proven at `def5678` posts one land of `z` on that send
+
+#### Scenario: A stopped row on the same send
+- **WHEN** the runner answered `z`'s land on the user's send refused
+- **THEN** no raise posts another land of `z` on that send
+
+#### Scenario: A write replayed
+- **WHEN** the plan write posting `y`'s land is applied again to a tip that already holds that land
+- **THEN** it writes nothing
+
+### Requirement: A send's lands are posted by the first act that reads it
+The lands of a send SHALL be posted by whichever act of crew's first reads it: the host's follower, `crew card read land/<kit>` or any act that raises the card, so nothing waits on an agent's session (`roles.6`, `teams.24`).
+
+#### Scenario: Read by the card's read
+- **WHEN** the user sent `land/crew` with `y` ticked, no raise has read the send, and main-level ops runs `crew card read land/crew`
+- **THEN** that read posts `y`'s land and prints it with its request
+
+#### Scenario: Read with no session of ops's running
+- **WHEN** the user sends `land/crew` with two rows ticked, no session of main-level ops runs, and a rail read on the main level's host raises the card
+- **THEN** that raise posts the two lands in the card's order, and a second raise posts none
+
+### Requirement: The landings card's read prints the lands crew posted
+`crew card read land/<kit>`, once the user has sent the card, SHALL print the rows the send lands in the card's order, those an earlier send still lands first, each with the land crew posted for it and its request, or why none is posted: it takes main first, its land was stopped, or it landed or left the plan since. A send ticking no row SHALL print that nothing lands. The read SHALL print no command for any agent to run (record 0056 point 5).
+
+#### Scenario: Two bolts sent
+- **WHEN** the user sent `land/crew` with `a` and `c` ticked and `b` cleared, and crew's raise posted `a`'s land as request 57 and `c`'s as request 58
+- **THEN** `crew card read land/crew` prints `a` then `c`, each with its request, and no `crew bolt submit` or other command
+
+#### Scenario: A ticked bolt taking main first
+- **WHEN** the user ticked `z` on `land/crew`, and the run record holds `z` forecast to conflict with main at the head the card showed
+- **THEN** the read says `z` takes main first and the user's send stands for it, and names no land of `z`
+
+#### Scenario: Nothing ticked
+- **WHEN** the user sent `land/crew` with no box ticked
+- **THEN** the read says nothing lands, and no land is posted
+
+### Requirement: A bolt started before bolts were base places has no box
+A started bolt with no launch of `bolt/<bolt>` in the drive's requests SHALL land under the crew that started it. Once it reads proven, its row on its kit's landings card SHALL have no box and SHALL say it was started before bolts were base places and lands under the crew that started it, and crew SHALL post no land for it (record 0056).
+
+#### Scenario: Beside a bolt that can land
+- **WHEN** crew's bolts `y` and `w` read proven, `y` launched as a base place and `w` started by an older crew, with no launch of `bolt/w`
+- **THEN** `land/crew` shows `y` ticked and `w` with no box, `w`'s row saying it was started before bolts were base places and lands under the crew that started it, and no raise posts a land of `w`
+
+### Requirement: A landing the runner or Flume stopped keeps its box
+A bolt whose land the runner answered refused, or whose submission Flume reports withdrawn or refused and waiting on its caller, as the runner's report carries it, SHALL keep its box (record 0056 decision 6). Its row SHALL say what stopped its landing at that head, in the runner's or Flume's words, nothing of the bolt's. The send that ticked it SHALL be spent: crew SHALL post no land of it again on that send.
+
+#### Scenario: The runner refuses the land
+- **WHEN** the user sent `land/crew` with `z` ticked, crew posted `z`'s land, and the runner answered it refused, a place on `bolt/z` being live
+- **THEN** `z` keeps its box, its row says its landing at that head was stopped, in the runner's words, nothing of the bolt's, and no raise posts another land of `z` on that send
+
+#### Scenario: Flume's submission withdrawn
+- **WHEN** the runner's report carries `z`'s base place with its submission withdrawn, waiting on its caller
+- **THEN** `z` keeps its box, and its row says its landing was stopped, in Flume's words, nothing of the bolt's
+
+#### Scenario: A new card while it is stopped
+- **WHEN** `z`'s landing was stopped and a card of crew's landings follows the one the user answered
+- **THEN** the closed card's outcome names `z` as stopped, with what stopped it, and the card that follows has `z` as a row with its box, ticked as crew proposes, saying what stopped its last landing
+
+#### Scenario: The head moves
+- **WHEN** `z`'s landing was stopped at `abc1234` and `z`'s head moves to a new head that reads proven
+- **THEN** `z`'s row says nothing of the stop
+
+### Requirement: A row held by Flume's landing fix says so
+A row whose bolt's base place has a landing fix live SHALL be held with no box, saying which fix and what it does: taking main in for a forecast or a conflict, the row taking main first, or making the failed checks pass for a failed submission, in Flume's words. A row whose landing was refused and whose landing fix is due SHALL be held at the refused head, saying Flume launches its landing fix. A row past the bound SHALL be held, saying Flume ran its landing fixes and the bolt waits on ops.
+
+#### Scenario: Taking main in by Flume's fix
+- **WHEN** `y`'s base place lists `y-1`, for a conflict, live, and `x` can land
+- **THEN** `land/crew` shows `y` unticked, taking main first, naming `y-1` taking main in, and `x` ticked
+
+#### Scenario: A failed check's fix
+- **WHEN** `y`'s base place lists `y-1`, for a failed check, live
+- **THEN** `y`'s row has no box and says it is held for Flume's landing fix `y-1`, which makes the failed checks pass, in Flume's words
+
+#### Scenario: Due
+- **WHEN** `y`'s landing was refused for a failed check at its head and its landing fix is due
+- **THEN** `y`'s row has no box and says Flume launches its landing fix
 
 ### Requirement: A card is changed in place when the runner reports its preview anew
 At each rail read on the partition's main machine, a card there that waits on the user and carries a standing ask SHALL be changed in place when the runner's report changes what the card says of that preview, its note naming the thing and what the preview now is. crew SHALL keep on that host what it last told each card of each preview, a cache whose loss costs one more change, and SHALL change no card for a report that changes nothing it says. A card the user has answered SHALL be left as it is.

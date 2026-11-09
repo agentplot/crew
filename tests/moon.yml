@@ -39,7 +39,7 @@ tasks:
     options: { runFromWorkspaceRoot: true }
   t-flume-source:
     command: 'tests/run t-flume-source'
-    inputs: ['/plugin/bin/**/*', '/plugin/.claude-plugin/plugin.json', '/plugin/lib/crew.py', '/plugin/lib/plan.py', '/plugin/lib/asks.py', '/plugin/lib/record.py', '/plugin/lib/gather.py', '/plugin/lib/transcript.py', '/plugin/lib/questions.py', '/plugin/lib/ops.py', '/plugin/lib/cards.py', '/plugin/lib/picture.py', '/plugin/lib/font.py', '/plugin/lib/kit.py', '/plugin/lib/runner.py', '/plugin/lib/source.py', '/tests/run', '/tests/slot', '/tests/lib.sh', '/tests/stubs/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/.prototools', '/.moon/toolchains.yml', '/tests/pyproject.toml', '/tests/uv.lock', '/tests/t-flume-source.sh', '/plugin/lib/board.py']
+    inputs: ['/plugin/bin/**/*', '/plugin/.claude-plugin/plugin.json', '/plugin/lib/crew.py', '/plugin/lib/plan.py', '/plugin/lib/asks.py', '/plugin/lib/record.py', '/plugin/lib/gather.py', '/plugin/lib/transcript.py', '/plugin/lib/questions.py', '/plugin/lib/ops.py', '/plugin/lib/cards.py', '/plugin/lib/picture.py', '/plugin/lib/font.py', '/plugin/lib/kit.py', '/plugin/lib/runner.py', '/plugin/lib/source.py', '/tests/run', '/tests/slot', '/tests/lib.sh', '/tests/stubs/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/.prototools', '/.moon/toolchains.yml', '/tests/pyproject.toml', '/tests/uv.lock', '/tests/t-flume-source.sh', '/plugin/flume/kinds/**/*', '/plugin/hooks/**/*', '/plugin/lib/board.py']
     tags: [check-full]
     options: { runFromWorkspaceRoot: true }
   t-help:

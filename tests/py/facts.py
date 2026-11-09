@@ -141,6 +141,29 @@ class FactsWrite:
         return w
 
 
+def writes_at(monkeypatch, tip, text="%rec: Bolt\n\n%rec: Unit\n\n", label="swancloud"):
+    """plan.write stood in for by a write applied to a tip in memory: each change applied to a FactsWrite over text,
+    whose run record is tip (a list, oldest first, that each write's entries join, so a later write is applied to the
+    tip an earlier one left), a change that raises plan.Unposted writing nothing; each write's entries, its act's and
+    each also, as record.parse gives them with a refusal as refused and a Why as why, appended to the list returned."""
+    import plan
+    written = []
+
+    def write(fleet, label_, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
+        w = FactsWrite(text, label=label, entries=list(tip))
+        change(w)
+        es = [dict({**(fields or {}), **w.fields}, Act=w.act or act, On=list(on) + w.on, by=by, why=w.why or why)]
+        es += [dict({k: v for k, v in more.items() if k != "why"}, Act=a, On=list(o), by=by, why=more.get("why") or w.why or why)
+               for _, a, o, more in w.also]
+        for e in es:
+            tip.append(dict({k: v for k, v in e.items() if k not in ("refused", "why", "by")},
+                            **({"Refused": e["refused"]} if e.get("refused") else {}), **({"Why": e["why"]} if e.get("why") else {})))
+        written.extend(es)
+        return "c" * 40
+    monkeypatch.setattr(plan, "write", write)
+    return written
+
+
 def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standing=()):
     """A plan command's reads as a logic case gives them (plan.Reads): each unit's or chore's stage as given, else ready;
     a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it, or Flume's branch for it
@@ -282,10 +305,12 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}
 
 
-def launched(bolts, work=(), fleet=None, planned=()):
+def launched(bolts, work=(), fleet=None, planned=(), base=True):
     """madswan's plan (flume_plan) with each bolt in bolts started and its work launched as a start launches it
-    (plan.reach_places), and each bolt in planned planned and not started: (the plan, requests.rec's records as the
-    writes leave them). The requests name their writer: set CREW_AGENT first."""
+    (plan.reach_places), then, with base, each bolt's base place (runner.bolt_launch), after its pieces so their
+    numbers are those a case names, unanswered, a bolt of this crew's and not one started before bolts were base
+    places; and each bolt in planned planned and not started: (the plan, requests.rec's records as the writes leave
+    them). The requests name their writer: set CREW_AGENT first."""
     import plan
     import runner
     fleet = fleet or madswan_fleet()
@@ -293,4 +318,7 @@ def launched(bolts, work=(), fleet=None, planned=()):
     for b in bolts:
         w.plan.bolt(b).set("Path", "flume")
         plan.reach_places(fleet, w, b)
+    for b in bolts if base else ():  # each bolt's base place, after its pieces so their numbers stand, unanswered
+        act, work_, given = runner.bolt_launch(w.plan, b, "madswan")
+        plan.request(w, act, work_, **given)
     return w.plan, plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")
