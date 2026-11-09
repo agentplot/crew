@@ -203,6 +203,20 @@ class TestEndsHeldForTheRunner:
         s = self.stages(ran({2: "code"}, refused={1: words}), bolt=named).of("a")
         assert (s["stage"], s["flume"]) == ("refused", {"stage": "refused", "words": words})
 
+    def test_a_head_held_for_the_runner_reads_green_and_one_only_a_landing_commit_names_reads_none(self):
+        """merge-gate "A landing held for the runner": every piece of x carried landed and held for the runner at its
+        commit, x's head the last, reads green naming the head as the runner reports it; and "A landing read from the
+        bolt's own landings": b last carried at submitted, with x's facts giving a landing commit naming change/b at the
+        head, reads none, so x is not offered for landing."""
+        from facts import ran
+        st = self.stages(ran({n: "flume-0.20.0/landed-held" for n in (1, 2, 3)}), bolt={"head": HELD_AT})
+        assert st.verification(st.plan.bolt("x"), HELD_AT) == ("green", f"its head {HELD_AT[:7]} is a's landing, as the runner reports it")
+        head = "2" * 40
+        named = {"head": head, "landings": {"change/b": {"commit": head, "at": "2026-11-07T19:20:00Z"}}}
+        st = self.stages(ran({1: "flume-0.20.0/landed-held", 2: "submitted"}), bolt=named)
+        assert st.verification(st.plan.bolt("x"), head)[0] == "none"
+        assert st.bolt_state(st.plan.bolt("x")) == "active"
+
 
 class TestABoltWhoseLaunchesWereAllRefused:
     """bolt-plan "A launch refused for a change the bolt holds" and drive-state "A bolt whose every launch was

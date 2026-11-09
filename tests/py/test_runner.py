@@ -882,11 +882,6 @@ class TestVerification:
         assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER)), ("fix/b/take-main", self.merged())]) == (
             "green", "its head d185a87 is b--take-main's landing, as the runner reports it")
 
-    def test_a_piece_read_from_its_bolts_landing_says_so(self):
-        piece = self.merged(on="bolt", branch="change/a", landed="2026-11-08T10:00:00Z")
-        assert runner.verification(self.HEAD, [("unit/a", piece)]) == (
-            "green", "its head d185a87 is a's landing, as its landing on the bolt names it")
-
     def test_a_piece_merged_at_another_commit_leaves_the_head_no_landing(self):
         assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER))]) == (
             "none", "its head d185a87 is no landing of its work that the runner reports")

@@ -745,7 +745,8 @@ def verification(head, pieces):
     head, the bolt's head as read where the bolt lives (gather.bolt_read), None where there is none; pieces, its units,
     chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of gives it.
     Returns (state, words): "green", naming the head and the work, for the first piece in the order given that reads
-    merged or landed with its commit the head, since every piece lands on its bolt through a submission sluice lands
+    merged or landed with its commit the head, as the runner reports it, a record Flume holds for the runner after its
+    tidy among them, since every piece lands on its bolt through a submission sluice lands
     only on its required checks passing, or beside its queue when none of them reads its changes (teams.5, sluice
     clause 140), so a head that is a piece's landing is one the kit's checks passed, a landing beside reading the same;
     "none" for any other head, a commit pushed another way or a landing the runner does not report among them; and
@@ -754,8 +755,7 @@ def verification(head, pieces):
         return "unknown", "no head crew can read"
     for work, s in pieces:
         if s.get("stage") in ("merged", "landed") and s.get("commit") and s["commit"] == head:
-            how = "as its landing on the bolt names it" if s.get("on") == "bolt" else "as the runner reports it"
-            return "green", f"its head {head[:7]} is {bare(work)}'s landing, {how}"
+            return "green", f"its head {head[:7]} is {bare(work)}'s landing, as the runner reports it"
     return "none", f"its head {head[:7]} is no landing of its work that the runner reports"
 
 
@@ -793,8 +793,7 @@ def piece_said(s):
     it, or ""): the work it waits on; the question it stopped short with, or the work it found; sluice's words it was
     sent back with; Flume's words of what it waits on its caller for, its held submission waiting on the user's send;
     the room it is queued for; the runner's words refusing it, or holding a launch with no After work; or why crew
-    can't tell its stage; and, for one read merged from its bolt's landing (built_on_bolt), the branch and commit
-    that landing names."""
+    can't tell its stage."""
     st = s["stage"]
     tasks = f" {s['tasks'][0]}/{s['tasks'][1]}" if s.get("tasks") and s["tasks"][1] and st in ("code", "verify") else ""
     stage = f"submitted #{s['submission']}" if st == "submitted" and s.get("submission") else st + tasks
@@ -808,7 +807,6 @@ def piece_said(s):
         f"for room at {s['of']}" if st == "queued" and s.get("of") else
         f"refused by the runner: {first or 'no words'}" if st == "refused" else
         f"held by the runner: {first}" if st == "launching" and first else
-        f"{s.get('branch')} landed on its bolt at {(s.get('commit') or '')[:7]}" if st == "merged" and s.get("on") == "bolt" else
         s.get("why") or "" if st == "unknown" else "")
     return stage, detail
 
