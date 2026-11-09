@@ -1941,10 +1941,11 @@ def rename_standing(old, plan, requests, reads, entries, proposals, own):
 def rename_kept(old, hosts):
     """Which hosts still keep a repository, so crew kit rename <old> <new> waits for its removal (Decision 3 of
     a-repository-is-renamed-by-one-explicit-command; plan.22), from plain facts (code.7): hosts, {host: (report,
-    spaces)} for each host with a runner branch of the drive and its main-level host, report the repositories its
+    filed)} for each host with a runner branch of the drive and its main-level host, report the repositories its
     runner's repositories.rec names, None for a runner that reports none or a host with no runner branch, or why its
-    runner can't be read, and spaces the repositories its sessions keep in the hosts file, None for a host it doesn't
-    list. A host's keeping is its runner's report where it gives one, else its spaces; a host keeps old where a repository
+    runner can't be read, and filed the repositories the teams file keeps there (crew.kept, record 0064), None for a
+    host that is neither the one the file is written on nor a drive's machine, whose keeping the file does not give. A
+    host's keeping is its runner's report where it gives one, else the teams file's; a host keeps old where a repository
     it keeps has old's name, or is old's address when old is given as one, each such repository named. Reads only
     whether a host still keeps the name, to refuse, never where a kit's work runs (roles.9). No host needs to keep the
     new name: the repository is added back under it after the rename. Returns (what keeps old, what crew could not read),
@@ -1952,21 +1953,21 @@ def rename_kept(old, hosts):
     names = (lambda r: r == old) if "/" in old else (lambda r: r.split("/")[-1] == old)
     kept, unread = [], []
     for host in sorted(hosts):
-        report, spaces = hosts[host]
+        report, filed = hosts[host]
         if isinstance(report, str):
             unread.append(report)
         elif report is not None:
             kept += [f"{host}'s runner keeps {r}" for r in sorted(report) if names(r)]
-        elif spaces is None:
-            unread.append(f"{host}'s runner reports no repositories and {crew.HOSTS} lists no {host}, so crew can't read "
-                          f"whether it keeps {old}")
+        elif filed is None:
+            unread.append(f"{host}'s runner reports no repositories, and {host} is neither the host the teams file is "
+                          f"written on nor one a drive runs on, so crew can't read whether it keeps {old}")
         else:
-            kept += [f"{host}'s spaces keep {r}" for r in sorted(set(spaces)) if names(r)]
+            kept += [f"{host}'s teams file keeps {r}" for r in sorted(set(filed)) if names(r)]
     return kept, unread
 
 
 # A kit as a command names it (code.4): its name, lowercase words with dashes, or its forge address, <owner>/<name>, as
-# the hosts file lists it, the owner as GitHub has it.
+# the teams file lists it, the owner as GitHub has it.
 KIT = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9_.-]*/)?[a-z0-9][a-z0-9-]*$")
 
 
@@ -6687,7 +6688,7 @@ def op_kit_rename(ctx, a):
     are renamed with the rest, a refused push refusing the rename. Refused, with nothing written, by rename_refusal at
     the tip it is applied to (plan.1): while old's work stands (rename_standing), the proposal applying it excepted, or
     any host still keeps old (rename_kept), each host with a runner branch of the drive read with its main-level
-    host, by its runner's report or else its spaces in the hosts file; and for a name no record holds. Run again, it
+    host, by its runner's report or else what the teams file keeps there; and for a name no record holds. Run again, it
     renames what an earlier rename left. A proposal may hold it, and the user runs it directly (roles.1, may_write)."""
     label, fleet = ctx.kit(a.old), ctx.fleet
     host = crew.drive_of(fleet, label)["machine"]
@@ -6707,9 +6708,11 @@ def op_kit_rename(ctx, a):
         reads = w.runners()
         stands, unread = rename_standing(a.old, w.plan, requests_of(w).recs("Request"), reads, entries,
                                          proposals(w).recs("Proposal"), own)
-        spaces = lambda h: [r for s in fleet["hosts"][h].get("sessions", {}).values() for r in s.get("repos") or []] \
-            if h in fleet["hosts"] else None
-        hosts = {h: ((reads[h].get("why") or reads[h].get("repositories")) if h in reads else None, spaces(h))
+        # What the teams file keeps on a host (record 0064): read for the host it is written on and each a drive
+        # runs on, and for no other, whose keeping the file does not give.
+        here, machines = crew.this_host(), {p["machine"] for p in fleet["drives"].values()}
+        filed = lambda h: [k["repo"] for k in crew.kept(fleet, h)] if h == here or h in machines else None
+        hosts = {h: ((reads[h].get("why") or reads[h].get("repositories")) if h in reads else None, filed(h))
                  for h in sorted({host, *reads})}
         kept, unkept = rename_kept(a.old, hosts)
         bolts = [b.name() for b in w.plan.bolts()]
