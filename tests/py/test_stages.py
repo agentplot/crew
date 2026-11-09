@@ -294,6 +294,74 @@ class TestABoltWhoseLaunchesWereAllRefused:
             plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
 
 
+class TestTheBoltsOwnRow:
+    """bolt-teams "A start run again launches a bolt whose launch the runner refused" and "A bolt started before bolts
+    were base places lands under the crew that started it" (crew-lands-each-bolt-through-flumes-base-place, Decisions 3
+    and 9): a started bolt's row reads its base place's launch as the runner answers it (plan.Stages.base,
+    runner.stage_of of bolt/<bolt>), unlaunched in the runner's words while it is not launched, live once Flume holds
+    it, and a started bolt with no launch of its own reads as started before bolts were base places."""
+    FLEET = madswan_fleet()
+
+    @pytest.fixture(autouse=True)
+    def writer(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
+
+    def stages(self, runners, base=True):
+        """x started, holding unit a: its base place's launch request 1 and a's request 2 (a's alone, request 1, without
+        base), with the drive's runners as given (facts.ran, deneb's)."""
+        w = FactsWrite(flume_plan([("x", None, None)], [("a", "x", [], "unit", [])]), label="madswan")
+        w.plan.bolt("x").set("Path", "flume")
+        if base:
+            act, work, given = runner.bolt_launch(w.plan, "x", "madswan")
+            plan.request(w, act, work, **given)
+        plan.reach_places(self.FLEET, w, "x")
+        requests = plan.Plan(w.files["requests.rec"]).recs("Request")
+        st = plan.Stages(self.FLEET, w.plan, crew_read(bolts={"x": {}}), runs={"madswan": (requests, runners)}, label="madswan")
+        return st, st.base(w.plan.bolt("x"))
+
+    def test_a_launch_no_runner_has_answered_is_unlaunched(self):
+        from facts import ran
+        _, b = self.stages(ran())
+        assert b == {"stage": "unlaunched"}
+        assert runner.base_said(b) == "its base place is unlaunched: no runner has answered its launch yet"
+
+    def test_a_launch_the_runner_refused_is_unlaunched_in_its_words_and_started_again_by_a_start(self):
+        """bolt-teams "A kind its host has not locked": x stays started and its row says the runner's words."""
+        from facts import ran
+        words = "flume refused the launch: crew/bolt@1 is not locked on deneb (flume kinds lock --host crew/bolt@1)"
+        _, b = self.stages(ran(refused={1: words}))
+        assert b == {"stage": "unlaunched", "words": words, "refused": True}
+        assert runner.base_said(b) == f"its base place is unlaunched: the runner refused its launch: {words}; crew bolt start runs it again"
+
+    def test_a_launch_the_runner_holds_is_unlaunched_in_its_words(self):
+        from facts import ran
+        _, b = self.stages(ran(held={1: "no room in stream madswan"}))
+        assert b == {"stage": "unlaunched", "words": "no room in stream madswan"}
+        assert runner.base_said(b) == "its base place is unlaunched: the runner holds its launch: no room in stream madswan"
+
+    def test_a_base_place_flume_holds_is_live_and_one_landed_names_its_commit(self):
+        from facts import ran
+        _, b = self.stages(ran({1: "flume-0.17.0/bolt-submitted"}))
+        assert (b["stage"], runner.base_said(b)) == ("live", "")
+        _, b = self.stages(ran({1: "flume-0.17.0/bolt-landed"}))
+        assert (b["stage"], b["commit"]) == ("landed", "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0")
+
+    def test_a_started_bolt_with_no_launch_of_its_own_was_started_before_bolts_were_base_places(self):
+        from facts import ran
+        _, b = self.stages(ran({1: "code"}), base=False)
+        assert b == {"stage": "legacy", "words": "x was started before bolts were base places and lands under the crew that started it"}
+        assert runner.base_said(b) == b["words"]
+
+    def test_runners_crew_cant_read_leave_it_unknown_naming_why(self):
+        from facts import ran
+        w = FactsWrite(flume_plan([("x", None, "flume")], [("a", "x", [], "unit", [])]), label="madswan")
+        st = plan.Stages(self.FLEET, w.plan, crew_read(bolts={"x": {}}), runs={"madswan": "recfix refused requests.rec"}, label="madswan")
+        b = st.base(w.plan.bolt("x"))
+        assert b["stage"] == "unknown" and runner.base_said(b) == (
+            "can't tell its base place: crew can't read madswan's requests or runners: recfix refused requests.rec")
+        assert st.base(FactsWrite(flume_plan([("y", None, None)]), label="madswan").plan.bolt("y")) is None
+
+
 class TestABoltLandedOnMain:
     """bolt-plan "A landed bolt's pieces are read from its landing" and bolt-teams "A bolt whose landing main holds closes
     whatever the runner carried of its places" (Decision 3 of a-bolts-landing-on-main-reads-landed): x landed on main
@@ -339,6 +407,21 @@ class TestABoltLandedOnMain:
         assert st.bolt_state(p.bolt("x")) != "landed"
         assert plan.land_refusal("x", ["a", "b"], st.of, [], "madswan", {"1" * 40: 0}, "crew") == (
             "unit b has not merged into bolt/x: it is code")
+
+    def test_crew_bolt_land_reads_the_landing_main_holds_and_names_a_piece_it_does_not_hold(self, monkeypatch):
+        """main_landed, what crew bolt land closes a bolt by where the runner's report does not read it landed: the
+        landing's commit once each piece reads landed through it; with why, naming the piece, where one does not; and
+        nothing where main holds no landing of it or the landing can't be read (read.1)."""
+        from facts import ran
+        for units, runners, facts, want in (
+                (["a"], ran(unplaced=self.PLACES), {"landed": self.LANDING, "landings": self.A}, {"commit": self.LANDING["commit"]}),
+                (["a", "b"], ran({2: "code"}, unplaced=self.PLACES), {"landed": self.LANDING, "landings": self.A},
+                 {"commit": self.LANDING["commit"], "why": "unit b has not landed on main: it is code"}),
+                (["a"], ran(unplaced=self.PLACES), {"landed": None}, {}),
+                (["a"], ran(unplaced=self.PLACES), {"landed_error": "git could not list main's first-parent line"}, {})):
+            p, st = self.stages(units, runners, facts)
+            monkeypatch.setattr(plan, "stages_for", lambda fleet, label, plan_, bolts, fetch=False: st)
+            assert plan.main_landed(self.FLEET, "madswan", p, p.bolt("x"), units) == want
 
     def test_a_landing_crew_cant_read_builds_nothing(self):
         """bolt-plan "main's line can't be read"."""

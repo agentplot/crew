@@ -100,11 +100,23 @@ A clone of a drive's branch SHALL be recutils files that `recsel` and `recfix` r
 - **THEN** the plan's units are printed
 
 ### Requirement: crew asks a host's runner for work by requests on the drive's branch
-crew SHALL write every request for a host's runner as a record of `requests.rec` on the drive's branch: a launch of a place, or a retry, drop or priority of one it launched. Each SHALL be numbered once, appended by a crew command in the commit of the plan write that occasions it, and checked by `recfix --check` and crew's own rules. A request SHALL never be removed. It SHALL never be changed, except by `crew kit rename`, which renames a repository's name in a request's `Repo` and in a fix of its main's `Work`, in the rename's one commit. Any other write that changes a request SHALL be refused.
+crew SHALL write every request for a host's runner as a record of `requests.rec` on the drive's branch: a launch of a place, or a retry, drop, priority or land of one it launched, or a confirm, for a role's address, of ends of a place it launched, or a preview of a branch at a revision on the host where the work it serves runs, brought up or, marked done, put away. Each SHALL be numbered once, appended by a crew command in the commit of the plan write that occasions it, and checked by `recfix --check` and crew's own rules. A request SHALL never be removed. It SHALL never be changed, except by `crew kit rename`, which renames a repository's name in a request's `Repo` and in a fix of its main's `Work`, in the rename's one commit. Any other write that changes a request SHALL be refused.
 
 #### Scenario: Never renumbered
 - **WHEN** `requests.rec` holds requests 1 to 7 and a drop is written
 - **THEN** it is request 8, and requests 1 to 7 are as they were
+
+#### Scenario: A land is a request
+- **WHEN** `requests.rec` holds requests 1 to 7, request 1 the launch of `bolt/x`, and the user's send of `x`'s row is carried to the runner
+- **THEN** request 8 is a land of request 1, and requests 1 to 7 are as they were
+
+#### Scenario: A preview and its done
+- **WHEN** `requests.rec` holds requests 1 to 7, a preview is asked from a card, and later the user is done with it
+- **THEN** the preview is request 8 and its done request 9, each in a commit of its own, and requests 1 to 8 are as they were when 9 is written
+
+#### Scenario: A confirm in a turn's end
+- **WHEN** `requests.rec` holds requests 1 to 7, request 3 a launch of unit `a`, and the planner's run ends a turn that took two ends of `a`'s place
+- **THEN** request 8 is a confirm of request 3 for `madswan/planner` with two `Delivery` lines, in the commit that ends the turn, and it passes `recfix --check`
 
 #### Scenario: A rename's write changes a request's repository
 - **WHEN** the user renames `flywheel-cloud` to `boomdrive-cloud` and request 3 has `Repo: flywheel-cloud`
@@ -115,7 +127,7 @@ crew SHALL write every request for a host's runner as a record of `requests.rec`
 - **THEN** it is refused, saying a request is never changed or removed, and nothing is pushed
 
 ### Requirement: A launch names everything the runner passes to Flume
-A launch of a kit's work SHALL name the work it serves, its repository as the plan names it, its kind, name and base, its priority, intent and recipient, and its brief, and SHALL name no host or stream, a runner whose configuration names its repository taking it, in the stream its host's Flume configuration maps the repository to; a launch of a role's work SHALL also name the host and stream its role runs in. A launch MAY name launches that must land first and a held submission. A retry, drop or priority SHALL name the launch it acts on and no host. crew's rules SHALL refuse a request that lacks what its act needs or names what its act does not take.
+A launch of a kit's work SHALL name the work it serves, its repository as the plan names it, its kind, name and base, its priority, intent and recipient, and its brief, and SHALL name no host or stream, a runner whose configuration names its repository taking it, in the stream its host's Flume configuration maps the repository to; a launch of a role's work SHALL also name the host and stream its role runs in. A bolt's own launch, of `bolt/<bolt>`, SHALL name the kind `crew/bolt` and the base `main`, and no brief and no launch to land first, since its base place runs no agent; and any other launch SHALL NOT name the kind `crew/bolt` (record 0056 point 2). A start SHALL append the bolt's launch before its pieces' (bolt-teams), and a launch on the base `bolt/<bolt>` SHALL be taken with no launch of `bolt/<bolt>` before it, as a fix on a bolt started before bolts were base places is. A launch MAY name launches that must land first and a held submission. A retry, drop, priority, land or confirm SHALL name the launch it acts on and no host, and a land SHALL name a launch of a bolt or of a fix of main, its work the same as that launch's. A confirm SHALL name as its recipient the address of one of crew's five roles, `<label>/<role>`, and at least one delivery key, for the runner that holds the launch to confirm to Flume as that recipient. crew's rules SHALL refuse a request that lacks what its act needs or names what its act does not take.
 
 #### Scenario: A launch with no stream
 - **WHEN** a bolt's start appends a launch of a kit's work naming no `Stream`
@@ -129,14 +141,31 @@ A launch of a kit's work SHALL name the work it serves, its repository as the pl
 - **WHEN** a retry would name request 9, which is no launch
 - **THEN** the write is refused naming request 9
 
+#### Scenario: A bolt's own launch
+- **WHEN** a bolt's start appends a launch of `bolt/x` of the kind `crew/bolt` on the base `main`, with no brief and no launch to land first
+- **THEN** it is appended; had it named a brief, a launch to land first, another kind or another base, the write would be refused naming the field
+
+#### Scenario: A fix on a bolt with no launch of its own
+- **WHEN** a write would append a fix's launch on the base `bolt/x`, and `requests.rec` holds `x`'s units' launches and no launch of `bolt/x`
+- **THEN** it is appended
+
+#### Scenario: A land of a unit
+- **WHEN** a land would name request 4, the launch of unit `a` on `bolt/x`
+- **THEN** the write is refused naming request 4, since a land names a bolt's or a fix of main's launch
+
+#### Scenario: A confirm with no key, or for no role
+- **WHEN** a confirm of request 3 would name no `Delivery`, or name `madswan/coder` as its `Recipient`
+- **THEN** the write is refused by crew's rules, naming what the confirm lacks or the recipient, and the branch is unchanged
+
 ### Requirement: crew reads each host's runner from that runner's own branch
-crew SHALL read a host's runner from `<label>/runner/<host>` of the drive's state repository, fetched with `<label>/main` in one fetch, and SHALL never write it. The branch holds four files:
+crew SHALL read a host's runner from `<label>/runner/<host>` of the drive's state repository, fetched with `<label>/main` in one fetch, and SHALL never write it. The branch holds five files:
 - `runner.rec` says a runner serves the drive there;
 - `answers.rec` says where each request stands;
 - `places.rec` holds Flume's status of each place, as Flume gave it;
-- `repositories.rec` holds each repository the runner keeps on its host, by its forge address with the folder of its clone.
+- `repositories.rec` holds each repository the runner keeps on its host, by its forge address with the folder of its clone;
+- `previews.rec` holds what the runner answered of each preview request, by its request's number: its outcome, `held`, `done` or `refused`; sluice's answer and sluice's listing of the preview, each as the runner carried it; whether sluice's last listing held it; the runner's words; and when.
 
-A `repositories.rec` that recfix refuses, or that holds a record with no address or one address twice, SHALL make that host's runner unreadable, as the other files do. A branch with no `repositories.rec` SHALL be read as a runner that reports no repositories.
+crew SHALL hold `previews.rec`'s descriptor byte for byte as the runner writes it. A `repositories.rec` or a `previews.rec` that recfix refuses, or that holds a record with no address or no request's number, or one address or one request twice, SHALL make that host's runner unreadable, as the other files do. A branch with no `repositories.rec` SHALL be read as a runner that reports no repositories, and one with no `previews.rec` as a runner that has answered no preview. A preview's answer or listing that is no JSON object crew reads SHALL mark that preview alone as unread, naming it.
 
 #### Scenario: One fetch
 - **WHEN** a command reads the plan and the runners
@@ -153,6 +182,22 @@ A `repositories.rec` that recfix refuses, or that holds a record with no address
 #### Scenario: A repositories file crew can't read
 - **WHEN** deneb's `repositories.rec` names `agentplot/boomdrive-cloud` twice
 - **THEN** deneb's runner can't be read, naming the file, and only the work no runner crew read has taken reads unknown
+
+#### Scenario: A preview the runner answered
+- **WHEN** `madswan/runner/deneb` holds a `previews.rec` whose `Preview` for request 12 says `Outcome: done`, `Listed: yes`, and a `Status` that is sluice's listing of the preview `up` at `web`
+- **THEN** crew reads request 12's preview as brought up and up, at sluice's address for `web`
+
+#### Scenario: A runner that has answered no preview
+- **WHEN** `madswan/runner/deneb` holds no `previews.rec`
+- **THEN** deneb's runner is read as before, answering no preview
+
+#### Scenario: A previews file crew can't read
+- **WHEN** deneb's `previews.rec` holds request 12 twice
+- **THEN** deneb's runner can't be read, naming the file
+
+#### Scenario: A preview's listing that is no JSON
+- **WHEN** request 12's `Status` in deneb's `previews.rec` is no JSON object
+- **THEN** request 12's preview reads unread, naming deneb's file, and every other answer of deneb's reads as it stands
 
 ### Requirement: A runner's branch that can't be read hides only the work no runner crew read has taken
 A host whose runner branch recfix refuses, or crew can't read, SHALL hide only the work no runner crew read has taken, which reads unknown, naming that runner; work a runner crew read has taken SHALL read as it stands. A host with no runner branch is no runner, and hides nothing.
@@ -216,7 +261,6 @@ The kit SHALL be named as unread, nothing of it landed and every other bolt read
 
 ### Requirement: What comes before a runner takes a kit's work is done on the main-level host
 Some of what crew does on a kit comes before any runner has taken the work in hand:
-- a start's `sluice branch create`, and its read of the kit's policy and its host's sluice;
 - a new unit's or chore's name, checked against the kit's main;
 - a bolt never started, landed by its close alone;
 - the design agent's records, and a proposal's records, read in the kit;
@@ -225,17 +269,23 @@ Some of what crew does on a kit comes before any runner has taken the work in ha
 
 That work SHALL be done in the checkout the drive's main-level host keeps of the kit, found by the kit's forge address or, for a kit the plan names by its name alone, by that name. Where the main-level host is the host crew runs on and its teams file names the repository among its `repositories`, the kit's checkout SHALL be that entry's `checkout` and its folder that entry's `dir`, whether or not a drive's `repos` lists the repository. Otherwise they SHALL be `<folder>/<name>/main` and `<folder>/<name>` in the folder of the first drive whose machine is that host and whose `repos` lists the repository, as the teams file gives them. Nothing SHALL be asked of a runner for it, and no file but the teams file SHALL be read for it. It SHALL be refused, naming the host and the kit, where that host keeps none or keeps two repositories by the kit's name, counting those its teams file names with those its drives' `repos` list. A refusal for a kit the host keeps none of SHALL also name `crew kit rename <kit> <new>` as the way on for a kit renamed on its host.
 
+A bolt's start SHALL be none of that work: it SHALL read no host's checkout, make no branch and run nothing on any host, and SHALL read neither the kit's policy nor any host's sluice, the bolt's base place and its pieces asked of the runner by requests on the drive's branch alone (record 0056 point 2).
+
 #### Scenario: A kit's first bolt is started
 - **WHEN** `crew bolt start x` runs for crew's first bolt, no runner has taken any of crew's work, and deneb, madswan's main-level host, keeps `afterthought/crew` at `/d/madswan/crew/main`, madswan's folder being `/d/madswan` and its `repos` listing `afterthought/crew`
-- **THEN** sluice makes `bolt/x` from main in `/d/madswan/crew/main` on deneb, the policy there is read, and the start goes on as any start
+- **THEN** `requests.rec` gains `x`'s base place's launch and then its pieces' launches, no branch is made, and nothing is read or run in `/d/madswan/crew/main` or anywhere on deneb
+
+#### Scenario: A start where the main-level host keeps no checkout of the kit
+- **WHEN** `crew bolt start x` runs, deneb's teams file names no crew in `repositories`, and no drive whose machine is deneb lists crew in its `repos`
+- **THEN** the start is not refused for it, and `x`'s launches are appended as for any start
 
 #### Scenario: A kit the main-level host keeps no checkout of
-- **WHEN** `crew bolt start x` runs, deneb's teams file names no crew in `repositories`, and no drive whose machine is deneb lists crew in its `repos`
-- **THEN** it is refused naming deneb and crew, the plan is unchanged and no branch is made
+- **WHEN** the planner adds unit `a` to crew, deneb's teams file names no crew in `repositories`, and no drive whose machine is deneb lists crew in its `repos`
+- **THEN** it is refused naming deneb and crew, and the plan is unchanged
 
 #### Scenario: A kit renamed on its host before the plan
-- **WHEN** deneb's drives' `repos` list `agentplot/timber` and nothing by `tailrace`, and `crew bolt start x` runs for a bolt whose `Repo` is `tailrace`, with no rename
-- **THEN** it is refused naming deneb, `tailrace` and `crew kit rename tailrace <new>`, and nothing is made
+- **WHEN** deneb's drives' `repos` list `agentplot/timber` and nothing by `tailrace`, and the planner adds unit `a` to `tailrace`, with no rename
+- **THEN** it is refused naming deneb, `tailrace` and `crew kit rename tailrace <new>`, and nothing is written
 
 #### Scenario: A unit's name and a record
 - **WHEN** the planner adds unit `a` to crew and the design agent runs `crew record crew 53 --proposed`
@@ -289,3 +339,44 @@ A drive's label SHALL be fixed once it is made, and no crew command SHALL rename
 #### Scenario: A label changed in the teams file
 - **WHEN** the teams file names `afterthought` where it named `swancloud`
 - **THEN** crew reads afterthought's state from `afterthought/main` of its state repository, and a command run with `--label swancloud` is refused naming the drives the teams file has
+
+### Requirement: A preview names its host, its work, its repository, its branch and its revision
+A preview request SHALL name the host whose runner reported the work it serves (the requirement "A kit's work is taken by a runner whose configuration names its repository"), since only that runner brings it up; the work it serves, `bolt/<bolt>` for a landings row's bolt or `unit/<unit>` for a batch line; its repository as the plan names it; the branch and the revision; and, to put it away, `Done: yes`. It SHALL name nothing else ("A bolt's work is its base place's and its preview's").
+
+#### Scenario: A preview of a landings row's bolt
+- **WHEN** `crew card preview land/crew y` appends a preview naming `Host: deneb`, `Work: bolt/y`, `Repo: crew`, `Branch: bolt/y` and `Revision: abc1234`
+- **THEN** the write passes crew's rules and recfix
+
+#### Scenario: A preview naming no host
+- **WHEN** a write would append a preview naming no `Host`
+- **THEN** it is refused by crew's rules, saying a preview names the host whose runner brings it up, and the branch is unchanged
+
+#### Scenario: A preview carrying what it does not take
+- **WHEN** a write would append a preview naming a `Kind` or a `Stream`
+- **THEN** it is refused by crew's rules, naming the fields, and the branch is unchanged
+
+#### Scenario: A bolt's work on any other request
+- **WHEN** a write would append a launch serving `bolt/y` of the kind `change`
+- **THEN** it is refused by crew's rules, saying a bolt's base place is of crew's kind `crew/bolt`
+
+### Requirement: A preview is read from the runner on the host it names
+crew SHALL read a preview request's answer from the runner on the host it names alone: from that runner's `previews.rec`, or from its `answers.rec` where that runner refused the request there, as a runner that cannot read it does. It SHALL read as asked while that runner has answered it neither way. crew SHALL read the previews of one host, repository and revision as one, and its ask as standing while the newest preview request naming all three is a bring-up that runner has not refused.
+
+#### Scenario: A runner before previews
+- **WHEN** deneb's runner, of a release that reads no preview, answers request 12 refused in `answers.rec` with the words `its Act preview, which crew's implementation does not read`
+- **THEN** crew reads request 12's preview as refused, in the runner's words
+
+#### Scenario: Put away, then asked again
+- **WHEN** request 12 asks for `bolt/y` at `abc1234` on deneb, request 13 is its done, and request 14 asks for it again
+- **THEN** crew reads the ask of `abc1234` on deneb as standing at request 14
+
+### Requirement: A bolt's work is its base place's and its preview's
+`bolt/<bolt>` SHALL be the work of the bolt's base place, its launch of crew's kind `crew/bolt` and the retry, drop, priority, land and confirm of it ("A launch names everything the runner passes to Flume"), and of a landings row's preview, and of no other request. A retry, drop, priority, land or confirm SHALL name a launch by `Of`, never a preview.
+
+#### Scenario: A preview and a land of one bolt
+- **WHEN** `requests.rec` holds `bolt/y`'s base place's launch as request 1 and a preview of `bolt/y` as request 2, and a write would append a land of `bolt/y` naming request 1
+- **THEN** the write passes crew's rules, and a land naming request 2 is refused, saying request 2 is no launch
+
+#### Scenario: A retry or drop naming a preview
+- **WHEN** `requests.rec` holds a preview of `bolt/y` as request 1, and a write would append a retry or a drop of `bolt/y` naming request 1
+- **THEN** it is refused by crew's rules, saying request 1 is no launch

@@ -245,17 +245,6 @@ EOF
   echo "$r"
 }
 
-# pull <owner/name> <branch> <draft: true|false>: an open pull request from the branch into main on GitHub, as
-# sluice's landing opens one, in the stub gh's file; prints its number
-pull() {
-  local f=$T/gh-pulls.json; [[ -e $f ]] || echo '[]' > "$f"
-  jq --arg repo "$1" --arg head "$2" --argjson draft "$3" \
-    '. + [{repo: $repo, number: (length + 1), head: $head, base: "main", state: "open", isDraft: $draft}]' "$f" > "$f.new" &&
-    mv "$f.new" "$f" && jq 'length' "$f"
-}
-# drafted <number>: whether the stub gh holds that pull request a draft, true or false
-drafted() { jq -r --argjson n "$1" '.[] | select(.number == $n) | .isDraft' "$T/gh-pulls.json"; }
-
 # clone <owner/name> <dir>: a checkout of a bare remote, as a drive's folder keeps it
 clone() { git clone -q "$(remote "$1")" "$2"; }
 
@@ -363,11 +352,48 @@ for kit, (folder, _) in sorted(keeps.items()):
 for name, text in files.items():
     open(os.path.join(d, f"{name}.rec"), "w").write(text)
 EOF
-  tree=$(for f in runner answers places repositories; do printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"; done |
-    git --git-dir "$ws" mktree)
+  runner_commit "$h"
+}
+# runner_commit <host>: wldn/runner/<host> moved to a commit of the runner's files as $T/runner/<host> holds them, its
+# previews.rec among them once runner_previews has written one
+runner_commit() {
+  local h=$1 d=$T/runner/$1 tree parent f
+  tree=$(for f in runner answers places repositories previews; do
+      [[ $f != previews || -e $d/$f.rec ]] || continue
+      printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"
+    done | git --git-dir "$ws" mktree)
   parent=$(git --git-dir "$ws" rev-parse -q --verify "refs/heads/wldn/runner/$h") || parent=
   git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$h" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \
     commit-tree "$tree" ${parent:+-p "$parent"} -m "runner: $h")"
+}
+# runner_previews <host> <request> <outcome> [<text JSON> [<status JSON> <listed>]] [<words>]: the runner on <host>
+# answering preview request <request> in its previews.rec on wldn/runner/<host>, as Boomdrive's runner writes it
+# (runner.PREVIEWS): done with sluice's answer (text) and, once it lists it, its listing (status) and whether its last
+# listing held it (listed, yes or no); held or refused with the runner's words. Each call adds the request's record or
+# replaces it, beside those an earlier call named, and moves the branch as runner_writes does (runner_commit).
+runner_previews() {
+  local h=$1 d=$T/runner/$1; shift
+  [[ -e $d/runner.rec ]] || runner_writes "$h"
+  python3 - "$CREW/plugin/lib" "$d" "$@" <<'EOF'
+import json, os, sys
+sys.path.insert(0, sys.argv[1])
+import runner
+d, n, outcome, rest = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:]
+f = os.path.join(d, "previews.json")
+kept = json.load(open(f)) if os.path.exists(f) else {}
+rec = {"Request": n, "Outcome": outcome}
+if outcome == "done":
+    for field, v in zip(("Text", "Status", "Listed"), rest):
+        rec[field] = json.dumps(json.loads(v)) if field != "Listed" else v
+elif rest:
+    rec["Words"] = rest[0]
+rec["At"] = "2026-10-31T12:05:00Z"
+kept[n] = rec
+json.dump(kept, open(f, "w"))
+open(os.path.join(d, "previews.rec"), "w").write(runner.PREVIEWS + "".join(
+    "\n" + "".join(f"{k}: {v}\n" for k, v in r.items()) for _, r in sorted(kept.items(), key=lambda x: int(x[0]))))
+EOF
+  runner_commit "$h"
 }
 # runner_tidies <host> <request>...: wldn/runner/<host> rewritten as its runner writes it once Flume has tidied those
 # requests' places: each request's answer kept, launched at its place, and its place dropped from places.rec, as deneb's
@@ -382,8 +408,28 @@ json.dump(sorted(tidied | set(sys.argv[2:])), open(t, "w"))' "$T/runner/$h/tidie
 }
 # landed_status <place> <commit>: Flume's status of a place whose work has landed at the commit, as runner_writes takes it
 landed_status() { printf '{"status":{"places":[{"place":"%s","phase":{"over":{"over":{"landed":{"commit":"%s"}}}},"current":"verify","stages":[]}]}}' "$1" "$2"; }
-# request_of <work>: the number of the newest launch of the work (unit/<u>, chore/<c>, fix/<bolt>/<name>) in requests.rec
+# request_of <work>: the number of the newest launch of the work (unit/<u>, chore/<c>, fix/<bolt>/<name>, bolt/<bolt>)
+# in requests.rec
 request_of() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'launch' && Work = '$1'" -P Request | tail -1; }
+# base_status <place> <phase JSON> <submission JSON> [<waiting_on JSON>]: Flume's status of a bolt's base place, as
+# flume 0.17.0 shapes it (tests/py/flume-0.17.0/README)
+base_status() {
+  printf '{"status":{"places":[{"place":"%s","kind":"bolt","identity":"crew/bolt@1","lands":true,"phase":%s,"stages":[],"current":null,"submission":%s,"waiting_on":%s}],"host":{}}}' \
+    "$1" "$2" "$3" "${4:-null}"
+}
+# BASE_LIVE: a live base place's submission, none read yet
+BASE_LIVE='{"read":"none","submits":0,"send_backs":0,"verdict":null,"waiting":null,"held":false}'
+# base_made <host> <bolt> [<kit checkout>]: what the runner on <host> does with a bolt's base place's launch
+# (crew-lands-each-bolt-through-flumes-base-place, Decision 2): Flume launches it, which has sluice make bolt/<bolt>
+# from main on GitHub, and the runner carries its status live; the kit's checkout ($k unless named) fetches it, as the
+# fleet's timer does
+base_made() {
+  local d=${3:-$k} r
+  r=$(git -C "$d" remote get-url origin); r=${r#file://}; [[ -d $r ]] || r=$r.git  # the bare remote GitHub's address stands for
+  git --git-dir "$r" update-ref "refs/heads/bolt/$2" "$(git --git-dir "$r" rev-parse refs/heads/main)"
+  git -C "$d" fetch -q origin
+  runner_writes "$1" "$(request_of "bolt/$2")" "/flume/places/bolt--$2" "$(base_status "/flume/places/bolt--$2" '"live"' "$BASE_LIVE")"
+}
 # flume_lands <host> <unit|chore> <name> <bolt> [<file>]: what Flume does with a launched unit or chore once it has
 # built: its place, cut from the bolt on GitHub, commits its work, a unit's change written and archived and a chore's
 # commit carrying its trailer, and submits it to the bolt through sluice, which lands it there as a merge commit

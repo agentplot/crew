@@ -234,32 +234,30 @@ class TestRestsOnAccepted:
 
 
 class TestStartProposed:
-    """A proposal may hold crew bolt start (bolt-plan "A bolt is started"; Decision 14 of the-team-machinery-leaves,
-    roles.1): its Do parses by the command's grammar and touches the bolt; it is checked as the proposal's card is drawn,
-    reading no kit (Drawn); and its approval, the kit read on its drive's main-level host as a direct start reads it
-    (plan.start_check), marks the bolt Path: flume and launches each unit of it in its repository, naming no host or
-    stream, starting no agent. One naming a bolt started already is refused whole. sluice's branch and the commit are
-    the cross journey's (t-journey-cross)."""
+    """A proposal may hold crew bolt start (bolt-plan "A bolt's work starts by crew bolt start"; Decision 14 of
+    the-team-machinery-leaves, roles.1): its Do parses by the command's grammar and touches the bolt; it is checked as
+    the proposal's card is drawn, reading no kit (Drawn); and its approval, reading no host as a direct start reads none
+    (crew-lands-each-bolt-through-flumes-base-place, Decision 3), marks the bolt Path: flume and launches its base place
+    and then each unit of it in its repository, naming no host or stream, starting no agent. One naming a bolt started
+    already is refused whole. The commit is the cross journey's (t-journey-cross)."""
     FLEET = FLEET  # wldn's main level on mac-studio, whose folder keeps its kits
     DOS = ("bolt start pages",)
 
     @pytest.fixture(autouse=True)
     def host(self, monkeypatch):
-        """mac-studio, wldn's main-level host, free, a runner answering, and switchboard-kit's policy making bolts on GitHub."""
+        """wldn's runner answering on chuck-herdr-alpha, and every host read refused."""
         import crew
         self.read = []
         monkeypatch.setenv("CREW_AGENT", "chuck@mac-studio")
         monkeypatch.setattr(plan, "recfix", lambda text, what: None)
-        monkeypatch.setattr(crew, "held_on", lambda fleet, host: None)
-        monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
-        monkeypatch.setattr(plan, "runner_tips", lambda repo, label: {"chuck-herdr-alpha": "a" * 40})
-        monkeypatch.setattr(plan, "kit_policy", lambda fleet, t: self.read.append(t["machine"]) or (
-            '[branches."bolt/*"]\nrequired = ["#check-full"]\nremote = "origin"\n', "origin/main", "c" * 40, "sluice 0.36.4"))
+        monkeypatch.setattr(crew, "on_machine", lambda fleet, host, *a, **k: self.read.append(host))
+        monkeypatch.setattr(plan, "host_run", lambda fleet, host, *a, **k: self.read.append(host))
 
     def write(self):
+        from facts import ran
         return FactsWrite(plan_text(bolts=[("deploys", KIT, "started"), ("pages", KIT, None)],
                                     units=[("d1", KIT, "deploys", []), ("p1", KIT, "pages", []), ("p2", KIT, "pages", ["p1"])]),
-                          files={"requests.rec": runner.REQUESTS})
+                          files={"requests.rec": runner.REQUESTS}, runners=ran(host="chuck-herdr-alpha", label="wldn"))
 
     def test_its_do_parses_and_touches_the_bolt(self):
         a, = args(*self.DOS)
@@ -274,12 +272,14 @@ class TestStartProposed:
     def test_its_approval_starts_the_bolt_and_launches_its_work_in_its_repository(self):
         w = self.write()
         ops, _ = plan.apply_all(self.FLEET, "wldn", w, args(*self.DOS), 1)
-        assert [op.act for op in ops] == ["bolt.start"] and self.read == ["mac-studio"]
+        assert [op.act for op in ops] == ["bolt.start"] and self.read == []
         assert plan.started(w.plan.bolt("pages")) and w.plan.bolt("pages").get("Team") is None
         assert [(r.get("Act"), r.get("Host"), r.get("Stream"), r.get("Work"), r.get("Base"), r.all("After"))
                 for r in plan.Plan(w.files["requests.rec"]).recs("Request") if r.get("Act") == "launch"] == [
-            ("launch", None, None, "unit/p1", "bolt/pages", []), ("launch", None, None, "unit/p2", "bolt/pages", ["1"])]
+            ("launch", None, None, "bolt/pages", "main", []), ("launch", None, None, "unit/p1", "bolt/pages", []),
+            ("launch", None, None, "unit/p2", "bolt/pages", ["2"])]
 
     def test_one_naming_a_bolt_started_already_is_refused_whole(self):
         said, _ = refused(plan.check_ops, self.FLEET, "wldn", self.write(), args("bolt start pages", "bolt start deploys"), 1, plan.Drawn)
-        assert said == "`bolt start deploys`: bolt deploys is started already"
+        assert said == ("`bolt start deploys`: bolt deploys is started already, before bolts were base places, and lands under "
+                        "the crew that started it")

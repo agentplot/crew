@@ -1,0 +1,20 @@
+A place's status as `flume status --json <place>` gives it once Flume keeps each end owed to each recipient until that
+recipient confirms it (flume record 0061, on agentplot/flume's bolt flumes-ends-are-owed-until-confirmed), as a host's
+runner carries it in places.rec and crew reads the ends a role's run takes from it (asks.owed_to, asks.ends_owed;
+tests/py/test_asks.py; the change crews-role-runs-confirm-what-they-collect).
+
+No Flume release gives these fields yet, so this status is made, not recorded: it is flume-0.17.0/kept-open.json, trimmed
+as that is, with each end given `delivery`, `expires_at`, `owed` and `confirmed` as agentplot/flume's
+site/src/content/docs/reference/state.md and crates/flume-core/src/answer.rs `EndStatus` give them at 3573e0f0
+(2026-11-08): `delivery` the delivery's key, `<kind>--<name>/<token>/<end key>`, under the place's token 3f9a61c2;
+`expires_at` the end's `read_at` and the host's span, here an hour; `owed` each recipient that has not confirmed it,
+`{recipient, expired, known}`; `confirmed` each confirmation, `{recipient, at}`; and `pending_for` each recipient of
+`owed`. Its recipients are agentplot/planner, as the launch named, and boomdrive, the runner naming itself beside it.
+Its construct ran twice, its first start's agent lost, so it has three ends, read at 21:40:00Z on 2026-11-07, between
+the second's expiry and the third's:
+
+owed.json           flume status --json --repository <boomdrive> change--the-flake-configures-each-tool-by-its-own-module
+                    as flume-0.17.0/kept-open.json, with its construct started twice (starts 2) and its ends:
+                    stage/construct/1/lost      confirmed by agentplot/planner, owed to boomdrive alone, expired
+                    stage/construct/2/delivered owed to agentplot/planner and boomdrive, expired for both
+                    stage/code/1/ended-short    owed to agentplot/planner and boomdrive, not expired

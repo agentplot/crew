@@ -87,18 +87,15 @@ _go
 _update
 _renew wldn-planner
 _sweep wldn switchboard-kit --dir /k
-_preview wldn land/b b bolt/b HEAD
 _answered
-_card-preview wldn land/b b
-_preview-release wldn land/b
 _made wldn a
 _batch-card wldn 1
 _land-row wldn tenant-environments
 _land-card wldn switchboard-kit
-_landing-read wldn tenant-environments
 _release
 main up wldn
 main fix switchboard-kit red "main is red"
+main fix switchboard-kit red --send
 review wldn --wait
 review delivered
 revive

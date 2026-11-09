@@ -1,7 +1,7 @@
 """A plan an earlier rename left is read as written (plan.22): a plan command given a kit by --repo writes it as
 given, through no rename, and says nothing of one (bolt-plan "A command given a kit writes it as given"). And madswan's
 started bolt you-sign-in-to-staging, its kit renamed by a rename made before a-repository-is-renamed-by-one-explicit-command,
-lands in the folder the runner reports keeping its kit in, as the plan names the kit (Decision 7 of
+is read in the folder the runner reports keeping its kit in, as the plan names the kit (Decision 7 of
 a-kit-renamed-on-its-host-is-renamed-across-the-plan; runner.where). Each case starts from the plan and the kit.rename
 entry an earlier rename left (earlier); the rename itself, crew kit rename, is tests/py/test_repository_rename.py's."""
 import argparse
@@ -139,9 +139,11 @@ class TestTheStartedBoltLands:
 
     def test_one_seam_reads_merged_and_the_bolt_lands_in_the_renamed_clone_on_land_boomdrive_cloud(self):
         """request 1, launched under flywheel-cloud, is read as written, the bolt's launches found by its branch;
-        one-seam reads merged at 84393d4 from deneb's place, the bolt is read and landed in the folder deneb's runner
-        reports for agentplot/boomdrive-cloud over the place's stale one, and it is a row of land/boomdrive-cloud;
-        requests.rec is as it was."""
+        one-seam reads merged at 84393d4 from deneb's place, the bolt is read in the folder deneb's runner reports for
+        agentplot/boomdrive-cloud over the place's stale one, and it is a row of land/boomdrive-cloud; requests.rec is
+        as it was. Started on 2026-11-04 with no launch of bolt/you-sign-in-to-staging, it was started before bolts
+        were base places, so its row has no box and says it lands under the crew that started it
+        (crew-lands-each-bolt-through-flumes-base-place, Decision 9)."""
         w = earlier("flywheel-cloud", "boomdrive-cloud")
         assert w.files == {"requests.rec": REQUESTS}
         requests = plan.Plan(REQUESTS).recs("Request")
@@ -152,8 +154,9 @@ class TestTheStartedBoltLands:
         assert (at["machine"], at["stream"], at["kit"]) == ("deneb", "madswan", {"name": "boomdrive-cloud", "repo": "boomdrive-cloud",
                                                                                  "main": NEW, "dir": NEW})
         rows = self.rows(w, run)
-        assert [(r["key"], r["bolts"]) for r in rows] == [("land/boomdrive-cloud", [{"bolt": STAGING, "host": "deneb", "can": True}])]
-        assert rows[0]["what"][1] == f"{STAGING}, on deneb, in Flume stream madswan: can land"
+        assert [(r["key"], r["bolts"]) for r in rows] == [("land/boomdrive-cloud", [{"bolt": STAGING, "host": "deneb", "can": False}])]
+        assert rows[0]["what"][1] == (f"{STAGING}, on deneb, in Flume stream madswan: {STAGING} was started before bolts were "
+                                      "base places and lands under the crew that started it")
 
     def test_before_the_rename_the_bolt_is_refused_naming_it_and_nothing_lands(self):
         """Decision 7's last step: with the plan still naming flywheel-cloud, deneb's runner reports no repository by it, so

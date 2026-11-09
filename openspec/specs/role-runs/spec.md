@@ -13,11 +13,15 @@ crew's plugin SHALL carry a Flume declaration, `plugin/flume/kinds.toml`, of fiv
 - **THEN** it holds the five kinds, each with `lands` false, one stage named `turn` with `report:{{state}}/turn.md` as its one deliverable and `turn.md` as its prompt, and no `model`, `instructions` or `env` in any table
 
 ### Requirement: A turn's prompt starts and ends the turn
-`plugin/flume/turn.md` SHALL have the run start with `crew role start` and end with `crew role end`, writing its report at `{{report}}`, and SHALL place `{{needs}}` in a sentence saying the run asks the user only on a card and stops short only when `crew role start` refuses. It SHALL ask for no `{{brief}}`.
+`plugin/flume/turn.md` SHALL have the run start with `crew role start` and end with `crew role end`, writing its report at `{{report}}`, and SHALL say that the end asks the runners to confirm to Flume each end the turn took, so none is taken again. It SHALL place `{{needs}}` in a sentence saying the run asks the user only on a card and stops short only when `crew role start` refuses. It SHALL ask for no `{{brief}}`.
 
 #### Scenario: The prompt's parts
 - **WHEN** `plugin/flume/turn.md` is read
 - **THEN** every part in double braces is one Flume fills for a stage with a report deliverable and no `makes`, `{{needs}}` among them, and `{{brief}}` is not among them
+
+#### Scenario: The end confirms
+- **WHEN** `plugin/flume/turn.md` is read
+- **THEN** its step that runs `crew role end` says the end asks the runners to confirm each end the turn took
 
 ### Requirement: An ask is a record naming a role
 An ask SHALL be a record of `asks.rec` on the drive's branch, written through crew as every write there is: its number, the role it asks, who or what asks, what kind of ask it is, the record it names where it names one, its key where it must be written once, the words it carries where it carries any, and when it was written.
@@ -52,11 +56,19 @@ A `crew tell` to a role its drive runs as its kind, by an agent or the user, and
 - **THEN** an ask of the planner from crew says the proposal was approved, where today the planner is told
 
 ### Requirement: A capture and a landing are asks
-A signal captured through crew SHALL be an ask of a design agent that runs as its kind, one per signal, keyed by the signal's id. A bolt's landing, as crew's read of it records it, SHALL be an ask of a planner and of a design agent that run as their kinds, keyed by the bolt; a landing that did not land SHALL be an ask of a main-level ops that runs as its kind, with sluice's words, keyed by the submission.
+A signal captured through crew SHALL be an ask of a design agent that runs as its kind, one per signal, keyed by the signal's id. A bolt's landing, as crew's read of the runner's report records it, SHALL be an ask of a planner and of a design agent that run as their kinds, keyed by the bolt. A landing crew's read records refused or stopped SHALL be an ask of a main-level ops that runs as its kind, with Flume's or the runner's words, keyed by the land's request, so an outcome read twice asks once (record 0056 point 4).
 
 #### Scenario: A landing
-- **WHEN** a bolt of swancloud lands and crew's read of the landing records it, while swancloud's planner and design agent run as their kinds
+- **WHEN** the runner reports a swancloud bolt's base place landed and crew's read records the landing, while swancloud's planner and design agent run as their kinds
 - **THEN** that write holds an ask of the planner and one of the design agent, each naming the bolt
+
+#### Scenario: A landing that conflicts
+- **WHEN** ops runs as its kind, the user's send of bolt `y` was carried to the runner as land request 57, and the runner reports `y`'s base place refused for a conflict with main
+- **THEN** crew's read writes one ask of ops naming `bolt/y` with Flume's words, keyed by request 57, however often the outcome is read, and ops's next run takes it
+
+#### Scenario: A land the runner refused
+- **WHEN** ops runs as its kind, and the runner answers `y`'s land request 57 refused, a place on `bolt/y` still live
+- **THEN** crew's read records `y`'s landing stopped and writes one ask of ops naming `bolt/y` with the runner's words, keyed by request 57
 
 ### Requirement: A card's answer, an opening and a batch are asks
 A change on a card in the name of a role that runs as its kind, the user's answer among them, as Pending You's notice names it to the host's follower, SHALL be an ask of that role, keyed by the card's request and version; the follower SHALL read nothing of the card, and SHALL write nothing for a card in any other name. The user opening a role SHALL be an ask of it. A batch from `crew review` SHALL be an ask of a reviewer that runs as its kind, and a batch delivered an ask of the planner.
@@ -165,11 +177,15 @@ What is pending for a role SHALL be each of its asks and each place that waits o
 - **THEN** it refuses, saying it runs only in a run of a crew role, and writes nothing
 
 ### Requirement: A run's start gives its brief and what it took
-`crew role start` SHALL write the role's brief, filled for its drive as `crew-role` fills it, to a file on the host, and print the file's path to read whole first, then each ask it took, oldest first, with who asked, what, the record it names and its words, then each place that waits on the role, with its work, its place and its words, and last the role's answered cards, read in the role's own Pending You name, each with its key and the answer.
+`crew role start` SHALL write the role's brief, filled for its drive as `crew-role` fills it, to a file on the host, and print the file's path to read whole first, then each ask it took, oldest first, with who asked, what, the record it names and its words, then each place that waits on the role, with its work, its place and its words, then the ends it took that Flume holds for the role, one line for each launch, with its work, its place, its request and each end's key, an expired end marked so, saying they are confirmed when the turn ends, and last the role's answered cards, read in the role's own Pending You name, each with its key and the answer.
 
 #### Scenario: What the planner's run reads
 - **WHEN** the planner's start took an ask from the design agent and a card's answer
 - **THEN** it prints the brief's path, then the design agent's words, then the card's ask, then the card's key and the user's answer, read in madswan-planner's name
+
+#### Scenario: The ends it took
+- **WHEN** the planner's start took an ask and unit `a`'s construct's and code's ends of request 12, the code's expired
+- **THEN** after the ask it prints one line for unit `a` naming its place and request 12, `stage/construct/1/delivered` and `stage/code/1/delivered` marked expired, and that they are confirmed when the turn ends
 
 ### Requirement: A start takes again what a lost run took
 A turn of the role still open when a run starts SHALL be recorded superseded by the new turn, which takes its asks again; a superseded turn SHALL answer nothing.
@@ -232,16 +248,81 @@ A turn that took an open ask SHALL greet the user in its pane and keep the conve
 - **WHEN** the design agent's run took the user's open ask and the user talks a design through in its pane
 - **THEN** the run's turn goes on until the user says they are done, and then it runs `crew role end`
 
-### Requirement: Main-level ops's landing from a run does not wait
-`crew bolt submit`, run in ops's run, SHALL return once each bolt is queued, leaving the landing's waiter on the host as today, and crew's read of each landing SHALL write its asks.
-
-#### Scenario: A landing that conflicts
-- **WHEN** ops's run submits bolt `y` on the user's send, its turn ends, and `y`'s landing conflicts with main
-- **THEN** crew's read of the landing writes an ask of ops with sluice's words, and ops's next run takes it
-
 ### Requirement: A run's model is its definition's
 A role record SHALL name the model and the effort of the role's definition after the teams file's `roles.<role>` override, the runner's launch SHALL pass the model, and the kinds file SHALL name neither.
 
 #### Scenario: An override
 - **WHEN** wldn's teams entry sets `roles.planner.model` and wldn's planner runs as its kind
 - **THEN** wldn's planner's role record names that model, and madswan's names the definition's
+
+### Requirement: Main-level ops's run lands nothing
+Main-level ops's run SHALL land, submit and wait on nothing for a bolt or a fix of main: the user's send of a row on a kit's landings card is carried to the runner by crew's own act, whether or not a run of ops stands (record 0056 point 5), and each landing's end SHALL reach ops's next run only as the ask crew's read of the runner's report writes for it. Ops's brief, for a drive that runs ops as its kind, SHALL say so in its turn's words and SHALL name no `crew bolt submit`.
+
+#### Scenario: The turn's words
+- **WHEN** main-level ops's brief prints for a drive that runs ops as its kind
+- **THEN** its turn's words say that a landing's end reaches ops's next run as an ask when it does not land, and the planner's and the design agent's when it does, and it names no `crew bolt submit`
+
+#### Scenario: A send while no run of ops stands
+- **WHEN** ops runs as its kind, no run of it stands, and the user sends `land/crew` with `y` ticked
+- **THEN** `y`'s land is posted by crew's raise of the card, which waits on no run of ops
+
+### Requirement: A run's start takes every end Flume holds for its role
+`crew role start` SHALL take into its turn, beside the asks and the places that wait on the role, each end that a place's status in the runners' records gives as owed to the role's address `<label>/<role>`, by its delivery key.
+
+#### Scenario: A unit's ends taken with an ask
+- **WHEN** madswan's planner run starts with an ask from the design agent pending, and the runner's records carry unit `a`'s place, launched by request 12, whose status gives its construct's and its code's ends each owed to `madswan/planner` with its delivery key
+- **THEN** the turn takes the ask and both ends, each recorded in the turn by request 12 and its delivery key
+
+#### Scenario: An end owed to another role
+- **WHEN** unit `a`'s status gives an end owed to `madswan/operator` and not to `madswan/planner`
+- **THEN** the planner's start does not take it
+
+### Requirement: An end a confirm names is not taken again
+A start SHALL take no end that a `confirm` of the role's address in `requests.rec` already names, whatever the runner answered that confirm.
+
+#### Scenario: An end already asked confirmed
+- **WHEN** an ended turn took unit `a`'s construct's end and its confirm is in `requests.rec`, and the runner's records still carry that end owed to `madswan/planner`
+- **THEN** the next start does not take it
+
+#### Scenario: A refused confirm
+- **WHEN** the runner answered that confirm `refused`, and its end is still carried owed to `madswan/planner`
+- **THEN** the next start does not take it
+
+### Requirement: An owed end makes no role wanted
+An end owed to a role's address SHALL NOT make the role wanted: with no ask and no place waiting on the role, its run's start SHALL record no turn and take no end.
+
+#### Scenario: Ends alone start no turn
+- **WHEN** the planner's run starts with no ask and no place waiting on it, and unit `a`'s delivered ends are owed to `madswan/planner`
+- **THEN** no turn is recorded, no end is taken, and the start says nothing waits
+
+### Requirement: An end crew cannot read is not taken
+A start SHALL take no end whose status gives no delivery key or no `owed` crew can read, and SHALL leave the ends on a host whose runner can't be read for the role's next run, as its waits are.
+
+#### Scenario: A status with no delivery keys
+- **WHEN** the runner carried unit `a`'s status from a Flume whose ends give no `delivery` and no `owed`
+- **THEN** the start takes no end of it, and still takes what waits on the role
+
+### Requirement: A run's end asks the runners to confirm each end its turn took
+`crew role end` SHALL append to `requests.rec`, in the commit that ends the turn, one `confirm` for each launch whose ends the turn took, oldest first, naming the launch as its `Of`, the launch's work, the role's address as its `Recipient`, and one `Delivery` for each of those ends' keys in the order taken. A turn that took no end SHALL append none.
+
+#### Scenario: Two places' ends
+- **WHEN** the planner's turn took two ends of request 12's place and one of request 14's, and the run runs `crew role end --report <path> "acted on the stop-short"`
+- **THEN** the commit that records the turn ended appends a confirm of request 12 naming `madswan/planner` and its two delivery keys, then a confirm of request 14 naming its one
+
+#### Scenario: A turn with no ends
+- **WHEN** the planner's turn took one ask and no end, and the run ends its turn
+- **THEN** `requests.rec` is unchanged by the end
+
+### Requirement: A lost run confirms nothing
+A run that ends taking no turn, and a turn superseded before its end, SHALL append no confirm, so the next run takes those ends again.
+
+#### Scenario: A lost run
+- **WHEN** the planner's run took an end and was lost before its end, and its run is retried
+- **THEN** no confirm names the end, and the new start takes it again
+
+### Requirement: A turn's report counts its ends
+The report `crew role end` writes SHALL say how many ends the turn took, of which launches, and that their confirmation was asked of the runners.
+
+#### Scenario: Three ends of two places
+- **WHEN** the planner's turn took two ends of request 12's place and one of request 14's, and its run ends the turn
+- **THEN** the report says three ends of requests 12 and 14 were taken and their confirmation asked of the runners

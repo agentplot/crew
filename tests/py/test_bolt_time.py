@@ -1,8 +1,8 @@
 """A started bolt's age and who held its time (plan.20, record 0044; crew-board "Each minute of a bolt's life goes to
 one holder" and "A held bolt's head line shows its age and who held its time"): the split, plan.bolt_time, a decision
-of facts alone, each case a scenario of the crew-board delta; and what it is split from, plan.bolt_facts, read from the
-run record and sluice's submissions as its overview gave them and the follower kept them, from the run record's entry
-that made the bolt's branch (Decision 11 of the-team-machinery-leaves)."""
+of facts alone, each case a scenario of the crew-board delta; what it is split from, plan.bolt_facts, read from the run
+record alone, from its entry that made the bolt's branch (Decision 11 of the-team-machinery-leaves); and a landing's
+Age and Split, plan.landing_spent, from the same (crew-lands-each-bolt-through-flumes-base-place, Decision 7)."""
 import datetime
 
 from facts import START, at, plan_text
@@ -178,9 +178,8 @@ def given(minutes=0):
     return e("bolt.start", minutes, "bolt/b")
 
 
-def facts_of(entries, standing=(), decided=(), unread=None):
-    return plan.bolt_facts(entries, PLAN, "b", "wldn", "chuck-herdr-alpha", "switchboard-kit", (list(standing), None),
-                           (list(decided), None), unread)
+def facts_of(entries, unread=None):
+    return plan.bolt_facts(entries, PLAN, "b", "wldn", "chuck-herdr-alpha", "switchboard-kit", unread)
 
 
 def mins(m):
@@ -319,41 +318,45 @@ def test_the_kits_landings_card_counts_from_the_bolts_last_merge():
     assert facts_of(entries[:2])["cards"] == []
 
 
-def test_the_bolts_submissions_standing_over_the_decided_and_none_of_another_bolts():
-    """What the follower kept decided and what stands in the overview's queue, of b's work and its landing alone."""
-    def kept(n, branch, worktree, submitted, decided, pull_head=None, started=None, event="landed"):
-        return {"id": n, "bolt": "b", "branch": branch, "worktree": worktree, "pull_head": pull_head, "submitted": submitted,
-                "started": started, "decided": decided, "event": event}
-    decided = [kept(41, "bolt/b", "unit/a", at(5), at(20), started=at(8)), kept(43, "bolt/o", "unit/x", at(5), at(9)),
-               kept(44, "main", "pull/9", at(30), at(31), pull_head="bolt/b", event="gone"), kept(45, "bolt/b", "unit/stray", at(5), at(6)),
-               kept(47, "bolt/b", "chore/c", None, at(4), event="blamed")]
-    standing = [{"id": 42, "branch": "bolt/b", "state": "testing", "submitted": at(21), "started": at(25), "worktree": "chore/c", "pull_head": None},
-                {"id": 46, "branch": "main", "state": "queued", "submitted": at(40), "started": None, "worktree": "bolt/b", "pull_head": None}]
-    got = facts_of([given(0)], standing, decided)["submissions"]
-    assert got == [{"submitted": mins(5), "started": mins(8), "decided": mins(20), "state": "landed", "what": "#41", "worktree": "unit/a"},
-                   {"submitted": mins(30), "started": None, "decided": mins(31), "state": "gone", "what": "#44", "worktree": "pull/9"},
-                   {"submitted": mins(21), "started": mins(25), "decided": None, "state": "testing", "what": "#42", "worktree": "chore/c"},
-                   {"submitted": mins(40), "started": None, "decided": None, "state": "queued", "what": "#46", "worktree": "bolt/b"}]
+def test_no_submission_is_the_bolts_time_whatever_the_record_names():
+    """crew-board "A submission the runner reports" and run-record "No record of sluice's is read": a submit an older
+    crew queued naming #52, and the land crew posted for b, place no minute; the runner's report carries no time of a
+    submission (crew-lands-each-bolt-through-flumes-base-place, Decision 7)."""
+    entries = [given(0), e("bolt.submit", 30, "bolt/b", Outcome="queued", Submission="52"),
+               e("bolt.submit", 40, "bolt/b", Outcome="asked", Request="57", Card="req_1", Head="abc1234")]
+    assert facts_of(entries)["submissions"] == []
 
 
-def test_a_flume_places_submissions_are_the_bolts():
-    """A started bolt's work submits from its Flume place's branch, change/<u>, chore/<c> or fix/<bolt>--<f>."""
-    standing = [{"id": n, "branch": "bolt/b", "state": "queued", "submitted": at(n), "started": None, "worktree": w, "pull_head": None}
-                for n, w in ((61, "change/a"), (62, "chore/c"), (63, "fix/b--gap"), (64, "change/x"), (65, "fix/o--gap"))]
-    assert [x["what"] for x in facts_of([given(0)], standing)["submissions"]] == ["#61", "#62", "#63"]
+def spent(entries, end):
+    return plan.landing_spent(entries, PLAN, PLAN.bolt("b"), "wldn", "switchboard-kit", mins(end))
 
 
-def test_a_landing_by_pull_request_is_the_bolts_by_the_number_its_queued_submit_names():
-    """crew-board "A landing by pull request": main's recent events name #52, from pull/9, landed, and the run record's
-    queued bolt.submit of b names #52."""
-    decided = [{"id": 52, "bolt": None, "branch": "main", "worktree": "pull/9", "pull_head": None, "submitted": at(30), "started": None,
-                "decided": at(45), "event": "landed"},
-               {"id": 53, "bolt": None, "branch": "main", "worktree": "pull/10", "pull_head": None, "submitted": at(31), "started": None,
-                "decided": at(46), "event": "landed"}]
-    submit = e("bolt.submit", 30, "bolt/b", Outcome="queued", Submission="52")
-    other = e("bolt.submit", 31, "bolt/o", Outcome="queued", Submission="53")
-    assert [x["what"] for x in facts_of([given(0), submit, other], decided=decided)["submissions"]] == ["#52"]
-    assert facts_of([given(0)], decided=decided)["submissions"] == [], "a landing by pull request was taken with no submit naming it"
+def test_a_landing_records_the_age_and_split_its_head_line_gives():
+    """run-record "A bolt lands": b started 6h 10m before its landing is recorded, its work holding it 3h 45m, the
+    user 2h 05m and nobody 20m."""
+    entries = [given(0), e("stage.start", 0, "stage/a/code", "unit/a", "agent/swb-1-unit-1"),
+               e("stage.end", 225, "stage/a/code", "unit/a", "agent/swb-1-unit-1"),
+               e("card.post", 225, Card="req_l1", Key="land/b", By="wldn-ops"),
+               e("card.answer", 350, Card="req_l1", Key="land/b", Answer="approved")]
+    assert spent(entries, 370) == {"Age": "370", "Split": "team 225, kit 0, team-or-kit 0, user 125, hold 0, nobody 20"}
+
+
+def test_a_landing_by_pull_request_places_none_of_its_minutes_on_the_kit():
+    """crew-board "A landing by pull request" and run-record "No record of sluice's is read": b's base place landed
+    after its submission #52 from pull/9 stood under test, and its unit a's #41 stood seventeen minutes; none of it is
+    the kit's, and the split sums to the age."""
+    entries = [given(0), e("stage.start", 0, "stage/a/merge", "unit/a", "agent/swb-1-unit-1"),
+               e("stage.end", 20, "stage/a/merge", "unit/a", "agent/swb-1-unit-1"),
+               e("bolt.submit", 30, "bolt/b", Outcome="asked", Request="57"),
+               e("bolt.submit", 31, "bolt/b", Outcome="submitted", Submission="52")]
+    got = spent(entries, 60)
+    split = dict((h, int(m)) for h, m in (x.rsplit(" ", 1) for x in got["Split"].split(", ")))
+    assert got["Age"] == "60" and split["kit"] == 0 and sum(split.values()) == 60
+
+
+def test_a_landing_whose_start_cant_be_read_carries_no_age_or_split():
+    """run-record "The start can't be read": the record holds no start of b."""
+    assert spent([e("bolt.start", 0, "bolt/o")], 30) == {}
 
 
 def test_an_older_crews_give_is_the_start_where_the_record_holds_no_start():
@@ -369,16 +372,3 @@ def test_a_start_that_cant_be_read_is_said_and_shows_no_share():
 def test_a_record_that_cant_be_read_is_said():
     got = facts_of([given(0)], unread={"wldn/main of WilldanGroup/crew-state": "fetch failed"})
     assert got == {"unknown": "its age can't be told: wldn/main of WilldanGroup/crew-state could not be read (fetch failed)"}
-
-
-def test_submissions_that_cant_be_read_keep_the_age_and_tell_no_share():
-    got = plan.bolt_facts([given(0)], PLAN, "b", "wldn", "chuck-herdr-alpha", "switchboard-kit", ([], None),
-                          (None, "its overview watch ended (sluice overview --watch exited 1)"))
-    assert plan.time_at(got, mins(65)) == {
-        "unknown": "who held its time can't be told: its submissions can't be read: its overview watch ended (sluice overview --watch exited 1)",
-        "age": 65}
-
-
-def test_a_decided_submission_with_no_time_it_was_decided_is_said():
-    decided = [{"id": 41, "branch": "bolt/b", "event": "landed", "submitted": at(5), "decided": None, "worktree": "unit/a", "pull_head": None}]
-    assert facts_of([given(0)], decided=decided)["unknown"] == "who held its time can't be told: sluice's record of #41 gives no time it was decided"
