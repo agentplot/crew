@@ -29,6 +29,7 @@ class TestAsked:
         (["signal-move", "x", "attach", "--help"], "crew signal move"),
         (["review-delivered", "--help"], "crew review delivered"),
         (["kit", "rename", "a", "b", "-h"], "crew kit rename"),
+        (["drive", "set", "pat", "--state", "pat/crew-state", "--help"], "crew drive set"),
         (["_sweep", "wldn", "switchboard-kit", "--dir", "/k", "--help"], "crew _sweep"),
     ], ids=lambda v: " ".join(v) if isinstance(v, list) else v)
     def test_the_flag_asks_for_the_usage_of_the_deepest_command_its_words_name(self, argv, prog):
@@ -75,6 +76,8 @@ class TestAnswered:
         (plan.main, ["bolt", "start", "tenant-environments", "--help"], "crew bolt start"),
         (plan.main, ["signal", "move", "x", "attach", "-h"], "crew signal move"),
         (plan.main, ["review", "delivered", "--help"], "crew review delivered"),
+        (plan.main, ["drive", "set", "pat", "--help"], "crew drive set"),
+        (plan.main, ["drive", "set", "pat", "--accounts", "planner", "-h"], "crew drive set"),
         (board.main, ["board", "--help"], "crew board"),
         (board.main, ["_follow", "--help"], "crew _follow"),
         (board.main, ["_views", "wldn", "-h"], "crew _views"),

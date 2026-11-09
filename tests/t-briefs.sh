@@ -275,6 +275,18 @@ for want in "A message that reaches you marked \`(sent to <drive>)\`" "in the se
 lacks "$out" "TEAMS_OPERATORS"; lacks "$out" "TEAMS_DOORS"; lacks "$out" "to an operator whose main level runs on a Mac"
 ok "the operator carries what is sent to it in the sender's words, and sends a teams change from a box with crew send to a Mac's drive"
 
+# On a host Boomdrive's setup set up, whose teams file is a file and no link into the Nix store, a drive changes
+# through setup, which writes crew's entry with crew drive set, never by a hand edit; the swancloud steps are for a
+# link (operator-agent "The operator's brief says who changes the drives on its host"; tests.6).
+expect_ok crewpy brief wldn operator
+for want in "\`test -L ~/.config/crew/teams.json\` says whether it is a link" \
+  "Where it is a file and not a link into the Nix store, as Boomdrive's setup leaves a person's Mac, a drive is added, changed or removed through Boomdrive's setup on the user's word, which gives crew the drive's entry with \`crew drive set\` and the runner the same repositories" \
+  "never edit the teams file by hand" \
+  "Where it is a link into the Nix store, the steps below are yours: the drives are \`lib/crew-teams.nix\` in swancloud's checkout on a Mac"; do
+  has "$out" "$want"
+done
+ok "the operator's brief says a teams file that is no link into the Nix store changes through Boomdrive's setup with crew drive set, never by hand, and the swancloud steps are for a link"
+
 # Every brief says who is speaking in the agent's pane; the four that record findings say how, with the excerpt, and
 # where crew writes the signal.
 for role in design planner main-ops operator; do
