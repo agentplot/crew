@@ -23,7 +23,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 4. crew acts on it
 
-- [ ] 4.1 `plan.landing_read` launches no take-main fix and asks ops nothing where the way on is Flume's, and asks ops once in Flume's words, launching nothing, where it is the caller's (design Decision 4; Task notes 4.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_landing.py'` exits 0.
+- [x] 4.1 `plan.landing_read` launches no take-main fix and asks ops nothing where the way on is Flume's, and asks ops once in Flume's words, launching nothing, where it is the caller's (design Decision 4; Task notes 4.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_landing.py'` exits 0.
 - [ ] 4.2 A live landing fix is a fix in flight on its bolt: the row has no box, takes main first or is held in its words, no land is posted while it runs, and the standing send lands the bolt once the fix that took main in has landed (design Decision 5; Task notes 4.2). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py tests/py/test_landings.py'` exits 0.
 - [ ] 4.3 `runner.base_drop_due` asks a refused drop again only once the base place's landing fix has ended (design Decision 5; Task notes 4.3). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py'` exits 0.
 

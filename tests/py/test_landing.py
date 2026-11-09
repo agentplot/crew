@@ -665,12 +665,14 @@ COMMIT = "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0"
 
 def base_run(fixture=None, more=None, land=True, refused=None):
     """y's base place, request 1 of crew, and its land, request 2, the runner on deneb answering the launch with the
-    base place at the Flume 0.17.0 fixture named (tests/py/flume-0.17.0/bolt-*.json) and the land as given."""
+    base place at the Flume 0.17.0 fixture named (tests/py/flume-0.17.0/bolt-*.json), or another version's named with
+    its folder, and the land as given."""
     import runner
     from facts import ran
     from test_runner import BOLT, held, rec
     requests = held(rec(1, "launch", "bolt/y", **dict(BOLT, Name="y")), *([rec(2, "land", "bolt/y", Of=1)] if land else []))
-    reads = ran({1: f"flume-0.17.0/{fixture}"} if fixture else {}, label="swancloud", unplaced=more if more is not None else {2: "-"},
+    named = fixture if fixture and "/" in fixture else f"flume-0.17.0/{fixture}"
+    reads = ran({1: named} if fixture else {}, label="swancloud", unplaced=more if more is not None else {2: "-"},
                 refused=refused)
     return requests, reads
 
@@ -806,6 +808,38 @@ class TestTheFirstReadActs:
         self.read("bolt-conflict")
         (bolt, (main, words, request)), = self.taken
         assert (bolt, main, request) == ("y", "9f1c2ab07d6e5f4a3b2c1d0e9f8a7b6c5d4e3f21", 2) and "conflicts with main" in words
+
+    def test_a_conflict_flumes_landing_fix_takes_in_is_recorded_and_nothing_taken_or_asked(self):
+        """bolt-teams "Flume's fix takes main in" (crews-bolt-kind-names-its-landing-fix, Decision 4): y's landing refused
+        for a conflict with y-1 live; the refusal is recorded, no take-main fix launched and ops asked nothing."""
+        assert self.read("flume-0.19.0/bolt-conflict-fixing")[0] is False
+        (e,) = self.emitted
+        assert e["Act"] == "bolt.submit" and e["refused"].startswith("landing refused in conflict with main at 9f1c2ab")
+        assert self.taken == [] and self.asked == []
+
+    def test_a_failure_whose_landing_fix_is_due_is_recorded_and_nothing_asked(self):
+        """bolt-teams "Flume's fix due"."""
+        self.read("flume-0.19.0/bolt-failed-fix-due")
+        (e,) = self.emitted
+        assert e["refused"].startswith("landing refused, a check failed") and self.taken == [] and self.asked == []
+
+    def test_past_the_bound_ops_is_asked_once_in_flumes_words_and_nothing_taken(self):
+        """bolt-teams "Past the bound" and "Read twice past the bound": one ask of ops naming the three landing fixes
+        and Flume's words, keyed by the land's request, no launch, and a second read asks nothing more."""
+        self.read("flume-0.19.0/bolt-failed-spent")
+        (e,) = self.emitted
+        assert self.asked == [("y", "crew", "2", "Flume ran 3 of its 3 landing fixes on bolt y, and its landing was refused: "
+                                                "check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")]
+        assert self.taken == []
+        self.read("flume-0.19.0/bolt-failed-spent", entries=(ASKED, dict(ASKED, Outcome=None, Refused=e["refused"])))
+        assert len(self.emitted) == 1 and len(self.asked) == 1 and self.taken == []
+
+    def test_a_landing_fix_dropped_asks_ops_once_naming_the_drop_and_nothing_taken(self):
+        """bolt-teams "A fix dropped": a conflict whose fix y-1 was dropped asks ops naming the drop, no take-main fix."""
+        self.read("flume-0.19.0/bolt-conflict-dropped")
+        ((bolt, kit, n, words),) = self.asked
+        assert (bolt, kit, n) == ("y", "crew", "2") and self.taken == []
+        assert words.startswith("Flume's landing fix y-1 was dropped, and bolt y's landing was refused: bolt/y conflicts with main")
 
     def test_a_stop_keeps_the_rows_box_and_asks_ops(self):
         self.read("bolt-withdrawn")

@@ -1294,6 +1294,22 @@ def landing_way(lf, entry):
     return dict(lf, by="caller", why="spent")
 
 
+def caller_said(l, bolt):
+    """What crew asks main-level ops of a refused landing whose way on is its caller's (landing_way;
+    crews-bolt-kind-names-its-landing-fix, Decision 4), in Flume's words: how many landing fixes Flume ran of its bound,
+    or how the fix naming the refusal ended, dropped or its launch refused with Flume's reason, then the refusal."""
+    fix, words = l.get("fix") or {}, (l.get("words") or "").strip() or "Flume gave no words"
+    named = fix.get("named") or {}
+    if fix.get("why") == "dropped":
+        return f"Flume's landing fix {named.get('name')} was dropped, and bolt {bolt}'s landing was refused: {words}"
+    if fix.get("why") == "refused":
+        return (f"Flume's landing fix {named.get('name')} could not be launched: {named.get('reason')}, and bolt {bolt}'s "
+                f"landing was refused: {words}")
+    of = f"of its {fix['limit']} " if fix.get("limit") is not None else ""
+    bound = "" if of else ", and crew can't read how many its kind allows"
+    return f"Flume ran {fix.get('ran', 0)} {of}landing fixes on bolt {bolt}{bound}, and its landing was refused: {words}"
+
+
 def landing_of(launch, lands, reads):
     """A bolt's landing as landing_outcome reads it, with its base place's landing fix (crews-bolt-kind-names-its-
     landing-fix, Decision 3) as fix wherever Flume's status of the base place names one (landing_fix), and, for a
