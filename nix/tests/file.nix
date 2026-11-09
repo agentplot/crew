@@ -148,9 +148,7 @@ in
       !renders (deneb // { version = 4; })
     ) "a host's settings set version 4, and evaluation holds";
 
-  "A drive with no state repository" = t.expect (
-    !renders noState
-  ) "a drive with no state evaluates";
+  "A drive with no state repository" = t.expect (!renders noState) "a drive with no state evaluates";
 
   "A label twice" =
     t.expect (
