@@ -1302,9 +1302,16 @@ def drive_set(a):
     never forwarded (Decision 11), before any teams file is loaded. The flags are checked first; then <label>/main of
     the state repository is fetched, refused naming the repository where crew cannot fetch from it, nothing written
     (read.1); then, under a lock on the file's folder, the file is read, decided on (crew.teams_step) and written by a
-    new file renamed over it (teams.9), a file crew cannot load linked to its aside first, which a taken aside refuses;
-    then crew loads the file afresh, the state is made by crew state init's own steps (state_init), and, where a key of
-    the file changed, one drive.set entry names each by its path (Decision 10). Its answer is crew.drive_said's."""
+    new file renamed over it (teams.9), a file crew cannot read at all linked to its aside first, which a taken aside
+    refuses, and a file at crew's own version that fails a check refused with nothing written. Once the file names the
+    drive as given, where a key of it changed, one drive.set entry naming each by its path is appended to this host's
+    run record at once, without a push of its own, since a new drive has no branch yet to take it (Decision 10;
+    a-drive-set-loses-no-drive-and-no-record, Decision 3); then crew loads the file afresh and the state is made by
+    crew state init's own steps (state_init), whose first write pushes every entry the branch lacks, the set's first,
+    a refusal from here on the state's, in crew.state_unmade's words (Decision 4); and last, every entry of this
+    host's record of the drive the branch still lacks is pushed, a refused push said once and changing nothing of the
+    answer (Decision 5). So a run again after a state not made finishes it and puts the first run's entry on the
+    branch. Its answer is crew.drive_said's."""
     here = crew.this_host()
     given = crew.drive_given(a, here)
     label, teams = a.label, crew.TEAMS
@@ -1330,10 +1337,14 @@ def drive_set(a):
                          "left as they are, and nothing was written")
             os.replace(new, teams)
     crew.load.cache_clear()
-    st = state_init(crew.load(), a)
+    CONTEXT["teams_done"] = True
     changed = step.get("changed") or []
-    if changed:
-        record.emit(label, "drive.set", [f"drive/{label}"], why="set " + ", ".join(changed))
+    eid = record.emit(label, "drive.set", [f"drive/{label}"], why="set " + ", ".join(changed), push=False) if changed else None
+    try:
+        st = state_init(crew.load(), a)
+    except Refusal as e:
+        fail(crew.state_unmade(label, str(e)))
+    record.reach(label, eid, said=True)
     outcome = {"write": "written", "aside": "written", "unchanged": "unchanged", "linked": "linked"}[step["step"]]
     done = {"label": label, "state": st,
             "teams": {"file": str(teams), "outcome": outcome, "aside": str(aside) if step["step"] == "aside" else None,
@@ -1343,7 +1354,13 @@ def drive_set(a):
 
 def drive_set_refused(a, e):
     """A refused crew drive set, in the drive's run record where the teams file loads and names the drive, as any
-    refused command's is; elsewhere said alone, there being no drive's record to hold it (Decision 10)."""
+    refused command's is; elsewhere said alone, there being no drive's record to hold it (Decision 10). Once the teams
+    step is done, the file naming the drive as given, the refusal is the state's: a refused state.init on
+    plan/<label>, the act crew state init's steps record, beside the set's own entry, which records the set done
+    (record.1; a-drive-set-loses-no-drive-and-no-record, Decision 4)."""
+    if CONTEXT.get("teams_done"):
+        record.emit(a.label, "state.init", [f"plan/{a.label}"], refused=str(e))
+        return
     try:
         fleet = crew.load()
     except Refusal:
