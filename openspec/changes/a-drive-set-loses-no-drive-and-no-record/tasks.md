@@ -4,7 +4,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 1. The teams file as it stands
 
-- [ ] 1.1 `crew.readable` gives the data of a teams file crew can read at all and refuses one that is no JSON, no UTF-8, no object or at a version this crew does not read, in the words `crew.load` gives for each, and `load` reads through it with its words and fleet unchanged (design, Decision 1; Task notes 1.1). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_teams.py'` exits 0.
+- [x] 1.1 `crew.readable` gives the data of a teams file crew can read at all and refuses one that is no JSON, no UTF-8, no object or at a version this crew does not read, in the words `crew.load` gives for each, and `load` reads through it with its words and fleet unchanged (design, Decision 1; Task notes 1.1). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_teams.py'` exits 0.
 - [ ] 1.2 `crew.teams_step` moves aside only a file crew cannot read at all, and refuses a file at crew's own version that fails a check, naming the check and that the file and every drive it names are left as they are, with nothing written (design, Decision 2; Task notes 1.2). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_drive_set.py'` exits 0.
 
 ## 2. The set's record
