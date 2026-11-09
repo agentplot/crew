@@ -338,7 +338,54 @@ class TestEndsOwed:
                                                      ("12", "unit/a", "stage/construct/2/delivered"), ("12", "unit/a", "stage/code/1/ended-short")]
 
 
-MADSWAN ={"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+def owed(n, key, work="unit/a", expired=False):
+    """An end Flume owes madswan's planner of request n's place, as ends_owed gives it."""
+    return (f"end/{n}/{DELIVERY}{key}", str(n), work, f"/p{n}", key, DELIVERY + key, expired)
+
+
+def confirm(n, of, *keys, recipient="madswan/planner"):
+    """A confirm request of requests.rec as a dict, its Delivery lines a list."""
+    return {"Request": str(n), "Act": "confirm", "Work": "unit/a", "Of": str(of), "Recipient": recipient, "Delivery": [DELIVERY + k for k in keys]}
+
+
+class TestEndsTaken:
+    """What a start takes of the ends Flume owes its role (design Decisions 2, 5 and 6; role-runs "An end a confirm names
+    is not taken again", "An owed end makes no role wanted" and "A lost run confirms nothing")."""
+
+    ENDS = [owed(12, "stage/construct/1/delivered"), owed(12, "stage/code/1/delivered", expired=True)]
+
+    def test_an_end_a_confirm_names_is_not_taken_whatever_its_answer(self):
+        """role-runs, An end already asked confirmed and A refused confirm: crew reads no answer for it."""
+        reqs = [launch(12), confirm(13, 12, "stage/construct/1/delivered")]
+        assert asks.confirmed(reqs, "madswan/planner") == {self.ENDS[0][0]}
+        assert asks.taken_ends(self.ENDS, reqs, "madswan/planner") == [self.ENDS[1]]
+        assert asks.taken_ends(self.ENDS, reqs + [confirm(14, 12, "stage/code/1/delivered")], "madswan/planner") == []
+
+    def test_a_confirm_of_another_address_or_another_launch_holds_nothing(self):
+        reqs = [confirm(13, 12, "stage/construct/1/delivered", recipient="madswan/ops"), confirm(14, 9, "stage/code/1/delivered"),
+                dict(confirm(15, 12, "stage/code/1/delivered"), Act="retry")]
+        assert asks.taken_ends(self.ENDS, reqs, "madswan/planner") == self.ENDS
+
+    def test_a_confirm_whose_delivery_is_one_line_or_none_is_read_as_it_is(self):
+        one = dict(confirm(13, 12), Delivery=DELIVERY + "stage/code/1/delivered")
+        assert asks.taken_ends(self.ENDS, [one], "madswan/planner") == [self.ENDS[0]]
+        assert asks.confirmed([dict(confirm(13, 12), Delivery=None)], "madswan/planner") == set()
+
+    def test_the_ends_taken_follow_the_asks_and_waits_and_make_no_role_wanted(self):
+        """role-runs, Ends alone start no turn."""
+        wait = ("place/7@1793440000", "7", "unit/b", "/p7", "Which bolt?")
+        assert asks.took([ask(1)], [wait], self.ENDS) == ["ask/1", "place/7@1793440000", self.ENDS[0][0], self.ENDS[1][0]]
+        assert asks.took([ask(1)], [wait]) == ["ask/1", "place/7@1793440000"]
+        assert not asks.wanted([], [], [], "planner") and asks.pending([], [], [], "planner") == ([], [])
+
+    def test_a_superseded_turns_ends_are_taken_again_with_no_confirm_naming_them(self):
+        """role-runs, A lost run: its turn took the ends and was superseded before its end, which writes their confirm."""
+        lost = [turn(1, ["ask/1", self.ENDS[0][0], self.ENDS[1][0]], superseded=2)]
+        assert asks.pending([ask(1)], [], lost, "planner") == ([ask(1)], [])
+        assert asks.taken_ends(self.ENDS, [launch(12)], "madswan/planner") == self.ENDS
+
+
+MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
 
 
 @pytest.fixture

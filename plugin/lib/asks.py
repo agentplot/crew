@@ -107,9 +107,33 @@ def wanted(asks, waits, turns, role):
     return bool(mine or places)
 
 
-def took(asks, waits):
-    """A new turn's Took lines for what is pending: each ask, then each waiting place by its key."""
-    return [took_of(a) for a in asks] + [w[0] for w in waits]
+def took(asks, waits, ends=()):
+    """A new turn's Took lines for what is pending: each ask, then each waiting place by its key, then each end Flume
+    owes the role that it takes (taken_ends), by its took key."""
+    return [took_of(a) for a in asks] + [w[0] for w in waits] + [e[0] for e in ends]
+
+
+def deliveries(request):
+    """A confirm request's delivery keys, each Delivery line of it: requests.rec's records as dicts give a field held more
+    than once as a list; a value that is no string is none (read.2)."""
+    d = request.get("Delivery")
+    return [x for x in (d if isinstance(d, list) else [d]) if isinstance(x, str) and x]
+
+
+def confirmed(requests, address):
+    """The took keys of every end a confirm of the role at address already names (design Decision 5, role-runs "An end a
+    confirm names is not taken again"): end/<Of>/<Delivery> for each Delivery of each such confirm, whatever the runner
+    answered it, none, done or refused."""
+    return {end_key(r.get("Of"), d) for r in requests if r.get("Act") == "confirm" and r.get("Recipient") == address
+            for d in deliveries(r)}
+
+
+def taken_ends(ends, requests, address):
+    """The ends a run's start takes of those Flume owes the role at address (ends_owed): each no confirm of the address
+    names (confirmed), so a turn's end asks for each once. A lost or superseded turn wrote no confirm, so its ends are
+    taken again (role-runs "A lost run confirms nothing"). They make no role wanted (wanted)."""
+    done = confirmed(requests, address)
+    return [e for e in ends if e[0] not in done]
 
 
 def open_turns(turns, run):
