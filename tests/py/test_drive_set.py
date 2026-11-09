@@ -168,3 +168,114 @@ class TestDriveGiven:
         self.refused("--repositories names the kept repositories of the host crew drive set runs on, pats-mac, and the drive's "
                      "machine is box-1", machine=["box-1"], hosts=[[MAC, MAC, "darwin"], ["box-1", "box-1", "nixos"]])
         assert given(leave=("--repositories",), machine=["box-1"], hosts=[["box-1", "box-1", "nixos"]])["drive"]["machine"] == "box-1"
+
+
+def lab_flags(**more):
+    """A second drive, lab, on the same host."""
+    return dict(dict(state=["lab/crew-state"], blueprints=["lab/blueprints"], repos=["lab/blueprints"], session=["lab"],
+                     folder=["/Users/pat/lab"], console=["/Users/pat/lab"], repositories=None), **more)
+
+
+class TestTeamsSet:
+    """drive-setup, "The drive's facts are replaced and the rest of the file is kept", "A kept repository stays while a
+    drive of the host keeps it" and "The file is written as crew's module writes it" (design, Decisions 3, 4 and 10)."""
+
+    def set(self, data, here=MAC, **kw):
+        return crew.teams_set(data, given(here, **kw), here)
+
+    def test_a_new_file_from_no_file(self):
+        data, changed = self.set(None)
+        assert data == {"version": crew.VERSION, "drives": [given()["drive"]], "hosts": {MAC: {"ssh": MAC, "kind": "darwin"}},
+                        "consoles": {"pat": FOLDER}, "repositories": {"pat/blueprints": {"dir": KEPT[0], "checkout": KEPT[1]}}}
+        assert changed == ["drives.pat", f"hosts.{MAC}", "consoles.pat", "repositories.pat/blueprints"]
+        assert crew.fleet_of(data, MAC)["drives"]["pat"]["checkout"] == KEPT[1]
+
+    def test_a_second_drive_is_added_and_the_first_kept_byte_for_byte(self):
+        """drive-setup, A second drive: the file names lab and pat, pat's entry as it was."""
+        first, _ = self.set(None)
+        data, changed = self.set(first, label="lab", **lab_flags())
+        assert [d["label"] for d in data["drives"]] == ["lab", "pat"]
+        assert crew.teams_text(data["drives"][1]) == crew.teams_text(first["drives"][0])
+        assert data["consoles"] == {"lab": "/Users/pat/lab", "pat": FOLDER} and data["repositories"] == first["repositories"]
+        assert changed == ["drives.lab", "consoles.lab"]
+
+    def test_the_drives_entry_is_replaced_whole_a_roles_override_no_longer_given_gone(self):
+        """drive-setup, A role's override no longer given: the file's pat has no roles."""
+        first, _ = self.set(None, roles=["planner", "effort", "max"])
+        assert first["drives"][0]["roles"] == {"planner": {"effort": "max"}}
+        data, changed = self.set(first, session=["pat-2"])
+        assert "roles" not in data["drives"][0] and data["drives"][0]["session"] == "pat-2"
+        assert changed == ["drives.pat.roles", "drives.pat.session"]
+
+    def test_a_host_is_added_and_one_replaced_and_another_kept(self):
+        first, _ = self.set(None, hosts=[[MAC, MAC, "darwin"], ["box-1", "box-1", "nixos"]])
+        data, changed = self.set(first, hosts=[[MAC, "pats-mac.tail", "darwin"], ["box-2", "box-2", "nixos"]])
+        assert data["hosts"] == {MAC: {"ssh": "pats-mac.tail", "kind": "darwin"}, "box-1": {"ssh": "box-1", "kind": "nixos"},
+                                 "box-2": {"ssh": "box-2", "kind": "nixos"}}
+        assert changed == ["hosts.box-2", f"hosts.{MAC}"]
+
+    def test_a_console_is_set_and_one_removed_consoles_left_out_when_empty(self):
+        first, _ = self.set(None, leave=("--console",))
+        assert "consoles" not in first
+        data, changed = self.set(first, console=["/Users/pat/elsewhere"])
+        assert data["consoles"] == {"pat": "/Users/pat/elsewhere"} and changed == ["consoles.pat"]
+        data, changed = self.set(data, leave=("--console",))
+        assert "consoles" not in data and changed == ["consoles.pat"]
+
+    def test_a_repository_removed_from_the_drive_leaves_repositories(self):
+        """drive-setup, A repository removed from the drive: no other drive of the host lists pat/app."""
+        first, _ = self.set(None, repos=[["pat/app"], ["pat/blueprints"]],
+                            repositories=[["pat/app", "/r/pat/app", "/v/pat/app"], ["pat/blueprints", *KEPT]])
+        data, changed = self.set(first, repos=["pat/blueprints"])
+        assert data["drives"][0]["repos"] == ["pat/blueprints"] and set(data["repositories"]) == {"pat/blueprints"}
+        assert changed == ["drives.pat.repos", "repositories.pat/app"]
+        data, _ = self.set(data, leave=("--repositories",))
+        assert "repositories" not in data
+
+    def test_a_repository_another_drive_of_the_host_keeps_stays(self):
+        """drive-setup, A repository another drive keeps: pat and lab both run on this host and list pat/app."""
+        first, _ = self.set(None, repos=[["pat/app"], ["pat/blueprints"]],
+                            repositories=[["pat/app", "/r/pat/app", "/v/pat/app"], ["pat/blueprints", *KEPT]])
+        both, _ = self.set(first, label="lab", **lab_flags(repos=[["lab/blueprints"], ["pat/app"]]))
+        data, _ = self.set(both, repos=["pat/blueprints"])
+        assert data["repositories"]["pat/app"] == {"dir": "/r/pat/app", "checkout": "/v/pat/app"}
+
+    def test_a_repository_a_drive_of_another_host_lists_does_not_keep_it(self):
+        first, _ = self.set(None, repos=[["pat/app"], ["pat/blueprints"]],
+                            repositories=[["pat/app", "/r/pat/app", "/v/pat/app"], ["pat/blueprints", *KEPT]],
+                            hosts=[[MAC, MAC, "darwin"], ["box-1", "box-1", "nixos"]])
+        both, _ = self.set(first, label="lab", **lab_flags(repos=[["lab/blueprints"], ["pat/app"]], machine=["box-1"],
+                                                                hosts=["box-1", "box-1", "nixos"], console=None))
+        data, _ = self.set(both, repos=["pat/blueprints"], hosts=[[MAC, MAC, "darwin"]])
+        assert set(data["repositories"]) == {"pat/blueprints"}
+
+    def test_a_given_kept_repository_replaces_the_files(self):
+        first, _ = self.set(None)
+        data, changed = self.set(first, repositories=["pat/blueprints", "/r/elsewhere", KEPT[1]])
+        assert data["repositories"] == {"pat/blueprints": {"dir": "/r/elsewhere", "checkout": KEPT[1]}}
+        assert changed == ["repositories.pat/blueprints"]
+
+    def test_an_unknown_top_level_key_is_kept_and_the_version_is_crews(self):
+        first, _ = self.set(None)
+        data, changed = self.set(dict(first, note={"by": "hand"}), session=["pat-2"])
+        assert data["note"] == {"by": "hand"} and data["version"] == crew.VERSION and changed == ["drives.pat.session"]
+
+    def test_the_drives_are_written_in_the_order_of_their_labels(self):
+        data, _ = self.set(None)
+        for label in ("zed", "abc", "pat-2"):
+            data, _ = self.set(data, label=label, **lab_flags(state=[f"{label}/crew-state"], console=None))
+        assert [d["label"] for d in data["drives"]] == ["abc", "pat", "pat-2", "zed"]
+
+    def test_the_same_flags_change_nothing(self):
+        first, _ = self.set(None)
+        data, changed = self.set(json.loads(crew.teams_text(first)))
+        assert changed == [] and crew.teams_text(data) == crew.teams_text(first)
+
+    @pytest.mark.parametrize("name", ["deneb.json", "runner.json"])
+    def test_the_module_files_are_written_again_byte_for_byte(self, name):
+        """drive-setup, deneb's file: the pinned files of crew's module, read as bytes, written again as they are."""
+        raw = (FILES / name).read_bytes()
+        assert crew.teams_text(json.loads(raw)).encode() == raw
+
+    def test_the_text_has_its_keys_sorted_no_space_and_no_newline(self):
+        assert crew.teams_text({"b": [1, {"d": False, "c": "é"}], "a": 1}) == '{"a":1,"b":[1,{"c":"é","d":false}]}'
