@@ -637,6 +637,14 @@ def teams_step(f):
     return {"step": "unchanged"} if text == now else {"step": "write", "text": text, "changed": changed}
 
 
+def state_unmade(label, words):
+    """What crew drive set says when the teams file names the drive as given and its state was not made (words, the
+    state's refusal): that the file names it, why the state was not made, and that the same command run again makes
+    it, finishing what this run left (record 0065, point 7)."""
+    return (f"{TEAMS} names drive {label} as given, and its state was not made: {sentence(words)} crew drive set {label} run "
+            "again with the same flags makes it.")
+
+
 def state_said(st):
     """What crew state init says it did to a drive's branch (plan.py's state_init returns st): the steps it took, or
     that the branch exists and there was nothing to do."""

@@ -408,6 +408,22 @@ class TestTeamsStep:
                      accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
 
 
+class TestStateUnmade:
+    """drive-setup, "A state not made is finished by the same command again" (design, Decision 4): the words of a
+    refusal once the teams file names the drive as given."""
+
+    @pytest.fixture(autouse=True)
+    def teams(self, monkeypatch):
+        monkeypatch.setattr(crew, "TEAMS", pathlib.Path("/Users/pat/.config/crew/teams.json"))
+
+    @pytest.mark.parametrize("ending", ["", ".", ".\n"])
+    def test_a_refused_push_names_the_file_the_drive_the_words_and_the_command_again(self, ending):
+        words = "the push of pat/main to pat/crew-state failed: refused for the test"
+        assert crew.state_unmade("pat", words + ending) == (
+            "/Users/pat/.config/crew/teams.json names drive pat as given, and its state was not made: the push of pat/main to "
+            "pat/crew-state failed: refused for the test. crew drive set pat run again with the same flags makes it.")
+
+
 class TestDriveSaid:
     """drive-setup, "Its answer is plain or JSON" (design, Decision 12): a line for a moved file, one for the teams
     file and one for the state, or one JSON object, from what was done."""
