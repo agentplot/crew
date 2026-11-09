@@ -148,9 +148,10 @@ def test_a_rename_is_a_block_naming_both_names_and_no_bolt(monkeypatch):
     and no bolt or unit, the picture draws no section for either, and it adds no unit, so the card is a hold to approve
     of low risk."""
     monkeypatch.setattr(plan.record, "reach", lambda label, eid=None: 0)
+    monkeypatch.setattr(plan.crew, "this_host", lambda: "deneb")
     dos = ("kit rename flywheel-cloud boomdrive-cloud", "kit rename tailrace timber")
-    fleet = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
-             "hosts": {"deneb": keeping("/d/agentplot", "afterthought/crew")}}
+    fleet = {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "flume": STANDING}, **keeping("/d/agentplot", "afterthought/crew"))},
+             "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
     landed = lambda n, repo: f"Id: 2026110{n}T100000Z-deneb-1-{n}\nAt: 2026-11-0{n}T10:00:00Z\nHost: deneb\nBy: chuck\nAct: bolt.land\nRepo: {repo}\n"
     finished = lambda: FactsWrite(plan_text(bolts=[("crew-bolt", "crew", False)], units=[("crew-unit", "crew", "crew-bolt", [])]),
                                   label="madswan", files={"runs/deneb/2026-11-05.rec": plan.record.DESCRIPTOR + landed(1, "flywheel-cloud")

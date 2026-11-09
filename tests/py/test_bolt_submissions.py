@@ -196,7 +196,7 @@ def test_a_standing_state_is_said_in_crews_words_and_sluices_own_for_one_crew_ha
 
 BOX = "chuck-herdr-alpha"
 FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX}},
-         "hosts": {BOX: {"ssh": BOX, "home": "/h/box"}}}
+         "hosts": {BOX: {"ssh": BOX, "kind": "nixos"}}}
 
 
 @pytest.fixture(autouse=True)

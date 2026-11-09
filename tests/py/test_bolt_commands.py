@@ -7,7 +7,7 @@ import base64
 import pathlib
 
 import pytest
-from facts import FLEET, FactsWrite, apply, keeping, known, plan_text, units_of
+from facts import FLEET, FactsWrite, apply, kept_by, known, plan_text, units_of
 
 import plan
 
@@ -177,9 +177,9 @@ class TestStart:
             ("wldn", self.HOST, None, {"name": KIT, "repo": f"WilldanGroup/{KIT}", "dir": f"/w/{KIT}", "main": f"/w/{KIT}/main"}),
             ("wldn", self.HOST, None, {"name": BOARD, "repo": f"WilldanGroup/{BOARD}", "dir": f"/w/{BOARD}", "main": f"/w/{BOARD}/main"})]
         assert plan.main_kit(FLEET, "wldn", "rocs-kit") is None and plan.main_kit(FLEET, "wldn", f"agentplot/{KIT}") is None
-        two = dict(FLEET, hosts={self.HOST: keeping("/w", f"WilldanGroup/{KIT}", f"agentplot/{KIT}")})
+        two = kept_by(FLEET, "wldn", "/w", f"WilldanGroup/{KIT}", f"agentplot/{KIT}")
         assert plan.main_kit(two, "wldn", f"agentplot/{KIT}")["kit"]["main"] == f"/w/{KIT}/main"
-        with pytest.raises(plan.Refusal, match=f"^{self.HOST}'s spaces keep WilldanGroup/{KIT} and agentplot/{KIT} by the name {KIT}, "
+        with pytest.raises(plan.Refusal, match=f"^the teams file's drives on {self.HOST} keep WilldanGroup/{KIT} and agentplot/{KIT} by the name {KIT}, "
                                                "so crew can't tell which is meant$"):
             plan.main_kit(two, "wldn", KIT)
 
@@ -188,10 +188,10 @@ class TestStart:
 
     def test_a_kit_the_main_level_host_keeps_no_checkout_of_is_refused_naming_it(self):
         w = fresh()
-        fleet = dict(FLEET, hosts={self.HOST: keeping("/w", f"WilldanGroup/{BOARD}")})
+        fleet = kept_by(FLEET, "wldn", "/w", f"WilldanGroup/{BOARD}")
         with pytest.raises(plan.Refusal) as e:
             apply(w, "bolt start console-pages", ctx=known(w, fleet=fleet))
-        assert str(e.value) == (f"wldn's main level runs on {self.HOST}, and no space there keeps {KIT}, so crew can't make bolt/console-pages"
+        assert str(e.value) == (f"wldn's main level runs on {self.HOST}, and the teams file keeps no {KIT} there, so crew can't make bolt/console-pages"
                                 f"; if it was renamed on its host, crew kit rename {KIT} <new> names it so in the plan")
         assert not plan.started(w.plan.bolt("console-pages"))
 
@@ -351,7 +351,7 @@ class TestLand:
         assert (t["machine"], t["kit"]["main"]) == ("mac-studio", f"/w/{BOARD}/main")
         assert plan.unheld_refusal(FLEET, "console-pages", ["a-console-page"], KIT, t, "wldn") is None
         assert plan.unheld_refusal(FLEET, "console-pages", ["a-console-page"], "rocs-kit", None, "wldn") == (
-            "bolt console-pages was never started, and wldn's main level runs on mac-studio, and no space there keeps rocs-kit, "
+            "bolt console-pages was never started, and wldn's main level runs on mac-studio, and the teams file keeps no rocs-kit there, "
             "so crew can't read its main; if it was renamed on its host, crew kit rename rocs-kit <new> names it so in the plan")
         assert plan.unheld_refusal(FLEET, "console-pages", [], KIT, t, "wldn") == (
             "bolt console-pages was never started and holds no units or chores, so nothing of it has landed")

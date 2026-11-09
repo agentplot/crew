@@ -74,6 +74,11 @@ def keeping(at, *repos):
     return {"folder": at, "repos": list(repos)}
 
 
+def kept_by(fleet, label, at, *repos):
+    """fleet with drive label's folder at, keeping repos there (keeping)."""
+    return dict(fleet, drives=dict(fleet["drives"], **{label: dict(fleet["drives"][label], **keeping(at, *repos))}))
+
+
 # The hosts crew reaches, as the teams file's `hosts` gives them: each by its name, its ssh name the same.
 HOSTS = {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}, "deneb": {"ssh": "deneb", "kind": "darwin"},
          "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}}
