@@ -226,7 +226,9 @@ runner_tidies $box $(req -e "Act = 'launch' && (Work = 'bolt/z' || Base = 'bolt/
 out=$(export CREW_AGENT=wldn-ops; on_box bolt land z 2>&1) || fail "ops's crew bolt land z failed:"$'\n'"$out"
 has "$out" "z has landed at switchboard-kit's ${zl:0:7}, as its kit's main holds it"
 eq "$(field $box bolt.land Head bolt/z) $(field $box bolt.land By bolt/z)" "$zl wldn-ops"
+eq "$(field $box bolt.submit Outcome bolt/z)" "asked"  # no outcome of the runner's is recorded for it
 [[ -z $(plan -t Bolt -e "Bolt = 'z'" -P Bolt) ]] || fail "z is still in the plan"
+[[ -z $(plan -t Unit -e "Bolt = 'z'" -P Unit) ]] || fail "z's chore is still in the plan"
 ok "a bolt Flume landed, its branch deleted from GitHub and its places no longer carried by the runner, is closed by ops's crew bolt land at the landing its kit's main holds"
 
 # Nothing of crew's ran sluice, wt or gh, nor moved the kit's checkout but its remotes
