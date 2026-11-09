@@ -279,3 +279,99 @@ class TestTeamsSet:
 
     def test_the_text_has_its_keys_sorted_no_space_and_no_newline(self):
         assert crew.teams_text({"b": [1, {"d": False, "c": "é"}], "a": 1}) == '{"a":1,"b":[1,{"c":"é","d":false}]}'
+
+
+class TestTeamsStep:
+    """drive-setup, "The file it would write is checked before it is written", "Run again with the same answers, it
+    changes nothing", "Where Nix links the teams file, nothing is written there" and "A teams file crew cannot load is
+    moved aside once" (design, Decisions 5, 7 and 8): the step from plain facts, nothing read or written by it."""
+
+    @pytest.fixture(autouse=True)
+    def teams(self, monkeypatch):
+        monkeypatch.setattr(crew, "TEAMS", pathlib.Path("/Users/pat/.config/crew/teams.json"))
+
+    def step(self, text=None, linked=False, target=None, aside_taken=False, here=MAC, **kw):
+        return crew.teams_step({"linked": linked, "target": target, "text": text, "aside_taken": aside_taken,
+                                "given": given(here, **kw), "here": here})
+
+    def refused(self, said, **kw):
+        with pytest.raises(crew.Refusal) as e:
+            self.step(**kw)
+        assert said in str(e.value), str(e.value)
+        return str(e.value)
+
+    def written(self, **kw):
+        return crew.teams_text(crew.teams_set(None, given(**kw), MAC)[0])
+
+    def test_no_file_is_written_new(self):
+        step = self.step()
+        assert step == {"step": "write", "text": self.written(), "changed": ["drives.pat", f"hosts.{MAC}", "consoles.pat",
+                                                                               "repositories.pat/blueprints"]}
+
+    def test_the_file_the_same_flags_wrote_is_left(self):
+        """drive-setup, Set twice: the same flags on the file they wrote write nothing."""
+        assert self.step(text=self.written()) == {"step": "unchanged"}
+
+    def test_a_file_that_loads_has_the_drive_set_in_it(self):
+        step = self.step(text=self.written(), session=["pat-2"])
+        assert step["step"] == "write" and step["changed"] == ["drives.pat.session"]
+        assert json.loads(step["text"])["drives"][0]["session"] == "pat-2"
+
+    def test_a_file_respaced_by_hand_is_written_and_changes_no_key(self):
+        step = self.step(text=json.dumps(json.loads(self.written()), indent=2))
+        assert step == {"step": "write", "text": self.written(), "changed": []}
+
+    @pytest.mark.parametrize("text, reason", [
+        ('{"version":5,"partitions":[]}', "teams.json is version 5, and crew reads only version 6"),
+        ("not json", "teams.json is no JSON (Expecting value"),
+        ('{"version":6,"drives":[],"hosts":{}}', "teams.json lists no drives"),
+        ('[]', "not a teams file's object")])
+    def test_a_file_crew_cannot_load_is_moved_aside_with_its_reason(self, text, reason):
+        """drive-setup, A file at version 5: moved aside, named with its version, and the file written new."""
+        step = self.step(text=text)
+        assert step["step"] == "aside" and reason in step["reason"]
+        assert step["text"] == self.written() and step["changed"][0] == "drives.pat"
+
+    def test_an_aside_already_taken_is_refused_naming_both_paths(self):
+        """drive-setup, An aside already taken: both files left, nothing written."""
+        said = self.refused("/Users/pat/.config/crew/teams.json is a file crew cannot load (", text='{"version":5}', aside_taken=True)
+        assert "/Users/pat/.config/crew/teams.json.before-drive-set, where crew drive set moves such a file once, is taken" in said
+        assert said.endswith("both are left as they are, and nothing was written")
+
+    def test_an_aside_taken_is_no_matter_for_a_file_that_loads(self):
+        assert self.step(text=self.written(), aside_taken=True) == {"step": "unchanged"}
+
+    def test_a_link_whose_file_names_the_drive_as_given_writes_nothing_and_goes_on(self):
+        """drive-setup, The drive Nix already names."""
+        target = "/nix/store/abc-crew-teams.json"
+        assert self.step(text=self.written(), linked=True, target=target) == {"step": "linked", "target": target}
+
+    def test_a_link_whose_file_names_no_drive_pat_is_refused_naming_its_settings(self):
+        """drive-setup, A drive Nix does not name: refused naming services.crew.settings.drives.pat, nothing made."""
+        lab = self.written(label="lab", **lab_flags())
+        said = self.refused("/Users/pat/.config/crew/teams.json is a link to /nix/store/abc-crew-teams.json, which crew's "
+                            "module writes, and crew drive set writes nothing there", text=lab, linked=True,
+                            target="/nix/store/abc-crew-teams.json")
+        assert "does not name drive pat as given, drives.pat, consoles.pat, repositories.pat/blueprints differing or missing" in said
+        assert "services.crew.settings.drives.pat" in said and said.endswith("nothing was made")
+
+    def test_a_link_whose_file_gives_another_repos_and_no_console_is_refused_naming_the_keys(self):
+        other = self.written(repos=[["pat/app"], ["pat/blueprints"]], leave=("--console",))
+        said = self.refused("does not name drive pat as given, drives.pat.repos, consoles.pat differing or missing", text=other,
+                            linked=True, target="/nix/store/abc-crew-teams.json")
+        assert "services.crew.settings.drives.pat" in said
+
+    def test_a_link_crew_cannot_read_or_load_is_refused(self):
+        self.refused("crew cannot read the file it links to", linked=True, target="/nix/store/gone")
+        said = self.refused("crew cannot load the file it links to (/Users/pat/.config/crew/teams.json is version 5", text='{"version":5}',
+                            linked=True, target="/nix/store/old")
+        assert "services.crew.settings.drives.pat" in said
+
+    def test_a_file_crew_would_refuse_is_refused_in_its_words_with_nothing_written(self):
+        """drive-setup, Two accounts in one session: --session pat, the planner on ia and every other role on pat."""
+        said = self.refused("the teams file crew drive set would write is refused: drive pat's ",
+                            accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
+        assert "run in session pat under ia and pat, and a herdr session runs under one account" in said
+        assert said.endswith("Nothing was written.")
+        self.refused("the teams file crew drive set would write is refused", text=self.written(),
+                     accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
