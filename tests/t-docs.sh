@@ -12,7 +12,9 @@
 # task once its check passes. The README and the opening comment of crew's .config/sluice.toml say crew readies no
 # worktree, sluice equipping a place at Flume's asking, `sluice equip` (Flume's record 0036), and the comment cites no
 # plan.17, which is retired. README and the skill say a role's run's start takes the ends Flume holds for its role and
-# its end asks the runners to confirm them, and README's requests.rec names a confirm.
+# its end asks the runners to confirm them, and README's requests.rec names a confirm. README, the skill and the usage
+# say a piece's end is the runner's report alone, the record Flume holds for the runner among them, and name no
+# landing commit as what makes a piece merged or a bolt landed (record 0062's stopgap retired; docs.2).
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -155,6 +157,13 @@ for doc in readme skill; do
 done
 has "$readme" "and a confirm, which a role's run's end appends for each launch whose place's ends its turn took"
 ok "the README, the skill and the usage say a partition's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
+
+for doc in usage readme skill; do
+  for want in "piece's end is the runner's report alone" "the record Flume holds for the runner"; do has "${!doc}" "$want"; done
+  for gone in "Sluice-From" "names its place's branch" "landed on its bolt at" "main holds its landing"; do lacks "${!doc}" "$gone"; done
+  has "${!doc}" "no landing commit on its kit's main read for it"
+done
+ok "the README, the skill and the usage say a piece's end is the runner's report alone, the record Flume holds for the runner among them, name no landing commit as what makes a piece merged or a bolt landed, and read none on main for crew bolt land"
 
 # The teams file may name its host's kept repositories (record 0061): README and the skill say what crew names there, and
 # the spaces' folders where it names none.

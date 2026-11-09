@@ -851,34 +851,13 @@ def place_branch(work):
     return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
 
 
-def built_on_bolt(work, s, landings, launched=None):
-    """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
-    work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
-    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read; launched, a fix's
-    launch's Date, UTC ISO 8601 to the second as requests.rec writes it, None for a unit or chore. Once a landing
-    names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
-    of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
-    whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
-    from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
-    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit). A
-    landing made before launched builds nothing: a fix's name is free on its bolt again once its launch is dropped, so
-    such a landing is a dropped launch's of the same name, which a fix launched again under it must not inherit (design
-    of a-bolts-landed-fix-reads-merged, Decision 2); both times compare as text."""
-    landing = (landings or {}).get(place_branch(work) or "")
-    if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
-        return s
-    if launched and landing["at"] < launched:
-        return s
-    kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
-    return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
-
-
 def verification(head, pieces):
     """A bolt's verification (record 0025 point 4, crew record 0056 points 1 and 4; read.1, read.2), from plain facts:
     head, the bolt's head as read where the bolt lives (gather.bolt_read), None where there is none; pieces, its units,
-    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of or built_on_bolt gives it.
+    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of gives it.
     Returns (state, words): "green", naming the head and the work, for the first piece in the order given that reads
-    merged or landed with its commit the head, since every piece lands on its bolt through a submission sluice lands
+    merged or landed with its commit the head, as the runner reports it, a record Flume holds for the runner after its
+    tidy among them, since every piece lands on its bolt through a submission sluice lands
     only on its required checks passing, or beside its queue when none of them reads its changes (teams.5, sluice
     clause 140), so a head that is a piece's landing is one the kit's checks passed, a landing beside reading the same;
     "none" for any other head, a commit pushed another way or a landing the runner does not report among them; and
@@ -887,8 +866,7 @@ def verification(head, pieces):
         return "unknown", "no head crew can read"
     for work, s in pieces:
         if s.get("stage") in ("merged", "landed") and s.get("commit") and s["commit"] == head:
-            how = "as its landing on the bolt names it" if s.get("on") == "bolt" else "as the runner reports it"
-            return "green", f"its head {head[:7]} is {bare(work)}'s landing, {how}"
+            return "green", f"its head {head[:7]} is {bare(work)}'s landing, as the runner reports it"
     return "none", f"its head {head[:7]} is no landing of its work that the runner reports"
 
 
@@ -926,8 +904,7 @@ def piece_said(s):
     it, or ""): the work it waits on; the question it stopped short with, or the work it found; sluice's words it was
     sent back with; Flume's words of what it waits on its caller for, its held submission waiting on the user's send;
     the room it is queued for; the runner's words refusing it, or holding a launch with no After work; or why crew
-    can't tell its stage; and, for one read merged from its bolt's landing (built_on_bolt), the branch and commit
-    that landing names."""
+    can't tell its stage."""
     st = s["stage"]
     tasks = f" {s['tasks'][0]}/{s['tasks'][1]}" if s.get("tasks") and s["tasks"][1] and st in ("code", "verify") else ""
     stage = f"submitted #{s['submission']}" if st == "submitted" and s.get("submission") else st + tasks
@@ -941,7 +918,6 @@ def piece_said(s):
         f"for room at {s['of']}" if st == "queued" and s.get("of") else
         f"refused by the runner: {first or 'no words'}" if st == "refused" else
         f"held by the runner: {first}" if st == "launching" and first else
-        f"{s.get('branch')} landed on its bolt at {(s.get('commit') or '')[:7]}" if st == "merged" and s.get("on") == "bolt" else
         s.get("why") or "" if st == "unknown" else "")
     return stage, detail
 
@@ -1289,13 +1265,13 @@ def fixes_on(requests, reads, base):
 def fixes_in_flight(fixes, bolt, requests=(), reads=None):
     """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}, from facts:
     fixes, each fix whose launch stands on the bolt as (its work, its launch, its stage) as plan.Stages.fixes reads
-    them, from the runner that took it and the bolt's landings (fixes_on, built_on_bolt): each whose place has not
-    merged into the bolt, landed or been dropped, one crew can't read counted in flight (read.1); and, given requests,
-    requests.rec's records, and reads, the partition's runners as crew read them, the live landing fix of the bolt's base
-    place, read from the runner that took bolt/<bolt> (landing_fix; crews-bolt-kind-names-its-landing-fix, Decision 5),
-    keyed by Flume's name for it, <bolt>-<n>, which no fix of crew's shares, with its note (landing_fix_note). A fix in
-    flight holds the bolt's landing as today's does (plan.landing_unready, landing_rows); one read merged from its bolt's
-    landing holds it no longer (bolt-plan "A fix read merged from its bolt's landing holds nothing")."""
+    them, from the runner that took it alone (fixes_on): each whose place has not merged into the bolt, landed or been
+    dropped, one crew can't read counted in flight (read.1); and, given requests, requests.rec's records, and reads, the
+    partition's runners as crew read them, the live landing fix of the bolt's base place, read from the runner that took
+    bolt/<bolt> (landing_fix; crews-bolt-kind-names-its-landing-fix, Decision 5), keyed by Flume's name for it,
+    <bolt>-<n>, which no fix of crew's shares, with its note (landing_fix_note). A fix in flight holds the bolt's
+    landing as today's does (plan.landing_unready, landing_rows); one the runner reports merged, a record Flume holds
+    for the runner among them, holds it no longer (bolt-plan "A fix the runner reports merged holds nothing")."""
     own = {w: l.get("Brief") for w, l, s in fixes
            if w.startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
     live = (landing_fix(base_facts(launch_of(requests, f"bolt/{bolt}"), reads)) or {}).get("live") if reads else None
