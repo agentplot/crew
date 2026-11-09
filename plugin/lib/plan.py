@@ -2696,45 +2696,6 @@ def landing_act(event, head=None, words=None):
     return ("close", words, None)
 
 
-# A preview of a bolt's head as sluice lists it (sluice record 0021, read in sluice 0.29.3): its states, the first while
-# it waits for room on the host.
-PREVIEW_STATES = ("waiting", "starting", "up", "failed")
-
-
-def preview_change(shown, outcome, head):
-    """The change note a preview's end puts on its landing card while it waits on the user, or None (rail-cards "A
-    preview that fails is said on the card"): shown, what the card was raised with, "addresses" or "reason"; outcome,
-    how sluice's preview of head ended, "up" or "failed", a refusal among the failures. Addresses shown and the preview
-    failed: the card says it did not come up; a reason shown and the preview up: the card lists its addresses; anything
-    else changes nothing the card says."""
-    if shown == "addresses" and outcome != "up":
-        return f"Its preview of {head[:7]} did not come up"
-    if shown == "reason" and outcome == "up":
-        return f"Its preview of {head[:7]} is up"
-    return None
-
-
-def preview_listed(doc, branch, head):
-    """The preview of head on branch as `sluice previews --json` lists it (doc), its fields checked as sluice 0.29.3
-    gives them (read.2): {head, name, addresses, state}, with sluice's output when it failed; None when none is listed.
-    Refused when the document is no list of objects, or the entry's fields are not sluice's."""
-    isinstance(doc, list) or fail(f"sluice's previews are no list crew reads: {cut(json.dumps(doc), 200)}")
-    for e in doc:
-        isinstance(e, dict) or fail(f"sluice lists a preview crew can't read: {cut(json.dumps(e), 200)}")
-        rev = e.get("revision")
-        if not (e.get("branch") == branch and isinstance(rev, str) and len(rev) >= 7 and (head.startswith(rev) or rev.startswith(head))):
-            continue
-        name, addresses, state = e.get("name"), e.get("addresses"), e.get("state")
-        (isinstance(name, str) and name.startswith("preview/") and isinstance(addresses, dict)
-         and all(isinstance(k, str) and k and isinstance(v, str) and v for k, v in addresses.items())
-         and state in PREVIEW_STATES) or fail(f"sluice lists a preview of {branch} at {head[:7]} crew can't read: {cut(json.dumps(e), 200)}")
-        out = dict(head=head, name=name, addresses=dict(addresses), state=state)
-        if state == "failed":
-            out["output"] = e["output"] if isinstance(e.get("output"), str) else ""
-        return out
-    return None
-
-
 def landing_unready(work, verified, fixes):
     """Why a bolt does not yet read proven (record 0031 §1, record 0025), or None: work is each of its units and chores
     as (name, kind, stage); verified, its verification as (state, words), whether its head is the landing of its work
@@ -3552,14 +3513,13 @@ def land_read(fleet, label, plan, b, t):
 
 def land_row(fleet, label, bolt, acts=None):
     """crew _land-row <label> <bolt>: a bolt's row on its kit's landings card, on the host its work runs on (bolt_at),
-    where its reading and its preview run (Decision 2): read as land_read reads it; a row that can land with its reading
-    opened, or given again while it serves, twice if it must be, the second time on the landing read afresh
-    (landing_opened), and what brings its preview up, or the one brought up from the card at its head, sluice asked for
-    nothing (landing_preview); a held row, and a bolt that is no row, with its reading ended and its preview released,
-    as a card's close ends them (row_card_close). Returns
-    the row, {bolt, box, why, facts}, its facts carrying its reading's link or why it could not be opened and its
-    preview; or {bolt, why} while it is no row. Refused on any host but the bolt's, naming it, and when what it reads
-    can't be read (read.1)."""
+    where its reading runs (Decision 2): read as land_read reads it; a row that can land with its reading opened, or
+    given again while it serves, twice if it must be, the second time on the landing read afresh (landing_opened); a
+    held row, and a bolt that is no row, with its reading ended, as a card's close ends it (row_card_close). Its preview
+    is no part of it: the raise on the partition's main machine reads it from the runner's report (landings_previews;
+    Decision 7 of a-cards-preview-is-asked-of-the-runner). Returns the row, {bolt, box, why, facts}, its facts carrying
+    its reading's link or why it could not be opened; or {bolt, why} while it is no row. Refused on any host but the
+    bolt's, naming it, and when what it reads can't be read (read.1)."""
     acts = acts or CardActs(fleet)
     plan, b, t = land_held(fleet, label, bolt)
     if not b:
@@ -3571,12 +3531,11 @@ def land_row(fleet, label, bolt, acts=None):
     if row and row["box"]:
         facts = landing_opened(fleet, label, plan, b, t, row["facts"], acts)
         if facts:
-            facts["preview"] = landing_preview(fleet, t, label, bolt, facts, acts)
             return dict(row, facts=facts)
         row, why = None, "read afresh, it no longer reads proven"
-    for said in (acts.end(label, f"land/{bolt}"), acts.release_preview(label, f"land/{bolt}")):
-        if said:
-            print(said)
+    said = acts.end(label, f"land/{bolt}")
+    if said:
+        print(said)
     return row or dict(bolt=bolt, why=why)
 
 
@@ -3701,7 +3660,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     """raise_landings' reads and acts, made under the kit's card's lock."""
     plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so {kit}'s landings card is not raised")
     owner, key = f"{label}-ops", f"land/{kit}"
-    got, unread = {}, set()
+    got, unread, hosts = {}, set(), {}
     run = runner_facts(fleet, label)
     for b in plan.bolts():
         if b.get("Repo") != kit or not started(b):
@@ -3712,6 +3671,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
             unread.add(b.name())
         if not t:  # a bolt no runner has taken work of yet has nothing merged to land
             continue
+        hosts[b.name()] = t["machine"]
         row, why = acts.land_row(label, b.name(), t["machine"])
         if row is None:
             print(f"card {key}: {t['machine']} did not answer for bolt {b.name()} ({why}), so its row is left off", file=sys.stderr)
@@ -3772,6 +3732,7 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
     landed = {next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None): e.get("Head") or ""
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit}
+    told = landings_previews(fleet, label, kit, rows, hosts, unread, run)
     step = landings_step(rows, state, ticked, in_plan, landed, note, bool(pane), work)
     try:
         t = kit_at(fleet, label, kit)
@@ -3806,13 +3767,13 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
         # following the user's send, what changed of a bolt asked again opens the card with the rest (card_posted)
         build = cards.landings_card if facts["follows"] else built_saying(cards.landings_card, said)
         since = [f"{w}." for w in said] + landings_since(earlier, [r for r in rows if r["box"] and r["bolt"] not in dict(asked)])
-        return row_card_change(fleet, label, owner, built_again(build) if dead else build, facts,
-                               "; ".join(said + [note or "Raised as the bolts stand"]), where, acts,
-                               since=since if facts["follows"] else None)
+        return told_kept(label, key, told, row_card_change(fleet, label, owner, built_again(build) if dead else build, facts,
+                                                           "; ".join(said + [note or "Raised as the bolts stand"]), where, acts,
+                                                           since=since if facts["follows"] else None))
     if step[0] == "change":
         _, change, kind_changed, cleared = step
-        return row_card_change(fleet, label, owner, cards.landings_card, dict(facts, left=unticked(cleared)),
-                               "; ".join(said + [change]), where, acts, kind_changed)
+        return told_kept(label, key, told, row_card_change(fleet, label, owner, cards.landings_card, dict(facts, left=unticked(cleared)),
+                                                           "; ".join(said + [change]), where, acts, kind_changed))
     outcome = " ".join([f"{w}." for w in said] + [step[1]])
     if step[0] == "follow":  # closed with the bolts the send still lands as its Heads (landings_sent), the rest following
         _, _, cleared, landing = step
@@ -3820,18 +3781,19 @@ def landings_raised(fleet, label, kit, acts, note, dead, pane):
         closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(rest)),
                                 Heads=" ".join(f"{b}@{h}" for b, h in landing))
         # the outcome, what changed of each bolt asked again among it (landings_step), opens the card that follows
-        return closed and row_card_change(fleet, label, owner, cards.landings_card, dict(facts, rows=rest, left=waits,
-                                                                                         follows=closed), outcome, where, acts,
-                                          since=[outcome] + (left_waits(waits) if waits else []))
+        return closed and told_kept(label, key, told, row_card_change(
+            fleet, label, owner, cards.landings_card, dict(facts, rows=rest, left=waits, follows=closed), outcome, where, acts,
+            since=[outcome] + (left_waits(waits) if waits else [])))
     _, _, then, standing = step  # the bolts held whose send stands kept as its close's Heads (landings_sent)
     closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(boxed)),
                             Heads=" ".join(f"{b}@{h}" for b, h in standing))  # its own, none when nothing stands (close_kept)
     if then is None or not boxed or not closed:  # a close refused leaves the card open, and nothing follows it yet
         return closed
     waits = unticked(then)
-    return row_card_change(fleet, label, owner, cards.landings_card,
-                           dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
-                           outcome, where, acts, since=[outcome] + (left_waits(waits) if waits else []))
+    return told_kept(label, key, told, row_card_change(
+        fleet, label, owner, cards.landings_card,
+        dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
+        outcome, where, acts, since=[outcome] + (left_waits(waits) if waits else [])))
 
 
 def raise_landings_row(fleet, row, acts=None):
@@ -3870,41 +3832,115 @@ def land_card_cmd(fleet, a):
     raise_landings(fleet, a.label, a.kit, note=a.note, pane=a.pane)
 
 
-def head_previewed(fleet, t, head):
-    """Whether the kit's policy as the bolt's head holds it declares a preview (kit.previewed), as sluice reads it from
-    the previewed revision, read with git in the kit's main checkout on the team's host: (declared, None), or (None,
-    why) when it can't be read (read.1)."""
-    main = t["kit"]["main"]
-    try:
-        _, held = kit_git(fleet, t, main, "ls-tree", "--name-only", head, "--", kit.DECLARATION)
-        text = kit_git(fleet, t, main, "show", f"{head}:{kit.DECLARATION}")[1] if held else None
-        return kit.previewed(text, f"{kit.DECLARATION} at {head[:7]}"), None
-    except Refusal as e:
-        return None, str(e)
-
-
-def landing_preview(fleet, t, label, bolt, card, acts):
-    """The preview a landings row carries (rail-cards "A landing row carries what brings its bolt's preview up", record
-    0043), as cards.landing_card takes it, through acts.preview (preview_row), sluice asked for nothing: what brings it
-    up where the kit's policy at the head declares one (head_previewed), "no preview" where it declares none, the one
-    brought up from the card at this head as sluice lists it, and why where that policy can't be read (read.1)."""
-    declared, why = head_previewed(fleet, t, card["head"])
-    return acts.preview(label, f"land/{bolt}", dict(card, previewed=declared, policy=why))
-
-
 def land_end(fleet, label, bolt):
-    """A bolt's reading and its preview ended on this, its team's, host, with its row on its kit's landings card, held or
-    gone, which no close of a card of the bolt's own ends (row_card_close): what each said, printed."""
-    acts = CardActs(fleet)
-    for said in (acts.end(label, f"land/{bolt}"), acts.release_preview(label, f"land/{bolt}")):
-        if said:
-            print(said)
+    """A bolt's reading ended on this, its team's, host, with its row on its kit's landings card, held or gone, which no
+    close of a card of the bolt's own ends (row_card_close): what it said, printed. Its preview is put away by the raise
+    of its kit's landings card that follows (landings_previews)."""
+    said = CardActs(fleet).end(label, f"land/{bolt}")
+    if said:
+        print(said)
+
+
+def landings_previews(fleet, label, kit, rows, hosts, unread, run):
+    """Each row of a kit's landings card that can land given its preview, from the runner's report alone (Decisions 5
+    and 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A landing row carries what brings its bolt's preview
+    up"), no file of the kit's read: first, in one plan write, the done of each standing ask of a bolt of the kit that no
+    row that can land carries at its host and head (runner.previews_put_away), so a row held for a fix, gone, landed or
+    dropped, or at a moved head, has its ask put away, a bolt whose row crew could not read (unread) keeping its own
+    (read.1), and a write refused said, the next raise trying again; then each row that can land carries crew's ask of
+    its head on its host as the runner reports it (runner.preview_report), or what brings it up, {branch: bolt/<bolt>,
+    head, state: "ask"}, with released where that write put an ask of its bolt at another head away. rows, as the raise
+    holds them, each given its preview in its facts; hosts, {bolt: the host whose runner took its work}; run, the
+    partition's requests and runners (runner_facts). Returns what each row was told, {request: word}, for the raise
+    to keep once it posts or changes the card (told_kept)."""
+    requests, reads = run
+    key = f"land/{kit}"
+    standing = runner.previews_standing(requests, reads)
+    asks = {k: r for k, r in standing.items() if (r.get("Work") or "").startswith("bolt/") and r.get("Repo") == kit}
+    carried = {(hosts.get(r["bolt"]), kit, r["facts"]["head"]) for r in rows if r["box"]}
+    gone = runner.previews_put_away(asks, carried, {f"bolt/{b}" for b in unread})
+    released = {}
+    if gone:
+        things = joined(sorted({r.get("Work")[len("bolt/"):] for r in gone}))
+        try:
+            preview_written(fleet, label, key, things, gone, done=True, made=[], by=f"{label}-ops")
+            released = {r.get("Work")[len("bolt/"):]: r.get("Revision") for r in gone}
+            print(f"card {key}: put away " + "; ".join(f"{r.get('Work')[len('bolt/'):]}'s preview of {r.get('Revision')[:7]} on "
+                                                       f"{r.get('Host')}" for r in gone))
+        except Refusal as e:
+            print(f"card {key}: the previews of {things} are not put away yet, the next raise trying again: {e}", file=sys.stderr)
+    asked = runner.previews_asked(requests)
+    gone_ids = {r.get("Request") for r in gone} if released else set()
+    told = {}
+    for r in rows:
+        if not r["box"]:
+            continue
+        head = r["facts"]["head"]
+        ask = asked.get((hosts.get(r["bolt"]), kit, head))
+        if ask is not None and ask.get("Request") not in gone_ids:
+            p = runner.preview_report(reads, ask)
+            told[ask.get("Request")] = runner.preview_word(p)
+        else:
+            was = released.get(r["bolt"])
+            p = dict({"branch": f"bolt/{r['bolt']}", "head": head, "state": "ask"}, **({"released": was} if was and was != head else {}))
+        r["facts"] = dict(r["facts"], preview=p)
+    return told
+
+
+def told_path(label):
+    """Where the partition's main machine keeps what each card was last told of each preview it carries (Decision 8
+    of a-cards-preview-is-asked-of-the-runner): beside the card folders and in none, as landings_main keeps a card's
+    main, so no card's close or sweep removes it."""
+    return CARDS / label / "previews.json"
+
+
+def told_read(label):
+    """What each card was last told of each preview it carries, {key: {request: word}}, kept on this host (told_path);
+    a cache of what crew read (state.4), so one lost or unreadable reads as {}, which costs one more change of each
+    card."""
+    try:
+        got = json.loads(told_path(label).read_text())
+    except (OSError, ValueError):
+        return {}
+    return {k: {str(n): w for n, w in v.items() if isinstance(w, str)} for k, v in got.items() if isinstance(v, dict)} \
+        if isinstance(got, dict) else {}
+
+
+def told_keep(label, key, words):
+    """What a card under key was told of each preview it carries, {request: word}, kept on this host for the next rail
+    read to compare (previews_changed), written whole and atomically, as landing_word_keep writes, and only when it
+    changes; a card that carries none has its entry removed. What can't be written is said, and costs one more
+    change."""
+    have = told_read(label)
+    now = {str(n): w for n, w in words.items()}
+    if have.get(key, {}) == now:
+        return
+    if now:
+        have[key] = now
+    else:
+        have.pop(key, None)
+    p = told_path(label)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(f".{p.name}.{os.getpid()}")
+        tmp.write_text(json.dumps(have, sort_keys=True))
+        tmp.replace(p)
+    except OSError as e:
+        print(f"card {key}: crew could not keep what it told the card of its previews: {e.strerror or e}; the next rail "
+              "read changes it once more", file=sys.stderr)
+
+
+def told_kept(label, key, words, card):
+    """A card's post or change (card, its id, None when none was made) passed back, with what it was told of each
+    preview it carries kept once it was made (told_keep)."""
+    if card:
+        told_keep(label, key, words)
+    return card
 
 
 def landing_cards_closed(fleet, t, bolt, outcome, said=None, here=False):
     """At crew bolt land, on the team's host, once the partition's plan no longer holds the bolt (plan.16): any landing
-    card of the bolt's own main-level ops still holds closed with outcome, its reading ended and its preview released
-    (land_end); then the kit's landings card raised on the partition's main machine (land_hand), which closes it once
+    card of the bolt's own main-level ops still holds closed with outcome, its reading ended (land_end); then the kit's landings card raised on the partition's main machine (land_hand), which closes it once
     every bolt the user ticked has landed or been held, naming where GitHub's main holds each. A landing on the user's
     word in ops's pane sends said in place of the outcome, and closes a card still waiting as answered there (here,
     pane_landed): the bolt's own card, and the kit's once no row of it can land. A plan that can't be read closes none,
@@ -6000,10 +6036,12 @@ def may_write(fleet, key, a):
 
 # The commands that write a request for a runner beyond the plan writes the role table already lets their callers run
 # (Decision 16 of teams-cross-to-flume-as-their-bolts-land, roles.1), each with the roles besides the user who may run
-# it, the first the one to tell: crew answer, crew fix of a bolt given through Flume, and crew main fix, its --send
-# among it, which ops runs only on the user's word (roles.2). crew role land is a role's run's alone, told by its place
+# it, the first the one to tell: crew answer, crew fix of a bolt given through Flume, crew main fix, its --send
+# among it, which ops runs only on the user's word (roles.2), and crew card preview, a card's owner's on the user's
+# words on the card (Decision 6 of a-cards-preview-is-asked-of-the-runner). crew role land is a role's run's alone, told by its place
 # and never by a name a standing agent carries too (role_land, run_named; Decision 10 of roles-run-as-flume-kinds).
-REQUESTERS = {"answer": ("planner", "design", "main-ops"), "fix": ("planner", "main-ops"), "main fix": ("main-ops",)}
+REQUESTERS = {"answer": ("planner", "design", "main-ops"), "fix": ("planner", "main-ops"), "main fix": ("main-ops",),
+              "card preview": ("main-ops", "planner")}
 ROLE_SAID = {"planner": "the planner", "design": "the design agent", "main-ops": "main-level ops"}
 
 
@@ -11300,8 +11338,9 @@ def batch_facts(n, entries, summary, subjects):
 
 def batch_read(fleet, label, n, acts):
     """Batch n's card's facts as its raise reads them, on the main level's host: from this host's run record, the
-    reviewer's summary and the plan's goals (batch_facts), each unit with what its stages recorded as made (batch_made);
-    None while its point has not come or has passed. A summary crew can't read is refused, naming it."""
+    reviewer's summary and the plan's goals (batch_facts), each unit with what its stages recorded as made and the
+    runner's report of each preview of it crew asked for (batch_made), and what each line is told (told); None while
+    its point has not come or has passed. A summary crew can't read is refused, naming it."""
     f = batch_file(label, n)
     try:
         summary = f.read_text()
@@ -11311,32 +11350,57 @@ def batch_read(fleet, label, n, acts):
         fail(f"crew can't read batch {n}'s summary {f}: {e.strerror or e}")
     facts = batch_facts(n, acts.entries(label), summary, batch_subjects(plan_of(fleet, label)))
     if facts:
-        batch_made(fleet, label, facts, acts)
+        facts["told"] = batch_made(fleet, label, facts, acts)
     return facts
 
 
 def batch_made(fleet, label, facts, acts):
     """Each unit of a batch's card given what its stages recorded as made (made), read from the copies kept on the host
-    its bolt's work ran on (batch_unit_at), and the previews brought up from the card there (up, by the made thing's
-    name), through acts.made, one read a host (crew _made, code.3; design Decision 4). A host that does not answer, and
-    a unit whose host crew can't tell, is said on standard error, its units carrying none this raise (read.3); nothing is
-    refused, since the batch stands, and a host is read only for its own kits' places' facts (read.5)."""
+    its bolt's work ran on (batch_unit_at), through acts.made, one read a host (crew _made, code.3; design Decision 4);
+    and, for each made thing that must run, crew's ask of its preview on that host as the runner reports it (up, by
+    the thing's name; Decision 7 of a-cards-preview-is-asked-of-the-runner), the ask of its unit's repository and
+    revision there (previews_asked) and refused ones among them, so the line says why. A host that does not answer,
+    and a unit whose host crew can't tell, is said on standard error, its units carrying none this raise (read.3);
+    the runner crew can't read is said the same way, its lines carrying no preview; nothing is refused, since the batch
+    stands, and a host is read only for its own kits' places' facts (read.5). Returns what each line was told,
+    {request: word}, for the raise to keep once it posts or changes the card (told_kept)."""
     n, by = facts["n"], {}
     for u in facts["units"]:
         try:
             by.setdefault(batch_unit_at(fleet, label, u["bolt"], u["unit"])["machine"], []).append(u["unit"])
         except Refusal as e:
             print(f"batch {n}'s card carries nothing {u['unit']} made: {e}", file=sys.stderr)
+    try:
+        requests, reads = acts.runner(label)
+    except Refusal as e:
+        print(f"batch {n}'s card carries no preview this raise: {e}", file=sys.stderr)
+        requests, reads = [], {}
+    asked, told = runner.previews_asked(requests), {}
     for host, names in sorted(by.items()):
         try:
-            got = acts.made(label, host, names, f"batch/{n}")
+            got = acts.made(label, host, names)
         except Refusal as e:
             print(f"batch {n}'s card carries nothing {joined(names)} made this raise: {host} did not answer ({e})", file=sys.stderr)
             continue
         for u in facts["units"]:
-            if u["unit"] in names:
-                u["made"] = got["made"].get(u["unit"]) or []
-                u["up"] = {t.split("/", 1)[1]: p for t, p in got["previews"].items() if t.split("/", 1)[0] == u["unit"]}
+            if u["unit"] not in names:
+                continue
+            u["made"], u["up"] = got["made"].get(u["unit"]) or [], {}
+            repo = unit_repo(requests, u["bolt"])
+            for _, lines in u["made"]:
+                for m in map(cards.made_line, lines):
+                    ask = asked.get((host, repo, m.get("revision"))) if "branch" in m and "revision" in m and "address" not in m else None
+                    if ask is not None:
+                        u["up"][m["name"]] = runner.preview_report(reads, ask)
+                        told[ask.get("Request")] = runner.preview_word(u["up"][m["name"]])
+    return told
+
+
+def unit_repo(requests, bolt):
+    """The repository a batch's unit was built in, as its bolt's newest launch names it (Decision 6 of
+    a-cards-preview-is-asked-of-the-runner), which a preview of its line names; None when requests.rec holds none."""
+    launches = [r for r in requests if r.get("Act") == "launch" and r.get("Base") == f"bolt/{bolt}"]
+    return launches[-1].get("Repo") if launches else None
 
 
 def raise_batch(fleet, row, acts=None, note=None):
@@ -11350,7 +11414,9 @@ def raise_batch(fleet, row, acts=None, note=None):
     sweep for a row whose card is missing or lost, and for one whose card this host can't reach, handed that older copy
     as the row's dead, when the card is posted saying first that an older copy was lost and to dismiss it in the app
     (cards.posted_again). Run on the main level's host, where the batch and its card are recorded and its summary
-    written. What crew can't read is said and refuses nothing, since the batch stands. The card's id, or None."""
+    written. What crew can't read is said and refuses nothing, since the batch stands. What each line was told of its
+    preview is kept once the card is posted or changed (told_kept; Decision 8 of a-cards-preview-is-asked-of-the-runner).
+    The card's id, or None."""
     m = re.fullmatch(r"batch/(\d+)", row["key"] or "")
     if not m:
         return None
@@ -11363,6 +11429,7 @@ def raise_batch(fleet, row, acts=None, note=None):
         return None
     if not facts:
         return None
+    told = facts.pop("told", {})
     t, whys = None, []
     for u in facts["units"]:
         try:
@@ -11375,8 +11442,9 @@ def raise_batch(fleet, row, acts=None, note=None):
               f"in: {'; '.join(whys)}", file=sys.stderr)
         return None
     build = built_again(cards.batch_card) if row.get("dead") else cards.batch_card
-    return row_card_change(fleet, label, owner, build, facts, note or "Raised again: crew could not find its earlier copy",
-                           card_where(card_kit(fleet, t, t["kit"]["name"], t["kit"])), acts)
+    return told_kept(label, row["key"], told, row_card_change(fleet, label, owner, build, facts,
+                                                              note or "Raised again: crew could not find its earlier copy",
+                                                              card_where(card_kit(fleet, t, t["kit"]["name"], t["kit"])), acts))
 
 
 def built_saying(build, said):
@@ -12133,8 +12201,8 @@ def stranded_said(entries, card, owner, new):
 
 
 def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None, runs=None):
-    """End the card sessions crew started, release the landings' previews it asked for, whose card is closed or whose
-    row is gone, and read the landings nothing recorded, on every host of each partition whose plan was read, its main
+    """End the card sessions crew started whose card is closed or whose row is gone, and read the landings nothing
+    recorded, on every host of each partition whose plan was read, its main
     machine and each its runners answer on as the read read them (runs, hosts_of): one crew card sweep --label <label>
     on each (code.3), handed
     as live every row key less each the record holds as closed with no card open under it (batched, what the batches
@@ -12150,7 +12218,7 @@ def sweep_sessions(fleet, found, sv, rows, cards, unread, batched, only=None, ru
         if not plan or (only is not None and not only.get(l)):
             continue
         readings = {f"land/{b['bolt']}" for r in rows if r["label"] == l and r["group"] == "land" for b in r.get("bolts", []) if b["can"]}
-        rowed = {r["key"] for r in rows if r["label"] == l} | readings  # each row's, and each landing row's reading and preview
+        rowed = {r["key"] for r in rows if r["label"] == l} | readings  # each row's, and each landing row's reading
         judgment, landings = sweep_judgment(l, rowed, cards, unread.get(l), batched.get(l, {}), readings), landings_judged(fleet, l, plan, sv, runs)
         for h in hosts_of(fleet, l, runs):
             judged = json.dumps(dict(judgment, landings=landings[h]) if landings.get(h) else judgment)
@@ -12245,7 +12313,9 @@ def rail_read(fleet, labels, board=False, sweep=False):
     (board.py), from which the rail's text is made as well.
     With sweep, once the rows are made, the cards on this host are swept under its sign-in (sweep_cards), against the
     proposals the plans read hold (proposals_held), the cards read then being those open once it acted, each kit's
-    landings card main moved under is raised again (sweep_moved), and the card sessions whose card is closed or whose row is gone are
+    landings card main moved under is raised again (sweep_moved), the done of each preview crew asked for whose card or
+    row is gone is written and each card whose preview the runner reports anew is changed in place, on the partition's
+    main machine (sweep_previews, previews_changed), and the card sessions whose card is closed or whose row is gone are
     ended on every host of the labels read; what the sweeps did, and which hosts were not checked, are in the read
     (sweep_sessions). No state is written but by those sweeps' acts. Each partition's runners are read once beside its
     plan (runs, rail_runs), for the stages of its crossed work and the changes its batches count (crossed_changes)."""
@@ -12276,6 +12346,8 @@ def rail_read(fleet, labels, board=False, sweep=False):
         read["cards"] = swept_cards(read["cards"], read["swept"], crew.this_host(), datetime.datetime.now(datetime.timezone.utc),
                                     read["kits"])
         read["moved"] = sweep_moved(fleet, read)
+        read["previews"] = sweep_previews(fleet, read)
+        read["previewed"] = previews_changed(fleet, read)
         read["ended"], read["unchecked"] = sweep_sessions(fleet, found, sv, read["rows"], read["cards"], unread, batched, runs=runs)
         read["told"] = reckon_batches(fleet, found, read)
     return read
@@ -12394,6 +12466,10 @@ def rail_text(fleet, labels, read, now):
         ["", "landings cards whose main can't be read:"] + [
             f"  land/{u['kit']} ({u['label']}): whether main moved under it can't be told: {u['why']}" for u in moved["unread"]]
         if moved["unread"] else [])
+    gone = [f"  {x['work']} at {x['revision'][:7]} ({x['label']}): {x['said']}" for x in read.get("previews") or []]
+    told = [f"  {x['key']} ({x['label']}): {x['note']}" + (f"; {x['said']}" if x.get("said") else "") for x in read.get("previewed") or []]
+    lines += (["", "previews put away, their card or row gone:"] + gone if gone else []) + (
+        ["", "cards changed as the runner reported their previews:"] + told if told else [])
     said = [(e.get("sent"), f"  {e['key']}{' ' + e['unit'] if e['unit'] else ''} ({e['label']}) on {e['host']}: {e['why']}; {e['said']}")
             for e in read.get("ended") or []]
     ended, sent = [w for s, w in said if not s], [w for s, w in said if s]
@@ -12435,6 +12511,8 @@ def labels_of(read, labels):
                 swept=swept and {"done": [d for d in swept["done"] if d["label"] in labels], "unswept": [u for u in swept["unswept"] if u["label"] in labels]},
                 moved=moved and {k: [x for x in v if x["label"] in labels] for k, v in moved.items()},
                 ended=[e for e in read.get("ended") or [] if e["label"] in labels],
+                previews=[x for x in read.get("previews") or [] if x["label"] in labels],
+                previewed=[x for x in read.get("previewed") or [] if x["label"] in labels],
                 unchecked=[u for u in read.get("unchecked") or [] if u["label"] in labels])
 
 
@@ -12866,9 +12944,11 @@ def reading_facts(fleet, label, key, acts):
     one of its chain at the branch's tip (chain_read), whose page is its reading. Refused when its point has passed."""
     kind, n = key.split("/")[0], int(key.split("/")[1])
     if kind == "batch":
-        return batch_read(fleet, label, n, acts) or fail(
+        facts = batch_read(fleet, label, n, acts) or fail(
             f"{key}'s card has nothing to read: this host's run record holds no batch {n} waiting on the user, or its "
             "summary is not there")
+        facts.pop("told", None)
+        return facts
     got = chain_read(fleet, label, n) or fail(f"{key}'s card has nothing to read: no proposal of its chain is open")
     return dict(n=got[1], first=n)
 
@@ -14007,18 +14087,9 @@ def batch_answer(fleet, a, acts=None):
 
 # ---------------------------------------------------------------------------------------------- a card's preview
 
-# crew's record of a preview it brought up from a card on the user's ask (rail-cards "A preview asked for from a card is
-# brought up through sluice and listed while it is up", record 0043), on the host where the thing's kit's work is, its
-# team's, ~/.local/state/crew/previews/<label>/<key>/<thing>.json, each / of the card's key and the thing written -,
-# apart from the card's folder, which its reading session's end empties: the card's key and the thing it carries (a
-# landings row's bolt, a batch line's <unit>/<name>), the branch and revision that bring it up (head), the kit's main
-# checkout it runs in (main), when it was asked (asked, UTC), the handed process's pid, the preview's name once sluice
-# names it, what the card showed of it (shown, "addresses" or "reason"), and how it ended (outcome, {state: "up" or
-# "failed", why}); the handed process's output beside it, <thing>.log. An older crew asked a landing's preview at its
-# row's post and kept it at <label>/<bolt>.json, which the row's next read releases (preview_row, Migration Plan).
-PREVIEWS = pathlib.Path.home() / ".local/state/crew/previews"
-PREVIEW_START = 20  # seconds crew card preview waits for sluice to name a preview's addresses
-PREVIEW_POLL = 0.5  # seconds between that wait's reads of sluice's previews
+# A card's preview is asked of the runner on the host where the thing's work runs, by a request on the drive's branch,
+# and read from that runner's report (Decisions 1 to 8 of a-cards-preview-is-asked-of-the-runner): crew keeps no
+# record of a preview of its own, runs no sluice command for one, and reads no kit's policy for it.
 
 
 def dashed(name):
@@ -14026,311 +14097,19 @@ def dashed(name):
     return name.replace("/", "-")
 
 
-def preview_path(label, key, thing):
-    return PREVIEWS / label / dashed(key) / f"{dashed(thing)}.json"
-
-
-def old_preview_path(label, bolt):
-    """Where an older crew kept the preview it asked with a landing row's post (Migration Plan)."""
-    return PREVIEWS / label / f"{bolt}.json"
-
-
-@contextlib.contextmanager
-def preview_lock(label):
-    """The partition's preview records held for one act on them, as session_open holds a card's folder."""
-    d = PREVIEWS / label
-    d.mkdir(parents=True, exist_ok=True)
-    with open(d / ".lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        yield
-
-
-def preview_load(p, key, thing, old=False):
-    """crew's record at p of the preview of the thing a card under key carries, on this host, with where it is (path),
-    or None when none stands; refused when it can't be read, or names another card's thing (read.1, read.4). One an
-    older crew kept (old), which names neither, is the landing row's of its bolt, brought up from bolt/<bolt>."""
-    what = f"crew's record of {thing}'s preview from {key}, {p},"
-    try:
-        r = json.loads(p.read_text())
-    except FileNotFoundError:
-        return None
-    except (OSError, ValueError) as e:
-        fail(f"{what} can't be read: {e}")
-    (isinstance(r, dict) and isinstance(r.get("head"), str) and isinstance(r.get("main"), str)) or fail(
-        f"{what} holds no revision and checkout crew reads")
-    if old:
-        return dict(r, key=key, thing=thing, branch=f"bolt/{thing}", old=True, path=str(p))
-    (r.get("key") == key and r.get("thing") == thing and isinstance(r.get("branch"), str)) or fail(
-        f"{what} names another card's thing, or no branch")
-    return dict(r, path=str(p))
-
-
-def preview_recorded(label, key, thing):
-    """crew's record of the preview of a card's thing on this host (preview_load), or None."""
-    return preview_load(preview_path(label, key, thing), key, thing)
-
-
-def preview_write(r):
-    p = pathlib.Path(r["path"])
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_name(f".{p.name}")
-    tmp.write_text(json.dumps({k: v for k, v in r.items() if k not in ("path", "old")}) + "\n")
-    tmp.replace(p)
-
-
-def preview_log(r):
-    return pathlib.Path(r["path"]).with_suffix(".log")
-
-
-def handed_named(command, label, r):
-    """Whether ps names a process as the ask crew handed for the record r, crew _preview <label> <key> <thing> … as
-    plan.py runs it, or an older crew's crew _preview <label> <bolt> <head> (read.4)."""
-    words = f" _preview {label} {r['thing']} " if r.get("old") else f" _preview {label} {r['key']} {r['thing']} "
-    return words in f" {command} "
-
-
-def preview_alive(r, label):
-    """Whether the handed process crew recorded (r) still runs, as ps names it (handed_named): nothing else is ended."""
-    pid = r.get("pid")
-    if not isinstance(pid, int):
-        return False
-    try:
-        ps = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=POLL)
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return ps.returncode == 0 and handed_named(ps.stdout.strip(), label, r)
-
-
-def previews_of(main, branch, head):
-    """The preview of head on branch as sluice lists it on this host (preview_listed), or None; refused when sluice's
-    previews can't be read."""
-    doc, why = sluice_read(main, "previews")
-    not why or fail(f"sluice's previews can't be read in {main}: {why}")
-    return preview_listed(doc, branch, head)
-
-
-def shown_of(p):
-    """What a card built with the preview p shows of it (preview_said): its addresses, or a reason."""
-    return "addresses" if p.get("state") in ("waiting", "starting", "up") else "reason"
-
-
-def preview_shown(r, listed, alive):
-    """What a card shows of the preview crew recorded (r) at the revision it carries, from facts alone (code.7): as
-    sluice lists it (listed); else {head, why}, in the words its end recorded, that sluice has not named it while the
-    handed process still runs (alive), or that sluice no longer lists it."""
-    if listed:
-        return listed
-    out = r.get("outcome") or {}
-    why = (out.get("why") or f"it ended {out.get('state')}") if out else (
-        "sluice has not named it yet" if alive else "sluice no longer lists it")
-    return {"head": r["head"], "why": why}
-
-
-def preview_step(declared, recorded, head):
-    """What a landings row's read does with the preview crew brought up of its bolt from the card (rail-cards, record
-    0043), from facts alone: declared, whether the kit's policy at the head declares [preview] (kit.previewed);
-    recorded, the revision crew's record names, or None when none stands. "none" with none recorded; "release" when
-    the head's policy declares none, or the head moved from the one it was brought up at, nothing asked at the new one;
-    "keep" when it is this head's, read again from sluice's list and nothing asked."""
-    if recorded is None:
-        return "none"
-    return "keep" if declared and recorded == head else "release"
-
-
-def asked_step(recorded, revision, listed, alive):
-    """What crew card preview does with the thing's preview (rail-cards "Asked twice"), from facts alone: recorded, the
-    revision crew's record names, or None; listed, whether sluice lists it; alive, whether the process crew handed the
-    ask to still runs. "keep" when one of this revision is up or coming up, given back with no second asked; "replace"
-    when the record is another revision's, released before this one is asked; "ask" otherwise."""
-    if recorded is None:
-        return "ask"
-    if recorded != revision:
-        return "replace"
-    return "keep" if listed or alive else "ask"
+# What a card's change note says of a preview, by its word (runner.preview_word; Decision 4 of
+# a-cards-preview-is-asked-of-the-runner): "<thing>: Its preview of <h> " and one of these.
+PREVIEW_NOTES = {"asked": "is asked of the runner on {host}", "held": "waits for room on {host}", "coming": "is coming up",
+                 "up": "is up", "failed": "did not come up", "refused": "could not be brought up",
+                 "unread": "could not be brought up", "unlisted": "is gone", "ask": "is put away"}
 
 
 def asked_note(thing, p):
-    """The change note of a card a preview was asked from (rail-cards "Brought up"): that the thing's preview is up,
-    coming up, or could not be brought up, as sluice lists it or why (p, as preview_ask gives it)."""
-    h = p["head"][:7]
-    if p.get("state") == "up":
-        return f"{thing}: Its preview of {h} is up"
-    if p.get("state") in ("waiting", "starting"):
-        return f"{thing}: Its preview of {h} is coming up"
-    return f"{thing}: Its preview of {h} could not be brought up"
-
-
-def preview_row(label, key, bolt, head, declared, why):
-    """The preview a landings row carries at its read on its team's host (rail-cards "A landing row carries what brings
-    its bolt's preview up", record 0043, as cards.preview_said takes it), asking sluice for nothing: a preview an older
-    crew asked at the row's post released first (old_preview_path); {head, why, policy} when the kit's policy at the
-    head can't be read, crew's record left as it is (read.1); the one crew brought up from the card (key) at this head
-    as sluice lists it (preview_shown); else, any brought up at another head, or with no [preview] now, released
-    (released, its revision), what brings it up, {branch, head, state: "ask"}, where the policy declares a preview, and
-    {head, none} where it declares none. What crew can't read is said as {head, why}."""
-    try:
-        with preview_lock(label):
-            old = preview_load(old_preview_path(label, bolt), f"land/{bolt}", bolt, old=True)
-            if old:  # asked at the row's post by an older crew, and by nobody on the card
-                print(preview_released(label, old)[0])
-            if why:
-                return {"head": head, "why": why, "policy": True}
-            r = preview_recorded(label, key, bolt)
-            step = preview_step(declared, r["head"] if r else None, head)
-            if step == "keep":
-                return preview_shown(r, previews_of(r["main"], r["branch"], head), preview_alive(r, label))
-            released = None
-            if step == "release":
-                said, ok = preview_released(label, r)
-                print(said)
-                if not ok:
-                    return {"head": head, "why": f"its earlier preview is not released yet: {said}"}
-                released = r["head"]
-        shown = {"branch": f"bolt/{bolt}", "head": head, "state": "ask"} if declared else {"head": head, "none": True}
-        return dict(shown, **({"released": released} if released else {}))
-    except Refusal as e:
-        return {"head": head, "why": str(e)}
-
-
-def preview_ask(t, label, key, thing, branch, revision):
-    """The thing's preview brought up for crew card preview (rail-cards "A preview asked for from a card is brought up
-    through sluice"), on the team's host, this one: what asked_step makes of crew's record, sluice's list and the handed
-    process, under the partition's previews lock. Asked anew, `crew _preview <label> <key> <thing> <branch> <revision>`
-    is handed to a process of its own (code.9), which runs sluice's preview to its end in the kit's main checkout
-    (preview_handed); then sluice's previews are read every PREVIEW_POLL seconds, up to PREVIEW_START, for the
-    revision's (preview_listed). Returns the preview as sluice lists it, {head, name, addresses, state}; or {head, why}
-    when the handed process ended first, in its words, or sluice named none in time, the process left running. What
-    the card shows is recorded, for the preview's end to read (preview_change); what crew can't read is said the same
-    way, and it releases nothing it could not (read.1)."""
-    main = t["kit"]["main"]
-    try:
-        with preview_lock(label):
-            r = preview_recorded(label, key, thing)
-            listed = previews_of(main, branch, revision) if r and r["head"] == revision else None
-            alive = bool(r) and r["head"] == revision and preview_alive(r, label)
-            step = asked_step(r["head"] if r else None, revision, listed is not None, alive)
-            if step == "replace":
-                said, released = preview_released(label, r)
-                print(said)
-                if not released:
-                    return {"head": revision, "why": f"its earlier preview is not released yet: {said}"}
-            proc = None
-            if step != "keep":
-                r = dict(path=str(preview_path(label, key, thing)), key=key, thing=thing, branch=branch, head=revision, main=main,
-                         asked=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
-                preview_write(r)
-                proc = preview_hand(label, r)
-                r = dict(r, pid=proc.pid)
-                preview_write(r)
-        got = listed or preview_awaited(label, r, proc)
-        with preview_lock(label):
-            now = preview_recorded(label, key, thing)
-            if not now or now["head"] != revision:
-                return {"head": revision, "why": "it was released while it was asked for"}
-            if now.get("outcome"):  # it ended while it was awaited: what it came to is what the card shows
-                got = previews_of(main, branch, revision) or preview_shown(now, None, False)
-            preview_write(dict(now, shown=shown_of(got), **({"name": got["name"]} if got.get("name") else {})))
-        return got
-    except Refusal as e:
-        return {"head": revision, "why": str(e)}
-
-
-def preview_hand(label, r):
-    """crew _preview <label> <key> <thing> <branch> <revision> started in a session of its own, which outlives the
-    command that asked it, its output in the record's log; refused when it can't be started."""
-    argv = ["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "crew"), "_preview", label,
-            r["key"], r["thing"], r["branch"], r["head"]]
-    try:
-        with open(preview_log(r), "w") as out:
-            return subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
-    except OSError as e:
-        fail(f"crew could not hand the ask for it to a process of its own: {e}")
-
-
-def preview_awaited(label, r, proc):
-    """The revision's preview once sluice lists it, read every PREVIEW_POLL seconds up to PREVIEW_START: as sluice lists
-    it, or {head, why} when the handed process (proc, or the one recorded (r) when the ask keeps it) ended first, in
-    the words it recorded or its log's last line, or when sluice named none in time."""
-    deadline, main, branch, head = time.monotonic() + PREVIEW_START, r["main"], r["branch"], r["head"]
-    while True:
-        got = previews_of(main, branch, head)
-        if got:
-            return got
-        ended = proc.poll() is not None if proc else not preview_alive(preview_recorded(label, r["key"], r["thing"]) or {}, label)
-        if ended:
-            got = previews_of(main, branch, head)
-            if got:
-                return got
-            why = ((preview_recorded(label, r["key"], r["thing"]) or {}).get("outcome") or {}).get("why")
-            if not why:
-                try:
-                    said = preview_log(r).read_text().strip().splitlines()
-                except OSError:
-                    said = []
-                why = said[-1] if said else "the process crew handed it to ended, saying nothing"
-            return {"head": head, "why": why}
-        if time.monotonic() > deadline:
-            return {"head": head, "why": f"sluice named no preview within {PREVIEW_START} seconds"}
-        time.sleep(PREVIEW_POLL)
-
-
-def preview_ended(code, out, err):
-    """How `sluice preview <branch> <revision> --wait --json` ended, from its exit, its standard output and its standard
-    error, as sluice 0.29.3 gives them (read.2): {state: "up"}, or {state: "failed", why}, why sluice's error's message
-    when it refused, the end of the preview command's output when its stack failed, else sluice's last line."""
-    try:
-        doc = json.loads(out)
-    except ValueError:
-        doc = None
-    if isinstance(doc, dict) and isinstance(doc.get("error"), dict) and isinstance(doc["error"].get("message"), str):
-        return {"state": "failed", "why": doc["error"]["message"]}
-    if isinstance(doc, dict) and doc.get("state") == "up" and code == 0:
-        return {"state": "up"}
-    if isinstance(doc, dict) and doc.get("state") == "failed":
-        return {"state": "failed", "why": cards.last_lines(doc.get("output") if isinstance(doc.get("output"), str) else "",
-                                                           cards.DETAIL) or "its command failed, printing nothing"}
-    said = [l.strip() for l in f"{err or ''}\n{out or ''}".splitlines() if l.strip()]
-    return {"state": "failed", "why": said[-1] if said else f"sluice exited {code}"}
-
-
-def preview_handed(fleet, a):
-    """crew _preview <label> <key> <thing> <branch> <revision>: the ask preview_ask hands to a process of its own on the
-    team's host (code.9). It runs `sluice preview <branch> <revision> --wait --json` in the checkout crew's record
-    names, with no timeout of crew's, since the policy's [preview] timeout bounds sluice's command and a release ends
-    this wait (preview_released); writes how it ended (preview_ended) to the record while the record still names this
-    revision; and, when that changes what the card says (preview_change), changes the card in place with the note
-    while it waits on the user (preview_changed). A record naming another revision, or none, has nothing written and
-    nothing changed. What goes wrong is said in its log, never a traceback to anyone (code.2)."""
-    sys.stdout.reconfigure(line_buffering=True)
-    name = f"{a.thing}'s preview of {a.revision[:7]} from {a.key}"
-    try:
-        r = preview_recorded(a.label, a.key, a.thing)
-        if not r or r["head"] != a.revision:
-            print(f"{name} is no longer crew's to ask: its record names " + (f"{r['head'][:7]}" if r else "none"))
-            return
-        print(f"asking sluice for {name} in {r['main']}")
-        try:
-            run = subprocess.run(["sluice", "preview", a.branch, a.revision, "--wait", "--json"], cwd=r["main"],
-                                 stdin=subprocess.DEVNULL, capture_output=True, text=True)
-            ended = preview_ended(run.returncode, run.stdout, run.stderr)
-        except OSError as e:
-            ended = {"state": "failed", "why": f"sluice could not run: {e}"}
-        with preview_lock(a.label):
-            r = preview_recorded(a.label, a.key, a.thing)
-            if not r or r["head"] != a.revision:
-                print(f"{name} ended {ended['state']}, and crew writes nothing: its record has moved on")
-                return
-            preview_write(dict(r, outcome=ended))
-        print(f"{name} ended {ended['state']}" + (f": {ended['why']}" if ended.get("why") else ""))
-        note = preview_change(r.get("shown"), ended["state"], a.revision)
-        if note:
-            preview_changed(fleet, a.label, a.key, f"{a.thing}: {note}")
-    except Refusal as e:
-        print(f"{name}: {e}")
-    except Exception as e:  # said in its log, as the handed construct's are
-        import traceback
-        traceback.print_exc()
-        print(f"{name}: {type(e).__name__}: {e}")
+    """The change note of a card that carries a preview (rail-cards "Brought up", "A card is changed in place when the
+    runner reports its preview anew"), from what the card now says of it (p, as cards.preview_said takes it): that the
+    thing's preview is asked of the runner on its host, waits for room there, is coming up, is up, did not come up,
+    could not be brought up, is gone, or, the card offering it again, is put away."""
+    return f"{thing}: Its preview of {p['head'][:7]} " + PREVIEW_NOTES[runner.preview_word(p)].format(host=p.get("host"))
 
 
 def preview_changed(fleet, label, key, note):
@@ -14345,166 +14124,6 @@ def preview_changed(fleet, label, key, note):
         land_hand(fleet, label, key.split("/", 1)[1], landing_act("preview", words=note)[1])
 
 
-def shared_by(r, others):
-    """Which other records of crew's on this host name the revision the record r names in its checkout (rail-cards: one
-    revision has one preview on a host), from facts alone: others, [(where, record or None when it can't be read)].
-    Returns (those naming it, those that can't be read), each by where, so crew releases sluice's preview only once the
-    last record naming it goes, and releases none while one it can't read might (read.1)."""
-    named = [w for w, o in others if o is not None and o.get("head") == r["head"] and o.get("main") == r["main"]]
-    return named, [w for w, o in others if o is None]
-
-
-def preview_others(r):
-    """Every other record of a preview crew keeps on this host, of any partition and card: [(what it is, record or None
-    when it can't be read)], what it is its thing and the card it was brought up from, or the file crew can't read."""
-    out = []
-    for f in sorted(PREVIEWS.rglob("*.json")) if PREVIEWS.is_dir() else []:
-        if f.name.startswith(".") or str(f) == r["path"]:
-            continue
-        try:
-            o = json.loads(f.read_text())
-        except (OSError, ValueError):
-            o = None
-        o = o if isinstance(o, dict) else None
-        old = f.parent.parent == PREVIEWS  # an older crew's, <label>/<bolt>.json
-        what = (f"{f.stem}'s from land/{f.stem}" if old else f"{o.get('thing')}'s from {o.get('key')}") if o else str(f)
-        out.append((what, o))
-    return out
-
-
-def preview_released(label, r):
-    """The preview crew recorded (r) released, under the previews lock its caller holds: the handed process ended first,
-    by its process group, only while ps names it as crew's (preview_alive, read.4), then `sluice release` of its name,
-    or of its revision when sluice named none, in the checkout it ran in, and the record removed once sluice answers;
-    while another record of crew's on this host names the same revision (shared_by), only this record is removed and
-    sluice's preview kept for it. A release sluice refuses, or that can't run, or a record crew can't read that might
-    name it, is said and the record kept, so the next close or sweep tries again (read.1). Returns (words, released)."""
-    what, h, target = f"{r['thing']}'s preview of {r['head'][:7]}", r["head"][:7], r.get("name") or r["head"]
-    if preview_alive(r, label):
-        try:
-            os.killpg(r["pid"], SIGTERM)
-        except (ProcessLookupError, PermissionError):
-            pass
-    named, unread = shared_by(r, preview_others(r))
-    gone = lambda: (pathlib.Path(r["path"]).unlink(missing_ok=True), preview_log(r).unlink(missing_ok=True))
-    if named:
-        gone()
-        return f"{what} from {r['key']} is put away, and sluice keeps it up for {named[0]}, which names it too", True
-    if unread:
-        return (f"{what} from {r['key']} is not released, and crew keeps it: {unread[0]} can't be read, and may name "
-                f"{h} too"), False
-    doc, why = sluice_read(r["main"], "release", target)
-    if why or not (isinstance(doc, dict) and "released" in doc):
-        return (f"{what} from {r['key']} is not released, and crew keeps it to release later: sluice release {target} "
-                + (why or "printed no document crew reads")), False
-    gone()
-    if doc["released"]:
-        return f"released {what} from {r['key']}" + (f", {r['name']}" if r.get("name") else ""), True
-    return f"{what} from {r['key']} had nothing left for sluice to release, and crew's record of it is removed", True
-
-
-def preview_release(label, key, thing):
-    """The preview crew brought up of a card's thing released on this host, its record's lock held (preview_released):
-    (words, released), or (None, False) when crew recorded none. A record crew can't read is kept and said."""
-    with preview_lock(label):
-        try:
-            r = preview_recorded(label, key, thing)
-        except Refusal as e:
-            return f"{e}: crew released nothing, and keeps it", False
-        if not r:
-            return None, False
-        return preview_released(label, r)
-
-
-def preview_release_row(label, bolt):
-    """The previews of a bolt's row released on this host, as the row leaves its kit's landings card or the card closes
-    (rail-cards "A preview is released on the user's done and when its card or row ends"): each crew brought up of it
-    from any kit's landings card, and one an older crew asked at the row's post. What each said, joined, or None."""
-    d, said = PREVIEWS / label, []
-    keys = sorted(f"land/{k.name[len('land-'):]}" for k in d.glob("land-*") if k.is_dir()) if d.is_dir() else []
-    for key in keys:
-        words, _ = preview_release(label, key, bolt)
-        said.append(words)
-    with preview_lock(label):
-        try:
-            old = preview_load(old_preview_path(label, bolt), f"land/{bolt}", bolt, old=True)
-            said.append(preview_released(label, old)[0] if old else None)
-        except Refusal as e:
-            said.append(f"{e}: crew released nothing, and keeps it")
-    return "; ".join(w for w in said if w) or None
-
-
-def preview_release_card(label, key):
-    """Every preview crew brought up from the card under key released on this host, as the card closes: what each said,
-    one a line, or None."""
-    d, said = PREVIEWS / label / dashed(key), []
-    for f in sorted(d.glob("*.json")) if d.is_dir() else []:
-        if f.name.startswith("."):
-            continue
-        try:
-            thing = json.loads(f.read_text()).get("thing")
-        except (OSError, ValueError, AttributeError):
-            thing = None
-        if not isinstance(thing, str):
-            said.append(f"crew's record {f} can't be read: crew released nothing, and keeps it")
-            continue
-        said.append(preview_release(label, key, thing)[0])
-    return "\n".join(w for w in said if w) or None
-
-
-def preview_release_cmd(fleet, a):
-    """crew _preview-release <label> <key>: every preview crew brought up from the card under key on this host
-    released, handed here by the card's close on the partition's main machine (batch_released)."""
-    said = preview_release_card(a.label, a.key)
-    if said:
-        print(said)
-
-
-def previews_card(label, key):
-    """What the card under key shows of each preview crew brought up from it on this host, {thing: preview}, as
-    preview_shown makes it from sluice's list; what crew can't read said as {head, why}."""
-    d, out = PREVIEWS / label / dashed(key), {}
-    for f in sorted(d.glob("*.json")) if d.is_dir() else []:
-        raw = thing = None
-        try:
-            raw = json.loads(f.read_text())
-            thing = raw.get("thing") if isinstance(raw, dict) else None
-            r = preview_recorded(label, key, thing) if isinstance(thing, str) else None
-            if r:
-                out[thing] = preview_shown(r, previews_of(r["main"], r["branch"], r["head"]), preview_alive(r, label))
-        except (OSError, ValueError, Refusal) as e:
-            if isinstance(thing, str) and isinstance(raw, dict) and isinstance(raw.get("head"), str):
-                out[thing] = {"head": raw["head"], "why": str(e)}
-    return out
-
-
-def preview_files(label):
-    """Every record of a preview crew keeps on this host for the partition, as the rail's sweep judges them: (where,
-    the card's key, the thing, whether an older crew kept it at a landing row's post), key and thing None for a record
-    whose own can't be read."""
-    d, out = PREVIEWS / label, []
-    for f in sorted(d.glob("*.json")) if d.is_dir() else []:
-        if crew.NAME.match(f.stem):
-            out.append((f, f"land/{f.stem}", f.stem, True))
-    for f in sorted(d.glob("*/*.json")) if d.is_dir() else []:
-        if f.name.startswith("."):
-            continue
-        try:
-            r = json.loads(f.read_text())
-        except (OSError, ValueError):
-            r = None
-        key, thing = (r.get("key"), r.get("thing")) if isinstance(r, dict) else (None, None)
-        out.append((f, key if isinstance(key, str) else None, thing if isinstance(thing, str) else None, False))
-    return out
-
-
-def preview_row_key(key, thing):
-    """The rail row a preview's record lives as long as (rail-cards "A card closed elsewhere"): a landings row's bolt's,
-    land/<bolt>, which the rail's judgment holds live while the bolt is a row of its kit's card; any other card's own
-    key."""
-    return f"land/{thing}" if key.startswith("land/") else key
-
-
 def preview_target(key, thing, carried, unread=None):
     """What brings a card's thing up (rail-cards "A thing the card does not carry"), from facts alone: carried, {thing:
     (branch, revision)}, each thing the card carries that must run, or None for one whose branch and revision are read
@@ -14514,22 +14133,6 @@ def preview_target(key, thing, carried, unread=None):
         f"it carries {joined(sorted(carried))}" if carried else "it carries nothing that must run")
         + "".join(f"; whether {t} has a preview can't be told: {why}" for t, why in sorted((unread or {}).items())))
     return carried[thing]
-
-
-def rows_previewed(fleet, label, rows):
-    """Which of a kit's landings card's rows carry a preview (rail-cards "A thing the card does not carry"), each read
-    at the head the card recorded it at, in its kit's folder on its host (bolt_at, head_previewed), sluice asked
-    for nothing: ({bolt: None} for each whose kit's policy declares one, {bolt: why} for each that can't be read, a
-    bolt not started among them, read.1). rows: [(bolt, head, left)], as card_heads gives them."""
-    carried, unread = {}, {}
-    for bolt, head, _ in rows:
-        _, _, t = land_held(fleet, label, bolt)
-        declared, why = head_previewed(fleet, t, head) if t else (None, f"bolt {bolt} is not started")
-        if why:
-            unread[bolt] = why
-        elif declared:
-            carried[bolt] = None
-    return carried, unread
 
 
 def preview_owner(key, label, kits):
@@ -14554,12 +14157,16 @@ def preview_caller(caller, owner, key):
 def card_preview(fleet, a, acts=None):
     """crew card preview <key> <thing> [--done] [--label L]: run by a card's owner on the user's words on the card
     (rail-cards "The user asks for a preview by writing on the card", record 0043), main-level ops's for land/<kit>
-    and the planner's for batch/<n> (preview_owner, preview_caller): on the partition's main machine, where the card is,
-    the thing read from what the card carries (preview_target), a landings row's bolt as its last post or change
-    recorded its rows, one whose kit's policy at that head declares a preview (rows_previewed) or, with --done, any, a
-    batch line's <unit>/<name> of a unit of the batch; then on the host the thing's work runs on (preview_at, code.3),
-    through acts.preview_up, its preview brought up through sluice, or with --done released, and the card changed in
-    place (card_preview_here). Refused for any other key, caller or thing, asking sluice nothing."""
+    and the planner's for batch/<n> (preview_owner, preview_caller), on the partition's main machine, where the card
+    is (code.3), asking the runner on the host where the thing's work runs and nothing of that host itself (Decision 6
+    of a-cards-preview-is-asked-of-the-runner): the thing read from what the card carries (preview_thing); then one
+    plan write of one request (state.1, plan.1), a bring-up where crew's ask of that revision on that host does not
+    stand as the runner reports it (runner.ask_step), or, with --done, the done of each standing ask of it, its entry
+    card.preview on the work with the card's key and asked or done (record.1); and the card changed in place with the
+    note (preview_changed). An ask that stands is given back as the runner reports it, nothing written; a done with
+    none standing is said, nothing written. It answers once the write is made, naming the request and what the card
+    now says (code.9): the runner answers at its next pass, and the rail's read follows it (rail_read). Refused for any
+    other key, caller or thing, writing nothing."""
     acts = acts or CardActs(fleet)
     label = default_label(fleet, a) or fail("crew card runs as the card's partition: run it as a crew agent, or add --label")
     owner = preview_owner(a.key, label, acts.kits(label))
@@ -14568,82 +14175,115 @@ def card_preview(fleet, a, acts=None):
     main = crew.partition_of(fleet, label)["machine"]
     if acts.host() != main:
         return acts.forward(main, ["card", "preview", a.key, a.thing, *(["--done"] if a.done else []), "--label", label])
+    requests, reads = acts.runner(label)
+    target = preview_thing(fleet, label, a.key, a.thing, owner, a.done, acts)
+    CONTEXT.update(label=label, work=target["work"])  # a refusal's entry names it (named)
+    standing = runner.previews_standing(requests, reads)
+    if a.done:
+        asks = [r for k, r in sorted(standing.items(), key=lambda kr: runner.number(kr[1].get("Request")) or 0)
+                if (k == target["at"] if target.get("at") else r.get("Work") == target["work"] and r.get("Repo") == target["repo"])]
+        if not asks:
+            print(f"crew asked for no preview of {a.thing} that stands, from {a.key} or another card, so nothing is put away")
+            return
+        made = []
+        preview_written(fleet, label, a.key, a.thing, asks, done=True, made=made)
+        shown = {"branch": asks[-1].get("Branch"), "head": asks[-1].get("Revision"), "state": "ask", "released": asks[-1].get("Revision")}
+        note = asked_note(a.thing, shown)
+        print(f"request {', '.join(str(n) for n in made)}: {note}")
+        preview_changed(fleet, label, a.key, note)
+        return
+    k = target["at"]
+    ask = standing.get(k)
+    report = runner.preview_report(reads, ask) if ask is not None else None
+    if runner.ask_step(ask, report) == "keep":
+        print(f"crew's ask of {a.thing}'s preview of {k[2][:7]} stands, as request {ask.get('Request')}, so none is written: "
+              + preview_shown_said(a.thing, report))
+        return
+    made = []
+    preview_written(fleet, label, a.key, a.thing, [dict(Work=target["work"], Host=k[0], Repo=k[1], Branch=target["branch"], Revision=k[2])],
+                    done=False, made=made)
+    note = asked_note(a.thing, {"head": k[2], "host": k[0], "state": "asked"})
+    print(f"request {made[0]}: {note}")
+    preview_changed(fleet, label, a.key, note)
+
+
+def preview_shown_said(thing, p):
+    """What a card says of a thing's preview, in a line: its change note, with the addresses listed or why it is not
+    there."""
+    return asked_note(thing, p) + (": " + ", ".join(f"{k} {v}" for k, v in p["addresses"].items()) if p.get("addresses") else
+                                   f": {p['words']}" if p.get("state") == "refused" and p.get("words") else
+                                   f": {p['why']}" if p.get("why") else "")
+
+
+def preview_written(fleet, label, key, thing, asks, done, made, by=None):
+    """One plan write of a card's preview requests (Decision 6 of a-cards-preview-is-asked-of-the-runner; state.1,
+    plan.1): for each of asks, a bring-up, or with done its done, naming its host, work, repository, branch and
+    revision (runner.preview_fields); the facts read again at the tip it is applied to, so a bring-up whose ask now
+    stands there, or a done whose ask stands no more, is refused, writing nothing. Its entry is card.preview on each
+    work, the card's key and asked or done (record.1), holding no words (record.3), in the name of by, the card's
+    owner, for a done crew writes of its own as a row or card ends. Each request's number appended to made."""
+    state = "done" if done else "asked"
+
+    def change(w):
+        have = requests_of(w).recs("Request")
+        standing = runner.previews_standing(have, w.runners())
+        for r in asks:
+            k, h = (r.get("Host"), r.get("Repo"), r.get("Revision")), (r.get("Revision") or "")[:7]
+            ask = standing.get(k)
+            if done and (ask is None or ask.get("Request") != r.get("Request")):
+                fail(f"crew's ask of {thing}'s preview of {h} on {k[0]} stands no more at {label}/main's tip, so its done is not written")
+            if not done and runner.ask_step(ask, runner.preview_report(w.runners(), ask) if ask is not None else None) == "keep":
+                fail(f"crew's ask of {thing}'s preview of {h} on {k[0]} stands at {label}/main's tip, as request "
+                     f"{ask.get('Request')}, so none is written")
+            made.append(request(w, "preview", r.get("Work"), **runner.preview_fields(k[0], k[1], r.get("Branch"), k[2], done)))
+        return []
+    how = "put away" if done else "asked"
+    write(fleet, label, change, f"plan(card): preview of {thing} {how} from {key}", act="card.preview",
+          on=sorted({r.get("Work") for r in asks}), fields={"Key": key, "State": state}, by=by)
+
+
+def preview_thing(fleet, label, key, thing, owner, done, acts):
+    """What a card's thing names for its preview (Decision 6 of a-cards-preview-is-asked-of-the-runner), read on the
+    partition's main machine, nothing run on the work's host: {work, repo, branch, at: (host, repo, revision)}. A
+    landings row's bolt among the card's last recorded rows (card_heads), bolt/<bolt> on the host whose runner took its
+    work (land_held, bolt_at), its repository as the plan names it, at its row's full head read afresh as the raise
+    reads it (CardActs.land_row), refused while the row can't land, naming why; with done, the row is not read, its
+    work and repository naming its standing asks. A batch line's <unit>/<name> of a unit of the batch, unit/<unit> on
+    the host its unit was built on (batch_unit_at), its repository its bolt's newest launch's, at the branch and
+    revision its made lines hold (CardActs.made). Refused for a thing the card does not carry (preview_target), or
+    whose host or row crew can't read (read.1)."""
     entries = acts.entries(label)
-    if a.key.startswith("land/"):
-        card = cards.card_under(entries, a.key, owner)
+    if key.startswith("land/"):
+        card = cards.card_under(entries, key, owner)
         rows = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == card and e.get("Heads")
                                 and not e.get("Refused")), None)) if card else []
-        carried, unread = ({b: None for b, _, _ in rows}, {}) if a.done else rows_previewed(fleet, label, rows)
-        preview_target(a.key, a.thing, carried, unread)
-    else:
-        n = int(a.key.split("/")[1])
-        units = next((us for m, _, us in batches(entries) if m == n), None)
-        units is not None or fail(f"{label}'s run record on this host holds no batch {n}")
-        unit, _, name = a.thing.partition("/")
-        name or fail(f"a batch's line is named <unit>/<name>, as its card names it, not {a.thing}")
-        preview_target(a.key, unit, {u: None for u, _, _ in units})
-    return acts.preview_up(preview_at(fleet, label, a.key, a.thing, entries)["machine"], label, a.key, a.thing, a.done)
-
-
-def preview_at(fleet, label, key, thing, entries=None):
-    """Where a card's thing is brought up (card_preview, card_preview_here): a landings row's bolt where its work runs
-    (land_held, bolt_at), a batch line's <unit>/<name> where its unit was built (batch_unit_at), the batch read from the
-    run record (entries, the partition's when not given). Refused when crew can't tell (read.1)."""
-    if key.startswith("land/"):
+        preview_target(key, thing, {b: None for b, _, _ in rows})
+        kit = key.split("/", 1)[1]
+        if done:
+            return {"work": f"bolt/{thing}", "repo": kit}
         _, b, t = land_held(fleet, label, thing)
-        b or fail(f"{label}'s plan holds no bolt {thing}, so nothing of {label}'s brings its preview up")
-        return t or fail(f"bolt {thing} is not started, so nothing of {label}'s brings its preview up")
-    n, unit = int(key.split("/")[1]), thing.split("/", 1)[0]
-    units = next((us for m, _, us in batches(entries if entries is not None else partition_entries(fleet, label)) if m == n), None)
-    units is not None or fail(f"{label}'s run record holds no batch {n}")
-    between = next((m for u, m, _ in units if u == unit), None) or fail(f"batch {n} holds no unit {unit}")
-    return batch_unit_at(fleet, label, between, unit)
-
-
-def card_preview_here(fleet, label, key, thing, done):
-    """crew _card-preview <label> <key> <thing> [--done], on the host the thing's work runs on (preview_at):
-    with done, the preview crew brought up of it released (preview_release) and the card changed in place to carry
-    what brings it up again, one it brought up of none changing nothing; else its branch and revision read
-    (preview_target), a landings row's bolt branch and head as its row reads now (land_read), refused with sluice asked
-    nothing where its kit's policy at that head declares no preview or can't be read (head_previewed), a batch line's as
-    the unit's copy holds it (made_kept), its preview brought up (preview_ask) and the card changed in place with a note
-    saying whether it is up, coming up or could not be (asked_note). What it did, printed."""
-    t = preview_at(fleet, label, key, thing)
-    t["machine"] == crew.this_host() or fail(f"{thing}'s preview is brought up on {t['machine']}, where its work runs")
-    if done:
-        r = preview_recorded(label, key, thing)
-        said, released = preview_release(label, key, thing)
-        if not said:
-            print(f"crew brought up no preview of {thing} from {key} on {crew.this_host()}, so nothing is put away")
-            return
-        print(said)
-        if released:
-            preview_changed(fleet, label, key, f"{thing}: Its preview of {r['head'][:7]} is put away")
-        return
-    if key.startswith("land/"):
-        plan, b, _ = land_held(fleet, label, thing)
-        row, why = land_read(fleet, label, plan, b, t)
-        row or fail(f"{thing} is no row of {key} now: {why}")
+        b or fail(f"{label}'s plan holds no bolt {thing}, so its preview is not asked")
+        t or fail(f"bolt {thing} is not started, so its preview is not asked")
+        row, why = acts.land_row(label, thing, t["machine"])
+        row is not None or fail(f"{key}'s row {thing} can't be read, so its preview is not asked: {why}")
+        row.get("box") or fail(f"{key}'s row {thing} can't land now, so its preview is not asked: {row.get('why')}")
         head = row["facts"]["head"]
-        declared, why = head_previewed(fleet, t, head)
-        why is None or fail(f"whether {thing} has a preview at {head[:7]} can't be told, so nothing is brought up: {why}")
-        declared or fail(f"{key}'s row {thing} carries no preview: its kit's policy at {head[:7]} declares none, so nothing is brought up")
-        branch, revision = preview_target(key, thing, {thing: (f"bolt/{thing}", head)})
-    else:
-        unit = thing.split("/", 1)[0]
-        carried = {f"{unit}/{m['name']}": (m["branch"], m["revision"]) for _, ls in made_kept(label, unit)
-                   for m in map(cards.made_line, ls) if not m.get("unread") and "address" not in m and "branch" in m and "revision" in m}
-        branch, revision = preview_target(key, thing, carried)
-    got = preview_ask(t, label, key, thing, branch, revision)
-    note = asked_note(thing, got)
-    print(note + (": " + ", ".join(f"{k} {v}" for k, v in got["addresses"].items()) if got.get("addresses") else
-                  f": {got['why']}" if got.get("why") else ""))
-    preview_changed(fleet, label, key, note)
-
-
-def card_preview_cmd(fleet, a):
-    """crew _card-preview: card_preview_here, handed to the thing's host by crew card preview (code.3)."""
-    card_preview_here(fleet, a.label, a.key, a.thing, a.done)
+        return {"work": f"bolt/{thing}", "repo": b.get("Repo"), "branch": f"bolt/{thing}", "at": (t["machine"], b.get("Repo"), head)}
+    n = int(key.split("/")[1])
+    units = next((us for m, _, us in batches(entries) if m == n), None)
+    units is not None or fail(f"{label}'s run record on this host holds no batch {n}")
+    unit, _, name = thing.partition("/")
+    name or fail(f"a batch's line is named <unit>/<name>, as its card names it, not {thing}")
+    preview_target(key, unit, {u: None for u, _, _ in units})
+    between = next(m for u, m, _ in units if u == unit)
+    host = batch_unit_at(fleet, label, between, unit)["machine"]
+    lines = (acts.made(label, host, [unit]).get("made") or {}).get(unit) or []
+    carried = {f"{unit}/{m['name']}": (m["branch"], m["revision"]) for _, ls in lines for m in map(cards.made_line, ls)
+               if not m.get("unread") and "address" not in m and "branch" in m and "revision" in m}
+    branch, revision = preview_target(key, thing, carried)
+    repo = unit_repo(acts.runner(label)[0], between) or fail(
+        f"no launch of bolt {between}'s work is in requests.rec, so {unit}'s repository can't be told")
+    return {"work": f"unit/{unit}", "repo": repo, "branch": branch, "at": (host, repo, revision)}
 
 
 # ------------------------------------------------------------------------------------- a landing's words, kept
@@ -14651,7 +14291,7 @@ def card_preview_cmd(fleet, a):
 # The user's words to land a bolt, given in main-level ops's pane, kept on the host crew bolt submit ran on until crew
 # bolt land closes the landing card with them (plan.16), ~/.local/state/crew/landings/<label>/<bolt>.json: the words,
 # who submitted them, when, and the transcript record they were read from (from), as the bolt.submit entry names it.
-# Host state, like a preview's record, never the run record, which holds no words (record.3).
+# Host state, never the run record, which holds no words (record.3).
 LANDINGS = pathlib.Path.home() / ".local/state/crew/landings"
 
 
@@ -14735,9 +14375,9 @@ def made_drop(label, units):
 
 def made_cmd(fleet, a):
     """crew _made <label> <unit>... --json, on the units' team's host: what each unit's stages recorded as made, kept
-    here (made_kept), {"made": {unit: [[stage, [line]]]}, "previews": {thing: preview}}, with the preview of each thing
-    of a card's key crew brought up on this host (--card, previews_card) as the card shows it; what a copy crew can't
-    read is said on standard error, its unit carrying none."""
+    here (made_kept), {"made": {unit: [[stage, [line]]]}}; what a copy crew can't read is said on standard error, its
+    unit carrying none. A preview of a made thing is read from the runner's report on the main machine (batch_made),
+    nothing of it here."""
     made = {}
     for u in a.unit:
         crew.NAME.match(u) or fail(f"a unit's name is lowercase words with dashes, not {u}")
@@ -14745,21 +14385,20 @@ def made_cmd(fleet, a):
             made[u] = [[s, ls] for s, ls in made_kept(a.label, u) if ls]
         except Refusal as e:
             print(f"{u}: {e}", file=sys.stderr)
-    print(json.dumps({"made": made, "previews": previews_card(a.label, a.card) if a.card else {}}))
+    print(json.dumps({"made": made}))
 
 
 def made_listed(out):
     """crew _made's answer as another host printed it (made_cmd), its shape checked (read.2): {"made": {unit: [[stage,
-    [line]]]}, "previews": {thing: preview}}; refused when it is not that."""
+    [line]]]}}, an older crew's "previews" beside it read as nothing; refused when it is not that."""
     try:
         got = json.loads(out)
     except ValueError:
         got = None
-    ok = (isinstance(got, dict) and isinstance(got.get("made"), dict) and isinstance(got.get("previews"), dict)
+    ok = (isinstance(got, dict) and isinstance(got.get("made"), dict)
           and all(isinstance(v, list) and all(isinstance(s, list) and len(s) == 2 and isinstance(s[0], str) and isinstance(s[1], list)
-                                              and all(isinstance(l, str) for l in s[1]) for s in v) for v in got["made"].values())
-          and all(isinstance(p, dict) and isinstance(p.get("head"), str) for p in got["previews"].values()))
-    return got if ok else fail(f"crew _made printed nothing crew reads: {cut((out or '').strip(), 200)}")
+                                              and all(isinstance(l, str) for l in s[1]) for s in v) for v in got["made"].values()))
+    return {"made": got["made"]} if ok else fail(f"crew _made printed nothing crew reads: {cut((out or '').strip(), 200)}")
 
 
 def batch_hand(fleet, label, n, note):
@@ -14826,42 +14465,6 @@ class CardActs:
         """The key's session ended, in words; None when crew recorded none for it on this host."""
         return end_session(label, key)[0] if (CARDS / label / key / "session.json").exists() else None
 
-    def preview(self, label, key, facts):
-        """The preview the row of a landing's bolt, land/<bolt>, carries on its kit's landings card, the one brought up
-        from that card kept or released, nothing asked (preview_row)."""
-        return preview_row(label, f"land/{facts['kit']}", key.split("/", 1)[1], facts["head"], facts["previewed"], facts.get("policy"))
-
-    def release_preview(self, label, key):
-        """The previews of the row of a landing's bolt, land/<bolt>, released (preview_release_row), in words; None when
-        none was recorded."""
-        return preview_release_row(label, key.split("/", 1)[1]) if key.startswith("land/") else None
-
-    def release_previews(self, label, key):
-        """Every preview brought up from a batch's card released as it closes, on each host its units' bolts' work ran
-        on (batch_unit_at), where they were brought up (crew _preview-release, code.3; design Decision 7), here when
-        this is the host: what each said, or None. A host that does not answer, and a unit whose host crew can't tell,
-        is said, the rail's sweep releasing it later."""
-        n = int(key.split("/")[1].split("-")[0])
-        units = [(u, between) for m, _, us in batches(self.entries(label)) if m == n for u, between, _ in us]
-        said, hosts = [], set()
-        for u, between in units:
-            try:
-                hosts.add(batch_unit_at(self.fleet, label, between, u)["machine"])
-            except Refusal as e:
-                said.append(f"{key}'s previews of {u} are not released yet, the rail's sweep releasing them: {e}")
-        for host in sorted(hosts):
-            if host == crew.this_host():
-                said.append(preview_release_card(label, key))
-                continue
-            try:
-                r = crew.on_machine(self.fleet, host, crew.crew_argv(self.fleet, host, "_preview-release", label, key))
-            except Refusal as e:
-                r = argparse.Namespace(returncode=255, stdout="", stderr=str(e))
-            said.append(r.stdout.strip() if r.returncode == 0 else
-                        f"{key}'s previews on {host} are not released yet, the rail's sweep releasing them: "
-                        + (((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1]))
-        return "\n".join(w for w in said if w) or None
-
     def forward(self, host, args):
         """A crew command run on host as the one asking here (code.3), its output passed on and its failure this
         command's."""
@@ -14871,23 +14474,19 @@ class CardActs:
         if r.returncode:
             sys.exit(r.returncode)
 
-    def preview_up(self, host, label, key, thing, done):
-        """A card's thing brought up or put away on the host its work runs on (card_preview_here): here when this is the
-        host, else by crew _card-preview there (forward)."""
-        if host == crew.this_host():
-            return card_preview_here(self.fleet, label, key, thing, done)
-        return self.forward(host, ["_card-preview", label, key, thing, *(["--done"] if done else [])])
+    def runner(self, label):
+        """The partition's requests and its runners as this command read them (runner_facts)."""
+        return runner_facts(self.fleet, label)
 
-    def made(self, label, host, units, key):
-        """What the units recorded as made, kept on host, and the previews brought up there from the card under key,
-        {"made": {unit: [[stage, [line]]]}, "previews": {thing: preview}} (made_cmd): read here when this is the host,
-        else by crew _made there as the one asking (code.3); refused naming what could not be read."""
+    def made(self, label, host, units):
+        """What the units recorded as made, kept on host, {"made": {unit: [[stage, [line]]]}} (made_cmd): read here when
+        this is the host, else by crew _made there as the one asking (code.3); refused naming what could not be read."""
         if host == crew.this_host():
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                made_cmd(self.fleet, argparse.Namespace(label=label, unit=list(units), card=key, json=True))
+                made_cmd(self.fleet, argparse.Namespace(label=label, unit=list(units), json=True))
             return json.loads(out.getvalue())
-        r = crew.on_machine(self.fleet, host, crew.crew_argv(self.fleet, host, "_made", label, *units, "--card", key, "--json"))
+        r = crew.on_machine(self.fleet, host, crew.crew_argv(self.fleet, host, "_made", label, *units, "--json"))
         sys.stderr.write(r.stderr)
         r.returncode == 0 or fail(((r.stderr or r.stdout).strip().splitlines() or [f"exit {r.returncode}"])[-1])
         return made_listed(r.stdout)
@@ -15384,11 +14983,33 @@ def row_card_close(fleet, label, owner, key, outcome=None, reason=None, acts=Non
         said = acts.end(label, key)
         if said:
             print(said)
-    if card is not False and re.fullmatch(r"batch/\d+", key):  # what was brought up from it goes with it (record 0043)
-        said = acts.release_previews(label, key)
-        if said:
-            print(said)
+    if card is not False and re.fullmatch(r"batch/\d+", key):  # what was asked from it goes with it (record 0043)
+        batch_previews_put_away(fleet, label, owner, key, acts)
     return card or None
+
+
+def batch_previews_put_away(fleet, label, owner, key, acts):
+    """At a batch card's close, the done of each standing ask of a preview of its units' lines that no other open batch
+    card holds, in one plan write (Decision 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A preview is
+    released on the user's done and when its card or row ends"); what it put away said, and a runner or a write crew
+    can't read or make said, the rail's read putting it away later (sweep_previews). Nothing is run on a unit's host."""
+    entries = acts.entries(label)
+    of = lambda k: int(k.split("/")[1].split("-")[0])
+    units = {u for m, _, us in batches(entries) if m == of(key) for u, _, _ in us}
+    others = {e.get("Key") for e in entries if e.get("Act") == "card.post" and e.get("Key") != key
+              and re.fullmatch(r"batch/\d+(-\d+)?", e.get("Key") or "") and cards.card_under(entries, e.get("Key"), owner)}
+    held = {f"unit/{u}" for m, _, us in batches(entries) if m in {of(k) for k in others} for u, _, _ in us}
+    try:
+        requests, reads = acts.runner(label)
+        asks = {k: r for k, r in runner.previews_standing(requests, reads).items() if r.get("Work") in {f"unit/{u}" for u in units}}
+        gone = runner.previews_put_away(asks, set(), held)
+        if gone:
+            preview_written(fleet, label, key, joined(sorted({r.get("Work")[len("unit/"):] for r in gone})), gone, done=True, made=[],
+                            by=owner)
+            print(f"card {key}: put away " + "; ".join(f"{r.get('Work')[len('unit/'):]}'s preview of {r.get('Revision')[:7]} on "
+                                                       f"{r.get('Host')}" for r in gone))
+    except Refusal as e:
+        print(f"card {key}: its units' previews are not put away yet, the rail's read putting them away: {e}", file=sys.stderr)
 
 
 def card_closed(acts, label, owner, key, outcome, reason, said=None, here=False, more=None, offered=()):
@@ -15751,6 +15372,12 @@ class SweepActs(CardActs):
             return None, f"{main} on {host} could not be read: {k.get('error') or 'it was not read'}"
         return (k["main_at"], None) if k.get("main_at") else (
             None, f"crew on {host} names no revision of main it read {main} at, as a crew older than the read of it does")
+
+    def preview_note(self, label, key, note):
+        """A card's change for its preview handed to its raise (preview_changed), what the raise says going to standard
+        error, the rail's text saying what it did."""
+        with contextlib.redirect_stdout(sys.stderr):
+            return preview_changed(self.fleet, label, key, note)
 
     def raise_kit(self, label, kit):
         """A kit's landings card raised again as main moved under it (raise_landings, with no note of its own), what it
@@ -16179,6 +15806,129 @@ def sweep_moved(fleet, read, acts=None):
     return out
 
 
+# How long an ask stands before the rail's read may take its card or row for gone (Decision 7 of
+# a-cards-preview-is-asked-of-the-runner): a card raised since the read began is not yet in it.
+PREVIEW_GRACE = 120
+
+
+def previews_live(label, judgment, entries):
+    """The work whose card stands, by the rail's judgment (sweep_judgment) of a partition, so the asks of its previews
+    stand (Decision 7 of a-cards-preview-is-asked-of-the-runner): bolt/<bolt> for each live land/ key, and unit/<unit>
+    for each unit of a live batch/<n> or batch/<n>-<k>, the batches read from the partition's run record (entries);
+    and the kinds whose every ask stands, those a blind prefix covers (read.1). Returns (works, kinds)."""
+    live = judgment["live"]
+    works = {f"bolt/{k.split('/')[1]}" for k in live if k.startswith("land/") and len(k.split("/")) >= 2}
+    alive = {int(k.split("/")[1].split("-")[0]) for k in live if re.fullmatch(r"batch/\d+(-\d+)?", k)}
+    works |= {f"unit/{u}" for m, _, us in batches(entries) if m in alive for u, _, _ in us}
+    kinds = {{"land/": "bolt/", "batch/": "unit/"}.get(b) for b in judgment["blind"]} - {None}
+    return works, kinds
+
+
+def ask_card(r, entries):
+    """The card a preview's ask was made from, as its work names it (Decision 1 of
+    a-cards-preview-is-asked-of-the-runner): a bolt's, its kit's landings card, land/<repo>; a unit's, the newest batch
+    of the partition's run record (entries) that holds it, batch/<n>, or None when none does."""
+    kind, _, name = (r.get("Work") or "").partition("/")
+    if kind == "bolt":
+        return f"land/{(r.get('Repo') or '').split('/')[-1]}"
+    held = [m for m, _, us in batches(entries) for u, _, _ in us if u == name]
+    return f"batch/{max(held)}" if held else None
+
+
+def sweep_previews(fleet, read, acts=None):
+    """The rail read's put-away of each preview crew asked for whose card or row is gone (rail-cards "A card closed
+    elsewhere", "A row gone with no raise of its card"; Decision 7 of a-cards-preview-is-asked-of-the-runner), once its
+    sweep acted, on the partition's main machine alone, where the cards are: for each partition whose plan was read,
+    the standing asks (runner.previews_standing) the rail's judgment keeps neither by a live card's work nor by a blind
+    prefix, batch/ while the partition's run record can't be read from its branch (previews_live), each written at least PREVIEW_GRACE seconds before now by its Date
+    (runner.previews_put_away), have their done written, one plan write a card (preview_written). A write refused is
+    said, and the next read tries again; nothing is put away that crew could not read (read.1). Returns [{label, work,
+    revision, said}]."""
+    acts = acts or SweepActs(fleet)
+    here, now, out = acts.host(), acts.now(), []
+    for l, _, _, pl in read["found"]:
+        if not pl or crew.partition_of(fleet, l)["machine"] != here:
+            continue
+        rows = read["rows"]
+        readings = {f"land/{b['bolt']}" for r in rows if r["label"] == l and r["group"] == "land" for b in r.get("bolts", []) if b["can"]}
+        rowed = {r["key"] for r in rows if r["label"] == l} | readings
+        entries = (read.get("logs") or {}).get(l, [])
+        works, kinds = previews_live(l, sweep_judgment(l, rowed, read["cards"], read["unread"].get(l), read["batched"].get(l, {}), readings),
+                                     entries)
+        try:
+            requests, reads = (read.get("runs") or {}).get(l) or acts.runner(l)
+        except Refusal as e:
+            out.append(dict(label=l, work=f"plan/{l}", revision="", said=f"its runners can't be read, so no preview is put away: {e}"))
+            continue
+        asks = {k: r for k, r in runner.previews_standing(requests, reads).items()
+                if not any((r.get("Work") or "").startswith(kind) for kind in kinds)}
+        gone = runner.previews_put_away(asks, set(), works, now, PREVIEW_GRACE)
+        by = {}
+        for r in gone:
+            by.setdefault(ask_card(r, entries) or f"{r.get('Work')}", []).append(r)
+        for key, rs in sorted(by.items()):
+            things = joined(sorted({r.get("Work").split("/", 1)[1] for r in rs}))
+            try:
+                preview_written(fleet, l, key, things, rs, done=True, made=[],
+                                by=f"{l}-ops" if key.startswith("land/") else f"{l}-planner")
+                said = "put away, its card or row gone"
+            except Refusal as e:
+                said = f"not put away yet, the next read trying again: {e}"
+            out += [dict(label=l, work=r.get("Work"), revision=r.get("Revision") or "", said=said) for r in rs]
+    return out
+
+
+def previews_changed(fleet, read, acts=None):
+    """The rail read's change of each card whose preview the runner reports anew (rail-cards "A card is changed in place
+    when the runner reports its preview anew"; Decision 8 of a-cards-preview-is-asked-of-the-runner), on the
+    partition's main machine alone: for each card open on this host and not answered, by the run record's card.answer,
+    that carries an ask of a preview not put away (runner.previews_asked), main-level ops's land/<kit> its asks of the
+    bolts of its last recorded rows at their heads, the planner's batch/<n> its asks of its units, the word of what the
+    runner now reports of each (runner.preview_word) is compared with what the card was last told (told_read), and,
+    where any differs, the card is raised again with one note naming each such thing and what its preview now is
+    (preview_changed, through acts.preview_note), its raise keeping what it then told it (told_kept). A card whose
+    record of what it was told is lost is changed once. A card posted with no key, an agent's own question, carries
+    no ask and is passed over. Returns [{label, key, note, said}], said a refusal's words or
+    None."""
+    acts = acts or SweepActs(fleet)
+    here, out = acts.host(), []
+    for l, _, _, pl in read["found"]:
+        if not pl or crew.partition_of(fleet, l)["machine"] != here or read["unread"].get(l):
+            continue
+        entries = (read.get("logs") or {}).get(l, [])
+        try:
+            requests, reads = (read.get("runs") or {}).get(l) or acts.runner(l)
+        except Refusal:
+            continue
+        asked, told, kits = list(runner.previews_asked(requests).values()), told_read(l), read["kits"].get(l, [])
+        answered = {e.get("Card") for e in entries if e.get("Act") == "card.answer"}
+        for c in [c for c in read["cards"] if c["label"] == l and c["host"] == here and c["card"] not in answered and c["key"]]:
+            key, kind = c["key"], land_key(c["key"], kits)
+            if c["by"] == f"{l}-ops" and kind and kind[0] == "kit":
+                heads = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == c["card"] and e.get("Heads")
+                                         and not e.get("Refused")), None))
+                mine = [(b, r) for b, h, _ in heads for r in asked if r.get("Work") == f"bolt/{b}" and r.get("Repo") == kind[1]
+                        and (r.get("Revision") or "").startswith(h)]
+            elif c["by"] == f"{l}-planner" and re.fullmatch(r"batch/\d+", key):
+                units = {u for m, _, us in batches(entries) if m == int(key.split("/")[1]) for u, _, _ in us}
+                mine = [(r.get("Work").split("/", 1)[1], r) for r in asked if r.get("Work") in {f"unit/{u}" for u in units}]
+            else:
+                continue
+            was = told.get(key, {})
+            now = [(thing, r, runner.preview_report(reads, r)) for thing, r in mine]
+            moved = [(thing, p) for thing, r, p in now if was.get(r.get("Request")) != runner.preview_word(p)]
+            if not moved:
+                continue
+            note = "; ".join(asked_note(thing, p) for thing, p in moved)
+            said = None
+            try:
+                acts.preview_note(l, key, note)
+            except Refusal as e:
+                said = str(e)
+            out.append(dict(label=l, key=key, note=note, said=said))
+    return out
+
+
 def card_folder(rel):
     """The card key and unit (None but for an old batch card's, batch/<n>-<k>) whose session a folder under
     ~/.local/state/crew/cards/<label>/ keeps, from its path there: batch/<n> is a key's own folder, as a proposal's;
@@ -16198,16 +15948,14 @@ def card_sweep(fleet, a, acts=None):
     only to a host a started bolt's work runs on (landings_judged). It ends, through end_session, each session crew recorded on
     this host for the partition whose key is in no live entry and starts with no blind prefix, once it is at least two
     minutes old by its own start against this host's clock and its folder's lock is free (crew card session holds it
-    while it starts one). Then it releases, through preview_release, each preview crew recorded on this host for a
-    bolt of the partition whose landing card's key the judgment holds dead, once it is two minutes old by when it was
-    asked (preview_dead). Then it acts on each reading of a live key the user sent and nobody has read (readings_sent):
+    while it starts one). It puts away no preview: the rail's read on the partition's main machine writes the done of
+    each whose card or row is gone (sweep_previews). Then it acts on each reading of a live key the user sent and nobody has read (readings_sent):
     a batch's sent with no words is recorded read as the planner's read records it (sweep_wordless), and every other
     reading's owner is told once, the mark written only once the tell went through (sweep_told), since nothing of
     crew's waits on a reading (teams.24). Then it reads each landing the judgment names, of a bolt whose work runs
     here as the rail read it, that may have an outcome or a close nothing recorded (reap_judged), what that says on
-    standard error. It prints, as a JSON list, each session, preview and reading it acted on: its
-    key, its unit (a batch card's) or null, what it said, whether it sent SIGTERM or released the preview, and, for a
-    reading, sent. A folder with no session.json, or whose path is no card key's, is left alone, and a record it can't
+    standard error. It prints, as a JSON list, each session and reading it acted on: its key, its unit (a batch card's)
+    or null, what it said, whether it sent SIGTERM, and, for a reading, sent. A folder with no session.json, or whose path is no card key's, is left alone, and a record it can't
     read is kept and said (read.1, read.4)."""
     a.key is None or fail("crew card sweep takes no key: it judges every session crew recorded on this host, from the "
                           "rail's judgment on standard input")
@@ -16256,31 +16004,6 @@ def card_sweep(fleet, a, acts=None):
                 continue
             said, ended = end_session(label, key, unit)
             out.append(dict(key=key, unit=unit, said=said, ended=ended))
-    for f, key, thing, old in preview_files(label):
-        if key is None or thing is None:
-            out.append(dict(key=f"previews/{label}", unit=None, ended=False,
-                            said=f"crew's record {f} names no card and thing crew reads: crew released nothing, and keeps it"))
-            continue
-        row = preview_row_key(key, thing)
-        if not judged_dead((row, None), live, blind):
-            continue
-        r = None
-        try:
-            r = preview_load(f, key, thing, old)
-            dead = bool(r) and preview_dead(row, r.get("asked"), live, blind, now)
-        except Refusal as e:
-            out.append(dict(key=row, unit=None, said=f"{e}; crew released nothing, and keeps it", ended=False))
-            continue
-        except (ValueError, TypeError):
-            out.append(dict(key=row, unit=None, ended=False,
-                            said=f"crew can't read when {thing}'s preview from {key} was asked ({r.get('asked')}): it released nothing, and keeps it"))
-            continue
-        if dead:
-            with preview_lock(label):
-                r = preview_load(f, key, thing, old)
-                said, released = preview_released(label, r) if r else (None, False)
-            if said:
-                out.append(dict(key=row, unit=None, said=said, ended=released))
     acts = acts or CardActs(fleet)
     for key, step in readings_due(readings_sent(root, live, blind)):
         said = (sweep_wordless if step == "record" else sweep_told)(fleet, label, key, acts)
@@ -16400,14 +16123,6 @@ def judged_dead(found, live, blind):
     """Whether the rail's judgment makes a recorded session's key dead: a card key's folder (found), in no live entry and
     under no blind prefix."""
     return bool(found) and found[0] not in live and not found[0].startswith(tuple(blind))
-
-
-def preview_dead(key, asked, live, blind, now):
-    """Whether the rail's sweep releases the preview crew asked for with a landing card under key (rail-cards "A card
-    closed elsewhere"): its key dead by the rail's judgment (judged_dead), and asked at least CARD_GRACE seconds before
-    now, so a card raised since the rail's read is not taken for one whose row is gone. Refused, as young is, when when
-    it was asked can't be read."""
-    return judged_dead((key, None), live, blind) and not young(asked, now)
 
 
 def young(started, now):
@@ -16692,20 +16407,6 @@ def parser(cls=argparse.ArgumentParser, only=None):
 
     # The commands on a partition's main level and on a kit's host, each one process on the host it acts on (bash crew
     # runs them, and forwards them when one names another host).
-    x = sub.add_parser("_preview")
-    x.add_argument("label")
-    x.add_argument("key")
-    x.add_argument("thing")
-    x.add_argument("branch")
-    x.add_argument("revision")
-    x = sub.add_parser("_preview-release")
-    x.add_argument("label")
-    x.add_argument("key")
-    x = sub.add_parser("_card-preview")
-    x.add_argument("label")
-    x.add_argument("key")
-    x.add_argument("thing")
-    x.add_argument("--done", action="store_true")
     x = sub.add_parser("_landing-read")
     x.add_argument("label")
     x.add_argument("bolt")
@@ -16721,7 +16422,6 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x = sub.add_parser("_made")
     x.add_argument("label")
     x.add_argument("unit", nargs="+")
-    x.add_argument("--card")
     x.add_argument("--json", action="store_true")
     x = sub.add_parser("_batch-card")
     x.add_argument("label")
@@ -16769,8 +16469,6 @@ COMMANDS = {
     ("chore", "add"): direct(("chore", "add")), ("chore", "order"): direct(("chore", "order")), ("chore", "after"): direct(("chore", "after")),
     ("chore", "move"): direct(("chore", "move")), ("chore", "drop"): direct(("chore", "drop")),
     ("kit", "rename"): direct(("kit", "rename")),
-    ("_preview", None): preview_handed,
-    ("_preview-release", None): preview_release_cmd, ("_card-preview", None): card_preview_cmd,
     ("_land-row", None): land_row_cmd, ("_land-card", None): land_card_cmd, ("_landing-read", None): landing_read_cmd,
     ("_made", None): made_cmd, ("_batch-card", None): batch_card_cmd,
     ("_sweep", None): kit_sweep, ("_main", None): main_cmd,
@@ -16794,7 +16492,7 @@ ACTS = {
     ("chore", "drop"): "chore.drop", ("kit", "rename"): "kit.rename",
     ("signal", None): "capture", ("signal-move", None): "signal.move", ("signal-land", None): "capture",
     ("plan", "propose"): "plan.propose", ("plan", "approve"): "plan.approve",
-    ("plan", "drop"): "plan.drop", ("answer", None): "stage.answer",
+    ("plan", "drop"): "plan.drop", ("answer", None): "stage.answer", ("card", "preview"): "card.preview",
 }
 
 
@@ -16816,7 +16514,7 @@ def named(a):
         out.append(f"kit/{a.old}")
     if a.cmd == "plan" and getattr(a, "n", None) is not None:
         out.append(f"proposal/{a.n}")
-    if a.cmd == "answer" and CONTEXT.get("work"):  # the work as requests name it, once its launch was found
+    if a.cmd in ("answer", "card") and CONTEXT.get("work"):  # the work as requests name it, once its launch or thing was found
         out.append(CONTEXT["work"])
     return out
 

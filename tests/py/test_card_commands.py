@@ -285,11 +285,8 @@ class Acts:
     def end(self, label, key):  # no reading recorded on this host, so its close ends none
         return None
 
-    def release_preview(self, label, key):  # no preview recorded on this host, so its close releases none
-        return None
-
-    def release_previews(self, label, key):  # nothing was brought up from a batch's card
-        return None
+    def runner(self, label):  # no preview asked, so a batch card's close puts none away
+        return [], {}
 
     def host(self):
         return "chuck-herdr-alpha"
@@ -1132,7 +1129,6 @@ class TestSweptReading:
         d.mkdir(parents=True)
         (d / "result.json").write_text(json.dumps(result))
         monkeypatch.setattr(plan, "CARDS", tmp_path)
-        monkeypatch.setattr(plan, "PREVIEWS", tmp_path / "previews")
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, plan.Rec("Bolt", [("Bolt", bolt)]), self.AT))
         monkeypatch.setattr(plan.sys, "stdin", io.StringIO(json.dumps({"live": live or [key], "blind": []})))
         plan.card_sweep(self.FLEET, argparse.Namespace(key=None, unit=None, label="wldn"), acts)
@@ -1420,15 +1416,16 @@ def test_reading_an_answered_proposal_card_records_its_answer(monkeypatch, tmp_p
 
 
 # ------------------------------------------------------------ crew card preview, on the user's words (record 0043)
-# rail-cards "The user asks for a preview by writing on the card", "A preview asked for from a card is brought up
-# through sluice and listed while it is up" and "A preview is released on the user's done and when its card or row
-# ends": the owner's command read on the main machine, then on the team's host, sluice stood in for.
+# rail-cards "The user asks for a preview by writing on the card", "A preview asked for from a card is asked of the
+# runner and listed while it is up" and "A preview is released on the user's done and when its card or row ends": the
+# owner's command on the main machine writes one request for the runner on the host where the thing's work runs, and
+# runs nothing there (Decision 6 of a-cards-preview-is-asked-of-the-runner).
 
 import argparse  # noqa: E402
-import datetime  # noqa: E402
 import io  # noqa: E402
 
-from facts import reviewed# noqa: E402
+from facts import FactsWrite, reviewed  # noqa: E402
+import runner  # noqa: E402
 
 PKIT = {"name": "crew", "repo": "agentplot/crew", "main": "/crew/main", "dir": "/crew"}
 PFLEET = {"partitions": {"swancloud": {"label": "swancloud", "machine": "deneb"}}, "hosts": {}}
@@ -1437,14 +1434,38 @@ PAT = {"label": "swancloud", "machine": "deneb", "stream": "swancloud", "kit": P
 PHEAD = "abc1234" + "0" * 33
 CARD = [post("land/crew", "swancloud-ops", "req_k1", Heads="y@abc1234 z@def5678 x@1234567")]
 DEMO = '{"name": "demo", "kind": "preview", "branch": "unit/a", "revision": "abc1234"}'
+ROW = {"bolt": "y", "box": True, "why": None, "facts": {"head": PHEAD, "kit": "crew"}}
+UP = {"name": "crew-y", "branch": "bolt/y", "revision": PHEAD, "state": "up", "addresses": {"web": "http://deneb:4310"}}
+LAUNCHED = plan.Rec("Request", runner.request_fields(1, "launch", "unit/a", dict(
+    Repo="crew", Kind="change", Name="a", Base="bolt/x", Priority=1, Intent="swancloud/x", Recipient="swancloud/planner",
+    Brief="Build a."), "2026-11-08T11:00:00Z", "swancloud-dispatch"))
+
+
+def preview_rec(n, work="bolt/y", revision=PHEAD, done=False, branch=None):
+    """A preview request as crew card preview writes it."""
+    return plan.Rec("Request", runner.request_fields(n, "preview", work, runner.preview_fields(
+        "deneb", "crew", branch or ("bolt/y" if work == "bolt/y" else "unit/a"), revision, done), "2026-11-08T12:00:00Z", "swancloud-ops"))
+
+
+def deneb_read(previews="", answers=""):
+    """deneb's runner as crew reads it, with these answers and previews."""
+    files = {"runner.rec": plan.Plan(runner.RUNNER + "\nHost: deneb\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+             "answers.rec": plan.Plan(runner.ANSWERS + answers), "previews.rec": plan.Plan(runner.PREVIEWS + previews)}
+    return {"deneb": runner.host_read("swancloud", "deneb", "5e1f0c2a" + "0" * 32, files, {})}
+
+
+def done_up(n):
+    return f"\nRequest: {n}\nOutcome: done\nText: {json.dumps(UP)}\nStatus: {json.dumps(UP)}\nListed: yes\nAt: 2026-11-08T12:03:00Z\n"
 
 
 class PreviewActs:
-    """What crew card preview reaches on the main machine: who asks, this host, its run record, the kits; and where it
-    hands the thing on, to the main machine (forward) or the host its work runs on (preview_up), each recorded."""
+    """What crew card preview reaches on the main machine: who asks, this host, its run record, the kits, the
+    partition's requests and runners, a landings row read as the raise reads it, and a unit's made lines; and where it
+    hands the command on, to the main machine (forward), each recorded."""
 
-    def __init__(self, caller="swancloud-ops", host="deneb", entries=CARD):
-        self.who, self.here, self.held, self.forwarded, self.up = caller, host, list(entries), [], []
+    def __init__(self, caller="swancloud-ops", host="deneb", entries=CARD, requests=(), runners=None, row=ROW, lines=None):
+        self.who, self.here, self.held, self.forwarded = caller, host, list(entries), []
+        self.requests, self.runners, self.row, self.lines, self.rows, self.made_on = list(requests), runners or deneb_read(), row, lines, [], []
 
     def caller(self):
         return self.who
@@ -1461,8 +1482,16 @@ class PreviewActs:
     def forward(self, host, args):
         self.forwarded.append((host, args))
 
-    def preview_up(self, host, label, key, thing, done):
-        self.up.append((host, key, thing, done))
+    def runner(self, label):
+        return list(self.requests), dict(self.runners)
+
+    def land_row(self, label, bolt, host):
+        self.rows.append((bolt, host))
+        return (self.row, None) if self.row else (None, "deneb did not answer")
+
+    def made(self, label, host, units):
+        self.made_on.append((host, list(units)))
+        return {"made": {u: self.lines or [] for u in units}}
 
 
 def asked(key, thing, done=False):
@@ -1470,225 +1499,123 @@ def asked(key, thing, done=False):
 
 
 class TestCardPreview:
-    # each row's kit's policy at the head the card recorded: y's and x's declare a preview, z's none
-    POLICY = {"abc1234": (True, None), "def5678": (False, None), "1234567": (True, None)}
-
     @pytest.fixture(autouse=True)
     def held(self, monkeypatch):
-        monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, plan.Rec("Bolt", [("Bolt", bolt)]), PAT))
-        monkeypatch.setattr(plan, "head_previewed", lambda fleet, t, head: self.POLICY[head])
-        # a batch's unit was built where the runner that took its bolt's work reported it (plan.batch_unit_at)
+        """The plan's bolts and where their work runs; each plan write applied to requests.rec as the acts hold it, at a
+        tip holding them; each card change's note kept; and sluice never reached."""
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, plan.Rec("Bolt", [("Bolt", bolt), ("Repo", "crew")]), PAT))
         monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: PAT)
+        monkeypatch.setattr(plan, "sluice_read", lambda *a, **k: pytest.fail("crew card preview runs no sluice command"))
+        self.writes, self.notes = [], []
+        monkeypatch.setattr(plan, "preview_changed", lambda fleet, label, key, note: self.notes.append((key, note)))
+        monkeypatch.setattr(plan, "write", self.write)
 
-    def test_the_owner_hands_a_rows_bolt_to_the_host_its_work_runs_on(self):
-        """rail-cards "The user asks on the landings card"."""
+    def write(self, fleet, label, change, subject, act=None, on=(), fields=None, **more):
+        acts = self.acts
+        text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in acts.requests)
+        w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, runners=acts.runners, label=label)
+        change(w)
+        new = plan.Plan(w.files["requests.rec"]).recs("Request")[len(acts.requests):]
+        acts.requests += new
+        self.writes.append(dict(subject=subject, act=act, on=list(on), fields=fields, requests=[dict(r.fields) for r in new]))
+
+    def run(self, acts, *args, **kw):
+        self.acts = acts
+        return plan.card_preview(PFLEET, asked(*args, **kw), acts)
+
+    def test_ops_ask_writes_one_preview_naming_its_host_work_kit_branch_and_head(self, capsys):
+        """rail-cards "Asked", drive-state "A preview of a landings row's bolt": the row read afresh, as the raise
+        reads it, on the host whose runner took its work; sluice never run."""
         acts = PreviewActs()
-        plan.card_preview(PFLEET, asked("land/crew", "y"), acts)
-        plan.card_preview(PFLEET, asked("land/crew", "y", done=True), acts)
-        assert acts.up == [("deneb", "land/crew", "y", False), ("deneb", "land/crew", "y", True)]
+        self.run(acts, "land/crew", "y")
+        assert acts.rows == [("y", "deneb")]
+        assert [(w["subject"], w["act"], w["on"], w["fields"]) for w in self.writes] == [
+            ("plan(card): preview of y asked from land/crew", "card.preview", ["bolt/y"], {"Key": "land/crew", "State": "asked"})]
+        assert self.writes[0]["requests"] == [{"Request": "1", "Act": "preview", "Host": "deneb", "Work": "bolt/y", "Repo": "crew",
+                                               "Branch": "bolt/y", "Revision": PHEAD, "Date": self.writes[0]["requests"][0]["Date"],
+                                               "By": "swancloud-ops"}]
+        assert self.notes == [("land/crew", "y: Its preview of abc1234 is asked of the runner on deneb")]
+        assert capsys.readouterr().out == "request 1: y: Its preview of abc1234 is asked of the runner on deneb\n"
 
-    def test_anyone_but_the_owner_is_refused_naming_the_owner(self):
-        """rail-cards "Asked by anyone but the owner"."""
-        acts = PreviewActs(caller="swancloud-design")
-        with pytest.raises(plan.Refusal, match="land/crew is swancloud-ops's card: swancloud-ops brings up what it carries"):
-            plan.card_preview(PFLEET, asked("land/crew", "y"), acts)
-        with pytest.raises(plan.Refusal, match="batch/7 is swancloud-planner's card"):
-            plan.card_preview(PFLEET, asked("batch/7", "a/demo"), PreviewActs(caller="swancloud-ops"))
-        assert acts.up == []
+    def test_asked_twice_while_the_runner_reports_it_up_writes_nothing(self, capsys):
+        """rail-cards "Asked twice"."""
+        acts = PreviewActs(requests=[preview_rec(1)], runners=deneb_read(previews=done_up(1)))
+        self.run(acts, "land/crew", "y")
+        assert self.writes == [] and self.notes == []
+        assert capsys.readouterr().out == ("crew's ask of y's preview of abc1234 stands, as request 1, so none is written: "
+                                           "y: Its preview of abc1234 is up: web http://deneb:4310\n")
 
-    def test_a_thing_the_card_does_not_carry_is_refused_naming_the_rows_that_carry_a_preview(self):
-        """rail-cards "A thing the card does not carry": sluice asked for nothing."""
-        acts = PreviewActs()
-        with pytest.raises(plan.Refusal, match="land/crew carries no w to bring up: it carries x and y$"):
-            plan.card_preview(PFLEET, asked("land/crew", "w"), acts)
+    def test_asked_again_after_a_refusal_writes_a_second(self):
+        """rail-cards "Asked again after a refusal"."""
+        words = "its Act preview, which crew's implementation does not read"
+        acts = PreviewActs(requests=[preview_rec(1)], runners=deneb_read(answers=f"\nRequest: 1\nOutcome: refused\nWords: {words}\nAt: 2026-11-08T12:01:00Z\n"))
+        self.run(acts, "land/crew", "y")
+        assert [r["Request"] for w in self.writes for r in w["requests"]] == ["2"]
+        assert self.notes[-1] == ("land/crew", "y: Its preview of abc1234 is asked of the runner on deneb")
+
+    def test_done_writes_the_done_and_with_none_standing_writes_nothing(self, capsys):
+        """rail-cards "The user is done" and "Done with none asked": no row read for it."""
+        acts = PreviewActs(requests=[preview_rec(1)], runners=deneb_read(previews=done_up(1)), row=None)
+        self.run(acts, "land/crew", "y", done=True)
+        assert [(w["subject"], w["fields"]) for w in self.writes] == [
+            ("plan(card): preview of y put away from land/crew", {"Key": "land/crew", "State": "done"})]
+        assert [(r["Request"], r["Host"], r["Work"], r["Repo"], r["Branch"], r["Revision"], r["Done"]) for r in self.writes[0]["requests"]] == [
+            ("2", "deneb", "bolt/y", "crew", "bolt/y", PHEAD, "yes")]
+        assert self.notes == [("land/crew", "y: Its preview of abc1234 is put away")] and acts.rows == []
+        capsys.readouterr()
+        self.run(acts, "land/crew", "y", done=True)
+        assert len(self.writes) == 1 and len(self.notes) == 1
+        assert capsys.readouterr().out == "crew asked for no preview of y that stands, from land/crew or another card, so nothing is put away\n"
+
+    def test_a_batch_lines_ask_names_its_unit_and_the_lines_branch_and_revision(self):
+        acts = PreviewActs(caller="swancloud-planner", entries=[reviewed(7, [("a", "x", "aaa1")])], requests=[LAUNCHED],
+                           lines=[["code", [DEMO]]])
+        self.run(acts, "batch/7", "a/demo")
+        assert acts.made_on == [("deneb", ["a"])]
+        assert [(r["Work"], r["Host"], r["Repo"], r["Branch"], r["Revision"]) for r in self.writes[0]["requests"]] == [
+            ("unit/a", "deneb", "crew", "unit/a", "abc1234")]
+        assert self.notes == [("batch/7", "a/demo: Its preview of abc1234 is asked of the runner on deneb")]
+        with pytest.raises(plan.Refusal, match="batch/7 carries no a/spike to bring up: it carries a/demo"):
+            self.run(acts, "batch/7", "a/spike")
+        with pytest.raises(plan.Refusal, match="batch/7 carries no b to bring up: it carries a"):
+            self.run(acts, "batch/7", "b/demo")
+        with pytest.raises(plan.Refusal, match="a batch's line is named <unit>/<name>"):
+            self.run(acts, "batch/7", "a")
+        with pytest.raises(plan.Refusal, match="holds no batch 8"):
+            self.run(acts, "batch/8", "a/demo")
+        assert len(self.writes) == 1
+
+    def test_a_thing_the_card_does_not_carry_is_refused_writing_nothing(self):
+        """rail-cards "A thing the card does not carry"."""
+        with pytest.raises(plan.Refusal, match="land/crew carries no w to bring up: it carries x, y and z$"):
+            self.run(PreviewActs(), "land/crew", "w")
         with pytest.raises(plan.Refusal, match="land/crew carries no y to bring up: it carries nothing that must run"):
-            plan.card_preview(PFLEET, asked("land/crew", "y"), PreviewActs(entries=()))
-        assert acts.up == []
+            self.run(PreviewActs(entries=()), "land/crew", "y")
+        with pytest.raises(plan.Refusal, match="land/crew's row y can't land now, so its preview is not asked: held for a fix"):
+            self.run(PreviewActs(row={"bolt": "y", "why": "held for a fix: gap (fix/y/gap)"}), "land/crew", "y")
+        with pytest.raises(plan.Refusal, match="proposal/3 carries nothing crew brings up"):
+            self.run(PreviewActs(), "proposal/3", "y")
+        assert self.writes == [] and self.notes == []
 
-    def test_a_row_whose_kit_declares_no_preview_is_refused_naming_the_rows_that_carry_one(self):
-        """rail-cards "A thing the card does not carry": a row reading "No preview." brings nothing up."""
-        acts = PreviewActs()
-        with pytest.raises(plan.Refusal, match="land/crew carries no z to bring up: it carries x and y$"):
-            plan.card_preview(PFLEET, asked("land/crew", "z"), acts)
-        assert acts.up == []
-
-    def test_a_row_whose_policy_cant_be_read_is_named_and_carries_nothing(self, monkeypatch):
-        """read.1: a row crew can't tell of is said, never taken as carrying a preview or as carrying none."""
-        monkeypatch.setitem(self.POLICY, "1234567", (None, "git show in /crew/main on deneb failed: bad object"))
-        acts = PreviewActs()
-        with pytest.raises(plan.Refusal, match="carries no x to bring up: it carries y; whether x has a preview can't be "
-                                               "told: git show in /crew/main on deneb failed: bad object"):
-            plan.card_preview(PFLEET, asked("land/crew", "x"), acts)
-        assert acts.up == []
-
-    def test_done_reads_no_policy_and_puts_away_on_any_row(self, monkeypatch):
-        """rail-cards "The user is done": what crew brought up is put away whatever the row's policy says now."""
-        monkeypatch.setattr(plan, "head_previewed", lambda fleet, t, head: pytest.fail("--done reads no policy"))
-        acts = PreviewActs()
-        plan.card_preview(PFLEET, asked("land/crew", "z", done=True), acts)
-        assert acts.up == [("deneb", "land/crew", "z", True)]
+    def test_anyone_but_the_owner_is_refused_writing_nothing(self):
+        """rail-cards "Asked by anyone but the owner"."""
+        with pytest.raises(plan.Refusal, match="land/crew is swancloud-ops's card: swancloud-ops brings up what it carries"):
+            self.run(PreviewActs(caller="swancloud-design"), "land/crew", "y")
+        with pytest.raises(plan.Refusal, match="batch/7 is swancloud-planner's card"):
+            self.run(PreviewActs(caller="swancloud-ops"), "batch/7", "a/demo")
+        assert self.writes == [] and self.notes == []
 
     def test_off_the_main_machine_it_runs_there(self):
         acts = PreviewActs(host="mac-studio")
-        plan.card_preview(PFLEET, asked("land/crew", "y", done=True), acts)
-        assert acts.forwarded == [("deneb", ["card", "preview", "land/crew", "y", "--done", "--label", "swancloud"])] and acts.up == []
+        self.run(acts, "land/crew", "y", done=True)
+        assert acts.forwarded == [("deneb", ["card", "preview", "land/crew", "y", "--done", "--label", "swancloud"])]
+        assert self.writes == [] and acts.rows == []
 
-    def test_a_batchs_line_goes_to_its_units_host_and_a_unit_not_in_the_batch_is_refused(self):
-        acts = PreviewActs(caller="swancloud-planner", entries=[reviewed(7, [("a", "x", "aaa1")])])
-        plan.card_preview(PFLEET, asked("batch/7", "a/demo"), acts)
-        assert acts.up == [("deneb", "batch/7", "a/demo", False)]
-        with pytest.raises(plan.Refusal, match="batch/7 carries no b to bring up: it carries a"):
-            plan.card_preview(PFLEET, asked("batch/7", "b/demo"), acts)
-        with pytest.raises(plan.Refusal, match="a batch's line is named <unit>/<name>"):
-            plan.card_preview(PFLEET, asked("batch/7", "a"), acts)
-        with pytest.raises(plan.Refusal, match="holds no batch 8"):
-            plan.card_preview(PFLEET, asked("batch/8", "a/demo"), acts)
-
-    def test_another_key_carries_nothing_crew_brings_up(self):
-        with pytest.raises(plan.Refusal, match="proposal/3 carries nothing crew brings up"):
-            plan.card_preview(PFLEET, asked("proposal/3", "y"), PreviewActs())
-
-
-class Sluice:
-    """sluice on the host the thing's work runs on as crew card preview reaches it: its previews listed once the ask was
-    handed (or never, refuse), each ask handed recorded with its argv, each release recorded, each card's note recorded,
-    and each partition and landings the rail's sweep read here (reaped)."""
-
-    def __init__(self, monkeypatch, tmp_path, refuse=None):
-        self.handed, self.released, self.notes, self.refuse, self.reaped = [], [], [], refuse, []
-        self.tmp = tmp_path
-        monkeypatch.setattr(plan, "PREVIEWS", tmp_path / "previews")
-        monkeypatch.setattr(plan, "MADE", tmp_path / "made")
-        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
-        monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: PAT)
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [reviewed(7, [("a", "x", "aaa1")])])
-        monkeypatch.setattr(plan, "reap_judged", lambda fleet, label, landings: self.reaped.append((label, landings)))
-        monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: ("p", plan.Rec("Bolt", [("Bolt", bolt)]), PAT))
-        monkeypatch.setattr(plan, "land_read", lambda fleet, label, p, b, t: ({"box": True, "facts": {"head": PHEAD, "kit": "crew"}}, None))
-        self.policy = (True, None)
-        monkeypatch.setattr(plan, "head_previewed", lambda fleet, t, head: self.policy)
-        monkeypatch.setattr(plan, "preview_hand", self.hand)
-        monkeypatch.setattr(plan, "preview_alive", lambda r, label: False)
-        monkeypatch.setattr(plan, "sluice_read", self.read)
-        monkeypatch.setattr(plan, "preview_changed", lambda fleet, label, key, note: self.notes.append((key, note)))
-
-    def hand(self, label, r):
-        self.handed.append(dict(r))
-        log = plan.preview_log(r)
-        log.write_text(f"{self.refuse}\n" if self.refuse else "")
-        return argparse.Namespace(pid=4242, poll=lambda: 0 if self.refuse else None)
-
-    def read(self, main, *args, timeout=None):
-        if args[0] == "previews":
-            return ([{"name": "preview/0123456789ab", "branch": r["branch"], "revision": r["head"], "state": "up",
-                      "addresses": {"web": "http://web-abc1234--bolt-y--crew"}} for r in self.handed if not self.refuse], None)
-        if args[0] == "release":
-            self.released.append((main, args[1]))
-            return {"preview": args[1], "released": True}, None
-        raise AssertionError(args)
-
-
-def kept_made(unit, stage, line):
-    """A line kept for a unit under a stage on this host, as a conductor's wait kept it (plan.made_kept reads it)."""
-    d = plan.MADE / "swancloud" / unit
-    d.mkdir(parents=True, exist_ok=True)
-    (d / f"{stage}.jsonl").write_text(f"{line}\n")
-
-
-class TestBroughtUp:
-    @pytest.mark.parametrize("policy, why", [
-        ((False, None), "land/crew's row y carries no preview: its kit's policy at abc1234 declares none, so nothing is brought up"),
-        ((None, "git show in /crew/main on deneb failed: bad object"),
-         "whether y has a preview at abc1234 can't be told, so nothing is brought up: git show in /crew/main on deneb failed: bad object")])
-    def test_a_row_with_no_preview_at_its_head_now_is_refused_with_sluice_asked_nothing(self, monkeypatch, tmp_path, policy, why):
-        """rail-cards "A thing the card does not carry", read at the row's head as it reads now on the team's host."""
-        s = Sluice(monkeypatch, tmp_path)
-        s.policy = policy
-        with pytest.raises(plan.Refusal) as e:
-            plan.card_preview_here(PFLEET, "swancloud", "land/crew", "y", False)
-        assert str(e.value) == why
-        assert s.handed == [] and s.notes == [] and plan.preview_recorded("swancloud", "land/crew", "y") is None
-
-    def test_the_rows_preview_is_brought_up_once_listed_on_the_card_and_put_away_on_done(self, monkeypatch, tmp_path, capsys):
-        """rail-cards "Brought up", "Asked twice" and "The user is done"."""
-        s = Sluice(monkeypatch, tmp_path)
-        plan.card_preview_here(PFLEET, "swancloud", "land/crew", "y", False)
-        assert [(r["key"], r["thing"], r["branch"], r["head"], r["main"]) for r in s.handed] == [("land/crew", "y", "bolt/y", PHEAD, "/crew/main")]
-        assert s.notes == [("land/crew", "y: Its preview of abc1234 is up")]
-        assert capsys.readouterr().out == "y: Its preview of abc1234 is up: web http://web-abc1234--bolt-y--crew\n"
-        r = plan.preview_recorded("swancloud", "land/crew", "y")
-        assert (r["pid"], r["name"], r["shown"]) == (4242, "preview/0123456789ab", "addresses")
-        assert r["path"] == str(tmp_path / "previews" / "swancloud" / "land-crew" / "y.json")
-        plan.card_preview_here(PFLEET, "swancloud", "land/crew", "y", False)
-        assert len(s.handed) == 1 and s.notes[-1] == ("land/crew", "y: Its preview of abc1234 is up")
-        plan.card_preview_here(PFLEET, "swancloud", "land/crew", "y", True)
-        assert s.released == [("/crew/main", "preview/0123456789ab")] and plan.preview_recorded("swancloud", "land/crew", "y") is None
-        assert s.notes[-1] == ("land/crew", "y: Its preview of abc1234 is put away")
-        capsys.readouterr()
-        plan.card_preview_here(PFLEET, "swancloud", "land/crew", "y", True)
-        assert capsys.readouterr().out == "crew brought up no preview of y from land/crew on deneb, so nothing is put away\n"
-        assert len(s.notes) == 3
-
-    def test_a_batchs_line_is_brought_up_from_its_branch_and_revision_and_sluices_refusal_said(self, monkeypatch, tmp_path, capsys):
-        """rail-cards "A line naming a branch sluice does not land"."""
-        why = "no [branches] table in .config/sluice.toml on unit/a names it"
-        s = Sluice(monkeypatch, tmp_path, refuse=why)
-        kept_made("a", "code", DEMO)
-        plan.card_preview_here(PFLEET, "swancloud", "batch/7", "a/demo", False)
-        assert [(r["key"], r["thing"], r["branch"], r["head"]) for r in s.handed] == [("batch/7", "a/demo", "unit/a", "abc1234")]
-        assert s.notes == [("batch/7", "a/demo: Its preview of abc1234 could not be brought up")]
-        assert capsys.readouterr().out == f"a/demo: Its preview of abc1234 could not be brought up: {why}\n"
-        with pytest.raises(plan.Refusal, match="batch/7 carries no a/spike to bring up: it carries a/demo"):
-            plan.card_preview_here(PFLEET, "swancloud", "batch/7", "a/spike", False)
-
-    def test_a_batch_cards_close_releases_what_was_brought_up_from_it(self, monkeypatch, tmp_path):
-        """rail-cards "A preview is released ... when the card closes"."""
-        s = Sluice(monkeypatch, tmp_path)
-        kept_made("a", "code", DEMO)
-        plan.card_preview_here(PFLEET, "swancloud", "batch/7", "a/demo", False)
-        assert plan.preview_release_card("swancloud", "batch/7") == "released a/demo's preview of abc1234 from batch/7, preview/0123456789ab"
-        assert s.released == [("/crew/main", "preview/0123456789ab")] and plan.preview_release_card("swancloud", "batch/7") is None
-
-    def test_the_rails_sweep_releases_any_cards_preview_whose_card_or_row_is_gone(self, monkeypatch, tmp_path, capsys):
-        """rail-cards "A card closed elsewhere", now for every key's records, and two minutes' grace for one just asked."""
-        s = Sluice(monkeypatch, tmp_path)
-        long_ago = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        just = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        for key, thing, at in (("land/crew", "y", long_ago), ("batch/7", "a/demo", long_ago), ("batch/8", "b/demo", just),
-                               ("land/crew", "z", long_ago)):
-            p = plan.preview_path("swancloud", key, thing)
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(json.dumps(dict(key=key, thing=thing, branch="bolt/x", head=PHEAD + thing[0], main="/crew/main", asked=at)))
-        (tmp_path / "previews" / "swancloud" / "x.json").write_text(json.dumps({"head": PHEAD, "main": "/crew/main", "asked": long_ago}))
-        monkeypatch.setattr(plan, "CARDS", tmp_path / "cards")
-        landing = {"bolt": "z", "kit": "crew", "dir": "/crew/main", "stages": ["landed"]}
-        monkeypatch.setattr(plan.sys, "stdin", io.StringIO(json.dumps({"live": ["land/z"], "blind": [], "landings": [landing]})))
-        plan.card_sweep(PFLEET, argparse.Namespace(key=None, unit=None, label="swancloud"), Acts())
-        out = json.loads(capsys.readouterr().out)
-        assert sorted((x["key"], x["said"].split(" from ")[0], x["ended"]) for x in out) == [
-            ("batch/7", "released a/demo's preview of abc1234", True), ("land/x", "released x's preview of abc1234", True),
-            ("land/y", "released y's preview of abc1234", True)]
-        assert [f.name for f in sorted((tmp_path / "previews" / "swancloud").rglob("*.json"))] == ["b-demo.json", "z.json"]
-        assert len(s.released) == 3
-        # and, its JSON list kept on standard output, it read the landings the rail's read named here (plan.21)
-        assert s.reaped == [("swancloud", [landing])]
-
-
-def test_a_batch_cards_close_hands_its_previews_release_on_and_no_other_card_does(monkeypatch):
-    """rail-cards "A preview is released on the user's done and when its card or row ends": the close's own act."""
-    class Releasing(Acts):
-        def __init__(self, *a, **k):
-            super().__init__(*a, **k)
-            self.batch_released = []
-
-        def release_previews(self, label, key):
-            self.batch_released.append(key)
-            return f"released a/demo's preview of abc1234 from {key}"
-    for key, released in (("batch/7", ["batch/7"]), ("proposal/3", [])):
-        acts = Releasing({"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)},
-                         [post(key, "wldn-planner", "req_7")], caller="wldn-planner")
-        plan.row_card_close(None, "wldn", "wldn-planner", key, reason="the batch was read", acts=acts)
-        assert acts.batch_released == released
+    def test_card_preview_is_a_command_that_writes_a_request_for_ops_and_the_planner(self):
+        """roles.1: the role table names every command that writes a request."""
+        assert plan.REQUESTERS["card preview"] == ("main-ops", "planner")
+        assert plan.ACTS[("card", "preview")] == "card.preview"
 
 
 # --------------------------------------------------------------------- a card's change, as Pending You's notice names it

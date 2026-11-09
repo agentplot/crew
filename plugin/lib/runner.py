@@ -32,6 +32,7 @@ is a launch of Flume's chore kind on its repository's default branch, the role's
 
 Each is a function of plain facts (code.7); plan.py, crew.py and hold.py read the facts and act on what they decide.
 This module imports nothing outside the standard library and crew's own modules (code.1)."""
+import datetime
 import json
 import os
 import re
@@ -49,7 +50,8 @@ def runnerless(label, tips):
 REQUESTS = """\
 # crew's requests of the runners: a launch of a Flume place for a started
 # bolt's work, a fix or a role's work that lands, or a retry, drop or priority
-# of a place launched.
+# of a place launched; or a preview of a branch at a revision on the host whose
+# runner took the work it serves, or its done.
 # Written only by crew, each in the commit of the plan write that occasions it;
 # numbered once, and never changed or removed. The runner whose configuration
 # names a launch's Repo takes it, or for a role's the runner on its Host, and
@@ -60,30 +62,35 @@ REQUESTS = """\
 %doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work; or a retry, drop or priority of the place the launch Of names launched, taken by the runner that took it.
 %key: Request
 %type: Request,Of,After,Priority int
-%type: Act enum launch retry drop priority
+%type: Act enum launch retry drop priority preview
 %type: Kind enum change chore fix
 %type: Hold enum submission
 %type: Submission bool
+%type: Done bool
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Date date
 %mandatory: Request Act Work Date By
-%allowed: Request Act Host Work Repo Kind Name Base Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
+%allowed: Request Act Host Work Repo Kind Name Base Branch Revision Done Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
 """
 # A request's fields in the order requests.rec writes them (Decision 4's table).
-FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent", "Recipient", "Hold",
-          "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
+FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Branch", "Revision", "Done", "Stream", "Priority",
+          "Intent", "Recipient", "Hold", "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
 # What every request carries, and, by its act, what it must carry beside them and what else it may: a launch of a
-# role's work names its Host and Stream, and a launch of a kit's work neither (request_refusal).
+# role's work names its Host and Stream, and a launch of a kit's work neither; a preview names the host whose runner
+# brings it up, its repository, branch and revision, and Done: yes to put it away (request_refusal).
 COMMON = ("Request", "Act", "Work", "Date", "By")
 ACTS = {
     "launch": (("Repo", "Kind", "Name", "Base", "Priority", "Intent", "Recipient", "Brief"), ("Hold", "After", "Host", "Stream")),
     "retry": (("Of",), ("Stage", "Submission", "Words")),
     "drop": (("Of",), ()),
     "priority": (("Of", "Priority"), ()),
+    "preview": (("Host", "Repo", "Branch", "Revision"), ("Done",)),
 }
 # The work a request serves, as crew names it: a unit, a chore, a fix on a bolt or a fix of a kit's main, or a role's
-# work that lands (Decision 10 of roles-run-as-flume-kinds).
+# work that lands (Decision 10 of roles-run-as-flume-kinds); and the work a preview serves alone, a landings row's
+# bolt or a batch line's unit (Decision 1 of a-cards-preview-is-asked-of-the-runner), bolt/<bolt> serving no other.
 WORK = re.compile(r"^(?:unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+PREVIEW_WORK = re.compile(r"^(?:bolt/N|unit/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
 
 
 def number(v):
@@ -118,15 +125,21 @@ def request_refusal(requests, new):
     launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
     host's Flume configuration maps the repository to (settled with the user 2026-11-01); a retry, drop or priority names by Of a launch of the same
     work; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds its
-    submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
+    submission; and a retry starts a stage again or submits again, not both (Decision 4). A preview names the host
+    whose runner brings it up, serves a landings row's bolt/<bolt> or a batch line's unit/<unit>, bolt/<bolt> being
+    the work of no other request, and is marked done by Done: yes alone (Decision 1 of
+    a-cards-preview-is-asked-of-the-runner)."""
     n, act, work = new.get("Request"), new.get("Act"), new.get("Work")
     want = next_request(requests)
     if number(n) != want:
         return (f"request {n} is not the next in requests.rec: it holds "
                 + (f"requests 1 to {want - 1}" if want > 2 else "request 1" if want == 2 else "none") + f", so the next is {want}")
     if act not in ACTS:
-        return f"request {n} is a {act}, and a request is a launch, a retry, a drop or a priority"
+        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority or a preview"
     need, may = ACTS[act]
+    if act == "preview" and not new.get("Host"):
+        return (f"preview {n} for {work} names no Host: a preview names the host whose runner brings it up, the one whose "
+                "runner reported the work it serves")
     missing = [f for f in COMMON + need if not new.get(f)]
     if missing:
         return (f"{act} {n} for {work} names no {' and no '.join(missing)}: a {act} carries "
@@ -134,16 +147,22 @@ def request_refusal(requests, new):
     extra = sorted({f for f, _ in new.fields if f not in COMMON + need + may})
     if extra:
         return f"{act} {n} for {work} carries {', '.join(extra)}, which a {act} does not take"
-    if not WORK.match(work):
+    if act == "preview" and not PREVIEW_WORK.match(work):
+        return f"preview {n} serves {work}, and a preview serves bolt/<bolt>, a landings row's, or unit/<unit>, a batch line's"
+    if act != "preview" and PREVIEW_WORK.match(work) and work.startswith("bolt/"):
+        return f"{act} {n} serves {work}, and bolt/<bolt> is the work of a preview alone"
+    if act != "preview" and not WORK.match(work):
         return (f"{act} {n} serves {work}, and a request serves unit/<unit>, chore/<chore>, fix/<bolt>/<name>, fix/main/<kit>/<name> "
                 "or role/<role>/<name>")
+    if act == "preview" and new.get("Done") not in (None, "yes"):
+        return f"preview {n} for {work} is marked Done: {new.get('Done')}, and a preview is put away by Done: yes alone"
     if act == "launch" and work.startswith("role/") and not (new.get("Host") and new.get("Stream")):
         return f"launch {n} of {work} names no Host or no Stream: a role's work runs on the host and in the stream its role runs in"
     if act == "launch" and not work.startswith("role/") and (new.get("Host") or new.get("Stream")):
         return (f"launch {n} of {work} names a Host or a Stream: a kit's work is taken by a runner whose configuration "
                 "names its repository, in the stream its host's Flume configuration maps the repository to, and crew names neither")
     by = {r.get("Request"): r for r in requests}
-    if act != "launch":
+    if act in ("retry", "drop", "priority"):
         of = by.get(new.get("Of"))
         if of is None or of.get("Act") != "launch":
             return f"{act} {n} for {work} names request {new.get('Of')}, which is no launch" + (
@@ -163,6 +182,14 @@ def request_refusal(requests, new):
     if act == "retry" and new.get("Stage") and new.get("Submission"):
         return f"retry {n} of {work} names stage {new.get('Stage')} and the submission: a retry starts a stage again or submits again"
     return None
+
+
+def preview_fields(host, repo, branch, revision, done=False):
+    """The fields of a preview request (Decision 1 of a-cards-preview-is-asked-of-the-runner), as plan.request takes
+    them beside its act and work: the host whose runner reported the work it serves, which alone brings it up; its
+    repository as the plan names it, resolved by that runner as a launch's is; the branch and the revision the row or
+    line names; and, for its done, Done: yes."""
+    return {"Host": host, "Repo": repo, "Branch": branch, "Revision": revision, "Done": True if done else None}
 
 
 def append_refusal(before, after):
@@ -194,7 +221,11 @@ def runner_branch(label, host):
 # (boomdrive's the-runner-carries-crews-work-into-flume, Decision 14); and repositories.rec each repository its
 # configuration keeps on the host, by its forge address with the folder of its clone, where Flume cuts its places
 # (roles.9; the drive-state spec, "A kit's work is taken by a runner whose configuration names its repository"), a
-# branch with none reporting no repositories.
+# branch with none reporting no repositories; and previews.rec what it answered of each preview request, by its
+# number: held, done or refused, sluice's answer (Text) and listing (Status) of the preview as the runner carried
+# them, each JSON on one line, whether sluice's last listing held it, the runner's words and when, under the
+# descriptor Boomdrive's runner writes (crates/boomdrive-crew/src/write.rs PREVIEWS at v0.6.0), held here byte for
+# byte (Decision 3 of a-cards-preview-is-asked-of-the-runner), a branch with none having answered no preview.
 RUNNER = """\
 %rec: Runner
 %key: Host
@@ -233,7 +264,18 @@ REPOSITORIES = """\
 %mandatory: Repository Folder
 %allowed: Repository Folder
 """
-FILES = {"runner.rec": "Runner", "answers.rec": "Answer", "places.rec": "Place", "repositories.rec": "Repository"}
+PREVIEWS = """\
+%rec: Preview
+%key: Request
+%type: Request int
+%type: Outcome enum held done refused
+%type: Listed enum yes no
+%type: At date
+%mandatory: Request Outcome At
+%allowed: Request Outcome Text Status Listed Words At
+"""
+FILES = {"runner.rec": "Runner", "answers.rec": "Answer", "places.rec": "Place", "repositories.rec": "Repository",
+         "previews.rec": "Preview"}
 
 
 def host_read(label, host, tip, files, refused):
@@ -245,7 +287,10 @@ def host_read(label, host, tip, files, refused):
     place's path, when the runner carried it, and its Status parsed, or with why it could not be; each role's run
     by its address, likewise, with the runner's words where it could launch none; and the repositories it keeps, each
     one's folder by its forge address, None where the tip holds no repositories.rec, a runner that reports none
-    (roles.9)."""
+    (roles.9); and its answer to each preview request by its number, {outcome, text, status, listed, words, at,
+    why}: sluice's answer (text) and listing (status) parsed, None where it carried none, listed True, False or
+    None, and why, naming the file, where either is no JSON, which marks that preview alone (Decision 3 of
+    a-cards-preview-is-asked-of-the-runner); none where the tip holds no previews.rec."""
     branch = runner_branch(label, host)
     out = {"host": host, "branch": branch, "tip": tip, "why": None}
     if tip is None:
@@ -294,8 +339,24 @@ def host_read(label, host, tip, files, refused):
             return dict(out, why=f"{host}'s runner can't be read: {at}: repositories.rec holds " + (
                 "a record with no repository's address" if not a else f"{a} twice" if a in kept else f"{a} with no folder"))
         kept[a] = r.get("Folder")
+    previews = {}
+    for r in files["previews.rec"].recs("Preview") if files.get("previews.rec") is not None else []:
+        n = number(r.get("Request"))
+        if n is None or n in previews:
+            return dict(out, why=f"{host}'s runner can't be read: {at}: previews.rec holds "
+                        + ("a record with no request's number" if n is None else f"request {n} twice"))
+        parsed, why = {}, None
+        for field in ("Text", "Status"):
+            try:
+                parsed[field] = json.loads(r.get(field)) if r.get(field) is not None else None
+            except ValueError as e:
+                parsed[field] = None
+                why = why or f"{at}: previews.rec's {field} of the preview of request {n} is no JSON ({e})"
+        previews[n] = {"outcome": r.get("Outcome"), "text": parsed["Text"], "status": parsed["Status"],
+                       "listed": {"yes": True, "no": False}.get(r.get("Listed")), "words": r.get("Words"), "at": r.get("At"),
+                       "why": why}
     return dict(out, runner=run[0], answers=answers, places=places, runs=runs,
-                repositories=kept if files.get("repositories.rec") is not None else None)
+                repositories=kept if files.get("repositories.rec") is not None else None, previews=previews)
 
 
 def role_run(reading, address):
@@ -1149,3 +1210,151 @@ def role_launch(requests, named, label, role, host, stream, repo, name, brief):
     return ("launch", work, {
         "Repo": repo, "Kind": "chore", "Name": name, "Base": ROLE_BASE, "Host": host, "Stream": stream, "Priority": 0,
         "Intent": f"{label}-{role}", "Recipient": f"{label}/{role}", "Brief": brief}), None
+
+
+# ------------------------------------------------------------------------------------------------ a card's preview
+
+# A preview as sluice lists it, and as the runner carries sluice's answer and listing of it (Boomdrive's previews
+# spec): its states, the first while it waits for room on its host.
+PREVIEW_STATES = ("waiting", "starting", "up", "failed")
+# Each state of a card's preview in one word (Decision 4 of a-cards-preview-is-asked-of-the-runner), for a change
+# note and for what a card was told (preview_word).
+PREVIEW_WORDS = {"ask": "ask", "asked": "asked", "held": "held", "waiting": "coming", "starting": "coming", "up": "up",
+                 "failed": "failed", "refused": "refused", "unlisted": "unlisted", "unread": "unread"}
+
+
+def preview_requests(requests):
+    """The preview requests of requests.rec, bring-ups and dones, in its order."""
+    return [r for r in requests if r.get("Act") == "preview"]
+
+
+def sluice_preview(doc, at):
+    """sluice's answer or listing of a preview as the runner carried it (doc), its fields checked where crew reads them
+    (read.2): (name, state, addresses, None), or (None, None, None, why) naming the field that holds nothing crew
+    reads, at naming the file it came from. A failed one's addresses are not read."""
+    if not isinstance(doc, dict):
+        return None, None, None, f"{at}: sluice's preview, as the runner carried it, is no object crew reads"
+    name, state, addresses = doc.get("name"), doc.get("state"), doc.get("addresses")
+    if not (isinstance(name, str) and name):
+        return None, None, None, f"{at}: sluice's preview, as the runner carried it, gives no name crew reads"
+    if state not in PREVIEW_STATES:
+        return None, None, None, f"{at}: sluice's preview {name}, as the runner carried it, gives state {json.dumps(state)}, which crew does not read"
+    if state == "failed":
+        return name, state, {}, None
+    if not (isinstance(addresses, dict) and all(isinstance(k, str) and k and isinstance(v, str) and v for k, v in addresses.items())):
+        return None, None, None, f"{at}: sluice's preview {name}, as the runner carried it, gives addresses that are no object of text"
+    return name, state, dict(addresses), None
+
+
+def preview_report(reads, request):
+    """A preview request as the runner on the host it names reports it (Decisions 2 and 3 of
+    a-cards-preview-is-asked-of-the-runner; drive-state "A preview is read from the runner on the host it names"), from
+    facts alone (code.7): reads, the partition's runners as crew read them (host_read's, by host); request, a
+    preview's record of requests.rec. Returns {state, host, head, and what goes with it}, head the request's revision:
+    from that runner's previews.rec, held with its words; refused with its words; or done, its state, name and
+    addresses from sluice's listing where the runner carried it, else from sluice's answer, unlisted where sluice's last
+    listing no longer held it; else, where that runner refused the request in answers.rec, as one that cannot read it
+    does, refused with its words; else asked, as no runner has answered it yet. unread, with why, where that runner, or
+    the preview's JSON, can't be read (read.1). Each carries when the runner answered it (at), where it did."""
+    n, host = number(request.get("Request")), request.get("Host")
+    out = {"host": host, "head": request.get("Revision")}
+    reading = reads.get(host)
+    if reading is None:
+        return dict(out, state="unread", why=f"no runner answers on {host}, the host preview {n} names")
+    if reading.get("why"):
+        return dict(out, state="unread", why=reading["why"])
+    p = (reading.get("previews") or {}).get(n)
+    if p is not None:
+        out = dict(out, at=p.get("at"))
+        if p["outcome"] == "held":
+            return dict(out, state="held", **({"words": p["words"]} if p.get("words") else {}))
+        if p["outcome"] == "refused":
+            return dict(out, state="refused", words=p.get("words"))
+        if p["outcome"] != "done":
+            return dict(out, state="unread", why=f"{host}'s runner answered preview {n} {p['outcome']}, which crew does not read")
+        if p.get("why"):
+            return dict(out, state="unread", why=p["why"])
+        if p.get("listed") is False:
+            return dict(out, state="unlisted")
+        doc = p["status"] if p.get("status") is not None else p.get("text")
+        if doc is None:
+            return dict(out, state="unread", why=f"{host}'s runner answered preview {n} done, carrying neither sluice's answer nor its listing")
+        name, state, addresses, why = sluice_preview(doc, f"{reading['branch']}'s previews.rec, request {n}")
+        if why:
+            return dict(out, state="unread", why=why)
+        return dict(out, state=state, name=name, **({"addresses": addresses} if state != "failed" else {}))
+    a = reading["answers"].get(n)
+    if a is not None and a.get("Outcome") == "refused":
+        return dict(out, state="refused", words=a.get("Words"), at=a.get("At"))
+    return dict(out, state="asked")
+
+
+def previews_asked(requests):
+    """crew's asks of previews not put away, {(host, repo, revision): the request}: for each host, repository and
+    revision a preview request names, its newest, where that is a bring-up, whatever the runner answered it; what a
+    card carries of a preview (Decision 2 of a-cards-preview-is-asked-of-the-runner)."""
+    newest = {}
+    for r in preview_requests(requests):
+        k = (r.get("Host"), r.get("Repo"), r.get("Revision"))
+        if k not in newest or (number(r.get("Request")) or 0) > (number(newest[k].get("Request")) or 0):
+            newest[k] = r
+    return {k: r for k, r in newest.items() if r.get("Done") != "yes"}
+
+
+def previews_standing(requests, reads):
+    """crew's asks of previews that stand (Decision 2 of a-cards-preview-is-asked-of-the-runner), {(host, repo,
+    revision): the request}: for each host, repository and revision a preview request names, its newest, where that is
+    a bring-up the host's runner has not refused (previews_asked, preview_report). A done ends the ask, and so does the
+    runner's refusal; a bring-up written after a done stands again. One crew can't read stands, nothing ended on a
+    reading crew lacks (read.1)."""
+    return {k: r for k, r in previews_asked(requests).items() if preview_report(reads, r)["state"] != "refused"}
+
+
+def ask_step(ask, report):
+    """What crew card preview does with a thing's preview (Decision 6 of a-cards-preview-is-asked-of-the-runner;
+    rail-cards "Asked twice", "Asked again after a refusal"), from facts alone: ask, crew's standing ask of that
+    revision on that host (previews_standing), or None; report, the runner's report of it (preview_report). "keep"
+    while it stands and the runner has neither refused it nor reported it failed, unlisted or unread, the card given
+    back what it reports with no second request; "ask" otherwise, one bring-up written."""
+    if ask is None or report is None or report["state"] in ("refused", "failed", "unlisted", "unread"):
+        return "ask"
+    return "keep"
+
+
+def preview_word(shown):
+    """A card's preview, in the shape cards.preview_said takes it, in one word (Decision 4 of
+    a-cards-preview-is-asked-of-the-runner): ask, asked, held, coming (waiting or starting), up, failed, refused,
+    unlisted or unread, the last for a preview crew can't read ({head, why}); None for none."""
+    if not shown:
+        return None
+    state = shown.get("state")
+    if state is None:
+        return "unread" if shown.get("why") else None
+    return PREVIEW_WORDS.get(state, "unread")
+
+
+def asked_at(request):
+    """When a request was written, from its Date, as an aware datetime; None where it holds none crew reads."""
+    try:
+        return datetime.datetime.strptime(request.get("Date") or "", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+
+
+def previews_put_away(asks, carried, works, now=None, grace=0):
+    """The asks whose done crew writes (Decision 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A preview is
+    released on the user's done and when its card or row ends"), from facts alone: asks, the standing asks a caller
+    weighs, as previews_standing gives them; carried, the (host, repo, revision) of each row or line that still carries
+    its preview; works, the work whose card still stands, each kept whole; now and grace, an ask written under grace
+    seconds before now kept, as it may be a card's not yet raised. Returns each bring-up whose done is to be written,
+    in requests.rec's order; an ask whose age crew can't read is kept (read.1). A preview crew did not ask for is in
+    no ask, and so never put away."""
+    out = []
+    for k, r in asks.items():
+        if k in carried or r.get("Work") in works:
+            continue
+        at = asked_at(r)
+        if now is not None and grace and (at is None or (now - at).total_seconds() < grace):
+            continue
+        out.append(r)
+    return sorted(out, key=lambda r: number(r.get("Request")) or 0)
