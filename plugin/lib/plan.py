@@ -1161,7 +1161,7 @@ def requests_of(w):
 
 
 def request(w, act, work, **given):
-    """A request of the runners (act, launch, retry, drop or priority, for work, with the fields given as
+    """A request of the runners (act, launch, retry, drop, priority, preview or confirm, for work, with the fields given as
     runner.request_fields takes them) appended to requests.rec in the write's own commit, beside the plan write that
     occasions it and under its one Crew-Entry (state.1, plan.2): numbered the next, dated now and by the writer, and
     checked by crew's own rules (runner.request_refusal) before land checks the file by recfix with every other the
