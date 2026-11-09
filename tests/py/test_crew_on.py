@@ -17,7 +17,7 @@ BOX = "chuck-herdr-alpha"
 def fleet(*repos):
     """The box's spaces as the hosts file has them on 2026-11-07, its willdan sessions keeping repos at /workspace."""
     sess = {"dir": "/workspace", "partition": "clients/willdan", "repos": list(repos)}
-    return {"hosts": {BOX: {"sessions": {"wldn": sess, "wldn-3": dict(sess)}}, "deneb": {"sessions": {}}}, "partitions": {}}
+    return {"hosts": {BOX: {"sessions": {"wldn": sess, "wldn-3": dict(sess)}}, "deneb": {"sessions": {}}}, "drives": {}}
 
 
 KEPT = fleet("agentplot/crew", "WilldanGroup/atlas-kit", "WilldanGroup/willdan-blueprints")

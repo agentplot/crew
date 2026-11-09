@@ -70,7 +70,7 @@ def area_of(matched):
 
 def create_area_args(remote, label, matched):
     """create_area's arguments for the kit's area: under create-area:<owner>/<kit> (briefs.11), named for the kit, in
-    the partition's group, with match_area's proposed tint, and the remote linked so later posts match it."""
+    the drive's group, with match_area's proposed tint, and the remote linked so later posts match it."""
     repo = remote.rsplit("/", 1)[1]
     tint = matched.get("proposedTint") if isinstance(matched, dict) else None
     return {"idempotencyKey": f"create-area:{kit_of(remote)}", "name": repo,
@@ -235,16 +235,16 @@ def lost_said(key, card, words):
             f"see it and answer it, to nobody. {again}")
 
 
-# A name crew raises its own cards in: a partition's planner, main-level ops or design agent (plan.row_owner, the
+# A name crew raises its own cards in: a drive's planner, main-level ops or design agent (plan.row_owner, the
 # design agent's records), its label read up to the last dash before the role.
 ROLE_NAME = re.compile(r"([a-z0-9][a-z0-9-]*)-(planner|ops|design)")
 
 
 def role_left(owner, labels):
     """Whether a card's owner is a role that left the fleet: a name crew raises its cards in (ROLE_NAME) whose label no
-    partition of the teams file has now (labels), its partition removed or its label changed, which is a partition
-    removed and another added, since a partition is never renamed (record 0055, rejected; record 0058's decision 6 and
-    plan.22, proposed). Any other name, a conductor's, an asker's of its own or the user's, is no partition's role and
+    drive of the teams file has now (labels), its drive removed or its label changed, which is a drive
+    removed and another added, since a drive is never renamed (record 0055, rejected; record 0058's decision 6 and
+    plan.22, proposed). Any other name, a conductor's, an asker's of its own or the user's, is no drive's role and
     is not judged here; nothing maps a former name."""
     m = ROLE_NAME.fullmatch(owner or "")
     return bool(m) and m.group(1) not in labels
@@ -252,20 +252,20 @@ def role_left(owner, labels):
 
 def left_said(owner, key, stands=False):
     """The words a card whose owner left the fleet (role_left) is withdrawn with: that an answer on it reaches nobody,
-    and how whoever holds the work now raises it again, by the key's kind, naming no partition, since crew takes none
+    and how whoever holds the work now raises it again, by the key's kind, naming no drive, since crew takes none
     as another's successor; a deploy whose word stands (stands, ops.word_stands) goes on, its word read by its
     environment and not its card."""
     kind, _, rest = (key or "").partition("/")
     parts = rest.split("/")
     again = {
         "deploy": (f"Your word on {parts[0]}'s deploy stands, and the deploy goes on." if stands else
-                   f"The deploy is offered again in the name of the ops of the partition that holds {parts[0]} now."),
-        "op": f"The step on {parts[0]} is recorded again by the partition that holds it now, its card in its ops's name.",
-        "land": "Its landings are carded by the ops of the partition that holds them now.",
-        "proposal": f"Proposal {parts[0]} is carded by the planner of the partition that holds it now.",
-        "batch": f"Batch {parts[0]} is carded by the planner of the partition that holds it now.",
+                   f"The deploy is offered again in the name of the ops of the drive that holds {parts[0]} now."),
+        "op": f"The step on {parts[0]} is recorded again by the drive that holds it now, its card in its ops's name.",
+        "land": "Its landings are carded by the ops of the drive that holds them now.",
+        "proposal": f"Proposal {parts[0]} is carded by the planner of the drive that holds it now.",
+        "batch": f"Batch {parts[0]} is carded by the planner of the drive that holds it now.",
         "record": (f"Record {parts[1] if len(parts) > 1 else ''} of {parts[0]} is carded again with crew record by the design "
-                   "agent of the partition that holds it now."),
+                   "agent of the drive that holds it now."),
     }.get(kind, "Whoever holds its work now asks it again.")
     return f"{owner} left the fleet, so an answer here reaches nobody. {again}"
 
@@ -1632,7 +1632,7 @@ KEY_LEAST, FILL = 8, "_"
 
 def row_object(key, kits=()):
     """The run record's object of one of crew's six cards' keys, the row's: a proposal's, a batch's, a kit's for its
-    landings card, land/<kit> where kits, the partition's kits (plan.partition_kits), hold it, else a bolt's for
+    landings card, land/<kit> where kits, the drive's kits (plan.drive_kits), hold it, else a bolt's for
     its reading or an old landing card of its own, an environment's for its deploy and steps, a record's, under record
     0031's key or the key with the commit after it, record/<kit>/<number>/<commit>, as the design agent posted it
     before; None for any other key."""
@@ -1748,12 +1748,12 @@ def head_anew(entries, card, head):
 
 
 def post_key(entries, key, by, label):
-    """The idempotency key crew posts its card under a row's key with, from the partition's own run record's entries:
-    the row's key qualified by the partition's label, <key>@<label>, for its first card, and for each card after one of
+    """The idempotency key crew posts its card under a row's key with, from the drive's own run record's entries:
+    the row's key qualified by the drive's label, <key>@<label>, for its first card, and for each card after one of
     `by`'s under it closed (answered and followed, declined, withdrawn or lost), that key with the card's revision,
     <key>@<label>:<n>, since Pending You gives a key's card back as long as it keeps it and takes one key per question.
-    The label is in the key because every partition's main level posts under the host's one sign-in (record 0031 §6)
-    and a row's key is its partition's alone: madswan's batch 16 was given swancloud's batch 16 card, closed four days
+    The label is in the key because every drive's main level posts under the host's one sign-in (record 0031 §6)
+    and a row's key is its drive's alone: madswan's batch 16 was given swancloud's batch 16 card, closed four days
     before, when both were sent as batch/16 (briefs.16, 2026-10-26). The run record keeps the row's key, and the key's
     first part is still crew's (plan.crews_key). A card still open under the key keeps its own key, so posting it again
     gives it back. A key shorter than Pending You takes is filled out to KEY_LEAST at its end with FILL, the same on

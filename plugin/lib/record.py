@@ -33,7 +33,7 @@ crew trace, the batches, the rail, the board and the page, reads the branch alon
                 [--id I]                  append one entry, with the id a commit already names if given; prints its id
   record.py session                       the caller's Claude session as <host>:<id>, what a forwarded command carries
   record.py events [--label L] [--about <object>] [--since <time>] [--follow] [--json]
-                                          the entries on the partition's branch, in time order; --follow reads the
+                                          the entries on the drive's branch, in time order; --follow reads the
                                           branch as this host's cache holds it each time its tip moves, which this
                                           host's writes move at once, and fetches it once a minute where the host's
                                           follower does not, so another host's entries show within the minute
@@ -46,7 +46,7 @@ each end, all on agent/<label>-<role>, so crew trace agent/<label>-<role> lists 
 
 An object is a typed name: unit/<unit>, chore/<chore>, bolt/<bolt>, queue/<kit>, signals/<id>, agenda/<n>, team/<team>,
 agent/<name>, stage/<unit or chore>/<stage>, fix/<bolt>/<name>, fix/main/<kit>/<name> (a fix of a kit's red main, a Flume
-place on main), plan/<label>, proposal/<n>, batch/<n> (a review batch of the partition), and
+place on main), plan/<label>, proposal/<n>, batch/<n> (a review batch of the drive), and
 what a stage delivered in a file of the team's reports folder: report/<file name> and proof/<file name>. A signal is
 named by its full id, <capture>/<NN>-<slug>, or its short one, <capture>/<NN>, which is the one signal of that capture
 numbered NN."""
@@ -60,7 +60,7 @@ import crew  # noqa: E402
 from crew import Refusal, fail  # noqa: E402
 
 ROOT = pathlib.Path.home() / ".local/state/crew"
-# The clock the host's follower (board.py) and crew events --follow fetch a partition's branch on, never faster
+# The clock the host's follower (board.py) and crew events --follow fetch a drive's branch on, never faster
 # (plan.12's reading of 2026-10-28); crew's tests set CREW_TEST_PERIOD, so no tick of it falls inside a step (tests.8).
 PERIOD = 60
 DESCRIPTOR = """\
@@ -382,7 +382,7 @@ def parse(text):
 
 def acts_in(text, act):
     """The entries of one act in run-record text (parse), each found by its Act line before it is parsed, since a
-    partition's record is megabytes and an act like bolt.land a few entries of it."""
+    drive's record is megabytes and an act like bolt.land a few entries of it."""
     out, i, line = [], 0, f"\nAct: {act}"
     while (i := text.find(line, i)) >= 0:
         j = i + len(line)
@@ -495,12 +495,12 @@ def line(e, zoe=False):
 
 
 def labels_for(fleet, label):
-    """The partitions a read covers: the one named, else the caller's own, else all of them."""
+    """The drives a read covers: the one named, else the caller's own, else all of them."""
     if label:
-        crew.partition_of(fleet, label)
+        crew.drive_of(fleet, label)
         return [label]
     own = crew.caller_label(fleet)
-    return [own] if own in fleet["partitions"] else list(fleet["partitions"])
+    return [own] if own in fleet["drives"] else list(fleet["drives"])
 
 
 # A signal's object by its short id, signals/<capture>/<NN>, which names the one signal of that capture numbered NN.
@@ -553,8 +553,8 @@ def fresh(seen, entries):
 
 
 def follow_fetches(label, followed_here, follower, last, now, period=PERIOD):
-    """Whether crew events --follow fetches a partition's branch now (plan.12's reading of 2026-10-28): never while the
-    host's follower fetches it, the partition being one it follows (followed_here, board.labels_here) while someone
+    """Whether crew events --follow fetches a drive's branch now (plan.12's reading of 2026-10-28): never while the
+    host's follower fetches it, the drive being one it follows (followed_here, board.labels_here) while someone
     holds the host's follower lock (follower, board.follower_here: job, tab, or unknown, a holder whose line is not
     written yet), at its start too; else once its own clock is due, period seconds after its last fetch (last, None
     when it has made none, at its start or since a SIGUSR1). A decision on plain facts (code.7)."""
@@ -573,12 +573,12 @@ def follow(fleet, labels, about):
     """Each entry of the labels as it reaches their branches, one line each, until interrupted. Each second it reads
     each branch's tip as this host's cache holds it, with no process (plan.tip_here), and when the tip moved, reads
     again only the run-record files of the day the follow began or later whose blob changed (changed_files), printing
-    what it has not printed (fresh). It fetches a branch only for a partition the host's follower does not fetch, which
+    what it has not printed (fresh). It fetches a branch only for a drive the host's follower does not fetch, which
     moves the cache itself, as a write on this host does: at its start and then once a minute (follow_fetches); SIGUSR1
     makes its next fetch now. A branch's first read prints nothing, being what was there before. A branch that
     cannot be read is said once, until it reads again. It asks no host for anything (read.5)."""
     import time
-    import board  # board.py imports this module; the host's follower's lock and partitions are its
+    import board  # board.py imports this module; the host's follower's lock and drives are its
     import plan  # plan.py imports this module; its git layer is only needed here
 
     def stop(*_):

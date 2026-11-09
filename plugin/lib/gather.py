@@ -10,8 +10,8 @@ fetches nothing in>}],
 "board": <true to also read the explorations on the kit's main>,
 "stamped": <true to also give each kit's stamp, taken before it is read>,
 "stamp": <true to give each kit's stamp alone and read nothing else: the host's follower's check that nothing moved,
-answered {"kits": {<main>: <stamp>}, "readings": <the stamp of the card readings folders of the partitions named>}>,
-"labels": <with stamp, the partitions whose card readings folders on the host to stamp>,
+answered {"kits": {<main>: <stamp>}, "readings": <the stamp of the card readings folders of the drives named>}>,
+"labels": <with stamp, the drives whose card readings folders on the host to stamp>,
 "routes": <with stamp, true to read the host's portless routes too, answered "routes">}.
 The answer, on stdout, is JSON keyed by each kit's main checkout: the changes main holds (open or archived) and the
 chores its history holds (each `Chore:` trailer's name), and for each local bolt/* branch, and each bolt asked for,
@@ -652,13 +652,13 @@ class Seen:
         return hashlib.sha256(json.dumps(self.files).encode()).hexdigest()[:32]
 
 
-# Where crew keeps each card's reading session on a host, by partition, as plan.CARDS: its session.json, plannotator's
+# Where crew keeps each card's reading session on a host, by drive, as plan.CARDS: its session.json, plannotator's
 # result.json once the user sends a reading back, told.json once its owner is told, a landings card's main.
 CARDS = "~/.local/state/crew/cards"
 
 
 def readings_stamp(labels):
-    """A host's card readings folders' stamp, ~/.local/state/crew/cards/<label>/ for each partition named: every file
+    """A host's card readings folders' stamp, ~/.local/state/crew/cards/<label>/ for each drive named: every file
     under each, read with os.stat and os.scandir alone, so the follower sees a reading sent back and sweeps that host's
     card sessions, where its owner is told (the card-sessions spec, A reading sent on one host). A missing folder stamps
     alike each time; None when one can't be read (read.1)."""
@@ -854,7 +854,7 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
         else:
             out["bolts"][b]["carries"] = carried_bolts(holds.split(), lines, b)
         # The landings sluice made on it, by the branches they name: a unit's or chore's place is built once one names
-        # its branch, whichever partition's launch made it (crew record 0056 decision 2); one git can't list is said.
+        # its branch, whichever drive's launch made it (crew record 0056 decision 2); one git can't list is said.
         landed, why = bolt_landings(main, ref, now, out["bolts"][b].get("landed"))
         out["bolts"][b].update({"landings": landed} if why is None else {"landings_error": why})
     places = os.path.join(kdir, "places")
@@ -879,7 +879,7 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
 
 def read(request, running=None):
     """The answer to a request: with stamp, each kit's stamp alone by its main checkout and the stamp of the card readings
-    folders of the partitions it names, the follower's check that nothing moved, and, at its clock's tick, the host's
+    folders of the drives it names, the follower's check that nothing moved, and, at its clock's tick, the host's
     portless routes (routes) when asked; else, by each kit's main checkout, each kit as kit() reads it, with stamped,
     the host's follower's, its stamp too, taken before the kit is read, so anything that moves while it is read moves
     the stamp the follower next compares. It runs no sluice."""

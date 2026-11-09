@@ -3,7 +3,7 @@ a-bolts-landing-on-main-reads-landed): sluice's landing of a bolt on main's firs
 Sluice-From, or, landed through a pull request, names `<agent> (pull/<n>)` and has as its second parent the head crew
 submitted (sluice clause 23), as swancloud's 4acecf09 did on 2026-11-08; only a landing made at or after the bolt's first
 launch is its own. gather.main_landing decides it from main's log as git prints it; plan.landing_sought gives what the
-kit's read seeks, from the partition's requests and the run record's bolt.submit entries."""
+kit's read seeks, from the drive's requests and the run record's bolt.submit entries."""
 import gather
 import plan
 

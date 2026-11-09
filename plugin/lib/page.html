@@ -1,11 +1,11 @@
 <!doctype html>
-<!-- crew's page: page.py puts the partitions' links and the drive's data in the two placeholders below and writes
-     the file whole. It opens on the partition's board; its lineage is the flow view, and its deploys, by environment,
+<!-- crew's page: page.py puts the drives' links and the drive's data in the two placeholders below and writes
+     the file whole. It opens on the drive's board; its lineage is the flow view, and its deploys, by environment,
      the deploys view, each one switch away. A click or Enter on any item of the board or a deploy of the deploys view
      opens its dock over the board, the page page.py made
      for it (D.docks); the dock answers nothing, and its last section takes a word to the item's agent, posted to the
      page's own address on Send, the one request the page makes. Everything it draws is in this file: no font, script or
-     style is loaded from anywhere, and the only links are to the fleet page and the other partitions' pages beside it.
+     style is loaded from anywhere, and the only links are to the fleet page and the other drives' pages beside it.
      Every label, and every answer to a word, is set as text, never as markup. -->
 <html lang="en">
 <head>
@@ -320,7 +320,7 @@ body.selecting #lines line:not(.marked) { opacity: .2; }
 </head>
 <body data-view="board">
 <header class="top">
-  <nav class="parts" aria-label="Partitions"><!--{{PARTITIONS}}--></nav>
+  <nav class="parts" aria-label="Drives"><!--{{DRIVES}}--></nav>
   <div class="seg" role="group" aria-label="View">
     <button type="button" data-view="board" aria-pressed="true">board</button><button type="button" data-view="flow" aria-pressed="false">flow</button><button type="button" data-view="deploys" aria-pressed="false">deploys</button>
   </div>
@@ -1153,7 +1153,7 @@ body.selecting #lines line:not(.marked) { opacity: .2; }
 
   // ------------------------------------------------------------------------------------------------------- the view
   // It is kept in the page's address (#view=flow), so a reload or a page written over this one opens on it, and in the
-  // browser for this partition, for when the address names none. The browser may refuse its storage, on a page opened
+  // browser for this drive, for when the address names none. The browser may refuse its storage, on a page opened
   // from disk or in a private window; the address alone then keeps it. The dock open is kept in the address too
   // (#dock=<key>), and only there: a reload opens it again, and a key this page holds no dock for is dropped from the
   // address, the board shown with none open.

@@ -32,10 +32,10 @@ class TestDoLines:
         said, recorded = refused(plan.do_args, "wldn", "bolt give swb-1 b")
         assert said.startswith("a proposal holds only the plan's commands (") and said.endswith(", not `bolt give swb-1 b`")
 
-    def test_a_command_naming_another_partition_is_refused_without_its_typed_words(self):
+    def test_a_command_naming_another_drive_is_refused_without_its_typed_words(self):
         said, recorded = refused(plan.do_args, "wldn", f'unit add y "Typed ZQXD." --repo {KIT} --label nope')
-        assert "names partition nope, and the proposal is wldn's" in said
-        assert recorded == "`unit add y` names partition nope, and the proposal is wldn's"
+        assert "names drive nope, and the proposal is wldn's" in said
+        assert recorded == "`unit add y` names drive nope, and the proposal is wldn's"
 
     def test_crew_in_front_is_read_as_the_command(self):
         a = plan.do_args("wldn", f'crew unit add y "Y." --repo {KIT}')
@@ -140,7 +140,7 @@ class TestRecordSources:
 class TestRestsOnAccepted:
     """A proposal's new work and the records it rests on (plan.record_items, plan.unaccepted): each named record not
     accepted on its main refuses the proposal with one line naming the work, the record and what main holds."""
-    FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio"}},
+    FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio"}},
              "hosts": {"mac-studio": keeping("/w", "WilldanGroup/switchboard-kit")}}
     REPO = "WilldanGroup/switchboard-kit"
     FILE = "docs/adr/0033-a-record.md"
@@ -236,7 +236,7 @@ class TestRestsOnAccepted:
 class TestStartProposed:
     """A proposal may hold crew bolt start (bolt-plan "A bolt is started"; Decision 14 of the-team-machinery-leaves,
     roles.1): its Do parses by the command's grammar and touches the bolt; it is checked as the proposal's card is drawn,
-    reading no kit (Drawn); and its approval, the kit read on its partition's main-level host as a direct start reads it
+    reading no kit (Drawn); and its approval, the kit read on its drive's main-level host as a direct start reads it
     (plan.start_check), marks the bolt Path: flume and launches each unit of it in its repository, naming no host or
     stream, starting no agent. One naming a bolt started already is refused whole. sluice's branch and the commit are
     the cross journey's (t-journey-cross)."""

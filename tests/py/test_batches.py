@@ -1,4 +1,4 @@
-"""Constructed changes reach the user in batches that span the partition (briefs.12): which changes are due
+"""Constructed changes reach the user in batches that span the drive (briefs.12): which changes are due
 (plan.due_changes), when a batch is due and why (plan.batch_due), a batch's cards (plan.batch_cards), which batches
 wait on nothing (plan.batch_settled), and the facts crew raises a batch's one card from once its summary is delivered
 (plan.batch_facts, summary_paragraph,
@@ -292,17 +292,17 @@ class TestBatchDue:
 
 
 class TestTheBranchAlone:
-    """review-batches, "A batch is reckoned from the partition's branch alone": the batch clock, a review and a landing
-    read the run record from the partition's branch, asking no host for it, and are refused naming the branch when it
+    """review-batches, "A batch is reckoned from the drive's branch alone": the batch clock, a review and a landing
+    read the run record from the drive's branch, asking no host for it, and are refused naming the branch when it
     cannot be read."""
-    FLEET = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], state="WilldanGroup/crew-state")})
+    FLEET = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], state="WilldanGroup/crew-state")})
     ENTRIES = [dict(constructed(u, f"{i:04x}", i), Id=f"2026101210{i:02d}00Z-000000-chuck-herdr-alpha-1-{i}") for i, u in enumerate(["x1", "x2", "y1", "z1", "w1"])]
 
     def test_the_laptop_asleep_at_a_conductors_wait_hides_no_change_due(self, monkeypatch):
         """review-batches, "The laptop asleep at a conductor's wait"."""
         monkeypatch.setattr(plan.crew, "on_machine", lambda *a, **k: pytest.fail(f"a host was asked for the run record: {a}"))
         monkeypatch.setattr(plan.record, "on_branch", lambda fleet, label, since, tips=None: list(reversed(self.ENTRIES)))
-        entries = plan.partition_entries(self.FLEET, "wldn")
+        entries = plan.drive_entries(self.FLEET, "wldn")
         assert entries == self.ENTRIES
         five = plan_of(bolts={"b1": "swb-1"}, units={u: "b1" for u in ("x1", "x2", "y1", "z1", "w1")})
         assert plan.batch_due(plan.due_changes(five, entries), entries, EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
@@ -313,7 +313,7 @@ class TestTheBranchAlone:
             raise plan.Refusal("could not fetch wldn/main of WilldanGroup/crew-state over https: timed out")
         monkeypatch.setattr(plan.record, "on_branch", refused)
         with pytest.raises(plan.Refusal) as e:
-            plan.partition_entries(self.FLEET, "wldn")
+            plan.drive_entries(self.FLEET, "wldn")
         assert str(e.value) == ("crew can't tell which changes have been in a batch: wldn/main of WilldanGroup/crew-state could not be read "
                                 "(could not fetch wldn/main of WilldanGroup/crew-state over https: timed out)")
 
@@ -376,7 +376,7 @@ class RaiseActs:
     def caller(self):
         return "wldn-planner"
 
-    def kits(self, label):  # the kits the partition's teams build, which tell land/<kit> from land/<bolt>
+    def kits(self, label):  # the kits the drive's teams build, which tell land/<kit> from land/<bolt>
         return ("switchboard-kit",)
 
 
@@ -468,10 +468,10 @@ class TestBatchFacts:
         assert plan.batch_facts(3, held, SUMMARY, {}) is None
 
 
-def test_the_rails_sweep_reckons_a_batch_on_the_partitions_main_level_host():
+def test_the_rails_sweep_reckons_a_batch_on_the_drives_main_level_host():
     """review-batches "A batch is reckoned at the rail's sweep on the main level's host" (the-team-machinery-leaves): the
-    rail's sweep reckons each partition's batch once, on the host its main level runs on, wldn's on mac-studio, so a bolt
-    whose units have all merged reaches the planner with no agent waiting; another host, and a partition whose plan was
+    rail's sweep reckons each drive's batch once, on the host its main level runs on, wldn's on mac-studio, so a bolt
+    whose units have all merged reaches the planner with no agent waiting; another host, and a drive whose plan was
     not read, reckon none."""
     found = [("wldn", None, None, PLAN), ("swancloud", None, None, None)]
     assert plan.batch_reckoners(FLEET, found, "mac-studio") == ["wldn"]
@@ -486,7 +486,7 @@ def test_the_followers_reckoning_takes_its_read_and_tells_the_planner_once(monke
     monkeypatch.setattr(plan.crew, "this_host", lambda: "mac-studio")
     monkeypatch.setattr(plan.crew, "tell", lambda fleet, name, text: told.append(name) or True)
     monkeypatch.setattr(plan.record, "emit", lambda label, act, on, **kw: emitted.append(act))
-    for read_again in ("plan_of", "partition_entries", "stages_for", "survey"):
+    for read_again in ("plan_of", "drive_entries", "stages_for", "survey"):
         monkeypatch.setattr(plan, read_again, lambda *a, **k: pytest.fail("the reckoning read again"))
     found = [("wldn", "WilldanGroup/crew-state", "a" * 40, PLAN)]
     read = {"found": found, "logs": {"wldn": [constructed("x1", "bbb1")]}, "unread": {"wldn": {}}, "sv": {}, "runs": {"wldn": ([], {})}}
@@ -499,7 +499,7 @@ def test_the_followers_reckoning_takes_its_read_and_tells_the_planner_once(monke
     ({"wldn": ("a" * 40, True)}, False, {"wldn"}), ({"wldn": ("a" * 40, True)}, True, {"wldn"}),
     ({"wldn": ("b" * 40, True)}, False, set()), ({"wldn": ("a" * 40, False)}, False, {"wldn"}),
     ({"wldn": ("a" * 40, False)}, True, set()), ({}, True, set())])
-def test_a_partition_told_at_its_reads_tip_is_not_reckoned_again_and_one_whose_tell_failed_waits_for_the_tick(told, tick, skip):
+def test_a_drive_told_at_its_reads_tip_is_not_reckoned_again_and_one_whose_tell_failed_waits_for_the_tick(told, tick, skip):
     """The follower reckons at every refresh: a planner told is told once, and one not up is tried again once a minute,
     never at every refresh (a tell starts herdr)."""
     assert plan.batch_told(told, [("wldn", "WilldanGroup/crew-state", "a" * 40, PLAN)], tick) == skip
@@ -567,7 +567,7 @@ class TestCrossed:
         st = self.stages({1: "landed"})
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: st.runs[label])
         fleet = st.fleet
-        fleet["partitions"]["madswan"]["machine"] = "deneb"
+        fleet["drives"]["madswan"]["machine"] = "deneb"
         assert plan.reading_command(fleet, "madswan", "x", self.LANDED, "a", archived=True) == (
             f"its change is archived at that commit: find its folder with `git -C /crew/main ls-tree -d --name-only {self.LANDED} "
             "openspec/changes/archive/`, the one named <date>-a, then list its files with `git -C /crew/main ls-tree -r "

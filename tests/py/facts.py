@@ -74,11 +74,11 @@ def keeping(at, *repos):
     return {"sessions": {"main": {"dir": at, "repos": list(repos)}}}
 
 
-# Every role of a partition stands, its flume false throughout.
+# Every role of a drive stands, its flume false throughout.
 STANDING = {r: False for r in ("design", "planner", "reviewer", "ops", "operator")}
-# The teams file at version 5 as crew.load reads it, its partitions alone: wldn's main level runs on mac-studio, whose
+# The teams file at version 6 as crew.load reads it, its drives alone: wldn's main level runs on mac-studio, whose
 # spaces keep its kits in /w.
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "review": {"every": 5, "hours": 4}, "flume": STANDING}},
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "review": {"every": 5, "hours": 4}, "flume": STANDING}},
          "hosts": {"mac-studio": keeping("/w", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit")}}
 
 
@@ -86,10 +86,10 @@ KITS = ("switchboard-kit", "breadboard-kit")
 
 
 def kits_of(found):
-    """Each partition's kits as the rail's read holds them (plan.kits_at), from its plan alone, a read's found as
+    """Each drive's kits as the rail's read holds them (plan.kits_at), from its plan alone, a read's found as
     plan.plans gives it: a case that needs a kit its landings name gives it itself."""
     import plan
-    return {l: plan.partition_kits(p, []) for l, _, _, p in found}
+    return {l: plan.drive_kits(p, []) for l, _, _, p in found}
 
 
 def plan_text(bolts=(), units=()):
@@ -107,7 +107,7 @@ def plan_text(bolts=(), units=()):
 class FactsWrite:
     """A plan.Write over a plan in memory: its files given, which it lists (paths) and reads (texts) as the branch's at
     its tip, each host's runner as given (runners, {host: its reading as runner.host_read gives it}), the run record at
-    its tip as given (entries, oldest first, none unless given; logged, which a case may set after), the partition's
+    its tip as given (entries, oldest first, none unless given; logged, which a case may set after), the drive's
     kits read from those entries, and a refusal for a missing bolt or unit that reads no git for the commit that removed
     it."""
 
@@ -135,7 +135,7 @@ class FactsWrite:
                 return list(self.logged)
 
             def kits(self):
-                return plan.partition_kits(self.plan, self.logged)
+                return plan.drive_kits(self.plan, self.logged)
         w = W(None, label, None, plan.Plan(text))
         w.files, w.logged = dict(files or {}), list(entries)
         return w
@@ -173,7 +173,7 @@ def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standin
         def first_open(self, label, p, bolt):
             return next((u.name() for u in p.work_of(bolt) if self.of(u.name())["stage"] not in ("merged", "landed")), None)
 
-        def kit(self, kit):  # the partition the command runs as, as plan.plan_for has it given a label
+        def kit(self, kit):  # the drive the command runs as, as plan.plan_for has it given a label
             return self.label
     return Known(fleet or FLEET, w.label, w, n)
 
@@ -200,7 +200,7 @@ CREW_KIT = {"name": "crew", "repo": "afterthought/crew"}
 def madswan_fleet():
     """madswan's fleet as crew.load reads it, its main level on deneb, whose runner takes crew's work (afterthought/crew)
     in stream madswan, as ran reports it."""
-    return {"partitions": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
+    return {"drives": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
 
 
 # Where madswan's started bolts of crew run, as plan.bolt_at gives it from the runner's report (ran): deneb, stream
@@ -250,7 +250,7 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
     """A host's runner as crew reads it from its branch (runner.host_read): each launch in launched, {request's number:
     the Flume status fixture its place stands at (flume_fixture: tests/py/flume-0.3.6/<name>.json, or another version's
     named with its folder)}, answered launched and carried in places.rec at the fixture's own place, its repository given
-    as repository, and its stream the partition's label, as its host's Flume configuration maps it; each in unplaced,
+    as repository, and its stream the drive's label, as its host's Flume configuration maps it; each in unplaced,
     {request's number: its place}, answered launched at that place with no status of it carried yet; each in held
     answered held, with the runner's words where held is {request's number: words}; and each in refused, {request's
     number: the runner's words}, answered refused. Its repositories.rec names each forge address in keeps at repository,

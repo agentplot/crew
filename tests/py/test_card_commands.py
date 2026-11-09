@@ -92,7 +92,7 @@ def test_no_area_is_taken_when_match_area_says_create_or_names_none(matched):
     assert cards.area_of(matched) is None
 
 
-def test_the_kits_area_is_made_under_its_key_in_the_partitions_group():
+def test_the_kits_area_is_made_under_its_key_in_the_drives_group():
     got = cards.create_area_args("github.com/WilldanGroup/switchboard-kit", "wldn", {"proposedTint": "sage"})
     assert got == {"idempotencyKey": "create-area:WilldanGroup/switchboard-kit", "name": "switchboard-kit",
                    "description": "What crew's agents ask about switchboard-kit.", "tint": "sage", "group": "wldn",
@@ -215,7 +215,7 @@ import plan  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def kits(monkeypatch):
-    """Each partition's kits as its plan and landings name them (plan.kits_read), with no branch read; and the rail's
+    """Each drive's kits as its plan and landings name them (plan.kits_read), with no branch read; and the rail's
     sweep reading no landing here (plan.reap_judged, the landing tests')."""
     monkeypatch.setattr(plan, "kits_read", lambda fleet, label: {"swancloud": ["crew"], "wldn": ["switchboard-kit"]}.get(label, []))
     monkeypatch.setattr(plan, "reap_judged", lambda fleet, label, landings: None)
@@ -297,7 +297,7 @@ class Acts:
     def caller(self):
         return self.who
 
-    def kits(self, label):  # the kits the partition's teams build, which tell land/<kit> from land/<bolt>
+    def kits(self, label):  # the kits the drive's teams build, which tell land/<kit> from land/<bolt>
         return ("switchboard-kit",)
 
 
@@ -333,7 +333,7 @@ def test_a_card_raised_outside_its_owners_turn_is_told_to_its_owner_with_the_lin
     assert "told wldn-ops: call get_request (requestId req_c1, name wldn-ops)" in capsys.readouterr().out
 
 
-def test_the_first_card_in_a_kit_makes_its_area_under_the_kits_key_in_the_partitions_group():
+def test_the_first_card_in_a_kit_makes_its_area_under_the_kits_key_in_the_drives_group():
     acts = Acts({"match_area": ({"decision": "create", "proposedTint": "sage"}, None),
                  "create_area": ({"areaId": "prj_new"}, None), "post_request": (POSTED, None)})
     act_post(acts)
@@ -654,12 +654,12 @@ def test_a_card_is_posted_under_its_rows_key_and_after_a_closed_one_under_the_ke
 
 
 @pytest.mark.parametrize("key", ["batch/16", "proposal/16", "land/b1", "deploy/dev", "op/dev/1", "record/crew/0031"])
-def test_each_partition_sends_its_rows_key_qualified_by_its_label_and_counts_its_revision_in_its_own_run_record(key):
+def test_each_drive_sends_its_rows_key_qualified_by_its_label_and_counts_its_revision_in_its_own_run_record(key):
     """briefs.16, read 2026-10-26 (signal 2026-10-26-swancloud-operator-4e81e687/01): madswan's batch 16 was given
     swancloud's batch 16 card, req_eafa10ee554b41edbce6, closed on 2026-10-22, since both main levels post under the
     host's one sign-in and both sent batch/16. Each of crew's six cards is sent under the row's key qualified by its
-    partition's label, so two partitions' rows of one key are two cards; the first part is still crew's, and each
-    partition's revision is read from its own run record, a closed card of the other's under the key counting nothing."""
+    drive's label, so two drives' rows of one key are two cards; the first part is still crew's, and each
+    drive's revision is read from its own run record, a closed card of the other's under the key counting nothing."""
     by = "planner"
     swancloud = [POST("req_eafa10ee554b41edbce6", by=by, key=key), CLOSE("req_eafa10ee554b41edbce6")]
     sent = {"swancloud": cards.post_key(swancloud, key, by, "swancloud"), "madswan": cards.post_key([], key, by, "madswan")}
@@ -674,7 +674,7 @@ def test_a_key_shorter_than_pending_you_takes_is_filled_out_to_eight_characters_
     """rail-cards: a row's key shorter than Pending You takes. Read on mac-studio on 2026-10-19 (test D): crew could not
     post batch 7's card, the rail saying "card: batch/7, none open; its last post was refused: Pending You refused
     post_request: Some fields need fixing. idempotencyKey: Too small: expected string to have >=8 characters.", since
-    batch/<n> under ten is seven characters. The partition's label makes every row's key long enough; a shorter one
+    batch/<n> under ten is seven characters. The drive's label makes every row's key long enough; a shorter one
     is still filled out at its end, the same on a retry and while its card is open."""
     by = "wldn-planner"
     held, closed = [POST("req_1", by=by, key=key)], [POST("req_1", by=by, key=key), CLOSE("req_1")]
@@ -989,7 +989,7 @@ def test_the_rest_of_the_environment_passes_through_and_the_one_given_is_not_cha
 
 # --------------------------------------------------------------------------------- a session's end, swept
 # plan.end_session, and crew card read on a batch whose card's close ends its session: the key's folder swept whether
-# or not the partition's cards folder for it exists, a folder another end swept first, as the card hook's crew card end
+# or not the drive's cards folder for it exists, a folder another end swept first, as the card hook's crew card end
 # or the rail's sweep may while this one reads plannotator's list, swept as empty and never raised.
 
 class TestSessionEnd:
@@ -997,12 +997,12 @@ class TestSessionEnd:
          "started": "2026-10-23T10:00:00Z"}
 
     def recorded(self, monkeypatch, tmp_path, key):
-        """The key's session recorded under the partition's cards folder, and another end sweeping its folder while
+        """The key's session recorded under the drive's cards folder, and another end sweeping its folder while
         this one reads plannotator's list, which still lists the session, whose pid has gone by its signal."""
         d = tmp_path / "wldn" / key
         d.mkdir(parents=True)
         (d / "session.json").write_text(json.dumps(self.S))
-        (tmp_path / "wldn" / "proposal").mkdir()  # another key's folder, so the partition's stays
+        (tmp_path / "wldn" / "proposal").mkdir()  # another key's folder, so the drive's stays
 
         def listed():
             for f in d.iterdir():
@@ -1032,7 +1032,7 @@ class TestSessionEnd:
         sent = {"status": "answered", "turn": "agent", "version": 2, "answer": {"note": {"text": "Read."}}}
         acts = Acts({"get_request": (sent, None)}, [post("batch/3", "wldn-planner", "req_b3", On=["batch/3"])])
         acts.end = lambda label, key: plan.end_session(label, key)[0]
-        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
         plan.batch_card_read(fleet, "wldn", "batch/3", "wldn-planner", acts=acts)
         assert [e["Act"] for e in acts.emitted] == ["card.close"]
         assert capsys.readouterr().out.splitlines() == [
@@ -1121,7 +1121,7 @@ def test_a_told_mark_goes_with_the_reading_it_marked_so_the_next_one_is_told_of_
 
 
 class TestSweptReading:
-    FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
+    FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
     # Where the bolt's work runs, as the runner that took it reported (plan.land_held).
     AT = {"label": "wldn", "machine": "chuck-herdr-alpha", "stream": "wldn"}
 
@@ -1271,10 +1271,10 @@ class TestTickedGone:
 
 
 class ReadSent:
-    """crew card read land/crew as swancloud-ops on the partition's main machine, holding req_k1 under it, with the
+    """crew card read land/crew as swancloud-ops on the drive's main machine, holding req_k1 under it, with the
     user's send (got) read from Pending You; the kit's card raised in its stead, the raise adding what it records (told)
     to this host's run record."""
-    FLEET = {"partitions": {"swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
+    FLEET = {"drives": {"swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 
     PLAN = "%rec: Bolt\n\nBolt: y\nRepo: crew\n\nBolt: z\nRepo: crew\n\n%rec: Unit\n\n"
 
@@ -1301,7 +1301,7 @@ class ReadSent:
         monkeypatch.setattr(plan, "card_asker", lambda fleet, a: ("swancloud", "swancloud-ops"))
         monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
         monkeypatch.setattr(plan, "land_hand", raised)
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: list(branch))
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: list(branch))
         monkeypatch.setattr(plan, "plan_of", lambda fleet, label: held and plan.Plan(held))
 
         def work(fleet, label, kit, moves):  # each bolt's head now where it lives, at the head the card showed unless now
@@ -1431,7 +1431,7 @@ import io  # noqa: E402
 from facts import reviewed# noqa: E402
 
 PKIT = {"name": "crew", "repo": "agentplot/crew", "main": "/crew/main", "dir": "/crew"}
-PFLEET = {"partitions": {"swancloud": {"label": "swancloud", "machine": "deneb"}}, "hosts": {}}
+PFLEET = {"drives": {"swancloud": {"label": "swancloud", "machine": "deneb"}}, "hosts": {}}
 # Where crew's started bolts run, as the runner that took their work reported (plan.land_held, plan.batch_unit_at).
 PAT = {"label": "swancloud", "machine": "deneb", "stream": "swancloud", "kit": PKIT}
 PHEAD = "abc1234" + "0" * 33
@@ -1552,7 +1552,7 @@ class TestCardPreview:
 class Sluice:
     """sluice on the host the thing's work runs on as crew card preview reaches it: its previews listed once the ask was
     handed (or never, refuse), each ask handed recorded with its argv, each release recorded, each card's note recorded,
-    and each partition and landings the rail's sweep read here (reaped)."""
+    and each drive and landings the rail's sweep read here (reaped)."""
 
     def __init__(self, monkeypatch, tmp_path, refuse=None):
         self.handed, self.released, self.notes, self.refuse, self.reaped = [], [], [], refuse, []
@@ -1561,7 +1561,7 @@ class Sluice:
         monkeypatch.setattr(plan, "MADE", tmp_path / "made")
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: PAT)
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [reviewed(7, [("a", "x", "aaa1")])])
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [reviewed(7, [("a", "x", "aaa1")])])
         monkeypatch.setattr(plan, "reap_judged", lambda fleet, label, landings: self.reaped.append((label, landings)))
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: ("p", plan.Rec("Bolt", [("Bolt", bolt)]), PAT))
         monkeypatch.setattr(plan, "land_read", lambda fleet, label, p, b, t: ({"box": True, "facts": {"head": PHEAD, "kit": "crew"}}, None))
@@ -1698,7 +1698,7 @@ def test_a_batch_cards_close_hands_its_previews_release_on_and_no_other_card_doe
 import board  # noqa: E402
 
 STANDS = {r: False for r in crew.KIND_ROLES}
-KFLEET = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": dict(STANDS, planner="madswan-main", ops="madswan-main")},
+KFLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": dict(STANDS, planner="madswan-main", ops="madswan-main")},
                          "wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "flume": STANDS}}}
 
 
@@ -1734,7 +1734,7 @@ def test_the_follower_hears_the_notice_only_where_a_role_whose_main_level_is_her
     assert board.answers_watched(KFLEET, "deneb")
     assert not board.answers_watched(KFLEET, "chuck-herdr-alpha")
     assert not board.answers_watched(KFLEET, "mac-studio")
-    assert not board.answers_watched({"partitions": {"madswan": dict(KFLEET["partitions"]["madswan"], flume=STANDS)}}, "deneb")
+    assert not board.answers_watched({"drives": {"madswan": dict(KFLEET["drives"]["madswan"], flume=STANDS)}}, "deneb")
 
 
 def test_the_notice_runs_crew_answered_through_pending_yous_watch():

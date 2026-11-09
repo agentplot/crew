@@ -474,7 +474,7 @@ class TestStageOf:
         assert of("unit/teams-cross-to-flume-as-their-bolts-land", both) == {"stage": "unknown", "why": (
             "request 3 was taken by the runners on alpha and deneb, whose configurations each name its repository, so crew "
             "can't tell which place is its work")}
-        assert of("unit/b", {})["why"].startswith("no runner answers for the partition")
+        assert of("unit/b", {})["why"].startswith("no runner answers for the drive")
 
 
 class TestVerification:

@@ -1,10 +1,10 @@
-"""A partition's kits (Decision 3 of the-team-machinery-leaves): the repositories its plan and its landings name, with no
-registry of repositories in crew (plan.partition_kits), and the run record's landings found in its files by their act
+"""A drive's kits (Decision 3 of the-team-machinery-leaves): the repositories its plan and its landings name, with no
+registry of repositories in crew (plan.drive_kits), and the run record's landings found in its files by their act
 (record.acts_in). The landings card's key, a bolt's name check, the card hook's areas and the board's Inception lane read
 the kits so. Where a kit's work runs (Decisions 4 and 5, the user's ruling of 2026-11-01): crew looks up no kit's host,
 and reads where a bolt's or a kit's work runs from what the runner that took it reported (plan.bolt_at, plan.kit_at,
-runner.where), a partition's hosts its main level's and its runners' (plan.hosts_of); and what crew does before any runner
-has taken a kit's work, it does in the checkout its partition's main-level host keeps of the kit (plan.main_kit,
+runner.where), a drive's hosts its main level's and its runners' (plan.hosts_of); and what crew does before any runner
+has taken a kit's work, it does in the checkout its drive's main-level host keeps of the kit (plan.main_kit,
 crew.kit_kept, crew.kits_on)."""
 import json
 import pathlib
@@ -29,35 +29,35 @@ def the_plan(bolts=(), units=()):
     return plan.Plan(plan_text(bolts, units))
 
 
-class TestPartitionKits:
+class TestDriveKits:
     def test_the_plan_alone_names_its_bolts_and_units_repositories(self):
         p = the_plan([("console-pages", "switchboard-kit", True)], [("a", "switchboard-kit", "console-pages", []),
                                                                      ("q", "breadboard-kit", None, [])])
-        assert plan.partition_kits(p, []) == ["breadboard-kit", "switchboard-kit"]
+        assert plan.drive_kits(p, []) == ["breadboard-kit", "switchboard-kit"]
 
     def test_the_landings_alone_name_a_kit_whose_last_bolt_has_landed(self):
-        assert plan.partition_kits(the_plan(), [landing("atlas-kit")]) == ["atlas-kit"]
+        assert plan.drive_kits(the_plan(), [landing("atlas-kit")]) == ["atlas-kit"]
 
     def test_the_plan_and_the_landings_together(self):
         p = the_plan([("console-pages", "switchboard-kit", False)])
-        assert plan.partition_kits(p, [landing("atlas-kit"), landing("switchboard-kit")]) == ["atlas-kit", "switchboard-kit"]
+        assert plan.drive_kits(p, [landing("atlas-kit"), landing("switchboard-kit")]) == ["atlas-kit", "switchboard-kit"]
 
     def test_none_where_neither_names_one_or_the_branch_is_not_started(self):
-        assert plan.partition_kits(the_plan(), []) == []
-        assert plan.partition_kits(None, []) == []
+        assert plan.drive_kits(the_plan(), []) == []
+        assert plan.drive_kits(None, []) == []
 
     def test_a_kit_named_twice_is_one_kit(self):
         p = the_plan([("b1", "crew", True), ("b2", "crew", False)], [("a", "crew", "b1", []), ("q", "crew", None, [])])
-        assert plan.partition_kits(p, [landing("crew"), landing("crew")]) == ["crew"]
+        assert plan.drive_kits(p, [landing("crew"), landing("crew")]) == ["crew"]
 
     def test_a_refused_landing_or_another_act_names_no_kit(self):
-        assert plan.partition_kits(the_plan(), [landing("atlas-kit", refused="it conflicts"), landing("atlas-kit", act="bolt.drop"),
+        assert plan.drive_kits(the_plan(), [landing("atlas-kit", refused="it conflicts"), landing("atlas-kit", act="bolt.drop"),
                                                 landing(None)]) == []
 
     def test_landings_under_another_name(self):
         """bolt-plan "Landings under another name": madswan's plan names timber, and one bolt landed under tailrace."""
         p = the_plan([("b", "timber", True)], [("a", "timber", "b", [])])
-        assert plan.partition_kits(p, [landing("tailrace")]) == ["tailrace", "timber"]
+        assert plan.drive_kits(p, [landing("tailrace")]) == ["tailrace", "timber"]
 
 
 class TestRunsRead:
@@ -87,22 +87,22 @@ class TestKitIn:
 
 
 class TestKeys:
-    """The partition's kits tell a kit's landings card from a bolt's, refuse a bolt under a kit's name, and say which
+    """The drive's kits tell a kit's landings card from a bolt's, refuse a bolt under a kit's name, and say which
     kit's area an asker may make."""
 
     def test_a_landings_key_names_a_kit_of_the_plan_or_the_landings(self):
-        kits = plan.partition_kits(the_plan([("b", "crew", True)]), [landing("atlas-kit")])
+        kits = plan.drive_kits(the_plan([("b", "crew", True)]), [landing("atlas-kit")])
         assert plan.land_key("land/crew", kits) == ("kit", "crew")
         assert plan.land_key("land/atlas-kit", kits) == ("kit", "atlas-kit")
         assert plan.land_key("land/b", kits) == ("bolt", "b")
 
     def test_a_bolt_is_not_named_as_a_kit_the_landings_name(self):
-        assert plan.kit_named("atlas-kit", plan.partition_kits(the_plan(), [landing("atlas-kit")]), "wldn") == (
+        assert plan.kit_named("atlas-kit", plan.drive_kits(the_plan(), [landing("atlas-kit")]), "wldn") == (
             "a bolt of wldn may not be named atlas-kit: that is the name of a kit wldn's plan or landings name, whose landings "
             "card is land/atlas-kit")
 
-    def test_an_area_is_made_for_a_kit_the_partition_names_and_none_other(self):
-        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
+    def test_an_area_is_made_for_a_kit_the_drive_names_and_none_other(self):
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
         kits = ["agentplot/boomdrive-web", "switchboard-kit"]
         refused = lambda key: plan.card_refusal(fleet, "wldn-ops", "wldn", "create_area", key, kits)
         assert refused("create-area:WilldanGroup/switchboard-kit") is None
@@ -115,7 +115,7 @@ class TestKeys:
 
 
 class TestActsIn:
-    """A partition's run record is megabytes, so its landings are found by their Act line before anything is parsed."""
+    """A drive's run record is megabytes, so its landings are found by their Act line before anything is parsed."""
     TEXT = ("%rec: Entry\n\n"
             "Id: 1\nAt: 2026-10-30T10:00:00Z\nAct: bolt.give\nOn: bolt/b\nRepo: crew\n\n"
             "Id: 2\nAt: 2026-10-30T11:00:00Z\nAct: bolt.land\nOn: bolt/b\nRepo: crew\nHead: abc\n\n"
@@ -136,7 +136,7 @@ class TestActsIn:
 # ------------------------------------------------------------------------------- where a kit's work runs
 
 TIP = "5e1f0c2a" + "0" * 32
-FLEET = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
+FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
 
 
 def launch(n, work, base, repo="crew"):
@@ -294,7 +294,7 @@ class TestWhereABoltRuns:
         runs = plan.rail_runs([("madswan", "o/state", "t2", plan.Plan(flume_plan([("x", None, "flume")])))])
         assert [r.get("Repo") for r in runs["madswan"][0]] == ["flywheel-cloud"]
 
-def test_a_partitions_hosts_are_its_main_levels_and_its_runners():
+def test_a_drives_hosts_are_its_main_levels_and_its_runners():
     """Decision 5: deneb, madswan's main level's, and alpha, where a runner answers for it, each once."""
     assert plan.hosts_of(FLEET, "madswan", {"madswan": ([], {"alpha": took("alpha"), "deneb": took("deneb")})}) == ["alpha", "deneb"]
     assert plan.hosts_of(FLEET, "madswan", {}) == ["deneb"]
@@ -302,7 +302,7 @@ def test_a_partitions_hosts_are_its_main_levels_and_its_runners():
 
 class TestBeforeARunnerTookIt:
     """The user's ruling of 2026-11-01: a start's branch and checks, a unit name's check, a bolt never started landed,
-    the design agent's records, the board's explorations and the main level's kit folders run on the partition's
+    the design agent's records, the board's explorations and the main level's kit folders run on the drive's
     main-level host, in the checkout its spaces keep of the kit (plan.main_kit, crew.kit_kept), refused where they keep
     none; nothing is asked of a runner."""
     SPACES = {"deneb": {"sessions": {
@@ -334,8 +334,8 @@ class TestBeforeARunnerTookIt:
         assert plan.main_kit(fleet, "madswan", "agentplot/blueprints")["kit"]["repo"] == "agentplot/blueprints"
         assert plan.main_kit_read(fleet, "madswan", "blueprints") is None
 
-    def test_the_main_levels_kit_folders_are_its_partitions_kits_its_host_keeps(self, monkeypatch):
-        """crew.kits_on: the partition's kits (plan.kits_read) its host keeps, each once, as crew's cache holds the branch
+    def test_the_main_levels_kit_folders_are_its_drives_kits_its_host_keeps(self, monkeypatch):
+        """crew.kits_on: the drive's kits (plan.kits_read) its host keeps, each once, as crew's cache holds the branch
         unless fetched; a kit it keeps none of is left out."""
         import crew
         asked = []
@@ -374,7 +374,7 @@ class TestInTheRunnersCopy:
     def test_another_host_keeps_its_spaces_folders(self):
         """drive-state, Another host's kit: deneb's file names deneb's repositories alone."""
         import crew
-        fleet = dict(self.FLEET, partitions={"madswan": {"label": "madswan", "machine": "alpha"}})
+        fleet = dict(self.FLEET, drives={"madswan": {"label": "madswan", "machine": "alpha"}})
         assert plan.main_kit(fleet, "madswan", "crew")["kit"] == {
             "name": "crew", "repo": "afterthought/crew", "dir": "/a/willdan/crew", "main": "/a/willdan/crew/main"}
         assert crew.kit_kept(fleet, "alpha", "weir") is None

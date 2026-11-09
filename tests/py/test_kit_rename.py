@@ -30,7 +30,7 @@ def madswan(extra_units=()):
 
 def fleet(*repos):
     """madswan's fleet, its main level on deneb, whose spaces keep repos (owner/name)."""
-    return {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
+    return {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
             "hosts": {"deneb": keeping("/d/agentplot", *repos)}}
 
 

@@ -13,7 +13,7 @@ import facts
 import plan
 import transcript
 
-FLEET = {**facts.FLEET, "partitions": {**facts.FLEET["partitions"], "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
+FLEET = {**facts.FLEET, "drives": {**facts.FLEET["drives"], "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 
 
 def word(**f):
@@ -74,7 +74,7 @@ class TestRefused:
         ('["wldn"]', "one JSON object holding label, key, to and text"),
         (json.dumps({"label": "wldn", "key": "unit:a", "to": "wldn-planner"}), "one JSON object holding label, key, to and text"),
         (word(text=7), "one JSON object holding label, key, to and text"),
-        (word(label="nosuch"), "no partition 'nosuch'. partitions: wldn swancloud"),
+        (word(label="nosuch"), "no drive 'nosuch'. drives: wldn swancloud"),
         (word(key="ledger:a"), "a word from the board is on no item of the kind 'ledger': kinds signal proposal"),
         (word(key="unit:a b"), "a word from the board is on an item's key, <kind>:<name>, not 'unit:a b'"),
         (word(key="proposal:4", to="wldn-ops"), "a word on a proposal goes to wldn-planner, not wldn-ops"),

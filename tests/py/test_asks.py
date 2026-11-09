@@ -270,7 +270,7 @@ class TestWaitsOn:
         assert [w[1] for w in asks.waits_on("madswan/planner", reqs, places)] == ["3", "12"]
 
 
-MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+MADSWAN = {"drives": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
 
 
 @pytest.fixture
@@ -300,7 +300,7 @@ class TestWrite:
         assert w.files["asks.rec"].startswith(plan.ASKS.split("\n\n")[0]) and turns == []
         assert [(a["Id"], a["Role"], a["From"], a["What"], a["Words"]) for a in got] == [("1", "planner", "madswan-design", "tell", "record 0053\nis accepted")]
         assert rec.get("Id") == "1" and "Key" not in got[0] and "Names" not in got[0]
-        assert asks.parse_roles(w.files["roles.rec"]) == [asks.role_record(MADSWAN["partitions"]["madswan"], "planner", PLANNER)]
+        assert asks.parse_roles(w.files["roles.rec"]) == [asks.role_record(MADSWAN["drives"]["madswan"], "planner", PLANNER)]
         assert plan.ask_rec(w, MADSWAN, "madswan", "planner", "card", "crew", names="proposal/12", key="card/req_1/t").get("Id") == "2"
         assert [a["Id"] for a in asks.parse(w.files["asks.rec"])[0]] == ["1", "2"]
 
@@ -327,14 +327,14 @@ class TestWrite:
         w = written()
         assert plan.roles_lines(w, MADSWAN, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["planner"]
         assert not plan.roles_lines(w, MADSWAN, "madswan")
-        moved = {"partitions": {"madswan": madswan(planner="madswan-main", ops="madswan-ops")}}
+        moved = {"drives": {"madswan": madswan(planner="madswan-main", ops="madswan-ops")}}
         assert not plan.roles_lines(w, moved, "madswan", ["planner"])
         assert plan.roles_lines(w, moved, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["planner", "ops"]
         assert asks.parse_roles(w.files["roles.rec"])[1]["Model"] == "claude-opus-5-5[1m]"
-        stood = {"partitions": {"madswan": madswan(ops="madswan-ops")}}
+        stood = {"drives": {"madswan": madswan(ops="madswan-ops")}}
         assert plan.roles_lines(w, stood, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["ops"]
         none = written()
-        assert not plan.roles_lines(none, {"partitions": {"madswan": madswan()}}, "madswan") and "roles.rec" not in none.files
+        assert not plan.roles_lines(none, {"drives": {"madswan": madswan()}}, "madswan") and "roles.rec" not in none.files
 
     def test_a_write_names_its_acts_entry_and_each_asks_and_emits_the_asks_after_the_act(self, monkeypatch, capsys):
         """plan.2: the commit's Crew-Entry trailers name the act's entry and the ask's, and each is emitted once pushed."""
@@ -461,7 +461,7 @@ def in_run(monkeypatch, tmp_path):
     import crew
     import plan
     import record
-    fleet = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+    fleet = {"drives": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
     monkeypatch.setenv("FLUME_PLACE", "/home/u/.local/state/flume/places/crew-planner--madswan")
     b = on_branch(monkeypatch, fleet, {"asks.rec": TAKEN})
     monkeypatch.setattr(crew, "brief", lambda fleet, scope, role, self_name="": f"the {role} brief of {scope} for {self_name}")
@@ -483,11 +483,11 @@ def end(b, report, words):
 
 
 def fleet_of(p):
-    return {"partitions": {"madswan": p}, "hosts": {}}
+    return {"drives": {"madswan": p}, "hosts": {}}
 
 
 def roles_held(p):
-    """roles.rec as roles_lines writes it for a partition."""
+    """roles.rec as roles_lines writes it for a drive."""
     import plan
     w = written()
     plan.roles_lines(w, fleet_of(p), "madswan")
@@ -772,7 +772,7 @@ def opening(monkeypatch):
     standing: madswan's branch in memory and deneb's runner as a case sets it (reads)."""
     import getpass
     import plan
-    fleet = {"partitions": {"madswan": madswan(design="madswan-main", planner="madswan-main")}, "hosts": {}}
+    fleet = {"drives": {"madswan": madswan(design="madswan-main", planner="madswan-main")}, "hosts": {}}
     b = on_branch(monkeypatch, fleet, {})
     monkeypatch.delenv("CREW_LABEL", raising=False)
     monkeypatch.setattr(getpass, "getuser", lambda: "chuck")
@@ -829,12 +829,12 @@ class TestOpen:
         assert str(e.value).startswith(f"crew can't tell whether a run of madswan-design is live: {why}") and str(e.value).endswith("; nothing is written")
         assert opening.files == {} and opening.writes == []
 
-    def test_a_role_that_stands_or_no_partition_named_is_refused(self, opening):
+    def test_a_role_that_stands_or_no_drive_named_is_refused(self, opening):
         import crew
         with pytest.raises(crew.Refusal, match="^madswan runs its ops as a standing agent, madswan-ops, in its tab of crew main up madswan: "
-                                               "crew role open opens only a role its partition runs as its kind; nothing is written$"):
+                                               "crew role open opens only a role its drive runs as its kind; nothing is written$"):
             open_role(opening, role="ops")
-        with pytest.raises(crew.Refusal, match="^which partition's design\\? add --label madswan$"):
+        with pytest.raises(crew.Refusal, match="^which drive's design\\? add --label madswan$"):
             open_role(opening, label=None)
         assert opening.files == {}
 
@@ -846,11 +846,11 @@ CREW_KIT = {"name": "crew", "repo": "afterthought/crew", "dir": "/w/crew", "main
 def landing(monkeypatch, tmp_path):
     """A command run in madswan's design agent's run on deneb (FLUME_PLACE crew-design--madswan), the design agent
     running as its kind, madswan's plan naming crew by its name alone as a bolt's kit, which deneb, the main level's
-    host, keeps as afterthought/crew, and swancloud's blueprints those of another partition; its writes applied to
+    host, keeps as afterthought/crew, and swancloud's blueprints those of another drive; its writes applied to
     madswan's branch in memory, and a brief over two lines in a file."""
     import plan
     swancloud = dict(madswan(), label="swancloud", blueprints=["afterthought/blueprints"])
-    fleet = {"partitions": {"madswan": madswan(design="madswan-main"), "swancloud": swancloud},
+    fleet = {"drives": {"madswan": madswan(design="madswan-main"), "swancloud": swancloud},
              "hosts": {"deneb": {"sessions": {"madswan": {"dir": "/w", "repos": [CREW_KIT["repo"]]}}}}}
     monkeypatch.setenv("FLUME_PLACE", RUN_PLACE)
     b = on_branch(monkeypatch, fleet, {})
@@ -906,7 +906,7 @@ class TestLand:
 
     @pytest.mark.parametrize("repo, why", [
         ("afterthought/crew-state", "^crew names no repository afterthought/crew-state: a role's work lands in a blueprints repository "
-                                    "the teams file names or a kit the partition's plan or landings name, and it names "
+                                    "the teams file names or a kit the drive's plan or landings name, and it names "
                                     "afterthought/blueprints, afterthought/boomdrive-web, afterthought/crew$"),
         ("crew", "^a repository is named by its forge address, <owner>/<name>, which the runner resolves to its clone, not crew$")])
     def test_a_repository_crew_does_not_name_is_refused_writing_nothing_and_the_refusal_is_recorded(self, landing, repo, why):
