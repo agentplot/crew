@@ -86,10 +86,7 @@ _go
 _update
 _renew wldn-planner
 _sweep wldn switchboard-kit --dir /k
-_preview wldn land/b b bolt/b HEAD
 _answered
-_card-preview wldn land/b b
-_preview-release wldn land/b
 _made wldn a
 _batch-card wldn 1
 _land-row wldn tenant-environments

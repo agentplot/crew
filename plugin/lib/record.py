@@ -16,7 +16,10 @@ the rail's read: done when it started the reading, refused with crew's own messa
 card.answer, is the user's answer on one of crew's own cards, recorded once per card by the first act of crew's that
 reads it answered (the rail's sweep, a landings card's raise, crew card read), in the card owner's name on the row's
 object or agent/<asker>: its Card and Key, its Answer in crew's words made from names alone (cards.answer_said), and
-for a kit's landings card the bolts ticked in Heads, each <bolt>@<the head the card showed>.
+for a kit's landings card the bolts ticked in Heads, each <bolt>@<the head the card showed>. A sixth, card.preview, is
+the plan write of a preview request of a thing a card carries (Decision 6 of a-cards-preview-is-asked-of-the-runner):
+the owner's ask on the user's words (crew card preview), or the done of one, the user's or crew's own as a row or card
+ends, on the work it serves, bolt/<bolt> or unit/<unit>, its Key the card's and its State asked or done, and no words.
 
 A team's crossing to Flume (record 0050 part 3), which an older crew recorded as team.cross on team/<team>, its State
 the Flume stream the team's work then ran in, is read by crew trace team/<team> as written; crew writes it no more

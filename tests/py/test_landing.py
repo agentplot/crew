@@ -345,72 +345,27 @@ class TestTheLandingsPoint:
 
 
 class TestThePreview:
-    """A landings row carries what brings its bolt's preview up, asks sluice for nothing at its read, keeps one brought
-    up from the card at its head and releases one at another, says one that failed, and is asked again only on the
-    user's word (rail-cards, record 0043)."""
-    HEAD, NEW = "abc1234" + "0" * 33, "def5678" + "0" * 33
-
-    @pytest.mark.parametrize("declared, recorded, step", [
-        (False, None, "none"),
-        (True, None, "none"),
-        (True, HEAD, "keep"),
-        (True, NEW, "release"),
-        (False, HEAD, "release"),
-        (False, NEW, "release"),
-    ])
-    def test_what_a_rows_read_does_with_the_preview_brought_up_from_its_card(self, declared, recorded, step):
-        """"A moved head releases the preview of the old one and asks for none": nothing is ever asked at a read."""
-        assert plan.preview_step(declared, recorded, self.HEAD) == step
-
-    @pytest.mark.parametrize("recorded, listed, alive, step", [
-        (None, False, False, "ask"),
-        (HEAD, True, False, "keep"),
-        (HEAD, False, True, "keep"),
-        (HEAD, False, False, "ask"),
-        (NEW, True, True, "replace"),
-    ])
-    def test_what_crew_card_preview_does_with_the_things_preview(self, recorded, listed, alive, step):
-        """"Asked twice": one up or coming up at the revision is given back, no second asked."""
-        assert plan.asked_step(recorded, self.HEAD, listed, alive) == step
+    """What a card's preview is asked by, and its change note, from facts alone (rail-cards, record 0043; Decisions 4
+    and 6 of a-cards-preview-is-asked-of-the-runner)."""
+    HEAD = "abc1234" + "0" * 33
 
     @pytest.mark.parametrize("p, note", [
-        ({"head": HEAD, "state": "up", "addresses": {}}, "y: Its preview of abc1234 is up"),
+        ({"head": HEAD, "host": "deneb", "state": "asked"}, "y: Its preview of abc1234 is asked of the runner on deneb"),
+        ({"head": HEAD, "host": "deneb", "state": "held"}, "y: Its preview of abc1234 waits for room on deneb"),
         ({"head": HEAD, "state": "starting", "addresses": {}}, "y: Its preview of abc1234 is coming up"),
-        ({"head": HEAD, "why": "sluice exited 2"}, "y: Its preview of abc1234 could not be brought up"),
+        ({"head": HEAD, "state": "up", "addresses": {}}, "y: Its preview of abc1234 is up"),
+        ({"head": HEAD, "host": "deneb", "state": "failed"}, "y: Its preview of abc1234 did not come up"),
+        ({"head": HEAD, "host": "deneb", "state": "refused", "words": "no"}, "y: Its preview of abc1234 could not be brought up"),
+        ({"head": HEAD, "why": "deneb's runner can't be read"}, "y: Its preview of abc1234 could not be brought up"),
+        ({"head": HEAD, "host": "deneb", "state": "unlisted"}, "y: Its preview of abc1234 is gone"),
+        ({"branch": "bolt/y", "head": HEAD, "state": "ask", "released": HEAD}, "y: Its preview of abc1234 is put away"),
     ])
-    def test_an_asks_note_says_whether_it_is_up_coming_up_or_could_not_be(self, p, note):
-        """"Brought up": the note names the thing and whether it is up."""
+    def test_a_previews_note_says_what_the_card_now_says_of_it(self, p, note):
+        """"Brought up" and Decision 4's notes: the note names the thing and what its preview now is."""
         assert plan.asked_note("y", p) == note
 
-    @pytest.mark.parametrize("shown, outcome, note", [
-        ("addresses", "failed", "Its preview of abc1234 did not come up"),
-        ("reason", "up", "Its preview of abc1234 is up"),
-        ("addresses", "up", None),
-        ("reason", "failed", None),
-    ])
-    def test_a_previews_end_changes_the_card_only_when_it_changes_what_the_card_says(self, shown, outcome, note):
-        """"The stack fails to come up" and "The host is busy when the card is raised"."""
-        assert plan.preview_change(shown, outcome, self.HEAD) == note
-
-    def test_a_previews_end_is_a_change_of_the_card_in_its_words(self):
+    def test_a_previews_change_is_a_change_of_the_card_in_its_words(self):
         assert plan.landing_act("preview", head=self.HEAD, words="Its preview of abc1234 is up") == ("change", "Its preview of abc1234 is up")
-
-    def test_what_a_card_shows_of_a_recorded_preview(self):
-        r = {"head": self.HEAD}
-        listed = {"head": self.HEAD, "name": "preview/1", "state": "up", "addresses": {"web": "http://w"}}
-        assert plan.preview_shown(r, listed, False) == listed
-        assert plan.preview_shown(dict(r, outcome={"state": "failed", "why": "port 4321 in use"}), None, False) == {"head": self.HEAD, "why": "port 4321 in use"}
-        assert plan.preview_shown(r, None, True) == {"head": self.HEAD, "why": "sluice has not named it yet"}
-        assert plan.preview_shown(r, None, False) == {"head": self.HEAD, "why": "sluice no longer lists it"}
-
-    def test_a_revision_another_record_names_keeps_sluices_preview_and_one_crew_cant_read_releases_none(self):
-        """"Two cards asking one revision share sluice's one preview": crew releases it only with its last record."""
-        r = {"head": self.HEAD, "main": "/kit/main"}
-        others = [("/p/a.json", {"head": self.HEAD, "main": "/kit/main"}), ("/p/b.json", {"head": self.NEW, "main": "/kit/main"}),
-                  ("/p/c.json", {"head": self.HEAD, "main": "/other/main"})]
-        assert plan.shared_by(r, others) == (["/p/a.json"], [])
-        assert plan.shared_by(r, others[1:]) == ([], [])
-        assert plan.shared_by(r, others[1:] + [("/p/d.json", None)]) == ([], ["/p/d.json"])
 
     def test_a_thing_the_card_does_not_carry_is_refused_naming_those_it_does(self):
         """"A thing the card does not carry"."""
@@ -432,153 +387,6 @@ class TestThePreview:
         assert plan.preview_caller("chuck@mac-studio", "swancloud-ops", "land/crew") is None
         assert plan.preview_caller("crw-1-conductor", "swancloud-ops", "land/crew") == (
             "land/crew is swancloud-ops's card: swancloud-ops brings up what it carries, on the user's words on it")
-
-    def test_a_previews_row_is_its_bolts_on_a_landings_card_and_its_cards_own_key_on_any_other(self):
-        """"A card closed elsewhere": the rail's sweep judges a landings row's preview by its row."""
-        assert plan.preview_row_key("land/crew", "y") == "land/y" and plan.preview_row_key("batch/7", "a/demo") == "batch/7"
-
-
-class TestARowsPreview:
-    """A landings row's read on its team's host (plan.preview_row): what brings the preview up, or "no preview", sluice
-    asked for nothing; one brought up from the card at the head listed as sluice lists it; one at another head, or with
-    no [preview] now, released, nothing asked at the new head; and one an older crew asked at the row's post released
-    at the first read (rail-cards, record 0043, Migration Plan)."""
-    HEAD, OLD = "abc1234" + "0" * 33, "0123456" + "0" * 33
-    KEY = "land/crew"
-
-    @pytest.fixture(autouse=True)
-    def sluice(self, monkeypatch, tmp_path):
-        """sluice's previews as this host lists them (listed), and each read and release crew asks of it (asked)."""
-        monkeypatch.setattr(plan, "PREVIEWS", tmp_path / "previews")
-        self.listed, self.asked = [], []
-
-        def read(main, *args, timeout=None):
-            self.asked.append(args)
-            if args[0] == "previews":
-                return self.listed, None
-            if args[0] == "release":
-                return {"preview": args[1], "released": True}, None
-            raise AssertionError(f"sluice {args} asked")
-        monkeypatch.setattr(plan, "sluice_read", read)
-        return tmp_path / "previews"
-
-    def record(self, key, thing, head, **more):
-        p = plan.preview_path("wldn", key, thing)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(dict(key=key, thing=thing, branch=f"bolt/{thing}", head=head, main="/kit/main", asked="2026-10-28T10:00:00Z", **more)))
-        return p
-
-    def test_a_kit_that_declares_a_preview_carries_its_branch_and_head_and_sluice_is_asked_nothing(self):
-        """rail-cards "A kit that declares a preview"."""
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, True, None) == {"branch": "bolt/y", "head": self.HEAD, "state": "ask"}
-        assert self.asked == []
-
-    def test_a_kit_that_declares_none_says_no_preview(self):
-        """rail-cards "A kit that declares none"."""
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, False, None) == {"head": self.HEAD, "none": True}
-        assert self.asked == []
-
-    def test_a_policy_crew_cannot_read_says_why_and_leaves_crews_record(self):
-        """rail-cards "The policy can't be read"."""
-        p = self.record(self.KEY, "y", self.OLD)
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, None, "fatal: bad object") == {"head": self.HEAD, "why": "fatal: bad object", "policy": True}
-        assert p.exists() and self.asked == []
-
-    def test_one_brought_up_at_this_head_is_listed_as_sluice_lists_it(self):
-        """rail-cards "Brought up": its row lists sluice's addresses."""
-        self.record(self.KEY, "y", self.HEAD, name="preview/1")
-        self.listed = [{"name": "preview/1", "branch": "bolt/y", "revision": self.HEAD, "state": "up", "addresses": {"web": "http://w"}}]
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, True, None) == dict(
-            head=self.HEAD, name="preview/1", state="up", addresses={"web": "http://w"})
-        assert self.asked == [("previews",)]
-
-    def test_a_moved_head_releases_the_old_heads_preview_and_asks_none_at_the_new(self, capsys):
-        """rail-cards "The head moves with a preview up"."""
-        p = self.record(self.KEY, "y", self.OLD, name="preview/0")
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, True, None) == {
-            "branch": "bolt/y", "head": self.HEAD, "state": "ask", "released": self.OLD}
-        assert self.asked == [("release", "preview/0")] and not p.exists()
-        assert "released y's preview of 0123456 from land/crew, preview/0" in capsys.readouterr().out
-
-    def test_a_policy_that_now_declares_none_releases_the_preview(self):
-        self.record(self.KEY, "y", self.HEAD)
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, False, None) == {"head": self.HEAD, "none": True, "released": self.HEAD}
-        assert self.asked == [("release", self.HEAD)]
-
-    def test_a_preview_an_older_crew_asked_at_the_rows_post_is_released_at_the_first_read(self, sluice, capsys):
-        """Migration Plan: no preview is left held."""
-        (sluice / "wldn").mkdir(parents=True)
-        (sluice / "wldn" / "y.json").write_text(json.dumps({"head": self.OLD, "main": "/kit/main", "name": "preview/0"}))
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, True, None) == {"branch": "bolt/y", "head": self.HEAD, "state": "ask"}
-        assert self.asked == [("release", "preview/0")] and not (sluice / "wldn" / "y.json").exists()
-        assert "released y's preview of 0123456 from land/y, preview/0" in capsys.readouterr().out
-
-    def test_a_revision_another_card_names_is_kept_up_for_it(self, capsys):
-        """Two cards ask one revision: the first record to go leaves sluice's preview for the other."""
-        p = self.record(self.KEY, "y", self.OLD)
-        other = self.record("batch/7", "a/demo", self.OLD)
-        assert plan.preview_row("wldn", self.KEY, "y", self.HEAD, True, None)["released"] == self.OLD
-        assert self.asked == [] and not p.exists() and other.exists()
-        assert ("y's preview of 0123456 from land/crew is put away, and sluice keeps it up for a/demo's from batch/7, which "
-                "names it too") in capsys.readouterr().out
-        assert plan.preview_release("wldn", "batch/7", "a/demo") == ("released a/demo's preview of 0123456 from batch/7", True)
-        assert self.asked == [("release", self.OLD)]
-
-    def test_a_row_that_leaves_the_card_releases_every_preview_of_its_bolt(self, sluice):
-        """rail-cards "The bolt lands with its preview up" and "A fix holds the landing"."""
-        self.record(self.KEY, "y", self.HEAD, name="preview/1")
-        self.record("land/swancloud", "y", self.HEAD + "1")
-        (sluice / "wldn" / "y.json").write_text(json.dumps({"head": self.OLD, "main": "/kit/main"}))
-        self.record(self.KEY, "z", "fedcba9" + "0" * 33)
-        said = plan.preview_release_row("wldn", "y")
-        assert said == ("released y's preview of abc1234 from land/crew, preview/1; released y's preview of abc1234 from "
-                        "land/swancloud; released y's preview of 0123456 from land/y")
-        assert plan.preview_files("wldn") == [(plan.preview_path("wldn", self.KEY, "z"), self.KEY, "z", False)]
-        assert plan.preview_release_row("wldn", "y") is None
-
-    LISTED = [
-        {"name": "preview/0123456789ab", "branch": "main", "revision": HEAD, "state": "up", "addresses": {"web": "http://w"}},
-        {"name": "preview/aaaaaaaaaaaa", "branch": "bolt/y", "revision": NEW, "state": "up", "addresses": {"web": "http://n"}},
-        {"name": "preview/bbbbbbbbbbbb", "branch": "bolt/y", "revision": HEAD, "state": "starting", "made": "2026-10-19T10:00:00Z",
-         "addresses": {"web": "http://web-abc1234--bolt-y--kit.localhost:4321", "api": "http://api-abc1234--bolt-y--kit.localhost:4322"}},
-    ]
-
-    def test_the_heads_preview_is_the_entry_sluice_lists_for_the_bolts_branch_and_its_head(self):
-        assert plan.preview_listed(self.LISTED, "bolt/y", self.HEAD) == dict(
-            head=self.HEAD, name="preview/bbbbbbbbbbbb", state="starting",
-            addresses={"web": "http://web-abc1234--bolt-y--kit.localhost:4321", "api": "http://api-abc1234--bolt-y--kit.localhost:4322"})
-        assert plan.preview_listed(self.LISTED, "bolt/z", self.HEAD) is None and plan.preview_listed([], "bolt/y", self.HEAD) is None
-
-    def test_a_failed_preview_carries_sluices_output(self):
-        failed = [dict(self.LISTED[2], state="failed", output="building web\nerror: port 4321 in use\n")]
-        assert plan.preview_listed(failed, "bolt/y", self.HEAD)["output"] == "building web\nerror: port 4321 in use\n"
-        assert plan.preview_listed([dict(failed[0], output=None)], "bolt/y", self.HEAD)["output"] == ""
-
-    @pytest.mark.parametrize("doc, said", [
-        ({"previews": []}, "sluice's previews are no list crew reads"),
-        (["preview/0123456789ab"], "sluice lists a preview crew can't read"),
-        ([LISTED[0], None], "sluice lists a preview crew can't read"),
-        ([dict(LISTED[2], state="booting")], "sluice lists a preview of bolt/y at abc1234 crew can't read"),
-        ([dict(LISTED[2], name=7)], "sluice lists a preview of bolt/y at abc1234 crew can't read"),
-        ([dict(LISTED[2], addresses={"web": None})], "sluice lists a preview of bolt/y at abc1234 crew can't read"),
-    ])
-    def test_a_list_crew_cannot_read_is_refused(self, doc, said):
-        with pytest.raises(plan.Refusal) as e:
-            plan.preview_listed(doc, "bolt/y", self.HEAD)
-        assert str(e.value).startswith(said)
-
-    @pytest.mark.parametrize("code, out, err, ended", [
-        (0, '{"name": "preview/0123456789ab", "state": "up", "addresses": {"web": "http://w"}}', "", {"state": "up"}),
-        (1, '{"name": "preview/0123456789ab", "state": "failed", "output": "building\\nerror: port 4321 in use\\n"}', "",
-         {"state": "failed", "why": "building / error: port 4321 in use"}),
-        (2, '{"error": {"kind": "refused", "message": "abc1234 has no [preview] table in .config/sluice.toml", "next": []}}', "",
-         {"state": "failed", "why": "abc1234 has no [preview] table in .config/sluice.toml"}),
-        (2, "", "error: unrecognized subcommand 'preview'\n\nUsage: sluice <COMMAND>\n", {"state": "failed", "why": "Usage: sluice <COMMAND>"}),
-        (137, "", "", {"state": "failed", "why": "sluice exited 137"}),
-    ])
-    def test_how_sluices_preview_ended_is_read_from_its_exit_and_its_words(self, code, out, err, ended):
-        """"The stack fails to come up" and "The host's sluice has no preview command"."""
-        assert plan.preview_ended(code, out, err) == ended
 
 
 def policy(text, origin="yes"):
@@ -917,10 +725,13 @@ class TestALandingIsRecordedInTheRunRecordAsAsked:
 
 
 class TestCrewBoltLandOfAStartedBolt:
-    """bolt-plan "A landed bolt leaves the plan with its units" (Decision 7): crew bolt land closes a started bolt only
-    once its landing reads landed from the runner's report, at Flume's commit, with its age and split from the run
-    record, deleting no branch; refused, recording nothing, naming its outcome otherwise, and for a bolt started before
-    bolts were base places."""
+    """bolt-plan "A landed bolt leaves the plan with its units" (Decision 7): crew bolt land closes a started bolt once
+    its landing reads landed from the runner's report, at Flume's commit, with its age and split from the run record,
+    deleting no branch; or, bolt-teams "A bolt whose landing main holds closes whatever the runner carried of its
+    places" (Decision 3 of a-bolts-landing-on-main-reads-landed), once its kit's main holds its landing and each of its
+    pieces reads landed through it (main_landed), a bolt started before bolts were base places among them; refused,
+    recording nothing, naming its outcome otherwise, and for a bolt started before bolts were base places whose landing
+    main does not hold."""
     PLAN = "%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\nUnit: a\nRepo: crew\nBolt: y\nIntent: A.\n\n"
 
     @pytest.fixture(autouse=True)
@@ -938,6 +749,8 @@ class TestCrewBoltLandOfAStartedBolt:
         monkeypatch.setattr(plan, "write", lambda fleet, label, change, subject, **k: self.written.append((subject, k)))
         monkeypatch.setattr(plan, "launched_at", lambda *a, **k: None)
         monkeypatch.setattr(plan, "land_hand", lambda *a, **k: None)
+        self.on_main = {}  # the kit's main holds no landing of y unless a case says so
+        monkeypatch.setattr(plan, "main_landed", lambda fleet, label, p, b, units: self.on_main)
 
     def land(self, monkeypatch, run, bolt="y"):
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: run)
@@ -969,3 +782,27 @@ class TestCrewBoltLandOfAStartedBolt:
         with pytest.raises(plan.Refusal) as e:
             self.land(monkeypatch, (held(), {}))
         assert str(e.value) == f"{runner.legacy_said('y')}, so crew bolt land closes nothing of it here" and self.written == []
+
+    @pytest.mark.parametrize("run", ["legacy", "bolt-submitted", None])
+    def test_a_bolt_whose_landing_main_holds_closes_at_that_landing_whatever_the_runner_reports(self, monkeypatch, run):
+        """bolt-teams "A landed bolt whose branch and places are gone": a bolt started before bolts were base places,
+        one whose base place the runner still reads submitted, and one it carries no place of, each closed at the
+        landing main holds, recording no outcome of the runner's."""
+        from test_runner import held
+        self.on_main = {"commit": "4acecf09" + "0" * 32}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.land(monkeypatch, (held(), {}) if run == "legacy" else base_run(run))
+        (subject, k), = self.written
+        assert subject == "plan(y): land the bolt" and (k["fields"]["Repo"], k["fields"]["Head"]) == ("crew", "4acecf09" + "0" * 32)
+        assert "y has landed at crew's 4acecf0, as its kit's main holds it" in out.getvalue()
+
+    def test_a_piece_the_landing_main_holds_does_not_name_refuses_naming_it(self, monkeypatch):
+        """bolt-teams "A piece its landing does not hold"."""
+        from test_runner import held
+        self.on_main = {"commit": "4acecf09" + "0" * 32, "why": "unit a has not landed on main: it is code"}
+        with pytest.raises(plan.Refusal) as e:
+            self.land(monkeypatch, (held(), {}))
+        assert str(e.value) == ("bolt y's landing is on its kit's main at 4acecf0, and crew bolt land closes nothing of it yet: "
+                                "unit a has not landed on main: it is code")
+        assert self.written == []

@@ -5,12 +5,19 @@
 # bolt reads proven and the raise of its kit's landings card on the main level's host posts its row; the user's send of
 # it makes the next raise post one land of the bolt's launch, in ops's name, recorded asked with its request, and a raise
 # after it posts none; the runner carries the land and Flume's status of the base place submitted, then landed at a
-# commit, and the next raise records the landing, closes the bolt at that commit and closes the card naming it. Two
+# commit, and the next raise records the landing, closes the bolt at that commit and closes the card naming it, putting
+# away the preview its row carried. Before the send, ops's crew card preview, on the user's words on the card, writes
+# one preview request for the runner on the box, where the bolt's work runs, and the card, changed in place, says it is
+# asked; once the runner reports it, the rail's read changes the card listing its address, and ops's --done writes its
+# done (a-cards-preview-is-asked-of-the-runner). Two
 # bolts proven together are one card of two boxes; the user ticks both and the raise posts their lands in the card's
 # order; Flume refuses the first for a conflict with main and the second for a failed check: the raise records both,
 # launches the first's take-main fix once however often it reads it, and holds the second's row in Flume's words; once
 # the take-main fix lands on its bolt, which reads proven at its new head with its own work unchanged, the next raise
-# posts a second land of it on the standing send. Through it all, no sluice, wt or gh call is made, and the kit's
+# posts a second land of it on the standing send; Flume lands it on main, GitHub deletes its branch and the runner
+# carries no place of its work, so its report never reads it landed, and ops's crew bolt land closes it at the landing
+# its kit's main holds, its chore read landed through that landing (bolt-teams "A bolt whose landing main holds closes
+# whatever the runner carried of its places"). Through it all, no sluice, wt or gh call is made, and the kit's
 # checkout on the box keeps its HEAD, index and refs but its remotes' (Decision 1). Every decision on the way is a logic
 # case (tests/py/test_runner.py, test_landings.py, test_landing.py).
 # Reads: plugin/lib/board.py plugin/roles/
@@ -38,11 +45,14 @@ before=$(kit_state)
 : > "$CREW_TEST_LOG"
 live=$BASE_LIVE
 # flume_builds <chore> <bolt> <file>: what Flume does with a launched chore once it has built, done in a clone of its
-# own so the kit's checkout is crew's alone: its commit, carrying its trailer, landed on the bolt on GitHub; then the
-# fleet's timer fetches the kit on the box, and the runner carries the chore's place landed at the bolt's new head
+# own so the kit's checkout is crew's alone: its commit, carrying its trailer, landed on the bolt on GitHub as sluice
+# lands a place, a merge naming its place's branch (Sluice-From); then the fleet's timer fetches the kit on the box,
+# and the runner carries the chore's place landed at the bolt's new head
 flume_builds() {
   git -C "$fl" fetch -q origin; git -C "$fl" checkout -q --detach "origin/bolt/$2"
   echo "$1" > "$fl/$3"; git -C "$fl" add "$3"; git -C "$fl" commit -qm "chore($1): $1" -m "Chore: $1"
+  local c; c=$(git -C "$fl" rev-parse HEAD); git -C "$fl" checkout -q --detach "origin/bolt/$2"
+  git -C "$fl" merge -q --no-ff -m "chore(land): chore/$1" -m "Sluice-From: chore/$1 (chore/$1)" "$c"
   git -C "$fl" push -q origin "HEAD:refs/heads/bolt/$2"
   git -C "$k" fetch -q origin
   runner_writes $box "$(request_of "chore/$1")" "/flume/places/chore--$1" "$(landed_status "/flume/places/chore--$1" "$(git -C "$fl" rev-parse HEAD)")"
@@ -66,6 +76,7 @@ flume_lands_bolt() {
   echo "$c"
 }
 requests() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -P "$1" | grep . | paste -sd ' ' -; }
+req() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request "$@"; }
 land_of() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'land' && Work = 'bolt/$1'" -P Request | tail -1; }
 
 # A start launches the base place and then the chore, making no branch and reaching no host
@@ -88,21 +99,53 @@ card=$(grep -o "^card land/switchboard-kit: req_stub-[0-9]*" <<<"$out" | cut -d'
 has "$(calls | grep "^$box pendingyou post_request " | tail -1)" "Land the bolt y on switchboard-kit's main"
 ok "the bolt reads proven once its chore lands on it as the runner reports, and its kit's landings card carries it"
 
+# The user writes on the card asking to try it running: ops's crew card preview writes one preview request on
+# wldn/main's requests.rec, naming the box, whose runner took the bolt's work, the bolt, its kit, its branch and its
+# head, and the card, changed in place, says it is asked of the runner on the box; once the runner reports it, sluice's
+# listing of it starting at one address, the rail's read on the partition's main machine changes the card listing the
+# address; the user is done with it and ops's --done writes its done; asked again, it stands at the send.
+ops() { (export CREW_AGENT=wldn-ops; HOST=$box crew "$@"); }
+kit_repo=$(git --git-dir "$ws" show wldn/main:plan.rec | recsel -t Bolt -e "Bolt = 'y'" -P Repo)
+h=$(git -C "$k" rev-parse origin/bolt/y)
+out=$(ops card preview land/switchboard-kit y 2>&1) || fail "ops could not ask for the preview:"$'\n'"$out"
+asked=$(req -e "Act = 'preview'" -P Request | tail -1)
+[[ -n $asked ]] || fail "no preview request was written:"$'\n'"$out"
+eq "$(req -e "Request = $asked" -p Host,Work,Repo,Branch,Revision,Done)" \
+  "$(printf 'Host: %s\nWork: bolt/y\nRepo: %s\nBranch: bolt/y\nRevision: %s' "$box" "$kit_repo" "$h")"
+has "$out" "request $asked: y: Its preview of ${h:0:7} is asked of the runner on $box"
+has "$(calls | grep "^$box pendingyou update_request " | tail -1)" "\"changeNote\": \"y: Its preview of ${h:0:7} is asked of the runner on $box\""
+st=$(jq -nc --arg r "$h" '{name: "preview-y", branch: "bolt/y", revision: $r, state: "starting", made: "2026-10-31T12:05:00Z", addresses: {web: "http://web-y"}}')
+runner_previews $box "$asked" done "$st" "$st" yes
+expect_ok on_box rail --label wldn
+changed=$(calls | grep "^$box pendingyou update_request " | tail -1)
+has "$changed" "\"changeNote\": \"y: Its preview of ${h:0:7} is coming up\""
+has "$changed" "web: http://web-y"
+out=$(ops card preview land/switchboard-kit y --done 2>&1) || fail "ops could not put the preview away:"$'\n'"$out"
+done_=$(req -e "Act = 'preview'" -P Request | tail -1)
+eq "$(req -e "Request = $done_" -p Work,Revision,Done)" "$(printf 'Work: bolt/y\nRevision: %s\nDone: yes' "$h")"
+has "$out" "request $done_: y: Its preview of ${h:0:7} is put away"
+out=$(ops card preview land/switchboard-kit y 2>&1) || fail "ops could not ask for the preview again:"$'\n'"$out"
+again=$(req -e "Act = 'preview'" -P Request | tail -1)
+(( again > done_ )) || fail "the preview was not asked again:"$'\n'"$out"
+ok "ops's crew card preview writes one preview request for the runner on the box, where the bolt's work runs, the card changed in place saying it is asked and, once the runner reports it, listing its address, and its --done writes its done"
+
 # The user's send: the next raise posts one land of y's launch, recorded asked, and the raise after it none
 mkdir -p "$(home_of $box)/.stub-pendingyou/answered"
 echo '{"answer": {"approved": true}}' > "$(home_of $box)/.stub-pendingyou/answered/$card.json"
 head=$(git -C "$k" rev-parse origin/bolt/y)
 expect_ok on_box _land-card wldn switchboard-kit
-has "$out" "card land/switchboard-kit: y is asked of the runner to land at ${head:0:7} (request 3), on the user's send"
-eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Request = 3" -P Act,Work,Of | paste -sd ' ' -)" "land bolt/y 1"
-eq "$(field $box bolt.submit Outcome bolt/y) $(field $box bolt.submit Request bolt/y) $(field $box bolt.submit By bolt/y)" "asked 3 wldn-ops"
+ly=$(land_of y)
+has "$out" "card land/switchboard-kit: y is asked of the runner to land at ${head:0:7} (request $ly), on the user's send"
+eq "$(req -e "Request = $ly" -P Act,Work,Of | paste -sd ' ' -)" "land bolt/y 1"
+eq "$(field $box bolt.submit Outcome bolt/y) $(field $box bolt.submit Request bolt/y) $(field $box bolt.submit By bolt/y)" "asked $ly wldn-ops"
+n=$(requests Request | wc -w | tr -d ' ')
 expect_ok on_box _land-card wldn switchboard-kit
-eq "$(requests Request | wc -w | tr -d ' ')" "3"
+eq "$(requests Request | wc -w | tr -d ' ')" "$n"
 has "$out" "card land/switchboard-kit: $card is left as it is, the user having answered it"
 ok "the user's send makes the raise post one land of the bolt's launch in ops's name, recorded asked with its request, and a second raise posts none"
 
 # Flume lands the bolt on main; the next raise records the landing, closes the bolt at that commit and the card
-landed=$(flume_lands_bolt y 3)
+landed=$(flume_lands_bolt y "$ly")
 : > "$T/ack"
 expect_ok on_box _land-card wldn switchboard-kit
 eq "$(field $box bolt.submit Outcome bolt/y)" "landed"
@@ -111,7 +154,9 @@ eq "$(field $box bolt.land By bolt/y)" "wldn-ops"
 plan() { git --git-dir "$ws" show wldn/main:plan.rec > "$T/plan.rec"; recsel -C "$@" "$T/plan.rec"; }
 [[ -z $(plan -t Bolt -e "Bolt = 'y'" -P Bolt) ]] || fail "y is still in the plan"
 has "$(calls | grep "^$box pendingyou ack_answer " | tail -1)" "Landed on GitHub's main: y at ${landed:0:7}"
-ok "once the runner reports the base place landed, the raise records the landing, closes the bolt at Flume's commit in ops's name and closes the card naming it"
+has "$out" "card land/switchboard-kit: put away y's preview of ${h:0:7} on $box"
+eq "$(req -e "Act = 'preview' && Revision = '$h' && Done = 'yes'" -c)" "2"
+ok "once the runner reports the base place landed, the raise records the landing, closes the bolt at Flume's commit in ops's name and closes the card naming it, putting its preview away"
 
 # Two bolts proven together, both ticked: the lands posted in the card's order
 for b in z w; do
@@ -168,6 +213,23 @@ lz2=$(land_of z)
 [[ -n $lz2 && $lz2 -gt $lz ]] || fail "no second land of z was posted on the standing send:"$'\n'"$out"
 has "$out" "card land/switchboard-kit: z is asked of the runner to land at $(git -C "$fl" rev-parse --short=7 HEAD) (request $lz2), on the user's send"
 ok "once the take-main fix lands on the bolt, which reads proven at its new head, the next raise posts a second land of it on the standing send"
+
+# Flume lands z on main through the merge queue, its landing naming bolt/z, GitHub deletes the branch, and Flume tidies
+# the box's places of z's work, so the runner carries none and its report never reads z landed: ops's crew bolt land
+# reads the landing main holds, z's chore read landed through it, and closes z at it.
+git -C "$fl" fetch -q origin; git -C "$fl" checkout -q --detach origin/main
+git -C "$fl" merge -q --no-ff -m "chore(land): #9 bolt/z" -m "Sluice-From: wldn-ops (bolt/z)" origin/bolt/z
+git -C "$fl" push -q origin HEAD:refs/heads/main; git -C "$fl" push -q origin :refs/heads/bolt/z
+zl=$(git -C "$fl" rev-parse HEAD)
+git -C "$k" fetch -q --prune origin
+runner_tidies $box $(req -e "Act = 'launch' && (Work = 'bolt/z' || Base = 'bolt/z')" -P Request)
+out=$(export CREW_AGENT=wldn-ops; on_box bolt land z 2>&1) || fail "ops's crew bolt land z failed:"$'\n'"$out"
+has "$out" "z has landed at switchboard-kit's ${zl:0:7}, as its kit's main holds it"
+eq "$(field $box bolt.land Head bolt/z) $(field $box bolt.land By bolt/z)" "$zl wldn-ops"
+eq "$(field $box bolt.submit Outcome bolt/z)" "asked"  # no outcome of the runner's is recorded for it
+[[ -z $(plan -t Bolt -e "Bolt = 'z'" -P Bolt) ]] || fail "z is still in the plan"
+[[ -z $(plan -t Unit -e "Bolt = 'z'" -P Unit) ]] || fail "z's chore is still in the plan"
+ok "a bolt Flume landed, its branch deleted from GitHub and its places no longer carried by the runner, is closed by ops's crew bolt land at the landing its kit's main holds"
 
 # Nothing of crew's ran sluice, wt or gh, nor moved the kit's checkout but its remotes
 # each stub logs its call as `<host> <tool> <args>`, wherever it runs, a command run over ssh among them

@@ -41,7 +41,7 @@ def bolts(at="code", carries=None, logs=None):
     sv = {BOX: {"ok": True, "kits": {"/kit/main": kit}}}
     return plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, w.plan)], sv, {},
                            runs={"wldn": (requests, ran({1: "flume-0.17.0/bolt-submitted", 2: at}, host=BOX, label="wldn",
-                                                         repository="/kit/main"))},
+                                                         repository="/kit/main", keeps=("WilldanGroup/switchboard-kit",)))},
                            logs={"wldn": logs} if logs is not None else None)
 
 

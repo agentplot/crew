@@ -32,6 +32,7 @@ is a launch of Flume's chore kind on its repository's default branch, the role's
 
 Each is a function of plain facts (code.7); plan.py, crew.py and hold.py read the facts and act on what they decide.
 This module imports nothing outside the standard library and crew's own modules (code.1)."""
+import datetime
 import json
 import os
 import re
@@ -49,7 +50,8 @@ def runnerless(label, tips):
 REQUESTS = """\
 # crew's requests of the runners: a launch of a Flume place for a started
 # bolt's base place, its work, a fix or a role's work that lands, or a retry,
-# drop, priority or land of a place launched.
+# drop, priority or land of a place launched; or a preview of a branch at a
+# revision on the host whose runner took the work it serves, or its done.
 # Written only by crew, each in the commit of the plan write that occasions it;
 # numbered once, and never changed or removed. The runner whose configuration
 # names a launch's Repo takes it, or for a role's the runner on its Host, and
@@ -60,22 +62,24 @@ REQUESTS = """\
 %doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work, a bolt's own launch its base place of crew's kind crew/bolt; or a retry, drop, priority or land of the place the launch Of names launched, taken by the runner that took it, a land the user's send of a bolt or a fix of main.
 %key: Request
 %type: Request,Of,After,Priority int
-%type: Act enum launch retry drop priority land
+%type: Act enum launch retry drop priority land preview
 %type: Kind regexp #^(change|chore|fix|crew/bolt)$#
 %type: Hold enum submission
 %type: Submission bool
+%type: Done bool
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Date date
 %mandatory: Request Act Work Date By
-%allowed: Request Act Host Work Repo Kind Name Base Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
+%allowed: Request Act Host Work Repo Kind Name Base Branch Revision Done Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
 """
 # A request's fields in the order requests.rec writes them (Decision 4's table).
-FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent", "Recipient", "Hold",
-          "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
+FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Branch", "Revision", "Done", "Stream", "Priority",
+          "Intent", "Recipient", "Hold", "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
 # What every request carries, and, by its act, what it must carry beside them and what else it may: a launch of a
 # role's work names its Host and Stream, and a launch of a kit's work neither, and a bolt's own launch carries no Brief
 # (request_refusal); a land names the launch it lands and nothing else (crew-lands-each-bolt-through-flumes-base-place,
-# Decision 4).
+# Decision 4); a preview names the host whose runner brings it up, its repository, branch and revision, and Done: yes
+# to put it away (request_refusal).
 COMMON = ("Request", "Act", "Work", "Date", "By")
 ACTS = {
     "launch": (("Repo", "Kind", "Name", "Base", "Priority", "Intent", "Recipient", "Brief"), ("Hold", "After", "Host", "Stream")),
@@ -83,12 +87,17 @@ ACTS = {
     "drop": (("Of",), ()),
     "priority": (("Of", "Priority"), ()),
     "land": (("Of",), ()),
+    "preview": (("Host", "Repo", "Branch", "Revision"), ("Done",)),
 }
 # The kind of a bolt's own launch, its base place: crew's kind bolt@1, named by its source (record 0056; Decision 2).
 BOLT_KIND = "crew/bolt"
 # The work a request serves, as crew names it: a bolt's base place, a unit, a chore, a fix on a bolt or a fix of a
 # kit's main, or a role's work that lands (Decision 10 of roles-run-as-flume-kinds).
 WORK = re.compile(r"^(?:bolt/N|unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+# The work a preview serves, a landings row's bolt or a batch line's unit (Decision 1 of
+# a-cards-preview-is-asked-of-the-runner): bolt/<bolt> is besides the work of the bolt's base place, its launch and the
+# retry, drop, priority and land of it.
+PREVIEW_WORK = re.compile(r"^(?:bolt/N|unit/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
 
 
 def needs(act, work):
@@ -135,15 +144,21 @@ def request_refusal(requests, new):
     branch still (crew-lands-each-bolt-through-flumes-base-place, Decisions 3 and 9), and a start's order is its own
     (bolt_launch, reach); a retry, drop, priority or land names by Of a launch of the same work, and a land a launch of a bolt or
     of a fix of main; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds
-    its submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
+    its submission; and a retry starts a stage again or submits again, not both (Decision 4). A preview names the host
+    whose runner brings it up, serves a landings row's bolt/<bolt> or a batch line's unit/<unit>, and is marked done by
+    Done: yes alone (Decision 1 of a-cards-preview-is-asked-of-the-runner); bolt/<bolt> is the work of the bolt's base
+    place besides."""
     n, act, work = new.get("Request"), new.get("Act"), new.get("Work")
     want = next_request(requests)
     if number(n) != want:
         return (f"request {n} is not the next in requests.rec: it holds "
                 + (f"requests 1 to {want - 1}" if want > 2 else "request 1" if want == 2 else "none") + f", so the next is {want}")
     if act not in ACTS:
-        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority or a land"
+        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority, a land or a preview"
     need, may = needs(act, work or ""), ACTS[act][1] + (("Brief",) if act == "launch" and (work or "").startswith("bolt/") else ())
+    if act == "preview" and not new.get("Host"):
+        return (f"preview {n} for {work} names no Host: a preview names the host whose runner brings it up, the one whose "
+                "runner reported the work it serves")
     missing = [f for f in COMMON + need if not new.get(f)]
     if missing:
         return (f"{act} {n} for {work} names no {' and no '.join(missing)}: a {act} carries "
@@ -151,9 +166,13 @@ def request_refusal(requests, new):
     extra = sorted({f for f, _ in new.fields if f not in COMMON + need + may})
     if extra:
         return f"{act} {n} for {work} carries {', '.join(extra)}, which a {act} does not take"
-    if not WORK.match(work):
+    if act == "preview" and not PREVIEW_WORK.match(work):
+        return f"preview {n} serves {work}, and a preview serves bolt/<bolt>, a landings row's, or unit/<unit>, a batch line's"
+    if act != "preview" and not WORK.match(work):
         return (f"{act} {n} serves {work}, and a request serves bolt/<bolt>, unit/<unit>, chore/<chore>, fix/<bolt>/<name>, "
                 "fix/main/<kit>/<name> or role/<role>/<name>")
+    if act == "preview" and new.get("Done") not in (None, "yes"):
+        return f"preview {n} for {work} is marked Done: {new.get('Done')}, and a preview is put away by Done: yes alone"
     if act == "launch" and work.startswith("role/") and not (new.get("Host") and new.get("Stream")):
         return f"launch {n} of {work} names no Host or no Stream: a role's work runs on the host and in the stream its role runs in"
     if act == "launch" and not work.startswith("role/") and (new.get("Host") or new.get("Stream")):
@@ -172,7 +191,7 @@ def request_refusal(requests, new):
     if act == "launch" and not work.startswith("bolt/") and new.get("Kind") == BOLT_KIND:
         return f"launch {n} of {work} names Kind {BOLT_KIND}, which is a bolt's base place's alone, of bolt/<bolt>"
     by = {r.get("Request"): r for r in requests}
-    if act != "launch":
+    if act in ("retry", "drop", "priority", "land"):
         of = by.get(new.get("Of"))
         if of is None or of.get("Act") != "launch":
             return f"{act} {n} for {work} names request {new.get('Of')}, which is no launch" + (
@@ -195,6 +214,14 @@ def request_refusal(requests, new):
     if act == "retry" and new.get("Stage") and new.get("Submission"):
         return f"retry {n} of {work} names stage {new.get('Stage')} and the submission: a retry starts a stage again or submits again"
     return None
+
+
+def preview_fields(host, repo, branch, revision, done=False):
+    """The fields of a preview request (Decision 1 of a-cards-preview-is-asked-of-the-runner), as plan.request takes
+    them beside its act and work: the host whose runner reported the work it serves, which alone brings it up; its
+    repository as the plan names it, resolved by that runner as a launch's is; the branch and the revision the row or
+    line names; and, for its done, Done: yes."""
+    return {"Host": host, "Repo": repo, "Branch": branch, "Revision": revision, "Done": True if done else None}
 
 
 def append_refusal(before, after):
@@ -226,7 +253,11 @@ def runner_branch(label, host):
 # (boomdrive's the-runner-carries-crews-work-into-flume, Decision 14); and repositories.rec each repository its
 # configuration keeps on the host, by its forge address with the folder of its clone, where Flume cuts its places
 # (roles.9; the drive-state spec, "A kit's work is taken by a runner whose configuration names its repository"), a
-# branch with none reporting no repositories.
+# branch with none reporting no repositories; and previews.rec what it answered of each preview request, by its
+# number: held, done or refused, sluice's answer (Text) and listing (Status) of the preview as the runner carried
+# them, each JSON on one line, whether sluice's last listing held it, the runner's words and when, under the
+# descriptor Boomdrive's runner writes (crates/boomdrive-crew/src/write.rs PREVIEWS at v0.6.0), held here byte for
+# byte (Decision 3 of a-cards-preview-is-asked-of-the-runner), a branch with none having answered no preview.
 RUNNER = """\
 %rec: Runner
 %key: Host
@@ -265,7 +296,18 @@ REPOSITORIES = """\
 %mandatory: Repository Folder
 %allowed: Repository Folder
 """
-FILES = {"runner.rec": "Runner", "answers.rec": "Answer", "places.rec": "Place", "repositories.rec": "Repository"}
+PREVIEWS = """\
+%rec: Preview
+%key: Request
+%type: Request int
+%type: Outcome enum held done refused
+%type: Listed enum yes no
+%type: At date
+%mandatory: Request Outcome At
+%allowed: Request Outcome Text Status Listed Words At
+"""
+FILES = {"runner.rec": "Runner", "answers.rec": "Answer", "places.rec": "Place", "repositories.rec": "Repository",
+         "previews.rec": "Preview"}
 
 
 def host_read(label, host, tip, files, refused):
@@ -277,7 +319,10 @@ def host_read(label, host, tip, files, refused):
     place's path, when the runner carried it, and its Status parsed, or with why it could not be; each role's run
     by its address, likewise, with the runner's words where it could launch none; and the repositories it keeps, each
     one's folder by its forge address, None where the tip holds no repositories.rec, a runner that reports none
-    (roles.9)."""
+    (roles.9); and its answer to each preview request by its number, {outcome, text, status, listed, words, at,
+    why}: sluice's answer (text) and listing (status) parsed, None where it carried none, listed True, False or
+    None, and why, naming the file, where either is no JSON, which marks that preview alone (Decision 3 of
+    a-cards-preview-is-asked-of-the-runner); none where the tip holds no previews.rec."""
     branch = runner_branch(label, host)
     out = {"host": host, "branch": branch, "tip": tip, "why": None}
     if tip is None:
@@ -326,8 +371,24 @@ def host_read(label, host, tip, files, refused):
             return dict(out, why=f"{host}'s runner can't be read: {at}: repositories.rec holds " + (
                 "a record with no repository's address" if not a else f"{a} twice" if a in kept else f"{a} with no folder"))
         kept[a] = r.get("Folder")
+    previews = {}
+    for r in files["previews.rec"].recs("Preview") if files.get("previews.rec") is not None else []:
+        n = number(r.get("Request"))
+        if n is None or n in previews:
+            return dict(out, why=f"{host}'s runner can't be read: {at}: previews.rec holds "
+                        + ("a record with no request's number" if n is None else f"request {n} twice"))
+        parsed, why = {}, None
+        for field in ("Text", "Status"):
+            try:
+                parsed[field] = json.loads(r.get(field)) if r.get(field) is not None else None
+            except ValueError as e:
+                parsed[field] = None
+                why = why or f"{at}: previews.rec's {field} of the preview of request {n} is no JSON ({e})"
+        previews[n] = {"outcome": r.get("Outcome"), "text": parsed["Text"], "status": parsed["Status"],
+                       "listed": {"yes": True, "no": False}.get(r.get("Listed")), "words": r.get("Words"), "at": r.get("At"),
+                       "why": why}
     return dict(out, runner=run[0], answers=answers, places=places, runs=runs,
-                repositories=kept if files.get("repositories.rec") is not None else None)
+                repositories=kept if files.get("repositories.rec") is not None else None, previews=previews)
 
 
 def role_run(reading, address):
@@ -395,10 +456,11 @@ def taken(reads, n):
 def kept_folder(reading, kit, what):
     """The folder a host's runner keeps a kit's clone in, as its repositories.rec reports it (roles.9: where a kit lives
     on a host is its runner's report), from host_read's reading and the kit as the plan gives it (kit), matched by its
-    name or forge address: (folder, None); (None, None) for a runner that reports no
-    repositories, whose folder Flume's status of a place names (where); or (None, why) where it reports none by the
-    kit's name, naming the host, what it keeps and the rename that may be why, or two by it (read.1). A kit named by
-    its forge address is the repository of that address before any other of its name."""
+    name or forge address: (folder, None); (None, None) for a runner that reports no repositories, which is not refused
+    for that alone, since Flume's status of a place it carries may name the folder (where; drive-state "A runner that
+    reports no repositories"); or (None, why) where it reports none by the kit's name, naming the host, what it keeps
+    and the rename that may be why, or two by it (read.1). A kit named by its forge address is the repository of that
+    address before any other of its name."""
     kept = reading.get("repositories")
     if kept is None:
         return None, None
@@ -418,28 +480,38 @@ def where(reads, launches, what, kit):
     """Where a runner reported taking work (the user's ruling of 2026-11-01; Decision 4), from the partition's runners as
     crew read them (reads), the launches of the work (launches, requests.rec's records, a bolt's on its branch or a
     kit's) and the kit as the plan gives it (kit): the host whose runner took the newest of them taken (takers); the
-    kit's folder there as that runner's repositories.rec reports it (kept_folder), or, where it reports none, as
-    Flume's status of the newest place it carries of them names it; and the stream its work runs in, as that status
-    names it (roles.9); each None where it carries no place
-    naming it yet; as ({"host", "dir", "stream"}, None); (None, None) while no runner has taken any of them and every
+    kit's folder there as that runner's repositories.rec reports it where it reports its repositories (kept_folder),
+    else as Flume's status of the newest place it carries of them names it; and the stream its work runs in, as that
+    status names it; each None where it carries no place naming it yet (roles.9; drive-state "A runner that reports no
+    repositories"); as ({"host", "dir", "stream"}, None); (None, None) while no runner has taken any of them and every
     runner was read; or (None, why) when none has and one could not be read, naming what (what) and that runner, two
-    runners took the newest, or the one that did keeps no repository by the kit's name (read.1)."""
+    runners took the newest, or the one that did reports its repositories and none by the kit's name, or two by it
+    (read.1)."""
+    reading, why = newest_taker(reads, launches, what)
+    if reading is None:
+        return None, why
+    folder, why = kept_folder(reading, kit, what)
+    if why:
+        return None, why
+    mine = sorted((number(x.get("Request")) for x in launches if number(x.get("Request")) in reading["places"]), reverse=True)
+    facts = [f for n in mine for p in [reading["places"][n]] if not p["why"] for f in [flume_facts(p["status"], p["place"])] if f]
+    return {"host": reading["host"], "dir": folder or next((f["repository"] for f in facts if f["repository"]), None),
+            "stream": next((f["stream"] for f in facts if f["stream"]), None)}, None
+
+
+def newest_taker(reads, launches, what):
+    """The runner that took the newest of launches taken, from the partition's runners as crew read them (reads): (its
+    reading, None); (None, None) while none has taken any and every runner was read; or (None, why) when none has and
+    one could not be read, or two took the newest (read.1). The host it names stands whether or not crew can tell the
+    kit's folder there (drive-state "A started bolt's host is named before its place is carried")."""
     unread = sorted({r["host"]: r["why"] for _, r in reads.items() if r["why"]}.items())
     for l in sorted(launches, key=lambda l: -(number(l.get("Request")) or 0)):
         hits, _ = takers(reads, number(l.get("Request")))
         if len(hits) > 1:
             return None, (f"crew can't tell where {what}'s work runs: request {l.get('Request')} was taken by the runners on "
                           f"{' and '.join(r['host'] for r in hits)}, whose configurations each name its repository")
-        if not hits:
-            continue
-        reading = hits[0]
-        folder, why = kept_folder(reading, kit, what)
-        if why:
-            return None, why
-        mine = sorted((number(x.get("Request")) for x in launches if number(x.get("Request")) in reading["places"]), reverse=True)
-        facts = [f for n in mine for p in [reading["places"][n]] if not p["why"] for f in [flume_facts(p["status"], p["place"])] if f]
-        return {"host": reading["host"], "dir": folder or next((f["repository"] for f in facts if f["repository"]), None),
-                "stream": next((f["stream"] for f in facts if f["stream"]), None)}, None
+        if hits:
+            return hits[0], None
     return None, (f"no runner has reported taking {what}'s work yet, so crew can't tell where it runs"
                   + "".join(f"; {why}" for _, why in unread)) if unread else None
 
@@ -461,13 +533,14 @@ def launch_repositories(reads, launches, kit):
     configuration names the repository may take the launch; as ([{"host", "dir"}], None), each once. ([], None) while no
     runner has taken any of the kit's work and none reports keeping it: no launch of the partition's has cut a place
     of the kit, and crew can name no repository to read. ([], why) when crew can't tell (read.1): where's own why, the
-    runner that took the kit's work carrying no place naming its folder, or one keeping two repositories by its name."""
+    runner that took the kit's work reporting no repositories and carrying no place of it naming its folder, or one
+    keeping two repositories by its name."""
     at, why = where(reads, launches, kit, kit)
     if why:
         return [], why
     if at and not at["dir"]:
-        return [], (f"the runner on {at['host']} took {kit}'s work and carries no place of it naming the folder it keeps {kit} "
-                    "in, so crew can't tell where a launch of it would be made")
+        return [], (f"the runner on {at['host']} took {kit}'s work, reports no repositories it keeps and carries no place of "
+                    f"it naming its folder, so crew can't tell where a launch of it would be made")
     out = [{"host": at["host"], "dir": at["dir"]}] if at else []
     for reading in sorted(reads.values(), key=lambda r: r["host"]):
         kept = reading.get("repositories") or {}
@@ -754,25 +827,36 @@ def base_said(s):
 
 
 def place_branch(work):
-    """The branch Flume cuts a unit's or chore's place on, as Flume's status names it (`branch`): <kind>/<name>, the
-    kind and name its launch gives (reach), a unit's kind change; the same whichever partition's launch made the place,
-    since it is the work's own name and carries no partition's (crew record 0055, rejected). None for a fix or a role's
-    work, which the bolt's landings do not build."""
+    """The branch Flume cuts a piece's place on, as Flume's status names it (`branch`) and sluice's landing on the bolt
+    names it (sluice clause 23): <kind>/<name>, the kind and name its launch gives (reach), a unit's kind change; the
+    same whichever partition's launch made the place, since it is the work's own name and carries no partition's (crew
+    record 0055, rejected). A fix on a bolt, fix/<bolt>/<name>, is Flume's fix kind named <bolt>--<name> (fix_launch),
+    so fix/<bolt>--<name>. None for a fix of a kit's main, fix/main/<kit>/<name>, which lands on main and never on a
+    bolt, and for a role's work, which the bolt's landings do not build."""
     kind, _, name = work.partition("/")
+    if kind == "fix":
+        parts = name.split("/")
+        return f"fix/{parts[0]}--{parts[1]}" if len(parts) == 2 and all(parts) else None
     return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
 
 
-def built_on_bolt(work, s, landings):
+def built_on_bolt(work, s, landings, launched=None):
     """A started piece's stage as its bolt's branch holds it (crew record 0056 decision 2; read.1, read.2), from facts:
     work, as requests name it; s, its stage as the runner's records give it (stage_of); landings, the branches the
-    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read. Once a landing
+    landings sluice made on its bolt name (gather.bolt_landings), None where they could not be read; launched, a fix's
+    launch's Date, UTC ISO 8601 to the second as requests.rec writes it, None for a unit or chore. Once a landing
     names its place's branch (place_branch), the piece is merged at that landing's commit, whatever the runner reports
     of its place: launching, refused because the bolt already holds its change, submitted, tidied or unknown, and
     whichever partition's launch made the place, keeping the place and tasks the runner gave; on (bolt) says it was read
     from the bolt, landed its landing's time. s as given where no landing names it, the landings could not be read, or
-    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit)."""
+    the runner already reads it merged or landed at a commit, which is that landing's (Flume's landed commit). A
+    landing made before launched builds nothing: a fix's name is free on its bolt again once its launch is dropped, so
+    such a landing is a dropped launch's of the same name, which a fix launched again under it must not inherit (design
+    of a-bolts-landed-fix-reads-merged, Decision 2); both times compare as text."""
     landing = (landings or {}).get(place_branch(work) or "")
     if not landing or (s["stage"] in ("merged", "landed") and s.get("commit")):
+        return s
+    if launched and landing["at"] < launched:
         return s
     kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
     return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
@@ -1067,7 +1151,7 @@ def stage_said(s):
             "merged": "merged", "landed": "landed", "dropped": "dropped"}.get(st, f"at {st}")
 
 
-def answer_retry(work, s):
+def answer_retry(work, s, carried=None):
     """What crew answer asks of a crossed piece's place (Decision 9), from its stage as stage_of gives it: ("stage", the
     stage) to start again with the words, for a place whose stage stopped short asking or that waits on its caller to
     retry a stage, stalled or not; ("submission", None) to submit again with them, for one whose submission waits on its
@@ -1076,7 +1160,12 @@ def answer_retry(work, s):
     answered it, so no reading says it waits on nothing; its submission waits held for the user's send, which no answer
     gives (state.3); or it neither stopped short nor waits on its caller. A stop-short whose agent Flume keeps open for
     its answer reads needs like any other, and its retry naming the stage is that answer, reaching the session kept
-    open as a tell answering it does (flume 42, 49, 198)."""
+    open as a tell answering it does (flume 42, 49, 198). carried is (host, At) of the runner's places.rec record its
+    stage was read from, None where crew holds none: a live place that neither stopped short nor waits is refused as
+    of that carry, naming its host and time, since a wait Flume has told of since reaches crew only with that runner's
+    next carry, and never as having nothing to answer (read.1; Decision 2 of a-place-waiting-on-its-caller-reads-waiting);
+    work that is over, held for its After work or refused by the runner is refused as having nothing to answer, since
+    Flume refuses any retry of over work (flume 50) and the others were never carried."""
     st, place = s["stage"], f"{work}'s place" + (f" {s['place']}" if s.get("place") else "")
     if st == "unknown":
         return None, f"can't tell whether {work}'s place waits on an answer: {s['why']}"
@@ -1093,8 +1182,12 @@ def answer_retry(work, s):
                       f"{send}, on the user's word")
     if st in ("waits", "stalled"):
         return "submission", None
-    return None, (f"{place} is {stage_said(s)}, with no question and nothing it waits on its caller for, so there is nothing "
-                  "to answer: crew bolts shows its stage")
+    if st in ("merged", "landed", "dropped", "waiting", "refused"):
+        return None, (f"{place} is {stage_said(s)}, with no question and nothing it waits on its caller for, so there is nothing "
+                      "to answer: crew bolts shows its stage")
+    when = f"when {carried[0]}'s runner carried it, at {carried[1]}" if carried and all(carried) else "when its runner last carried it"
+    return None, (f"{place} was {stage_said(s)} {when}, with no question and nothing it waited on its caller for: a wait Flume "
+                  "has told of since reaches crew with that runner's next carry, so answer again once crew bolts shows the place waiting")
 
 
 def fix_launch(plan, requests, bolt, label, name, words):
@@ -1182,16 +1275,19 @@ def fixes_on(requests, reads, base):
             if l.get("Base") == base and (l.get("Work") or "").startswith("fix/")]
 
 
-def fixes_in_flight(requests, reads, bolt):
-    """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}: each whose launch
-    stands and whose place has not merged into the bolt, landed or been dropped, its stage read from the runner that
-    took it (fixes_on), one crew can't read counted in flight (read.1); and the live landing fix of the bolt's base
-    place, read from the runner that took bolt/<bolt> (landing_fix; crews-bolt-kind-names-its-landing-fix, Decision
-    5), keyed by Flume's name for it, <bolt>-<n>, which no fix of crew's shares, with its note (landing_fix_note). A fix
-    in flight holds the bolt's landing as today's does (plan.landing_unready, landing_rows)."""
-    own = {l.get("Work"): l.get("Brief") for l, s in fixes_on(requests, reads, f"bolt/{bolt}")
-           if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
-    live = (landing_fix(base_facts(launch_of(requests, f"bolt/{bolt}"), reads)) or {}).get("live")
+def fixes_in_flight(fixes, bolt, requests=(), reads=None):
+    """The fixes in flight on a bolt given through Flume (Decision 10), {fix/<bolt>/<name>: its brief}, from facts:
+    fixes, each fix whose launch stands on the bolt as (its work, its launch, its stage) as plan.Stages.fixes reads
+    them, from the runner that took it and the bolt's landings (fixes_on, built_on_bolt): each whose place has not
+    merged into the bolt, landed or been dropped, one crew can't read counted in flight (read.1); and, given requests,
+    requests.rec's records, and reads, the partition's runners as crew read them, the live landing fix of the bolt's base
+    place, read from the runner that took bolt/<bolt> (landing_fix; crews-bolt-kind-names-its-landing-fix, Decision 5),
+    keyed by Flume's name for it, <bolt>-<n>, which no fix of crew's shares, with its note (landing_fix_note). A fix in
+    flight holds the bolt's landing as today's does (plan.landing_unready, landing_rows); one read merged from its bolt's
+    landing holds it no longer (bolt-plan "A fix read merged from its bolt's landing holds nothing")."""
+    own = {w: l.get("Brief") for w, l, s in fixes
+           if w.startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
+    live = (landing_fix(base_facts(launch_of(requests, f"bolt/{bolt}"), reads)) or {}).get("live") if reads else None
     return dict(own, **{live["name"]: live["note"]}) if live else own
 
 
@@ -1646,3 +1742,151 @@ def role_launch(requests, named, label, role, host, stream, repo, name, brief):
     return ("launch", work, {
         "Repo": repo, "Kind": "chore", "Name": name, "Base": ROLE_BASE, "Host": host, "Stream": stream, "Priority": 0,
         "Intent": f"{label}-{role}", "Recipient": f"{label}/{role}", "Brief": brief}), None
+
+
+# ------------------------------------------------------------------------------------------------ a card's preview
+
+# A preview as sluice lists it, and as the runner carries sluice's answer and listing of it (Boomdrive's previews
+# spec): its states, the first while it waits for room on its host.
+PREVIEW_STATES = ("waiting", "starting", "up", "failed")
+# Each state of a card's preview in one word (Decision 4 of a-cards-preview-is-asked-of-the-runner), for a change
+# note and for what a card was told (preview_word).
+PREVIEW_WORDS = {"ask": "ask", "asked": "asked", "held": "held", "waiting": "coming", "starting": "coming", "up": "up",
+                 "failed": "failed", "refused": "refused", "unlisted": "unlisted", "unread": "unread"}
+
+
+def preview_requests(requests):
+    """The preview requests of requests.rec, bring-ups and dones, in its order."""
+    return [r for r in requests if r.get("Act") == "preview"]
+
+
+def sluice_preview(doc, at):
+    """sluice's answer or listing of a preview as the runner carried it (doc), its fields checked where crew reads them
+    (read.2): (name, state, addresses, None), or (None, None, None, why) naming the field that holds nothing crew
+    reads, at naming the file it came from. A failed one's addresses are not read."""
+    if not isinstance(doc, dict):
+        return None, None, None, f"{at}: sluice's preview, as the runner carried it, is no object crew reads"
+    name, state, addresses = doc.get("name"), doc.get("state"), doc.get("addresses")
+    if not (isinstance(name, str) and name):
+        return None, None, None, f"{at}: sluice's preview, as the runner carried it, gives no name crew reads"
+    if state not in PREVIEW_STATES:
+        return None, None, None, f"{at}: sluice's preview {name}, as the runner carried it, gives state {json.dumps(state)}, which crew does not read"
+    if state == "failed":
+        return name, state, {}, None
+    if not (isinstance(addresses, dict) and all(isinstance(k, str) and k and isinstance(v, str) and v for k, v in addresses.items())):
+        return None, None, None, f"{at}: sluice's preview {name}, as the runner carried it, gives addresses that are no object of text"
+    return name, state, dict(addresses), None
+
+
+def preview_report(reads, request):
+    """A preview request as the runner on the host it names reports it (Decisions 2 and 3 of
+    a-cards-preview-is-asked-of-the-runner; drive-state "A preview is read from the runner on the host it names"), from
+    facts alone (code.7): reads, the partition's runners as crew read them (host_read's, by host); request, a
+    preview's record of requests.rec. Returns {state, host, head, and what goes with it}, head the request's revision:
+    from that runner's previews.rec, held with its words; refused with its words; or done, its state, name and
+    addresses from sluice's listing where the runner carried it, else from sluice's answer, unlisted where sluice's last
+    listing no longer held it; else, where that runner refused the request in answers.rec, as one that cannot read it
+    does, refused with its words; else asked, as no runner has answered it yet. unread, with why, where that runner, or
+    the preview's JSON, can't be read (read.1). Each carries when the runner answered it (at), where it did."""
+    n, host = number(request.get("Request")), request.get("Host")
+    out = {"host": host, "head": request.get("Revision")}
+    reading = reads.get(host)
+    if reading is None:
+        return dict(out, state="unread", why=f"no runner answers on {host}, the host preview {n} names")
+    if reading.get("why"):
+        return dict(out, state="unread", why=reading["why"])
+    p = (reading.get("previews") or {}).get(n)
+    if p is not None:
+        out = dict(out, at=p.get("at"))
+        if p["outcome"] == "held":
+            return dict(out, state="held", **({"words": p["words"]} if p.get("words") else {}))
+        if p["outcome"] == "refused":
+            return dict(out, state="refused", words=p.get("words"))
+        if p["outcome"] != "done":
+            return dict(out, state="unread", why=f"{host}'s runner answered preview {n} {p['outcome']}, which crew does not read")
+        if p.get("why"):
+            return dict(out, state="unread", why=p["why"])
+        if p.get("listed") is False:
+            return dict(out, state="unlisted")
+        doc = p["status"] if p.get("status") is not None else p.get("text")
+        if doc is None:
+            return dict(out, state="unread", why=f"{host}'s runner answered preview {n} done, carrying neither sluice's answer nor its listing")
+        name, state, addresses, why = sluice_preview(doc, f"{reading['branch']}'s previews.rec, request {n}")
+        if why:
+            return dict(out, state="unread", why=why)
+        return dict(out, state=state, name=name, **({"addresses": addresses} if state != "failed" else {}))
+    a = reading["answers"].get(n)
+    if a is not None and a.get("Outcome") == "refused":
+        return dict(out, state="refused", words=a.get("Words"), at=a.get("At"))
+    return dict(out, state="asked")
+
+
+def previews_asked(requests):
+    """crew's asks of previews not put away, {(host, repo, revision): the request}: for each host, repository and
+    revision a preview request names, its newest, where that is a bring-up, whatever the runner answered it; what a
+    card carries of a preview (Decision 2 of a-cards-preview-is-asked-of-the-runner)."""
+    newest = {}
+    for r in preview_requests(requests):
+        k = (r.get("Host"), r.get("Repo"), r.get("Revision"))
+        if k not in newest or (number(r.get("Request")) or 0) > (number(newest[k].get("Request")) or 0):
+            newest[k] = r
+    return {k: r for k, r in newest.items() if r.get("Done") != "yes"}
+
+
+def previews_standing(requests, reads):
+    """crew's asks of previews that stand (Decision 2 of a-cards-preview-is-asked-of-the-runner), {(host, repo,
+    revision): the request}: for each host, repository and revision a preview request names, its newest, where that is
+    a bring-up the host's runner has not refused (previews_asked, preview_report). A done ends the ask, and so does the
+    runner's refusal; a bring-up written after a done stands again. One crew can't read stands, nothing ended on a
+    reading crew lacks (read.1)."""
+    return {k: r for k, r in previews_asked(requests).items() if preview_report(reads, r)["state"] != "refused"}
+
+
+def ask_step(ask, report):
+    """What crew card preview does with a thing's preview (Decision 6 of a-cards-preview-is-asked-of-the-runner;
+    rail-cards "Asked twice", "Asked again after a refusal"), from facts alone: ask, crew's standing ask of that
+    revision on that host (previews_standing), or None; report, the runner's report of it (preview_report). "keep"
+    while it stands and the runner has neither refused it nor reported it failed, unlisted or unread, the card given
+    back what it reports with no second request; "ask" otherwise, one bring-up written."""
+    if ask is None or report is None or report["state"] in ("refused", "failed", "unlisted", "unread"):
+        return "ask"
+    return "keep"
+
+
+def preview_word(shown):
+    """A card's preview, in the shape cards.preview_said takes it, in one word (Decision 4 of
+    a-cards-preview-is-asked-of-the-runner): ask, asked, held, coming (waiting or starting), up, failed, refused,
+    unlisted or unread, the last for a preview crew can't read ({head, why}); None for none."""
+    if not shown:
+        return None
+    state = shown.get("state")
+    if state is None:
+        return "unread" if shown.get("why") else None
+    return PREVIEW_WORDS.get(state, "unread")
+
+
+def asked_at(request):
+    """When a request was written, from its Date, as an aware datetime; None where it holds none crew reads."""
+    try:
+        return datetime.datetime.strptime(request.get("Date") or "", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+
+
+def previews_put_away(asks, carried, works, now=None, grace=0):
+    """The asks whose done crew writes (Decision 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A preview is
+    released on the user's done and when its card or row ends"), from facts alone: asks, the standing asks a caller
+    weighs, as previews_standing gives them; carried, the (host, repo, revision) of each row or line that still carries
+    its preview; works, the work whose card still stands, each kept whole; now and grace, an ask written under grace
+    seconds before now kept, as it may be a card's not yet raised. Returns each bring-up whose done is to be written,
+    in requests.rec's order; an ask whose age crew can't read is kept (read.1). A preview crew did not ask for is in
+    no ask, and so never put away."""
+    out = []
+    for k, r in asks.items():
+        if k in carried or r.get("Work") in works:
+            continue
+        at = asked_at(r)
+        if now is not None and grace and (at is None or (now - at).total_seconds() < grace):
+            continue
+        out.append(r)
+    return sorted(out, key=lambda r: number(r.get("Request")) or 0)

@@ -81,7 +81,7 @@ def runs(p=None, at=None, before=None, numbered=None, read=True):
     n = {r.get("Work").split("/", 1)[1]: r.get("Request") for r in requests if r.get("Act") == "launch"}
     at = dict({"zone-one": "landed"}, **(at or {}))
     carried = dict({n[u]: f for u, f in at.items() if f and u in n}, **{str(k): f for k, f in (numbered or {}).items()})
-    return {"wldn": (requests, ran(carried, host=BOX, label="wldn", repository="/kit/main") if read else {})}
+    return {"wldn": (requests, ran(carried, host=BOX, label="wldn", repository="/kit/main", keeps=(f"WilldanGroup/{KIT}",)) if read else {})}
 
 
 def rows(props=(), times=None, held=None, sv=None, at=None):
@@ -206,7 +206,7 @@ class TestRows:
                                                                          "2026-11-08T12:00:00Z", "wldn-ops"))]
         launched = dict({n["unit/zone-one"]: "landed"}, **({base: f"flume-0.17.0/{fixture}"} if fixture else {}))
         unplaced = dict({} if fixture else {base: "/flume/places/bolt--apex-zones"}, **({str(m): "-"} if answered else {}))
-        reads = ran(launched, host=BOX, label="wldn", repository="/kit/main", unplaced=unplaced)
+        reads = ran(launched, host=BOX, label="wldn", repository="/kit/main", unplaced=unplaced, keeps=(f"WilldanGroup/{KIT}",))
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "refused": plan.refusals(entries),
                          "stopped": plan.stops(entries), "phases": plan.landing_phases(entries)}}
         land, = [r for r in plan.rail_rows(FLEET, [("wldn", "WilldanGroup/crew-state", "tip", p)], survey(), [], {}, held,
@@ -1319,11 +1319,8 @@ class Acts:
     def end(self, label, key):
         return None
 
-    def release_preview(self, label, key):
-        return None
-
-    def release_previews(self, label, key):  # nothing was brought up from the batch's card
-        return None
+    def runner(self, label):  # no preview asked, so a batch card's close puts none away
+        return [], {}
 
 
 def swept(rows_=(), cards_=(), entries=(), unread=None, proposed=(4, 5), handed=None, herdr=None, **kw):
@@ -2391,3 +2388,140 @@ class TestCrossedLandings:
         rows = self.rows({1: "landed", 2: "landed", 3: "landed", 4: "code"}, extra=[fix])
         assert rows[0]["what"][1] == "x, on deneb, in Flume stream madswan: lands once fix/x/rail-word has merged or been dropped"
         assert self.rows({1: "landed", 2: "landed", 3: "landed", 4: "landed"}, extra=[fix])[0]["bolts"][0]["can"] is True
+
+
+class TestPreviews:
+    """The rail read's put-away of each preview whose card or row is gone, and its change of each card whose preview
+    the runner reports anew, on the partition's main machine alone (rail-cards "A card closed elsewhere", "A row gone
+    with no raise of its card", "A card is changed in place when the runner reports its preview anew"; Decisions 7 and
+    8 of a-cards-preview-is-asked-of-the-runner): plan.sweep_previews and plan.previews_changed on a stand-in."""
+    HEAD = "abc1234" + "0" * 33
+    CARD = dict(label="wldn", card="req_k1", key=f"land/{KIT}", by="wldn-ops", host="mac-studio")
+    POSTED = {"Act": "card.post", "Key": f"land/{KIT}", "By": "wldn-ops", "Card": "req_k1", "Heads": "tenant-environments@abc1234"}
+
+    class Acts:
+        def __init__(self, test, here="mac-studio"):
+            self.test, self.here, self.notes = test, here, []
+
+        def host(self):
+            return self.here
+
+        def now(self):
+            return NOW
+
+        def runner(self, label):
+            return list(self.test.requests), dict(self.test.reads)
+
+        def preview_note(self, label, key, note):
+            """The card's raise, which keeps what it now tells the card (told_kept)."""
+            self.notes.append((key, note))
+            plan.told_keep(label, key, self.test.telling)
+
+    @pytest.fixture(autouse=True)
+    def state(self, monkeypatch, tmp_path):
+        import runner
+        from facts import FactsWrite
+        self.runner, self.writes, self.telling = runner, [], {}
+        self.requests, self.reads = [], self.alpha()
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+
+        def write(fleet, label, change, subject, act=None, on=(), fields=None, **more):
+            text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in self.requests)
+            w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, runners=self.reads, label=label)
+            change(w)
+            new = plan.Plan(w.files["requests.rec"]).recs("Request")[len(self.requests):]
+            self.requests += new
+            self.writes.append(dict(subject=subject, fields=fields, requests=[(r.get("Work"), r.get("Done")) for r in new]))
+        monkeypatch.setattr(plan, "write", write)
+
+    def alpha(self, previews=""):
+        files = {"runner.rec": plan.Plan(self.runner.RUNNER + f"\nHost: {BOX}\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+                 "previews.rec": plan.Plan(self.runner.PREVIEWS + previews)}
+        return {BOX: self.runner.host_read("wldn", BOX, "5" * 40, files, {})}
+
+    def ask(self, n, work="bolt/tenant-environments", ago=10):
+        return plan.Rec("Request", self.runner.request_fields(n, "preview", work, self.runner.preview_fields(
+            BOX, KIT, "bolt/tenant-environments" if work.startswith("bolt/") else work.replace("unit/", "change/"), self.HEAD),
+            iso(ago), "wldn-ops"))
+
+    def read(self, rows_=(), cards_=(), entries=(), unread=None, machine="mac-studio"):
+        fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], machine=machine)})
+        found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
+        return fleet, dict(found=found, rows=list(rows_), cards=list(cards_), unread=unread or {}, batched={"wldn": {}},
+                           logs={"wldn": list(entries)}, runs={}, kits=kits_of(found))
+
+    def test_a_dead_ask_has_its_done_written_on_the_main_machine_and_none_on_another_host(self):
+        self.requests = [self.ask(1)]
+        fleet, read = self.read()
+        got = plan.sweep_previews(fleet, read, self.Acts(self))
+        assert got == [dict(label="wldn", work="bolt/tenant-environments", revision=self.HEAD, said="put away, its card or row gone")]
+        assert [(w["subject"], w["fields"], w["requests"]) for w in self.writes] == [
+            (f"plan(card): preview of tenant-environments put away from land/{KIT}", {"Key": f"land/{KIT}", "State": "done"},
+             [("bolt/tenant-environments", "yes")])]
+        assert ("previews put away, their card or row gone:\n  bolt/tenant-environments at abc1234 (wldn): put away, its card or "
+                "row gone") in text([], previews=got)
+        self.requests, self.writes = [self.ask(1)], []
+        fleet, read = self.read(machine=BOX)
+        assert plan.sweep_previews(fleet, read, self.Acts(self)) == [] and self.writes == []
+
+    def test_an_ask_under_two_minutes_old_or_of_a_live_row_is_kept(self):
+        self.requests = [self.ask(1, ago=1)]
+        fleet, read = self.read()
+        assert plan.sweep_previews(fleet, read, self.Acts(self)) == [] and self.writes == []
+        self.requests = [self.ask(1)]
+        land = dict(label="wldn", group="land", key=f"land/{KIT}", bolts=[dict(bolt="tenant-environments", can=True)])
+        fleet, read = self.read(rows_=[land])
+        assert plan.sweep_previews(fleet, read, self.Acts(self)) == [] and self.writes == []
+
+    def test_a_blind_prefix_keeps_its_asks(self):
+        """read.1: while the run record can't be read from its branch, every batch line's ask stands."""
+        self.requests = [self.ask(1, "unit/early")]
+        fleet, read = self.read(unread={"wldn": {"wldn/main": "fatal: bad object"}})
+        assert plan.sweep_previews(fleet, read, self.Acts(self)) == [] and self.writes == []
+        fleet, read = self.read()
+        assert [x["work"] for x in plan.sweep_previews(fleet, read, self.Acts(self))] == ["unit/early"]
+
+    def test_a_waiting_card_is_changed_once_when_the_runners_report_moves_and_not_on_the_read_after(self):
+        """rail-cards "The runner reports a preview brought up" and "A report that changes nothing the card says"."""
+        import json
+        self.requests = [self.ask(1)]
+        plan.told_keep("wldn", f"land/{KIT}", {"1": "asked"})
+        up = {"name": "kit-te", "branch": "bolt/tenant-environments", "revision": self.HEAD, "state": "up", "addresses": {"web": "http://w"}}
+        self.reads = self.alpha(f"\nRequest: 1\nOutcome: done\nStatus: {json.dumps(up)}\nListed: yes\nAt: {iso(1)}\n")
+        fleet, read = self.read(cards_=[self.CARD], entries=[self.POSTED])
+        acts, self.telling = self.Acts(self), {"1": "up"}
+        got = plan.previews_changed(fleet, read, acts)
+        assert acts.notes == [(f"land/{KIT}", "tenant-environments: Its preview of abc1234 is up")]
+        assert got == [dict(label="wldn", key=f"land/{KIT}", note="tenant-environments: Its preview of abc1234 is up", said=None)]
+        self.reads = self.alpha(f"\nRequest: 1\nOutcome: done\nStatus: {json.dumps(up)}\nListed: yes\nAt: {iso(0)}\n")
+        acts = self.Acts(self)
+        assert plan.previews_changed(fleet, read, acts) == [] and acts.notes == []
+
+    def test_an_answered_card_is_left(self):
+        """rail-cards "The user answered the card"."""
+        self.requests = [self.ask(1)]
+        self.reads = self.alpha(f"\nRequest: 1\nOutcome: refused\nWords: no preview\nAt: {iso(1)}\n")
+        fleet, read = self.read(cards_=[self.CARD], entries=[self.POSTED, {"Act": "card.answer", "Card": "req_k1", "Key": f"land/{KIT}"}])
+        acts = self.Acts(self)
+        assert plan.previews_changed(fleet, read, acts) == [] and acts.notes == []
+
+    def test_a_card_posted_with_no_key_is_passed_over(self):
+        """code.2: an agent's own question, posted with no Key (rail_times keeps its key None), carries no ask; the
+        planner's and ops's alike are passed over, and the card beside them is still changed."""
+        self.requests = [self.ask(1)]
+        own = [dict(label="wldn", card=f"req_q{n}", key=None, by=by, host="mac-studio") for n, by in enumerate(("wldn-planner", "wldn-ops"))]
+        fleet, read = self.read(cards_=[*own, self.CARD], entries=[{"Act": "card.post", "By": "wldn-planner", "Card": "req_q0"}, self.POSTED])
+        acts, self.telling = self.Acts(self), {"1": "asked"}
+        assert [(x["key"], x["note"]) for x in plan.previews_changed(fleet, read, acts)] == [
+            (f"land/{KIT}", "tenant-environments: Its preview of abc1234 is asked of the runner on chuck-herdr-alpha")]
+
+    def test_a_lost_cache_changes_the_card_once(self):
+        """rail-cards "What was told is lost"."""
+        self.requests = [self.ask(1)]
+        fleet, read = self.read(cards_=[self.CARD], entries=[self.POSTED])
+        acts, self.telling = self.Acts(self), {"1": "asked"}
+        assert [x["note"] for x in plan.previews_changed(fleet, read, acts)] == [
+            "tenant-environments: Its preview of abc1234 is asked of the runner on chuck-herdr-alpha"]
+        assert plan.told_read("wldn") == {f"land/{KIT}": {"1": "asked"}}
+        acts = self.Acts(self)
+        assert plan.previews_changed(fleet, read, acts) == [] and acts.notes == []
