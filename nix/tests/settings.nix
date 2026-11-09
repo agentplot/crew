@@ -76,7 +76,7 @@ rec {
       };
     };
     consoles = {
-      afterthought = afterthought;
+      inherit afterthought;
       agentplot = "/Users/chuck/Code/github_agentplot";
       madswan = afterthought;
       wldn = "/Users/chuck/Code/clients/github_willdan";
