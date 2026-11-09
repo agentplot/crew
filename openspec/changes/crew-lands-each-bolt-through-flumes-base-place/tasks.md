@@ -40,7 +40,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 ## 6. The drop and the tidy
 
 - [x] 6.1 A drop of a started bolt drops its pieces' launches and then the bolt's, asks the bolt's drop again once no piece is live after the runner refused it, and asks nothing of sluice for its branch (design Decision 8; Task notes 6.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py tests/py/test_bolt_commands.py'` exits 0.
-- [ ] 6.2 The tidy runs no sluice, deletes no bolt branch and keeps no bolt-branch mark, and names a landing or legacy bolt worktree it finds with the commands that remove it (design Decision 8; Task notes 6.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_tidy.py'` exits 0.
+- [x] 6.2 The tidy runs no sluice, deletes no bolt branch and keeps no bolt-branch mark, and names a landing or legacy bolt worktree it finds with the commands that remove it (design Decision 8; Task notes 6.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_tidy.py'` exits 0.
 
 ## 7. Nothing of crew's runs a tool for a bolt
 

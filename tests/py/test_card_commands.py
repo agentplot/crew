@@ -706,7 +706,7 @@ def test_a_landing_on_the_users_words_sends_them_answered_here_and_records_the_o
     in the conversation, Pending You sent the user's words, the run record the outcome alone (record.3); one the user
     also tapped is acked with the words."""
     landed = plan.landed_words("c" * 40, "24")
-    outcome, said = plan.pane_landed(landed, "wldn-ops", "2026-10-22T21:04:00Z", "Land swb-1's bolt")
+    outcome, said = f"Landed on the user's word in wldn-ops's pane; {landed}", f'Landed on the user\'s word in wldn-ops\'s pane, "Land swb-1\'s bolt"; {landed}'
     acts = Acts({"get_request": ({"status": "pending", "version": 1}, None)}, entries=HELD)
     assert plan.row_card_close(None, "wldn", "wldn-ops", "land/b1", outcome=outcome, acts=acts, said=said, here=True) == "req_c1"
     assert acts.calls[1] == ("cancel_request", {"requestId": "req_c1", "name": "wldn-ops", "reason": cards.cut(said, cards.OUTCOME),
@@ -768,7 +768,7 @@ def test_the_close_of_a_card_the_user_answered_records_what_they_answered_in_cre
 
 def test_a_card_closed_as_answered_in_its_owners_pane_records_the_pane_as_its_answer():
     landed = plan.landed_words("c" * 40, "24")
-    outcome, said = plan.pane_landed(landed, "wldn-ops", "2026-10-22T21:04:00Z", "Land swb-1's bolt")
+    outcome, said = f"Landed on the user's word in wldn-ops's pane; {landed}", f'Landed on the user\'s word in wldn-ops\'s pane, "Land swb-1\'s bolt"; {landed}'
     acts = Acts({"get_request": ({"status": "pending", "turn": "you", "version": 1}, None)}, entries=HELD)
     plan.row_card_close(None, "wldn", "wldn-ops", "land/b1", outcome=outcome, acts=acts, said=said, here=True)
     assert (acts.emitted[0]["State"], acts.emitted[0]["Answer"]) == ("closed", "answered in wldn-ops's pane")

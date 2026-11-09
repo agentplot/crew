@@ -70,28 +70,6 @@ def bolt_remote(text, branch="bolt/a-bolt", where=DECLARATION):
         crew.fail(f"{where} is not TOML, so crew can't read where sluice keeps {branch}: {e}")
 
 
-def branch_said(out, code):
-    """What sluice's `branch create` or `branch delete` said with --json (read.2, as sluice 0.36.4 says it,
-    tests/py/sluice-0.36.4/): (the commit it made the branch at or removed it from, None) for its document of a branch
-    made or removed, exit 0; (None, its message) for its refusal, {"error": {"kind", "message"}}, exit 1 when the
-    branch or the one it is made from is not there, 2 when it refused, 3 on its own failure. Refused, naming what it
-    said, on anything else."""
-    import json
-    try:
-        doc = json.loads(out or "")
-    except ValueError:
-        doc = None
-    sha = re.compile(r"[0-9a-f]{40,64}")
-    if code == 0 and isinstance(doc, dict) and isinstance(doc.get("branch"), str):
-        made = doc.get("created", doc.get("deleted"))
-        if isinstance(made, str) and sha.fullmatch(made):
-            return made, None
-    err = doc.get("error") if isinstance(doc, dict) else None
-    if code in (1, 2, 3) and isinstance(err, dict) and isinstance(err.get("message"), str) and err["message"]:
-        return None, err["message"]
-    crew.fail(f"crew can't read what sluice's branch command said (exit {code}): {(out or '').strip()[:200] or 'nothing'}")
-
-
 def bolt_lives(said, bolt):
     """Where a bolt's branch lives, as sluice routes it (plan.19): the remote the policy at the host's own bolt/<bolt>
     names for it, or at origin/bolt/<bolt> when the host has no branch of its own; None for a bolt made before gives
@@ -123,16 +101,6 @@ def bolt_home(said, bolt):
     except (binascii.Error, UnicodeDecodeError) as e:
         crew.fail(f"crew can't read main's {DECLARATION} as it was sent: {e}")
     return lives, bolt_remote(text, f"bolt/{bolt}", f"{DECLARATION} at main")
-
-
-def delete_ran(said):
-    """sluice's document and exit as BOLT_DELETE printed them, SAID, base64, and RC (read.2): (document, exit). Refused,
-    naming what was printed, when they are not there."""
-    f = said_of(said)
-    try:
-        return base64.b64decode(f["SAID"]).decode(), int(f["RC"])
-    except (KeyError, ValueError, UnicodeDecodeError):
-        crew.fail(f"crew can't read what sluice's branch delete said from: {(said or '').strip()[-200:] or 'nothing'}")
 
 
 def said_of(out):

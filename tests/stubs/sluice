@@ -15,7 +15,7 @@
 # records; `sluice release <name or revision> --json` removes one, {"preview", "released"}, exiting 0 also when there
 # was none. `sluice release --worktree <path> --json` releases a worktree as sluice 0.36.4 does, answering
 # {"released": false, "worktree": <path>}, nothing to release, exiting 0; or, while $CREW_TEST_ROOT/sluice-release-fails
-# exists, its release command failed, sluice's error naming the place, exiting 3 (tests/py/sluice-0.36.4/). `sluice
+# exists, its release command failed, sluice's error naming the place, exiting 3. `sluice
 # submit main --check --head bolt/<bolt> --json`, a bolt's forecast against main, prints
 # $CREW_TEST_ROOT/sluice-check-<bolt, its / as ->.json while it exists, exiting 2 when its conflict is not null and 0
 # when it is, as sluice's forecast of a branch no worktree holds does (its ADR 0039); without that file it refuses
@@ -49,7 +49,7 @@
 # the submissions to the branch, each a sluice/submission@1 with its id, head, state and from {agent, head,
 # worktree}. `sluice --version` prints `sluice 0.36.4`, or what $CREW_TEST_ROOT/sluice-version holds while it exists.
 # `sluice branch create <branch> --from <from> --json` and `sluice branch delete <branch> --into <into> --json` answer
-# as sluice 0.36.4 does (tests/py/sluice-0.36.4/), each branch routed where the policy keeps it
+# as sluice 0.36.4 does, each branch routed where the policy keeps it
 # (route.py): create reads <from> where it lives, origin's after a fetch for one on a remote, refuses a branch already
 # there, locally or on its remote, or one the policy at <from> gives no gate, and makes it on its remote by a push of a
 # branch that is not there, then sets the local branch, or makes it locally; delete refuses a branch with neither a
