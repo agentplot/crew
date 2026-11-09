@@ -928,3 +928,45 @@ class TestLandingOf:
         reading["places"][1]["status"] = status
         got = self.of({"deneb": reading})
         assert got["outcome"] == "refused" and "None" not in repr(got["words"]) and got["words"] == ""
+
+
+class TestBaseDrop:
+    """bolt-teams "A bolt's drop drops its base place last, and asks it again after a refusal" (Decision 8): a drop of a
+    started bolt appends its pieces' drops and then its base place's (plan.op_bolt_drop, reach), and once the runner
+    refused the base place's drop, the next plan write that finds the bolt gone from the plan, its launch standing and
+    no piece of it live asks the drop again (runner.base_drop_due), once for each refusal."""
+    FLEET = madswan_fleet()
+
+    def dropped(self, monkeypatch):
+        """x started, its base place request 1 and unit a's request 2, then dropped: the requests the drop appends."""
+        from facts import apply, known
+        monkeypatch.setenv("CREW_AGENT", BY)
+        w = FactsWrite(flume_plan([("x", None, None)], [("a", "x", [], "unit", [])]), label="madswan", runners=ran())
+        w.plan.bolt("x").set("Path", "flume")
+        act, work, given = runner.bolt_launch(w.plan, "x", "madswan")
+        plan.request(w, act, work, **given)
+        plan.reach_places(self.FLEET, w, "x")
+        apply(w, 'bolt drop x "Not now."', ctx=known(w, fleet=self.FLEET))
+        return w, plan.Plan(w.files["requests.rec"]).recs("Request")
+
+    def test_a_drop_drops_its_pieces_and_then_its_base_place_last(self, monkeypatch):
+        _, rs = self.dropped(monkeypatch)
+        assert [(r.get("Request"), r.get("Act"), r.get("Work"), r.get("Of")) for r in rs][2:] == [
+            ("3", "drop", "unit/a", "2"), ("4", "drop", "bolt/x", "1")]
+
+    def test_a_refused_base_drop_is_asked_again_once_no_piece_is_live_and_once_for_each_refusal(self, monkeypatch):
+        w, rs = self.dropped(monkeypatch)
+        refused = ran({1: "flume-0.17.0/bolt-submitted", 2: "dropped"}, refused={4: "flume refused it: a place on bolt/x is live"})
+        assert runner.base_drop_due(w.plan, rs, refused) == [("drop", "bolt/x", {"Of": "1"})]
+        live = ran({1: "flume-0.17.0/bolt-submitted", 2: "code"}, refused={4: "flume refused it: a place on bolt/x is live"})
+        assert runner.base_drop_due(w.plan, rs, live) == []
+        asked = held(*rs, rec(5, "drop", "bolt/x", Of=1))
+        assert runner.base_drop_due(w.plan, asked, refused) == []
+        assert runner.base_drop_due(w.plan, rs, ran({1: "flume-0.17.0/bolt-submitted", 2: "dropped"})) == []
+
+    def test_a_bolt_still_in_the_plan_or_one_with_no_drop_is_asked_nothing(self):
+        p = plan.Plan(flume_plan([("x", None, "flume")]))
+        rs = held(rec(1, "launch", "bolt/x", **dict(BOLT, Name="x")), rec(2, "drop", "bolt/x", Of=1))
+        refused = ran({1: "flume-0.17.0/bolt-submitted"}, refused={2: "no"})
+        assert runner.base_drop_due(p, rs, refused) == []
+        assert runner.base_drop_due(plan.Plan(flume_plan([])), rs[:1], refused) == []

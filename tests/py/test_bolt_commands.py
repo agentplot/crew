@@ -543,3 +543,34 @@ class TestSubmit:
 
     def test_its_refusal_records_no_act(self):
         assert ("bolt", "submit") not in plan.ACTS
+
+
+class TestDropOfAStartedBolt:
+    """bolt-plan "A bolt is created and dropped through crew" and bolt-teams "A bolt's drop drops its base place last"
+    (crew-lands-each-bolt-through-flumes-base-place, Decision 8): the drop's own commit drops each piece's launch and
+    then the bolt's, and the drop asks nothing of sluice or any host for its branch, sweeping only what its units made
+    where its work ran."""
+
+    def started(self):
+        w = TestStart().write(TestStart.BOLT + TestStart.PIECE)
+        w.plan.bolt("console-pages").set("Path", "flume")
+        return w
+
+    def test_its_commit_drops_the_pieces_and_then_the_base_place(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "chuck")
+        w = self.started()
+        run(w, 'bolt drop console-pages "Not now."')
+        rs = plan.Plan(w.files["requests.rec"]).recs("Request")
+        assert [(r.get("Act"), r.get("Work"), r.get("Of")) for r in rs[2:]] == [("drop", "unit/a-console-page", "2"),
+                                                                                 ("drop", "bolt/console-pages", "1")]
+
+    def test_after_it_no_branch_is_asked_of_anyone(self, monkeypatch):
+        import crew
+        swept = []
+        monkeypatch.setattr(crew, "on_machine", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        monkeypatch.setattr(plan, "drop_at", lambda fleet, label, b: ({"machine": "box", "label": "wldn", "kit": {"name": KIT}}, None))
+        monkeypatch.setattr(plan, "sweep_on", lambda fleet, t, what, landed=None, units=(), **k: swept.append((what, landed, list(units), k)))
+        w = self.started()
+        op = plan.op_bolt_drop(known(w), plan.do_args("wldn", 'bolt drop console-pages "Not now."'))
+        op.after("WilldanGroup/crew-state", "a" * 40)
+        assert swept == [("bolt console-pages", None, ["a-console-page", "a-console-filter"], {})]

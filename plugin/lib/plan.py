@@ -1138,6 +1138,7 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
         w = Write(repo, label, tip, read(repo, ref, tip))
         in_step(w.plan)
         touched = change(w) or []
+        base_drops(w)
         check(w.plan)
         if "requests.rec" in w.files:
             appended(w)
@@ -1155,6 +1156,20 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
         record.emit(label, also, on_, [], [f"{repo}@{sha}"], why, eid=eid, by=by, **more)
     asked(label, f"{repo}@{sha}", seen["asked"], seen["held"])
     return sha
+
+
+def base_drops(w):
+    """A plan write's own ask again of each base place whose drop the runner refused, once no piece of its bolt is live
+    (runner.base_drop_due; crew-lands-each-bolt-through-flumes-base-place, Decision 8), appended in the write's commit;
+    nothing on a branch with no requests.rec, and nothing where its runners can't be read (read.1)."""
+    if w.text("requests.rec") is None:
+        return
+    try:
+        reads = w.runners()
+    except Refusal:
+        return
+    for act, work, given in runner.base_drop_due(w.plan, requests_of(w).recs("Request"), reads):
+        request(w, act, work, **given)
 
 
 def requests_of(w):
@@ -2183,17 +2198,16 @@ def main_held(name, machine, said):
     return sha, why
 
 
-def sweep_on(fleet, t, what, landed=None, dropped=None, units=()):
+def sweep_on(fleet, t, what, landed=None, units=()):
     """The kit's read after a landing or a drop of one of its bolts (kit_read, code.3), on the host its work runs on and
     in the kit's folder there (t, bolt_at): run in this process when that is this host, else crew _sweep there as the
     one asking, saying what it did: each landing of the kit's bolts nothing recorded read, but after a landing
-    (reap_landings, plan.21, kit_read), the sweep of crew's own landing place and marked branch of the bolt, and, after a landing,
-    the bolt's landing card closed there with the words (landing_cards_closed) and its branch deleted by sluice once the
-    landing's place is gone (land_delete, plan.19), landed being (bolt, the outcome recorded, what Pending You is sent in
-    its place or None, whether the user answered it in a conversation); after a drop (dropped, the bolt), its branch
-    asked of sluice by the sweep's judgment of it (bolt_branch_asked); after either, what the bolt's units (units)
-    recorded as made, kept there, removed (made_drop). A host that does not answer, or whose read fails, leaves that to
-    the kit's next read, the delete named with its command, and the write stands."""
+    (reap_landings, plan.21, kit_read); the tidy's naming of any landing or legacy worktree it finds (tidy); after a
+    landing, the bolt's landing card closed there with the words (landing_cards_closed), landed being (bolt, the
+    outcome recorded, what Pending You is sent in its place or None, whether the user answered it in a conversation);
+    after either, what the bolt's units (units) recorded as made, kept there, removed (made_drop). crew deletes no
+    branch (crew-lands-each-bolt-through-flumes-base-place, Decision 8). A host that does not answer, or whose read
+    fails, leaves that to the kit's next read, and the write stands."""
     bolt, outcome, said, here = landed or (None, None, None, False)
     kit_name = t["kit"]["name"]
     if t["machine"] == crew.this_host():
@@ -2212,10 +2226,6 @@ def sweep_on(fleet, t, what, landed=None, dropped=None, units=()):
         print(f"{kit_name}'s host {t['machine']} {why}, so what crew made for {what} is not swept yet: the kit's next read sweeps it")
     elif (r.stdout + r.stderr).strip():
         print((r.stdout + r.stderr).strip())
-    if landed and r.returncode == 255:  # nothing ran there, the land's delete among it
-        print(deleted_said(landed[0], t["machine"], r.returncode, r.stdout, r.stderr))
-    if dropped and r.returncode == 255:  # the kit's next read asks it, the bolt's branch marked given and in no plan
-        print(dropped_said(dropped, t["machine"], r.returncode, r.stdout, r.stderr))
 
 
 # --------------------------------------------------------------------------------------------------- bolts
@@ -4734,38 +4744,30 @@ def op_bolt_drop(ctx, a):
                 w.plan.remove(u)
                 w.on.append(f"{kind_of(u)}/{u.name()}")
         w.plan.remove(b)
-        if through:  # every place it launched is dropped (Decision 7)
+        if through:  # every place it launched is dropped (Decision 7), its base place's last (Decision 8)
             reach_places(ctx.fleet, w, a.bolt)
+            base = runner.launch_of(requests_of(w).recs("Request"), f"bolt/{a.bolt}")
+            if base is not None:
+                request(w, "drop", f"bolt/{a.bolt}", Of=base.get("Request"))
         return [a.bolt]
 
     gone = [] if a.requeue else [u.name() for u in plan.work_of(a.bolt)]
 
-    def after(repo, sha):  # the bolt's branch asked of sluice where its work ran, after its worktrees (plan.19, bolt_branch_asked)
-        t, why = drop_at(ctx.fleet, label, plan.bolt(a.bolt))
-        if t:
-            sweep_on(ctx.fleet, t, f"bolt {a.bolt}", dropped=a.bolt, units=gone)
-        elif why:
-            print(f"sluice was asked no delete of bolt/{a.bolt}: {why}; it is deleted with sluice branch delete bolt/{a.bolt} "
-                  "--into main in a checkout of its kit")
+    def after(repo, sha):  # what its units made swept where its work ran; its branch is Flume's tidy's and sluice's (Decision 8)
+        t, _ = drop_at(ctx.fleet, label, plan.bolt(a.bolt))
+        if t and gone:
+            sweep_on(ctx.fleet, t, f"bolt {a.bolt}", units=gone)
     return Op(label, change, f"plan({a.bolt}): drop the bolt" + (", its units queued" if a.requeue else ""), "bolt.drop",
               on=[f"bolt/{a.bolt}"], body=a.reason, after=after)
 
 
 def drop_at(fleet, label, b):
-    """Where a dropped bolt's branch and crew's own place of it are swept (sweep_on), as (where, None), or (None, why):
-    where its work runs as the runner that took it reported (known_at); for a started bolt no runner has reported
-    taking work of, the checkout the partition's main-level host keeps of its kit, where its start made its branch
-    (main_kit; Decision 4 of the-team-machinery-leaves); (None, None) for a bolt never started, which has no branch."""
+    """Where what a dropped bolt's units made is swept (sweep_on), as (where, None): where its work runs as the runner
+    that took it reported (known_at); (None, None) for a bolt never started, or one no runner has reported taking work
+    of. Its branch is Flume's tidy's and sluice's (crew-lands-each-bolt-through-flumes-base-place, Decision 8)."""
     if not started(b):
         return None, None
-    t = known_at(fleet, label, b)
-    if t:
-        return t, None
-    try:
-        t = main_kit(fleet, label, b.get("Repo"))
-    except Refusal as e:
-        return None, str(e)
-    return (t, None) if t else (None, main_kit_said(fleet, label, b.get("Repo"), f"ask sluice to delete bolt/{b.name()} there"))
+    return known_at(fleet, label, b), None
 
 
 def op_unit_add(ctx, a):
