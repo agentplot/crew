@@ -266,7 +266,7 @@ class TestALiveLandingFixHoldsItsRow:
         reads = ran({1: f"flume-0.19.0/{fixture}"}, label="swancloud")
         if status is not None:
             reads["deneb"]["places"][1]["status"] = status
-        return runner.fixes_in_flight(TestLandsDue().requests(), reads, "y")
+        return runner.fixes_in_flight([], "y", TestLandsDue().requests(), reads)
 
     def test_a_conflicts_live_landing_fix_takes_main_first_beside_a_row_that_can_land(self):
         x, y = plan.landing_rows(["x", "y"], {"x": facts("x"), "y": facts("y", fixes=self.in_flight("bolt-conflict-fixing"))}, {})
@@ -320,10 +320,10 @@ class TestALiveLandingFixHoldsItsRow:
         import runner
         for fixture in ("bolt-conflict-fixing", "bolt-forecast-fixing"):
             reads = ran({1: f"flume-0.19.0/{fixture}"}, label="swancloud", unplaced={5: "-"})
-            (y,) = plan.landing_rows(["y"], {"y": facts("y", H1, fixes=runner.fixes_in_flight(requests, reads, "y"))}, {})
+            (y,) = plan.landing_rows(["y"], {"y": facts("y", H1, fixes=runner.fixes_in_flight([], "y", requests, reads))}, {})
             assert runner.lands_due([y], sent, requests, reads, posted) == []
         reads = ran({1: "flume-0.19.0/bolt-fixed-landed"}, label="swancloud", unplaced={5: "-"})
-        assert runner.fixes_in_flight(requests, reads, "y") == {}
+        assert runner.fixes_in_flight([], "y", requests, reads) == {}
         assert runner.lands_due([box("y", H2)], sent, requests, reads, posted, work={"y": work()}) == [("bolt/y", 1)]
 
 
@@ -1437,20 +1437,116 @@ def test_a_rows_head_moved_changes_the_waiting_card_in_place_naming_it(monkeypat
     assert acts.emitted[-1]["Heads"] == "y@abc1234 z@def5678"
 
 
-def test_a_moved_heads_row_names_the_new_head_as_what_brings_its_preview_up_and_says_the_old_one_went(monkeypatch):
-    """rail-cards "A row's head moves while the card waits" and "The head moves with a preview up" (record 0043): the
-    row as its team's host read it, nothing asked of sluice for the new head."""
-    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
-    moved = {"branch": "bolt/z", "head": H2, "state": "ask", "released": H1}
-    acts = LandActs({"y": row("y", preview={"head": H1, "none": True}), "z": row("z", H2, preview=moved)}, held,
-                    answers={"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)})
-    assert raised(monkeypatch, acts) == "req_k1"
-    change = next(a for t, a in acts.calls if t == "update_request")
-    face = "\n".join(change["artifacts"][0]["lines"])
-    assert change["changeNote"] == "z's head is now def5678"
-    assert ("Try it running from bolt/z at def5678: write on this card to bring it up, and that you are done to put it "
-            "away. It is not held while the card waits. Its preview of abc1234 was released as the head moved.") in face
-    assert "No preview." in face.split("**2. z**")[0]
+# ------------------------------------------------------------- a row's preview, from the runner's report alone
+# rail-cards "A landing row carries what brings its bolt's preview up", "A preview is released on the user's done and
+# when its card or row ends" and "A moved head releases the preview of the old one and asks for none" (Decisions 5 and 7
+# of a-cards-preview-is-asked-of-the-runner): the raise on the main machine reads each row's preview from the runner's
+# report and writes the done of each ask no row that can land carries, reading no kit's policy.
+
+import runner  # noqa: E402
+from facts import FactsWrite  # noqa: E402
+
+
+def ask_rec(n, bolt="z", head=H1, done=False, host="mac-studio"):
+    """A preview request of a landings row's bolt, as crew card preview writes it."""
+    return plan.Rec("Request", runner.request_fields(n, "preview", f"bolt/{bolt}", runner.preview_fields(
+        host, "crew", f"bolt/{bolt}", head, done), "2026-11-08T12:00:00Z", "swancloud-ops"))
+
+
+def mac_studio(previews=""):
+    """mac-studio's runner as crew reads it, with these previews answered."""
+    files = {"runner.rec": plan.Plan(runner.RUNNER + "\nHost: mac-studio\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+             "previews.rec": plan.Plan(runner.PREVIEWS + previews)}
+    return {"mac-studio": runner.host_read("swancloud", "mac-studio", "5e1f0c2a" + "0" * 32, files, {})}
+
+
+HY = "1234567" + "0" * 33  # y's head, beside z's at H1
+UP = {"name": "crew-z", "branch": "bolt/z", "revision": H1, "state": "up", "addresses": {"web": "http://mac-studio:4310"}}
+
+
+class TestRowPreview:
+    @pytest.fixture(autouse=True)
+    def runner_and_writes(self, monkeypatch):
+        """The partition's requests and runners as the case sets them (self.requests, self.reads); each plan write
+        applied to requests.rec at a tip holding them; and no kit's policy read."""
+        self.requests, self.reads, self.writes = [], mac_studio(), []
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (list(self.requests), dict(self.reads)))
+        monkeypatch.setattr(plan, "kit_git", lambda *a, **k: pytest.fail("a row's preview reads no kit's policy"))
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+
+        def write(fleet, label, change, subject, act=None, on=(), fields=None, **more):
+            text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in self.requests)
+            w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, runners=self.reads, label=label)
+            change(w)
+            new = plan.Plan(w.files["requests.rec"]).recs("Request")[len(self.requests):]
+            self.requests += new
+            self.writes.append(dict(subject=subject, act=act, on=list(on), fields=fields,
+                                    requests=[(r.get("Work"), r.get("Revision"), r.get("Done")) for r in new]))
+        monkeypatch.setattr(plan, "write", write)
+
+    def posted(self, monkeypatch, rows, held=(), answers=POSTED):
+        acts = LandActs(rows, list(held), answers=answers)
+        raised(monkeypatch, acts)
+        post = next((a for t, a in acts.calls if t in ("post_request", "update_request")), None)
+        return acts, "\n".join(post["artifacts"][0]["lines"]) if post else ""
+
+    def test_a_row_that_can_land_carries_what_brings_its_preview_up_with_no_policy_read(self, monkeypatch, tmp_path):
+        """rail-cards "A kit that declares a preview" and "A kit that declares none": no request written."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        _, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        assert ("Try it running from bolt/z at abc1234: write on this card to bring it up, and that you are done to put it "
+                "away. It is not held while the card waits.") in face.split("**2. z**")[1]
+        assert self.writes == []
+
+    def test_a_row_whose_ask_stands_carries_the_runners_report_and_the_card_keeps_what_it_told(self, monkeypatch, tmp_path):
+        """rail-cards "Brought up" and "Not answered yet"; Decision 8, what the card was told kept on posting it."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "y", HY), ask_rec(2, "z")]
+        self.reads = mac_studio(f"\nRequest: 2\nOutcome: done\nStatus: {json.dumps(UP)}\nListed: yes\nAt: 2026-11-08T12:03:00Z\n")
+        _, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        y, z = face.split("**2. z**")
+        assert "A preview of 1234567 is asked of the runner on mac-studio, which brings it up at its next pass" in y
+        assert "[Preview web](http://mac-studio:4310)" in z
+        assert self.writes == []
+        assert plan.told_read("swancloud") == {"land/crew": {"1": "asked", "2": "up"}}
+
+    def test_a_moved_head_writes_the_old_asks_done_says_so_and_asks_nothing_at_the_new_head(self, monkeypatch, tmp_path):
+        """rail-cards "A row's head moves while the card waits" and "The head moves with a preview up"."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "z", H1)]
+        held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@1234567 z@abc1234")]
+        acts, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z", H2)}, held,
+                                 answers={"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)})
+        change = next(a for t, a in acts.calls if t == "update_request")
+        assert change["changeNote"] == "z's head is now def5678"
+        assert ("Try it running from bolt/z at def5678: write on this card to bring it up, and that you are done to put it "
+                "away. It is not held while the card waits. Its preview of abc1234 was released as the head moved.") in face
+        assert [(w["subject"], w["fields"], w["requests"]) for w in self.writes] == [
+            ("plan(card): preview of z put away from land/crew", {"Key": "land/crew", "State": "done"}, [("bolt/z", H1, "yes")])]
+
+    def test_a_held_row_writes_its_done(self, monkeypatch, tmp_path):
+        """rail-cards "A fix holds the landing"."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "z", H1)]
+        self.posted(monkeypatch, {"y": row("y", HY), "z": {"bolt": "z", "box": False, "why": "held for a fix: gap (fix/z/gap)", "facts": row("z")["facts"]}})
+        assert [w["requests"] for w in self.writes] == [[("bolt/z", H1, "yes")]]
+
+    def test_a_bolt_gone_from_the_plan_writes_its_done(self, monkeypatch, tmp_path):
+        """rail-cards "The bolt lands with its preview up": the raise that follows its close."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "gone", "9abcdef" + "0" * 33)]
+        self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        assert [w["requests"] for w in self.writes] == [[("bolt/gone", "9abcdef" + "0" * 33, "yes")]]
+
+    def test_a_refused_ask_writes_no_done_and_its_row_says_why(self, monkeypatch, tmp_path):
+        """rail-cards "A preview the runner refused" and "The runner refuses the preview"."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        words = "its Act preview, which crew's implementation does not read"
+        self.requests = [ask_rec(1, "z", H1), ask_rec(2, "gone", H1)]
+        self.reads = mac_studio("".join(f"\nRequest: {n}\nOutcome: refused\nWords: {words}\nAt: 2026-11-08T12:03:00Z\n" for n in (1, 2)))
+        _, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        assert self.writes == []
+        assert f"it could not be brought up on mac-studio: {words}. Nothing waits on it." in face.split("**2. z**")[1]
 
 
 def test_a_host_that_does_not_answer_is_named_and_the_rest_raised(monkeypatch, capsys):
@@ -1927,30 +2023,26 @@ def test_crew_land_row_prints_the_row_as_one_line_of_json(monkeypatch, capsys):
 # --------------------------------------------------------------------- a row's reading ends with its row, not a card
 
 class OldCardActs(LandActs):
-    """LandActs where a reading and a preview would end: each end and release asked, recorded."""
+    """LandActs where a reading would end: each end asked, recorded."""
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
-        self.ended, self.released = [], []
+        self.ended = []
 
     def end(self, label, key):
         self.ended.append(key)
         return f"ended {key}'s session"
 
-    def release_preview(self, label, key):
-        self.released.append(key)
-        return f"released {key}'s preview"
-
 
 @pytest.mark.parametrize("key", ["land/y", "land/y/abc1234"])
 @pytest.mark.parametrize("answers", [{"get_request": ({"status": "pending", "version": 1}, None)},
                                      {"get_request": ({"status": "answered", "version": 2}, None)}])
-def test_an_old_card_of_a_bolts_own_closed_ends_neither_its_rows_reading_nor_its_preview(key, answers, capsys):
-    """A closed card of the old per-bolt form is no word on the bolt's row: its reading and preview end with the row
-    (land_end), whether crew withdrew the card waiting on the user or closed one they answered."""
+def test_an_old_card_of_a_bolts_own_closed_ends_not_its_rows_reading(key, answers, capsys):
+    """A closed card of the old per-bolt form is no word on the bolt's row: its reading ends with the row (land_end),
+    whether crew withdrew the card waiting on the user or closed one they answered."""
     acts = OldCardActs({}, entries=[dict(Act="card.post", Key=key, By="crw-1-conductor", Card="req_l1", On=["bolt/y"])], answers=answers)
     assert plan.row_card_close(None, "swancloud", "crw-1-conductor", key, reason="y is now a row of crew's landings card", acts=acts) == "req_l1"
-    assert (acts.ended, acts.released) == ([], [])
+    assert acts.ended == []
     assert "ended" not in capsys.readouterr().out
 
 

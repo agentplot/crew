@@ -706,37 +706,54 @@ def high(action):
 # ---------------------------------------------------------------------------------------- the six builders
 
 def preview_said(p):
-    """What a landing card says of a preview of the bolt's head (rail-cards, record 0043): the paragraph its details
-    hold after the reading's, and the addresses it lists, [(label, address)] in the order sluice gives them. p is what
-    brings one up, {branch, head, state: "ask"}, which says to write on the card to bring it up, and that it is not held
-    while the card waits; {head, none}, "No preview."; {head, why, policy} when whether the head has one can't be told;
-    either with released, the revision of one brought up before and released, as the head moved or not; a preview
-    sluice named, {head, name, addresses, state}, its output with it when it failed, or one that is not there, {head,
-    why}; None says nothing. One that waits or starts lists its addresses for once it is up, one up lists them as up,
-    each saying it lands nothing and how to put it away; one that failed or is not there says why, the end of a
-    failure's output cut to a detail's budget by whole lines, and lists none."""
+    """What a landing card says of a preview of the bolt's head (rail-cards, record 0043; Decision 4 of
+    a-cards-preview-is-asked-of-the-runner): the paragraph its details hold after the reading's, and the addresses it
+    lists, [(label, address)] in the order sluice gives them. p is what brings one up, {branch, head, state: "ask"},
+    which says to write on the card to bring it up, and that it is not held while the card waits, with released, the
+    revision of one put away before, as the head moved or not; or the runner's report of crew's ask of it
+    (runner.preview_report): asked of the runner on its host and not there yet, {head, host, state: "asked"}; waiting
+    for room there, {head, host, state: "held"}; as sluice named it, {head, name, addresses, state}, waiting, starting or
+    up; or not there, failed as sluice lists it, refused in the runner's or sluice's words, no longer listed, or crew
+    unable to read it ({head, why}, or state unread); None says nothing. One that waits or starts lists its addresses
+    for once it is up, one up lists them as up, each saying it lands nothing and how to put it away; every other one
+    says that nothing waits on it, and lists none."""
     if not p:
         return "", []
-    h = p["head"][:7]
+    h, host, state = p["head"][:7], p.get("host"), p.get("state")
     was = p.get("released")
     gone = (f" Its preview of {was[:7]} was released as the head moved." if was and was != p["head"] else
             f" Its preview of {h} was put away." if was else "")
-    if p.get("none"):
-        return f"No preview.{gone}\n\n", []
-    if p.get("state") == "ask":
+    if state == "ask":
         return (f"Try it running from {p['branch']} at {h}: write on this card to bring it up, and that you are done to "
                 f"put it away. It is not held while the card waits.{gone}\n\n"), []
-    if p.get("policy"):
-        return f"Whether {h} has a preview to try can't be told: {p['why'].rstrip('.')}.\n\n", []
-    if p.get("state") in ("waiting", "starting", "up"):
+    if state == "asked":
+        return (f"A preview of {h} is asked of the runner on {host}, which brings it up at its next pass; it is not there "
+                "yet. Nothing waits on it.\n\n"), []
+    if state == "held":
+        return (f"A preview of {h} waits for room on {host}; its runner asks for it again at its next pass. Nothing waits "
+                "on it.\n\n"), []
+    if state in ("waiting", "starting", "up"):
         shown = list(p["addresses"].items())
-        where = f"a preview of {h}, up at these addresses" if p["state"] == "up" else (
+        where = f"a preview of {h}, up at these addresses" if state == "up" else (
             f"a preview of {h} sluice brings up, at these addresses once it is up")
         return (f"Try it running: {where}. It lands nothing; approving this card is the word to land. Write on this card "
                 "that you are done with it to put it away.\n"
                 + "".join(f"{label}: {url}\n" for label, url in shown) + "\n"), shown
-    why = (last_lines(p.get("output"), DETAIL) or "its command failed, printing nothing") if p.get("state") == "failed" else p["why"]
-    return f"A preview of {h} was asked for and is not there: {why.rstrip('.')}. Nothing waits on it.\n\n", []
+    return f"A preview of {h} was asked for and is not there: {preview_gone(p).rstrip('.')}. Nothing waits on it.\n\n", []
+
+
+def preview_gone(p):
+    """Why a preview asked for is not there, in a card's words (preview_said, made_said): it did not come up, as sluice
+    on its host lists it; it could not be brought up, in the runner's or sluice's words; sluice on its host no longer
+    lists it; or why crew can't read it."""
+    state, host = p.get("state"), p.get("host")
+    if state == "failed":
+        return f"it did not come up, as sluice on {host} lists it"
+    if state == "refused":
+        return f"it could not be brought up on {host}: {(p.get('words') or 'the runner gave no words').rstrip('.')}"
+    if state == "unlisted":
+        return f"sluice on {host} no longer lists it"
+    return p.get("why") or "crew can't read it"
 
 
 def last_lines(text, budget):
@@ -1270,9 +1287,10 @@ def made_said(unit, stages, up=None):
     """The Markdown lines a card carries under a unit for what its stages recorded as made (made_line), each named by
     the stage that recorded it, its fields as the run wrote them: a durable thing "`<stage>`: <name>, <kind>, at
     <address>", a branch and revision it also holds beside it; a thing that must run brought up from its branch at its
-    revision, by the user's words on the card naming <unit>/<name>, or, while up holds a preview of it ({name: a preview
-    as preview_said takes it}), its addresses, or why it is not there; a line crew could not read carried as its text,
-    saying so. stages: [(stage, [line])]; none recorded, no line."""
+    revision, by the user's words on the card naming <unit>/<name>, or, while up holds crew's ask of it ({name: the
+    runner's report of it as preview_said takes it}), that it is asked of the runner on its host, waits for room there,
+    its addresses, that sluice no longer lists it, or why it could not be brought up; a line crew could not read
+    carried as its text, saying so. stages: [(stage, [line])]; none recorded, no line."""
     out = []
     for stage, lines in stages:
         for text in lines:
@@ -1291,12 +1309,21 @@ def made_said(unit, stages, up=None):
                 continue
             p = (up or {}).get(m["name"])
             said += f", brought up from {where}"
-            if p and p.get("state") in ("waiting", "starting", "up"):
-                said += ("; up at " if p["state"] == "up" else "; coming up at ") + ", ".join(
+            state = (p or {}).get("state")
+            if state in ("waiting", "starting", "up"):
+                said += ("; up at " if state == "up" else "; coming up at ") + ", ".join(
                     f"{label} {url}" for label, url in p["addresses"].items()) + "; it lands nothing"
-            elif p:
-                why = (last_lines(p.get("output"), DETAIL) or "its command failed, printing nothing") if p.get("state") == "failed" else p["why"]
-                said += f"; it could not be brought up: {why.rstrip('.')}"
+            elif state == "asked":
+                said += f"; it is asked of the runner on {p.get('host')}"
+            elif state == "held":
+                said += f"; it waits for room on {p.get('host')}"
+            elif state == "unlisted":
+                said += f"; {preview_gone(p)}"
+            elif p and state != "ask":
+                said += f"; it could not be brought up: " + (
+                    f"sluice on {p.get('host')} lists it failed" if state == "failed" else
+                    (p.get("words") or "the runner gave no words").rstrip(".") if state == "refused" else
+                    (p.get("why") or "crew can't read it").rstrip("."))
             else:
                 said += f"; write on this card naming {unit}/{m['name']} to bring it up"
             out.append(said)

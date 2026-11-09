@@ -93,7 +93,8 @@ eq "$(launches)" ""
 ok "bolts of a kit whose started bolt's work has not merged are started beside it all the same, starting no agent"
 
 # a is dropped, its place had work, and Flume keeps change/a in the kit's repository on the box while it holds it: the
-# runner's record now names that repository, where Flume cuts the kit's places. An add under a again is refused before
+# runner's record now names that repository, where Flume cuts the kit's places, in its repositories.rec, the one report
+# crew reads a kit's folder from (Decision 1 of a-bolts-landing-on-main-reads-landed). An add under a again is refused before
 # anything is written, read in that repository over the host's ssh, and the same work under a fresh name is added and
 # launched (bolt-plan "A name whose Flume branch stands is refused when it is planned").
 expect_ok crew unit drop a "Replaced by a-again."
@@ -105,7 +106,8 @@ nb=$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act
 status_b='{"status":{"places":[{"place":"/flume/places/change--b","repository":"'"$k"'","phase":"live","current":"code","stages":[{"name":"code","state":"started"}],"stalled":false}]}}'
 places_rec=$(printf '%s\n\nRequest: %s\nPlace: /flume/places/change--b\nAt: 2026-10-31T12:05:00Z\nStatus: %s\n' "$places_rec" "$nb" "$status_b")
 answers_rec=$(printf '%s\n\nRequest: %s\nOutcome: launched\nPlace: /flume/places/change--b\nAt: 2026-10-31T12:04:00Z\n' "$answers_rec" "$nb")
-tree=$(for f in runner answers places; do
+repositories_rec=$(printf '%%rec: Repository\n%%key: Repository\n%%mandatory: Repository Folder\n%%allowed: Repository Folder\n\nRepository: WilldanGroup/switchboard-kit\nFolder: %s\n' "$k")
+tree=$(for f in runner answers places repositories; do
   v=${f}_rec; printf '100644 blob %s\t%s.rec\n' "$(printf '%s\n' "${!v}" | git --git-dir "$ws" hash-object -w --stdin)" "$f"
 done | git --git-dir "$ws" mktree)
 git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$box" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \

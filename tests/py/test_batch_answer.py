@@ -140,11 +140,8 @@ class Acts:
         self.ended.append(key)
         return f"ended {key}'s session, plannotator pid 42"
 
-    def release_preview(self, label, key):
-        return None
-
-    def release_previews(self, label, key):  # nothing was brought up from the batch's card
-        return None
+    def runner(self, label):  # no preview asked from the batch's card, so its close puts none away
+        return [], {}
 
     def host(self):
         return "deneb"

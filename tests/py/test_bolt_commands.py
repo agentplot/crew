@@ -284,6 +284,8 @@ class TestWhenABoltIsFetched:
         asks = []
         monkeypatch.setattr(plan, "READ", plan.Reading())
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: ([], {}))
+        monkeypatch.setattr(plan, "submits_read", lambda fleet, label: [])  # the run record's bolt.submit entries
+        monkeypatch.setattr(plan, "submits_at", lambda repo, tip: [])
         monkeypatch.setattr(plan, "rail_runs", lambda found: {"wldn": ([], {})})
         monkeypatch.setattr(plan, "bolt_at", lambda fleet, label, b, run=None: self.WHERE if plan.started(b) else None)
         monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [])  # the run record crew bolts reads its landings from
@@ -441,12 +443,29 @@ class TestCrewBoltsCrossed:
         assert (f"  {'a':<40} {'needs':<12} flume/change--the-flake-configures-each-tool-by-its-own-module  asks at code: The code "
                 "stage of the-flake-configures-each-tool-by-its-own-module cannot start:") in plan.bolts_text(d)
 
+    @pytest.mark.parametrize("fixture, at, words", [
+        ("past-bound", "code", "the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process"),
+        ("submission-refused", "its submission", "the merge queue refused the submission: sluice refused the submission:")])
+    def test_a_place_waiting_on_its_caller_is_on_its_line_at_what_it_waits_to_retry(self, fixture, at, words):
+        """bolt-plan "A place past its bound" and "A submission that waits on its retry": the runner carries flume
+        0.17.0's status of a's place, its verify delivered and its submission in conflict past its kind's bound, or
+        refused by the merge queue (tests/py/flume-0.17.0/); crew bolts reads a waiting on its caller at the stage it
+        waits to retry, or its submission, with Flume's words, never at verify."""
+        from facts import ran
+        d = self.data(ran({1: f"flume-0.17.0/{fixture}"}, held=[2]))
+        assert self.bolts(d)["x"]["units"][0]["flume"]["stage"] == "waits"
+        line = next(line for line in plan.bolts_text(d).splitlines() if line.startswith(f"  {'a':<40} "))
+        assert line.startswith(f"  {'a':<40} {'waits':<12} flume/change--pull-requests-are-queued-on-the-forge  "
+                               f"waits on its caller at {at}: {words}")
+        assert "verify" not in line
+
     def test_a_bolt_whose_units_its_branch_holds_reads_where_it_runs_and_each_unit_merged(self):
         """bolt-plan "A unit whose work its bolt's branch holds is built" (signal 2026-11-07-agentplot-planner-cbc41169/02):
         x's a and b ran as another partition's places and landed on x, x's head b's landing; crew launched
-        them again here and the runner refused each, the bolt already holding the change, so no place of x's names the
-        kit's folder; y, started, runs on deneb. crew bolts reads x at deneb, never "where it runs can't be told", each
-        of a and b merged at its landing, and x waiting to land."""
+        them again here and the runner refused each, the bolt already holding the change, so the runner carries no place
+        of x's; y, started, runs on deneb, whose runner reports crew in its repositories.rec. crew bolts reads x at deneb,
+        in no stream while no place of x's is carried (Decision 1 of a-bolts-landing-on-main-reads-landed), never "where
+        it runs can't be told", each of a and b merged at its landing, and x waiting to land."""
         from facts import crew_read, launched, madswan_fleet, ran
         fleet = madswan_fleet()
         p, requests = launched(["x", "y"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("y1", "y", [], "unit", [])],
@@ -457,7 +476,7 @@ class TestCrewBoltsCrossed:
                             crew_read(bolts={"x": {"landings": landings, "head": "2" * 40}, "y": {}}), {},
                             runs={"madswan": (requests, runners)})
         out = plan.bolts_text(d).splitlines()
-        assert "x  crew  @ deneb, in Flume stream madswan  waits" in out
+        assert "x  crew  @ deneb  waits" in out, out
         assert f"  {'a':<40} {'merged':<12}   change/a landed on its bolt at 1111111" in out
         assert f"  {'b':<40} {'merged':<12}   change/b landed on its bolt at 2222222" in out
         assert not any("can't be told" in line for line in out)

@@ -124,7 +124,9 @@ for want in "crew card session" "crew card read" \
 for want in "A batch's card carries, under each unit, what its stages recorded as made, as the run wrote it" \
   "reply in the card's thread first, as Pending You asks, then run \`$CREW/plugin/bin/crew card preview batch/<n> <unit>/<name> --label wldn\`" \
   "card preview batch/<n> <unit>/<name> --done --label wldn\`, which puts it away; the card's close puts it away too" \
-  "A word about a preview answers nothing on the card"; do has "$out" "$want"; done
+  "A word about a preview answers nothing on the card" \
+  "crew asks the runner on the host where the work runs to bring it up, and the card is changed in place once the runner reports it" \
+  "When crew refuses, or the card says it could not be brought up"; do has "$out" "$want"; done
 for gone in "Post its \`card\` as it is" "crew refuses a proposal's card in any other form" "close the old proposal's card" \
   "\`units-<k>\` and the units left ticked" "update its card to say"; do lacks "$out" "$gone"; done
 lacks "$out" "offers approval"; lacks "$out" "exactly as the user read them"; lacks "$out" "not the page as a file"
@@ -195,10 +197,12 @@ for want in "bolt land <bolt>" "## Deploying main" "Every agent of clients/willd
   "A stop is for a bolt crew has not yet posted a land for: a land posted cannot be withdrawn"; do has "$out" "$want"; done
 for gone in "bolt submit" "wt submit" "sluice withdraw" "which you may run" "run it in the background and wait for it to end" \
   "through the kit's remove hooks" "landing queued as #355" "The bolt's branch goes too"; do lacks "$out" "$gone"; done
-for want in "no preview is held while the card sits" \
+for want in "Each row that can land carries what brings its preview up" "no preview is held while the card sits" \
   "reply in the card's thread first, as Pending You asks, then run \`$CREW/plugin/bin/crew card preview land/<kit> <bolt> --label wldn\`" \
   "card preview land/<kit> <bolt> --done --label wldn\`, which puts it away" \
-  "A word about a preview answers nothing on the card and is no word to land"; do has "$out" "$want"; done
+  "A word about a preview answers nothing on the card and is no word to land" \
+  "crew asks the runner on the host where the work runs to bring it up, and the card is changed in place once the runner reports it" \
+  "When crew refuses, or the card says it could not be brought up"; do has "$out" "$want"; done
 lacks "$out" "wt merge"; lacks "$out" "push origin main"; lacks "$out" "/workspace/crew/main"; lacks "$out" "Land one bolt at a time"
 for want in "crew raises its card in your name, with those notes and steps on its face" "you post, change and close no deploy card" \
   "\`call get_request (requestId <id>, name wldn-ops)\`: run it" "crew closes the card at the deploy's end with its outcome" \
@@ -540,7 +544,9 @@ expect_ok crewpy brief wldn planner
 for want in "## A bolt's work in Flume" "so \`bolt order\` is how you move one ahead" "keep chains short" \
   "**Plan writes reach its places by their approval.**" "naming drop and add as the way on, so propose the drop and the add" \
   "by your address \`wldn/planner\`" "answer <work> \"<the answer, in the words of whoever gave it>\"\`" \
-  "when the place neither stopped short nor waits on its caller" "**Its fixes are yours to start.**" \
+  "when the place neither stopped short nor waits on its caller" \
+  "as its runner last carried it, naming the host and when, so a wait Flume told you of since is answered again once \`$CREW/plugin/bin/crew bolts\` shows the place waiting" \
+  "**Its fixes are yours to start.**" \
   "fix <bolt> <name> \"<what is wrong, in the words of whoever found it>\"\`" "fix <bolt> <name> --drop\`" \
   "is in a batch only once its place has merged into its bolt"; do has "$out" "$want"; done
 expect_ok crewpy brief wldn main-ops

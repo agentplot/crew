@@ -1,10 +1,10 @@
 """Nothing of crew's runs a tool for a bolt (crew-lands-each-bolt-through-flumes-base-place, Decision 1; record 0056
 point 1): in every command crew's code runs, read from its source and never from a docstring or a comment, no sluice
-command, `wt submit`, `wt merge`, `wt remove`, `gh` or `read-tree` is found, but in the preview functions, each a
-function whose name holds "preview", and the helpers only they run, named one by one below, so a new caller of sluice
-fails this case. A command crew runs is each argument list a function hands a runner, subprocess, crew.on_machine,
-host_run, gather.run, kit_git, crew_argv or sluice_read, and each script constant of the module handed one, bare or
-through a wrapper, its value a string the module builds from literals and other such constants. plugin/bin/crew is read line by line, its
+command, `wt submit`, `wt merge`, `wt remove`, `gh` or `read-tree` is found, in any function, since a card's preview is
+asked of the runner too (a-cards-preview-is-asked-of-the-runner, Decision 9), so a new caller of sluice fails this
+case. A command crew runs is each argument list a function hands a runner, subprocess, crew.on_machine, host_run,
+gather.run, kit_git or crew_argv, and each script constant of the module handed one, bare or through a wrapper, its
+value a string the module builds from literals and other such constants. plugin/bin/crew is read line by line, its
 comments left out. That no stub logs such a call on a bolt's run is t-journey-land's."""
 import ast
 import pathlib
@@ -14,14 +14,11 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MODULES = ["plugin/lib/plan.py", "plugin/lib/gather.py", "plugin/lib/kit.py", "plugin/lib/board.py", "plugin/lib/runner.py"]
-# The helpers only the preview functions run, by name: sluice_read runs the `sluice previews` and `sluice release` of a
-# preview that previews_of and preview_released ask for.
-PREVIEWS_ONLY = {"sluice_read"}
 # A tool named as a command in a script: sluice or gh as a command word, wt with submit, merge or remove among its words
 # before the command ends, or git's read-tree.
 TOOL = re.compile(r"(?:^|[\s;|&(`$\"'])(?:sluice(?=\s|$)|gh(?=\s|$)|wt\b[^\n;|&]*\b(?:submit|merge|remove)\b)|read-tree\b")
 # The calls crew runs a command through, each by the name it is called by.
-RUNNERS = {"run", "Popen", "check_output", "check_call", "call", "on_machine", "host_run", "kit_git", "crew_argv", "sluice_read"}
+RUNNERS = {"run", "Popen", "check_output", "check_call", "call", "on_machine", "host_run", "kit_git", "crew_argv"}
 
 
 def constants(tree):
@@ -69,14 +66,12 @@ def runs_tool(ws):
 
 
 def run_strings(path):
-    """Each command a module's functions run, as (the function, its words), outside the preview functions and
-    PREVIEWS_ONLY: each argument list it hands a runner (RUNNERS), and each script constant handed one, as one word."""
+    """Each command a module's functions run, as (the function, its words): each argument list it hands a runner
+    (RUNNERS), and each script constant handed one, as one word."""
     tree = ast.parse((ROOT / path).read_text())
     consts = constants(tree)
     out = []
     for fn in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
-        if "preview" in fn.name or fn.name in PREVIEWS_ONLY:
-            continue
         for n in ast.walk(fn):
             if not (isinstance(n, ast.Call) and (getattr(n.func, "id", None) or getattr(n.func, "attr", None)) in RUNNERS):
                 continue
@@ -92,20 +87,7 @@ def run_strings(path):
 @pytest.mark.parametrize("path", MODULES)
 def test_no_function_of_a_module_runs_a_tool_for_a_bolt(path):
     found = sorted({(fn, " ".join(ws)[:80]) for fn, ws in run_strings(path) if runs_tool(ws)})
-    assert found == [], f"{path} runs a tool for a bolt outside the preview functions: {found}"
-
-
-def test_the_preview_functions_still_run_sluice_and_are_left_out_by_name():
-    """The exemption is the preview functions' and sluice_read's alone: sluice_read is what runs sluice for them, and
-    only a preview function calls it."""
-    tree = ast.parse((ROOT / "plugin/lib/plan.py").read_text())
-    names = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
-    assert PREVIEWS_ONLY <= names and {"previews_of", "preview_released"} <= names
-    read = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "sluice_read")
-    assert any(literal(e) == "sluice" for n in ast.walk(read) if isinstance(n, ast.List) for e in n.elts)
-    callers = {fn.name for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef)
-               for n in ast.walk(fn) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "sluice_read"}
-    assert callers and all("preview" in c for c in callers), callers
+    assert found == [], f"{path} runs a tool for a bolt: {found}"
 
 
 def test_the_crew_command_runs_no_tool_for_a_bolt():
@@ -116,7 +98,7 @@ def test_the_crew_command_runs_no_tool_for_a_bolt():
 
 def test_a_new_caller_of_sluice_would_be_found(tmp_path):
     """The case reads what it should: a function running sluice, wt's remove or git's read-tree from a list, or a
-    script naming one, is found; a file's name or words about sluice are not."""
+    script naming one, is found, a preview function's among them; a file's name or words about sluice are not."""
     landing = "sluice " + "submit main --no-wait --json"  # spelled apart, as a tool's guard reads commands it is shown
     src = (f'X = "cd \\"$1\\" && {landing}"\n'
            'WORDS = "the merge queue is sluice\'s, and its file .config/sluice.toml"\n'
@@ -124,7 +106,8 @@ def test_a_new_caller_of_sluice_would_be_found(tmp_path):
            "def land(): subprocess.run(['sluice', 'branch', 'delete'])\n"
            "def tidy(): subprocess.run(['wt', '-C', main, 'remove', path])\n"
            "def level(): kit_git(fleet, t, main, ['git', 'read-tree', '-m', '-u', 'HEAD'])\n"
-           "def said(): print(WORDS, ['sluice', 'gh'])\n")
+           "def said(): print(WORDS, ['sluice', 'gh'])\n"
+           "def card_preview(): subprocess.run(['sluice', 'preview', branch, revision, '--json'])\n")
     (tmp_path / "case.py").write_text(src)
     got = run_strings(tmp_path / "case.py")  # an absolute path, which ROOT / it leaves as it is
-    assert sorted(fn for fn, ws in got if runs_tool(ws)) == ["land", "level", "submit", "tidy"], got
+    assert sorted(fn for fn, ws in got if runs_tool(ws)) == ["card_preview", "land", "level", "submit", "tidy"], got

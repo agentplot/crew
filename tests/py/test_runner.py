@@ -94,7 +94,7 @@ class TestRequests:
         assert runner.request_refusal(have, rec(2, "drop", Of=1, Words="Gone.", Stream="madswan")) == (
             "drop 2 for unit/a carries Stream, Words, which a drop does not take")
         assert runner.request_refusal([], rec(1, "reorder")) == (
-            "request 1 is a reorder, and a request is a launch, a retry, a drop, a priority or a land")
+            "request 1 is a reorder, and a request is a launch, a retry, a drop, a priority, a land or a preview")
 
     def test_the_work_is_named_as_crew_names_it(self):
         for work in ("bolt/b", "unit/a", "chore/bump", "fix/b/tidy", "fix/main/crew/red", "role/design/record-0053"):
@@ -193,6 +193,73 @@ class TestBoltRequests:
             "land 3 for bolt/b names request 9, which is no launch: requests.rec does not hold it")
 
 
+PREVIEW = dict(Host="deneb", Repo="crew", Branch="bolt/y", Revision="abc1234" + "0" * 33)
+
+
+class TestPreviewRequest:
+    """A preview names its host, its work, its repository, its branch and its revision, and Done: yes to put it away
+    (drive-state "A preview names its host, its work, its repository, its branch and its revision"; Decision 1)."""
+
+    def test_a_previews_fields_are_written_in_the_files_order_and_its_done_as_yes(self):
+        given = runner.preview_fields("deneb", "crew", "bolt/y", PREVIEW["Revision"])
+        assert rec(8, "preview", "bolt/y", **given).fields == [
+            ("Request", "8"), ("Act", "preview"), ("Host", "deneb"), ("Work", "bolt/y"), ("Repo", "crew"), ("Branch", "bolt/y"),
+            ("Revision", PREVIEW["Revision"]), ("Date", AT), ("By", BY)]
+        done = rec(9, "preview", "bolt/y", **runner.preview_fields("deneb", "crew", "bolt/y", PREVIEW["Revision"], done=True))
+        assert done.get("Done") == "yes"
+        assert [f for f, _ in done.fields].index("Done") == [f for f, _ in done.fields].index("Revision") + 1
+
+    def test_a_preview_of_a_bolt_and_one_of_a_unit_pass(self):
+        """drive-state "A preview of a landings row's bolt"; and a batch line's, of its unit."""
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **PREVIEW)) is None
+        have = held(rec(1, "preview", "bolt/y", **PREVIEW))
+        assert runner.request_refusal(have, rec(2, "preview", "unit/a", **dict(PREVIEW, Branch="change/a"))) is None
+        assert runner.request_refusal(have, rec(2, "preview", "bolt/y", **dict(PREVIEW, Done="yes"))) is None
+
+    def test_a_preview_naming_no_host_is_refused_saying_whose_runner_brings_it_up(self):
+        """drive-state "A preview naming no host"."""
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **dict(PREVIEW, Host=None))) == (
+            "preview 1 for bolt/y names no Host: a preview names the host whose runner brings it up, the one whose runner "
+            "reported the work it serves")
+
+    @pytest.mark.parametrize("field", ["Repo", "Branch", "Revision"])
+    def test_a_preview_naming_no_repo_branch_or_revision_is_refused_naming_it(self, field):
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **dict(PREVIEW, **{field: None}))) == (
+            f"preview 1 for bolt/y names no {field}: a preview carries Request, Act, Work, Date, By, Host, Repo, Branch, Revision")
+
+    def test_a_preview_carrying_what_it_does_not_take_is_refused_naming_the_fields(self):
+        """drive-state "A preview carrying what it does not take"."""
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", Kind="change", Stream="madswan", **PREVIEW)) == (
+            "preview 1 for bolt/y carries Kind, Stream, which a preview does not take")
+
+    def test_a_preview_of_other_work_or_marked_done_otherwise_is_refused(self):
+        assert runner.request_refusal([], rec(1, "preview", "chore/c", **PREVIEW)) == (
+            "preview 1 serves chore/c, and a preview serves bolt/<bolt>, a landings row's, or unit/<unit>, a batch line's")
+        assert runner.request_refusal([], rec(1, "preview", "bolt/y", **dict(PREVIEW, Done="no"))) == (
+            "preview 1 for bolt/y is marked Done: no, and a preview is put away by Done: yes alone")
+
+    def test_a_bolts_work_is_its_base_places_and_its_previews_alone(self):
+        """drive-state "A bolt's work on any other request": bolt/<bolt> serves the bolt's base place, its launch of
+        crew's kind and the acts on it, and a landings row's preview; a launch of it of any other kind is refused, and a
+        retry or drop naming a preview by Of names no launch."""
+        assert runner.request_refusal([], rec(1, "launch", "bolt/y")) == (
+            "launch 1 of bolt/y names Kind change: a bolt's base place is of crew's kind crew/bolt")
+        have = held(rec(1, "preview", "bolt/y", **PREVIEW))
+        assert runner.request_refusal(have, rec(2, "retry", "bolt/y", Of=1, Words="Again.")) == (
+            "retry 2 for bolt/y names request 1, which is no launch")
+        assert runner.request_refusal(have, rec(2, "drop", "bolt/y", Of=1)) == (
+            "drop 2 for bolt/y names request 1, which is no launch")
+
+    def test_the_descriptor_takes_a_preview_last_its_done_and_its_fields_after_base(self):
+        lines = runner.REQUESTS.splitlines()
+        assert "%type: Act enum launch retry drop priority land preview" in lines
+        assert lines[lines.index("%type: Submission bool") + 1] == "%type: Done bool"
+        allowed = next(l for l in lines if l.startswith("%allowed:")).split()[1:]
+        assert allowed[allowed.index("Base") + 1:allowed.index("Base") + 4] == ["Branch", "Revision", "Done"]
+        assert allowed == list(runner.FIELDS)
+        assert "# drop, priority or land of a place launched; or a preview of a branch at a" in lines
+
+
 class TestAppended:
     """A request is never changed or removed: a write only appends (Decision 4)."""
 
@@ -245,12 +312,23 @@ TIP = "5e1f0c2a" + "0" * 32
 STATUS = {"status": {"places": [{"place": "/crew/places/change--a", "phase": "live"}], "host": {}}}
 
 
-def branch(host="deneb", runner_rec=None, answers="", places="", repositories=None):
+def branch(host="deneb", runner_rec=None, answers="", places="", repositories=None, previews=None):
     """A runner's branch's files parsed as plan.runners parses them, each given as the records after its descriptor;
-    repositories.rec only where repositories are given, a branch without it reporting none."""
+    repositories.rec and previews.rec only where given, a branch without them reporting no repositories and having
+    answered no preview."""
     run = runner.RUNNER + (f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n" if runner_rec is None else runner_rec)
     return dict({"runner.rec": plan.Plan(run), "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)},
-                **({"repositories.rec": plan.Plan(runner.REPOSITORIES + repositories)} if repositories is not None else {}))
+                **({"repositories.rec": plan.Plan(runner.REPOSITORIES + repositories)} if repositories is not None else {}),
+                **({"previews.rec": plan.Plan(runner.PREVIEWS + previews)} if previews is not None else {}))
+
+
+def previewed(n, outcome, text=None, status=None, listed=None, words=None, at="2026-11-08T12:03:00Z"):
+    """previews.rec's record of the runner's answer to preview request n, as Boomdrive's write.rs writes it: sluice's
+    answer and listing each JSON on one line, given as a value or as the text itself."""
+    j = lambda v: v if isinstance(v, str) else json.dumps(v)
+    return (f"\nRequest: {n}\nOutcome: {outcome}\n" + (f"Text: {j(text)}\n" if text is not None else "")
+            + (f"Status: {j(status)}\n" if status is not None else "") + (f"Listed: {listed}\n" if listed else "")
+            + (f"Words: {words}\n" if words else "") + f"At: {at}\n")
 
 
 def kept(*repos):
@@ -333,6 +411,230 @@ class TestHostRead:
         assert r["places"][3]["why"].startswith("madswan/runner/deneb at 5e1f0c2: places.rec's status of the place of request 3 is no JSON (")
 
 
+UP = {"name": "crew-y", "branch": "bolt/y", "revision": "abc1234", "state": "up", "made": "2026-11-08T12:02:00Z",
+      "addresses": {"web": "http://deneb:4310", "api": "http://deneb:4311"}}
+
+
+class TestHostReadPreviews:
+    """A runner's previews.rec is read by request number under the descriptor crew holds byte for byte; one crew can't
+    read hides that runner, and a preview's JSON crew can't read marks that preview alone (drive-state "crew reads
+    each host's runner from that runner's own branch"; Decision 3)."""
+
+    def test_the_descriptor_is_boomdrives_byte_for_byte(self):
+        assert runner.PREVIEWS == (
+            "%rec: Preview\n%key: Request\n%type: Request int\n%type: Outcome enum held done refused\n%type: Listed enum yes no\n"
+            "%type: At date\n%mandatory: Request Outcome At\n%allowed: Request Outcome Text Status Listed Words At\n")
+        assert runner.FILES["previews.rec"] == "Preview"
+
+    def test_a_runners_previews_are_read_by_their_requests_numbers(self):
+        """drive-state "A preview the runner answered"."""
+        r = runner.host_read("madswan", "deneb", TIP, branch(previews=previewed(12, "done", text=UP, status=UP, listed="yes")
+                                                            + previewed(13, "held", words="sluice is at its bound")
+                                                            + previewed(14, "refused", words="no [preview] at abc1234")), {})
+        assert r["why"] is None
+        assert r["previews"][12] == {"outcome": "done", "text": UP, "status": UP, "listed": True, "words": None,
+                                     "at": "2026-11-08T12:03:00Z", "why": None}
+        assert (r["previews"][13]["outcome"], r["previews"][13]["listed"], r["previews"][13]["words"]) == ("held", None, "sluice is at its bound")
+        assert (r["previews"][14]["outcome"], r["previews"][14]["text"]) == ("refused", None)
+        assert runner.host_read("madswan", "deneb", TIP, branch(previews=previewed(12, "done", text=UP, listed="no")), {})["previews"][12]["listed"] is False
+
+    def test_a_runner_with_no_previews_file_has_answered_none(self):
+        """drive-state "A runner that has answered no preview"."""
+        r = runner.host_read("madswan", "deneb", TIP, branch(), {})
+        assert (r["why"], r["previews"]) == (None, {})
+
+    @pytest.mark.parametrize("previews, why", [
+        (previewed(12, "held") + previewed(12, "done", text=UP), "previews.rec holds request 12 twice"),
+        ("\nOutcome: held\nAt: 2026-11-08T12:03:00Z\n", "previews.rec holds a record with no request's number")])
+    def test_a_request_twice_or_missing_hides_the_runner_naming_the_file(self, previews, why):
+        """drive-state "A previews file crew can't read"."""
+        assert runner.host_read("madswan", "deneb", TIP, branch(previews=previews), {})["why"] == (
+            f"deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: {why}")
+
+    def test_a_record_before_its_rec_hides_the_runner(self):
+        files = dict(branch(), **{"previews.rec": plan.Plan("Request: 12\nOutcome: held\nAt: 2026-11-08T12:03:00Z\n")})
+        assert runner.host_read("madswan", "deneb", TIP, files, {})["why"] == (
+            "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec holds a record before its %rec: Preview")
+
+    def test_a_status_that_is_no_json_marks_that_preview_alone(self):
+        """drive-state "A preview's listing that is no JSON"."""
+        r = runner.host_read("madswan", "deneb", TIP, branch(previews=previewed(12, "done", text=UP, status="{not json", listed="yes")
+                                                            + previewed(13, "done", text=UP, status=UP, listed="yes")), {})
+        assert r["why"] is None and r["previews"][13]["why"] is None
+        assert (r["previews"][12]["status"], r["previews"][12]["text"]) == (None, UP)
+        assert r["previews"][12]["why"].startswith(
+            "madswan/runner/deneb at 5e1f0c2: previews.rec's Status of the preview of request 12 is no JSON (")
+
+    def test_a_previews_file_recfix_refused_hides_the_runner_naming_the_file(self):
+        r = runner.host_read("madswan", "deneb", TIP, dict(branch(), **{"previews.rec": None}),
+                             {"previews.rec": "previews.rec fails recfix --check: previews.rec: 12: error: invalid enum value in field 'Outcome'"})
+        assert r["why"] == ("deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec fails recfix --check: "
+                            "previews.rec: 12: error: invalid enum value in field 'Outcome'")
+        assert "previews" not in r
+
+
+def asked(n, revision="abc1234", done=False, work="bolt/y", host="deneb"):
+    """A preview request as crew card preview writes it."""
+    return rec(n, "preview", work, **runner.preview_fields(host, "crew", "bolt/y" if work == "bolt/y" else "change/a", revision, done))
+
+
+def deneb(answers="", previews=""):
+    """The partition's runners as crew read them: deneb's alone, with these answers and previews."""
+    return {"deneb": runner.host_read("madswan", "deneb", TIP, branch(answers=answers, previews=previews), {})}
+
+
+class TestPreviewReport:
+    """A preview is read from the runner on the host it names alone (drive-state "A preview is read from the runner on
+    the host it names"; Decisions 2, 3 and 6)."""
+
+    def test_each_outcome_of_previews_rec(self):
+        r = asked(12)
+        held_ = runner.preview_report(deneb(previews=previewed(12, "held", words="sluice is at its bound")), r)
+        assert held_ == {"host": "deneb", "head": "abc1234", "at": "2026-11-08T12:03:00Z", "state": "held", "words": "sluice is at its bound"}
+        refused = runner.preview_report(deneb(previews=previewed(12, "refused", words="no [preview] at abc1234")), r)
+        assert (refused["state"], refused["words"]) == ("refused", "no [preview] at abc1234")
+        up = runner.preview_report(deneb(previews=previewed(12, "done", text=UP, status=UP, listed="yes")), r)
+        assert up == {"host": "deneb", "head": "abc1234", "at": "2026-11-08T12:03:00Z", "state": "up", "name": "crew-y",
+                      "addresses": UP["addresses"]}
+        failed = runner.preview_report(deneb(previews=previewed(12, "done", text=UP, status=dict(UP, state="failed"), listed="yes")), r)
+        assert (failed["state"], "addresses" in failed, "output" in failed) == ("failed", False, False)
+
+    def test_sluices_listing_wins_over_its_answer(self):
+        """drive-state "A preview the runner answered": the listing's state, else the answer's."""
+        report = runner.preview_report(deneb(previews=previewed(12, "done", text=dict(UP, state="starting"), status=UP, listed="yes")), asked(12))
+        assert report["state"] == "up"
+        report = runner.preview_report(deneb(previews=previewed(12, "done", text=dict(UP, state="starting"))), asked(12))
+        assert (report["state"], report["addresses"]) == ("starting", UP["addresses"])
+
+    def test_listed_no_reads_unlisted(self):
+        report = runner.preview_report(deneb(previews=previewed(12, "done", text=UP, status=UP, listed="no")), asked(12))
+        assert report["state"] == "unlisted"
+
+    def test_a_refused_answer_is_read_as_refused_in_the_runners_words(self):
+        """drive-state "A runner before previews"."""
+        words = "its Act preview, which crew's implementation does not read"
+        report = runner.preview_report(deneb(answers=answer(12, "refused", words=words)), asked(12))
+        assert (report["state"], report["words"]) == ("refused", words)
+
+    def test_no_answer_reads_asked(self):
+        assert runner.preview_report(deneb(answers=answer(11, "launched", "/p")), asked(12)) == {
+            "host": "deneb", "head": "abc1234", "state": "asked"}
+
+    def test_the_host_unread_reads_unread(self):
+        unread = {"deneb": runner.host_read("madswan", "deneb", TIP, dict(branch(), **{"previews.rec": None}),
+                                            {"previews.rec": "previews.rec fails recfix --check"})}
+        report = runner.preview_report(unread, asked(12))
+        assert (report["state"], report["why"]) == (
+            "unread", "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: previews.rec fails recfix --check")
+        report = runner.preview_report({}, asked(12))
+        assert (report["state"], report["why"]) == ("unread", "no runner answers on deneb, the host preview 12 names")
+        report = runner.preview_report(deneb(previews=previewed(12, "done", status="{not json", listed="yes")), asked(12))
+        assert report["state"] == "unread" and "previews.rec's Status of the preview of request 12 is no JSON" in report["why"]
+
+    @pytest.mark.parametrize("doc, why", [
+        (dict(UP, state="stopped"), 'gives state "stopped", which crew does not read'),
+        (dict(UP, addresses=["http://deneb:4310"]), "gives addresses that are no object of text"),
+        (dict(UP, name=7), "gives no name crew reads")])
+    def test_a_field_crew_does_not_read_reads_unread_naming_it(self, doc, why):
+        report = runner.preview_report(deneb(previews=previewed(12, "done", status=doc, listed="yes")), asked(12))
+        assert report["state"] == "unread" and report["why"].endswith(why)
+        assert report["why"].startswith("madswan/runner/deneb's previews.rec, request 12: sluice's preview")
+
+    def test_an_ask_stands_until_a_done_or_a_refusal_and_again_after_a_bring_up(self):
+        """drive-state "Put away, then asked again"."""
+        one = held(asked(12))
+        assert runner.previews_standing(one, deneb()) == {("deneb", "crew", "abc1234"): one[0]}
+        two = held(asked(12), asked(13, done=True))
+        assert runner.previews_standing(two, deneb()) == {}
+        three = held(asked(12), asked(13, done=True), asked(14))
+        assert runner.previews_standing(three, deneb()) == {("deneb", "crew", "abc1234"): three[2]}
+        assert runner.previews_standing(one, deneb(previews=previewed(12, "refused", words="no"))) == {}
+        assert runner.previews_standing(one, deneb(answers=answer(12, "refused", words="no"))) == {}
+        assert runner.previews_standing(one, {}) == {("deneb", "crew", "abc1234"): one[0]}
+        other = held(asked(12), asked(13, revision="def5678", done=True))
+        assert list(runner.previews_standing(other, deneb())) == [("deneb", "crew", "abc1234")]
+
+    def test_ask_step_keeps_a_standing_ask_and_asks_again_after_a_failure(self):
+        ask = asked(12)
+        assert runner.ask_step(None, None) == "ask"
+        for state in ("asked", "held", "waiting", "starting", "up"):
+            assert runner.ask_step(ask, {"state": state}) == "keep"
+        for state in ("refused", "failed", "unlisted", "unread"):
+            assert runner.ask_step(ask, {"state": state}) == "ask"
+
+    def test_preview_word_of_each_shape(self):
+        h = {"head": "abc1234"}
+        assert runner.preview_word(dict(h, branch="bolt/y", state="ask")) == "ask"
+        assert [runner.preview_word(dict(h, host="deneb", state=s)) for s in ("asked", "held", "failed", "refused", "unlisted")] == [
+            "asked", "held", "failed", "refused", "unlisted"]
+        assert [runner.preview_word(dict(h, name="n", addresses={}, state=s)) for s in ("waiting", "starting", "up")] == ["coming", "coming", "up"]
+        assert runner.preview_word(dict(h, why="crew can't read it")) == "unread"
+        assert runner.preview_word(dict(h, state="unread", why="crew can't read it")) == "unread"
+        assert runner.preview_word(None) is None
+
+
+class TestPreviewsPutAway:
+    """The asks to put away are those no row, no work and no grace keeps (Decision 7; rail-cards "A preview is released
+    on the user's done and when its card or row ends", "A moved head releases the preview of the old one")."""
+
+    def asks(self, *reqs):
+        return runner.previews_standing(held(*reqs), deneb())
+
+    def test_a_row_that_can_land_at_the_head_keeps_its_ask(self):
+        asks = self.asks(asked(12))
+        assert runner.previews_put_away(asks, {("deneb", "crew", "abc1234")}, set()) == []
+
+    def test_a_head_moved_puts_the_old_one_away(self):
+        """rail-cards "The head moves with a preview up"."""
+        asks = self.asks(asked(12))
+        assert [r.get("Request") for r in runner.previews_put_away(asks, {("deneb", "crew", "def5678")}, set())] == ["12"]
+
+    def test_a_held_or_gone_row_puts_it_away(self):
+        """rail-cards "A fix holds the landing", "The bolt lands with its preview up": the row carries it no more."""
+        asks = self.asks(asked(12), asked(13, revision="def5678", work="unit/a"))
+        assert [r.get("Request") for r in runner.previews_put_away(asks, set(), set())] == ["12", "13"]
+
+    def test_a_work_whose_card_stands_keeps_it(self):
+        asks = self.asks(asked(12), asked(13, revision="def5678", work="unit/a"))
+        assert [r.get("Request") for r in runner.previews_put_away(asks, set(), {"unit/a"})] == ["12"]
+
+    def test_an_ask_under_the_grace_is_kept_and_one_over_it_put_away(self):
+        """rail-cards "A card closed elsewhere": two minutes."""
+        import datetime
+        asks = self.asks(asked(12))
+        at = datetime.datetime(2026, 10, 31, 12, 0, tzinfo=datetime.timezone.utc)
+        assert runner.previews_put_away(asks, set(), set(), now=at + datetime.timedelta(seconds=90), grace=120) == []
+        assert [r.get("Request") for r in runner.previews_put_away(asks, set(), set(), now=at + datetime.timedelta(seconds=150), grace=120)] == ["12"]
+
+    def test_a_persons_preview_no_request_names_is_never_put_away(self):
+        """rail-cards "A preview crew did not ask for"; and one the runner refused stands not, so has no done."""
+        assert runner.previews_put_away(self.asks(), set(), set()) == []
+        refused = runner.previews_standing(held(asked(12)), deneb(previews=previewed(12, "refused", words="no")))
+        assert runner.previews_put_away(refused, set(), set()) == []
+
+
+def test_crew_runs_no_sluice_command_for_a_preview():
+    """Decision 9 of a-cards-preview-is-asked-of-the-runner (record 0056 point 1; roles.3): crew asks the runner for a
+    card's preview and runs no sluice command for one, reads no kit's [preview], and keeps no preview record of its
+    own. Read from crew's command core: no `preview`, `previews` or `release` of a preview handed to sluice_read, nor a
+    sluice preview, previews or release command line (the tidy's `sluice release --worktree` of a place is no
+    preview's); no previewed( call; no ~/.local/state/crew/previews path."""
+    import re
+    root = pathlib.Path(__file__).resolve().parents[2] / "plugin"
+    texts = {p: p.read_text() for p in sorted((root / "lib").glob("*.py")) + [root / "bin" / "crew"]}
+    found = []
+    for p, text in texts.items():
+        for n, line in enumerate(text.splitlines(), 1):
+            if (re.search(r"sluice_read\([^)]*[\"'](preview|previews)[\"']", line)
+                    or re.search(r"sluice_read\([^)]*[\"']release[\"'](?![^)]*--worktree)", line)
+                    or re.search(r"sluice (preview|previews)\b", line)
+                    or re.search(r"sluice release(?! --worktree)\b", line)
+                    or re.search(r"[\"']sluice[\"'],\s*[\"'](preview|previews|release)[\"']", line)
+                    or "previewed(" in line or ".local/state/crew/previews" in line):
+                found.append(f"{p.relative_to(root)}:{n}: {line.strip()}")
+    assert found == []
+
+
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 FLUME_17 = pathlib.Path(__file__).parent / "flume-0.17.0"
 CODE ="/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"
@@ -357,6 +659,16 @@ def stage(name=None, outcome="launched", base="bolt/crew-runs-its-work-through-f
                                                         places=placed(3, json.dumps(json.loads(fixture(name))), where) if name else ""), {})
     launch = held(rec(1, "launch", "unit/x"), rec(2, "launch", "chore/y"), rec(3, "launch", work, Base=base, After=[1, 2]))[2]
     return runner.stage_of(work, launch, r["answers"].get(3), r["places"].get(3), r["why"] or True, ["unit/x", "chore/y"])
+
+
+def flume_17(name, n=362, work="unit/pull-requests-are-queued-on-the-forge", base="bolt/sluice-runs-one-host-process"):
+    """A place of flume 0.17.0's status (tests/py/flume-0.17.0/<name>.json) and its piece's stage as stage_of reads it,
+    its launch request n on deneb answered launched at that place and the status carried on one line in places.rec."""
+    status = json.loads((FLUME_17 / f"{name}.json").read_text())
+    p = status["status"]["places"][0]
+    r = runner.host_read("agentplot", "deneb", TIP, branch(answers=answer(n, "launched", p["place"]), places=placed(n, status, p["place"])), {})
+    launch = held(rec(n, "launch", work, Base=base))[0]
+    return p, runner.stage_of(work, launch, r["answers"][n], r["places"][n], True)
 
 
 class TestStageOf:
@@ -409,6 +721,42 @@ class TestStageOf:
             "The code stage of the-flake-configures-each-tool-by-its-own-module cannot start:")
         assert p["waiting_on"]["open_until"] and [e["key"] for e in p["ends"]][-1] == "stage/code/1/ended-short"
         assert runner.answer_retry("unit/the-flake-configures-each-tool-by-its-own-module", got) == ("stage", "code")
+
+    def test_a_place_past_its_bound_waits_on_its_caller_at_the_stage_it_waits_to_retry(self):
+        """bolt-plan "A place past its bound", on flume 0.17.0's own status (tests/py/flume-0.17.0/past-bound.json):
+        request 362's place as deneb's runner carried it at 05:27:38Z on 2026-11-08, its fourth verify delivered and its
+        submission #24 in conflict, gone back three times, as often as its kind allows, so Flume says it waits on its
+        caller to retry code past its bound; it reads waits at code with Flume's words, never at verify (Decision 1)."""
+        p, got = flume_17("past-bound")
+        assert (p["current"], p["stages"][2]["state"], p["waiting_on"]["why"]) == ("verify", "delivered", "past_bound")
+        assert got == {"stage": "waits", "of": "code", "why": "past_bound", "words": p["waiting_on"]["words"], "held": False,
+                       "place": p["place"], "tasks": (37, 37)}
+        assert got["words"].startswith("the submission conflicted with its base: [sluice] #24 conflicts on bolt/sluice-runs-one-host-process")
+        assert runner.piece_said(got) == ("waits", "waits on its caller at code: " + got["words"].splitlines()[0])
+        assert runner.piece_said(got)[1].endswith("sluice wait 24 shows it.")
+
+    def test_a_place_waiting_on_a_retry_of_its_submission_waits_at_its_submission(self):
+        """bolt-plan "A submission that waits on its retry", on flume 0.17.0's status made from request 362's
+        (tests/py/flume-0.17.0/submission-refused.json): its verify delivered and its submission refused by the merge
+        queue, so Flume says it waits on its caller to retry its submission, naming no stage; it reads waits with no
+        stage, unheld, and its line says it waits at its submission with Flume's words."""
+        p, got = flume_17("submission-refused")
+        assert got == {"stage": "waits", "of": None, "why": "submission", "words": p["waiting_on"]["words"], "held": False,
+                       "place": p["place"], "tasks": (37, 37)}
+        assert runner.piece_said(got) == ("waits", "waits on its caller at its submission: the merge queue refused the submission: "
+                                          + p["submission"]["verdict"]["refused"]["reason"])
+
+    def test_a_refusal_without_its_carry_says_when_its_runner_last_carried_it(self):
+        """crew answer's refusal of a live place in code with no question, given no carry of the runner's (Decision 2 of
+        a-place-waiting-on-its-caller-reads-waiting): it names the stage as its runner last carried it, with no host or
+        time, and never that there is nothing to answer."""
+        how, why = runner.answer_retry("unit/a", {"stage": "code", "place": "/crew/places/change--a", "tasks": (3, 7)})
+        assert how is None and why == (
+            "unit/a's place /crew/places/change--a was at code when its runner last carried it, with no question and nothing it "
+            "waited on its caller for: a wait Flume has told of since reaches crew with that runner's next carry, so answer "
+            "again once crew bolts shows the place waiting")
+        assert runner.answer_retry("unit/a", {"stage": "code", "place": "/p"}, ("deneb", "2026-11-08T05:26:37Z"))[1].startswith(
+            "unit/a's place /p was at code when deneb's runner carried it, at 2026-11-08T05:26:37Z, with no question")
 
     def test_refused_by_the_runner_it_is_refused_with_its_words(self):
         r = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "refused", words="no repository afterthought/crew in this runner's configuration")), {})
@@ -609,12 +957,12 @@ class TestBasePlaceFixes:
         """bolt-teams "A live landing fix holds its bolt" (Decision 5): fixes_in_flight on y's base place with y-1 live
         for a conflict gives y-1 taking main in at the refused entry's base; once y-1 has landed, nothing."""
         rs = held(rec(1, "launch", "bolt/y", **dict(BOLT, Name="y")))
-        assert runner.fixes_in_flight(rs, ran({1: "flume-0.19.0/bolt-conflict-fixing"}), "y") == {
+        assert runner.fixes_in_flight([], "y", rs, ran({1: "flume-0.19.0/bolt-conflict-fixing"})) == {
             "y-1": "Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab"}
-        assert runner.fixes_in_flight(rs, ran({1: "flume-0.19.0/bolt-fixed-landed"}), "y") == {}
-        assert runner.fixes_in_flight(rs, ran({1: "flume-0.19.0/bolt-forecast-fixing"}), "y") == {
+        assert runner.fixes_in_flight([], "y", rs, ran({1: "flume-0.19.0/bolt-fixed-landed"})) == {}
+        assert runner.fixes_in_flight([], "y", rs, ran({1: "flume-0.19.0/bolt-forecast-fixing"})) == {
             "y-1": "Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab"}
-        assert runner.fixes_in_flight(rs, ran({1: "flume-0.17.0/bolt-conflict"}), "y") == {}
+        assert runner.fixes_in_flight([], "y", rs, ran({1: "flume-0.17.0/bolt-conflict"})) == {}
 
     def test_a_live_failed_checks_landing_fix_is_worded_for_the_checks(self):
         status = status_19("bolt-failed-fix-due")
@@ -686,18 +1034,40 @@ class TestVerification:
 class TestWhere:
     """Where a bolt's or a kit's work runs is what the runner that took it reported (the user's ruling of 2026-11-01;
     runner.where): the host whose runner took its newest launch taken, the kit's folder as that runner's
-    repositories.rec reports it, or as Flume's status of its place there names it where it reports none, and the
-    stream as that status names it (roles.9)."""
+    repositories.rec reports it where it reports its repositories, else as Flume's status of its newest place of the
+    work names it, and the stream as that status names it (roles.9; drive-state
+    "A runner that reports no repositories")."""
 
     def test_the_host_folder_and_stream_of_the_newest_launch_taken(self):
-        """A runner that reports no repositories: the folder is the one Flume's status of its place names."""
+        """deneb's repositories.rec names afterthought/crew: the folder is the one it reports, the stream the place's;
+        the same reading with no repositories.rec takes the folder its place's status names."""
         code = json.loads(fixture("code"))
-        deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE)), {})
-        alpha = runner.host_read("madswan", "alpha", TIP, branch("alpha", answers=answer(1, "launched", "/old")), {})
+        report = kept(("afterthought/crew", "/Users/chuck/Code/github_afterthought/crew"))
+        deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE),
+                                                                repositories=report), {})
+        alpha = runner.host_read("madswan", "alpha", TIP, branch("alpha", answers=answer(1, "launched", "/old"), repositories=kept(
+            ("afterthought/crew", "/a/crew"))), {})
         launches = held(rec(1, "launch"), rec(2, "launch", "unit/b"), rec(3, "launch", "unit/c"))
         assert runner.where({"deneb": deneb, "alpha": alpha}, launches, "bolt b", "afterthought/crew") == (
             {"host": "deneb", "dir": "/Users/chuck/Code/github_afterthought/crew", "stream": "default"}, None)
-        assert runner.where({"alpha": alpha}, launches, "bolt b", "afterthought/crew") == ({"host": "alpha", "dir": None, "stream": None}, None)
+        assert runner.where({"alpha": alpha}, launches, "bolt b", "afterthought/crew") == ({"host": "alpha", "dir": "/a/crew", "stream": None}, None)
+        bare = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", CODE), places=placed(3, code, CODE)), {})
+        assert runner.where({"deneb": bare, "alpha": alpha}, launches, "bolt b", "afterthought/crew") == (
+            {"host": "deneb", "dir": code["status"]["places"][0]["repository"], "stream": "default"}, None)
+
+    def test_a_runner_that_reports_no_repositories_is_read_by_its_newest_place_of_the_work(self):
+        """drive-state "A runner that reports no repositories": deneb's runner answers launch 1 of x's unit a and carries
+        Flume's status of its place, naming its repository /w/crew, and its branch holds no repositories.rec: x is read
+        in /w/crew on deneb, as crew main reads it; carrying no place of the work, its folder is None, which the callers
+        refuse naming deneb (plan.launched_at, plan.kit_at, launch_repositories)."""
+        code = json.loads(fixture("code"))
+        code["status"]["places"][0]["repository"] = "/w/crew"
+        deneb = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(1, "launched", CODE), places=placed(1, code, CODE)), {})
+        assert runner.where({"deneb": deneb}, held(rec(1, "launch")), "bolt x", "crew") == (
+            {"host": "deneb", "dir": "/w/crew", "stream": "default"}, None)
+        bare = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(1, "launched", CODE)), {})
+        assert runner.where({"deneb": bare}, held(rec(1, "launch")), "bolt x", "crew") == (
+            {"host": "deneb", "dir": None, "stream": None}, None)
 
     def test_work_no_runner_has_taken_is_nowhere_and_two_runners_are_told_apart_by_none(self):
         silent = runner.host_read("madswan", "alpha", TIP, {}, {"runner.rec": "recfix refused it"})
