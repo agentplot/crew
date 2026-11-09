@@ -18,7 +18,7 @@ Each drive's entry gives:
 - `accounts`, naming each of its five main-level roles, `design`, `planner`, `reviewer`, `ops` and `operator`, with the Claude account it runs under, a name crew accepts;
 - `flume`, naming each of the same five roles as `false` while it stands or as the Flume stream its runs run in on the main level's host.
 
-Every refusal of the file SHALL name as its fix the teams file's writer: crew's own module, `services.crew`, or the machine's configuration that writes the file. No refusal of the file SHALL name a module of another repository's as its fix.
+Every refusal of the file SHALL name as its fix the teams file's writer: crew's own module, `services.crew`, `crew drive set`, or the machine's configuration that writes the file. A host with no teams file SHALL be refused naming the same writers, and a file that is no JSON naming the file and why, each with nothing done. No refusal of the file SHALL name a module of another repository's as its fix.
 
 A drive's first blueprints repo SHALL be kept on its machine: among its `repos`, or named in `repositories` where its machine is the host the file is written on. A drive whose entry lacks `state`, `folder`, `repos`, `accounts` or `flume` SHALL be an error naming the drive, the field and the teams file's writer as the fix, never a default. So SHALL a `folder` that is not absolute, a `repos` entry that is no `<owner>/<name>`, an `accounts` or a `flume` that leaves a role out or names another key, an account that is no name crew accepts, a `flume` role given anything but `false` or a stream's name, and two roles that run in one session and name two accounts, since a herdr session runs under one.
 
@@ -125,8 +125,16 @@ The file's `consoles` MAY name, for the host it is written on, each drive whose 
 - **THEN** crew refuses to load it, saying it lists no drives, naming the teams file's writer, and does nothing
 
 #### Scenario: Every refusal of the file names crew's own fix
-- **WHEN** crew refuses `teams.json` for its version, for a `teams` key, for listing no drives, for a drive's `state`, `review`, `flume`, `folder`, `repos` or `accounts`, for its `hosts`, for a kept repository named wrongly, or for its `consoles`
-- **THEN** the refusal names crew's own module, `services.crew`, or the machine's configuration that writes the file as the fix, and no module of swancloud's or of any other repository's
+- **WHEN** crew refuses `teams.json` for being missing, for its version, for a `teams` key, for listing no drives, for a drive's `state`, `review`, `flume`, `folder`, `repos` or `accounts`, for its `hosts`, for a kept repository named wrongly, or for its `consoles`
+- **THEN** the refusal names crew's own module, `services.crew`, `crew drive set`, or the machine's configuration that writes the file as the fix, and no module of swancloud's or of any other repository's
+
+#### Scenario: No teams file
+- **WHEN** a host has no `~/.config/crew/teams.json` and `crew bolts` runs there
+- **THEN** it is refused naming the file and `crew drive set` among its writers, and does nothing
+
+#### Scenario: A file that is no JSON
+- **WHEN** `~/.config/crew/teams.json` holds text that is no JSON
+- **THEN** crew refuses to load it, naming the file and the parser's words, with no traceback, and does nothing
 
 #### Scenario: A runner host's kept repositories
 - **WHEN** deneb's `teams.json` gives `repositories` naming `agentplot/crew` with `dir` `/Users/chuck/.local/share/flywheel/repositories/agentplot/crew` and `checkout` `/Users/chuck/Code/boomdrive/agentplot/crew`
