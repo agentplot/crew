@@ -11,11 +11,11 @@
 # host's runner while something is pending for it (crew role below); with flume false throughout, every role stands.
 #
 # A runner whose configuration names a kit's repository takes its started bolts' work, in the stream its host maps it to; a
-# bolt that is proven, every unit and chore merged and sluice green at its head, waits to land. A landing or a drop of a
-# bolt reads, on the host the runner that took its work reported, each
-# landing of the kit's bolts nothing recorded, and removes, let go by sluice and then through the kit's wt remove, each
-# landing's place whose bolt is over, naming one kept for uncommitted changes, sluice's let-go or a remove hook; no
-# other worktree is crew's:
+# bolt that is proven, every unit and chore merged and sluice green at its head, waits to land, and lands on the user's
+# send of its row on its kit's landings card, which crew carries to the runner as a land of its base place: crew runs
+# nothing for a bolt's branch or its landing, which pushes nothing and levels no host, and removes no worktree, its
+# tidy naming each worktree crew made before bolts were base places with the commands that remove it, the user's to
+# run; no other worktree is crew's:
 #   crew fix     <bolt> <name> "<what is wrong>" [--label L]
 #                                      the planner's or main-level ops's: a launch of a Flume fix place <bolt>--<name>
 #                                      on a started bolt, cut from bolt/<bolt>, appended to requests.rec in its
@@ -49,71 +49,52 @@
 #                                      status of its place, a runner that can't be read named and the work no runner
 #                                      read has taken unknown; each started bolt's head line saying where the runner
 #                                      that took its work reported it runs, @ <host>, in Flume stream <s>, and
-#                                      its landing as the run record holds it, queued, rejected or landing again;
-#                                      each held bolt's verification, sluice's verdict on
-#                                      its last landing, and each merge and landing standing in sluice's queue with
-#                                      its number and state on its line, a queue that can't be read said once on the
-#                                      bolt's head line
+#                                      its landing as the runner reports it beside the run record, landing asked,
+#                                      request <n>, landing #<n> under test, landed, refused or stopped in Flume's
+#                                      words, or that it lands under the crew that started it, and its base place's
+#                                      launch as the runner answers it; each held bolt's verification, whether its head
+#                                      is the
+#                                      landing of its work as the runner reports it; and each piece's submission on
+#                                      its line as the runner carries it, submitted #<n>; nothing read from sluice's
+#                                      queue
 #   crew bolt  new|start|order|drop|land ...
-#                                      start, the user's or a proposal's, has sluice make bolt/<bolt> on GitHub from
-#                                      main (sluice branch create, in the checkout the partition's main-level host
-#                                      keeps of its kit), with no worktree, before the plan write, its work launched in
-#                                      its repository for a runner whose configuration names it; refused, nothing
-#                                      changed, in a kit that host keeps no checkout of, or whose .config/sluice.toml
-#                                      on origin/main names no checks or no remote for its bolt branches, on a host
-#                                      whose sluice is older than 0.20.0, in sluice's words when it makes none; a branch
-#                                      already on GitHub at main's tip with no commit of its own, as a start that
-#                                      failed after sluice made it leaves it, is taken and the start goes on. A start
-#                                      is refused for a bolt started already, while that host is held, or while no
-#                                      runner answers for the partition (no
-#                                      <label>/runner/<host>); it marks the bolt Path: flume, appends a launch to
-#                                      requests.rec for each unit and chore, a dependent's naming the launches of its
-#                                      After work, which the runner holds it for until that work has landed on the
-#                                      bolt, and starts no agent. Plan writes reach those places: an add, an
-#                                      amendment, a drop and an order of bolts are launches, retries, drops and
-#                                      priorities; a move out, a split or an After change of launched work is
-#                                      refused, naming drop and add
-#                                      land and drop have sluice delete it (sluice branch delete) once its worktrees
-#                                      are gone, a refusal named in sluice's words; a dropped bolt's is kept and named
-#                                      while main lacks its tip, and deleted once main holds it. A bolt made before
-#                                      sluice made bolts' branches stays local until it lands
+#                                      start, the user's or a proposal's, makes no branch and reads no host: in one plan
+#                                      write it marks the bolt Path: flume and appends to requests.rec the launch of its
+#                                      base place, bolt/<bolt> of crew's kind crew/bolt on main with no brief, and then
+#                                      a launch for each unit and chore, a dependent's naming the launches of its After
+#                                      work, which the runner holds it for until that work has landed on the bolt, each
+#                                      in its repository for a runner whose configuration names it, and starts no agent;
+#                                      Flume makes bolt/<bolt> on GitHub from origin/main when the runner launches its
+#                                      base place. A start is refused for a bolt started already, but one whose own
+#                                      launch the runner refused, which it launches anew with its pieces not yet
+#                                      launched, or while no runner answers for the partition (no
+#                                      <label>/runner/<host>). Plan writes reach those places: an add, an amendment, a
+#                                      drop and an order of bolts are launches, retries, drops and priorities; a move
+#                                      out, a split or an After change of launched work is refused, naming drop and add.
+#                                      land of a started bolt is refused, recording nothing, naming its landing's
+#                                      outcome, until the runner reports its base place landed, which the first act of
+#                                      crew's to read it closes by land's own code in main-level ops's name at Flume's
+#                                      commit; land of a bolt never started closes it on the user's word once main holds
+#                                      each of its units' changes and chores. drop drops each of the bolt's launches
+#                                      still standing and last its base place's, asked again once for each refusal of it
+#                                      by the runner; crew deletes no branch, a dropped bolt's kept by sluice and named
+#                                      while it holds work main lacks. A bolt started before bolts were base places
+#                                      lands under the crew that started it, with no land posted for it, and its drop
+#                                      asks nothing for its branch
 #   crew bolt  submit <bolt>... [--excerpt "<the user's words>"] [--label L]
-#                                      main-level ops's landing of one kit's bolts, in the order the user's landings
-#                                      card gives: each bolt's branch submitted to its kit's main through sluice from a
-#                                      short-lived worktree on its host, as the runner that took its work reported, queued behind the one before on one host,
-#                                      once it ended on another, recorded queued with sluice's number as soon as sluice
-#                                      has it; each waited on in order and closed as it lands, its outcome recorded and
-#                                      a landed bolt closed by the first act of crew's that reads it once sluice's record
-#                                      has it out, on its host: this command's end, the waiter it leaves there,
-#                                      the rail's sweep there or crew bolt land; a close crew refuses recorded and said
-#                                      on the bolt's head line until a later read lifts it; one
-#                                      that did not land recorded at its head while the rest go on: one refused for its
-#                                      own content, a conflict or a check that ran and failed, held on its row as the
-#                                      bolt's fix, what failed named from sluice's record with a failed check's crew
-#                                      fix, and refused, nothing submitted, while its head is still the one sluice sent
-#                                      back; one
-#                                      that carries another bolt's work main lacks, a landing of that bolt's its head
-#                                      holds, refused with nothing submitted, naming that bolt and its landings, until
-#                                      main holds that work; one
-#                                      sluice or its host stopped keeping its box and the user's word, and submitted
-#                                      again once that is cleared; a landing still standing in sluice at the bolt's
-#                                      head, as after ops's session ended, waited on again with nothing submitted,
-#                                      one at another head said; the command exiting non-zero naming each; sluice
-#                                      pushes to GitHub, and the landing pushes nothing and levels no host. In a kit
-#                                      whose main takes pull requests, it
-#                                      readies each bolt's draft pull request first, and a landing that does not land
-#                                      leaves it a draft, as a fix's start or a merge into the bolt keeps it, until the
-#                                      next submit readies it; with --excerpt, on the user's words in ops's pane,
-#                                      submitted only once crew reads them in ops's own transcript as the user's, no
-#                                      words in the run record
+#                                      refused at once, before it reads anything, with any arguments, naming the way: a
+#                                      bolt lands on the user's send of its row on its kit's landings card, which crew
+#                                      carries to the runner itself as a land of the bolt's base place, the runner
+#                                      having Flume submit it to main through the merge queue; no agent lands a bolt,
+#                                      and the user's words in ops's pane are no word to land
 #   crew bolt  leave <bolt>... --excerpt "<the user's words>" [--label L]
 #                                      main-level ops's record of the user's words in its pane stopping the bolts'
-#                                      landing, read in ops's own transcript as the user's as submit's are, refused
-#                                      as it refuses, no words in the run record; the kit's landings card raised,
+#                                      landing, read in ops's own transcript as the user's, refused when crew cannot
+#                                      read them so, no words in the run record; the kit's landings card raised,
 #                                      showing each unticked as left. A bolt the user left, so or by clearing it on
 #                                      their send, is forecast against main as any, its row keeping its box and saying
-#                                      whether it would take main first, and no take-main fix is told for it until they
-#                                      tick it, ops lands it on their words or its head moves
+#                                      whether it would take main first, and no take-main fix is started for it until
+#                                      they tick it or its head moves; a land crew posted is not withdrawn
 #   crew unit  add|split|amend|order|after|move|drop ...
 #   crew chore add|order|after|move|drop ...
 #                                      planned maintenance that changes nothing a spec says, written as a unit is, by the
@@ -209,12 +190,13 @@
 #                                      annotations as notes on its row and its approval as landing nothing, the card
 #                                      left and the reading set aside; a long proposal's reading's decision;
 #                                      an approval the user declined is closed with their words; for a kit's landings
-#                                      card (land/<kit>), the bolts the user ticked in its order and the crew bolt
-#                                      submit that lands them, after those an earlier send still lands at their head
-#                                      now; what an earlier send still lands, with or without a card open, naming a
-#                                      bolt it can't tell of; a sent card is raised first, so a ticked bolt that was
-#                                      left and conflicts with main takes main first, until a fix taking main in moves
-#                                      its head, and the submit leaves it out
+#                                      card (land/<kit>), the bolts the user ticked in its order and the land crew
+#                                      posted for each with its request, or that none is posted yet, and no command,
+#                                      after those an earlier send still lands at their head now;
+#                                      what an earlier send still lands, with or without a card open, naming a bolt it
+#                                      can't tell of; a sent card is raised first, so a ticked bolt that was left and
+#                                      conflicts with main takes main first, until a fix taking main in moves its head,
+#                                      and has no land posted
 #   crew card  answer batch/<n> --excerpt "<words>" [--label L]
 #                                      the planner's or the operator's: the user's answer to a batch in their own words
 #                                      in its pane, recorded once crew reads the words in that agent's own session
@@ -258,11 +240,10 @@
 #                                      whose configuration names it; refused, naming a bolt of one chore proposed first
 #                                      among the planned as the way, where no runner answers for the partition
 #   crew main     fix <kit> <name> --send [--excerpt "<the user's words>"] [--label L]
-#                                      main-level ops's, on the user's send of the kit's landings row, which carries the
-#                                      fix once its code has delivered and its submission waits held: the retry of its
-#                                      submission, appended once, which the runner makes and sluice lands on main; with
-#                                      --excerpt, on the user's words in ops's pane, sent only once crew reads them in
-#                                      ops's own transcript as the user's, no words in the run record
+#                                      refused at once, before it reads anything, naming the way: a fix of main lands on
+#                                      the user's send of its row on the kit's landings card, which carries it once its
+#                                      code has delivered and its submission waits held, and which crew carries to the
+#                                      runner as a land of the fix, ahead of the bolts the same send lands
 #   crew main     fix <kit> <name> --drop [--label L]
 #                                      drop a fix of main not wanted: its launch dropped; a landed one is refused
 #   crew review   <label> [--wait [--timeout <ms>]]
@@ -332,9 +313,9 @@
 #                                      one read for every partition with an operator session here, fetching each
 #                                      repository once a minute and showing this host's writes within seconds, reading
 #                                      only what moved, asking another host, Pending You or herdr only when something
-#                                      there could have moved, and following each repository's queue through one
-#                                      sluice overview watch; due restarts handed out once crew's checkout, the crew
-#                                      the host has installed or the teams file moved, the rail's frame, the
+#                                      there could have moved, learning that a submission moved from its runner's
+#                                      report and starting no sluice; due restarts handed out once crew's checkout, the
+#                                      crew the host has installed or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
 #                                      follower to a host, holding its lock, a second waiting for it. While a partition
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
@@ -492,7 +473,7 @@ for a in ${args[@]+"${args[@]:1}"}; do
   case $cmd in
     bolts | bolt | unit | chore | kit | fix | signal | state | plan | rail | card | record | answer | role | events | trace | \
       page | sites | ops | board | _views | _board | _rail | _follow | _hold | _go | _update | _renew | _preview | \
-      _answered | _card-preview | _preview-release | _made | _batch-card | _land-row | _land-card | _landing-read | \
+      _answered | _card-preview | _preview-release | _made | _batch-card | _land-row | _land-card | \
       _release) break ;;  # their own arms below
     _sweep) exec python3 "$here/../lib/plan.py" "${args[@]}" ;;  # plan.py's of that name, before its label is asked for
     main) [[ ${2:-} == fix ]] && break ;;
@@ -581,10 +562,6 @@ case $cmd in
     # landings card, its reading and preview opened or ended there; crew _land-card <label> <kit> [--note <words>], on
     # the partition's main machine: the kit's landings card raised from each row, which every event that changes a row
     # hands there (Decision 2 of one-landings-card-lands-the-proven-bolts-in-order, code.3)
-    exec python3 "$here/../lib/plan.py" "${args[@]}" ;;
-  _landing-read)  # crew _landing-read <label> <bolt>, on the bolt's host: its landing read from sluice's record
-    # of its queued submission, its outcome recorded once sluice has it out (plan.21), run by the landing's waiter as it
-    # stops and by every crew act that reads the bolt after
     exec python3 "$here/../lib/plan.py" "${args[@]}" ;;
   main)
     [[ ${2:-} == fix ]] && exec python3 "$here/../lib/plan.py" "${args[@]}"  # a plan write, on the asking host

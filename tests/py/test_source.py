@@ -1,8 +1,10 @@
 """crew as a source of its host's Flume (the flume-source spec; record 0057, teams.25): source.entries for the standing
 entry of each role that stands of each partition on the host, from the fleet crew.load gives of a teams file, and
-source.text for the roles file's text, read back as Flume reads it, as TOML. That crew's follower and a main-level start
-write the file, renamed over the old one, is t-flume-source's and t-journey-main's."""
+source.text for the roles file's text, read back as Flume reads it, as TOML; source.keep for crew's bolt kind written
+into the kinds folder beside it, whole and only when its bytes differ. That crew's follower and a main-level start write
+the file, renamed over the old one, is t-flume-source's and t-journey-main's."""
 import json
+import os
 import tomllib
 
 import pytest
@@ -144,3 +146,60 @@ class TestNoEntryForAPartitionOnAnotherHostOrARoleThatRunsAsItsKind:
     def test_a_host_that_is_no_partitions_machine_declares_nothing(self, fleet):
         assert source.entries(fleet(), "mac-studio", crew.ASKS) == []
         assert tomllib.loads(source.text([], "mac-studio")) == {}
+
+
+# crew's bolt kind as it ships, byte for byte: a change to it fails here, since a version's bytes never change and a
+# change to the kind is bolt@2 beside it (the flume-source spec; crew-lands-each-bolt-through-flumes-base-place,
+# Decision 2).
+BOLT_KIND = b"""# crew's bolt as a Flume base place (record 0056; crew-lands-each-bolt-through-flumes-base-place, Decision 2).
+[kinds.bolt]
+version = 1
+branch = "bolt"
+lands = true
+stages = []
+"""
+
+
+class TestCrewsKindsFolderHoldsItsBoltKind:
+    def kept(self, tmp_path, fleet, host=DENEB):
+        roles, kinds = tmp_path / "state/roles.toml", tmp_path / "kinds/crew"
+        source.keep(fleet, host, crew.ASKS, roles=roles, kinds=kinds)
+        return roles, kinds, kinds / "bolt@1/kind.toml"
+
+    def test_the_package_ships_as_pinned_and_is_a_base_place(self):
+        (package, under), = source.KIND_PACKAGES
+        assert package.read_bytes() == BOLT_KIND and under.as_posix() == "bolt@1/kind.toml"
+        assert tomllib.loads(BOLT_KIND.decode()) == {"kinds": {"bolt": {"version": 1, "branch": "bolt", "lands": True, "stages": []}}}
+
+    def test_written_once_with_an_entry_and_nothing_else_in_the_folder(self, tmp_path, fleet):
+        _, kinds, kind = self.kept(tmp_path, fleet())
+        assert kind.read_bytes() == BOLT_KIND
+        assert sorted(p.relative_to(kinds).as_posix() for p in kinds.rglob("*")) == ["bolt@1", "bolt@1/kind.toml"]
+
+    def test_not_written_again_with_the_same_bytes(self, tmp_path, fleet):
+        f = fleet()
+        _, _, kind = self.kept(tmp_path, f)
+        os.utime(kind, ns=(1_000_000_000, 1_000_000_000))
+        was = kind.stat()
+        self.kept(tmp_path, f)
+        assert (kind.stat().st_ino, kind.stat().st_mtime_ns) == (was.st_ino, was.st_mtime_ns)
+
+    def test_written_over_when_the_bytes_differ_and_renamed_over_the_old(self, tmp_path, fleet):
+        f = fleet()
+        _, _, kind = self.kept(tmp_path, f)
+        kind.write_bytes(b"[kinds.bolt]\nversion = 1\n")
+        held = tmp_path / "held.toml"
+        os.link(kind, held)
+        self.kept(tmp_path, f)
+        assert kind.read_bytes() == BOLT_KIND and held.read_bytes() == b"[kinds.bolt]\nversion = 1\n"
+
+    def test_not_written_with_no_entry(self, tmp_path, fleet):
+        roles, kinds, _ = self.kept(tmp_path, fleet(), host="mac-studio")
+        assert not kinds.exists() and not roles.exists()
+
+    def test_no_package_where_the_roles_file_is_written_with_no_entry(self, tmp_path, fleet):
+        roles, kinds = tmp_path / "state/roles.toml", tmp_path / "kinds/crew"
+        roles.parent.mkdir(parents=True)
+        roles.write_text("# old\n")
+        source.keep(fleet(), "mac-studio", crew.ASKS, roles=roles, kinds=kinds)
+        assert not kinds.exists() and "roles" not in tomllib.loads(roles.read_text())

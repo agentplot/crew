@@ -1,0 +1,6 @@
+# crew's bolt as a Flume base place (record 0056; crew-lands-each-bolt-through-flumes-base-place, Decision 2).
+[kinds.bolt]
+version = 1
+branch = "bolt"
+lands = true
+stages = []

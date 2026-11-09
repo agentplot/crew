@@ -70,7 +70,7 @@ DESCRIPTOR = """\
 %rec: Entry
 %key: Id
 %mandatory: Id At Host By Act
-%allowed: Id At Host By Session Act On From Commit Why Refused Result Tasks Head Ended Delivered Observed Chars Amended Took Heads Paths Reached Forecast Batch Units Count Card Key Unread Base Phase Step Outcome Log Rows State Doer Agent When Text Changes Note Repo After Lifted Settle Form Answer Age Split Submission Does
+%allowed: Id At Host By Session Act On From Commit Why Refused Result Tasks Head Ended Delivered Observed Chars Amended Took Heads Paths Reached Forecast Batch Units Count Card Key Unread Base Phase Step Outcome Log Rows State Doer Agent When Text Changes Note Repo After Lifted Settle Form Answer Age Split Submission Request Does
 
 """
 # Fields beyond the common ones: a stage.end's Result, Tasks, Head, Ended (delivered, short or stopped), Delivered (what
@@ -90,8 +90,9 @@ DESCRIPTOR = """\
 # Head (the commit that kit's main holds afterwards, plan.14), and, for a bolt a team held, its Age (whole minutes from
 # its newest give to its landing) and Split (those minutes by holder, `team 200, kit 12, team-or-kit 13, user 125,
 # hold 0, nobody 20`, team-or-kit a submission's stay in sluice crew can't split between queued and under test,
-# plan.20), a landing's submission's Submission (sluice's number for it, on its bolt.submit from the moment sluice queued
-# it, plan.21), a branch.kept's Head (the commit a unit's, chore's or
+# plan.20), a landing's submission's Submission (the merge queue's entry for it, on its bolt.submit once the runner's
+# report names one, plan.21), a land's Request (the number of the land request crew posted on the user's send, on its
+# bolt.submit or fix.merge marked Outcome asked; crew-lands-each-bolt-through-flumes-base-place, Decision 4), a branch.kept's Head (the commit a unit's, chore's or
 # fix's branch the tidy kept is at) and Count (its commits whose patch its bolt, or main, lacks, plan.10), crew's own
 # order of two units a forecast found in conflict, a turn.begin's Took (how many asks and waiting places a role's run
 # took at its start), the unit.after that puts one After the other or the one that Lifted
@@ -105,7 +106,7 @@ DESCRIPTOR = """\
 # work and the name stays taken while that branch stands, crew's words made from names alone (runner.drop_kept_said).
 EXTRA = ("Result", "Tasks", "Head", "Ended", "Delivered", "Observed", "Chars", "Amended", "Took", "Heads", "Paths", "Reached",
          "Forecast", "Batch", "Units", "Count", "Card", "Key", "Unread", "Base", "Phase", "Step", "Outcome", "Log", "Rows", "State", "Doer", "Agent",
-         "When", "Text", "Changes", "Note", "Repo", "After", "Lifted", "Settle", "Form", "Answer", "Age", "Split", "Submission", "Does")
+         "When", "Text", "Changes", "Note", "Repo", "After", "Lifted", "Settle", "Form", "Answer", "Age", "Split", "Submission", "Request", "Does")
 LISTS = ("On", "From", "Commit")
 # Objects a trace prints but never follows: following them would pull in everything a team or a kit ever did.
 UNFOLLOWED = ("agent/", "team/", "queue/", "plan/")
@@ -448,7 +449,8 @@ def when(text):
 
 
 def line(e, zoe=False):
-    """One entry as one line: time, act, who, host, commit, what it acted on and what that came from."""
+    """One entry as one line: time, act, who, host, commit, what it acted on and what that came from; a landing's
+    bolt.submit or fix.merge with its Outcome, Request and Submission as written."""
     at = e["At"]
     commit = ",".join(c.rsplit("@", 1)[-1][:7] for c in e["Commit"]) or "-"
     s = f"{at[5:10]} {at[11:19]}  {e.get('Act', '?'):<13} {e.get('By', '?'):<20} {e.get('Host', '?'):<17}  {commit:<7}  " + " ".join(e["On"])
@@ -486,6 +488,9 @@ def line(e, zoe=False):
         s += f" ({e['Note']})"
     if e.get("Key") or e.get("Card"):
         s += " (card " + " ".join(x for x in (e.get("Key"), e.get("Card")) if x) + ")"
+    if e.get("Act") in ("bolt.submit", "fix.merge") and (e.get("Outcome") or e.get("Request") or e.get("Submission")):
+        # a landing's entry as written, an older crew's queued Submission among it (run-record "An entry an older crew wrote")
+        s += "  " + ", ".join(f"{k}: {e[k]}" for k in ("Outcome", "Request", "Submission") if e.get(k))
     if e.get("Refused"):
         s += f"  refused: {e['Refused']}"
     if zoe and e.get("Session") and ":" in e["Session"]:

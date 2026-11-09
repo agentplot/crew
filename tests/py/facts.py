@@ -141,6 +141,29 @@ class FactsWrite:
         return w
 
 
+def writes_at(monkeypatch, tip, text="%rec: Bolt\n\n%rec: Unit\n\n", label="swancloud"):
+    """plan.write stood in for by a write applied to a tip in memory: each change applied to a FactsWrite over text,
+    whose run record is tip (a list, oldest first, that each write's entries join, so a later write is applied to the
+    tip an earlier one left), a change that raises plan.Unposted writing nothing; each write's entries, its act's and
+    each also, as record.parse gives them with a refusal as refused and a Why as why, appended to the list returned."""
+    import plan
+    written = []
+
+    def write(fleet, label_, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
+        w = FactsWrite(text, label=label, entries=list(tip))
+        change(w)
+        es = [dict({**(fields or {}), **w.fields}, Act=w.act or act, On=list(on) + w.on, by=by, why=w.why or why)]
+        es += [dict({k: v for k, v in more.items() if k != "why"}, Act=a, On=list(o), by=by, why=more.get("why") or w.why or why)
+               for _, a, o, more in w.also]
+        for e in es:
+            tip.append(dict({k: v for k, v in e.items() if k not in ("refused", "why", "by")},
+                            **({"Refused": e["refused"]} if e.get("refused") else {}), **({"Why": e["why"]} if e.get("why") else {})))
+        written.extend(es)
+        return "c" * 40
+    monkeypatch.setattr(plan, "write", write)
+    return written
+
+
 def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standing=()):
     """A plan command's reads as a logic case gives them (plan.Reads): each unit's or chore's stage as given, else ready;
     a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it, or Flume's branch for it
@@ -208,11 +231,16 @@ def madswan_fleet():
 CREW_AT = {"label": "madswan", "machine": "deneb", "stream": "madswan", "kit": dict(CREW_KIT, main="/crew/main", dir="/crew")}
 
 
+# The commit flume-0.3.6/landed.json's place landed, so a bolt whose head it is and whose pieces stand landed there
+# reads green: its head is its work's landing, as the runner reports it (runner.verification).
+LANDED = "d185a879b51dba33555c036392b50443f4dfc5e8"
+
+
 def crew_read(main=(), chores=(), bolts=None):
     """A survey of deneb (plan.survey's answer) holding crew's kit as read there: main's changes and chores, and each
-    bolt in bolts, {bolt: its facts over a bolt holding nothing yet, its head d…d with no verdict}."""
+    bolt in bolts, {bolt: its facts over a bolt holding nothing yet, its head LANDED}."""
     empty = {"exists": True, "at": "origin/bolt/x", "changes": [], "archived": [], "open": {}, "chores": [], "worktree": None,
-             "head": "d" * 40, "head_at": "2026-10-31T12:00:00Z", "verdict": ""}
+             "head": LANDED, "head_at": "2026-10-31T12:00:00Z"}
     k = {"ok": True, "main": list(main), "chores": list(chores), "places": {}, "chore_places": {}, "fixes": [],
          "bolts": {b: dict(empty, at=f"origin/bolt/{b}", **facts) for b, facts in (bolts or {}).items()}}
     return {"deneb": {"ok": True, "kits": {"/crew/main": k}}}
@@ -269,10 +297,12 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}
 
 
-def launched(bolts, work=(), fleet=None, planned=()):
+def launched(bolts, work=(), fleet=None, planned=(), base=True):
     """madswan's plan (flume_plan) with each bolt in bolts started and its work launched as a start launches it
-    (plan.reach_places), and each bolt in planned planned and not started: (the plan, requests.rec's records as the
-    writes leave them). The requests name their writer: set CREW_AGENT first."""
+    (plan.reach_places), then, with base, each bolt's base place (runner.bolt_launch), after its pieces so their
+    numbers are those a case names, unanswered, a bolt of this crew's and not one started before bolts were base
+    places; and each bolt in planned planned and not started: (the plan, requests.rec's records as the writes leave
+    them). The requests name their writer: set CREW_AGENT first."""
     import plan
     import runner
     fleet = fleet or madswan_fleet()
@@ -280,23 +310,7 @@ def launched(bolts, work=(), fleet=None, planned=()):
     for b in bolts:
         w.plan.bolt(b).set("Path", "flume")
         plan.reach_places(fleet, w, b)
+    for b in bolts if base else ():  # each bolt's base place, after its pieces so their numbers stand, unanswered
+        act, work_, given = runner.bolt_launch(w.plan, b, "madswan")
+        plan.request(w, act, work_, **given)
     return w.plan, plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")
-
-
-# switchboard-kit's b01e966 on the box: #1319, its bolt's take-main fix, landed beside sluice's queue with nothing run on
-# #1316's e25fea4, which passed (141 run, 0 replayed) (tests/py/sluice-0.68.1/README).
-BESIDE_HEAD = "b01e9661211039a0682829dac1e4b7346d5d5828"
-COVERING = "e25fea4057459d9964dd6d422816115ecd1207fa"
-BESIDE_OLD = "landed beside the queue (no required check reads its changes)"  # sluice 0.68.1's Sluice-Result, b01e966's own
-BESIDE_NEW = ("passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the result at "
-              f"{COVERING}, passed (141 run, 0 replayed)")  # sluice 0.69.0's, as text.rs beside_message writes it
-
-
-def landed_beside(version, why=None, **change):
-    """What gather.landing_read gives of b01e966: sluice's record of #1319 as `sluice status 1319 --json` prints it in
-    tests/py/sluice-<version>/, its fields changed by change, or none with why."""
-    import json
-    import gather
-    rec = json.loads((pathlib.Path(__file__).parent / f"sluice-{version}" / "status-landed-beside.json").read_text())
-    rec = dict(rec, **change)
-    return {"submission": "1319", "record": None if why else {k: rec.get(k) for k in gather.BESIDE_FIELDS}, "why": why}
