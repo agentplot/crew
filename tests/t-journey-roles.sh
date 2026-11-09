@@ -13,11 +13,14 @@
 # mac-studio's runner, the brief file's text whole and madswan/design its recipient, which crew trace lists; a repository
 # crew does not name, and a land outside a run, are refused requesting nothing. crew board reads each run beside the
 # plan, its turn and the asks that wait for it, and names the design agent's run for attention once the runner shows it
-# lost.
+# lost. Once mac-studio's runner carries the place of a unit's launch whose status gives two ends Flume owes
+# madswan/planner (tests/py/flume-deliveries/), the planner's next run, a tell pending, takes them with the tell and
+# prints them, and its end appends, in the commit that ends the turn, one confirm naming the launch, madswan/planner and
+# both delivery keys, for the runner to carry to Flume.
 # What a tell decides, the ask's fields, what a start takes and prints, what an open reads of the runner and what a land
 # writes or refuses, and what a run's view and the attention line say, are logic cases (tests/py/test_tell_asks.py,
 # test_asks.py, test_board.py); each step here checks a command's wiring once.
-# Reads: plugin/flume/ plugin/roles/ plugin/lib/board.py
+# Reads: plugin/flume/ plugin/roles/ plugin/lib/board.py tests/py/flume-deliveries/
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
 blueprints afterthought/blueprints >/dev/null; blueprints agentplot/blueprints >/dev/null
@@ -165,3 +168,28 @@ expect_ok crew board --label madswan
 has "$out" "! madswan's design run: lost, its place /flume/places/crew-design--madswan on mac-studio"
 [[ $out != *"flume retry"* ]] || fail "the board printed a command for a lost run"
 ok "crew board reads each role's run beside the plan, its turn and the asks that wait from asks.rec, and names a run the runner shows lost"
+
+# A unit's launch on madswan's branch, a hand edit as crew bolt start would write it, and mac-studio's runner carrying
+# its place at the status tests/py/flume-deliveries/ holds, its ends owed to madswan/planner: the construct's second
+# start delivered, expired, and its code ended short, waiting on the planner's answer. The planner's next run, the tell
+# written during its last turn pending, takes the tell, the place that waits on it and both ends, and prints the ends
+# after the waits; its end asks the runners to confirm both in the commit that ends the turn.
+w=$T/madswan-state; git clone -q -b madswan/main "$ms" "$w"
+printf '\nRequest: 2\nAct: launch\nWork: unit/a\nRepo: afterthought/crew\nKind: change\nName: a\nBase: bolt/b\nPriority: 1\nIntent: madswan/b\nRecipient: madswan/planner\nBrief: Build a.\nDate: 2026-11-08T10:00:00Z\nBy: madswan-planner\n' >> "$w/requests.rec"
+commit_all "$w" "requests: a unit's launch by hand"; git -C "$w" push -q origin madswan/main
+owed=$(jq -c . "$CREW/tests/py/flume-deliveries/owed.json" | sed 's#agentplot/planner#madswan/planner#g')
+runner_commit "runner: unit a's place" "$(printf '%%rec: Place\n%%key: Request\n%%type: Request int\n%%type: At date\n%%mandatory: Request Place At Status\n%%allowed: Request Place At Status\n\nRequest: 2\nPlace: /flume/places/change--a\nAt: 2026-11-08T10:05:00Z\nStatus: %s\n' "$owed")"
+keys="change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/stage/construct/2/delivered change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/stage/code/1/ended-short"
+run expect_ok crew role start
+has "$out" "unit/a waits on you: the place /flume/places/change--a, launched by request 2 (place/2@1794085696)"
+has "$out" $'Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):\nunit/a (the place /flume/places/change--a, request 2): stage/construct/2/delivered (expired), stage/code/1/ended-short\n'
+eq "$(at asks.rec | recsel -t Turn -e "Turn = 2" -P Took | tr '\n' ' ')" "ask/4 place/2@1794085696 $(for k in $keys; do printf 'end/2/%s ' "$k"; done)"
+t0=$(act_tip madswan/main "$ms")
+run expect_ok "${endcmd[@]}" "answered unit a's stop-short"
+has "$out" "The 2 ends it took are confirmed to Flume as madswan/planner once the runners carry request 3."
+eq "$(at requests.rec | recsel -t Request -e "Act = 'confirm'" -P Request,Work,Of,Recipient | tr '\n' ' ')" "3 unit/a 2 madswan/planner "
+eq "$(at requests.rec | recsel -t Request -e "Act = 'confirm'" -P Delivery | tr '\n' ' ')" "$keys "
+eq "$(acts_since "$t0" madswan/main "$ms")" "1"
+eq "$(git --git-dir "$ms" diff --name-only "$t0" "$(act_tip madswan/main "$ms")" | grep -v '^runs/')" $'asks.rec\nrequests.rec'
+has "$(cat "$report")" "- 2 ends of request 2, their confirmation asked of the runners"
+ok "a role's run takes the ends Flume owes its address with what waits, prints them, and its end asks one confirm of the launch's keys in the commit that ends its turn"

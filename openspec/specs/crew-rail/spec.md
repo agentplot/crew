@@ -57,11 +57,11 @@ When a team's host does not answer, `crew rail` SHALL print the rows it could re
 - **THEN** `crew rail` still lists the open proposals and the rows of other hosts, and names chuck-herdr-alpha as not answering
 
 ### Requirement: A left bolt's land line says it would take main first once ticked
-A bolt the user left on its kit's landings card, or stopped in their words to main-level ops, whose forecast against main the run record holds in conflict at its present head, SHALL be said on the kit's land row to be left by the user and to take main first once ticked, naming the files, and SHALL NOT be among the bolts the row's tell lands. A left bolt with no such conflict SHALL read as it does today.
+A bolt the user left on its kit's landings card, or stopped in their words to main-level ops, whose forecast against main the run record holds in conflict at its present head, SHALL be said on the kit's land row to be left by the user and to take main first once ticked, naming the files, and SHALL be none of the bolts that can land. A left bolt with no such conflict SHALL read as it does today.
 
 #### Scenario: Left and forecast to conflict
 - **WHEN** `z` is left on `land/crew`, reads proven, and the run record holds `z` forecast to conflict with main on `README.md` at its present head
-- **THEN** crew's row under land says `z` was left by the user and takes main first once ticked, forecast to conflict with main on `README.md`, and its tell names no `z`
+- **THEN** crew's row under land says `z` was left by the user and takes main first once ticked, forecast to conflict with main on `README.md`, and `z` is none of the bolts that can land
 
 #### Scenario: Ticked
 - **WHEN** the user ticks `z` and its take-main fix is told
@@ -79,54 +79,74 @@ Each bolt's line on its kit's landings row SHALL end with the bolt's age since i
 - **THEN** `b`'s age, shares and holder are the same on the land line and on the board's head line
 
 ### Requirement: A fix of main waits to land on its kit's row
-A fix of the kit's main whose code has delivered and whose submission waits held SHALL be a line of the kit's landings row, `fix main--<name>`, with the first line of its brief, ticked and sent as a bolt is, and naming `crew main fix <kit> <name> --send` as ops's command for it.
+A fix of the kit's main whose code has delivered and whose submission waits held SHALL be a line of the kit's landings row, `fix main--<name>`, with the first line of its brief, ticked and sent on the kit's landings card as a bolt's row is, crew's raise of the card posting its land on the user's send (rail-cards "The user's send on a kit's landings card posts one land for each row it lands"). The line SHALL name no command for main-level ops. Once its land is posted, the line SHALL say it was sent on the user's word, with the land's request, and that the runner on its host submits it.
 
 #### Scenario: A fix of main waits beside a bolt
 - **WHEN** `main--a-test-reads-its-fixture`'s code has delivered and its submission waits held
-- **THEN** crew's landings row has a line `fix main--a-test-reads-its-fixture` with the failure's first line, and names its `--send` command
+- **THEN** crew's landings row has a line `fix main--a-test-reads-its-fixture` with the failure's first line, saying it can land on the user's send of `land/crew`, and names no `crew main fix` command
+
+#### Scenario: A fix of main sent
+- **WHEN** the user sent `land/crew` with `fix main--a-test-reads-its-fixture` ticked, and crew's raise posted its land as request 61
+- **THEN** the fix's line says it was sent on the user's word, request 61, and that the runner on its host submits it
 
 ### Requirement: A bolt whose every unit has merged and that has not landed is a row of its kit's
-Each kit with a bolt in flight whose units have all merged and not all landed SHALL be one row under land, keyed `land/<kit>`, naming the drive's main-level ops and, in the plan's order, each such bolt with what it waits on. A bolt not yet proven SHALL say what it waits on: the verification as it reads, the units due a batch, the batches waiting on the user's answer, a fix in flight, a landing sluice rejected at its head for the bolt's own content, said as rejected with the bolt open for work, or that it takes main first, forecast at its present head to conflict with what main holds. A bolt whose landing the run record has queued, or landing again, SHALL say so with its number and that no work joins it until sluice decides, and SHALL be none of the bolts that can land (bolt-teams "A landing queued holds its bolt's work"). A bolt that can land whose last landing at its head sluice or its host stopped SHALL say, beside that it can land, what stopped it and that main-level ops submits it again once that is cleared. Once a bolt can land, the row SHALL carry `crew tell <label>-ops "Land <bolts that can land, in order>."`. The row SHALL have begun to wait at the time of the earliest last commit among its bolts' branches.
+Each kit with a bolt in flight whose units have all merged and not all landed SHALL be one row under land, keyed `land/<kit>`, naming the drive's main-level ops and, in the plan's order, each such bolt with what it waits on. A bolt not yet proven SHALL say what it waits on: the verification as it reads, the units due a batch, the batches waiting on the user's answer, a fix in flight, a landing Flume refused at its head for a failed check, said as refused with the bolt open for work, in Flume's words, or that it takes main first, forecast at its present head to conflict with what main holds or refused there in conflict with it. A bolt whose land crew has asked of the runner, or whose submission the runner reports in the merge queue, SHALL say so, with the land's request or the queue's entry and its state, and that no unit, chore or fix joins it until its outcome is read, and SHALL be none of the bolts that can land. A bolt that can land whose last land at its head the runner or Flume stopped SHALL say, beside that it can land, what stopped it, in their words, nothing of the bolt's, and that it lands on the user's next send. A bolt whose landing crew can't tell from the runner's report SHALL say so and why. A bolt started before bolts were base places SHALL say it lands under the crew that started it, and SHALL be none of the bolts that can land. Once a bolt can land, the row SHALL say it lands on the user's send of `land/<kit>`'s card, and SHALL carry no command for main-level ops, since no word in a pane lands a bolt (record 0056 point 5). The row SHALL have begun to wait at the time of the earliest last commit among its bolts' branches.
 
 #### Scenario: The last unit merges
 - **WHEN** the last unit of crew's bolt `b` merges into `bolt/b` through sluice, every unit's change has been in a batch the user has answered, and the runner carries that unit's place landed at `bolt/b`'s head
-- **THEN** crew's row under land names `b` and `swancloud-ops`, saying `b` waits to land, with the tell that lands it
+- **THEN** crew's row under land names `b` and `swancloud-ops`, saying `b` can land on the user's send of `land/crew`, and carries no `crew tell`
 
 #### Scenario: Two bolts of one kit
 - **WHEN** crew's bolts `b` and `c` can both land, `b` first in the plan
-- **THEN** there is one row, `land/crew`, naming `b` then `c`, its tell naming both in that order
+- **THEN** there is one row, `land/crew`, naming `b` then `c`, each able to land
 
 #### Scenario: A verification that is not green
 - **WHEN** every unit of bolt `b` has merged and been in a batch the user has answered, and `bolt/b`'s head is no landing of its work that the runner reports
-- **THEN** `b`'s line says it lands once its verification is green and what the verification is now, and the row's tell leaves `b` out
+- **THEN** `b`'s line says it lands once its verification is green and what the verification is now, and `b` is none of the bolts that can land
 
 #### Scenario: A batch that waits on the user
 - **WHEN** every unit of bolt `b` has merged, its verification is green, and batches 8 and 9, whose cards the user has not answered, hold its units' latest changes
-- **THEN** `b`'s line says it lands once you have answered batches 8 and 9, and the row carries no tell when no other bolt can land
+- **THEN** `b`'s line says it lands once you have answered batches 8 and 9, and `b` is none of the bolts that can land
 
 #### Scenario: A refused landing
-- **WHEN** sluice refused `b`'s landing at its head for a conflict
-- **THEN** `b`'s line says its landing was rejected at that head and the bolt is open for work, and, in sluice's words, that it lands again once a fix moves its head
+- **WHEN** the runner's report carries Flume's verdict on `b`'s submission at its head failed, waiting on its caller
+- **THEN** `b`'s line says its landing was refused at that head and the bolt is open for work, and, in Flume's words, that it lands again once a fix moves its head
+
+#### Scenario: A landing refused in conflict
+- **WHEN** the runner's report carries Flume's verdict on `b`'s submission at its head a conflict with main on `README.md`
+- **THEN** `b`'s line says it takes main first, in Flume's words, until a fix taking main in moves its head, and `b` is none of the bolts that can land
+
+#### Scenario: A land asked
+- **WHEN** crew posted `b`'s land as request 57 and the runner has not answered it
+- **THEN** `b`'s line says its landing is asked as request 57 and that no unit, chore or fix joins it until its outcome is read, and `b` is none of the bolts that can land
 
 #### Scenario: A landing queued
-- **WHEN** the run record has `b`'s landing queued on main as #412 with no outcome
-- **THEN** `b`'s line says its landing is queued as #412 and that no unit, chore or fix joins it until sluice decides, and the row's tell leaves `b` out
+- **WHEN** the runner's report carries `b`'s base place submitted, its merge queue entry #412 waiting
+- **THEN** `b`'s line says its landing is #412, waiting, and that no unit, chore or fix joins it until its outcome is read, and `b` is none of the bolts that can land
 
 #### Scenario: Landing again
-- **WHEN** `b`, rejected as #412, is queued again as #415
-- **THEN** `b`'s line says it is landing again as #415, after #412 was rejected, and the row's tell leaves `b` out
+- **WHEN** `b`'s landing was refused in conflict with main at its old head, its take-main fix merged, `b` reads proven at its new head, and crew posted its land again on the standing send as request 63
+- **THEN** `b`'s line says its landing is asked as request 63, and `b` is none of the bolts that can land
 
 #### Scenario: A bolt taking main first
-- **WHEN** `b` reads proven and the run record holds a `forecast` on `bolt/b` at `b`'s present head naming a conflict with main on `README.md` and no submission queued on main
-- **THEN** `b`'s line says it takes main first, forecast to conflict with main on `README.md`, until a fix taking main in moves its head, and the row's tell leaves `b` out
+- **WHEN** `b` reads proven and the run record holds a `forecast` on `bolt/b` at `b`'s present head naming a conflict with main on `README.md`, and no land of `b` stands undecided
+- **THEN** `b`'s line says it takes main first, forecast to conflict with main on `README.md`, until a fix taking main in moves its head, and `b` is none of the bolts that can land
 
 #### Scenario: A conflict forecast at an older head
 - **WHEN** the run record's `forecast` on `bolt/b` naming a conflict with main is at a head `b` has since moved from
 - **THEN** that forecast holds nothing on `b`'s line
 
 #### Scenario: A stopped landing
-- **WHEN** `b`'s last landing at its head did not land because sluice itself failed
-- **THEN** `b`'s line says it can land, that sluice itself failed at that head, in sluice's words, and that `swancloud-ops` submits it again once that is cleared, and the row's tell names `b`
+- **WHEN** the runner answered `b`'s land at its head refused, a place on `bolt/b` being live
+- **THEN** `b`'s line says it can land, that its last landing at that head was stopped, in the runner's words, nothing of the bolt's, and that it lands on the user's next send
+
+#### Scenario: A landing crew can't tell
+- **WHEN** crew posted `b`'s land and the branch of the runner that took `b`'s work can't be read
+- **THEN** `b`'s line says its landing can't be told, and why
+
+#### Scenario: A bolt started before bolts were base places
+- **WHEN** started bolt `b` has no launch of `bolt/b` in `requests.rec`, and reads proven
+- **THEN** `b`'s line says it was started before bolts were base places and lands under the crew that started it, and `b` is none of the bolts that can land
 
 #### Scenario: It lands
 - **WHEN** the bolt is landed and closed in the plan
@@ -151,22 +171,22 @@ A started bolt SHALL wait to land on its kit's landings row on the same terms as
 - **THEN** the rail shows crew's landings row with `x`, on deneb, can land
 
 ### Requirement: A bolt carrying another bolt's work is held on its land line
-A bolt whose kit's read says it carries another bolt's work that main lacks SHALL NOT be able to land on its kit's land row. Its line SHALL say it is held, naming each bolt whose work it carries and that bolt's landings, and that it lands once main holds that work. It SHALL be left out of the row's answer to ops. Once the kit's read finds nothing carried, the line SHALL say it can land.
+A bolt whose kit's read says it carries another bolt's work that main lacks SHALL NOT be able to land on its kit's land row. Its line SHALL say it is held, naming each bolt whose work it carries and that bolt's landings, and that it lands once main holds that work. Once the kit's read finds nothing carried, the line SHALL say it can land.
 
 #### Scenario: A bolt carrying another bolt's work
 - **WHEN** bolt `apex-zones` reads proven and the kit's read says it carries bolt `tenant-environments`'s landing `f5e67f35`
-- **THEN** its line says "held: carries bolt tenant-environments's work, its landing f5e67f3, which main lacks", it can't land, and the row offers ops nothing for it
+- **THEN** its line says "held: carries bolt tenant-environments's work, its landing f5e67f3, which main lacks", and it is none of the bolts that can land
 
 #### Scenario: Main holds the carried work
 - **WHEN** the kit's read says `apex-zones` carries nothing
 - **THEN** its line says it can land
 
 ### Requirement: A row whose card the user answered says whose act it waits on
-When the run record holds the user's answer on a row's open card, the row's card line SHALL say the card was answered, when, what was answered in crew's words, and the act of the row owner's it now waits on, never that it is open and asked.
+When the run record holds the user's answer on a row's open card, the row's card line SHALL say the card was answered, when, what was answered in crew's words, and the act it now waits on, never that it is open and asked: for a kit's landings card, the runner's landing of what the user ticked, which crew's raise asks of it; for any other card, the act of the row's owner.
 
 #### Scenario: A landings card the user sent
 - **WHEN** `land/sluice`'s card `req_e9` is open and the run record holds the user's answer on it at 22:01, ticking `a` and `b`
-- **THEN** the land row's card line says `land/sluice` was answered at 22:01, ticking `a` and `b`, and waits on agentplot-ops to land them, and does not say `open, asked by`
+- **THEN** the land row's card line says `land/sluice` was answered at 22:01, ticking `a` and `b`, and waits on the runner to land them, and does not say `open, asked by`
 
 #### Scenario: A proposal's card approved on the phone
 - **WHEN** `proposal/57`'s card is open and the run record holds the user's answer on it, approved
@@ -207,8 +227,8 @@ Each bolt line on a kit's land row SHALL end what it waits on with how the kit's
 - **THEN** `b`'s line says `land/crew` carries it at `1111111`, its head now `2222222`
 
 #### Scenario: A bolt the user's send holds
-- **WHEN** the user answered `land/crew`'s card ticking `b` at its head now, and `b`'s landing is not yet queued
-- **THEN** `b`'s line says the user's send on `land/crew` holds it and swancloud-ops lands it
+- **WHEN** the user answered `land/crew`'s card ticking `b` at its head now, and no land of `b` is posted yet
+- **THEN** `b`'s line says the user's send on `land/crew` holds it and crew asks the runner to land it on that send
 
 #### Scenario: A send kept on a closed card
 - **WHEN** `land/crew`'s answered card closed keeping the user's send for `b`, held taking main in, and `b` reads proven again at a head whose own work is the same

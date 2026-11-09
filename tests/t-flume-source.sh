@@ -1,11 +1,12 @@
 # crew as a source of its host's Flume (record 0057, teams.25), through the crew command on the stubs (tests.11,
 # record 0022): the host's follower, crew _follow --once, writes crew's roles file from the teams file at its read, with
-# madswan's and swancloud's ten standing entries on mac-studio and none of wldn's, the box's, makes the empty kinds folder
-# beside it, runs no flume command and leaves the teams file as it was; a second read with nothing moved writes nothing;
+# madswan's and swancloud's ten standing entries on mac-studio and none of wldn's, the box's, makes the kinds folder
+# beside it holding crew's bolt kind byte for byte and nothing else, runs no flume command and leaves the teams file as it was; a second read with nothing moved writes nothing;
 # a teams file rewritten has the file renamed over, the old file left whole for a link that holds it; a teams file crew
 # refuses leaves the file as it was and is named; and a host whose main level moved away keeps no entry, making no file
-# where it had none. What each entry says is a logic case (tests/py/test_source.py).
-# Reads: plugin/lib/board.py
+# where it had none; and a main-level start leaves the bolt kind's package in its host's kinds folder. What each entry
+# says, and the package's bytes, are logic cases (tests/py/test_source.py).
+# Reads: plugin/flume/kinds/ plugin/hooks/ plugin/lib/board.py
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
 box=chuck-herdr-alpha
@@ -41,16 +42,22 @@ done
 has "$got" "madswan/ops|madswan-ops|madswan-1|a live system, a deploy or a landing|"
 has "$got" "swancloud/operator|swancloud-operator|swancloud-1||True"
 lacks "$got" "wldn/"
-[ -d "$(kinds_dir mac-studio)" ] && [ -z "$(ls -A "$(kinds_dir mac-studio)")" ] || fail "crew's kinds folder is missing or not empty"
+# package <host>: the host's kinds folder holds crew's bolt kind as crew ships it, and nothing else
+package() {
+  cmp -s "$CREW/plugin/flume/kinds/bolt@1/kind.toml" "$(kinds_dir "$1")/bolt@1/kind.toml" || fail "crew's bolt kind is not in $1's kinds folder as crew ships it"
+  eq "$(cd "$(kinds_dir "$1")" && find . -mindepth 1 | sort | tr '\n' ' ')" "./bolt@1 ./bolt@1/kind.toml "
+}
+package mac-studio
 cmp -s "$T/teams.before" "$(teams_file mac-studio)" || fail "the follower changed the teams file"
 lacks "$(calls)" " flume "
-ok "the follower's first read writes madswan's and swancloud's entries, the empty kinds folder, and runs no flume"
+ok "the follower's first read writes madswan's and swancloud's entries, the kinds folder holding crew's bolt kind, and runs no flume"
 
 # Nothing moved: the second read writes nothing
-was=$(inode "$(roles_file mac-studio)")
+was=$(inode "$(roles_file mac-studio)"); kind=$(inode "$(kinds_dir mac-studio)/bolt@1/kind.toml")
 expect_ok crew _follow --once
 eq "$(inode "$(roles_file mac-studio)")" "$was"
-ok "a read with the teams file unchanged leaves the roles file alone"
+eq "$(inode "$(kinds_dir mac-studio)/bolt@1/kind.toml")" "$kind"
+ok "a read with the teams file unchanged leaves the roles file and the bolt kind alone"
 
 # The teams file rewritten: the file renamed over, a link to the old one holding it whole
 ln "$(roles_file mac-studio)" "$T/held.toml"
@@ -90,3 +97,14 @@ HOST=$box expect_ok crew _follow --once
 eq "$(entries $box)" ""
 lacks "$(calls)" " flume "
 ok "a host whose main level moved away keeps a roles file with no entry, and makes none where it had none"
+
+# A main-level start: crew main up wldn on the box, whose kinds folder is gone, leaves the bolt kind's package there
+fixtures
+blueprints WilldanGroup/willdan-blueprints >/dev/null
+clone WilldanGroup/willdan-blueprints "$(space $box willdan)/willdan-blueprints/main"
+crew state init wldn >/dev/null
+rm -rf "$(kinds_dir $box)"
+HOST=$box expect_ok crew main up wldn
+package $box
+lacks "$(calls)" " flume "
+ok "a main-level start leaves crew's bolt kind in its host's kinds folder, running no flume"

@@ -11,8 +11,8 @@ lost run's, superseded by the new turn, which takes its asks again, and answers 
 the runner launches each role's run from, written to match the teams file.
 
 Every function here decides on what it is given, the files' text and the runner's records as plan.py read them: it
-starts no process and reads nothing, and imports only the standard library (code.1). plan.py writes what these decide
-through land() (state.1)."""
+starts no process and reads nothing, and imports only the standard library, and crew's fail where it refuses (code.1,
+code.2). plan.py writes what these decide through land() (state.1)."""
 import json
 import re
 
@@ -107,9 +107,33 @@ def wanted(asks, waits, turns, role):
     return bool(mine or places)
 
 
-def took(asks, waits):
-    """A new turn's Took lines for what is pending: each ask, then each waiting place by its key."""
-    return [took_of(a) for a in asks] + [w[0] for w in waits]
+def took(asks, waits, ends=()):
+    """A new turn's Took lines for what is pending: each ask, then each waiting place by its key, then each end Flume
+    owes the role that it takes (taken_ends), by its took key."""
+    return [took_of(a) for a in asks] + [w[0] for w in waits] + [e[0] for e in ends]
+
+
+def deliveries(request):
+    """A confirm request's delivery keys, each Delivery line of it: requests.rec's records as dicts give a field held more
+    than once as a list; a value that is no string is none (read.2)."""
+    d = request.get("Delivery")
+    return [x for x in (d if isinstance(d, list) else [d]) if isinstance(x, str) and x]
+
+
+def confirmed(requests, address):
+    """The took keys of every end a confirm of the role at address already names (design Decision 5, role-runs "An end a
+    confirm names is not taken again"): end/<Of>/<Delivery> for each Delivery of each such confirm, whatever the runner
+    answered it, none, done or refused."""
+    return {end_key(r.get("Of"), d) for r in requests if r.get("Act") == "confirm" and r.get("Recipient") == address
+            for d in deliveries(r)}
+
+
+def taken_ends(ends, requests, address):
+    """The ends a run's start takes of those Flume owes the role at address (ends_owed): each no confirm of the address
+    names (confirmed), so a turn's end asks for each once. A lost or superseded turn wrote no confirm, so its ends are
+    taken again (role-runs "A lost run confirms nothing"). They make no role wanted (wanted)."""
+    done = confirmed(requests, address)
+    return [e for e in ends if e[0] not in done]
 
 
 def open_turns(turns, run):
@@ -253,6 +277,79 @@ def waits_on(address, requests, places):
     return sorted(out, key=lambda w: int(w[1]))
 
 
+def owed_to(place, address):
+    """Each end of a place that Flume owes the role at address, <label>/<role>, read from the place's status as status_of
+    gives it by the facts of flume record 0061 (agentplot/flume 3573e0f0, `EndStatus`; design Decision 1): (its end key,
+    its delivery's key, whether its delivery has expired for the address), in the status's order, for each end whose
+    `owed` names the address. Every field is guarded (read.2): an end with no string key or delivery, or whose owed is
+    no list of entries each naming its recipient, gives nothing, and expired is true only where Flume gives true; so a
+    status from a Flume before record 0061, whose ends give neither, gives none."""
+    ends = place.get("ends") if isinstance(place, dict) else None
+    out = []
+    for e in ends if isinstance(ends, list) else []:
+        if not isinstance(e, dict):
+            continue
+        key, delivery, owed = e.get("key"), e.get("delivery"), e.get("owed")
+        if not (isinstance(key, str) and key and isinstance(delivery, str) and delivery and isinstance(owed, list)
+                and all(isinstance(o, dict) and isinstance(o.get("recipient"), str) for o in owed)):
+            continue
+        mine = next((o for o in owed if o["recipient"] == address), None)
+        if mine is not None:
+            out.append((key, delivery, mine.get("expired") is True))
+    return out
+
+
+def end_key(request, delivery):
+    """How a turn's Took names an end it took (design Decision 6): end/<request>/<delivery key>, the launch whose place's
+    end it is and Flume's key, which holds slashes of its own."""
+    return f"end/{request}/{delivery}"
+
+
+def ends_owed(address, requests, places):
+    """Every end Flume owes the role at address of a place crew launched (design Decision 1, role-runs "A run's start
+    takes every end Flume holds for its role"), each a plain tuple (took key, request, work, place, end key, delivery
+    key, expired), by request, oldest first, then in its status's order: the took key end_key's, by which a turn
+    records it and its confirm names it. requests, the Request records of requests.rec; places, each host's places.rec
+    records as waits_on takes them, Request, Place and Status. Whatever the launch's Recipient: Flume's `owed` is the
+    one truth of whom an end is owed to (roles.5). A place whose request is no launch, or whose status can't be read,
+    gives nothing."""
+    launches = {r["Request"]: r for r in requests if r.get("Act") == "launch" and whole(r.get("Request"))}
+    out = []
+    for p in places:
+        r = launches.get(p.get("Request"))
+        st = status_of(p.get("Status")) if r is not None else None
+        if r is None or st is None:
+            continue
+        n, work = r["Request"], r.get("Work")
+        where = p.get("Place") or (st.get("place") if isinstance(st.get("place"), str) else None)
+        out += [(end_key(n, d), n, work, where, k, d, x) for k, d, x in owed_to(st, address)]
+    return sorted(out, key=lambda e: int(e[1]))
+
+
+def turn_confirms(took, requests):
+    """The confirms a turn's end asks of the runners (design Decisions 4 and 6, role-runs "A run's end asks the runners to
+    confirm each end its turn took"): from the turn's Took, its end/<request>/<delivery key> lines grouped by request,
+    [(request, its launch's work, [delivery key, ...])], oldest request first, each request's keys in the order taken;
+    none for a turn that took no end. A key splits at its first two slashes, since Flume's holds slashes of its own.
+    requests, the Request records of requests.rec as dicts. A line that does not split so, or whose request is no
+    launch, is refused naming it (read.1): nothing in crew writes one."""
+    launches = {r["Request"]: r for r in requests if r.get("Act") == "launch" and whole(r.get("Request"))}
+    by = {}
+    for t in took:
+        if not t.startswith("end/"):
+            continue
+        parts = t.split("/", 2)
+        n, key = (parts[1], parts[2]) if len(parts) == 3 else (None, None)
+        if not (whole(n) and key):
+            from crew import fail
+            fail(f"the turn took {t}, which is no end/<request>/<delivery key>: crew can't tell which launch's end it is, and asks no confirm")
+        if n not in launches:
+            from crew import fail
+            fail(f"the turn took {t}, whose request {n} is no launch in requests.rec: crew can't tell whose place's end it is, and asks no confirm")
+        by.setdefault(n, []).append(key)
+    return [(n, launches[n].get("Work"), keys) for n, keys in sorted(by.items(), key=lambda x: int(x[0]))]
+
+
 def indented(words):
     """Words a run reads under the line that names them, each of their lines indented two spaces; nothing for none."""
     return [f"  {l}" for l in (words or "").split("\n")] if words else []
@@ -273,23 +370,58 @@ def wait_said(wait):
     return [f"{work or f'request {n}'} {how}: the place {place or 'Flume has not named'}, launched by request {n} ({key})"] + indented(words)
 
 
+def ends_said(ends):
+    """The ends a run's start took that Flume holds for its role (taken_ends), as the start prints them (design Decision
+    7, role-runs "A run's start gives its brief and what it took"): under a line saying Flume holds them for the role and
+    they are confirmed when the turn ends, one line for each launch, its work, its place and its request, then each end's
+    key in the order taken, an expired one marked so; nothing for none."""
+    by = {}
+    for _, n, work, place, key, _, expired in ends:
+        by.setdefault(n, (work, place, []))[2].append(key + (" (expired)" if expired else ""))
+    if not by:
+        return []
+    return ["Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):"] + [
+        f"{work or f'request {n}'} (the place {place or 'Flume has not named'}, request {n}): {', '.join(keys)}" for n, (work, place, keys) in by.items()]
+
+
+def is_end(took):
+    """Whether a turn's Took line is an end Flume held for the role (end_key), not an ask or a waiting place."""
+    return took.startswith("end/")
+
+
+def listed(items):
+    """Words in a list: a, a and b, a, b and c."""
+    items = list(items)
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
 def took_said(took, held):
-    """What a turn took, one line each, as its report names it: an ask by its number, what it is and who asked, a
-    waiting place by its key."""
+    """What a turn took, as its report names it (design Decision 7): an ask by its number, what it is and who asked, a
+    waiting place by its key, one line each; then one line counting the ends it took that Flume held for the role, by
+    the requests that launched their places, their confirmation asked of the runners (role-runs "A turn's report counts
+    its ends")."""
     by = {took_of(a): a for a in held}
     out = []
     for t in took:
+        if is_end(t):
+            continue
         a = by.get(t)
         out.append(f"- {t}: {a.get('What')} from {a.get('From')}" + (f" on {a['Names']}" if a.get("Names") else "") if a else f"- {t}")
+    ends = [t for t in took if is_end(t)]
+    if ends:
+        ns = sorted({t.split("/", 2)[1] for t in ends}, key=lambda n: int(n) if n.isdigit() else 0)
+        out.append(f"- {len(ends)} {'end' if len(ends) == 1 else 'ends'} of {'request' if len(ns) == 1 else 'requests'} {listed(ns)}, "
+                   "their confirmation asked of the runners")
     return out
 
 
 def run_view(asks, turns, role):
     """What a role's run's view shows of it (crew-board "A role that runs as its kind has its view"): the role's newest
-    turn not superseded, {turn, ended, took}, None while it has none, each thing it took as {took, what, from, names},
-    an ask's fields from asks.rec and a waiting place's key alone; and each ask of the role that waits for its next run,
-    oldest first: pending (no ended turn took it) and not taken by that turn while it is open. A waiting place is not an
-    ask, and is not counted."""
+    turn not superseded, {turn, ended, took, ends}, None while it has none, each ask and waiting place it took as {took,
+    what, from, names}, an ask's fields from asks.rec and a waiting place's key alone, and how many ends Flume held for
+    the role it took, counted and never listed (design Decision 7); and each ask of the role that waits for its next
+    run, oldest first: pending (no ended turn took it) and not taken by that turn while it is open. A waiting place is
+    not an ask, and is not counted."""
     mine = [t for t in turns if t["Role"] == role and not t.get("Superseded")]
     t = max(mine, key=lambda t: int(t["Turn"]), default=None)
     by = {took_of(a): a for a in asks}
@@ -297,7 +429,8 @@ def run_view(asks, turns, role):
     turn = None if t is None else {
         "turn": t["Turn"], "ended": bool(t.get("Ended")),
         "took": [{"took": x, "what": (by.get(x) or {}).get("What"), "from": (by.get(x) or {}).get("From"), "names": (by.get(x) or {}).get("Names")}
-                 for x in t["Took"]]}
+                 for x in t["Took"] if not is_end(x)],
+        "ends": sum(1 for x in t["Took"] if is_end(x))}
     return turn, [a for a in pending(asks, [], turns, role)[0] if took_of(a) not in taken]
 
 

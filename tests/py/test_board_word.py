@@ -113,11 +113,13 @@ class TestAnswersNothing:
     def heard(self, board):
         return transcript.Verdict("verified", raw=b'{"type": "user"}', n=4, value={"uuid": "u-60"}, asserted_by="user", board=board)
 
-    def test_a_landing_asked_from_the_board_submits_nothing(self):
-        """board-page "A landing asked from the board"."""
-        assert plan.submit_word_refusal("y", self.heard(True)) == (
-            f"crew submits nothing of bolt y: {self.FROM_BOARD}; the user lands a bolt on its landing card or in main-level ops's pane")
-        assert plan.submit_word_refusal("y", self.heard(False)) is None
+    def test_a_stop_asked_from_the_board_records_nothing(self):
+        """board-page "A word from the board answers nothing" (crew-lands-each-bolt-through-flumes-base-place): no word
+        in a pane lands a bolt, so the board's words are judged where a pane's still count, a stop of a landing."""
+        assert plan.leave_word_refusal("y", self.heard(True)) == (
+            f"crew records no stop of bolt y: {self.FROM_BOARD}; the user stops a landing on its kit's landings card or in "
+            "main-level ops's pane")
+        assert plan.leave_word_refusal("y", self.heard(False)) is None
 
     def test_a_batch_answered_from_the_board_is_not_answered(self):
         """board-page "A batch answered from the board"."""

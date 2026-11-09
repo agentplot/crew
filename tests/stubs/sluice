@@ -1,167 +1,32 @@
 #!/usr/bin/env bash
-# Stub sluice for crew's tests, answering the reads crew makes of it as sluice 0.18.0 does, and its previews as sluice
-# 0.29.3 does. `sluice overview --json` prints $CREW_TEST_ROOT/sluice-overview.json while it exists, else the document
-# sluice prints for a repository whose branches have no records yet; `sluice overview --json --watch` prints that
-# document as one line at once and again whenever it changes but for its time, as sluice 0.51.3 does, until it is
-# ended, reading no git, so a test's shims on git see the follower's own calls alone, and a file a test is still
-# writing, which is no whole document yet, is looked at again rather than printed or ended on, since sluice never
-# prints half a document, the watch's host noted once in $CREW_TEST_ROOT/sluice-overview-half-read when it finds one;
-# `sluice status <id> --json` prints
-# $CREW_TEST_ROOT/sluice-status-<id>.json while it exists, else the record of a submission it made, as its wait prints
-# it, else sluice's not-found error on standard output, exiting 1.
-# `sluice preview <branch> <revision> [--wait] --json` refuses, as sluice does, a revision whose .config/sluice.toml has
-# no [preview] table, exiting 2; else it gives back the preview of that revision when one is recorded, starting
-# nothing, or records one in $CREW_TEST_ROOT/sluice-previews/<revision>.json, its addresses the table's `addresses`
-# with each {name.<port>} filled as <port>-<rev7>--<branch, its / as ->--kit; it reads `starting` while
-# $CREW_TEST_ROOT/sluice-preview-holds exists, the stack taking its time, then `up`, or `failed` with its command's
-# output while $CREW_TEST_ROOT/sluice-preview-fails exists, --wait then exiting 1. `sluice previews --json` lists the
-# records; `sluice release <name or revision> --json` removes one, {"preview", "released"}, exiting 0 also when there
-# was none. `sluice release --worktree <path> --json` releases a worktree as sluice 0.36.4 does, answering
-# {"released": false, "worktree": <path>}, nothing to release, exiting 0; or, while $CREW_TEST_ROOT/sluice-release-fails
-# exists, its release command failed, sluice's error naming the place, exiting 3 (tests/py/sluice-0.36.4/). `sluice
-# submit main --check --head bolt/<bolt> --json`, a bolt's forecast against main, prints
-# $CREW_TEST_ROOT/sluice-check-<bolt, its / as ->.json while it exists, exiting 2 when its conflict is not null and 0
-# when it is, as sluice's forecast of a branch no worktree holds does (its ADR 0039); without that file it refuses
-# `--head` on standard error, exiting 64, as sluice 0.32.0, which has no such forecast, does. As sluice 0.36.4 does, it
-# reads the branch where the policy at the host's own bolt/<bolt> routes it, the `remote` of its [branches."bolt/*"]
-# table, and refuses a branch that remote does not hold, `no branch bolt/<bolt> to forecast`, exiting 2: a legacy bolt
-# whose tip names origin before its landing pushes it there. `sluice submit main --check --worktree <path> --json`
-# forecasts that worktree's head, printing the same file for the branch it is on, or, without it, a forecast with no
-# conflict, and refuses a detached worktree as sluice does, exiting 2. `sluice submit <branch>
-# --no-wait --json` lands this worktree's head at once, as the stub wt-submit does, and prints {id, branch, ahead}; its
-# outcome waits for `sluice wait <id> --timeout <duration> --json`, or `sluice wait <branch> ...` from the worktree,
-# which waits on its last submission to the branch, as sluice's does, and prints the submission's record, its state
-# landed, failed or conflict, and exits as sluice 0.36.0 does: 0, 1 or 2; while $CREW_TEST_ROOT/sluice-wait-holds exists,
-# and for as many calls as $CREW_TEST_ROOT/sluice-wait-<id>-fives counts, one fewer each call, it is undecided: the wait
-# prints the record under test and exits 5, as sluice's does at its timeout, after a moment while held, a second or
-# until the hold is lifted, so a waiter calling it again while it is held calls about once a second, and its status
-# says it is under test; its verdict is in the record alone, as sluice
-# 0.36.4's is under --json, and nothing of it on standard error: a failed record carries `result` "failed" and
-# `failed`, as sluice 0.36.4's records.rs Submission and FailedTask have them, the failed check with a hash, a check
-# that ran, named by the words of $CREW_TEST_ROOT/sluice-fails, or each check $CREW_TEST_ROOT/sluice-could-not-run
-# names, a line `<task>: <why>`, with no hash and its why as `not_run`; a conflict's carries `conflict`, its paths the
-# ones the stub wt-submit names and `with` empty; the record listed by `sluice status` the same; `sluice wait` of an
-# id it never gave exits 1
-# with sluice's not-found error, but for one the test left standing in the queue, $CREW_TEST_ROOT/sluice-stands-<id>
-# naming the place it came from, which the first wait on it lands onto main from that place, as sluice's round lands a
-# queued submission, and answers as it answers any (a wait beside it waiting on that one's record). To a branch whose policy takes pull requests (route.py --pulls) it answers as sluice
-# 0.36.4 does once intake has queued the pull request (crates/sluice/src/lib.rs submit_pull): the open one from this
-# worktree's branch into it, the stub gh's, opened when there is none, its number and no submission,
-# {"branch","pull_request","state"}, its submission made from the place pull/<n>, which it hands the stub wt-submit as
-# SLUICE_STUB_PLACE so the landing's Sluice-From names it, `<agent> (pull/<n>)`, as sluice's landing 4acecf09 of a bolt
-# through pull request 377 on swancloud's main did, read 2026-11-08, and the pull request merged when it lands; a draft one it answers as waiting, landing and recording nothing. `sluice status <branch> --all --json` lists
-# the submissions to the branch, each a sluice/submission@1 with its id, head, state and from {agent, head,
-# worktree}. `sluice --version` prints `sluice 0.36.4`, or what $CREW_TEST_ROOT/sluice-version holds while it exists.
-# `sluice branch create <branch> --from <from> --json` and `sluice branch delete <branch> --into <into> --json` answer
-# as sluice 0.36.4 does (tests/py/sluice-0.36.4/), each branch routed where the policy keeps it
-# (route.py): create reads <from> where it lives, origin's after a fetch for one on a remote, refuses a branch already
-# there, locally or on its remote, or one the policy at <from> gives no gate, and makes it on its remote by a push of a
-# branch that is not there, then sets the local branch, or makes it locally; delete refuses a branch with neither a
-# local branch nor a tracking ref, or whose remote has none, as not found, one with a submission queued while
-# $CREW_TEST_ROOT/sluice-queued-<branch, its / as -> exists, holding the submission's number, and one whose tip <into>,
-# where it lives, does not hold, and deletes it from its remote, then the local branch and the tracking ref, leaving
-# the branch's git config section as sluice's ref edits do. While $CREW_TEST_ROOT/sluice-leaves-copy exists, it pushes
-# as sluice 0.36.4 does under its app's identity, to the remote's URL, so git moves no tracking ref: create's push
-# leaves origin/<branch> unmade until crew fetches it, and a submission's landing (wt-submit) leaves the host's copy
-# and its tracking ref behind. Outside a git worktree it
-# fails as sluice does, exiting 3, and anything else is refused, exiting 2. Every call is logged to $CREW_TEST_LOG as
-# `<host> sluice <args> in <the directory it ran in>`.
+# Stub sluice for crew's tests. crew runs no sluice command: none for a bolt (crew-lands-each-bolt-through-flumes-base-
+# place, Decision 1), and none for a card's preview, which it asks of the runner (a-cards-preview-is-asked-of-the-runner,
+# Decision 1); the tests themselves stand in for Flume's merges into a bolt with its submit and wait (tests/lib.sh's
+# merge_as). `sluice submit <branch> --no-wait --json` lands this worktree's head at once, as the stub wt-submit does,
+# and prints {id, branch, ahead}; its outcome waits for `sluice wait <id> --timeout <duration> --json`, or `sluice wait
+# <branch> ...` from the worktree, which waits on its last submission to the branch, as sluice's does, and prints the
+# submission's record, its state landed, failed or conflict, and exits as sluice 0.36.0 does: 0, 1 or 2; while
+# $CREW_TEST_ROOT/sluice-wait-holds exists, and for as many calls as $CREW_TEST_ROOT/sluice-wait-<id>-fives counts, one
+# fewer each call, it is undecided: the wait prints the record under test and exits 5, as sluice's does at its timeout,
+# after a moment while held, a second or until the hold is lifted; a conflict's record carries `conflict`, its paths
+# the ones the stub wt-submit names; `sluice wait` of an id it never gave exits 1 with sluice's not-found error. Outside
+# a git worktree it fails as sluice does, exiting 3, and anything else is refused, exiting 2, so a command crew no
+# longer runs fails the test that reaches it. Every call is logged to $CREW_TEST_LOG as `<host> sluice <args> in <the
+# directory it ran in>`.
 set -uo pipefail
 [[ -n ${CREW_TEST_LOG:-} ]] && printf '%s sluice %s in %s\n' "${CREW_TEST_HOST:-?}" "$*" "$(pwd -P)" >> "$CREW_TEST_LOG"
 # pause <seconds>: a pause that starts no process, a read on the test's fifo, which nothing writes (tests/lib.sh's nap).
 pause() { [[ -p ${CREW_TEST_ROOT:?}/.pause ]] || mkfifo "$CREW_TEST_ROOT/.pause" 2>/dev/null; read -rt "$1" _ <> "$CREW_TEST_ROOT/.pause" || true; }
-if [[ $* == --version ]]; then
-  if [[ -e ${CREW_TEST_ROOT:-}/sluice-version ]]; then cat "$CREW_TEST_ROOT/sluice-version"; else echo "sluice 0.36.4"; fi
-  exit 0
-fi
-if [[ $* == "overview --json --watch" ]]; then
-  exec python3 -c '
-import json, os, sys, time
-path, host, here = sys.argv[1:]
-last, half = None, False
-while True:
-    try:
-        with open(path) as f:
-            doc = json.load(f)
-    except FileNotFoundError:
-        doc = {"branches": [], "host": host, "previews": [], "repository": here, "schema": "sluice/overview@1", "sessions": []}
-    except ValueError:  # the test is still writing the file: no whole document yet
-        if not half:
-            half = True
-            with open(os.path.join(os.path.dirname(path), "sluice-overview-half-read"), "a") as f:
-                f.write(host + "\n")
-        time.sleep(0.2)
-        continue
-    doc["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    same = {k: v for k, v in doc.items() if k != "at"}
-    if same != last:
-        last = same
-        try:
-            print(json.dumps(doc), flush=True)
-        except BrokenPipeError:
-            sys.exit(0)
-    time.sleep(0.2)
-' "${CREW_TEST_ROOT:?}/sluice-overview.json" "${CREW_TEST_HOST:-?}" "$(pwd -P)"
-fi
 common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || {
   printf '{"error":{"kind":"internal","message":"opening the repository at %s: not a git repository","next":[]}}\n' "$(pwd -P)"
   exit 3
 }
 case "$*" in
-  submit\ main\ --check\ --head\ bolt/*\ --json)
-    f=${CREW_TEST_ROOT:?}/sluice-check-${5//\//-}.json
-    remote=$(git show "refs/heads/$5:.config/sluice.toml" 2>/dev/null | awk '/^\[/ {on = ($0 == "[branches.\"bolt/*\"]")}
-      on && /^remote *= *"/ {sub(/^remote *= *"/, ""); sub(/".*/, ""); print; exit}')
-    if [[ -n $remote ]] && ! git ls-remote --exit-code "$remote" "refs/heads/$5" >/dev/null 2>&1; then
-      printf '{"error":{"kind":"refused","message":"no branch %s to forecast","next":["sluice overview"]}}\n' "$5"
-      exit 2
-    fi
-    if [[ -e $f ]]; then
-      cat "$f"
-      [[ $(jq -r '.conflict == null' "$f") == true ]] && exit 0
-      exit 2
-    fi
-    printf "error: unexpected argument '--head' found\n\n  tip: to pass '--head' as a value, use '-- --head'\n\nUsage: sluice submit --check <BRANCH>\n\nFor more information, try '--help'.\n" >&2
-    exit 64
-    ;;
-  submit\ main\ --check\ --worktree\ *\ --json)
-    branch=$(git -C "$5" symbolic-ref -q --short HEAD) || {
-      printf '{"error":{"kind":"refused","message":"submit from a branch: %s is detached","next":[]}}\n' "$5"
-      exit 2
-    }
-    f=${CREW_TEST_ROOT:?}/sluice-check-${branch//\//-}.json
-    if [[ -e $f ]]; then
-      cat "$f"
-      [[ $(jq -r '.conflict == null' "$f") == true ]] && exit 0
-      exit 2
-    fi
-    jq -nc --arg head "$(git -C "$5" rev-parse HEAD)" --arg onto "$(git rev-parse main)" '{conflict: null, head: $head, onto: $onto, ahead: []}'
-    ;;
   submit\ *\ --no-wait\ --json)
     target=$2 here=$(git rev-parse --show-toplevel)
-    from=$(git symbolic-ref -q --short HEAD) head=$(git rev-parse HEAD) pr=
+    from=$(git symbolic-ref -q --short HEAD) head=$(git rev-parse HEAD)
     place=$from
-    if [[ -n $(python3 "$(dirname "$0")/route.py" --pulls "$target") ]]; then
-      origin=$(git remote get-url origin) && repo=${origin##*/remotes/}
-      pulls() { python3 -c 'import json, os, sys
-store, repo, head, base, act = sys.argv[1:]
-pulls = json.load(open(store)) if os.path.exists(store) else []
-p = next((p for p in pulls if (p["repo"], p["head"], p["base"], p["state"]) == (repo, head, base, "open")), None)
-if p is None:
-    p = dict(repo=repo, number=len(pulls) + 1, head=head, base=base, state="open", isDraft=False)
-    pulls.append(p)
-if act == "merged":
-    p["state"] = "merged"
-json.dump(pulls, open(store, "w"))
-print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pulls.json" "${repo%.git}" "$from" "$target" "$1"; }
-      read -r pr ready < <(pulls open)
-      if [[ $ready == draft ]]; then
-        jq -nc --arg branch "$target" --argjson pr "$pr" '{branch: $branch, pull_request: $pr, state: "waiting: a draft"}'
-        exit 0
-      fi
-      place=pull/$pr
-    fi
-    said=$(CREW_TEST_LOG= SLUICE_STUB_PLACE=${pr:+$place} wt-submit "$target" --no-remove 2>&1); rc=$?
+    said=$(CREW_TEST_LOG= wt-submit "$target" --no-remove 2>&1); rc=$?
     count=$common/stub-sluice-submissions
     if (( rc == 0 )); then n=$(cat "$count"); else n=$(( $(cat "$count" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$count"; fi
     state=landed; (( rc == 1 )) && state=failed; (( rc == 2 )) && state=conflict
@@ -185,12 +50,7 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
       --arg agent "${SLUICE_AGENT:-}" --argjson blame "$blame" \
       '. + [{schema: "sluice/submission@1", id: $id, branch: $branch, head: $head, state: $state,
              from: {agent: $agent, head: $from, worktree: $place}} + $blame]' "$records" > "$records.new" && mv "$records.new" "$records"
-    if [[ -n $pr ]]; then
-      (( rc == 0 )) && pulls merged >/dev/null
-      jq -nc --arg branch "$target" --argjson pr "$pr" '{branch: $branch, pull_request: $pr, state: "queued: next on \($branch)"}'
-    else
-      jq -nc --argjson id "$n" --arg branch "$target" '{id: $id, branch: $branch, ahead: []}'
-    fi
+    jq -nc --argjson id "$n" --arg branch "$target" '{id: $id, branch: $branch, ahead: []}'
     ;;
   wait\ *\ --timeout\ *\ --json)
     id=${2:-}
@@ -200,18 +60,6 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
         "$common/stub-sluice-records-${id//\//-}.json" 2>/dev/null)
     fi
     f=$common/stub-sluice-wait-$id.json
-    stands=${CREW_TEST_ROOT:?}/sluice-stands-$id
-    if [[ -n $id && ! -e $f ]] && mkdir "$stands.lock" 2>/dev/null; then
-      if [[ -e $stands && ! -e $f ]]; then  # a submission the test left standing, landed now from its place, as a round lands one
-        (cd "$(cat "$stands")" && CREW_TEST_LOG= wt-submit main --no-remove) >/dev/null 2>&1; rc=$?
-        state=landed; (( rc == 1 )) && state=failed; (( rc == 2 )) && state=conflict
-        jq -n --argjson id "$id" --arg state "$state" --arg path "$(cat "$stands")" --argjson rc "$rc" \
-          '{schema: "sluice/submission@1", id: $id, branch: "main", state: $state, from: {path: $path}, rc: $rc}' > "$f.new" && mv "$f.new" "$f"
-        rm -f "$stands"
-      fi
-      rmdir "$stands.lock"
-    fi
-    for _ in $(seq 6000); do [[ -e $f || ! -e $stands.lock ]] && break; pause 0.1; done  # another wait landing it
     if [[ -z $id || ! -e $f ]]; then
       printf '{"error":{"kind":"not_found","message":"no submission %s","next":["sluice overview"]}}\n' "${2:-}"
       exit 1
@@ -229,156 +77,6 @@ print(p["number"], "draft" if p["isDraft"] else "ready")' "$CREW_TEST_ROOT/gh-pu
     fi
     jq -c 'del(.rc)' "$f"
     exit "$(jq -r .rc "$f")"
-    ;;
-  branch\ create\ *\ --from\ *\ --json | branch\ delete\ *\ --into\ *\ --json)
-    exec python3 -c '
-import json, os, subprocess, sys
-sys.path.insert(0, sys.argv[1])
-import route
-act, branch, other = sys.argv[3], sys.argv[4], sys.argv[6]
-git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True)
-
-
-def say(doc, code=0):
-    print(json.dumps(doc, indent=2) if code == 0 else json.dumps(doc, separators=(",", ":")))
-    sys.exit(code)
-
-
-def refused(kind, message):
-    say({"error": {"kind": kind, "message": message, "next": [f"sluice status {branch}"]}}, 1 if kind == "not_found" else 2)
-
-
-def where(name):
-    """The revision a branch is at where it lives: its remote after a fetch, else the local branch; and the remote."""
-    r = route.remote(name)
-    if r:
-        f = git("fetch", "-q", r, f"+refs/heads/{name}:refs/remotes/{r}/{name}")
-        return (route.rev(f"refs/remotes/{r}/{name}") if f.returncode == 0 else None), r
-    return route.rev(f"refs/heads/{name}"), None
-
-
-if act == "create":
-    at, _ = where(other)
-    at or refused("not_found", f"no branch {other}")
-    gate = route.table(at, branch)
-    gate.get("required") or refused("refused", f"{branch} has no gate in .config/sluice.toml at {at[:7]}")
-    r = gate.get("remote")
-    there = route.rev(f"refs/heads/{branch}")
-    if not there and r:
-        there = (git("ls-remote", r, f"refs/heads/{branch}").stdout.split() or [None])[0]
-    not there or refused("refused", f"{branch} is already there, at {there}")
-    if r:
-        to = git("remote", "get-url", r).stdout.strip() if os.path.exists(os.path.join(os.environ.get("CREW_TEST_ROOT", ""), "sluice-leaves-copy")) else r
-        p = git("push", "-q", to, f"{at}:refs/heads/{branch}")
-        p.returncode == 0 or refused("internal", f"pushing {branch} to {r}: {p.stderr.strip()}")
-    git("update-ref", f"refs/heads/{branch}", at)
-    say({"branch": branch, "created": at, "from": other})
-local, tracked = route.rev(f"refs/heads/{branch}"), route.rev(f"refs/remotes/origin/{branch}")
-(local or tracked) or refused("not_found", f"no branch {branch}")
-tip, r = where(branch)
-tip or refused("not_found", f"no branch {branch}")
-queued = os.path.join(os.environ["CREW_TEST_ROOT"], "sluice-queued-" + branch.replace("/", "-"))
-if os.path.exists(queued):
-    refused("refused", f"#{open(queued).read().strip()} still queued on {branch}; wait for them to land, or withdraw them")
-into, _ = where(other)
-into and git("merge-base", "--is-ancestor", tip, into).returncode == 0 or refused(
-    "refused", f"{branch} at {tip} has not landed into {other}; submit it there first")
-if r:
-    p = git("push", "-q", r, "--delete", branch)
-    p.returncode == 0 or refused("internal", f"deleting {branch} from {r}: {p.stderr.strip()}")
-    git("update-ref", "-d", f"refs/remotes/{r}/{branch}")
-if local:
-    git("update-ref", "-d", f"refs/heads/{branch}")
-say({"branch": branch, "deleted": tip, "into": other})
-' "$(dirname "$0")" "$@"
-    ;;
-  "overview --json")
-    if [[ -e ${CREW_TEST_ROOT:?}/sluice-overview.json ]]; then cat "$CREW_TEST_ROOT/sluice-overview.json"; exit 0; fi
-    jq -n --arg host "${CREW_TEST_HOST:-?}" --arg repository "$common" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '{at: $at, branches: [], host: $host, previews: [], repository: $repository, schema: "sluice/overview@1", sessions: []}'
-    ;;
-  status\ *\ --all\ --json)
-    records=$common/stub-sluice-records-${2//\//-}.json
-    jq -n --arg branch "$2" --argjson subs "$(cat "$records" 2>/dev/null || echo '[]')" '{branch: $branch, submissions: $subs}'
-    ;;
-  status\ *\ --json)
-    id=${2:-}
-    [[ $id =~ ^[0-9]+$ ]] || { echo "sluice stub: status $id is not stubbed" >&2; exit 2; }
-    if [[ -e ${CREW_TEST_ROOT:?}/sluice-status-$id.json ]]; then cat "$CREW_TEST_ROOT/sluice-status-$id.json"; exit 0; fi
-    f=$common/stub-sluice-wait-$id.json
-    if [[ -e $f ]]; then  # the record of a submission it made, under test while its wait is undecided
-      if [[ -e $CREW_TEST_ROOT/sluice-wait-holds ]] || (( $(cat "$CREW_TEST_ROOT/sluice-wait-$id-fives" 2>/dev/null || echo 0) > 0 )); then
-        jq 'del(.rc) | .state = "testing" | del(.result, .failed, .conflict)' "$f"
-      else
-        jq 'del(.rc)' "$f"
-      fi
-      exit 0
-    fi
-    printf '{"error":{"kind":"not_found","message":"no submission %s","next":["sluice overview"]}}\n' "$id"
-    exit 1
-    ;;
-  release\ --worktree\ *\ --json)
-    if [[ -e ${CREW_TEST_ROOT:?}/sluice-release-fails ]]; then
-      jq -nc --arg m "the release command of $3 ended exit status: 1: tearing down" '{error: {kind: "internal", message: $m, next: []}}'
-      exit 3
-    fi
-    jq -nc --arg path "$3" '{released: false, worktree: $path}'
-    ;;
-  "previews --json" | release\ *\ --json | preview\ *\ --json)
-    : "${CREW_TEST_ROOT:?}"
-    exec python3 -c '
-import hashlib, json, os, pathlib, re, subprocess, sys, time, tomllib
-args, root = sys.argv[1:], pathlib.Path(os.environ["CREW_TEST_ROOT"])
-kept = root / "sluice-previews"
-kept.mkdir(exist_ok=True)
-
-
-def say(doc, code=0):
-    print(json.dumps(doc, sort_keys=True))
-    sys.exit(code)
-
-
-def refused(kind, message):
-    say({"error": {"kind": kind, "message": message, "next": []}}, 2)
-
-
-if args[0] == "previews":
-    say([json.loads(p.read_text()) for p in sorted(kept.glob("*.json"))])
-if args[0] == "release":
-    for p in sorted(kept.glob("*.json")):
-        d = json.loads(p.read_text())
-        if args[1] in (d["name"], d["revision"]):
-            p.unlink()
-            say({"preview": d["name"], "released": True})
-    say({"preview": args[1], "released": False})
-branch, rev, wait = args[1], args[2], "--wait" in args
-full = subprocess.run(["git", "rev-parse", "--verify", "-q", rev + "^{commit}"], capture_output=True, text=True).stdout.strip()
-full or refused("not_found", f"{rev} is no revision of this repository")
-policy = subprocess.run(["git", "show", f"{full}:.config/sluice.toml"], capture_output=True, text=True)
-table = tomllib.loads(policy.stdout).get("preview") if policy.returncode == 0 else None
-isinstance(table, dict) or refused("refused", f"{full[:7]} has no [preview] table in .config/sluice.toml")
-p = kept / f"{full}.json"
-if p.exists():  # one preview of a revision, given back unchanged
-    d = json.loads(p.read_text())
-    say(d, 1 if wait and d["state"] == "failed" else 0)
-named = f"{full[:7]}--{branch.replace(chr(47), chr(45))}--kit"
-d = {"name": "preview/" + hashlib.sha1(full.encode()).hexdigest()[:12], "branch": branch, "revision": full,
-     "state": "starting", "made": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "checkout": os.getcwd(),
-     "names": {}, "ports": {},
-     "addresses": {k: re.sub(r"\{name\.([a-z0-9-]+)\}", lambda m: f"{m.group(1)}-{named}", v) for k, v in table.get("addresses", {}).items()}}
-p.write_text(json.dumps(d))
-end = time.monotonic() + 600
-while (root / "sluice-preview-holds").exists() and p.exists() and time.monotonic() < end:
-    time.sleep(0.1)
-if not p.exists():  # released while it came up
-    sys.exit(130)
-if (root / "sluice-preview-fails").exists():
-    d.update(state="failed", output="starting web\nstub: the preview command failed: web did not come up\n")
-else:
-    d["state"] = "up"
-p.write_text(json.dumps(d))
-say(d, 1 if d["state"] == "failed" else 0)
-' "$@"
     ;;
   *) echo "sluice stub: sluice $* is not stubbed" >&2; exit 2 ;;
 esac
