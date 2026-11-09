@@ -288,7 +288,7 @@ def board_data(fleet, labels, read, now):
                           "head": (k.get("bolts", {}).get(b.name()) or {}).get("head"),
                           "stream": t["stream"] if t else None, "state": state, "url": None,  # its places are Flume's (crew-board)
                           "markers": markers(rows, cards, l, "land", b.name(), logs), "units": [], "fixes": [],
-                          "record": recorded,
+                          "record": recorded, "landing": st.landing(b),
                           "time": plan.held_time(fleet, logs, read["unread"].get(l, {}), pl, b, k, now)}
                 for u in units:
                     s = st.of(u.name())
@@ -657,14 +657,18 @@ def head_said(b):
     rejected at its head, each in words of its own with its number (plan.phase_said); else its state (state_said)."""
     if unclosed(b):
         return f"landed on main, not closed: {unclosed(b)}"
-    return plan.phase_said(b.get("record"), b.get("head")) or state_said(b["state"])
+    return plan.landing_line(b.get("landing"), b.get("record"), b.get("head")) or state_said(b["state"])
 
 
 def record_landing(b):
-    """A held bolt's landing as ops's band names it, the run record's (its record, landing_of): queued or landing again,
-    with its number (plan.phase_said); nothing for any other state or none."""
-    record = b.get("record") or {}
-    return plan.phase_said(record, b.get("head")) if record.get("state") in ("queued", "again") else ""
+    """A held bolt's landing as ops's band names it (crew-lands-each-bolt-through-flumes-base-place, Decision 10): one in
+    flight, asked of the runner with its land's request, or in the merge queue with its entry and its state, as the
+    runner reports it and the run record holds it (plan.landing_line), or queued or landing again as an older crew
+    recorded it, with its number; nothing for any other state or none."""
+    record, landing = b.get("record") or {}, b.get("landing") or {}
+    if landing.get("outcome") in ("asked", "submitted") or record.get("state") in ("queued", "again", "asked"):
+        return plan.landing_line(landing if landing.get("outcome") in ("asked", "submitted") else None, record, b.get("head")) or ""
+    return ""
 
 
 def needs_eye(b):
@@ -817,7 +821,7 @@ def ops_view(p):
     landing = {b["bolt"]: f"{b['bolt']} {record_landing(b)}" for b in p.get("construction", []) if record_landing(b)}
     for key, (m, bolts) in lands.items():  # a card the user answered leaves the landing to ops (Decision 3)
         out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
-                              "answered: the landing is yours" if m["card"] and m["card"].get("answered") else ""),
+                              "answered: crew asks the runner to land what the user ticked" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
     out += [row(fields(b["repo"] or "", b["bolt"], record_landing(b)), " ") for b in p.get("construction", [])

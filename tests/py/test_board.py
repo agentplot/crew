@@ -107,7 +107,8 @@ KEPT = {"switchboard-kit": "/kit/main", "breadboard-kit": "/b/main"}
 
 def flume_runs(p, placed):
     """wldn's requests and runners as the board reads them (plan.runner_facts): a launch of each unit and chore of each
-    started bolt in p, in the plan's order, in its bolt's repository, as a start writes them, and the box's runner
+    started bolt in p, in the plan's order, in its bolt's repository, as a start writes them, then each bolt's base place,
+    so it is a bolt of this crew's and not one started before bolts were base places, and the box's runner
     answering each launch of placed launched with its place at {unit: (fixture, tasks)} in the kit's folder there (KEPT),
     the rest unanswered."""
     import runner
@@ -123,6 +124,11 @@ def flume_runs(p, placed):
                 where = f"/flume/places/{u.name()}"
                 answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: {ago(100)}\n"
                 places += f"\nRequest: {n}\nPlace: {where}\nAt: {ago(90)}\nStatus: {flume_status(fixture, where, tasks, KEPT[b.get('Repo')])}\n"
+    for b in p.bolts() if p else []:  # each started bolt's base place, after its pieces so their numbers stand, unanswered
+        if plan.started(b):
+            requests.append(plan.Rec("Request", [("Request", str(len(requests) + 1)), ("Act", "launch"), ("Work", f"bolt/{b.name()}"),
+                                                 ("Repo", b.get("Repo")), ("Kind", "crew/bolt"), ("Name", b.name()), ("Base", "main"),
+                                                 ("Priority", "1")]))
     files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {BOX}\nVersion: 0.1.0\nSince: {ago(300)}\n"),
              "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
     return {"wldn": (requests, {BOX: runner.host_read("wldn", BOX, "5e1f0c2a" + "0" * 32, files, {})})}
@@ -1325,7 +1331,8 @@ class TestMore:
                              "label", "operation", "plan", "records", "runs"]
         assert p["kits"] == ["breadboard-kit", "switchboard-kit"]
         te = next(b for b in p["construction"] if b["bolt"] == "tenant-environments")
-        assert sorted(te) == ["bolt", "fixes", "goal", "head", "host", "markers", "record", "repo", "state", "stream", "time", "units", "url"]
+        assert sorted(te) == ["bolt", "fixes", "goal", "head", "host", "landing", "markers", "record", "repo", "state", "stream", "time",
+                              "units", "url"]
         assert (te["host"], te["stream"]) == (BOX, "wldn")  # where the box's runner reported its work (plan.bolt_at)
         assert sorted(te["units"][0]) == ["flume", "kind", "stage", "tasks", "unit", "url", "worktree"]
         assert te["fixes"] == []  # a fix is a started bolt's Flume place alone (TestCrossed)
@@ -1426,7 +1433,7 @@ class TestViews:
         d = data(sv=sv, cards=[card])
         (m,) = d["partitions"][0]["construction"][0]["markers"]
         assert m["card"]["answered"] == board.iso(NOW - datetime.timedelta(minutes=5))
-        assert ("✓ land/switchboard-kit  doctor-rows  waits to land  answered: the landing is yours  card answered, waits on wldn-ops"
+        assert ("✓ land/switchboard-kit  doctor-rows  waits to land  answered: crew asks the runner to land what the user ticked  card answered, waits on wldn-ops"
                 in view("wldn-ops", sv=sv, cards=[card]))
         assert ["".join(t for t, _ in l) for l in board.agent_views(d)["cards"]["wldn-ops"]] == [
             "  your card  land/switchboard-kit  req_k1  answered 5m ago, yours to act on"]
@@ -2099,3 +2106,51 @@ class TestLandingsUnderAnotherName:
         v, was = json.loads(json.dumps(board.agent_views(landed))), json.loads(json.dumps(board.agent_views(before)))
         assert set(v) == set(was) == {"read_at", "stale_after_ms", "stale", "views", "cards"}
         assert set(v["views"]) == set(was["views"])
+
+
+class TestALandingFromTheRunnersReport:
+    """crew-board "A bolt's landing on its head line and in the bands" (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 10): a bolt's head line, the rail and ops's band say its landing as the runner reports it beside what the
+    run record holds (plan.landing_line, board.head_said, board.record_landing), under the ledger's key landing, which
+    the mod's view reads with the rest (code.8)."""
+    ASKED = {"state": "asked", "n": "57", "head": "a" * 40}
+
+    def ledger(self, landing=None, record=None, state="waits"):
+        return {"bolt": "y", "head": "a" * 40, "state": state, "landing": landing, "record": record}
+
+    def test_a_land_asked_says_its_request(self):
+        b = self.ledger({"outcome": "asked", "request": 57}, self.ASKED)
+        assert board.head_said(b) == "landing asked, request 57" and board.record_landing(b) == "landing asked, request 57"
+
+    def test_a_submission_under_test_says_flumes_entry(self):
+        b = self.ledger({"outcome": "submitted", "request": 57, "entry": "412", "state": "under_test"}, self.ASKED)
+        assert board.head_said(b) == "landing #412 under test" and board.record_landing(b) == "landing #412 under test"
+
+    def test_a_landing_refused_stopped_or_landed_says_it_in_flumes_words(self):
+        refused = {"outcome": "refused", "request": 57, "why": "failed", "words": "check-full failed: tests:logic"}
+        assert board.head_said(self.ledger(refused, self.ASKED)) == "landing refused, a check failed: check-full failed: tests:logic"
+        rejected = dict(self.ASKED, state="rejected", words="landing refused, a check failed: check-full failed: tests:logic")
+        assert board.head_said(self.ledger(refused, rejected)).startswith("landing #57 rejected at aaaaaaa, open for work")
+        assert board.head_said(self.ledger(refused, dict(rejected, head="b" * 40))) == "waits to land"
+        stopped = {"outcome": "stopped", "request": 57, "by": "flume", "words": "the merge queue withdrew the submission"}
+        assert board.head_said(self.ledger(stopped)) == "landing stopped, nothing of the bolt's: the merge queue withdrew the submission"
+        assert board.head_said(self.ledger({"outcome": "landed", "commit": "c" * 40})) == "landed at ccccccc"
+        assert board.record_landing(self.ledger(refused, rejected)) == "" and board.record_landing(self.ledger(stopped)) == ""
+
+    def test_a_bolt_started_before_bolts_were_base_places_says_it_lands_under_the_crew_that_started_it(self):
+        legacy = {"outcome": "legacy", "words": "y was started before bolts were base places and lands under the crew that started it"}
+        assert board.head_said(self.ledger(legacy)) == legacy["words"]
+
+    def test_with_nothing_asked_the_head_line_says_its_state(self):
+        assert board.head_said(self.ledger({"outcome": "none"})) == "waits to land"
+        assert board.head_said(self.ledger({"outcome": "unlaunched", "refused": True, "words": "not locked"}, state="active")) == ""
+        assert board.record_landing(self.ledger({"outcome": "none"})) == ""
+
+    def test_ops_band_lists_a_landing_in_flight_with_its_request_or_entry(self):
+        p = {"label": "wldn", "construction": [
+            dict(self.ledger({"outcome": "asked", "request": 57}, self.ASKED), repo="crew", markers=[]),
+            dict(self.ledger({"outcome": "submitted", "request": 58, "entry": "412", "state": "under_test"}), bolt="z", repo="crew",
+                 markers=[])], "environments": [], "fixing": [], "attention": []}
+        said = [" ".join(f for f, _ in r["fields"] if f) if isinstance(r, dict) and "fields" in r else str(r) for r in board.ops_view(p)]
+        text = "\n".join(said)
+        assert "landing asked, request 57" in text and "landing #412 under test" in text, text

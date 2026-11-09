@@ -274,10 +274,12 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}
 
 
-def launched(bolts, work=(), fleet=None, planned=()):
+def launched(bolts, work=(), fleet=None, planned=(), base=True):
     """madswan's plan (flume_plan) with each bolt in bolts started and its work launched as a start launches it
-    (plan.reach_places), and each bolt in planned planned and not started: (the plan, requests.rec's records as the
-    writes leave them). The requests name their writer: set CREW_AGENT first."""
+    (plan.reach_places), then, with base, each bolt's base place (runner.bolt_launch), after its pieces so their
+    numbers are those a case names, unanswered, a bolt of this crew's and not one started before bolts were base
+    places; and each bolt in planned planned and not started: (the plan, requests.rec's records as the writes leave
+    them). The requests name their writer: set CREW_AGENT first."""
     import plan
     import runner
     fleet = fleet or madswan_fleet()
@@ -285,4 +287,7 @@ def launched(bolts, work=(), fleet=None, planned=()):
     for b in bolts:
         w.plan.bolt(b).set("Path", "flume")
         plan.reach_places(fleet, w, b)
+    for b in bolts if base else ():  # each bolt's base place, after its pieces so their numbers stand, unanswered
+        act, work_, given = runner.bolt_launch(w.plan, b, "madswan")
+        plan.request(w, act, work_, **given)
     return w.plan, plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")

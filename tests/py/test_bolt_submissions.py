@@ -73,7 +73,8 @@ def test_crew_bolts_shows_a_merge_under_test_on_its_line_and_the_landing_on_the_
     d = bolts(at="submitted", logs=queued)
     b = held(d)
     assert (b["units"][0]["flume"]["stage"], b["units"][0]["flume"]["submission"]) == ("submitted", "413")
-    assert not any("submission" in x for x in b["units"] + b["fixes"]) and "landing" not in b and "submissions_error" not in b
+    assert not any("submission" in x for x in b["units"] + b["fixes"]) and "submissions_error" not in b
+    assert b["landing"] == {"outcome": "none"}  # its base place live with no land asked, as the runner reports it
     out = plan.bolts_text(d).splitlines()
     assert out[1] == f"y  switchboard-kit  @ {BOX}, in Flume stream wldn  active  landing queued as #355"
     assert A_LINE in out

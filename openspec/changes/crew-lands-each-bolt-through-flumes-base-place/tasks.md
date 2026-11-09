@@ -49,7 +49,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 8. The views
 
-- [ ] 8.1 A bolt's head line, the rail and ops's band say its landing from the runner's report, asked with its request, submitted with Flume's entry, landed, refused, stopped or under the crew that started it, under the keys the mod reads (design Decision 10; Task notes 8.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py tests/py/test_bolt_submissions.py'` exits 0.
+- [x] 8.1 A bolt's head line, the rail and ops's band say its landing from the runner's report, asked with its request, submitted with Flume's entry, landed, refused, stopped or under the crew that started it, under the keys the mod reads (design Decision 10; Task notes 8.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_board.py tests/py/test_bolt_submissions.py'` exits 0.
 - [ ] 8.2 The mod draws a landing asked with its request and one under test with its entry in ops's band (design Decision 10; Task notes 8.1). Verify `tests/suite mod` ends with "0 failed".
 
 ## 9. The words

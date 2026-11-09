@@ -1542,6 +1542,22 @@ class Stages:
             return {"stage": "legacy", "words": runner.legacy_said(bolt.name())}
         return runner.piece_stage(requests, reads, launch)
 
+    def landing(self, bolt):
+        """A started bolt's landing as the runner reports it (runner.landing_of; crew-lands-each-bolt-through-flumes-base-
+        place, Decisions 6 and 10), from its base place's launch and its lands: {outcome, ...}; {outcome: legacy, words}
+        for a bolt started before bolts were base places (runner.legacy_said); unknown where the partition's runners
+        can't be read; None for a bolt not started."""
+        if not started(bolt):
+            return None
+        run = self.runner(self.label)
+        if isinstance(run, str):
+            return {"outcome": "unknown", "why": f"crew can't read {self.label}'s requests or runners: {run}"}
+        requests, reads = run
+        launch = runner.launch_of(requests, f"bolt/{bolt.name()}")
+        if launch is None:
+            return {"outcome": "legacy", "words": runner.legacy_said(bolt.name())}
+        return runner.landing_of(launch, runner.lands_of(requests, launch), reads)
+
     def fixes(self, bolt):
         """Each fix standing on a started bolt, in requests.rec's order, as (its work, fix/<bolt>/<name>, its launch, its
         stage as stage_of gives it), read as its units and chores are; none where the partition's runners can't be
@@ -4118,6 +4134,25 @@ def phase_said(phase, head):
         return (f"landing {'#' + str(phase['n']) + ' ' if phase['n'] else ''}rejected at {phase['head'][:7]}, open for work: "
                 f"{phase['words']}")
     return None
+
+
+def landing_line(landing, phase, head):
+    """What a started bolt's head line says of its landing (crew-lands-each-bolt-through-flumes-base-place, Decision
+    10), from the runner's report (landing, Stages.landing) and the run record (phase, landing_phase): its landing
+    submitted with the merge queue's entry, landed at its commit, stopped in its words, or unknown, as the runner reports
+    it (runner.landing_said); refused, in Flume's words, while the run record has not recorded it, and once it has, as
+    the record holds it, at the head it was refused at alone (phase_said), a fix having moved it since holding nothing;
+    a bolt started before bolts were base places, that it lands under the crew that started it; else the run record's
+    words, asked with its request, queued, again or rejected (phase_said); None for nothing to say. A decision of facts
+    alone (code.7)."""
+    o = (landing or {}).get("outcome")
+    if o == "legacy":
+        return landing["words"]
+    if o in ("submitted", "landed", "stopped", "unknown"):
+        return runner.landing_said(landing)
+    if o == "refused" and not (phase and phase.get("state") == "rejected"):
+        return runner.landing_said(landing)
+    return phase_said(phase, head)
 
 
 def landing_hold(phase, bolt, what):
@@ -8187,7 +8222,7 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                 bk = (k or {}).get("bolts", {}).get(b.name()) or {}
                 verified = dict(zip(("state", "said"), st.verification(b, bk.get("head")))) if k and bk.get("exists") else None
                 bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"),
-                                  host=st.host(b) if crossed else None, state=st.bolt_state(b), base=st.base(b), verification=verified, units=units, fixes=fixes,
+                                  host=st.host(b) if crossed else None, state=st.bolt_state(b), base=st.base(b), landing=st.landing(b), verification=verified, units=units, fixes=fixes,
                                   given=b.get("Path"), stream=t["stream"] if t else None,
                                   head=bk.get("head"), landing_record=landing_phase(log, b.name()) if crossed and isinstance(log, list) else None,
                                   carries=bk.get("carries") or {}, carries_error=bk.get("carries_error")))
@@ -8217,7 +8252,7 @@ def bolts_text(data):
             for b in pl["bolts"]:
                 who = (f"@ {b['host']}" if b["host"] else "not started" if not b.get("given") else "where it runs can't be told") + (
                     f", {runner.stream_said(b['stream'])}" if b.get("stream") else "")
-                record_said = phase_said(b.get("landing_record"), b.get("head"))
+                record_said = landing_line(b.get("landing"), b.get("landing_record"), b.get("head"))
                 lines.append(f"{b['bolt']}  {b['repo']}  {who}  {b['state']}" + (f"  {record_said}" if record_said else ""))
                 base = runner.base_said(b.get("base") or {})
                 if base:
@@ -9473,8 +9508,11 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             kit_name = b.get("Repo") or k["kit"]["name"]
             bk = k["bolts"].get(b.name(), {})
             carry = carries_said(bk.get("carries"), bk.get("carries_error"))
-            if phase and phase["state"] in ("queued", "again"):  # submitted and not yet decided: its work held (landing_hold)
-                lands = [f"{phase_said(phase, head)}: no unit, chore or fix joins it until sluice decides"]
+            landing = st.landing(b)
+            if (landing or {}).get("outcome") == "legacy":  # it lands under the crew that started it (Decision 9)
+                lands = [landing["words"]]
+            elif phase and phase["state"] in ("queued", "again", "asked"):  # asked and not yet decided: its work held (landing_hold)
+                lands = [f"{landing_line(landing, phase, head)}: no unit, chore or fix joins it until its outcome is read"]
             elif not lands and carry:  # another bolt's work it carries holds it as a conflict does (plan.8)
                 lands = [f"held: {carry}"]
             elif not lands and fixes:  # a fix started on the bolt holds its landing

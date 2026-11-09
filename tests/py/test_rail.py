@@ -60,7 +60,9 @@ FOUND = [("wldn", "WilldanGroup/crew-state", "tip", None)]
 
 def runs(p=None, at=None, before=None, numbered=None, read=True):
     """wldn's requests and the runner on the box as rail_rows takes them (runs): each unit and chore of each started
-    bolt of the plan (the_plan's by default) launched as a start launches it (plan.reach_places), after the requests
+    bolt of the plan (the_plan's by default) launched as a start launches it (plan.reach_places), then each bolt's base
+    place (runner.bolt_launch), unanswered, so a started bolt is one of this crew's and not one started before bolts
+    were base places, after the requests
     before holds (requests.rec's text), and the runner carrying each at the flume 0.3.6 status fixture at names for it
     ({unit: fixture}), zone-one landed on its bolt, so merged, unless given otherwise, and any other unanswered, and
     each request of before's at the fixture numbered names for it ({its number: fixture}); no runner read with read
@@ -71,6 +73,10 @@ def runs(p=None, at=None, before=None, numbered=None, read=True):
     for b in w.plan.bolts():
         if plan.started(b):
             plan.reach_places(FLEET, w, b.name())
+    for b in w.plan.bolts():  # each started bolt's base place, after the pieces so their numbers stand, unanswered
+        if plan.started(b):
+            act, work, given = runner.bolt_launch(w.plan, b.name(), "wldn")
+            plan.request(w, act, work, **given)
     requests = plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")
     n = {r.get("Work").split("/", 1)[1]: r.get("Request") for r in requests if r.get("Act") == "launch"}
     at = dict({"zone-one": "landed"}, **(at or {}))
@@ -159,14 +165,14 @@ class TestRows:
                          "phases": plan.landing_phases(queued)}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
         assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: landing queued as #412: no unit, chore or fix joins it "
-                                   "until sluice decides")
+                                   "until its outcome is read")
         assert (land["cmds"], land["bolts"][0]["can"]) == ([], False)
         again = queued + [dict(queued[0], Outcome=None, Refused="#412 failed: tests:logic"),
                           dict(queued[0], Submission="415")]
         held["wldn"]["phases"] = plan.landing_phases(again)
         land, = [r for r in rows(held=held) if r["group"] == "land"]
         assert land["what"][1] == (f"apex-zones, on {BOX}, in Flume stream wldn: landing again as #415, after #412 was rejected: no unit, "
-                                   "chore or fix joins it until sluice decides")
+                                   "chore or fix joins it until its outcome is read")
 
     def test_a_landing_sluice_stopped_at_the_bolts_head_can_land_saying_what_stopped_it(self):
         """crew-rail "A stopped landing": the line says it can land, what stopped it at that head in sluice's words, and
