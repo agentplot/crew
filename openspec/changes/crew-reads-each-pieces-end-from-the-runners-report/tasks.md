@@ -4,7 +4,7 @@ Work the tasks in order, each in the place's worktree, from its root. Each check
 
 ## 1. A place's end held for the runner
 
-- [ ] 1.1 Flume 0.20.0's status of a place landed and of one dropped, each tidied with its record held for `boomdrive`, is pinned under `tests/py/flume-0.20.0/`, and `runner.stage_of` reads the landing merged at its commit on a bolt and landed on main, and the drop dropped (design Decision 1; Task notes 1.1). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py::TestStageOf -k held_for_the_runner'`.
+- [x] 1.1 Flume 0.20.0's status of a place landed and of one dropped, each tidied with its record held for `boomdrive`, is pinned under `tests/py/flume-0.20.0/`, and `runner.stage_of` reads the landing merged at its commit on a bolt and landed on main, and the drop dropped (design Decision 1; Task notes 1.1). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py::TestStageOf -k held_for_the_runner'`.
 
 ## 2. The readings go
 
