@@ -109,6 +109,29 @@ class TestEmit:
             f"crew: entry {eid} did not reach wldn/main of WilldanGroup/crew-state: could not fetch wldn/main of WilldanGroup/crew-state "
             "over https: fatal: unable to access 'https://github.com/': timed out; mac-studio keeps it and pushes it with its next entry"]
 
+    def test_an_entry_emitted_without_its_push_is_in_the_hosts_file_and_nothing_is_pushed(self, here, pushed):
+        """crew drive set's drive.set, appended before the drive's branch exists (a-drive-set-loses-no-drive-and-no-record,
+        Decision 3): the entry is written and its id returned, and no push is asked."""
+        eid = record.emit("wldn", "drive.set", ["drive/wldn"], why="set drives.wldn", push=False)
+        assert eid and [e["Id"] for e in record.parse(next(here.glob("*.rec")).read_text())] == [eid]
+        assert pushed == []
+
+    def test_a_push_said_and_refused_is_said_once_and_goes_on(self, here, monkeypatch, capsys):
+        """crew drive set's last push (Decision 5): with said and no entry just written, a refused push is said once on
+        standard error, naming the branch and that the host keeps what it holds, and returns None, raising nothing."""
+        monkeypatch.setattr(record, "reach", REACH)
+        monkeypatch.setattr(crew, "load", lambda: FLEET)
+        monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
+
+        def unreachable(repo, ref, fresh=False):
+            raise crew.Refusal(f"could not fetch {ref} of {repo} over https: fatal: unable to access\n'https://github.com/': timed out")
+        monkeypatch.setattr(plan, "tip_of", unreachable)
+        assert record.reach("wldn", None, said=True) is None
+        assert capsys.readouterr().err.splitlines() == [
+            "crew: nothing reached wldn/main of WilldanGroup/crew-state: could not fetch wldn/main of WilldanGroup/crew-state "
+            "over https: fatal: unable to access 'https://github.com/': timed out; mac-studio keeps what it holds and pushes it "
+            "with its next entry"]
+
     def test_a_push_by_hand_that_is_refused_is_the_commands_refusal(self, here, monkeypatch):
         monkeypatch.setattr(record, "reach", REACH)
 

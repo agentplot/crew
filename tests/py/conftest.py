@@ -34,5 +34,5 @@ def pushed(monkeypatch):
     can say the push was asked (read.5)."""
     import record
     asked = []
-    monkeypatch.setattr(record, "reach", lambda label, eid=None: asked.append(label) or 0)
+    monkeypatch.setattr(record, "reach", lambda label, eid=None, said=False: asked.append(label) or 0)
     return asked

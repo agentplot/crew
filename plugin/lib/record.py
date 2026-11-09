@@ -23,8 +23,9 @@ the Flume stream the team's work then ran in, is read by crew trace team/<team> 
 (Decision 8 of the-team-machinery-leaves).
 
 Each entry reaches the drive's branch of its state repository as it is written: the command that appended it
-pushes it there, to the same path under runs/<host>/, as a commit of its own from this host, before it goes on. The
-branch's file becomes the union by Id of what it had and what the host has, so a host only ever adds to its own files
+pushes it there, to the same path under runs/<host>/, as a commit of its own from this host, before it goes on; or,
+where it appends one before the branch can take it, as crew drive set appends its drive.set before the drive's state
+is made, by a later act of the same command, which pushes every entry the branch lacks. The branch's file becomes the union by Id of what it had and what the host has, so a host only ever adds to its own files
 and a host that is asleep or rebuilt loses nothing it pushed. A push that is refused is said once and changes nothing
 the command does; the entry waits in the host's file and goes first with the host's next. Every read, crew events,
 crew trace, the batches, the rail, the board and the page, reads the branch alone and asks no host (read.5).
@@ -199,10 +200,12 @@ def turn_end_entry(run, n):
     return dict(act="turn.end", on=[f"agent/{run}"], why=f"turn {n} of {run} ended")
 
 
-def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None, by=None, **extra):
+def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None, by=None, push=True, **extra):
     """Append one entry to the label's run record on this host, in one write; its id, or None when it could not be
     written, which is said on standard error and nothing more. eid is an id made ahead with new_id; by, the role an
-    act of crew's own is in the name of, a card of crew's asked as its row's owner (briefs.16), else who asked."""
+    act of crew's own is in the name of, a card of crew's asked as its row's owner (briefs.16), else who asked. With
+    push, the entry is then pushed to the drive's branch (reach); without it, it is appended alone and the command
+    pushes it by a later act, as crew drive set does its drive.set, written before the drive's branch exists."""
     if not label:
         return None
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -243,7 +246,8 @@ def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None,
     except OSError as e:
         print(f"crew: the run record at {path} could not be written: {e.strerror or e}", file=sys.stderr)
         return None
-    reach(label, eid)
+    if push:
+        reach(label, eid)
     return eid
 
 
@@ -311,13 +315,14 @@ def entry_message(text, agent):
     return ("runs" + (f"({f['Host']})" if f.get("Host") else "") + f": {words}\n\nCrew-Entry: {f.get('Id')}\n")
 
 
-def reach(label, eid=None):
+def reach(label, eid=None, said=False):
     """Push each entry of this host's record of the label that its branch lacks, oldest first, normally the one just
     written, each a commit of its own and all in one push, by the write every state write takes (read.5, state.1), on
     this host before the command goes on; then note the newest the branch holds from here. Returns how many were
     pushed. With eid, the entry just written, a push that is refused is said once on standard error, naming it, and
     changes nothing else the command does (record.2): the entry stays in the host's file, and its next push takes it
-    first. With none, as crew events --push runs it, the refusal is the command's."""
+    first. With said and no eid, as crew drive set's last act runs it, a refused push is said once the same way,
+    naming the branch, and returns None. With neither, as crew events --push runs it, the refusal is the command's."""
     import plan  # plan.py imports this module; its git layer is only needed here
     where, seen = f"{label}/main", {"n": 0}
     try:
@@ -333,9 +338,14 @@ def reach(label, eid=None):
             plan.land(repo, ref, None, make)
     except (Refusal, OSError) as e:
         why = " ".join(str(e).split())  # one line, though git's and recfix's own words may span several
-        if eid is None:
+        if eid is None and not said:
             fail(f"nothing reached {where}: {why}")
-        print(f"crew: entry {eid} did not reach {where}: {why}; {crew.this_host()} keeps it and pushes it with its next entry", file=sys.stderr)
+        if eid is None:
+            print(f"crew: nothing reached {where}: {why}; {crew.this_host()} keeps what it holds and pushes it with its next entry",
+                  file=sys.stderr)
+        else:
+            print(f"crew: entry {eid} did not reach {where}: {why}; {crew.this_host()} keeps it and pushes it with its next entry",
+                  file=sys.stderr)
         return None
     mark_carried(label, seen.get("newest"))
     return seen["n"]
