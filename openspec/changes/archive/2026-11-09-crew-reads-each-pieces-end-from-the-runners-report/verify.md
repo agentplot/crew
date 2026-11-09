@@ -88,7 +88,7 @@ All 10 tasks in `tasks.md` are ticked. Each one's named check exists and passed 
 
 No finding blocks the change.
 
-- `merge-gate` validates strict before the archive. `bolt-plan` and `bolt-teams` already fail strict on length warnings alone (7 and 11 requirements over 500 characters), as most of crew's specs do. The archive writes this change's requirements into all three. A rise in those warnings is a wording matter for a later change, as earlier verifies found.
+- After the archive, `openspec validate --type spec --strict` gives `merge-gate` valid. `bolt-plan` has 0 errors and 7 warnings, and `bolt-teams` 0 errors and 11, the same counts as before the archive. Every warning is a requirement over 500 characters, which strict mode counts as a failure, as it does for most of crew's specs. This change adds none.
 - The reading is whole only on a host whose runner carries agentplot/boomdrive `76e0226` and whose Flume is 0.20.0 or later (design *Dependencies*). Elsewhere a place tidied after its landing reads as last carried, which is Decision 3's intended outcome.
 - Decision 7, removing `started_land`'s fallback to `main_landed` once main is taken in, is for the bolt's take-main fix. This bolt does not hold that code.
 
