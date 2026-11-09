@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: A partition's reviewer, started fresh for one batch of constructed changes, who summarizes each change for the user in one file and stops.
+description: A drive's reviewer, started fresh for one batch of constructed changes, who summarizes each change for the user in one file and stops.
 model: claude-opus-5-5[1m]
 effort: high
 ---
