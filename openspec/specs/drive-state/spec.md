@@ -333,7 +333,7 @@ A partition's label SHALL be fixed once it is made, and no crew command SHALL re
 - **THEN** crew reads afterthought's state from `afterthought/main` of its state repository, and a command run with `--label swancloud` is refused naming the partitions the teams file has
 
 ### Requirement: A preview names its host, its work, its repository, its branch and its revision
-A preview request SHALL name the host whose runner reported the work it serves (the requirement "A kit's work is taken by a runner whose configuration names its repository"), since only that runner brings it up; the work it serves, `bolt/<bolt>` for a landings row's bolt or `unit/<unit>` for a batch line; its repository as the plan names it; the branch and the revision; and, to put it away, `Done: yes`. It SHALL name nothing else, and `bolt/<bolt>` SHALL be the work of no other request.
+A preview request SHALL name the host whose runner reported the work it serves (the requirement "A kit's work is taken by a runner whose configuration names its repository"), since only that runner brings it up; the work it serves, `bolt/<bolt>` for a landings row's bolt or `unit/<unit>` for a batch line; its repository as the plan names it; the branch and the revision; and, to put it away, `Done: yes`. It SHALL name nothing else ("A bolt's work is its base place's and its preview's").
 
 #### Scenario: A preview of a landings row's bolt
 - **WHEN** `crew card preview land/crew y` appends a preview naming `Host: deneb`, `Work: bolt/y`, `Repo: crew`, `Branch: bolt/y` and `Revision: abc1234`
@@ -348,8 +348,8 @@ A preview request SHALL name the host whose runner reported the work it serves (
 - **THEN** it is refused by crew's rules, naming the fields, and the branch is unchanged
 
 #### Scenario: A bolt's work on any other request
-- **WHEN** a write would append a launch serving `bolt/y`
-- **THEN** it is refused by crew's rules, saying `bolt/<bolt>` is the work of a preview alone
+- **WHEN** a write would append a launch serving `bolt/y` of the kind `change`
+- **THEN** it is refused by crew's rules, saying a bolt's base place is of crew's kind `crew/bolt`
 
 ### Requirement: A preview is read from the runner on the host it names
 crew SHALL read a preview request's answer from the runner on the host it names alone: from that runner's `previews.rec`, or from its `answers.rec` where that runner refused the request there, as a runner that cannot read it does. It SHALL read as asked while that runner has answered it neither way. crew SHALL read the previews of one host, repository and revision as one, and its ask as standing while the newest preview request naming all three is a bring-up that runner has not refused.
@@ -361,3 +361,14 @@ crew SHALL read a preview request's answer from the runner on the host it names 
 #### Scenario: Put away, then asked again
 - **WHEN** request 12 asks for `bolt/y` at `abc1234` on deneb, request 13 is its done, and request 14 asks for it again
 - **THEN** crew reads the ask of `abc1234` on deneb as standing at request 14
+
+### Requirement: A bolt's work is its base place's and its preview's
+`bolt/<bolt>` SHALL be the work of the bolt's base place, its launch of crew's kind `crew/bolt` and the retry, drop, priority and land of it ("A launch names everything the runner passes to Flume"), and of a landings row's preview, and of no other request. A retry, drop, priority or land SHALL name a launch by `Of`, never a preview.
+
+#### Scenario: A preview and a land of one bolt
+- **WHEN** `requests.rec` holds `bolt/y`'s base place's launch as request 1 and a preview of `bolt/y` as request 2, and a write would append a land of `bolt/y` naming request 1
+- **THEN** the write passes crew's rules, and a land naming request 2 is refused, saying request 2 is no launch
+
+#### Scenario: A retry or drop naming a preview
+- **WHEN** `requests.rec` holds a preview of `bolt/y` as request 1, and a write would append a retry or a drop of `bolt/y` naming request 1
+- **THEN** it is refused by crew's rules, saying request 1 is no launch

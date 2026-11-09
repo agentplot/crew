@@ -22,8 +22,8 @@ None.
 
 ### Modified Capabilities
 
-- `bolt-teams`: "A landing records the commit main holds" and "A bolt whose landing main holds closes whatever the runner carried of its places" say a started bolt closes at either reading, and which refusal each gives.
-- `drive-state`: "A preview names its host, its work, its repository, its branch and its revision" lets `bolt/<bolt>` serve the bolt's base place besides a preview.
+- `bolt-teams`: "A landing records the commit main holds" says a started bolt closes at either reading, and is refused only while neither holds; "A bolt whose landing main holds closes whatever the runner carried of its places" gains the scenario of a base place the runner no longer carries.
+- `drive-state`: "A preview names its host, its work, its repository, its branch and its revision" leaves what else `bolt/<bolt>` serves to a new requirement, "A bolt's work is its base place's and its preview's".
 
 ## Impact
 

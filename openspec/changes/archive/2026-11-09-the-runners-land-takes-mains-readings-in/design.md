@@ -46,6 +46,6 @@ None. Every behaviour here is proved by a check in crew's tiers.
 
 **1.1** `plan.main_landed` and `plan.started_land`. Cases: `tests/py/test_landing.py` `TestCrewBoltLandOfAStartedBolt`, its main-held cases, and `tests/py/test_stages.py` `TestABoltLandedOnMain.test_crew_bolt_land_reads_the_landing_main_holds_and_names_a_piece_it_does_not_hold`.
 
-**1.2** `runner.request_refusal`, `PREVIEW_WORK`. Case: `tests/py/test_runner.py` `TestPreviewRequest.test_a_bolts_work_is_its_base_places_and_its_previews_alone`.
+**1.2** `runner.request_refusal`, `PREVIEW_WORK`. Cases: `tests/py/test_runner.py` `TestPreviewRequest.test_a_bolts_work_is_its_base_places_and_its_previews_alone` and `test_a_bolts_preview_and_its_base_places_land_stand_side_by_side`.
 
 **1.3** `tests/t-journey-land.sh`: the preview steps, and `z` closed by `crew bolt land` at the landing main holds once the runner carries no place of its work.
