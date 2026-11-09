@@ -607,12 +607,17 @@ def teams_step(f):
     a new file or the drive set in one that loads; {"step": "unchanged"}, the text it would write being the file's
     own; {"step": "aside", "reason", "text", "changed"}, a file crew cannot read at all (readable: no JSON, no UTF-8,
     no object, or at a version this crew does not read) moved once to its aside and the file written new;
-    {"step": "linked", "target"}, a link whose file names the drive as given, written nothing. Refused, with nothing
-    written: an aside already taken (read.4); a file at crew's own version that fails a check (fleet_of), crew's own
-    file, which is never moved aside, since that would drop every other drive it names (record 0065, point 6; code.5),
-    whether or not the aside is taken, naming the check in fleet_of's words; a link whose file does not name the
-    drive as given, naming each key that differs or is missing and services.crew.settings.drives.<label>; and a file
-    crew would write that it would refuse (fleet_of), in fleet_of's words."""
+    {"step": "linked", "target"}, a link whose file names the drive as given, written nothing. A file at crew's own
+    version is crew's own, never moved aside, since that would drop every other drive it names (record 0065, point 6;
+    code.5): the drive is set in it (teams_set) before it is checked, whatever it held for the drive's entry, the hosts,
+    console and kept repositories the flags give, so the set mends what it replaces, and the file it would write is
+    checked (fleet_of) (record 0065, point 8). Refused, with nothing written: an aside already taken (read.4); a file at
+    crew's own version whose parts are of a shape the set cannot keep (settable), in settable's words, or that still
+    fails a check once the drive is set, in fleet_of's, each saying the set sets only what its flags give and that the
+    file and every drive it names are left as they are, whether or not the aside is taken; a link whose file does not
+    name the drive as given, naming each key that differs or is missing and services.crew.settings.drives.<label>; and
+    a file crew would write where there was none or it was moved aside that it would refuse (fleet_of), in fleet_of's
+    words."""
     given, here = f["given"], f["here"]
     label = given["drive"]["label"]
 
@@ -648,13 +653,21 @@ def teams_step(f):
             "both are left as they are, and nothing was written")
         data, changed = teams_set(None, given, here)
         return {"step": "aside", "reason": str(e), "text": teams_text(checked(data)), "changed": changed}
+    # crew's own file is set before it is checked, so a fault in what the set replaces is mended by it, and never moved
+    # aside, since that would drop every other drive it names (record 0065, points 6 and 8).
+    kept = (f"crew drive set sets only drive {label}'s entry and the hosts, console and kept repositories its flags give, and "
+            f"moves aside only a file crew cannot read at all, so {TEAMS} and every drive it names are left as they are, and "
+            "nothing was written")
     try:
-        fleet_of(old, here)
+        data, changed = teams_set(old, given, here)
     except Refusal as e:
-        fail(f"{TEAMS} is at crew's version {VERSION} and fails a check: {sentence(str(e))} crew drive set moves aside only a "
-             "file crew cannot read at all, so the file and every drive it names are left as they are, and nothing was written")
-    data, changed = teams_set(old, given, here)
-    text = teams_text(checked(data))
+        fail(f"{TEAMS} is at crew's version {VERSION}, and crew drive set cannot keep what it holds beside drive {label}: "
+             f"{sentence(str(e))} {kept}")
+    try:
+        fleet_of(data, here)
+    except Refusal as e:
+        fail(f"the teams file crew drive set would write is refused: {sentence(str(e))} {kept}")
+    text = teams_text(data)
     now = f["text"].decode() if isinstance(f["text"], bytes) else f["text"]  # UTF-8, since it loaded
     return {"step": "unchanged"} if text == now else {"step": "write", "text": text, "changed": changed}
 

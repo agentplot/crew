@@ -325,8 +325,13 @@ class TestTeamsSet:
 class TestTeamsStep:
     """drive-setup, "The file it would write is checked before it is written", "Run again with the same answers, it
     changes nothing", "Where Nix links the teams file, nothing is written there", "A teams file crew cannot read at all
-    is moved aside once" and "A teams file at crew's own version that fails a check is refused" (design, Decisions 5, 7
-    and 8; a-drive-set-loses-no-drive-and-no-record, Decision 2): the step from plain facts, nothing read or written by it."""
+    is moved aside once" and "A teams file at crew's own version is written where the set mends it" (design, Decisions
+    5, 7 and 8; a-drive-set-loses-no-drive-and-no-record, Decision 2; a-drive-set-mends-what-it-replaces, Decisions 1 to
+    3): the step from plain facts, nothing read or written by it."""
+
+    KEPT = ("crew drive set sets only drive pat's entry and the hosts, console and kept repositories its flags give, and moves "
+            "aside only a file crew cannot read at all, so /Users/pat/.config/crew/teams.json and every drive it names are left "
+            "as they are, and nothing was written")
 
     @pytest.fixture(autouse=True)
     def teams(self, monkeypatch):
@@ -376,33 +381,67 @@ class TestTeamsStep:
         assert step["step"] == "aside" and reason in step["reason"]
         assert step["text"] == self.written() and step["changed"][0] == "drives.pat"
 
-    def both(self):
-        """A version-6 file naming lab and pat, as crew drive set wrote it, lab's folder then made relative by a hand."""
+    def both(self, relative=None):
+        """A version-6 file naming lab and pat, as crew drive set wrote it, the folder of the drive relative names then
+        made relative by a hand, or none."""
         lab = crew.teams_set(None, given(label="lab", **lab_flags()), MAC)[0]
         data = crew.teams_set(lab, given(), MAC)[0]
         assert [d["label"] for d in data["drives"]] == ["lab", "pat"]
-        data["drives"][0]["folder"] = "Users/pat/lab"
+        for d in data["drives"]:
+            if d["label"] == relative:
+                d["folder"] = d["folder"].lstrip("/")
         return crew.teams_text(data)
 
     @pytest.mark.parametrize("aside_taken", [False, True])
     def test_a_file_at_crews_own_version_that_fails_a_check_is_refused_and_never_moved_aside(self, aside_taken):
         """drive-setup, One wrong field beside another drive: refused naming lab's folder and the check, the file and
         every drive it names left as they are, and nothing written, whether or not the aside is taken (record 0065,
-        point 6; design, Decision 2)."""
-        said = self.refused("/Users/pat/.config/crew/teams.json is at crew's version 6 and fails a check: drive lab in "
-                            "/Users/pat/.config/crew/teams.json: 'folder' is the absolute folder of its herdr session on pats-mac, "
-                            "not \"Users/pat/lab\"", text=self.both(), aside_taken=aside_taken)
-        assert ("crew drive set moves aside only a file crew cannot read at all, so the file and every drive it names are left "
-                "as they are, and nothing was written") in said and said.endswith("nothing was written")
+        points 6 and 8; a-drive-set-mends-what-it-replaces, Decision 2)."""
+        said = self.refused("", text=self.both("lab"), aside_taken=aside_taken)
+        assert said.startswith("the teams file crew drive set would write is refused: drive lab in "
+                               "/Users/pat/.config/crew/teams.json: 'folder' is the absolute folder of its herdr session on "
+                               "pats-mac, not \"Users/pat/lab\""), said
+        assert said.endswith(self.KEPT)
         assert ": regenerate /Users/pat/.config/crew/teams.json from crew's own module, services.crew, crew drive set, or the " \
-               "machine's configuration that writes it. crew drive set moves aside" in said
+               "machine's configuration that writes it. crew drive set sets only" in said
         assert "cannot load" not in said and "is taken" not in said
 
-    @pytest.mark.parametrize("text, check", [('{"version":6,"drives":[],"hosts":{}}', "teams.json lists no drives: it must be"),
-                                             ('{"version":6,"teams":[]}', "teams.json lists teams, which version 6 has no place for")])
-    def test_a_version_6_file_that_lists_no_drives_or_lists_teams_is_refused_not_moved_aside(self, text, check):
-        said = self.refused("/Users/pat/.config/crew/teams.json is at crew's version 6 and fails a check: ", text=text)
-        assert check in said and "crew has done nothing. crew drive set moves aside only a file crew cannot read at all" in said
+    def test_a_file_that_lists_no_drives_is_written(self):
+        """drive-setup, A file that lists no drives: the drive set in it, nothing moved aside."""
+        step = self.step(text='{"version":6,"drives":[],"hosts":{}}')
+        assert step["step"] == "write" and step["text"] == self.written() and step["changed"][0] == "drives.pat"
+
+    def test_a_file_that_lists_teams_is_refused(self):
+        """drive-setup, A file that lists teams: the set keeps its teams, so the file it would write fails the check."""
+        said = self.refused("/Users/pat/.config/crew/teams.json lists teams, which version 6 has no place for",
+                            text='{"version":6,"teams":[]}')
+        assert said.startswith("the teams file crew drive set would write is refused: ") and said.endswith(self.KEPT)
+
+    def test_a_fault_in_the_drives_own_entry_is_mended(self):
+        """drive-setup, A fault in the drive's own entry: pat's folder relative, and --folder gives it absolute."""
+        step = self.step(text=self.both("pat"))
+        assert step == {"step": "write", "text": self.both(), "changed": ["drives.pat.folder"]}
+
+    def test_a_fault_in_a_host_the_flags_name_is_mended(self):
+        """drive-setup, A fault in a host the flags name: pats-mac's kind macos, and --hosts gives it darwin."""
+        data = json.loads(self.written())
+        data["hosts"][MAC]["kind"] = "macos"
+        step = self.step(text=crew.teams_text(data))
+        assert step == {"step": "write", "text": self.written(), "changed": [f"hosts.{MAC}"]}
+
+    def test_the_drive_listed_twice_is_written_once(self):
+        """drive-setup, The drive listed twice: pat once, as the flags give it."""
+        data = json.loads(self.written())
+        data["drives"] *= 2
+        step = self.step(text=crew.teams_text(data))
+        assert step == {"step": "write", "text": self.written(), "changed": ["drives.pat"]}
+
+    def test_a_part_of_another_shape_is_refused(self):
+        """drive-setup, A part of another shape: hosts a list, refused naming hosts, nothing written."""
+        said = self.refused("", text='{"version":6,"hosts":[]}')
+        assert said.startswith("/Users/pat/.config/crew/teams.json is at crew's version 6, and crew drive set cannot keep what it "
+                               "holds beside drive pat: /Users/pat/.config/crew/teams.json: 'hosts' is an object, not []"), said
+        assert said.endswith(self.KEPT)
 
     def test_an_aside_already_taken_is_refused_naming_both_paths(self):
         """drive-setup, An aside already taken: both files left, nothing written."""
@@ -445,8 +484,10 @@ class TestTeamsStep:
                             accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
         assert "run in session pat under ia and pat, and a herdr session runs under one account" in said
         assert said.endswith("Nothing was written.")
-        self.refused("the teams file crew drive set would write is refused", text=self.written(),
-                     accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
+        said = self.refused("the teams file crew drive set would write is refused", text=self.written(),
+                            accounts=[[r, "ia" if r == "planner" else "pat"] for r in crew.KIND_ROLES])
+        assert "run in session pat under ia and pat, and a herdr session runs under one account" in said
+        assert said.endswith(self.KEPT)
 
 
 class TestStateUnmade:
