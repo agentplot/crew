@@ -374,6 +374,25 @@ class TestCrewBoltsCrossed:
                                                                                            ("b", "waiting", None, None)]
         assert x["units"][1]["flume"] == {"stage": "waiting", "after": ["unit/a"]}
 
+    def test_crew_bolts_says_a_landing_the_runner_reports_and_writes_nothing(self, monkeypatch):
+        """bolt-teams "crew bolts reads it" (state.4): x's land posted, the runner's report has its base place landed at
+        a7c3e9f and no read has recorded it; crew bolts says x landed at that commit and writes and records nothing."""
+        import runner
+        from facts import crew_read, launched, madswan_fleet, ran
+        monkeypatch.setattr(plan, "write", lambda *a, **k: pytest.fail("crew bolts made a plan write"))
+        monkeypatch.setattr(plan.record, "emit", lambda *a, **k: pytest.fail("crew bolts recorded an entry"))
+        fleet = madswan_fleet()
+        p, requests = launched(["x"], work=[("a", "x", [], "unit", [])], fleet=fleet)
+        base = runner.launch_of(requests, "bolt/x").get("Request")
+        m = runner.next_request(requests)
+        requests = requests + [plan.Rec("Request", runner.request_fields(m, "land", "bolt/x", {"Of": base}, "2026-11-08T12:00:00Z",
+                                                                         "madswan-ops"))]
+        reads = ran({1: "landed", base: "flume-0.17.0/bolt-landed"}, unplaced={m: "-"})
+        d = plan.bolts_data(fleet, ["madswan"], [("madswan", "afterthought/crew-state", "abcdef1" + "0" * 33, p)],
+                            crew_read(bolts={"x": {}}), {}, None, runs={"madswan": (requests, reads)})
+        assert self.bolts(d)["x"]["landing"]["outcome"] == "landed"
+        assert "landed at a7c3e9f" in plan.bolts_text(d)
+
     def test_the_text_names_a_crossed_teams_stream_and_each_pieces_stage_and_place(self):
         """bolt-plan "A unit in code" and "A dependent waits"."""
         from facts import ran

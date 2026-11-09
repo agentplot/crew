@@ -108,7 +108,7 @@ crew SHALL read a started bolt's landing from its launch, the lands of it in `re
 - **THEN** `z`'s landing reads unknown, naming that runner, and is read as no other outcome
 
 ### Requirement: A landing is recorded by the first act that reads it in the runner's report
-The first crew act on any host to read a bolt whose landing's outcome is decided SHALL record it: the raise of its kit's landings card, `crew bolts`' plan write, `crew bolt land`, or any plan write that reads the bolt (`plan.21`). It SHALL write one `bolt.submit` entry with the outcome, the head, the merge queue's entry as `Submission` where Flume names one, and the words of a refusal or a stop. It SHALL record nothing while the landing is asked, submitted or unknown.
+The first act on any host to read a bolt whose landing is decided SHALL record it: its kit's card's raise, the follower's sweep, a kit's read, or `crew bolt land` (`plan.21`); `crew bolts`, a view, SHALL write nothing (`state.4`). It SHALL write one `bolt.submit`, decided at its write's tip, with the outcome, the head, Flume's entry as `Submission` where it names one, and a refusal's or stop's words; nothing while it is asked, submitted or unknown.
 
 #### Scenario: Nobody runs anything
 - **WHEN** a land of `z` is posted, no agent of the partition runs a command, and the runner's branch then carries `z`'s base place landed at `5d1a9e0`
@@ -116,7 +116,11 @@ The first crew act on any host to read a bolt whose landing's outcome is decided
 
 #### Scenario: Two reads at once
 - **WHEN** two reads of `z` find its base place landed, and the second's write is applied to a tip that holds the first's
-- **THEN** the run record holds one `bolt.submit` outcome and one `bolt.land` for `z`
+- **THEN** the run record holds one `bolt.submit` outcome and one `bolt.land` for `z`, the second read writing nothing and recording no refused close
+
+#### Scenario: crew bolts reads it
+- **WHEN** `crew bolts` runs while the runner's report has `z`'s base place landed and no read has recorded it
+- **THEN** `crew bolts` says `z` landed at Flume's commit and writes nothing, and the next raise of its kit's card or the follower's sweep records it
 
 #### Scenario: Still under test
 - **WHEN** a read finds `z`'s base place with its submission `#412` under test
