@@ -408,6 +408,10 @@ json.dump(sorted(tidied | set(sys.argv[2:])), open(t, "w"))' "$T/runner/$h/tidie
 }
 # landed_status <place> <commit>: Flume's status of a place whose work has landed at the commit, as runner_writes takes it
 landed_status() { printf '{"status":{"places":[{"place":"%s","phase":{"over":{"over":{"landed":{"commit":"%s"}}}},"current":"verify","stages":[]}]}}' "$1" "$2"; }
+# held_status <place> <commit>: flume 0.20.0's status of a place it tidied once its work landed at the commit, holding
+# its record for the runner, as runner_writes takes it: its entry <place>@<at>, its phase tidied over landed, pending
+# for boomdrive (tests/py/flume-0.20.0/README)
+held_status() { printf '{"status":{"places":[{"place":"%s@1794196571","phase":{"tidied":{"over":{"landed":{"commit":"%s"}},"at":1794196571,"pending_for":["boomdrive"]}},"current":"verify","stages":[]}]}}' "$1" "$2"; }
 # request_of <work>: the number of the newest launch of the work (unit/<u>, chore/<c>, fix/<bolt>/<name>, bolt/<bolt>)
 # in requests.rec
 request_of() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'launch' && Work = '$1'" -P Request | tail -1; }

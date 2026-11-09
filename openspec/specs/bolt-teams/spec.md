@@ -6,7 +6,7 @@ A bolt team builds one bolt at a time and holds at most one more that waits to l
 ## Requirements
 
 ### Requirement: A landing records the commit main holds
-The act that reads a started bolt's base place landed ("A landing is recorded by the first act that reads it in the runner's report") SHALL close the bolt in main-level ops's name by one `bolt.land` entry. The entry SHALL name the kit the bolt landed on and, as its `Head`, the commit Flume's status names the base place landed at, as the runner carries it. Its `Age` and `Split` SHALL be those the bolt's time gives from the run record, none read from sluice (`plan.20`). The close SHALL take the bolt and its work out of the plan and close its kit's landings card naming that commit and the fleet's timer. It SHALL delete no branch and remove no worktree. `crew bolt land` on a started bolt SHALL close it the same way, or at the landing its kit's main holds ("A bolt whose landing main holds closes whatever the runner carried of its places"). It SHALL be refused, recording nothing, while its base place does not read landed with its commit and its kit's main holds no landing of it, naming its landing as the runner's report has it.
+The act that reads a started bolt's base place landed ("A landing is recorded by the first act that reads it in the runner's report") SHALL close the bolt in main-level ops's name by one `bolt.land` entry. The entry SHALL name the kit the bolt landed on and, as its `Head`, the commit Flume's status names the base place landed at, as the runner carries it, the record Flume holds for the runner after it tidies the base place among them. Its `Age` and `Split` SHALL be those the bolt's time gives from the run record, none read from sluice (`plan.20`). The close SHALL take the bolt and its work out of the plan and close its kit's landings card naming that commit and the fleet's timer. It SHALL delete no branch and remove no worktree. `crew bolt land` on a started bolt SHALL close it the same way. It SHALL be refused, recording nothing, while its base place does not read landed with its commit, naming its landing as the runner's report has it. No landing commit on its kit's main SHALL be read for it.
 
 #### Scenario: The landing's commit
 - **WHEN** the runner carries the base place of switchboard-kit's bolt `y` over, landed at `9c1e4b7`, and the raise of switchboard-kit's landings card reads `y`
@@ -17,11 +17,19 @@ The act that reads a started bolt's base place landed ("A landing is recorded by
 - **THEN** its `Age` and `Split` are those its row shows from the run record, and no sluice history is read
 
 #### Scenario: Closed by hand before it landed
-- **WHEN** `crew bolt land y` runs while the runner carries `y`'s base place with its submission `#412` under test, and switchboard-kit's main holds no landing of `y`
+- **WHEN** `crew bolt land y` runs while the runner carries `y`'s base place with its submission `#412` under test
 - **THEN** it is refused, saying `y`'s landing is `#412` under test, and nothing is recorded
 
+#### Scenario: A base place held for the runner
+- **WHEN** Flume landed `z`'s base place on main at `4acecf0` and tidied it, holding its record for the runner, which carries it as the base place's status, GitHub has deleted `bolt/z`, and ops runs `crew bolt land z`
+- **THEN** `z` and its chore leave the plan, and the landing's entry names the kit and `4acecf0` in ops's name
+
+#### Scenario: A landing main holds that the runner does not report
+- **WHEN** `z`'s kit's main holds a landing naming `bolt/z` in its `Sluice-From`, the runner carries no status of `z`'s base place, and ops runs `crew bolt land z`
+- **THEN** it is refused, naming `z`'s landing as the runner's report has it, no kit is read, and nothing is recorded
+
 ### Requirement: A bolt's proof is its verification
-A bolt SHALL be proven by its verification alone: its head is the landing of its work, as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it"). Nobody SHALL deploy the bolt or work a list from its changes to prove it. Ops SHALL prove and deploy nothing. crew SHALL offer the bolt for landing, as its row on its kit's landings card, once every unit and chore of it has merged and its verification is green.
+A bolt SHALL be proven by its verification alone: its head is the landing of its work, as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it alone"). Nobody SHALL deploy the bolt or work a list from its changes to prove it. Ops SHALL prove and deploy nothing. crew SHALL offer the bolt for landing, as its row on its kit's landings card, once every unit and chore of it has merged and its verification is green.
 
 #### Scenario: Ready to land
 - **WHEN** every unit of a bolt has merged and `crew bolts` shows its verification green
@@ -507,7 +515,7 @@ Where the runner answered a bolt's drop refused, as Flume refuses it while a pla
 - **THEN** no plan write asks the drop again, and the first write after `x-1` has ended appends one
 
 ### Requirement: A bolt started before bolts were base places lands under the crew that started it
-crew SHALL read a started bolt with no launch of `bolt/<bolt>` in `requests.rec` as one whose branch sluice made before bolts were base places: `crew bolts` SHALL say it lands under the crew that started it, and its row SHALL have no box (rail-cards). No land SHALL be posted for it. A drop of it SHALL drop its pieces' launches still standing and ask nothing for its branch, which SHALL stay, named in the drop's words, the user's.
+crew SHALL read a started bolt with no launch of `bolt/<bolt>` in `requests.rec` as one whose branch sluice made before bolts were base places: `crew bolts` SHALL say it lands under the crew that started it, and its row SHALL have no box (rail-cards). No land SHALL be posted for it, and `crew bolt land` SHALL refuse it in those words, recording nothing and reading no landing commit on its kit's main. A drop of it SHALL drop its pieces' launches still standing and ask nothing for its branch, which SHALL stay, named in the drop's words, the user's.
 
 #### Scenario: crew bolts says so
 - **WHEN** started bolt `y` has its units' launches in `requests.rec` and no launch of `bolt/y`
@@ -516,6 +524,10 @@ crew SHALL read a started bolt with no launch of `bolt/<bolt>` in `requests.rec`
 #### Scenario: No land is posted
 - **WHEN** the raise of `y`'s kit's landings card reads a send that ticked `y`
 - **THEN** no land is posted for `y`
+
+#### Scenario: crew bolt land refuses it
+- **WHEN** ops runs `crew bolt land y`
+- **THEN** it is refused, saying `y` was started before bolts were base places and lands under the crew that started it, no kit is read, and nothing is recorded
 
 #### Scenario: A drop of it
 - **WHEN** the user approves dropping `y`, its unit `a`'s launch standing
@@ -661,17 +673,13 @@ A live landing fix of a bolt's base place SHALL be a fix in flight on the bolt: 
 - **WHEN** the runner answered `y`'s drop refused and `y-1` is live
 - **THEN** no plan write asks the drop again until `y-1` has ended
 
-### Requirement: A bolt whose landing main holds closes whatever the runner carried of its places
-`crew bolt land`, and the landing's read that closes a landed bolt, SHALL close a started bolt whose landing its kit's main holds once each of its units and chores reads landed through that landing ("A landed bolt's pieces are read from its landing"), whether or not its branch still stands and whatever the runner last carried of its places. A bolt with a piece that does not read landed SHALL be refused, naming that piece and its stage, and nothing is removed.
+### Requirement: A landed bolt closes on its pieces' ends as the runner reports them
+`crew bolt land`, and the landing's read that closes a landed bolt, SHALL close a started bolt once each of its units and chores reads merged, as the runner reports its place's end, at a commit its kit's main holds, its branch standing or not. No landing commit SHALL be read for it. A bolt with a piece that does not read so SHALL be refused, naming that piece and its stage, and nothing is removed.
 
 #### Scenario: A landed bolt whose branch and places are gone
-- **WHEN** `x` landed on main through `crew bolt submit`, GitHub has deleted `bolt/x`, deneb's runner carries no place of `x`'s work, its `repositories.rec` names the kit, and ops runs `crew bolt land x`
-- **THEN** `x` and its units leave the plan, and the landing's entry names the kit and the commit its main holds
+- **WHEN** `x` landed on main, GitHub has deleted `bolt/x`, Flume has tidied each of `x`'s places, and deneb's runner carries the record Flume holds for it of each, landed on `bolt/x` at a commit main holds
+- **THEN** each of `x`'s units reads merged at the commit its record names, and `x`'s close is refused for none of them
 
-#### Scenario: A base place the runner no longer carries
-- **WHEN** Flume landed `z`'s base place on main at `4acecf0`, its landing naming `bolt/z`, GitHub has deleted `bolt/z`, the runner carries no place of `z`'s work, so its report reads `z`'s land asked, and ops runs `crew bolt land z`
-- **THEN** `z` and its chore leave the plan, the landing's entry names the kit and `4acecf0` in ops's name, and no `bolt.submit` outcome is recorded
-
-#### Scenario: A piece its landing does not hold
-- **WHEN** main holds `x`'s landing, and `x`'s unit `b` is named by no landing on that landing's line, and the runner reads `b` at code
-- **THEN** `crew bolt land x` is refused, naming `b` and that it has not landed, and the plan is unchanged
+#### Scenario: A piece whose end the runner never carried
+- **WHEN** main holds `x`'s landing, the runner last carried `x`'s unit `b`'s place at submitted, Flume having tidied it holding no record for the runner, and a landing commit on `bolt/x` names `change/b` in its `Sluice-From`
+- **THEN** `x`'s close is refused, naming `b` and that it has not merged into `bolt/x`: it is submitted
