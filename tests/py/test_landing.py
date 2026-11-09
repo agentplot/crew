@@ -779,7 +779,7 @@ class TestCrewBoltLandOfAStartedBolt:
             self.land(monkeypatch, base_run("bolt-submitted", land=False, more={}))
 
     def test_a_bolt_started_before_bolts_were_base_places_is_refused(self, monkeypatch):
-        """bolt-teams "A bolt started before bolts were base places lands under the crew that started it": y has no launch
+        """bolt-teams "crew bolt land refuses it" (a bolt started before bolts were base places): y has no launch
         of its own, and crew bolt land refuses it in runner.legacy_said's words, reading no kit (no_kit), so no landing
         on its kit's main closes it here."""
         import runner
@@ -789,7 +789,7 @@ class TestCrewBoltLandOfAStartedBolt:
         assert str(e.value) == f"{runner.legacy_said('y')}, so crew bolt land closes nothing of it here" and self.written == []
 
     def test_a_base_place_held_for_the_runner_landed_closes_at_flumes_commit(self, monkeypatch):
-        """bolt-teams "A landing records the commit main holds": Flume landed y's base place and tidied it, holding its
+        """bolt-teams "A base place held for the runner": Flume landed y's base place and tidied it, holding its
         record for the runner, flume 0.20.0's tidied phase, which the runner carries as its status; GitHub deleted
         bolt/y. crew bolt land closes y at the record's commit, as the runner reports it."""
         from facts import ran
@@ -803,9 +803,11 @@ class TestCrewBoltLandOfAStartedBolt:
         assert "y has landed at crew's a7c3e9f, as the runner reports it" in out.getvalue()
 
     def test_a_base_place_the_runner_no_longer_carries_is_refused_whatever_main_holds(self, monkeypatch):
-        """bolt-teams "Closed by hand before it landed", the runner carrying no place of y's base place, which a place
-        tidied before its host's runner carried its end leaves: crew bolt land reads its landing as the runner reports
-        it alone, asked, and is refused, recording nothing, reading no kit (no_kit), so no landing on main closes it."""
+        """bolt-teams "A landing main holds that the runner does not report": the runner carries no status of y's base
+        place, as a place tidied before its host's runner carried its end leaves it, so crew bolt land reads its landing
+        as the runner reports it alone, asked, and is refused, recording nothing and reading no kit (no_kit), so no
+        landing on its kit's main closes it."""
         with pytest.raises(plan.Refusal) as e:
             self.land(monkeypatch, base_run(None, more={1: "/flume/places/bolt--y"}))
-        assert str(e.value).startswith("bolt y has not landed, so crew bolt land closes nothing of it: ") and self.written == []
+        assert str(e.value) == "bolt y has not landed, so crew bolt land closes nothing of it: landing asked, request 2"
+        assert self.written == []

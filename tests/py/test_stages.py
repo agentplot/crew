@@ -205,8 +205,8 @@ class TestEndsHeldForTheRunner:
 
     def test_a_head_held_for_the_runner_reads_green_and_one_only_a_landing_commit_names_reads_none(self):
         """merge-gate "A landing held for the runner": every piece of x carried landed and held for the runner at its
-        commit, x's head the last, reads green naming the head as the runner reports it; and "A landing read from the
-        bolt's own landings": b last carried at submitted, with x's facts giving a landing commit naming change/b at the
+        commit, x's head the last, reads green naming the head as the runner reports it; and "A head only a landing
+        commit names": b last carried at submitted, with x's facts giving a landing commit naming change/b at the
         head, reads none, so x is not offered for landing."""
         from facts import ran
         st = self.stages(ran({n: "flume-0.20.0/landed-held" for n in (1, 2, 3)}), bolt={"head": HELD_AT})

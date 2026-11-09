@@ -1080,7 +1080,7 @@ class TestBasePlaceFixes:
 
 class TestVerification:
     """A bolt's verification is its work's landing at its head, as the runner reports it (merge-gate "A bolt's
-    verification is its work's landing at its head, as the runner reports it"; runner.verification): green once some
+    verification is its work's landing at its head, as the runner reports it alone"; runner.verification): green once some
     unit, chore or fix of it reads merged or landed at the head's commit, none for any other head, unknown with no
     head."""
 
