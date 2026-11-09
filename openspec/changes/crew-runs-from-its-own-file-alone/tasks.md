@@ -29,7 +29,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 ## 4. The end-to-end tests
 
 - [x] 4.1 The end-to-end tests write no hosts file. Each simulated host's teams file gives `hosts`, each drive's `folder`, `repos` and `accounts`, and that host's `consoles`. `t-teams` proves a file loading with a hosts file read for nothing, and refusing a dropped blueprints repo and a missing `folder` (design, Decisions 1 to 6; Task notes 4.1). Verify `tests/suite t-teams` ends with "0 failed".
-- [ ] 4.2 `t-journey-board` passes with the new fixture, its subscriptions unchanged (Task notes 4.2–4.23). Verify `tests/suite t-journey-board` ends with "0 failed".
+- [x] 4.2 `t-journey-board` passes with the new fixture, its subscriptions unchanged (Task notes 4.2–4.23). Verify `tests/suite t-journey-board` ends with "0 failed".
 - [ ] 4.3 `t-journey-review` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-review` ends with "0 failed".
 - [ ] 4.4 `t-journey-plan` passes with the new fixture, its hosts-file edit made in the teams file (Task notes 4.2–4.23). Verify `tests/suite t-journey-plan` ends with "0 failed".
 - [ ] 4.5 `t-hold` passes with the new fixture, `crew go` opening the consoles `consoles` names (Task notes 4.2–4.23). Verify `tests/suite t-hold` ends with "0 failed".
