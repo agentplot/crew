@@ -23,7 +23,9 @@ FLUME_PLACES = "its work runs in Flume's places, whose servers crew does not sho
 
 
 def url_of(fleet, here, host, site, routes):
-    """(url, note) for a worktree's server, or (None, why) when there is none to open from here."""
+    """(url, note) for a worktree's server, or (None, why) when there is none to open from here. Whether here is a
+    Mac, which can open another host's dev.swancloud.net name, is read from the teams file's `hosts` (crew.is_mac);
+    where the file names no such host, crew says it can't tell (read.1)."""
     if routes is None:
         return None, "portless did not answer"
     name = (site.get("here") or "").split("://", 1)[-1].rsplit(".", 1)[0] if site.get("here") else None
@@ -35,7 +37,9 @@ def url_of(fleet, here, host, site, routes):
     if host == here:
         return running["url"], None
     if site.get("tailnet"):
-        return site["tailnet"], None if fleet["hosts"].get(here, {}).get("kind") == "darwin" else "open from a Mac"
+        mac = crew.is_mac(fleet, here)
+        return site["tailnet"], (None if mac else "open from a Mac" if mac is False else
+                                 f"open from a Mac: the teams file's hosts name no {here}, so crew can't tell whether it is one")
     return None, f"running, but {host} does not publish its dev servers"
 
 

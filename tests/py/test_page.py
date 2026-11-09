@@ -218,7 +218,7 @@ class TestMade:
 
 
 class TestSites:
-    FLEET = {"hosts": {"mac-studio": {"kind": "darwin"}, "chuck-herdr-alpha": {"kind": "nixos"}}}
+    FLEET = {"hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}, "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}}}
     SITE = {"here": "https://unit-a--kit.local", "tailnet": "https://unit-a--kit--studio.dev.swancloud.net"}
     ROUTES = [{"name": "unit-a--kit", "url": "https://unit-a--kit.local"}]
 
@@ -228,6 +228,12 @@ class TestSites:
     def test_another_hosts_opens_by_its_tailnet_name_from_a_mac_only(self):
         assert sites.url_of(self.FLEET, "mac-studio", "chuck-herdr-alpha", self.SITE, self.ROUTES) == (self.SITE["tailnet"], None)
         assert sites.url_of(self.FLEET, "chuck-herdr-alpha", "mac-studio", self.SITE, self.ROUTES) == (self.SITE["tailnet"], "open from a Mac")
+
+    def test_where_the_teams_file_names_no_such_host_crew_says_it_cant_tell(self):
+        """read.1: the kind of the host crew runs on is read from the teams file's `hosts`, and a host it does not name is
+        neither a Mac nor not one."""
+        assert sites.url_of(self.FLEET, "macbook-pro", "mac-studio", self.SITE, self.ROUTES) == (
+            self.SITE["tailnet"], "open from a Mac: the teams file's hosts name no macbook-pro, so crew can't tell whether it is one")
 
     def test_none_where_none_runs_or_is_published(self):
         assert sites.url_of(self.FLEET, "mac-studio", "mac-studio", self.SITE, []) == (None, None)
