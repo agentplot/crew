@@ -375,11 +375,48 @@ for kit, (folder, _) in sorted(keeps.items()):
 for name, text in files.items():
     open(os.path.join(d, f"{name}.rec"), "w").write(text)
 EOF
-  tree=$(for f in runner answers places repositories; do printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"; done |
-    git --git-dir "$ws" mktree)
+  runner_commit "$h"
+}
+# runner_commit <host>: wldn/runner/<host> moved to a commit of the runner's files as $T/runner/<host> holds them, its
+# previews.rec among them once runner_previews has written one
+runner_commit() {
+  local h=$1 d=$T/runner/$1 tree parent f
+  tree=$(for f in runner answers places repositories previews; do
+      [[ $f != previews || -e $d/$f.rec ]] || continue
+      printf '100644 blob %s\t%s.rec\n' "$(git --git-dir "$ws" hash-object -w "$d/$f.rec")" "$f"
+    done | git --git-dir "$ws" mktree)
   parent=$(git --git-dir "$ws" rev-parse -q --verify "refs/heads/wldn/runner/$h") || parent=
   git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$h" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \
     commit-tree "$tree" ${parent:+-p "$parent"} -m "runner: $h")"
+}
+# runner_previews <host> <request> <outcome> [<text JSON> [<status JSON> <listed>]] [<words>]: the runner on <host>
+# answering preview request <request> in its previews.rec on wldn/runner/<host>, as Boomdrive's runner writes it
+# (runner.PREVIEWS): done with sluice's answer (text) and, once it lists it, its listing (status) and whether its last
+# listing held it (listed, yes or no); held or refused with the runner's words. Each call adds the request's record or
+# replaces it, beside those an earlier call named, and moves the branch as runner_writes does (runner_commit).
+runner_previews() {
+  local h=$1 d=$T/runner/$1; shift
+  [[ -e $d/runner.rec ]] || runner_writes "$h"
+  python3 - "$CREW/plugin/lib" "$d" "$@" <<'EOF'
+import json, os, sys
+sys.path.insert(0, sys.argv[1])
+import runner
+d, n, outcome, rest = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:]
+f = os.path.join(d, "previews.json")
+kept = json.load(open(f)) if os.path.exists(f) else {}
+rec = {"Request": n, "Outcome": outcome}
+if outcome == "done":
+    for field, v in zip(("Text", "Status", "Listed"), rest):
+        rec[field] = json.dumps(json.loads(v)) if field != "Listed" else v
+elif rest:
+    rec["Words"] = rest[0]
+rec["At"] = "2026-10-31T12:05:00Z"
+kept[n] = rec
+json.dump(kept, open(f, "w"))
+open(os.path.join(d, "previews.rec"), "w").write(runner.PREVIEWS + "".join(
+    "\n" + "".join(f"{k}: {v}\n" for k, v in r.items()) for _, r in sorted(kept.items(), key=lambda x: int(x[0]))))
+EOF
+  runner_commit "$h"
 }
 # runner_tidies <host> <request>...: wldn/runner/<host> rewritten as its runner writes it once Flume has tidied those
 # requests' places: each request's answer kept, launched at its place, and its place dropped from places.rec, as deneb's

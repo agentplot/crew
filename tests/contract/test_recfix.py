@@ -145,27 +145,57 @@ def requests_text(*recs):
     return runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in recs)
 
 
-def test_requests_of_every_act_pass_and_the_descriptor_refuses_what_it_does_not_allow():
+def test_requests_of_every_act_a_preview_and_its_done_among_them_pass_and_the_descriptor_refuses_what_it_does_not_allow():
     """plan.request appends each act's request to requests.rec, and land checks the file by recfix with the plan write
     (runner.REQUESTS; Decision 4 of teams-cross-to-flume-as-their-bolts-land, plan.1): a launch with its brief over two
-    lines and its After, a retry with a stage and words, a retry of the submission, a drop, a priority and a role's chore
-    launch on main at priority 0 (runner.role_launch; Decision 10 of roles-run-as-flume-kinds) pass; an act, a kind or a
-    hold the enums do not hold, a number that is no number and a date that is none are refused."""
+    lines and its After, a retry with a stage and words, a retry of the submission, a drop, a priority, a role's chore
+    launch on main at priority 0 (runner.role_launch; Decision 10 of roles-run-as-flume-kinds), and a preview and its
+    done as runner.preview_fields gives them (Decision 1 of a-cards-preview-is-asked-of-the-runner) pass; an act, a
+    kind or a hold the enums do not hold, a done that is no flag, a number that is no number and a date that is none are
+    refused."""
     other = lambda n, act, **g: plan.Rec("Request", runner.request_fields(n, act, "unit/a", g, "2026-10-31T12:00:00Z", "madswan-planner"))
     (_, work, given), _ = runner.role_launch([], {"afterthought/crew"}, "madswan", "design", "deneb", "madswan-main", "afterthought/crew",
                                              "record-0053", "Write docs/adr/0053.md whole:\n# 53. Roles run as kinds")
     role_land = plan.Rec("Request", runner.request_fields(7, "launch", work, given, "2026-10-31T12:00:00Z", "madswan-design"))
+    preview = lambda n, done: plan.Rec("Request", runner.request_fields(
+        n, "preview", "bolt/y", runner.preview_fields("deneb", "afterthought/crew", "bolt/y", "abc1234" + "0" * 33, done),
+        "2026-10-31T12:00:00Z", "madswan-ops"))
     text = requests_text(launch_rec(1, "unit/a"), launch_rec(2, "unit/b", after=[1]), other(3, "retry", Of=1, Stage="construct", Words="Read it again."),
-                         other(4, "retry", Of=1, Submission=True), other(5, "drop", Of=2), other(6, "priority", Of=1, Priority=5), role_land)
+                         other(4, "retry", Of=1, Submission=True), other(5, "drop", Of=2), other(6, "priority", Of=1, Priority=5), role_land,
+                         preview(8, False), preview(9, True))
     plan.checked({"requests.rec": text})
-    assert [r.get("Act") for r in plan.Plan(text).recs("Request")] == ["launch", "launch", "retry", "retry", "drop", "priority", "launch"]
-    assert [(r.get("Work"), r.get("Kind"), r.get("Base"), r.get("Priority")) for r in plan.Plan(text).recs("Request")][-1] == (
+    assert [r.get("Act") for r in plan.Plan(text).recs("Request")] == [
+        "launch", "launch", "retry", "retry", "drop", "priority", "launch", "preview", "preview"]
+    assert [(r.get("Work"), r.get("Kind"), r.get("Base"), r.get("Priority")) for r in plan.Plan(text).recs("Request")][6] == (
         "role/design/record-0053", "chore", "main", "0")
+    assert [(r.get("Host"), r.get("Branch"), r.get("Done")) for r in plan.Plan(text).recs("Request")][7:] == [
+        ("deneb", "bolt/y", None), ("deneb", "bolt/y", "yes")]
     assert plan.Plan(text).recs("Request")[0].get("Brief") == "Build a.\nSource: a.md"
     for right, wrong in (("Act: priority", "Act: reorder"), ("Kind: change", "Kind: spike"), ("Submission: yes", "Submission: maybe"),
-                         ("Request: 6", "Request: six"), ("Date: 2026-10-31T12:00:00Z", "Date: soon"), ("Of: 2", "Of: 2\nTeam: crw-4")):
+                         ("Request: 6", "Request: six"), ("Date: 2026-10-31T12:00:00Z", "Date: soon"), ("Of: 2", "Of: 2\nTeam: crw-4"),
+                         ("Done: yes", "Done: maybe")):
         with pytest.raises(Refusal, match="^requests.rec fails recfix --check"):
             plan.checked({"requests.rec": text.replace(right + "\n", wrong + "\n", 1)})
+
+
+def test_a_runners_previews_file_passes_by_its_descriptor_and_an_outcome_it_does_not_allow_is_refused():
+    """previews.rec as Boomdrive's runner writes it on <label>/runner/<host> (runner.PREVIEWS, held byte for byte;
+    Decision 3 of a-cards-preview-is-asked-of-the-runner): a Preview of each outcome, sluice's answer (Text) and listing
+    (Status) each JSON on one line, pass recfix --check; an Outcome the enum does not hold is refused."""
+    up = json.dumps({"name": "crew-y", "branch": "bolt/y", "revision": "abc1234", "state": "up", "made": "2026-11-08T12:02:00Z",
+                     "addresses": {"web": "http://deneb:4310"}})
+    text = (runner.PREVIEWS
+            + "\nRequest: 8\nOutcome: held\nWords: sluice is at its bound of previews\nAt: 2026-11-08T12:01:00Z\n"
+            + f"\nRequest: 9\nOutcome: done\nText: {up}\nStatus: {up}\nListed: yes\nAt: 2026-11-08T12:02:00Z\n"
+            + "\nRequest: 10\nOutcome: refused\nWords: no [preview] in .config/sluice.toml at abc1234\nAt: 2026-11-08T12:03:00Z\n"
+            + f"\nRequest: 11\nOutcome: done\nText: {up}\nListed: no\nAt: 2026-11-08T12:04:00Z\n")
+    plan.checked({"previews.rec": text})
+    r = runner.host_read("madswan", "deneb", "5e1f0c2a" + "0" * 32, {
+        "runner.rec": plan.Plan(runner.RUNNER + "\nHost: deneb\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+        "previews.rec": plan.Plan(text)}, {})
+    assert (r["why"], sorted(r["previews"]), r["previews"][9]["status"]["state"]) == (None, [8, 9, 10, 11], "up")
+    with pytest.raises(Refusal, match="^previews.rec fails recfix --check"):
+        plan.checked({"previews.rec": text.replace("Outcome: held", "Outcome: up")})
 
 
 def test_a_runners_branch_files_pass_by_their_descriptors_and_an_outcome_they_do_not_allow_is_refused():
