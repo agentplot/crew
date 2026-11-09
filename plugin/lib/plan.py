@@ -9623,7 +9623,7 @@ def forwarded(fleet, machine):
     command there as the one asking, and stops, having touched nothing."""
     if machine == crew.this_host():
         return
-    said = sh(MACHINE=machine, SSH_TARGET=fleet["hosts"][machine]["ssh"], **crew.reach(fleet, machine))
+    said = sh(MACHINE=machine, SSH_TARGET=crew.ssh_of(fleet, machine), **crew.reach(fleet, machine))
     try:
         os.write(3, (said + "\n").encode())
     except OSError:
@@ -11153,7 +11153,7 @@ def reading_command(fleet, label, bolt, sha, unit, archived=False):
     ran (batch_unit_at); a started unit's change archived at the commit of its bolt that holds it (archived; Decision 13
     of teams-cross-to-flume-as-their-bolts-land), its folder found under the archive first."""
     t, here = batch_unit_at(fleet, label, bolt, unit), fleet["drives"][label]["machine"]
-    pre = "" if t["machine"] == here else f"ssh -o BatchMode=yes {fleet['hosts'].get(t['machine'], {}).get('ssh') or t['machine']} "
+    pre = "" if t["machine"] == here else f"ssh -o BatchMode=yes {crew.ssh_of(fleet, t['machine'])} "
     folder = f"openspec/changes/{unit}/"
     if archived:
         folder = "<folder>/"
@@ -11522,10 +11522,11 @@ def age(at, now):
 
 def opener(fleet, host, here, path):
     """The command that opens a file or folder on a host in plannotator: beside the rail when the host is the one it
-    runs on, else inline over ssh, quoted again for the shell on the other end."""
+    runs on, else inline over ssh by the name the teams file's `hosts` gives the host (crew.ssh_of), quoted again for
+    the shell on the other end; a path relative to the home ssh starts in there opens the file under that home."""
     if host == here:
         return f"plannotator-tui herdr open {shlex.quote(path)}"
-    return f"ssh -t {fleet['hosts'][host]['ssh']} plannotator-tui {shlex.quote(shlex.quote(path))}"
+    return f"ssh -t {crew.ssh_of(fleet, host)} plannotator-tui {shlex.quote(shlex.quote(path))}"
 
 
 # How far back the rail reads the run record for the cards still open.

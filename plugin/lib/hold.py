@@ -481,7 +481,7 @@ def fan(fleet, hosts, *argv):
     procs = []
     for host in hosts:
         argv_ = crew.crew_argv(fleet, host, *argv)
-        cmd = argv_ if host == crew.this_host() else ["ssh", "-o", "BatchMode=yes", fleet["hosts"][host]["ssh"], shlex.join(argv_)]
+        cmd = argv_ if host == crew.this_host() else ["ssh", "-o", "BatchMode=yes", crew.ssh_of(fleet, host), shlex.join(argv_)]
         procs.append((host, subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)))
 
     def relay(host, proc):
