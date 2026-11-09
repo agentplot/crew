@@ -1161,14 +1161,19 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
 def base_drops(w):
     """A plan write's own ask again of each base place whose drop the runner refused, once no piece of its bolt is live
     (runner.base_drop_due; crew-lands-each-bolt-through-flumes-base-place, Decision 8), appended in the write's commit;
-    nothing on a branch with no requests.rec, and nothing where its runners can't be read (read.1)."""
+    nothing on a branch with no requests.rec, the runners read only where a bolt gone from the plan has a drop of its
+    launch asked (runner.base_drop_asked), so a write that drops no bolt reads none, and nothing where its runners can't
+    be read (read.1)."""
     if w.text("requests.rec") is None:
+        return
+    requests = requests_of(w).recs("Request")
+    if not runner.base_drop_asked(w.plan, requests):
         return
     try:
         reads = w.runners()
     except Refusal:
         return
-    for act, work, given in runner.base_drop_due(w.plan, requests_of(w).recs("Request"), reads):
+    for act, work, given in runner.base_drop_due(w.plan, requests, reads):
         request(w, act, work, **given)
 
 
@@ -2171,16 +2176,6 @@ MAINS = FETCH + r"""if git remote get-url origin >/dev/null 2>&1; then
 else echo ORIGIN=no; fi
 echo "GITHUB=$(git rev-parse --verify -q 'refs/remotes/origin/main^{commit}' || echo -)"
 echo "OWN=$(git rev-parse --verify -q 'refs/heads/main^{commit}' || echo -)"
-"""
-
-# What a kit's main holds of its policy, on its host: its mains (MAINS), and the policy file at each, AT_GITHUB and
-# AT_OWN, base64 or - when that main has none, read from main's commit, not the main checkout's files, as sluice reads
-# a branch's policy; kit.policy_said takes the one at main now (kit.bolt_checks).
-POLICY = r"""main=$1 file=$2
-cd "$main" || exit 1
-""" + MAINS + r"""at() { if text=$(git show "$1:$file" 2>/dev/null); then printf '%s\n' "$text" | base64 | tr -d '\n'; else printf -; fi; }
-echo "AT_GITHUB=$(at refs/remotes/origin/main)"
-echo "AT_OWN=$(at refs/heads/main)"
 """
 
 # What a kit's main checkout holds of its mains, on its host (MAINS), for the commit its main is at now, which a
@@ -3949,7 +3944,7 @@ def landing_spent(entries, plan_, b, label, kit_name, now):
     """A started bolt's Age and Split for its bolt.land (plan.20), from the run record alone, as the views' bolt_time
     gives them (crew-lands-each-bolt-through-flumes-base-place, Decision 7): from its newest bolt.start, or an older
     crew's bolt.give, to now, no sluice history being read; {} when crew can't tell them, the landing going on."""
-    tm = time_at(bolt_facts(entries, plan_, b.name(), label, None, kit_name, ([], None), ([], None)), now)
+    tm = time_at(bolt_facts(entries, plan_, b.name(), label, None, kit_name), now)
     if "unknown" in tm:
         return {}
     return {"Age": str(tm["age"]), "Split": ", ".join(f"{h.replace('_', '-')} {tm['shares'][h]}" for h in HOLDERS)}
@@ -4678,7 +4673,14 @@ def op_bolt_order(ctx, a):
 
 
 def op_bolt_drop(ctx, a):
+    """crew bolt drop <bolt> <reason> [--requeue]: the bolt out of the plan with its units and chores, or with them
+    queued (bolt-plan "A bolt is created and dropped through crew"); for a started bolt, the drop's own commit drops
+    each launch of its work still standing and then its base place's (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 8). It asks nothing of any host: Flume tidies the base place and sluice ends its branch, and what its units
+    recorded as made on this host is removed here (made_drop). A bolt started before bolts were base places has no base
+    place to drop, and the drop says its branch stays, the user's (Decision 9)."""
     label, plan = ctx.locate("Bolt", a.bolt)
+    seen = {}
 
     def change(w):
         b = w.bolt(a.bolt)
@@ -4697,25 +4699,27 @@ def op_bolt_drop(ctx, a):
             base = runner.launch_of(requests_of(w).recs("Request"), f"bolt/{a.bolt}")
             if base is not None:
                 request(w, "drop", f"bolt/{a.bolt}", Of=base.get("Request"))
+            seen["legacy"] = not any(r.get("Act") == "launch" and r.get("Work") == f"bolt/{a.bolt}"
+                                     for r in requests_of(w).recs("Request"))
         return [a.bolt]
 
     gone = [] if a.requeue else [u.name() for u in plan.work_of(a.bolt)]
 
-    def after(repo, sha):  # what its units made swept where its work ran; its branch is Flume's tidy's and sluice's (Decision 8)
-        t, _ = drop_at(ctx.fleet, label, plan.bolt(a.bolt))
-        if t and gone:
-            sweep_on(ctx.fleet, t, f"bolt {a.bolt}", units=gone)
+    def after(repo, sha):  # asks nothing of any host (bolt-plan "The drop's host does not answer"; Decision 8)
+        dropped = made_drop(label, gone)
+        if dropped:
+            print(dropped)
+        if seen.get("legacy"):
+            print(legacy_drop_said(a.bolt))
     return Op(label, change, f"plan({a.bolt}): drop the bolt" + (", its units queued" if a.requeue else ""), "bolt.drop",
               on=[f"bolt/{a.bolt}"], body=a.reason, after=after)
 
 
-def drop_at(fleet, label, b):
-    """Where what a dropped bolt's units made is swept (sweep_on), as (where, None): where its work runs as the runner
-    that took it reported (known_at); (None, None) for a bolt never started, or one no runner has reported taking work
-    of. Its branch is Flume's tidy's and sluice's (crew-lands-each-bolt-through-flumes-base-place, Decision 8)."""
-    if not started(b):
-        return None, None
-    return known_at(fleet, label, b), None
+def legacy_drop_said(bolt):
+    """What the drop of a bolt started before bolts were base places says of its branch (bolt-teams "A bolt started
+    before bolts were base places lands under the crew that started it", Decision 9)."""
+    return (f"bolt/{bolt} stays: {bolt} was started before bolts were base places, so it has no base place and crew asks "
+            "nothing for its branch, which is the user's to keep or delete")
 
 
 def op_unit_add(ctx, a):
@@ -5682,6 +5686,7 @@ def check_ops(fleet, label, w, argvs, n, seen=Proposed):
     card draws (seen=Drawn, which reads no kit) and nothing writes."""
     scratch = Write(w.repo, label, w.tip, Plan(w.plan.text()))
     scratch.files = dict(w.files)
+    scratch.runners = w.runners  # the runners as the write read them, so a start's check reads them no other way
     for a in argvs:
         try:
             OPS[(a.cmd, a.sub)](seen(fleet, label, scratch, n), a).change(scratch)
@@ -8372,32 +8377,26 @@ def bolt_time(start, end, stages, submissions, cards, holds):
     return {"age": age, "shares": shares, "now": {"holder": holder, "what": what, "since": since}}
 
 
-def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided, unread=None):
+def bolt_facts(entries, plan, bolt, label, host, kit_name, unread=None):
     """What a started bolt's time is split from (bolt_time), read from what crew already keeps, a decision of facts alone
-    (code.7): the partition's run record (entries, oldest first, read from its branch, read.5) and sluice's submissions
-    of the kit, those standing (submissions, (list, why)) and those decided (decided, (list, why)): none from the views,
-    which held_time hands ([], None) for both, since the runner's report carries no time of a submission, and at a
-    landing sluice's record of the bolt's submissions read once (landing_split), crew's own landing's. The start
-    is the run record's newest entry not refused that made the bolt's branch, bolt.start or an older crew's bolt.give
-    (the-team-machinery-leaves Decision 11). Its stages are each stage.start of a unit or chore of the bolt's, and each
-    fix.start and fix.merge of a fix of it, fix/<bolt>/<f>, not refused, to the next stage.end naming the same stage and
-    agent, or running yet, a merge told by its stage/<u>/merge or by fix.merge, each with its work, the unit's, chore's
-    or fix's branch. Its submissions are those submission_rows gives the bolt's lines and its landing, a merge into
-    bolt/<bolt> from a unit's, chore's or fix's branch of it and a landing on main from bolt/<bolt>, a pull request
-    opened from it, or whose number the Submission of a queued bolt.submit of the bolt names, since a landing's events
-    name its pull request alone, each with the branch it came from (worktree), the standing read standing over the
-    decided of the same number; a decided one with no submit, decided before the follower saw it, places no minute and is
-    left out. Its cards are each card posted and neither answered nor closed yet, a card lost to its owner and posted
-    again under its key counting as one, each from its post to the user's answer on it (card.answer) or its close,
-    whichever comes first, that is the bolt's: under land/<bolt>; a batch's holding a unit of it; a proposal's whose
-    plan.propose names the bolt or its work, or one of its chain does; its kit's landings card, land/<kit>, while its
-    last post or change names the bolt among its rows, from the later of that entry and the end of its last merge
-    (landings_spans); or one whose post names the bolt or its work, a question among them, and no question that names
-    neither (design Decision 8). Its holds are those of the host its work runs on,
-    each host.hold to its host.go, what for being who held the host (the one hold crew records, the design's Decision
-    4). Returns {start, stages, submissions, cards, holds} as bolt_time takes them, or {unknown: why} when the start or
-    the run record can't be read, and {unknown: why, start} when the start is read and the submissions are not, or one
-    gives no time it was submitted or decided, so no share is guessed (read.1)."""
+    (code.7): the partition's run record (entries, oldest first, read from its branch, read.5), and no submission of
+    sluice's, since the runner's report carries no time of one (crew record 0056 points 1 and 4; plan.20 as
+    crew-calls-no-tool-but-its-runner's Decision 5 and crew-lands-each-bolt-through-flumes-base-place's Decision 7 read
+    it), so no minute is placed by a submission, a landing's among them. The start is the run record's newest entry not
+    refused that made the bolt's branch, bolt.start or an older crew's bolt.give (the-team-machinery-leaves Decision
+    11). Its stages are each stage.start of a unit or chore of the bolt's, and each fix.start and fix.merge of a fix of
+    it, fix/<bolt>/<f>, not refused, to the next stage.end naming the same stage and agent, or running yet, a merge told
+    by its stage/<u>/merge or by fix.merge, each with its work, the unit's, chore's or fix's branch. Its cards are each
+    card posted and neither answered nor closed yet, a card lost to its owner and posted again under its key counting
+    as one, each from its post to the user's answer on it (card.answer) or its close, whichever comes first, that is
+    the bolt's: under land/<bolt>; a batch's holding a unit of it; a proposal's whose plan.propose names the bolt or its
+    work, or one of its chain does; its kit's landings card, land/<kit>, while its last post or change names the bolt
+    among its rows, from the later of that entry and the end of its last merge (landings_spans); or one whose post
+    names the bolt or its work, a question among them, and no question that names neither (design Decision 8). Its
+    holds are those of the host its work runs on, each host.hold to its host.go, what for being who held the host (the
+    one hold crew records, the design's Decision 4). Returns {start, stages, submissions, cards, holds} as bolt_time
+    takes them, submissions always none, or {unknown: why} when the start or the run record can't be read, so no share
+    is guessed (read.1)."""
     if unread:
         return {"unknown": "its age can't be told: " + "; ".join(f"{k} could not be read ({v})" for k, v in unread.items())}
     give = next((e for e in reversed(entries) if e.get("Act") in ("bolt.start", "bolt.give") and not e.get("Refused")
@@ -8442,8 +8441,6 @@ def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided,
         stages.append({"start": utc(e["At"]), "end": utc(entries[later[j]]["At"]) if j < len(later) else None, "merge": merge, "what": what,
                        "work": branch})
     last_merge = max((s["end"] for s in stages if s["merge"] and s["end"]), default=None)
-
-    gate = {}  # no submission's time is read: the runner's report carries none (plan.20)
 
     chain, named = {}, set()
 
@@ -8516,7 +8513,7 @@ def bolt_facts(entries, plan, bolt, label, host, kit_name, submissions, decided,
             elif e.get("Act") == "host.go" and held is not None:
                 holds.append(dict(held, until=utc(e["At"])))
                 held = None
-    return {"start": start, "stages": stages, "submissions": list(gate.values()), "cards": cards_,
+    return {"start": start, "stages": stages, "submissions": [], "cards": cards_,
             "holds": holds + ([dict(held, until=None)] if held else [])}
 
 
@@ -8579,14 +8576,12 @@ def time_said(tm, now):
 def held_time(fleet, entries, unread, plan_, b, k, now):
     """A started bolt's time to now, as its rows carry it (plan.20): bolt_time's split of bolt_facts' facts, read from the
     partition's run record (entries, oldest first, and unread, its branches that could not be read) and its kit as the
-    gather or the host's follower last read it (k, Stages.kit's), for where its work runs and its name; handed no
-    submissions, standing or decided, since the runner's report carries no time of one, so no minute is placed by a
-    submission (crew record 0056 points 1 and 4; departs from plan.20, as the change crew-calls-no-tool-but-its-runner's
-    Decision 5 says); since as ISO 8601, so the board's JSON carries it, and the words its lines end with (time_said). The board and the rail each call it at the time they draw, from the same read, so
+    gather or the host's follower last read it (k, Stages.kit's), for where its work runs and its name; no minute is
+    placed by a submission, since the runner's report carries no time of one (bolt_facts); since as ISO 8601, so the board's JSON carries it, and the words its lines end with (time_said). The board and the rail each call it at the time they draw, from the same read, so
     the two never differ for one bolt and a redraw from a kept read ages it reading nothing."""
     t = (k or {}).get("at") or {}  # where its work runs (Stages.kit)
     facts = bolt_facts(entries, plan_, b.name(), t.get("label"), t.get("machine"), b.get("Repo") or ((k or {}).get("kit") or {}).get("name"),
-                       ([], None), ([], None), unread)
+                       unread)
     tm = time_at(facts, now)
     if "now" in tm:
         tm = dict(tm, now=dict(tm["now"], since=tm["now"]["since"].astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))

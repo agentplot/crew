@@ -494,13 +494,15 @@ class TestDropOfAStartedBolt:
         assert [(r.get("Act"), r.get("Work"), r.get("Of")) for r in rs[2:]] == [("drop", "unit/a-console-page", "2"),
                                                                                  ("drop", "bolt/console-pages", "1")]
 
-    def test_after_it_no_branch_is_asked_of_anyone(self, monkeypatch):
+    def test_after_it_nothing_is_asked_of_any_host(self, monkeypatch, capsys):
+        """bolt-plan "The drop's host does not answer": what follows the drop's write reaches no host, and says nothing
+        of the branch of a bolt with a base place, which Flume tidies."""
         import crew
-        swept = []
+        monkeypatch.setenv("CREW_AGENT", "chuck")
         monkeypatch.setattr(crew, "on_machine", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
-        monkeypatch.setattr(plan, "drop_at", lambda fleet, label, b: ({"machine": "box", "label": "wldn", "kit": {"name": KIT}}, None))
-        monkeypatch.setattr(plan, "sweep_on", lambda fleet, t, what, landed=None, units=(), **k: swept.append((what, landed, list(units), k)))
+        monkeypatch.setattr(plan, "host_run", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
         w = self.started()
         op = plan.op_bolt_drop(known(w), plan.do_args("wldn", 'bolt drop console-pages "Not now."'))
+        op.change(w)
         op.after("WilldanGroup/crew-state", "a" * 40)
-        assert swept == [("bolt console-pages", None, ["a-console-page", "a-console-filter"], {})]
+        assert capsys.readouterr().out == ""

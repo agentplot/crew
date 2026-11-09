@@ -1152,6 +1152,14 @@ def fixes_in_flight(requests, reads, bolt):
             if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
 
 
+def base_drop_asked(plan, requests):
+    """Whether base_drop_due has anything to judge, from requests.rec and the plan alone: a launch of bolt/<bolt> whose
+    bolt has left the plan, that a drop names. A plan write reads the runners for base_drop_due only then."""
+    drops = {r.get("Of") for r in requests if r.get("Act") == "drop"}
+    return any(l.get("Act") == "launch" and (l.get("Work") or "").startswith("bolt/") and l.get("Request") in drops
+               and plan.bolt(l.get("Work")[5:]) is None for l in requests)
+
+
 def base_drop_due(plan, requests, reads):
     """The drops a plan write asks again of a bolt's base place (crew-lands-each-bolt-through-flumes-base-place,
     Decision 8; bolt-teams "A bolt's drop drops its base place last, and asks it again after a refusal"), from plain

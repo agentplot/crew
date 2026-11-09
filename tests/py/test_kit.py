@@ -61,21 +61,10 @@ class TestBoltChecks:
             kit.bolt_checks(text, "switchboard-kit")
         assert "switchboard-kit" in str(e.value) and said in str(e.value)
 
-    def test_the_policy_is_read_by_ref_at_main_now_and_a_refusal_names_the_ref(self):
-        """plan.18: the policy is the one at main now, GitHub's for a kit with an origin and the kit's own for one with
-        none, as POLICY read both, and a kit whose bolt is not started is told which ref lacks it."""
-        b64 = base64.b64encode(POLICY.encode()).decode()
-        assert kit.policy_said(mains("yes", at_github=b64), "switchboard-kit", "h") == (POLICY, "origin/main", GITHUB)
-        assert kit.policy_said(mains("no", github="-", at_own=b64), "switchboard-kit", "h") == (POLICY, "main", OWN)
-        assert kit.policy_said(mains("no", github="-"), "switchboard-kit", "h") == (None, "main", OWN)
+    def test_a_refusal_names_the_ref(self):
         with pytest.raises(Refusal) as e:
             kit.bolt_checks(None, "switchboard-kit", "/k/main/.config/sluice.toml", ref="origin/main")
         assert "has no /k/main/.config/sluice.toml on origin/main" in str(e.value)
-
-    @pytest.mark.parametrize("out", ["fatal: bad\n", "AT_OWN=-\n", f"ORIGIN=no\nGITHUB=-\nOWN={'b' * 40}\n"])
-    def test_what_is_not_policys_words_is_refused(self, out):
-        with pytest.raises(Refusal):
-            kit.policy_said(out, "k", "h")
 
 
 ON_GITHUB = POLICY.replace('required = ["#check-full"]\n', 'required = ["#check-full"]\nremote = "origin"\n')
@@ -153,7 +142,7 @@ GITHUB, OWN = "a" * 40, "b" * 40
 
 
 def mains(origin, fetched="ok", github=GITHUB, own=OWN, at_github="-", at_own="-"):
-    """What MAINS, and POLICY after it, print."""
+    """What MAINS prints."""
     return (f"ORIGIN={origin}\n" + (f"FETCHED={fetched}\n" if origin == "yes" else "")
             + f"GITHUB={github}\nOWN={own}\nAT_GITHUB={at_github}\nAT_OWN={at_own}\n")
 

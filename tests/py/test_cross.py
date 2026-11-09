@@ -194,19 +194,24 @@ class TestReach:
         assert [(r["Act"], r.get("Of")) for r in requests(w)[1:]] == [("drop", "1")]
         assert w.plan.item("a").get("Bolt") is None and w.plan.bolt("x") is None
 
-    def test_a_drop_no_runner_has_taken_work_of_is_swept_in_the_main_level_hosts_checkout(self, monkeypatch):
-        """bolt-plan "The drop's host does not answer", for a started bolt whose work no runner has reported taking: its
-        branch was made on the main-level host's checkout, so the drop asks sluice there; with no checkout there, why."""
-        b = launched("x", work=[unit("a")]).plan.bolt("x")
-        monkeypatch.setattr(plan, "known_at", lambda *a, **k: None)
-        kept = {"name": CREW, "repo": "afterthought/crew", "dir": "/w/crew", "main": "/w/crew/main"}
-        monkeypatch.setattr(plan.crew, "kit_kept", lambda fleet, host, kit: kept)
-        assert plan.drop_at(FLEET, "madswan", b) == ({"label": "madswan", "machine": "deneb", "stream": None, "kit": kept}, None)
-        monkeypatch.setattr(plan.crew, "kit_kept", lambda fleet, host, kit: None)
-        assert plan.drop_at(FLEET, "madswan", b) == (None, "madswan's main level runs on deneb, and no space there keeps crew, so "
-                                                           "crew can't ask sluice to delete bolt/x there; if it was renamed on its host, crew kit rename crew <new> names it so in the plan")
-        w = given(("y", None, None), work=[unit("q", bolt="y")])
-        assert plan.drop_at(FLEET, "madswan", w.plan.bolt("y")) == (None, None)
+    def test_a_drop_asks_no_host_and_a_bolt_with_no_base_place_keeps_its_branch_the_users(self, monkeypatch, capsys):
+        """bolt-plan "The drop's host does not answer" and bolt-teams "A drop of it": started x, its unit a's launch
+        standing and no launch of bolt/x, since x was started before bolts were base places, while every host is
+        refused: the drop's commit drops a's launch and asks nothing for bolt/x, and the drop says bolt/x stays, the
+        user's (crew-lands-each-bolt-through-flumes-base-place, Decisions 8 and 9)."""
+        from facts import known
+        import crew
+        monkeypatch.setattr(crew, "on_machine", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        monkeypatch.setattr(plan, "host_run", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        w = launched("x", work=[unit("a")])
+        op = plan.op_bolt_drop(known(w, fleet=FLEET), plan.do_args("madswan", 'bolt drop x "Not needed."'))
+        op.change(w)
+        assert [(r["Act"], r["Work"], r.get("Of")) for r in requests(w)[1:]] == [("drop", "unit/a", "1")]
+        assert w.plan.bolt("x") is None and w.plan.item("a") is None
+        op.after("afterthought/madswan-state", "a" * 40)
+        assert capsys.readouterr().out.strip() == (
+            "bolt/x stays: x was started before bolts were base places, so it has no base place and crew asks nothing for "
+            "its branch, which is the user's to keep or delete")
 
     def test_a_bolt_not_started_is_refused(self):
         w = given(("x", None, None), work=[unit("a")])
