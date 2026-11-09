@@ -17,7 +17,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 ## 3. The command
 
 - [x] 3.1 `crew drive set <label>` runs on the host it is invoked on before any teams file is loaded, fetches the state branch before it writes, writes the file under its lock, makes the drive's state by `crew state init`'s steps and records one `drive.set` entry where it changed a key; `crew main up` then starts the drive's main level; and run again it changes nothing (design, Decisions 1, 6 and 9 to 11; Task notes 3.1). Verify `tests/suite t-drive-set` ends with "0 failed".
-- [ ] 3.2 `crew state init` says what it said before, now that `state_init` returns what it did (design, Decision 9; Task notes 3.2). Verify `tests/suite t-journey-state` ends with "0 failed".
+- [x] 3.2 `crew state init` says what it said before, now that `state_init` returns what it did (design, Decision 9; Task notes 3.2). Verify `tests/suite t-journey-state` ends with "0 failed".
 - [ ] 3.3 `crew drive set --help` prints its usage and does nothing else (`code.11`; Task notes 3.3). Verify `tests/suite t-help` ends with "0 failed".
 - [ ] 3.4 plan.py builds `drive set` alone as its whole parser builds it, and its `-h` answers the command's usage (`code.11`; Task notes 3.4). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_parser.py tests/py/test_help.py'` exits 0.
 
