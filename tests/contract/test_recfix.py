@@ -178,6 +178,20 @@ def test_requests_of_every_act_a_preview_and_its_done_among_them_pass_and_the_de
             plan.checked({"requests.rec": text.replace(right + "\n", wrong + "\n", 1)})
 
 
+def test_a_confirm_with_two_deliveries_passes_recfix_and_an_act_the_descriptor_lacks_is_refused():
+    """A run's end appends a confirm of a launch's ends for its role's address, one Delivery for each key (runner.REQUESTS;
+    design Decision 4 of crews-role-runs-confirm-what-they-collect; drive-state "A confirm in a turn's end"): recfix
+    takes the act and Delivery held twice under crew's descriptor, and refuses an act its enum does not hold."""
+    keys = ["change--a/3f9a61c2/stage/construct/1/delivered", "change--a/3f9a61c2/stage/code/1/delivered"]
+    confirm = plan.Rec("Request", runner.request_fields(2, "confirm", "unit/a", dict(Of=1, Recipient="madswan/planner", Delivery=keys),
+                                                        "2026-11-08T12:00:00Z", "madswan-planner"))
+    text = requests_text(launch_rec(1, "unit/a"), confirm)
+    plan.checked({"requests.rec": text})
+    (_, got) = plan.Plan(text).recs("Request")
+    assert (got.get("Act"), got.get("Of"), got.get("Recipient"), got.all("Delivery")) == ("confirm", "1", "madswan/planner", keys)
+    with pytest.raises(Refusal, match="^requests.rec fails recfix --check"):
+        plan.checked({"requests.rec": text.replace("Act: confirm\n", "Act: acknowledge\n", 1)})
+
 def test_a_runners_previews_file_passes_by_its_descriptor_and_an_outcome_it_does_not_allow_is_refused():
     """previews.rec as Boomdrive's runner writes it on <label>/runner/<host> (runner.PREVIEWS, held byte for byte;
     Decision 3 of a-cards-preview-is-asked-of-the-runner): a Preview of each outcome, sluice's answer (Text) and listing

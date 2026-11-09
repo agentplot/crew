@@ -129,6 +129,12 @@ class TestThePrompt:
         start, end = TURN.index("`crew role start`"), TURN.index('`crew role end --report {{report}} "<what was done>"`')
         assert start < end
 
+    def test_its_end_says_it_asks_the_runners_to_confirm_the_ends_the_turn_took(self):
+        """role-runs, The end confirms: the step that runs crew role end says so, and the start's says it takes the ends."""
+        step = next(l for l in TURN.split("\n") if l.startswith("3. "))
+        assert "`crew role end" in step and "asks the runners to confirm to Flume each end the turn took, so none is taken again" in step
+        assert "the ends Flume holds for your role" in next(l for l in TURN.split("\n") if l.startswith("1. "))
+
     def test_it_places_needs_in_the_sentence_that_asks_on_a_card_and_stops_short_only_on_a_refused_start(self):
         """Flume appends {{needs}} to a prompt that does not place it; placed here, it follows the sentence."""
         assert TURN.count("{{needs}}") == 1
