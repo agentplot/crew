@@ -51,4 +51,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 7. The word stays gone
 
-- [ ] 7.1 `t-word` fails naming each file and line of crew's command, plugin, module, README, CLAUDE.md, OpenSpec configuration and specs that holds "partition", but for a `.partition(` or `.rpartition(` call and a former key quoted as one, and passes on this branch with the specs as the archived change leaves them, its task in `tests/moon.yml` (design, Decision 8; Task notes 7.1). Verify `tests/suite t-word` ends with "0 failed".
+- [x] 7.1 `t-word` fails naming each file and line of crew's command, plugin, module, README, CLAUDE.md, OpenSpec configuration and specs that holds "partition", but for a `.partition(` or `.rpartition(` call and a former key quoted as one, and passes on this branch with the specs as the archived change leaves them, its task in `tests/moon.yml` (design, Decision 8; Task notes 7.1). Verify `tests/suite t-word` ends with "0 failed".
