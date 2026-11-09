@@ -44,13 +44,13 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 - [x] 4.14 `t-journey-state` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-state` ends with "0 failed".
 - [x] 4.15 `t-journey-signals` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-signals` ends with "0 failed".
 - [x] 4.16 `t-journey-roles` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-roles` ends with "0 failed".
-- [ ] 4.17 `t-journey-main-fix` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-main-fix` ends with "0 failed".
-- [ ] 4.18 `t-session-hook` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-session-hook` ends with "0 failed".
-- [ ] 4.19 `t-cards` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-cards` ends with "0 failed".
-- [ ] 4.20 `t-sluice` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-sluice` ends with "0 failed".
-- [ ] 4.21 `t-waits` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-waits` ends with "0 failed".
-- [ ] 4.22 `t-stage-facts` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-stage-facts` ends with "0 failed".
-- [ ] 4.23 `t-runner` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-runner` ends with "0 failed".
+- [x] 4.17 `t-journey-main-fix` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-journey-main-fix` ends with "0 failed".
+- [x] 4.18 `t-session-hook` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-session-hook` ends with "0 failed".
+- [x] 4.19 `t-cards` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-cards` ends with "0 failed".
+- [x] 4.20 `t-sluice` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-sluice` ends with "0 failed".
+- [x] 4.21 `t-waits` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-waits` ends with "0 failed".
+- [x] 4.22 `t-stage-facts` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-stage-facts` ends with "0 failed".
+- [x] 4.23 `t-runner` passes with the new fixture (Task notes 4.2–4.23). Verify `tests/suite t-runner` ends with "0 failed".
 
 ## 5. The docs
 
