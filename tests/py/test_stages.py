@@ -238,6 +238,20 @@ class TestEndsHeldForTheRunner:
         assert plan.land_refusal("x", ["a", "b", "c"], st.of, [], "madswan", {HELD_AT: 0, "2" * 40: 0}, "crew") == (
             "unit b has not merged into bolt/x: it is submitted")
 
+    def test_stages_for_asks_the_survey_for_each_started_bolt_and_seeks_nothing(self, monkeypatch):
+        """No command seeks a bolt's landing on main (design Decision 2): stages_for asks the survey for x where its
+        runner reported its work, each entry a pair of where and the bolt, with nothing sought of its landing; the survey
+        faked as gather would answer it."""
+        from facts import launched, ran
+        p, requests = launched(["x"], work=[("a", "x", [], "unit", [])], fleet=self.FLEET)
+        asked = []
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, ran({1: "flume-0.20.0/landed-held"})))
+        monkeypatch.setattr(plan, "survey", lambda fleet, held, fetch=False: asked.extend(held) or crew_read(main=["a"], bolts={"x": self.GONE}))
+        st = plan.stages_for(self.FLEET, "madswan", p, [p.bolt("x")])
+        assert [(t["machine"], t["kit"]["main"], b) for t, b in asked] == [("deneb", "/crew/main", "x")]
+        assert all(len(e) == 2 for e in asked)
+        assert (st.of("a")["stage"], st.of("a")["flume"]["commit"]) == ("landed", HELD_AT)
+
 
 class TestABoltWhoseLaunchesWereAllRefused:
     """bolt-plan "A launch refused for a change the bolt holds" and drive-state "A bolt whose every launch was
