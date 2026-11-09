@@ -5,7 +5,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 ## 1. The teams file
 
 - [x] 1.1 `crew.load` is a read of the file and `crew.fleet_of(data, here)`, which makes every check it made and answers the same fleet; a file that is no JSON is refused naming the file and the parser's words; and every refusal of the file, a missing file's among them, names crew's own module, `services.crew`, `crew drive set` or the machine's configuration as its writer (design, Decisions 5 and 13; Task notes 1.1). Verify `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_teams.py'` exits 0.
-- [ ] 1.2 `t-teams` finds the new writer's words in each refusal it pins, and `crew bolts` on a host with no teams file refused naming `crew drive set` (design, Decision 13; Task notes 1.2). Verify `tests/suite t-teams` ends with "0 failed".
+- [x] 1.2 `t-teams` finds the new writer's words in each refusal it pins, and `crew bolts` on a host with no teams file refused naming `crew drive set` (design, Decision 13; Task notes 1.2). Verify `tests/suite t-teams` ends with "0 failed".
 
 ## 2. What crew drive set decides
 
