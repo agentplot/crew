@@ -51,7 +51,8 @@ REQUESTS = """\
 # crew's requests of the runners: a launch of a Flume place for a started
 # bolt's work, a fix or a role's work that lands, or a retry, drop or priority
 # of a place launched; or a preview of a branch at a revision on the host whose
-# runner took the work it serves, or its done.
+# runner took the work it serves, or its done; or a confirm, for a role's
+# address, of the ends of a place launched that the role's turn took.
 # Written only by crew, each in the commit of the plan write that occasions it;
 # numbered once, and never changed or removed. The runner whose configuration
 # names a launch's Repo takes it, or for a role's the runner on its Host, and
@@ -59,10 +60,10 @@ REQUESTS = """\
 # never writes.
 
 %rec: Request
-%doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work; or a retry, drop or priority of the place the launch Of names launched, taken by the runner that took it.
+%doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work; or a retry, drop or priority of the place the launch Of names launched, or a confirm, as the role whose address is Recipient, of each Delivery, the key of an end of that place, taken by the runner that took it.
 %key: Request
 %type: Request,Of,After,Priority int
-%type: Act enum launch retry drop priority preview
+%type: Act enum launch retry drop priority preview confirm
 %type: Kind enum change chore fix
 %type: Hold enum submission
 %type: Submission bool
@@ -70,14 +71,15 @@ REQUESTS = """\
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Date date
 %mandatory: Request Act Work Date By
-%allowed: Request Act Host Work Repo Kind Name Base Branch Revision Done Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Date By
+%allowed: Request Act Host Work Repo Kind Name Base Branch Revision Done Stream Priority Intent Recipient Hold After Brief Of Stage Submission Words Delivery Date By
 """
 # A request's fields in the order requests.rec writes them (Decision 4's table).
 FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Branch", "Revision", "Done", "Stream", "Priority",
-          "Intent", "Recipient", "Hold", "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
+          "Intent", "Recipient", "Hold", "After", "Brief", "Of", "Stage", "Submission", "Words", "Delivery", "Date", "By")
 # What every request carries, and, by its act, what it must carry beside them and what else it may: a launch of a
 # role's work names its Host and Stream, and a launch of a kit's work neither; a preview names the host whose runner
-# brings it up, its repository, branch and revision, and Done: yes to put it away (request_refusal).
+# brings it up, its repository, branch and revision, and Done: yes to put it away; a confirm names the launch whose
+# place's ends it confirms, the role's address it confirms as, and a Delivery for each end's key (request_refusal).
 COMMON = ("Request", "Act", "Work", "Date", "By")
 ACTS = {
     "launch": (("Repo", "Kind", "Name", "Base", "Priority", "Intent", "Recipient", "Brief"), ("Hold", "After", "Host", "Stream")),
@@ -85,7 +87,11 @@ ACTS = {
     "drop": (("Of",), ()),
     "priority": (("Of", "Priority"), ()),
     "preview": (("Host", "Repo", "Branch", "Revision"), ("Done",)),
+    "confirm": (("Of", "Recipient", "Delivery"), ()),
 }
+# The address a confirm confirms as: one of crew's five main-level roles of a partition, <label>/<role>, the recipient
+# crew names for every place it launches (design Decision 4 of crews-role-runs-confirm-what-they-collect).
+ROLE_ADDRESS = re.compile(r"^[a-z0-9][a-z0-9-]*/(design|planner|reviewer|ops|operator)$")
 # The work a request serves, as crew names it: a unit, a chore, a fix on a bolt or a fix of a kit's main, or a role's
 # work that lands (Decision 10 of roles-run-as-flume-kinds); and the work a preview serves alone, a landings row's
 # bolt or a batch line's unit (Decision 1 of a-cards-preview-is-asked-of-the-runner), bolt/<bolt> serving no other.
@@ -125,7 +131,9 @@ def request_refusal(requests, new):
     launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
     host's Flume configuration maps the repository to (settled with the user 2026-11-01); a retry, drop or priority names by Of a launch of the same
     work; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds its
-    submission; and a retry starts a stage again or submits again, not both (Decision 4). A preview names the host
+    submission; and a retry starts a stage again or submits again, not both (Decision 4). A confirm names by Of a
+    launch of the same work, as its Recipient the address of one of crew's roles, and at least one Delivery (Decision 4
+    of crews-role-runs-confirm-what-they-collect). A preview names the host
     whose runner brings it up, serves a landings row's bolt/<bolt> or a batch line's unit/<unit>, bolt/<bolt> being
     the work of no other request, and is marked done by Done: yes alone (Decision 1 of
     a-cards-preview-is-asked-of-the-runner)."""
@@ -135,7 +143,7 @@ def request_refusal(requests, new):
         return (f"request {n} is not the next in requests.rec: it holds "
                 + (f"requests 1 to {want - 1}" if want > 2 else "request 1" if want == 2 else "none") + f", so the next is {want}")
     if act not in ACTS:
-        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority or a preview"
+        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority, a preview or a confirm"
     need, may = ACTS[act]
     if act == "preview" and not new.get("Host"):
         return (f"preview {n} for {work} names no Host: a preview names the host whose runner brings it up, the one whose "
@@ -161,8 +169,11 @@ def request_refusal(requests, new):
     if act == "launch" and not work.startswith("role/") and (new.get("Host") or new.get("Stream")):
         return (f"launch {n} of {work} names a Host or a Stream: a kit's work is taken by a runner whose configuration "
                 "names its repository, in the stream its host's Flume configuration maps the repository to, and crew names neither")
+    if act == "confirm" and not ROLE_ADDRESS.match(new.get("Recipient")):
+        return (f"confirm {n} for {work} names {new.get('Recipient')} as its recipient, and a confirm is for the address of one of "
+                "crew's roles, <label>/design, planner, reviewer, ops or operator")
     by = {r.get("Request"): r for r in requests}
-    if act in ("retry", "drop", "priority"):
+    if act in ("retry", "drop", "priority", "confirm"):
         of = by.get(new.get("Of"))
         if of is None or of.get("Act") != "launch":
             return f"{act} {n} for {work} names request {new.get('Of')}, which is no launch" + (

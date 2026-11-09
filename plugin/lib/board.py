@@ -836,11 +836,14 @@ def ops_view(p):
 
 def run_rows(r, now):
     """A role's run's own lines, at the head of its view (crew-board "A role that runs as its kind has its view"): its
-    name and stream, what its turn took, and how many asks wait for the role's next run and for how long the oldest has,
-    or that nothing waits; then each thing the turn took, an ask by its number with what it is, who asked and the record
-    it names, a waiting place by its key."""
+    name and stream, what its turn took, the ends Flume held for the role among it counted and never listed (design
+    Decision 7 of crews-role-runs-confirm-what-they-collect), and how many asks wait for the role's next run and for how
+    long the oldest has, or that nothing waits; then each ask and waiting place the turn took, an ask by its number with
+    what it is, who asked and the record it names, a waiting place by its key."""
     t = r["turn"]
-    took = "no turn taken" if t is None else f"turn {t['turn']} took {len(t['took'])}" + (", ended" if t["ended"] else "")
+    ends = t.get("ends", 0) if t else 0
+    took = "no turn taken" if t is None else f"turn {t['turn']} took {len(t['took'])}" + (
+        f" and {ends} {'end' if ends == 1 else 'ends'}" if ends else "") + (", ended" if t["ended"] else "")
     n, since = r["waiting"], when(r["since"]) if r["since"] else None
     old = plan.age(since, now) if since else "a time crew can't read"
     waits = ("nothing waits" if not n else f"1 ask waits, for {old}" if n == 1 else f"{n} asks wait, the oldest for {old}")
