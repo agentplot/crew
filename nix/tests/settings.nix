@@ -4,7 +4,10 @@
 # label alone as version 6 holds them, which nix/tests/files/deneb.json
 # holds byte for byte; and `runner`, the same drives with crew's and
 # swancloud's kept repositories at the runner's container and view record
-# 0060 lays out, which nix/tests/files/runner.json holds byte for byte.
+# 0060 lays out, which nix/tests/files/runner.json holds byte for byte;
+# and deneb's drives split in two: `given`, each drive's `machine` and
+# `state` alone, as another module gives them, and `own`, each drive's
+# other keys, crew's own, which the host's settings keep.
 let
   # Every role stands on deneb.
   standing = {
@@ -26,6 +29,15 @@ let
   };
 in
 rec {
+  given = builtins.mapAttrs (_: drive: { inherit (drive) machine state; }) deneb.drives;
+  own = builtins.mapAttrs (
+    _: drive:
+    builtins.removeAttrs drive [
+      "machine"
+      "state"
+    ]
+  ) deneb.drives;
+
   runner = deneb // {
     repositories = {
       "agentplot/crew" = kept "agentplot/crew";

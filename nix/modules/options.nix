@@ -129,12 +129,16 @@ let
         description = "The drive's blueprints repositories, each `owner/name`, the first the one its main level works in.";
       };
       state = mkOption {
-        type = repository;
-        description = "The drive's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record.";
+        type = types.unique {
+          message = "A drive's state repository is written once: where another module gives it, the host's configuration writes it nowhere else in services.crew.settings, and each place that writes it is named below.";
+        } repository;
+        description = "The drive's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record; written once, by the host's settings or by another module that gives it by the drive's label.";
       };
       machine = mkOption {
-        type = crewName;
-        description = "The host its main level runs on, as `hostname -s` names it.";
+        type = types.unique {
+          message = "A drive's machine is written once: where another module gives it, the host's configuration writes it nowhere else in services.crew.settings, and each place that writes it is named below.";
+        } crewName;
+        description = "The host its main level runs on, as `hostname -s` names it; written once, by the host's settings or by another module that gives it by the drive's label.";
       };
       session = mkOption {
         type = types.nonEmptyStr;

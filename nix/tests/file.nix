@@ -9,14 +9,16 @@ t:
 let
   inherit (t) lib;
   render = import ../modules/json.nix { inherit lib; };
-  inherit (import ./settings.nix) deneb runner;
+  settings = import ./settings.nix;
+  inherit (settings) deneb runner;
   pkgs = t.inputs.nixpkgs.legacyPackages.x86_64-linux;
 
-  # options.nix enabled with `given` as its settings.
+  # options.nix enabled with `given` as its settings, beside the further
+  # `modules`.
   evaluated =
-    given:
+    modules: given:
     (lib.evalModules {
-      modules = [
+      modules = modules ++ [
         (import ../modules/options.nix { inherit (t.outputs) packages; })
         {
           options.assertions = lib.mkOption {
@@ -35,10 +37,17 @@ let
       ];
     }).config;
 
-  text = given: render (evaluated given).services.crew.settings;
-  # Whether `given` renders at all: false where evaluation fails.
-  renders = given: (builtins.tryEval (builtins.seq (text given) true)).success;
-  failures = given: map (a: a.message) (lib.filter (a: !a.assertion) (evaluated given).assertions);
+  textBeside = modules: given: render (evaluated modules given).services.crew.settings;
+  text = textBeside [ ];
+  # Whether `given` renders at all beside `modules`: false where evaluation
+  # fails.
+  rendersBeside =
+    modules: given: (builtins.tryEval (builtins.seq (textBeside modules given) true)).success;
+  renders = rendersBeside [ ];
+  failuresBeside =
+    modules: given:
+    map (a: a.message) (lib.filter (a: !a.assertion) (evaluated modules given).assertions);
+  failures = failuresBeside [ ];
   says = given: words: lib.hasInfix words (toString (failures given));
 
   pinned = builtins.readFile ./files/deneb.json;
@@ -48,6 +57,28 @@ let
   crewVersion = lib.toInt (
     lib.head (builtins.match ".*\nVERSION = ([0-9]+)\n.*" (builtins.readFile ../../plugin/lib/crew.py))
   );
+
+  # A module giving `drives`' keys, as another module gives a drive's
+  # machine and state.
+  giving = drives: { services.crew.settings.drives = drives; };
+  # deneb's drives from two modules: the machine and state given, crew's
+  # own keys the host's.
+  split = [ (giving settings.given) ];
+  own = {
+    drives = settings.own;
+  };
+  # agentplot's machine or state given, beside the host's every key.
+  machineTwice = [ (giving { agentplot.machine = "deneb"; }) ];
+  stateTwice = [ (giving { agentplot.state = "afterthought/crew-state"; }) ];
+  # A drive given its machine and state, which the host names nowhere.
+  extra = [
+    (giving {
+      extra = {
+        machine = "deneb";
+        state = "afterthought/crew-state";
+      };
+    })
+  ];
 
   # deneb's drives with afterthought's changed by `change`.
   first =
@@ -130,6 +161,29 @@ in
         ]
       ) "the drives render as ${toString (map (d: d.label or null) rendered.drives)}, not in label order"
     );
+
+  "deneb's drives from two modules" =
+    t.expect (rendersBeside split own) "deneb's drives from two modules do not evaluate"
+    ++ lib.optionals (rendersBeside split own) (
+      t.expect (
+        textBeside split own == pinned
+      ) "deneb's drives from two modules render ${textBeside split own}, not nix/tests/files/deneb.json"
+      ++ t.expect (
+        failuresBeside split own == [ ]
+      ) "deneb's drives from two modules fail: ${toString (failuresBeside split own)}"
+    );
+
+  "A machine written twice" = t.expect (
+    !rendersBeside machineTwice deneb
+  ) "another module and the host's settings both give agentplot the machine deneb, and evaluation holds";
+
+  "A state repository written twice" = t.expect (
+    !rendersBeside stateTwice deneb
+  ) "another module and the host's settings both give agentplot the state afterthought/crew-state, and evaluation holds";
+
+  "A drive given and not configured" = t.expect (
+    !rendersBeside extra deneb
+  ) "another module gives extra its machine and state, the host names no extra, and evaluation holds";
 
   "A runner host's kept repositories" =
     t.expect (renders runner) "runner's settings do not evaluate"
