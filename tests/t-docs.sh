@@ -9,7 +9,9 @@
 # construct and coder crew's conventions for its changes (docs.6): each task names its check, no proof list, tick a
 # task once its check passes. The README and the opening comment of crew's .config/sluice.toml say crew readies no
 # worktree, sluice equipping a place at Flume's asking, `sluice equip` (Flume's record 0036), and the comment cites no
-# plan.17, which is retired.
+# plan.17, which is retired. README's The flake says the module's drives are keyed by label and listed in label order,
+# that another module can give a drive its machine and state, each written once, and what fails evaluation, with no
+# label listed twice.
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -172,3 +174,12 @@ for want in "the check in crew's tiers that proves it" "tests/suite --affected" 
   has "$config" "$want"
 done
 ok "crew's openspec/config.yaml says crew's conventions for its changes: each task names its check, no proof list, and a task is ticked once its check passes"
+
+flake=$(awk '/^## The flake$/ { on = 1; next } /^## / { on = 0 } on' "$CREW/README.md")
+for want in "every drive by its label" "listed in the order of their labels" "its \`label\` its name, which no host sets" \
+  "can give a drive its \`machine\` and \`state\` by its label" "Each of the two is written once" "drives given as a list" \
+  "a \`label\` the host sets" "no drive,"; do
+  has "$flake" "$want"
+done
+lacks "$flake" "a label listed twice"
+ok "the README's flake says the drives are keyed by label and listed in label order, another module gives a drive's machine and state, each written once, and what fails evaluation, with no label listed twice"

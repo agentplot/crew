@@ -1,10 +1,13 @@
-# The crew-flake spec's settings: deneb's four drives, in the order and
-# with the values of deneb's ~/.config/crew/teams.json read 2026-11-07,
-# each named by its label alone as version 6 holds them, which
-# nix/tests/files/deneb.json holds byte for byte; and `runner`, the
-# same drives with crew's and swancloud's kept repositories at the
-# runner's container and view record 0060 lays out, which
-# nix/tests/files/runner.json holds byte for byte.
+# The crew-flake spec's settings: deneb's four drives, keyed by label, with
+# the values of deneb's ~/.config/crew/teams.json read 2026-11-07, in the
+# order deneb's file lists them, which is label order, each named by its
+# label alone as version 6 holds them, which nix/tests/files/deneb.json
+# holds byte for byte; and `runner`, the same drives with crew's and
+# swancloud's kept repositories at the runner's container and view record
+# 0060 lays out, which nix/tests/files/runner.json holds byte for byte;
+# and deneb's drives split in two: `given`, each drive's `machine` and
+# `state` alone, as another module gives them, and `own`, each drive's
+# other keys, crew's own, which the host's settings keep.
 let
   # Every role stands on deneb.
   standing = {
@@ -26,6 +29,15 @@ let
   };
 in
 rec {
+  given = builtins.mapAttrs (_: drive: { inherit (drive) machine state; }) deneb.drives;
+  own = builtins.mapAttrs (
+    _: drive:
+    builtins.removeAttrs drive [
+      "machine"
+      "state"
+    ]
+  ) deneb.drives;
+
   runner = deneb // {
     repositories = {
       "agentplot/crew" = kept "agentplot/crew";
@@ -34,27 +46,24 @@ rec {
   };
 
   deneb = {
-    drives = [
-      {
-        label = "afterthought";
+    drives = {
+      afterthought = {
         blueprints = [ "afterthought/blueprints" ];
         state = "afterthought/crew-state";
         machine = "deneb";
         session = "afterthought";
         inherit review;
         flume = standing;
-      }
-      {
-        label = "agentplot";
+      };
+      agentplot = {
         blueprints = [ "agentplot/blueprints" ];
         state = "afterthought/crew-state";
         machine = "deneb";
         session = "agentplot";
         inherit review;
         flume = standing;
-      }
-      {
-        label = "madswan";
+      };
+      madswan = {
         blueprints = [
           "afterthought/blueprints"
           "agentplot/blueprints"
@@ -64,9 +73,8 @@ rec {
         session = "madswan";
         inherit review;
         flume = standing;
-      }
-      {
-        label = "wldn";
+      };
+      wldn = {
         blueprints = [ "WilldanGroup/willdan-blueprints" ];
         state = "WilldanGroup/crew-state";
         machine = "chuck-herdr-alpha";
@@ -74,7 +82,7 @@ rec {
         inherit review;
         roles.planner.session = "wldn-1";
         flume = standing;
-      }
-    ];
+      };
+    };
   };
 }
