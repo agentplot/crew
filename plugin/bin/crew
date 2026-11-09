@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# crew: each partition's plan of bolts, its main level of agents in herdr, and its bolts' work in Flume.
-# Partitions are data in ~/.config/crew/teams.json, version 5, which lists no team: crew refuses a file at
-# any other version, version 2, 3 or 4 among them, or one that lists teams, naming swancloud's lib/crew-teams.nix.
+# crew: each drive's plan of bolts, its main level of agents in herdr, and its bolts' work in Flume.
+# Drives are data in ~/.config/crew/teams.json, version 6, which lists no team, its drives under `drives`, each named
+# by its label: crew refuses a file at any other version, version 2, 3, 4 or 5 among them, or one that lists teams,
+# naming swancloud's lib/crew-teams.nix.
 # crew runs no team's conductor, ops or slot: a started bolt's work runs in Flume places on the host whose runner's
 # configuration names its kit's repository, which crew bolts shows, the kit's folder there the one that runner's
 # repositories.rec names, or, where it reports none, the one its newest place of the kit names, a runner that reports
@@ -10,7 +11,7 @@
 # names its place's branch, whatever the runner reports, a fix's fix/<bolt>--<name> only from a landing at or after
 # its launch; once the kit's main holds the bolt's landing, its Sluice-From naming bolt/<bolt> or its second parent a
 # head crew submitted of it, a landed bolt's pieces are read from that landing on main, its branch standing or not.
-# Each partition names its flume, an object of its five main-level roles, design, planner, reviewer, ops and operator,
+# Each drive names its flume, an object of its five main-level roles, design, planner, reviewer, ops and operator,
 # each false while it stands or the Flume stream its runs run in on the main level's host: a role that runs as its
 # kind, whose runs are launched by the host's runner while something is pending for it (crew role below); with flume
 # false throughout, every role stands.
@@ -43,13 +44,13 @@
 #                                      launch or has carried no status of the place. <work> is the unit's or chore's
 #                                      name, or the fix's place (<bolt>--<name>)
 #
-# The plan, the moves and the signals crew records, on the drive's branch <label>/main of the partition's state
-# repository, with requests.rec, crew's requests of the partition's runners for a started bolt's work, appended in the
+# The plan, the moves and the signals crew records, on the drive's branch <label>/main of its state
+# repository, with requests.rec, crew's requests of the drive's runners for a started bolt's work, appended in the
 # commit of the plan write that occasions them, and for a role's run's work that lands; asks.rec, each ask of a role
 # that runs as its kind and each turn of its runs; and roles.rec, each such role's record, which its runner launches
 # its run from; each runner answers on <label>/runner/<host> of the same repository, which crew fetches with
 # <label>/main and never writes, a role's run there keyed by the role's address; a meeting's signals stay in the
-# partition's first blueprints repo:
+# drive's first blueprints repo:
 #   crew state init <label>            create the drive's branch, adopting plan/<label> and the moves it had
 #   crew bolts [<bolt>] [--label L] [--json]
 #                                      every bolt, unit and chore of the plans, each one's stage read from its kit,
@@ -64,7 +65,7 @@
 #                                      queue
 #   crew bolt  new|start|order|drop|land ...
 #                                      start, the user's or a proposal's, has sluice make bolt/<bolt> on GitHub from
-#                                      main (sluice branch create, in the checkout the partition's main-level host
+#                                      main (sluice branch create, in the checkout the drive's main-level host
 #                                      keeps of its kit), with no worktree, before the plan write, its work launched in
 #                                      its repository for a runner whose configuration names it; refused, nothing
 #                                      changed, in a kit that host keeps no checkout of, or whose .config/sluice.toml
@@ -73,7 +74,7 @@
 #                                      already on GitHub at main's tip with no commit of its own, as a start that
 #                                      failed after sluice made it leaves it, is taken and the start goes on. A start
 #                                      is refused for a bolt started already, while that host is held, or while no
-#                                      runner answers for the partition (no
+#                                      runner answers for the drive (no
 #                                      <label>/runner/<host>); it marks the bolt Path: flume, appends a launch to
 #                                      requests.rec for each unit and chore, a dependent's naming the launches of its
 #                                      After work, which the runner holds it for until that work has landed on the
@@ -149,7 +150,7 @@
 #                                      reports none, keeps <old>, for a new name a bolt's, for two names of one
 #                                      repository, and when no record names <old>. Run again, it renames what an
 #                                      earlier one left, its host's kept entries pushed first. No command renames a
-#                                      partition. Every record is read as written, no reader mapping a former name
+#                                      drive. Every record is read as written, no reader mapping a former name
 #   crew plan  propose|proposed|approve|answer|drop ...
 #                                      the planner's proposals: a change to the plan, waiting on the user alone and applied
 #                                      once the user approves it,
@@ -180,10 +181,10 @@
 #                                      kit's landings card that stands without it, ten minutes on, a landings card's
 #                                      by raising it again, which tries each row's on its bolt's host as crew card
 #                                      session land/<bolt> does, changing the card to carry its links; and it ends,
-#                                      on every host of the partition, each card session crew
+#                                      on every host of the drive, each card session crew
 #                                      started whose card is closed or whose row is gone. It says what each did, and
 #                                      each host it could not check
-#   crew board [--label L] [--json]    the flow, one partition at a time, as four lanes stacked: Inception (signals
+#   crew board [--label L] [--json]    the flow, one drive at a time, as four lanes stacked: Inception (signals
 #                                      no move has taken, explorations), Bolt plan (proposals, planned bolts, the
 #                                      queue), Construction (each started bolt as a ledger of its units, chores and
 #                                      fixes, where its work runs) and Operation (bolts landed this week, each
@@ -204,7 +205,7 @@
 #                                      which no close of a card of the bolt's own does. Nothing of crew's waits on a
 #                                      session or a card: crew card wait is refused at once, naming crew card read
 #                                      <key>, which gives what the user decided
-#   crew card  sweep --label L         the rail's, run on each host of the partition with what it judged on standard
+#   crew card  sweep --label L         the rail's, run on each host of the drive with what it judged on standard
 #                                      input: ends the sessions there whose card is closed or whose row is gone, tells
 #                                      the owner of each reading there the user sent and nobody read, once, to run crew
 #                                      card read <key>, and records a batch's reading approved with no notes read; not
@@ -251,10 +252,10 @@
 #                                      landed on the drive's branch from the host that banked its raw record
 #   (crew bolt|unit|chore|plan|signal --help says more)
 #
-# Each partition's main level, and its console in each operator session:
+# Each drive's main level, and its console in each operator session:
 #   crew main     up|down|status <label>  the design agent, the planner, ops and the operator in the <label> workspace
-#                                      of the session each runs in, the main level's unless its partition's roles name
-#                                      another, and nothing else; each agent up starts is greeted to read where the partition stands and carry on;
+#                                      of the session each runs in, the main level's unless its drive's roles name
+#                                      another, and nothing else; each agent up starts is greeted to read where the drive stands and carry on;
 #                                      a pane herdr brought back dead is closed and opened again in its workspace, said.
 #                                      A role that runs as its kind gets no tab and no agent: up writes its record in
 #                                      roles.rec and ends a standing agent of it once not working, and status says it
@@ -264,7 +265,7 @@
 #                                      a Flume fix place on main, its submission held for the user's send and ops its
 #                                      recipient, appended to requests.rec in the kit's repository for the runner
 #                                      whose configuration names it; refused, naming a bolt of one chore proposed first
-#                                      among the planned as the way, where no runner answers for the partition
+#                                      among the planned as the way, where no runner answers for the drive
 #   crew main     fix <kit> <name> --send [--excerpt "<the user's words>"] [--label L]
 #                                      main-level ops's, on the user's send of the kit's landings row, which carries the
 #                                      fix once its code has delivered and its submission waits held: the retry of its
@@ -274,7 +275,7 @@
 #   crew main     fix <kit> <name> --drop [--label L]
 #                                      drop a fix of main not wanted: its launch dropped; a landed one is refused
 #   crew review   <label> [--wait [--timeout <ms>]]
-#                                      the partition's reviewer, started fresh for the batch of changes due, in a
+#                                      the drive's reviewer, started fresh for the batch of changes due, in a
 #                                      review tab beside the planner, and sent the batch taken or sent again, the start
 #                                      refused, nothing left typed, when it takes it at neither sending; a reviewer up
 #                                      but idle that took no batch is ended and started afresh, and --wait on one is
@@ -328,7 +329,7 @@
 #                                      dead; --accepted or --rejected closes it with the commit. A status the file
 #                                      does not hold is refused
 #   crew console  up|down <label> [flow] [rail] [board]
-#                                      the partition's console in this host's operator session <label>, starting no
+#                                      the drive's console in this host's operator session <label>, starting no
 #                                      agent: a shell tab with crew on its path, and only the tabs named, a flow tab
 #                                      following the run record, a rail tab (the rail the host's follower writes above,
 #                                      a shell below) and a board tab drawn from the follower's read; the rail tab opens
@@ -337,14 +338,14 @@
 #                                      its pane a shell, and one the user closed stays closed unless named; down closes
 #                                      them
 #   crew _follow  [--once]             the host's follower with no tab, the command swancloud's job runs on each host:
-#                                      one read for every partition with an operator session here, fetching each
+#                                      one read for every drive with an operator session here, fetching each
 #                                      repository once a minute and showing this host's writes within seconds, reading
 #                                      only what moved, asking another host, Pending You or herdr only when something
 #                                      there could have moved, learning that a submission moved from its runner's
 #                                      report and starting no sluice; due restarts handed out once crew's checkout, the
 #                                      crew the host has installed or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
-#                                      follower to a host, holding its lock, a second waiting for it. While a partition
+#                                      follower to a host, holding its lock, a second waiting for it. While a drive
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
 #                                      notice, pendingyou watch -- crew _answered, which makes each change on a card in a
 #                                      role's run's name an ask of the role, reading nothing of the card
@@ -361,11 +362,11 @@
 #                                      text}): checked against the agent its item's kind goes to, one line of at most
 #                                      1000 characters, and told it as the user's from the board, naming the item;
 #                                      prints `sent to <agent>`, and answers no card
-#   crew send     <partition> "<text>"
-#                                      send anything for another partition to its operator, its one door, wherever it
-#                                      runs, naming the partition by its label; marked with who sent it and whom it was
+#   crew send     <drive> "<text>"
+#                                      send anything for another drive to its operator, its one door, wherever it
+#                                      runs, naming the drive by its label; marked with who sent it and whom it was
 #                                      for, and recorded with its length; to an operator that runs as its kind, an ask
-#                                      of it carrying both; any other name refused, naming the partitions
+#                                      of it carrying both; any other name refused, naming the drives
 #   crew revive                        after a restart, every main level's standing agent of this host whose pane came
 #                                      back with no agent in it, or dead, closed and opened again in its layout first,
 #                                      picked up from its last conversation and greeted, or started fresh and greeted
@@ -390,7 +391,7 @@
 #                                      agent whose role now runs as its kind is passed over, ended at its next stop by
 #                                      the Stop hook and never restarted
 #
-# Operations on a partition's environments, a deploy being one kind (plan.14), run where the partition's main level
+# Operations on a drive's environments, a deploy being one kind (plan.14), run where the drive's main level
 # runs (lib/ops.py says each in full):
 #   crew ops offer <env> --label L --to <sha> --from <sha|none> [--notes <file>] [--steps <file>]
 #                                      a manual environment's deploy offered as a rail row, its card raised in
@@ -406,21 +407,21 @@
 #                                      any other operation and its state, on its own or after a deploy
 #
 # What happened, read from the run record every command that moves work appends on the host it ran on and pushes to
-# the partition's branch as it writes it:
+# the drive's branch as it writes it:
 #   crew events   [--label L] [--about <object>] [--since <time>] [--follow] [--json]
-#                                      the entries on the partition's branch, in time order; no host is asked;
+#                                      the entries on the drive's branch, in time order; no host is asked;
 #                                      --follow prints this host's entries at once and another's within the minute
 #   crew events   --push [--label L]   push what of this host's run record a refused push left on it
 #   crew trace    <object>             one bolt's, unit's or signal's history: what was done, by whom, in which
 #                                      session, with which commit, and what it led to
 #   crew page     <label> [--out <file>] [--since <time>]
-#                                      the partition's page, one HTML file that loads nothing: it opens on the board,
+#                                      the drive's page, one HTML file that loads nothing: it opens on the board,
 #                                      its four lanes drawn as the Boomdrive mockup draws them, naming no team, and
 #                                      its header linking the fleet page and
-#                                      each other partition's page in the layout of its own file (../page.html and
+#                                      each other drive's page in the layout of its own file (../page.html and
 #                                      ../<label>/page.html in crew's; index.html and <label>.html beside one written
 #                                      as <label>.html; none, said so, when its file and folder are not the
-#                                      partition's); one switch away, the lineage: signals,
+#                                      drive's); one switch away, the lineage: signals,
 #                                      agenda items, proposals, units and bolts as columns, a line from each to what
 #                                      it led to, and each one's history as crew trace prints it; and the deploys,
 #                                      each environment's as a timeline, with the word, steps, checks and outcome of
@@ -428,21 +429,21 @@
 #                                      ~/.local/state/crew/<label>/page.html on this host, or --out, and its path
 #                                      printed with as of when and which commit it was drawn from
 #   crew page     --fleet [--out <file>]
-#                                      the fleet page, every partition of the teams file at once from the one read
+#                                      the fleet page, every drive of the teams file at once from the one read
 #                                      crew board makes of them all, under its Claude subscriptions: each account a
 #                                      session or a reading names, with its five-hour, seven-day and per-model use as
 #                                      the host holding its sign-in published it in
 #                                      ~/.local/state/crew/usage/<host>.json, which host read it and how long ago, a
-#                                      reading not made marked, and the sessions and partitions on it; then a block to
-#                                      each partition: each host it runs on and the herdr sessions its agents run in,
+#                                      reading not made marked, and the sessions and drives on it; then a block to
+#                                      each drive: each host it runs on and the herdr sessions its agents run in,
 #                                      with each session's Claude account; each kit its plan and landings name, its
 #                                      main's last landing and what is queued for it; and what needs attention; each
-#                                      partition a link to its page, and each on a subscription to its page at that
+#                                      drive a link to its page, and each on a subscription to its page at that
 #                                      subscription's dock (<label>.html
 #                                      beside one written as index.html, <label>/page.html beside page.html, none,
 #                                      said so, for any other name); written whole to
-#                                      ~/.local/state/crew/page.html, beside the partitions' folders, or --out, its
-#                                      path printed with each partition's commit, each host that did not answer, each
+#                                      ~/.local/state/crew/page.html, beside the drives' folders, or --out, its
+#                                      path printed with each drive's commit, each host that did not answer, each
 #                                      published file it could not read, and that no use is published when none is
 #
 # Add --force to act on an agent that is working.
@@ -522,7 +523,7 @@ esac
 # on a kit, on the host it acts on. Who asks, and the Claude session behind them, go with a command run on another
 # host, so what it records there names them (code.3). A role's run is started by Flume with nothing of crew's in its
 # environment: in a place named as a run's, crew-<role>--<label>, it is named here as its role, <label>-<role>, and
-# given its partition, as crew-role names a standing agent, so every command runs, and is carried, as the role.
+# given its drive, as crew-role names a standing agent, so every command runs, and is carried, as the role.
 flume_place=${FLUME_PLACE:-}; flume_place=${flume_place%/}
 if [[ -z $asked && -z ${CREW_AGENT:-} && ${flume_place##*/} == crew-*--* ]]; then
   run_name=$(py run-name) || exit 1
@@ -543,7 +544,7 @@ one() {  # one <plan.py entry> <args...>: the command as one Python process. Run
   [[ -z ${REMOTE_CREW_REFUSED:-} ]] || { echo "$REMOTE_CREW_REFUSED" >&2; exit 1; }
   there "$SSH_TARGET" "$REMOTE_CREW" "${orig[@]}"; exit $?
 }
-need_label() { [[ -n ${1:-} ]] || { echo "which partition? partitions: $(py labels | tr '\n' ' ')" >&2; exit 2; }; }
+need_label() { [[ -n ${1:-} ]] || { echo "which drive? drives: $(py labels | tr '\n' ' ')" >&2; exit 2; }; }
 
 # ------------------------------------------------------------------------------------------------- commands
 
@@ -561,7 +562,7 @@ case $cmd in
   hold | go | update | _hold | _go | _update | _renew) exec python3 "$here/../lib/hold.py" "${args[@]}" ;;
   tell) [[ ${2:-} == --board && $# == 2 ]] && { py tell --board; exit; }
     py tell "${2:?usage: crew tell <agent> \"<text>\"}" "${3:?usage: crew tell <agent> \"<text>\"}" ;;
-  send) py send "${2:?usage: crew send <partition> \"<text>\"}" "${3:?usage: crew send <partition> \"<text>\"}" ;;
+  send) py send "${2:?usage: crew send <drive> \"<text>\"}" "${3:?usage: crew send <drive> \"<text>\"}" ;;
   _sweep)  # crew _sweep <label> <kit> --dir <folder> [--landed <bolt> --outcome <words>] [--units <unit>...]: the
     # kit's read on the host a bolt's work runs on, in its folder there, which a landing or a drop of the bolt asks for:
     # each landing of its bolts nothing recorded read, and crew's own landing places and marked bolt branches whose bolt
@@ -583,11 +584,11 @@ case $cmd in
     exec python3 "$here/../lib/plan.py" "${args[@]}" ;;
   _made | _batch-card)  # crew _made <label> <unit>... [--card <key>] --json, on the units' host: what each
     # unit's stages recorded as made, kept there, which a batch's raise reads; crew _batch-card <label> <n> [--note
-    # <words>], on the partition's main machine: batch n's card raised, which a stage's new made line hands there
+    # <words>], on the drive's main machine: batch n's card raised, which a stage's new made line hands there
     exec python3 "$here/../lib/plan.py" "${args[@]}" ;;
   _land-row | _land-card)  # crew _land-row <label> <bolt> --json, on the bolt's host: its row on its kit's
     # landings card, its reading and preview opened or ended there; crew _land-card <label> <kit> [--note <words>], on
-    # the partition's main machine: the kit's landings card raised from each row, which every event that changes a row
+    # the drive's main machine: the kit's landings card raised from each row, which every event that changes a row
     # hands there (Decision 2 of one-landings-card-lands-the-proven-bolts-in-order, code.3)
     exec python3 "$here/../lib/plan.py" "${args[@]}" ;;
   _landing-read)  # crew _landing-read <label> <bolt>, on the bolt's host: its landing read from sluice's record
@@ -598,9 +599,9 @@ case $cmd in
     [[ ${2:-} == fix ]] && exec python3 "$here/../lib/plan.py" "${args[@]}"  # a plan write, on the asking host
     need_label "${3:-}"
     case ${2:-} in up | down | status) one _main "$2" "$3" ${forced[@]+"${forced[@]}"} ;; *) echo "usage: crew main up|down|status <label> | fix <kit> <name> ..." >&2; exit 2 ;; esac ;;
-  review)  # crew review <label> [--wait [--timeout <ms>]]: the partition's reviewer, fresh for one batch, in a review tab
+  review)  # crew review <label> [--wait [--timeout <ms>]]: the drive's reviewer, fresh for one batch, in a review tab
     # of the main level's workspace beside the planner; --wait waits for its summary, records the batch and closes its tab.
-    # A partition that runs its reviewer as its kind is asked the batch, and its run hands it back with crew review
+    # A drive that runs its reviewer as its kind is asked the batch, and its run hands it back with crew review
     # delivered, run where the run is, on the main level's host.
     [[ ${2:-} == delivered ]] && exec python3 "$here/../lib/plan.py" "${args[@]}"
     need_label "${2:-}"

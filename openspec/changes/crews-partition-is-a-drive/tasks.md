@@ -17,7 +17,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 ## 3. crew's words
 
 - [x] 3.1 Every refusal, message, card text, commit message and comment crew's Python and hooks write says drive where it said partition (design, Decisions 1 and 5; Task notes 3.1). Verify `tests/suite logic` ends with "0 failed".
-- [ ] 3.2 crew's usage and `crew-role`'s comments say drive, `crew send <drive> "<text>"` among them, and a command given no label asks which drive (design, Decision 5; Task notes 3.2). Verify `tests/suite t-help` ends with "0 failed".
+- [x] 3.2 crew's usage and `crew-role`'s comments say drive, `crew send <drive> "<text>"` among them, and a command given no label asks which drive (design, Decision 5; Task notes 3.2). Verify `tests/suite t-help` ends with "0 failed".
 - [ ] 3.3 `t-journey-board` expects crew's words for a drive (design, Decision 1; Task notes 3.3–3.17). Verify `tests/suite t-journey-board` ends with "0 failed".
 - [ ] 3.4 `t-journey-main` expects crew's words for a drive (design, Decision 1; Task notes 3.3–3.17). Verify `tests/suite t-journey-main` ends with "0 failed".
 - [ ] 3.5 `t-roles` expects crew's words for a drive (design, Decision 1; Task notes 3.3–3.17). Verify `tests/suite t-roles` ends with "0 failed".
