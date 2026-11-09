@@ -1191,9 +1191,8 @@ def fixes_in_flight(requests, reads, bolt):
     in flight holds the bolt's landing as today's does (plan.landing_unready, landing_rows)."""
     own = {l.get("Work"): l.get("Brief") for l, s in fixes_on(requests, reads, f"bolt/{bolt}")
            if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
-    f = base_facts(launch_of(requests, f"bolt/{bolt}"), reads)
-    live = (landing_fix(f) or {}).get("live")
-    return dict(own, **{live["name"]: landing_fix_note(f, live)}) if live else own
+    live = (landing_fix(base_facts(launch_of(requests, f"bolt/{bolt}"), reads)) or {}).get("live")
+    return dict(own, **{live["name"]: live["note"]}) if live else own
 
 
 def landing_fix_note(f, fix):
@@ -1284,13 +1283,14 @@ def landing_fix(f):
     launches no fix for the bolt: its Flume predates 0.19.0, or the base place was launched before its host had one.
     Otherwise {kind, limit, ran, live, fixes}: kind, the identity its fixes run as; limit, how many Flume runs before
     the base place waits on its caller, None where crew can't read it; ran, every fix Flume listed that crew reads,
-    one whose launch was refused among them; live, the one fix whose end is live, or None; fixes, each as fix_facts
-    gives it."""
+    one whose launch was refused among them; live, the one fix whose end is live, with its note as a fix in flight
+    on the bolt is worded (landing_fix_note), or None; fixes, each as fix_facts gives it."""
     if not f or not f.get("fix_kind"):
         return None
     fixes = list(f.get("fixes") or ())
+    live = next((x for x in fixes if x["ended"] == "live"), None)
     return {"kind": f["fix_kind"], "limit": f.get("fix_limit"), "ran": len(fixes),
-            "live": next((x for x in fixes if x["ended"] == "live"), None), "fixes": fixes}
+            "live": dict(live, note=landing_fix_note(f, live)) if live else None, "fixes": fixes}
 
 
 def landing_way(lf, entry):
@@ -1415,6 +1415,34 @@ def landing_outcome(launch, lands, reads):
     return asked
 
 
+def fix_clause(l):
+    """The clause a landing's words end with for its base place's landing fix (crews-bolt-kind-names-its-landing-fix,
+    Decision 6), from the fix landing_of gives it, or "" where Flume holds none to say: for a refusal whose way on is
+    Flume's, which fix takes main in or makes the failed checks pass while it is live, that the fix naming it has
+    landed, or that Flume launches its landing fix while it is due; for one whose way on is its caller's, that Flume
+    ran its landing fixes, or how the fix naming it ended, and that it waits on ops; for any other outcome, which fix
+    takes main in or makes the failed checks pass while one is live."""
+    fix = l.get("fix") or {}
+    live, named = fix.get("live"), fix.get("named") or {}
+    does = lambda x: f"Flume's landing fix {x['name']} " + ("makes the failed checks pass" if x["cause"] == "failed" else "takes main in")
+    if l.get("outcome") != "refused":
+        return does(live) if live else ""
+    if fix.get("by") == "flume":
+        if live:
+            return does(live)
+        if named:
+            return f"Flume's landing fix {named['name']} has landed" + (f" at {named['commit'][:7]}" if named.get("commit") else "")
+        return "Flume launches its landing fix"
+    if fix.get("by") == "caller":
+        if fix.get("why") == "dropped":
+            return f"Flume's landing fix {named.get('name')} was dropped, and it waits on ops"
+        if fix.get("why") == "refused":
+            return f"Flume's landing fix {named.get('name')} could not be launched, and it waits on ops"
+        ran = fix.get("ran", 0)
+        return f"Flume ran its {ran} landing {'fix' if ran == 1 else 'fixes'}, and it waits on ops"
+    return ""
+
+
 def landing_said(l, bolt=None, head=None):
     """A landing (landing_of) in the words of its head line and its row (Decision 10): asked with its request;
     under test or waiting with the merge queue's entry; landed at its commit; refused in Flume's words; stopped in the
@@ -1423,10 +1451,36 @@ def landing_said(l, bolt=None, head=None):
     land is the bolt's only for its own content"): a failed check, that the bolt is open for work and ops starts a fix
     on it with Flume's words, crew fix <bolt> <name> "<words>"; a conflict, that it takes main first, by the fix crew
     launches to take main into it, ops starting nothing; a stop, at that head. Without them, the words the run record
-    keeps of a refusal (landing_entry)."""
+    keeps of a refusal (landing_entry). Where the base place names a landing fix, a refusal's words end with what
+    Flume's landing fix does in place of what crew or ops does, and any other outcome's with the fix live, if one is
+    (fix_clause; crews-bolt-kind-names-its-landing-fix, Decision 6)."""
     o = l.get("outcome")
     first = (l.get("words") or "").strip().splitlines()[0] if (l.get("words") or "").strip() else ""
     at = f" at {head[:7]}" if head else ""
+    clause = fix_clause(l)
+    if o == "refused" and l.get("why") == "conflict":
+        main = f" at {l['main'][:7]}" if l.get("main") else ""
+        if bolt is None:
+            return f"landing refused in conflict with main{main}: {first}" + (f"; {clause}" if clause else "")
+        if clause:
+            return f"takes main first: its landing{at} was refused in conflict with main{main}: {first}; {clause}"
+        return (f"takes main first: its landing{at} was refused in conflict with main{main}: {first}; crew launches the "
+                "fix that takes main into it, ops starting nothing, and it lands again once that fix moves its head")
+    if o == "refused":
+        if bolt is None:
+            return f"landing refused, a check failed: {first}" + (f"; {clause}" if clause else "")
+        if clause:
+            return f"landing refused{at}, a check failed, the bolt's, open for work: {first}; {clause}"
+        return (f"landing refused{at}, a check failed, the bolt's, open for work: {first}; it waits for a fix on the bolt, "
+                f"which ops starts with Flume's words, crew fix {bolt} <name> \"{first}\", and lands again once that fix "
+                "moves its head")
+    words = outcome_said(l, o, first, at)
+    return f"{words}; {clause}" if words and clause else words or clause
+
+
+def outcome_said(l, o, first, at):
+    """landing_said's words for a landing neither refused nor landing again: asked, submitted, landed, stopped, unknown,
+    or "" for any other."""
     if o == "asked":
         return f"landing asked, request {l['request']}"
     if o == "submitted":
@@ -1434,18 +1488,6 @@ def landing_said(l, bolt=None, head=None):
         return f"landing #{l['entry']} {state}" if l.get("entry") else f"landing submitted, request {l['request']}"
     if o == "landed":
         return f"landed at {(l.get('commit') or '')[:7]}"
-    if o == "refused" and l.get("why") == "conflict":
-        main = f" at {l['main'][:7]}" if l.get("main") else ""
-        if bolt is None:
-            return f"landing refused in conflict with main{main}: {first}"
-        return (f"takes main first: its landing{at} was refused in conflict with main{main}: {first}; crew launches the "
-                "fix that takes main into it, ops starting nothing, and it lands again once that fix moves its head")
-    if o == "refused":
-        if bolt is None:
-            return f"landing refused, a check failed: {first}"
-        return (f"landing refused{at}, a check failed, the bolt's, open for work: {first}; it waits for a fix on the bolt, "
-                f"which ops starts with Flume's words, crew fix {bolt} <name> \"{first}\", and lands again once that fix "
-                "moves its head")
     if o == "stopped":
         return f"landing stopped{at}, nothing of the bolt's: {first}"
     if o == "unknown":

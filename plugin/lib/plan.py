@@ -4163,7 +4163,8 @@ def landing_line(landing, phase, head, bolt=None):
         if at and head and not at_head(at, head):
             return None  # a fix has moved its head since: the refusal holds nothing (held_at)
         return runner.landing_said(landing, bolt or "<bolt>", at or head)
-    return phase_said(phase, head)
+    # a landing fix live with nothing else to say, as a forecast's is (runner.fix_clause; crews-bolt-kind-names-its-landing-fix, Decision 6)
+    return phase_said(phase, head) or (runner.fix_clause(landing) if landing else "") or None
 
 
 def phase_at(w, bolt):

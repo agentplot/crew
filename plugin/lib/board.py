@@ -366,7 +366,9 @@ def flume_waits(construction, runs, label):
     which crew answer answers (runner.answer_retry), {bolt, repo, name, stage, said}; fixing, for main-level ops's band,
     each fix of a kit's main (runs, the partition's (requests, runners) as the rail read them, runner.fixes_on) and each
     take-main fix of a started bolt that has not merged, landed or been dropped, the fixes of main first, {fix,
-    repo, host, stage, said}; stage and said, as runner.piece_said says them."""
+    repo, host, stage, said}; stage and said, as runner.piece_said says them; then each live landing fix of a started
+    bolt's base place, read from its ledger's landing (plan.Stages.landing, runner.landing_fix;
+    crews-bolt-kind-names-its-landing-fix, Decision 6), its stage `landing fix` and said its note."""
     asking, fixing = [], []
     for l, s in runner.fixes_on(*runs, "main") if runs else []:
         if s["stage"] not in ("merged", "landed", "dropped"):
@@ -383,6 +385,10 @@ def flume_waits(construction, runs, label):
                 asking.append(dict(bolt=b["bolt"], repo=b["repo"], name=name, **said))
             if x.get("fix", "").startswith(f"fix/{b['bolt']}/take-main-") and s["stage"] not in ("merged", "landed", "dropped"):
                 fixing.append(dict(fix=name, repo=b["repo"], host=b["host"], **said))
+    for b in construction:  # each live landing fix of a bolt's base place, after the take-main fixes (runner.landing_fix)
+        live = ((b.get("landing") or {}).get("fix") or {}).get("live")
+        if live:
+            fixing.append(dict(fix=live["name"], repo=b["repo"], host=b["host"], stage="landing fix", said=live["note"]))
     return asking, fixing
 
 
@@ -801,8 +807,9 @@ def operator_view(p):
 
 
 def ops_view(p):
-    """Main-level ops's: the partition's operations in brief; each fix of a kit's main and each take-main fix in flight,
-    with its stage (fixing; crew-board "A fix of main in ops's band"); each kit's landing row, its landings card ops's, naming
+    """Main-level ops's: the partition's operations in brief; each fix of a kit's main, each take-main fix in flight and
+    each landing fix Flume runs on a bolt, with its stage (fixing; crew-board "A fix of main in ops's band" and "Ops's
+    band lists each landing fix Flume runs on a bolt"); each kit's landing row, its landings card ops's, naming
     the bolts that wait on its main in the plan's order, each with its landing asked of the runner with its request or
     in the merge queue with its entry (record_landing), with its card, saying crew asks the runner to land what the user
     ticked once they have answered it, and each started bolt whose landing stands on no such row; the head line of each

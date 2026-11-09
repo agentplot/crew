@@ -1921,6 +1921,15 @@ class TestStarted:
         assert "    fix/x/take-main-4d3d9be  fix code 6/26" in lane(board.board_text(d), "Construction")
         assert "  crew  fix x--take-main-4d3d9be  code 6/26  on deneb" in self.views(ran({3: "code"}), extra=[fix])["madswan-ops"]
 
+    def test_a_landing_fix_in_ops_band(self):
+        """crew-board "A landing fix in ops's band" (crews-bolt-kind-names-its-landing-fix, Decision 6): x's base place
+        lists y-1 live for a conflict; ops's band lists it after the take-main fixes as a landing fix taking main in, and
+        its head line counts one fix in flight."""
+        from facts import ran
+        v = self.views(ran({1: "code", 3: "flume-0.19.0/bolt-conflict-fixing"}))["madswan-ops"]
+        assert v[0].endswith("1 fix in flight")
+        assert "  crew  fix y-1  landing fix  Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab  on deneb" in v, v
+
     def test_a_runner_crew_cant_read_is_named_for_attention(self):
         import runner
         d = self.data({"deneb": runner.host_read("madswan", "deneb", "5e1f0c2a" + "0" * 32, {}, {"runner.rec": "recfix refused it"})})
@@ -2187,6 +2196,20 @@ class TestALandingFromTheRunnersReport:
         assert board.head_said(self.ledger({"outcome": "none"})) == "waits to land"
         assert board.head_said(self.ledger({"outcome": "unlaunched", "refused": True, "words": "not locked"}, state="active")) == ""
         assert board.record_landing(self.ledger({"outcome": "none"})) == ""
+
+    def flume_19(self, name):
+        from test_runner import TestLandingFix
+        return TestLandingFix().of(f"flume-0.19.0/{name}")
+
+    def test_a_head_line_names_the_landing_fix_taking_main_in(self):
+        """crew-board "A landing fix taking main in"."""
+        assert board.head_said(self.ledger(self.flume_19("bolt-conflict-fixing"), self.ASKED)).endswith(
+            "; Flume's landing fix y-1 takes main in")
+
+    def test_a_head_line_names_the_bound_spent(self):
+        """crew-board "The bound spent on the head line"."""
+        got = board.head_said(self.ledger(self.flume_19("bolt-failed-spent"), self.ASKED))
+        assert got.startswith("landing refused at aaaaaaa, a check failed") and got.endswith("Flume ran its 3 landing fixes, and it waits on ops")
 
     def test_ops_band_lists_a_landing_in_flight_with_its_request_or_entry(self):
         p = {"label": "wldn", "construction": [

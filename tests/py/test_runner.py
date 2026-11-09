@@ -1083,6 +1083,30 @@ class TestLandingFix:
         assert got["outcome"] == "none" and got["fix"]["live"]["name"] == "y-1" and got["fix"]["live"]["cause"] == "forecast"
         assert "by" not in got["fix"]
 
+    def test_a_landings_words_end_with_what_its_landing_fix_does(self):
+        """crew-board "A bolt's head line names its landing fix" (Decision 6): the words the run record keeps and crew
+        bolts prints end with the landing fix's clause, on each fixture of flume 0.19.0."""
+        said = lambda name, lands=1: runner.landing_said(self.of(f"flume-0.19.0/{name}", lands))
+        conflict = "landing refused in conflict with main at 9f1c2ab: bolt/y conflicts with main at 9f1c2ab on plugin/lib/plan.py, plugin/lib/runner.py"
+        failed = "landing refused, a check failed: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)"
+        assert said("bolt-conflict-fixing") == f"{conflict}; Flume's landing fix y-1 takes main in"
+        assert said("bolt-failed-fix-due") == f"{failed}; Flume launches its landing fix"
+        assert said("bolt-failed-spent") == f"{failed}; Flume ran its 3 landing fixes, and it waits on ops"
+        assert said("bolt-conflict-dropped") == f"{conflict}; Flume's landing fix y-1 was dropped, and it waits on ops"
+        assert said("bolt-fixed-landed") == f"{conflict}; Flume's landing fix y-1 has landed at 5a6b7c8"
+        assert said("bolt-forecast-fixing", lands=0) == "Flume's landing fix y-1 takes main in"
+        assert runner.landing_said(self.of("flume-0.17.0/bolt-failed")) == failed
+
+    def test_a_failed_checks_landing_fix_names_no_command_for_ops(self):
+        """bolt-teams "A check fails with Flume's landing fix": z did not land, in Flume's words, and Flume's landing
+        fix z-1 makes the failed checks pass, naming no command for ops."""
+        l = self.of("flume-0.19.0/bolt-failed-fix-due")
+        l["fix"] = dict(l["fix"], due=False, live={"name": "z-1", "cause": "failed", "note": ""})
+        got = runner.landing_said(l, "z", "a" * 40)
+        assert got == ("landing refused at aaaaaaa, a check failed, the bolt's, open for work: check-full failed: tests:logic 3 "
+                       "failed (tests/py/test_landing.py); Flume's landing fix z-1 makes the failed checks pass")
+        assert "crew fix" not in got
+
     def test_a_bound_crew_cant_read_is_its_callers(self):
         lf = dict(runner.landing_fix(runner.flume_facts(status_19("bolt-failed-fix-due"), Y)), limit=None)
         assert runner.landing_way(lf, "412")["by"] == "caller"

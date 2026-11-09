@@ -297,6 +297,20 @@ class TestALiveLandingFixHoldsItsRow:
         assert y["why"] == ("held for a fix: Flume's landing fix y-1 makes the failed checks pass: check-full failed: tests:logic "
                             "3 failed (tests/py/test_landing.py) (y-1)")
 
+    def test_a_row_held_by_its_refusal_says_flume_launches_its_landing_fix(self):
+        """rail-cards "Due": y's landing was refused for a failed check at its head and its landing fix is due; the run
+        record's Refused, written by landing_said, holds the row saying Flume launches its landing fix."""
+        import runner
+        from facts import ran
+        from test_runner import rec
+        requests = TestLandsDue().requests(rec(5, "land", "bolt/y", Of=1))
+        launch = requests[0]
+        l = runner.landing_of(launch, runner.lands_of(requests, launch), ran({1: "flume-0.19.0/bolt-failed-fix-due"}, label="swancloud",
+                                                                            unplaced={5: "-"}))
+        (y,) = plan.landing_rows(["y"], {"y": facts("y", H1)}, {"y": (H1, runner.landing_said(l))})
+        assert y["box"] is False and y["why"].endswith("; Flume launches its landing fix")
+        assert y["why"].startswith("landing rejected at abc1234, open for work: it waits for a fix on the bolt: landing refused, a check failed")
+
     def test_no_land_is_posted_while_it_runs_and_one_once_the_fix_that_took_main_in_has_landed(self):
         from facts import ran
         from test_runner import rec
