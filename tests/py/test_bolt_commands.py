@@ -7,7 +7,7 @@ import base64
 import pathlib
 
 import pytest
-from facts import FLEET, FactsWrite, apply, keeping, known, plan_text, ran, units_of
+from facts import FLEET, FactsWrite, apply, kept_by, known, plan_text, ran, units_of
 
 import plan
 import runner
@@ -82,7 +82,7 @@ class TestStart:
     """bolt-plan "A bolt's work starts by crew bolt start" and bolt-teams "A start launches the bolt's base place before
     its pieces" (crew-lands-each-bolt-through-flumes-base-place, Decision 3): one plan write marks the bolt Path: flume
     and appends its base place's launch and then its pieces', reading no host and making no branch; refused, the plan
-    unchanged and nothing requested, while no runner answers for the partition, and for a bolt started already, but one
+    unchanged and nothing requested, while no runner answers for the drive, and for a bolt started already, but one
     whose own launch the runner refused, which it launches anew (runner.restart). Its pieces' launches are the cross
     tests' (test_cross.py); its commit the cross journey's (t-journey-cross)."""
     HOST = "mac-studio"
@@ -125,11 +125,11 @@ class TestStart:
 
     def test_a_start_where_the_main_level_host_keeps_no_checkout_of_the_kit_goes_on(self):
         w = self.write()
-        fleet = dict(FLEET, hosts={self.HOST: keeping("/w", f"WilldanGroup/{BOARD}")})
+        fleet = kept_by(FLEET, "wldn", "/w", f"WilldanGroup/{BOARD}")
         apply(w, "bolt start console-pages", ctx=known(w, fleet=fleet))
         assert [r[2] for r in self.requests(w)] == ["bolt/console-pages", "unit/a-console-page", "unit/a-console-filter"]
 
-    def test_a_partition_no_runner_answers_for_is_refused_and_nothing_is_requested(self):
+    def test_a_drive_no_runner_answers_for_is_refused_and_nothing_is_requested(self):
         w = fresh()
         with pytest.raises(plan.Refusal) as e:
             run(w, "bolt start console-pages")
@@ -204,12 +204,12 @@ class TestLand:
         assert self.land({}, of=of) == "cannot tell whether unit a-console-page has landed: chuck-herdr-alpha did not answer"
 
     def test_a_bolt_never_started_is_read_in_the_checkout_the_main_level_host_keeps_of_its_kit(self):
-        """The user's ruling of 2026-11-01: a bolt no runner took work of is read and landed on its partition's main-level host."""
+        """The user's ruling of 2026-11-01: a bolt no runner took work of is read and landed on its drive's main-level host."""
         t = plan.main_kit(FLEET, "wldn", BOARD)
         assert (t["machine"], t["kit"]["main"]) == ("mac-studio", f"/w/{BOARD}/main")
         assert plan.unheld_refusal(FLEET, "console-pages", ["a-console-page"], KIT, t, "wldn") is None
         assert plan.unheld_refusal(FLEET, "console-pages", ["a-console-page"], "rocs-kit", None, "wldn") == (
-            "bolt console-pages was never started, and wldn's main level runs on mac-studio, and no space there keeps rocs-kit, "
+            "bolt console-pages was never started, and wldn's main level runs on mac-studio, and the teams file keeps no rocs-kit there, "
             "so crew can't read its main; if it was renamed on its host, crew kit rename rocs-kit <new> names it so in the plan")
         assert plan.unheld_refusal(FLEET, "console-pages", [], KIT, t, "wldn") == (
             "bolt console-pages was never started and holds no units or chores, so nothing of it has landed")
@@ -273,7 +273,7 @@ class TestWhenABoltIsFetched:
     """bolt-plan "A bolt on GitHub is fetched where a decision rests on it" (plan.18, plan.19, design Decision 3): crew
     bolts asks each kit's GitHub fetched first; every other read fetches nothing. b is started, its work running on box,
     where the runner that took it reported the kit in /kit/main (plan.bolt_at)."""
-    FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio"}}}
+    FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio"}}}
     KIT_READ = {"ok": True, "main": [], "chores": [], "places": {}, "chore_places": {}, "fixes": [],
                 "bolts": {"b": {"exists": True, "at": "origin/bolt/b", "changes": [], "archived": [], "open": {}, "chores": [],
                                 "head": "d" * 40, "head_at": "2026-10-23T09:00:00Z"}}}
@@ -286,7 +286,7 @@ class TestWhenABoltIsFetched:
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: ([], {}))
         monkeypatch.setattr(plan, "rail_runs", lambda found: {"wldn": ([], {})})
         monkeypatch.setattr(plan, "bolt_at", lambda fleet, label, b, run=None: self.WHERE if plan.started(b) else None)
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [])  # the run record crew bolts reads its landings from
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [])  # the run record crew bolts reads its landings from
         if kept:
             plan.READ.keep_kits("box", kept)
 
@@ -365,7 +365,7 @@ class TestCrewBoltsCrossed:
                                crew_read(bolts={"x": {}, "y": {}}), {}, bolt, runs={"madswan": (requests, runners)})
 
     def bolts(self, d):
-        return {b["bolt"]: b for b in d["partitions"][0]["plans"][0]["bolts"]}
+        return {b["bolt"]: b for b in d["drives"][0]["plans"][0]["bolts"]}
 
     def test_a_bolts_json_gives_its_host_and_stream_and_each_pieces_runner_stage(self):
         from facts import ran
@@ -496,7 +496,7 @@ class TestSubmit:
 
         def unread(*a, **k):
             raise AssertionError("a refused submit reads nothing")
-        for name in ("locate", "default_label", "partition_entries", "plan_of", "runner_facts"):
+        for name in ("locate", "default_label", "drive_entries", "plan_of", "runner_facts"):
             monkeypatch.setattr(plan, name, unread)
         monkeypatch.setattr(crew, "on_machine", unread)
         a = plan.parser().parse_args(["bolt", "submit", *args])

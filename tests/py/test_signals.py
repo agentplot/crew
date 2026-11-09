@@ -218,7 +218,7 @@ class TestShortId:
 
 
 class TestRefused:
-    FLEET = {"partitions": {"wldn": {"label": "wldn", "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state"}},
+    FLEET = {"drives": {"wldn": {"label": "wldn", "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state"}},
              "hosts": {}}
 
     def test_a_signal_in_neither_home_is_refused_naming_both(self):
@@ -325,7 +325,7 @@ class TestCaptureAsk:
     asks"; design Decision 5); a design agent that stands is asked nothing."""
 
     def fleet(self, design):
-        return {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
+        return {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
                                            "flume": dict(dict.fromkeys(crew.KIND_ROLES, False), design=design)}}, "hosts": {}}
 
     @pytest.fixture

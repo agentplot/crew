@@ -51,7 +51,7 @@ class TestLaunch:
                                                r"so name this fix differently$"):
             plan.main_fix_change(madswan_fleet(), w, "crew", "red", "start", "Again.")
 
-    def test_no_runner_answering_for_the_partition_is_refused_naming_state_3s_way(self):
+    def test_no_runner_answering_for_the_drive_is_refused_naming_state_3s_way(self):
         w = write(runners={})
         with pytest.raises(plan.Refusal, match="^no runner answers for madswan: its state repository holds no madswan/runner/<host>, so "
                                                "nothing would take the fix; until a runner \\(Boomdrive\\) serves madswan, a fix of "
@@ -71,7 +71,7 @@ class TestDrop:
 
     @pytest.mark.parametrize("at, said", [
         ("landed", "^fix/main/crew/red has merged into main, so it is not dropped: what it changed is main's, and a new fix undoes it$"),
-        (None, "^can't tell whether fix/main/crew/red's place has merged into main, so it is not dropped: no runner answers for the partition")])
+        (None, "^can't tell whether fix/main/crew/red's place has merged into main, so it is not dropped: no runner answers for the drive")])
     def test_a_landed_fix_or_one_crew_cant_read_is_not_dropped(self, at, said):
         w = write()
         plan.main_fix_change(madswan_fleet(), w, "crew", "red", "start", WORDS)
@@ -140,7 +140,7 @@ class TestSend:
 class TestCommand:
     def test_crew_main_fix_is_its_own_row_of_the_role_table(self, monkeypatch):
         """Decision 16: main-level ops and the user run it; a conductor or the planner is refused, told ops runs it."""
-        fleet = dict(madswan_fleet(), partitions={"madswan": {"label": "madswan", "roles": {}}})
+        fleet = dict(madswan_fleet(), drives={"madswan": {"label": "madswan", "roles": {}}})
         a = plan.parser().parse_args(["main", "fix", "crew", "red", WORDS])
         assert (a.cmd, a.sub, a.kit, a.name, a.words, a.drop) == ("main", "fix", "crew", "red", WORDS, False)
         with pytest.raises(SystemExit):

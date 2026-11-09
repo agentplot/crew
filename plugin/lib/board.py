@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""board.py: the board of a partition's flow, read from crew's state.
+"""board.py: the board of a drive's flow, read from crew's state.
 
   crew board [--label L] [--json]    the flow as four lanes stacked one above the other, one object to a line:
                                      Inception (the signals no move has taken, by who captured them, and the
@@ -9,18 +9,18 @@
                                      environment's deploys of that week and those still open, and the operations
                                      waiting on it); every rail row a marker on its object, and what needs attention
                                      at the foot
-  crew _views <label>                one partition's read as the host's follower makes it: the rail printed as crew
+  crew _views <label>                one drive's read as the host's follower makes it: the rail printed as crew
                                      rail prints it, the card sessions of closed cards and gone rows ended as crew rail
                                      ends them, and the board's data written for the board tab, with each agent's view
                                      of it for the band crew's mod draws above that agent's prompt
   crew _follow [--once]              the host's follower with no tab, the command a job of the host's runs: one read in
-                                     its own process for every partition with an operator session here, fetching each
+                                     its own process for every drive with an operator session here, fetching each
                                      repository once a minute on its clock and showing this host's writes within
                                      seconds, checking first what moved and reading only that, asking another host,
                                      Pending You or herdr only when something there could have moved, and learning
                                      that a submission moved from its runner's report, starting no sluice; the due
                                      restarts handed out once crew's checkout, the crew the host has installed or the
-                                     teams file moved (crew _update), and each partition's rail, board and agents'
+                                     teams file moved (crew _update), and each drive's rail, board and agents'
                                      views written as frames, stale after three minutes; it waits for the host's
                                      follower lock while a rail tab holds it. --once makes one tick and ends
   crew _rail <label> [--once]        the rail tab: the latest rail the host's follower wrote, drawn whenever it
@@ -114,7 +114,7 @@ def signals_at(repo, tip, home, moved):
 
 def signals(fleet, label, tip):
     """The label's signals no move has taken, in both homes: the drive's branch at the tip the plan was read from
-    (None when the branch is not started, so nothing is moved), and main of the partition's first blueprints repo;
+    (None when the branch is not started, so nothing is moved), and main of the drive's first blueprints repo;
     and each home that could not be read, {what: why}. When the branch's signals and moves can't be read, which
     signals are moved can't be known, and none is listed (read.1)."""
     repo, ref = plan.state_of(fleet, label)
@@ -123,7 +123,7 @@ def signals(fleet, label, tip):
         out = signals_at(repo, tip, "branch", moved) if tip else []
     except Refusal as e:
         return [], {f"{ref} of {repo}": str(e)}
-    srepo = crew.partition_of(fleet, label)["blueprints"][0]
+    srepo = crew.drive_of(fleet, label)["blueprints"][0]
     try:
         btip = plan.fetch(srepo, "main")
         out += signals_at(srepo, btip, "blueprints", moved) if btip else []
@@ -144,15 +144,15 @@ def flow_read(fleet, labels, sweep=False):
 
 
 def roles_read(fleet, found):
-    """What the board reads of each partition's roles that run as their kinds, for their runs' views and the attention
+    """What the board reads of each drive's roles that run as their kinds, for their runs' views and the attention
     line (kind_runs; Decision 15 of roles-run-as-flume-kinds), beside its plan in the same read (plan.12): {label:
-    {"kinds": {role: the stream its partition names}, "asks": asks.rec's text at the tip the read found, None where it
+    {"kinds": {role: the stream its drive names}, "asks": asks.rec's text at the tip the read found, None where it
     holds none, "host": the main level's host, "reading": that host's runner as read beside the branch (plan.runners,
-    runner.of_host)}}, for each partition read whose teams-file entry names a stream for a role; one that runs none as
+    runner.of_host)}}, for each drive read whose teams-file entry names a stream for a role; one that runs none as
     its kind reads nothing more."""
     out = {}
     for l, repo, tip, _ in found:
-        p = crew.partition_of(fleet, l)
+        p = crew.drive_of(fleet, l)
         kinds = {r: s for r, s in p["flume"].items() if s is not False}
         if kinds:
             out[l] = {"kinds": kinds, "asks": plan.show(repo, tip, "asks.rec") if tip else None, "host": p["machine"],
@@ -209,7 +209,7 @@ def records_proposed(entries, cards):
 
 
 def environments(fleet, label, entries, rows, cards, since, logs):
-    """The partition's environments for the Operation lane: each one's deploys that moved since since or are still open,
+    """The drive's environments for the Operation lane: each one's deploys that moved since since or are still open,
     and the operations waiting on it, as ops.environments reads them from the run record (plan.14, state.4), each
     deploy and operation with its rail row's marker."""
     return [{"env": env,
@@ -219,16 +219,16 @@ def environments(fleet, label, entries, rows, cards, since, logs):
 
 
 def board_data(fleet, labels, read, now):
-    """The board of each label as data, the fields the page reads (`crew board --json`); an object's partition and kit
-    say whose it is, and nothing names a team (crew-board). Each partition lists its kits, the repositories its plan and
-    its landings name (plan.partition_kits), which the fleet page lists. Each started bolt is a ledger of its units, chores and fixes,
+    """The board of each label as data, the fields the page reads (`crew board --json`); an object's drive and kit
+    say whose it is, and nothing names a team (crew-board). Each drive lists its kits, the repositories its plan and
+    its landings name (plan.drive_kits), which the fleet page lists. Each started bolt is a ledger of its units, chores and fixes,
     its host and stream where the runner that took its work reported them (plan.bolt_at), each unit or chore with its
     kind, and each of them with its stage from the runner's records and what goes with it (flume, Stages.crossed,
     Stages.fixes), a piece's submission among it as the runner carries it (runner.piece_said), and the ledger its landing
     as the run record holds it (record, landing_of), nothing of sluice's queue read (crew record 0056 points 1 and 4); a
     runner that could not be read is named for attention. Each ledger has its bolt's time to now (plan.held_time, plan.20): {age, shares: {team,
     kit, team_or_kit, user, hold, nobody}, now: {holder, what, since}, said}, in minutes, or {unknown: why, said}, with
-    its age once its start is read. Each partition lists too its open cards, oldest first, each with whose it is and what
+    its age once its start is read. Each drive lists too its open cards, oldest first, each with whose it is and what
     it is, a row's, a decision record's or a question (plan.card_kind), and the decision records proposed and not yet
     accepted or rejected, which the design agent's band shows (records_proposed); the places that wait on an answer and
     the fixes of main and take-main fixes in flight (asking and fixing, flume_waits), which the planner's and main-level
@@ -256,7 +256,7 @@ def board_data(fleet, labels, read, now):
         attention += [{"what": "signals", "name": n, "why": why} for n, why in sunread.items()]
 
         explorations = []
-        for kit in read["kits"].get(l, []):  # the kits its plan and its landings name (plan.partition_kits)
+        for kit in read["kits"].get(l, []):  # the kits its plan and its landings name (plan.drive_kits)
             t = plan.main_kit_read(fleet, l, kit)  # read in the checkout its main-level host keeps of it
             k = ((sv.get(t["machine"]) or {}).get("kits", {}).get(t["kit"]["main"]) or {}) if t else {}
             if k.get("ok") and "explorations" in k:
@@ -319,18 +319,18 @@ def board_data(fleet, labels, read, now):
                       "bolt_plan": {"proposals": proposals, "planned": planned, "queue": queue},
                       "construction": construction, "operation": operation, "environments": envs, "attention": attention,
                       "asking": asking, "fixing": fixing, "runs": kinds})
-    return {"read_at": iso(now), "from": here, "partitions": parts, "unread": read["errors"]}
+    return {"read_at": iso(now), "from": here, "drives": parts, "unread": read["errors"]}
 
 
 def kind_runs(label, roles):
-    """Each role the partition runs as its kind, for its run's view (crew-board "A role that runs as its kind has its
+    """Each role the drive runs as its kind, for its run's view (crew-board "A role that runs as its kind has its
     view"), and what the attention line names of their runs ("The attention line names a role's run that waits"), a
     decision on the board's read of them (roles_read) alone (code.7): (runs, attention). Each run {role, run, stream,
-    turn, waiting, since}: its name, <label>-<role>; the stream its partition names; its turn as asks.run_view gives it,
+    turn, waiting, since}: its name, <label>-<role>; the stream its drive names; its turn as asks.run_view gives it,
     None while it has none; how many asks wait for its next run, and when the oldest was asked. The attention names a
     run Flume's status shows stopped short, with its words, or lost, with its place and host, and prints no command
     (crew-board "The board answers nothing"); and each run whose standing crew can't read, those of one why together
-    (read.1). Nothing for a partition that runs no role as its kind."""
+    (read.1). Nothing for a drive that runs no role as its kind."""
     if not roles:
         return [], []
     held, turns = asks.parse(roles["asks"])
@@ -360,11 +360,11 @@ def kind_runs(label, roles):
 
 
 def flume_waits(construction, runs, label):
-    """What a partition's places wait on its roles for (crew-board "The planner's and ops's bands show what places wait
+    """What a drive's places wait on its roles for (crew-board "The planner's and ops's bands show what places wait
     on them for"), a decision of facts alone (code.7): (asking, fixing). asking, for the planner's band, each unit, chore
     or fix of a started bolt, from its ledger (construction), whose place stopped short asking or waits on its caller,
     which crew answer answers (runner.answer_retry), {bolt, repo, name, stage, said}; fixing, for main-level ops's band,
-    each fix of a kit's main (runs, the partition's (requests, runners) as the rail read them, runner.fixes_on) and each
+    each fix of a kit's main (runs, the drive's (requests, runners) as the rail read them, runner.fixes_on) and each
     take-main fix of a started bolt that has not merged, landed or been dropped, the fixes of main first, {fix,
     repo, host, stage, said}; stage and said, as runner.piece_said says them; then each live landing fix of a started
     bolt's base place, read from its ledger's landing (plan.Stages.landing, runner.landing_fix;
@@ -499,7 +499,7 @@ def waiting_fields(env, w):
 
 
 def board_text(data, width=None, color=False, stale=None):
-    """The board as text: for each partition a header, the four lanes in order, each a bold heading with its objects
+    """The board as text: for each drive a header, the four lanes in order, each a bold heading with its objects
     under it or none, then attention. A marker sits in a two-column gutter at the left of its object's line, its card
     said at the line's end. Each line is cut to width when that is given; bold and dim only with color. stale, when
     given, is how long ago the board was read, said in its header."""
@@ -519,7 +519,7 @@ def board_text(data, width=None, color=False, stale=None):
 
     def heading(name):
         line([(name, "bold")])
-    for i, p in enumerate(data["partitions"]):
+    for i, p in enumerate(data["drives"]):
         if i:
             out.append("")
         answered = [h for h, v in p["hosts"].items() if v is True]
@@ -634,7 +634,7 @@ def time_of(b):
 
 def landing_of(entries, bolt):
     """What the run record holds of a held bolt's landing for its head line, its ledger's record (plan.21, Decision 5),
-    from the partition's entries the rail read, oldest first, each state its own: {state: unclosed, words} once its last
+    from the drive's entries the rail read, oldest first, each state its own: {state: unclosed, words} once its last
     bolt.submit landed and its last bolt.land since is refused, in that refusal's words; else its landing queued, landing
     again or rejected as plan.landing_phase reads it (bolt-teams "A landing queued holds its bolt's work"); else None. A
     decision of facts alone (code.7)."""
@@ -706,7 +706,7 @@ def ledger_rows(b):
 
 
 def in_flight(p):
-    """The partition's started bolts, product by product, each kit's in the plan's order."""
+    """The drive's started bolts, product by product, each kit's in the plan's order."""
     return sorted(p["construction"], key=lambda b: b["repo"] or "")
 
 
@@ -786,7 +786,7 @@ def environment_row(e):
 
 
 def operator_view(p):
-    """An operator's: the partition's board in brief, a line to each lane with each bolt in flight under Construction
+    """An operator's: the drive's board in brief, a line to each lane with each bolt in flight under Construction
     (bolt_row) and each environment with a deploy or an operation waiting under Operation, the rail's rows waiting on the user counted,
     and what needs attention."""
     inc, bp, lands, envs = p["inception"], p["bolt_plan"], p["operation"], [e for e in p.get("environments", []) if e["deploys"] or e["waiting"]]
@@ -807,7 +807,7 @@ def operator_view(p):
 
 
 def ops_view(p):
-    """Main-level ops's: the partition's operations in brief; each fix of a kit's main, each take-main fix in flight and
+    """Main-level ops's: the drive's operations in brief; each fix of a kit's main, each take-main fix in flight and
     each landing fix Flume runs on a bolt, with its stage (fixing; crew-board "A fix of main in ops's band" and "Ops's
     band lists each landing fix Flume runs on a bolt"); each kit's landing row, its landings card ops's, naming
     the bolts that wait on its main in the plan's order, each with its landing asked of the runner with its request or
@@ -882,10 +882,10 @@ def card_line(c, now):
 
 
 def agent_views(data):
-    """Each crew agent's view of its partition's board, by the agent's name, for the band crew's mod draws above its
-    prompt (plugin/hooks/status.js): the planner's, the design agent's, main-level ops's and the partition's operator's,
+    """Each crew agent's view of its drive's board, by the agent's name, for the band crew's mod draws above its
+    prompt (plugin/hooks/status.js): the planner's, the design agent's, main-level ops's and the drive's operator's,
     and no other standing agent's (Decision 11 of the-team-machinery-leaves), every line a list of (text, style)
-    segments; and each role's run the partition runs as its kind, under the run's name, <label>-<role>, its own lines
+    segments; and each role's run the drive runs as its kind, under the run's name, <label>-<role>, its own lines
     first (run_rows) and then its role's view, the reviewer's its own lines alone (crew-board "A role that runs as its
     kind has its view"). With what this host's agents run of crew (data's `here`, here_read), each standing agent here
     with a recorded start has the crew it started on at the end of its view's first line, with the version it is
@@ -900,7 +900,7 @@ def agent_views(data):
     A change to what crew models (bolts, units, stages, proposals, explorations and elaborations, cards, rail rows)
     changes these views and plugin/hooks/status.js with it, each with its cases (code.8)."""
     views, cards, now = {}, {}, plan.utc(data["read_at"])
-    for p in data["partitions"]:
+    for p in data["drives"]:
         views.update({f"{p['label']}-planner": planner_view(p), f"{p['label']}-design": design_view(p), f"{p['label']}-ops": ops_view(p)})
         views[f"{p['label']}-operator"] = operator_view(p)
         for r in p.get("runs", []):  # a role's run, under the name its standing agent had, its own lines first
@@ -935,9 +935,9 @@ def held_row(host, h):
 
 
 def here_read(fleet, label):
-    """What this host's agents of a partition run of crew, for their bands (agent_views): this host, the version of the
+    """What this host's agents of a drive run of crew, for their bands (agent_views): this host, the version of the
     crew it has installed (crew.installed), which a due agent takes at its next stop, its hold, and each main-level role
-    of the partition here with a recorded start, by name (crew.agents_here): the version it started on, and whether an
+    of the drive here with a recorded start, by name (crew.agents_here): the version it started on, and whether an
     update has made it due a restart (crew.due_of), judged against the installed crew."""
     now = crew.installed()
     version = now["version"]
@@ -989,7 +989,7 @@ def frame_text(label, data, width, color, now):
 def read_frame(label):
     try:
         data = json.loads(frame_path(label).read_text())
-        return data if isinstance(data, dict) and plan.utc(data.get("read_at")) and isinstance(data.get("partitions"), list) else None
+        return data if isinstance(data, dict) and plan.utc(data.get("read_at")) and isinstance(data.get("drives"), list) else None
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -1081,10 +1081,13 @@ def follower_here():
 
 
 def labels_here(fleet, host):
-    """The partitions with an operator session on the host, which its follower refreshes: each label whose session of
-    that name there is in its partition, as crew.operator_session reads it, in the teams file's order."""
-    sessions = fleet["hosts"].get(host, {}).get("sessions", {})
-    return [l for l, p in fleet["partitions"].items() if (sessions.get(l) or {}).get("partition") == p["partition"]]
+    """The drives with an operator session on the host, which its follower refreshes: those the teams file's `consoles`
+    names, for the host the file is written on alone, as crew.operator_session reads it, in the teams file's order, and
+    none on another host (record 0064)."""
+    consoles = fleet.get("consoles") or {}
+    if not consoles or host != crew.this_host():
+        return []
+    return [l for l in fleet["drives"] if l in consoles]
 
 
 def rail_path(label):
@@ -1119,7 +1122,7 @@ def moved(kept, now):
     "blueprints": {label: tip}, "kits": {(host, main): stamp}, "readings": {host: stamp}, "cards": cards_stamp's}, a tip ""
     for a branch the cache does not hold: whether crew's checkout or
     the teams file moved, the labels whose state tip or one of whose runners' branches moved, which the read rests on
-    as it rests on the partition's own, and whose blueprints tip moved, the kits that moved, the hosts whose card
+    as it rests on the drive's own, and whose blueprints tip moved, the kits that moved, the hosts whose card
     readings folders moved, whether the cards
     moved, whether anything the read rests on moved (read: a tip, a kit or crew), and
     whether anything did. A stamp None, which could not be read, counts as moved, as does one either side lacks
@@ -1165,7 +1168,7 @@ def kept_stamp(kept, left, asks, listed):
 
 
 def card_left(swept):
-    """Whether a card sweep (plan.sweep_cards) left a card or a partition unswept, its act not gone through: what the
+    """Whether a card sweep (plan.sweep_cards) left a card or a drive unswept, its act not gone through: what the
     clock's next tick tries again (cards_stamp). A landings card left as the user answered it, waiting on its owner to
     land what they ticked (plan.WAITS_ON_OWNER), is no act that did not go through: the landing's own entry moves the
     record, and the read after it sweeps the card."""
@@ -1189,7 +1192,7 @@ DISCOVERY = plan.CARD_RETRY
 
 def host_basis(host, labels, tips, runners):
     """What says something on a host could have moved (Decision 1 of a-followers-tick-reads-nothing-while-nothing-moved),
-    read with no process: the drive's branch of each partition the host serves (labels), its tip as this host's cache
+    read with no process: the branch of each drive the host serves (labels), its tip as this host's cache
     holds it (tips, {label: tip}), since every act on the host reaches that branch as it is written (read.5); and the
     host's own runner's branch of each (runners, {label: {host: tip}}), where its runner reports the places it runs, a
     piece's submission among them, so a submission's move is a move of its runner's branch (crew record 0056 points 1
@@ -1223,12 +1226,12 @@ def cards_due(cards, askers, answers, listed, at, now):
 
 def fetches(fleet, labels):
     """The clock's fetches (Decision 3 of a-followers-tick-reads-nothing-while-nothing-moved): each repository once, with
-    every branch the follower reads of it, {repo: [ref]}, in the partitions' order: each partition's drive's branch,
+    every branch the follower reads of it, {repo: [ref]}, in the drives' order: each drive's branch,
     which brings its runners' branches beside it (plan.beside), and its first blueprints repo's main. A decision on
     plain facts (code.7)."""
     out = {}
     for l in labels:
-        for repo, ref in (plan.state_of(fleet, l), (crew.partition_of(fleet, l)["blueprints"][0], "main")):
+        for repo, ref in (plan.state_of(fleet, l), (crew.drive_of(fleet, l)["blueprints"][0], "main")):
             if ref not in out.setdefault(repo, []):
                 out[repo].append(ref)
     return out
@@ -1261,13 +1264,13 @@ BURST = 2  # seconds: a look that sees a write waits this long for what follows,
 
 def look(fleet, labels):
     """What the follower's look reads each second, with no process (plan.12): crew's checkout and the teams file
-    (moved_at), each partition's state and blueprints tips as this host's caches hold them (plan.tip_here), its
+    (moved_at), each drive's state and blueprints tips as this host's caches hold them (plan.tip_here), its
     runners' branches there (plan.runner_tips), where a runner's reports of the places it runs arrive with no move of
-    the partition's own branch, and this host's card readings folders (gather.readings_stamp), so a reading sent back
+    the drive's own branch, and this host's card readings folders (gather.readings_stamp), so a reading sent back
     here is swept within seconds."""
     return {"crew": moved_at(), "state": {l: plan.tip_here(*plan.state_of(fleet, l)) for l in labels},
             "runners": {l: plan.runner_tips(plan.state_of(fleet, l)[0], l, fetch=False) for l in labels},
-            "blueprints": {l: plan.tip_here(crew.partition_of(fleet, l)["blueprints"][0], "main") for l in labels},
+            "blueprints": {l: plan.tip_here(crew.drive_of(fleet, l)["blueprints"][0], "main") for l in labels},
             "readings here": gather.readings_stamp(readings_hosts(fleet, labels).get(crew.this_host(), []))}
 
 
@@ -1304,7 +1307,7 @@ def refresh_plan(m, kept, crew_read=True):
 def sweeps_after(m, readings, unchecked):
     """The sweeps a refresh that reads nothing runs against its kept read (Decision 5 of
     a-rail-refresh-after-no-change-reads-nothing): the card sweep when the cards moved, with the clock's last answers;
-    and the card session sweep on each host whose card readings folder moved, for each partition swept there
+    and the card session sweep on each host whose card readings folder moved, for each drive swept there
     (readings, {host: labels}), which is where a reading sent back is told to its owner, and on each host the last
     refresh could not check (unchecked, plan.sessions_unchecked), {label: hosts}; none other. A decision on plain facts
     (code.7)."""
@@ -1316,12 +1319,12 @@ def sweeps_after(m, readings, unchecked):
 
 
 def readings_hosts(fleet, labels):
-    """The hosts whose card readings folders the follower stamps, with the partitions of each, {host: [labels]}: each
-    partition's main machine and every host its runners answer on, as crew's cache holds their branches with no fetch
-    (plan.partition_hosts, plan.12), where its card sessions are swept (plan.sweep_sessions)."""
+    """The hosts whose card readings folders the follower stamps, with the drives of each, {host: [labels]}: each
+    drive's main machine and every host its runners answer on, as crew's cache holds their branches with no fetch
+    (plan.drive_hosts, plan.12), where its card sessions are swept (plan.sweep_sessions)."""
     out = {}
     for l in labels:
-        for h in plan.partition_hosts(fleet, l, fetch=False):
+        for h in plan.drive_hosts(fleet, l, fetch=False):
             out.setdefault(h, []).append(l)
     return out
 
@@ -1329,7 +1332,7 @@ def readings_hosts(fleet, labels):
 def stamps_now(fleet, kits, readings, routes=(), hosts=None):
     """The follower's check of the hosts (plan.stamped): each kit's stamp now (gather.stamp), of the kits the last read
     surveyed, {host: {main: (request, answer)}}, by (host, main), and each host's card readings folders' stamp
-    (gather.readings_stamp), of the partitions readings names for it, by host: in this process on this host, in one ssh
+    (gather.readings_stamp), of the drives readings names for it, by host: in this process on this host, in one ssh
     to each other, of the hosts named (hosts, every one when None) and no other (hosts_due). Every stamp of a host that
     did not answer is None, which moved() takes as moved (read.1). At the clock's tick, in the same request, the portless
     routes of each host routes names whose kits were surveyed, by host, one that did not answer left out. It asks no
@@ -1354,7 +1357,7 @@ def kept_stamps(kits):
 
 
 def here_key(head):
-    """What here_read rests on besides the partition: crew's checkout and the teams file (moved_at), and the size and
+    """What here_read rests on besides the drive: crew's checkout and the teams file (moved_at), and the size and
     time of each agent's start record and of the host's hold file, read with no process; here_read is read again only
     when it moves."""
     try:
@@ -1370,7 +1373,7 @@ def here_key(head):
 
 
 def label_errors(errors, label):
-    """The plans' errors of one partition's read: its branch's, named <label>/main of <repo>, or its plan's."""
+    """The plans' errors of one drive's read: its branch's, named <label>/main of <repo>, or its plan's."""
     return {k: v for k, v in errors.items() if k.startswith(f"{label}/main of ") or k == f"the plan of {label}"}
 
 
@@ -1382,10 +1385,10 @@ HEARD = FRAMES.parent / "heard.log"
 
 def answers_watched(fleet, host):
     """Whether the host's follower runs Pending You's notice (design Decision 5 of roles-run-as-flume-kinds, role-runs
-    "The follower hears Pending You's notice while a role here runs as its kind"): while a partition whose main level
+    "The follower hears Pending You's notice while a role here runs as its kind"): while a drive whose main level
     runs on the host names a stream for a role, and only then, since the notice marks each change it hands in the
     host's Pending You state, which a session's pickup at its start reads."""
-    return any(p["machine"] == host and any(s is not False for s in p["flume"].values()) for p in fleet["partitions"].values())
+    return any(p["machine"] == host and any(s is not False for s in p["flume"].values()) for p in fleet["drives"].values())
 
 
 def notice_argv():
@@ -1399,9 +1402,9 @@ class Follower:
     repository it reads once, every branch it reads of it in that one fetch (fetches), and refreshes; between ticks it
     looks each second at what this host's caches hold, crew's checkout, the teams file and this host's card readings
     folders, with no process, and refreshes within seconds when one moved. A refresh is one read, in this process, for
-    every partition with an operator session on the host (labels_here), kept between refreshes (plan.Kept, state.4): it
+    every drive with an operator session on the host (labels_here), kept between refreshes (plan.Kept, state.4): it
     checks first whether anything the refresh acts on moved (moved) and then reads nothing when nothing did, or only
-    what moved, running only the sweeps of what moved when no tip or kit did (sweeps_after); each partition's rail,
+    what moved, running only the sweeps of what moved when no tip or kit did (sweeps_after); each drive's rail,
     board and agents' views are written from it. Its check asks another host only when something there could have
     moved (hosts_due): this host's kits and readings it stamps in this process each time. At a tick, and only then, it
     asks Pending You after the cards its card sweep would act on, and herdr after their askers, when something there
@@ -1414,7 +1417,7 @@ class Follower:
     def __init__(self, lock, period=PERIOD):
         self.lock, self.period, self.kept, self.last = lock, period, plan.Kept(), None
         self.labels, self.fleet_, self.tick_at, self.seen, self.unfetched, self.here = [], None, 0.0, None, {}, {}
-        # the partitions a refresh found a batch due for, by the state tip its read held and whether the tell went
+        # the drives a refresh found a batch due for, by the state tip its read held and whether the tell went
         # through (plan.batch_told)
         self.told = {}
         # the asks of Pending You made, whether the last card sweep left a card, the cards' stamp (cards_stamp) as of the
@@ -1429,8 +1432,8 @@ class Follower:
         self.notice = None
 
     def fleet(self):
-        """The teams file and the hosts file read afresh, not as this process first read them, the partitions followed
-        with them, and crew's Flume roles file kept from them (crew.keep_roles, teams.25); a teams file crew refuses
+        """The teams file read afresh, not as this process first read it, the drives its `consoles` names followed
+        (labels_here), and crew's Flume roles file kept from it (crew.keep_roles, teams.25); a teams file crew refuses
         leaves both as they were, said (read.1)."""
         crew.load.cache_clear()
         try:
@@ -1438,7 +1441,7 @@ class Follower:
             self.labels = labels_here(self.fleet_, crew.this_host())
             crew.keep_roles(self.fleet_)
         except Refusal as e:
-            print(f"crew's follower keeps the partitions it had ({', '.join(self.labels) or 'none'}): {e}", file=sys.stderr)
+            print(f"crew's follower keeps the drives it had ({', '.join(self.labels) or 'none'}): {e}", file=sys.stderr)
         return self.fleet_
 
     def tick_now(self):
@@ -1446,7 +1449,7 @@ class Follower:
 
     def fetch(self, fleet):
         """The clock's fetch: each repository once, every branch the follower reads of it in that one fetch (fetches,
-        plan.tips_of), into this host's caches; what could not be fetched is said in each partition's frames until a
+        plan.tips_of), into this host's caches; what could not be fetched is said in each drive's frames until a
         fetch of it lands."""
         self.unfetched, failed = {}, {}
         for repo, refs in fetches(fleet, self.labels).items():
@@ -1455,7 +1458,7 @@ class Follower:
             except Refusal as e:
                 failed.update({(repo, ref): " ".join(str(e).split()) for ref in refs})
         for l in self.labels:
-            for repo, ref in (plan.state_of(fleet, l), (crew.partition_of(fleet, l)["blueprints"][0], "main")):
+            for repo, ref in (plan.state_of(fleet, l), (crew.drive_of(fleet, l)["blueprints"][0], "main")):
                 if (repo, ref) in failed:
                     self.unfetched.setdefault(l, {})[f"{ref} of {repo}"] = failed[(repo, ref)]
 
@@ -1546,7 +1549,7 @@ class Follower:
 
     def bases(self, fleet, kits, readings):
         """What says something on each host the check reads could have moved (host_basis), read with no process: the
-        partitions' tips and their runners' as this host's caches hold them."""
+        drives' tips and their runners' as this host's caches hold them."""
         tips = look(fleet, self.labels)["state"]
         runners = {l: plan.runner_tips(plan.state_of(fleet, l)[0], l, fetch=False) for l in self.labels}
         return {h: host_basis(h, readings.get(h, ()), tips, runners) for h in sorted(set(kits) | set(readings))}
@@ -1627,7 +1630,7 @@ class Follower:
         plan.READ.memory.clear()
         for l in self.labels:
             for (repo, ref), tip in ((plan.state_of(fleet, l), looked["state"][l]),
-                                     ((crew.partition_of(fleet, l)["blueprints"][0], "main"), looked["blueprints"][l])):
+                                     ((crew.drive_of(fleet, l)["blueprints"][0], "main"), looked["blueprints"][l])):
                 if tip is not None:
                     plan.READ.keep_tip(repo, ref, tip)
         self.kept.stamps, plan.READ.follower, said, asked = stamps["kits"], self.kept, io.StringIO(), self.kept.cards is None
@@ -1657,7 +1660,7 @@ class Follower:
         of what moved run against it (sweeps_after, the card-sessions spec): the card sweep with the clock's last answers
         when the cards moved, and the card sessions swept on each host whose readings folder moved and each the last
         refresh could not check; what they did is said, and the stamps they rest on kept. Whatever moved, a batch due by
-        the hours is reckoned from the kept read and the time now, reading nothing (plan.reckon_batches), and a partition
+        the hours is reckoned from the kept read and the time now, reading nothing (plan.reckon_batches), and a drive
         told at its read's tip is not told again, nor one whose tell did not go through before the clock's next tick
         (plan.batch_told)."""
         read = self.last["read"]
@@ -1678,7 +1681,7 @@ class Follower:
                          stamps=dict(self.last["stamps"], readings=stamps["readings"], cards=self.cards))
 
     def again(self, fleet):
-        """crew's checkout, the crew the host has installed or the teams file moved: each partition's agents here that
+        """crew's checkout, the crew the host has installed or the teams file moved: each drive's agents here that
         it made due a restart are handed theirs by the installed crew (crew _update, teams.19), and the follower starts
         again as the new crew, its lock handed on and what the update said with it: through the installed command where
         it is not crew's own, as after an install of a build, else as this crew's board.py; the kept read goes with this
@@ -1701,7 +1704,7 @@ class Follower:
             self.updated, self.last = updated, None
 
     def write(self, fleet):
-        """Each partition's frames from the one read, as of now: its rail, with what the read said and what could not be
+        """Each drive's frames from the one read, as of now: its rail, with what the read said and what could not be
         read or fetched; its board; and its agents' views, with what this host's agents run of crew."""
         now = datetime.datetime.now(datetime.timezone.utc)
         last = self.last or {"read": None, "said": ""}
@@ -1738,7 +1741,7 @@ class Follower:
 
 def run_follow(once=False):
     """crew _follow: the host's follower with no tab, the command a job of the host's runs (swancloud's): it waits for
-    the lock while another follows, reading nothing, then follows every partition with an operator session here."""
+    the lock while another follows, reading nothing, then follows every drive with an operator session here."""
     lock = lock_follower("job", wait=True)
     f = Follower(lock, int(os.environ.get("CREW_TEST_PERIOD") or PERIOD))
     signal.signal(signal.SIGUSR1, lambda *_: f.tick_now())
@@ -1748,7 +1751,7 @@ def run_follow(once=False):
             for l in f.labels:
                 print(f"{l}'s rail, board and agents' views written on {crew.this_host()}")
             return
-        print(f"crew's follower on {crew.this_host()} follows its partitions' rails and boards", flush=True)
+        print(f"crew's follower on {crew.this_host()} follows its drives' rails and boards", flush=True)
         while True:
             f.step()
     finally:
@@ -1758,7 +1761,7 @@ def run_follow(once=False):
 def rail_follow(label, once=False):
     """The rail tab: the latest rail frame drawn whenever it changes, or how stale it is does; checked once a second.
     Each second, while no one follows on the host, it takes the follower lock without waiting and is the host's
-    follower itself, for every partition with an operator session here, on the follower's clock and look (Follower); so a
+    follower itself, for every drive with an operator session here, on the follower's clock and look (Follower); so a
     tab drawing the job's frames follows itself within a second of the job ending. With once, one draw, following
     nothing."""
     tty = sys.stdout.isatty()
@@ -1818,17 +1821,17 @@ def main(argv):
     if sub in ("_board", "_rail"):
         if sub == "_rail":
             ended_by_signal()
-        (follow if sub == "_board" else rail_follow)(crew.partition_of(fleet, a.label)["label"], a.once)
+        (follow if sub == "_board" else rail_follow)(crew.drive_of(fleet, a.label)["label"], a.once)
         return
     if sub == "_follow":
         ended_by_signal()
         run_follow(a.once)
         return
     if sub == "_views":
-        labels = [crew.partition_of(fleet, a.label)["label"]]
+        labels = [crew.drive_of(fleet, a.label)["label"]]
     else:
         label = plan.default_label(fleet, a)
-        labels = [label] if label else list(fleet["partitions"])
+        labels = [label] if label else list(fleet["drives"])
     read = flow_read(fleet, labels, sweep=sub == "_views")
     now = datetime.datetime.now(datetime.timezone.utc)
     data = board_data(fleet, labels, read, now)

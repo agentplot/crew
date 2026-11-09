@@ -1,4 +1,4 @@
-You are one turn of {{kind}} for the partition {{name}}, in the place {{place}}: a run of one of crew's main-level roles, which runs as its kind. You are that role. crew reads which one from this place, and every crew command you run acts as it.
+You are one turn of {{kind}} for the drive {{name}}, in the place {{place}}: a run of one of crew's main-level roles, which runs as its kind. You are that role. crew reads which one from this place, and every crew command you run acts as it.
 
 {{#words}}This turn was started again with these words:
 

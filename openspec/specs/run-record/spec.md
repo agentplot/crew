@@ -6,7 +6,7 @@ Keeps a record of every act of crew's that moves work, written where the act hap
 ## Requirements
 
 ### Requirement: Every command that moves work leaves an entry
-Every crew command that changes the plan, a signal or its move, a unit's approval or stage, a fix, or an agent's or a team's sessions, and every `crew tell`, SHALL append one entry for each such act to the run record of the partition it acts for, after the act is done. A command that only reads SHALL append nothing. An entry SHALL give its id, the time in UTC, the host crew ran on, who asked, the act, and the objects it acted on.
+Every crew command that changes the plan, a signal or its move, a unit's approval or stage, a fix, or an agent's or a team's sessions, and every `crew tell`, SHALL append one entry for each such act to the run record of the drive it acts for, after the act is done. A command that only reads SHALL append nothing. An entry SHALL give its id, the time in UTC, the host crew ran on, who asked, the act, and the objects it acted on.
 
 #### Scenario: A plan write
 - **WHEN** the planner adds a unit to the queue
@@ -95,7 +95,7 @@ Entries SHALL be recutils records in `~/.local/state/crew/<label>/runs/<host>/<d
 - **THEN** the rename's commit changes that entry's `Repo` to `timber` and its parent holds it as it was, and the file on the host that wrote it still says `tailrace`
 
 ### Requirement: Entries can be followed as they are written
-`crew events --follow` SHALL print each entry of the partition as it reaches the partition's branch, one line per entry, until it is interrupted. It SHALL read the branch as this host's cache holds it, read it again only when the cache's tip moves, and read again only the run-record files whose content changed. The branch SHALL be fetched once a minute, never faster: by the host's follower for a partition it follows, else by the follow itself. It SHALL ask no host for entries.
+`crew events --follow` SHALL print each entry of the drive as it reaches the drive's branch, one line per entry, until it is interrupted. It SHALL read the branch as this host's cache holds it, read it again only when the cache's tip moves, and read again only the run-record files whose content changed. The branch SHALL be fetched once a minute, never faster: by the host's follower for a drive it follows, else by the follow itself. It SHALL ask no host for entries.
 
 #### Scenario: Following a bolt team
 - **WHEN** `crew events --follow --label wldn` is running and a conductor starts a stage on the box
@@ -128,8 +128,8 @@ Entries SHALL be recutils records in `~/.local/state/crew/<label>/runs/<host>/<d
 - **WHEN** `crew trace unit/<unit>` names a unit no entry mentions
 - **THEN** it says so and exits non-zero
 
-### Requirement: A send is one entry in the receiving partition's record
-Each `crew send` that reaches its operator SHALL append one entry, act `send`, to the run record of the partition it was sent to, on the host the command ran on. Its `By` SHALL be the sender, its `On` the operator, `agent/<label>-operator`, and the team, `team/<team>`, when a team was named; its `Why` SHALL be `send <team or partition>`; and its `Chars` the length of the text. It SHALL hold no part of the text, and no separate tell entry SHALL be written for it. A send that types nothing SHALL write no entry, as a tell that types nothing writes none.
+### Requirement: A send is one entry in the receiving drive's record
+Each `crew send` that reaches its operator SHALL append one entry, act `send`, to the run record of the drive it was sent to, on the host the command ran on. Its `By` SHALL be the sender, its `On` the operator, `agent/<label>-operator`, and the team, `team/<team>`, when a team was named; its `Why` SHALL be `send <team or drive>`; and its `Chars` the length of the text. It SHALL hold no part of the text, and no separate tell entry SHALL be written for it. A send that types nothing SHALL write no entry, as a tell that types nothing writes none.
 
 #### Scenario: A send to a team
 - **WHEN** `crw-5-unit-1` sends 46 characters to `swb-1`, a team of wldn
@@ -140,7 +140,7 @@ Each `crew send` that reaches its operator SHALL append one entry, act `send`, t
 - **THEN** no entry is written
 
 ### Requirement: Every entry reaches the branch as it is written
-Once crew appends an entry to the host's run record, the same command SHALL push it to `runs/<host>/<day>.rec` on the partition's branch of its state repository, as its own commit from that host, by the procedure every write to the branch takes. The commit SHALL change that day's file alone, adding the entry to what the branch holds. Only a host SHALL write its own files, entries SHALL be added and never removed, and pushing an entry the branch holds SHALL change nothing.
+Once crew appends an entry to the host's run record, the same command SHALL push it to `runs/<host>/<day>.rec` on the drive's branch of its state repository, as its own commit from that host, by the procedure every write to the branch takes. The commit SHALL change that day's file alone, adding the entry to what the branch holds. Only a host SHALL write its own files, entries SHALL be added and never removed, and pushing an entry the branch holds SHALL change nothing.
 
 #### Scenario: A tell
 - **WHEN** an agent on the box tells another agent
@@ -159,7 +159,7 @@ Once crew appends an entry to the host's run record, the same command SHALL push
 - **THEN** every entry it wrote before is still on the branch, and its next entry is added beside them
 
 ### Requirement: An entry that did not reach the branch goes with the host's next
-When an entry cannot be pushed, crew SHALL say so once on standard error, naming the entry, the branch and why, and the command SHALL do its work and exit as it would have. The entry SHALL stay in the host's file. The host's next push of the partition's record, by its next entry or by `crew events --push`, SHALL first push each of the host's entries the branch lacks, each as its own commit, oldest first. `crew events --push` SHALL say when the branch already holds every entry the host has.
+When an entry cannot be pushed, crew SHALL say so once on standard error, naming the entry, the branch and why, and the command SHALL do its work and exit as it would have. The entry SHALL stay in the host's file. The host's next push of the drive's record, by its next entry or by `crew events --push`, SHALL first push each of the host's entries the branch lacks, each as its own commit, oldest first. `crew events --push` SHALL say when the branch already holds every entry the host has.
 
 #### Scenario: GitHub out of reach
 - **WHEN** a conductor on the box starts a stage while github.com cannot be reached
@@ -182,7 +182,7 @@ When an entry cannot be pushed, crew SHALL say so once on standard error, naming
 - **THEN** nothing of the record is pushed, the command names the file and why on standard error, and the act it recorded stands
 
 ### Requirement: Entries are read from the drive's branch alone
-`crew events [--label <label>] [--about <object>] [--since <time>] [--json]` and `crew trace <object>` SHALL read the run record from the partition's branch of its state repository, and SHALL ask no host for it. When the branch cannot be read they SHALL say so, naming the branch.
+`crew events [--label <label>] [--about <object>] [--since <time>] [--json]` and `crew trace <object>` SHALL read the run record from the drive's branch of its state repository, and SHALL ask no host for it. When the branch cannot be read they SHALL say so, naming the branch.
 
 #### Scenario: A host is asleep
 - **WHEN** macbook-pro, which wrote entries of wldn and pushed them, does not answer
@@ -201,7 +201,7 @@ When an entry cannot be pushed, crew SHALL say so once on standard error, naming
 - **THEN** it names `wldn/main` as not read, and why
 
 ### Requirement: An ask and a turn are entries
-Each ask crew writes SHALL be one `ask` entry in the asked partition's record, naming the role's run and the record the ask names, with the length of its words and never their text. A run's start SHALL be one `turn.begin` entry naming the run and how many it took, and its end one `turn.end` entry. `crew trace agent/<label>-<role>` SHALL list them with the rest of the role's entries.
+Each ask crew writes SHALL be one `ask` entry in the asked drive's record, naming the role's run and the record the ask names, with the length of its words and never their text. A run's start SHALL be one `turn.begin` entry naming the run and how many it took, and its end one `turn.end` entry. `crew trace agent/<label>-<role>` SHALL list them with the rest of the role's entries.
 
 #### Scenario: A tell that is an ask
 - **WHEN** `crew tell madswan-planner "<forty characters>"` is written as an ask
@@ -224,7 +224,7 @@ Each ask crew writes SHALL be one `ask` entry in the asked partition's record, n
 
 #### Scenario: A rename's entry renames nothing
 - **WHEN** a tip's run record holds a `bolt.land` under `tailrace` and, after it, a done `kit.rename` entry of `tailrace` to `timber` that a rename made before this change left
-- **THEN** the landings at that tip are that one `bolt.land`, read in one read of the run record, and the partition's kits name `tailrace` as written
+- **THEN** the landings at that tip are that one `bolt.land`, read in one read of the run record, and the drive's kits name `tailrace` as written
 
 #### Scenario: A later rename leaves it
 - **WHEN** the run record holds a `kit.rename` of `tailrace` to `timber`, and the user later renames `timber` to `trc`

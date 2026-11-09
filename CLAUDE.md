@@ -1,6 +1,6 @@
 # crew
 
-crew keeps each partition's plan of bolts, runs its main level of Claude agents in herdr, and reads its bolts' work as Flume runs it. `README.md` says how it works; `openspec/` holds its changes, and the partition's plan their order.
+crew keeps each drive's plan of bolts, runs its main level of Claude agents in herdr, and reads its bolts' work as Flume runs it. `README.md` says how it works; `openspec/` holds its changes, and the drive's plan their order.
 
 ## The family
 

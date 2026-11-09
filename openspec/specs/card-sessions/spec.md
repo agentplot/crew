@@ -6,7 +6,7 @@ A card that asks the user to read something links a plannotator session on that 
 ## Requirements
 
 ### Requirement: A session is started for a card's row by its key
-crew SHALL start a plannotator reading session when it raises a batch's card, on the batch's folder, the reviewer's summary whole and every unit's whole change as read at its commit, given as one review, on the partition's main level's host; when it raises the card of a proposal with more than fifteen new units, on the proposal's page; and when it raises a bolt's landing card, on what the bolt brings to main, on the team's host; it SHALL put the session's link in the card's words first and among its links. The session SHALL offer an Approve button and SHALL NOT open a browser on the host. `crew card session <key>` SHALL print the running session's link for such a key again, and SHALL refuse any other key, saying that card has nothing to read. A batch card posted before one card per batch was built, keyed `batch/<n>-<k>`, SHALL keep its sessions as they were until its card closes.
+crew SHALL start a plannotator reading session when it raises a batch's card, on the batch's folder, the reviewer's summary whole and every unit's whole change as read at its commit, given as one review, on the drive's main level's host; when it raises the card of a proposal with more than fifteen new units, on the proposal's page; and when it raises a bolt's landing card, on what the bolt brings to main, on the team's host; it SHALL put the session's link in the card's words first and among its links. The session SHALL offer an Approve button and SHALL NOT open a browser on the host. `crew card session <key>` SHALL print the running session's link for such a key again, and SHALL refuse any other key, saying that card has nothing to read. A batch card posted before one card per batch was built, keyed `batch/<n>-<k>`, SHALL keep its sessions as they were until its card closes.
 
 #### Scenario: A batch card's session
 - **WHEN** crew raises batch 3's card on the main level's host, for a batch of `x` and `z` from two teams' hosts
@@ -48,7 +48,7 @@ crew SHALL start no session, and SHALL say why, when the key is no row's or the 
 - **THEN** it is refused as a key with no row, and no session is started
 
 #### Scenario: A batch's session on another host
-- **WHEN** wldn-ops on the box runs `crew card session batch/3 --label wldn`, and the partition's main level is on mac-studio
+- **WHEN** wldn-ops on the box runs `crew card session batch/3 --label wldn`, and the drive's main level is on mac-studio
 - **THEN** it is refused, naming mac-studio, and no session is started
 
 #### Scenario: A landing's session on another host
@@ -182,7 +182,7 @@ crew SHALL write a batch's session's files into the batch's own folder on the ma
 - **THEN** every file plannotator is given is in batch 3's folder on mac-studio before plannotator starts
 
 ### Requirement: A session whose card is closed or whose row is gone is ended on every rail read
-Each time `crew rail` runs, and each time the host's follower refreshes after a state tip or a kit it read has moved, whether swancloud's job or a rail tab runs it, crew SHALL end, on every host of each partition read, each session it started for a card key whose row is gone, or whose card the run record holds as closed with no card open under the key. A refresh after no state tip and no kit moved SHALL sweep sessions only on a host whose card readings folder moved since its last read, as the follower's check last asked it, or that the last refresh could not check, and on no other host. It SHALL end only sessions it recorded, and only a process plannotator lists as serving the recorded document.
+Each time `crew rail` runs, and each time the host's follower refreshes after a state tip or a kit it read has moved, whether swancloud's job or a rail tab runs it, crew SHALL end, on every host of each drive read, each session it started for a card key whose row is gone, or whose card the run record holds as closed with no card open under the key. A refresh after no state tip and no kit moved SHALL sweep sessions only on a host whose card readings folder moved since its last read, as the follower's check last asked it, or that the last refresh could not check, and on no other host. It SHALL end only sessions it recorded, and only a process plannotator lists as serving the recorded document.
 
 #### Scenario: A verify card's session from before
 - **WHEN** the session crew started for `verify/x/20261009-1412`, before a verify report had no row, still runs on chuck-herdr-alpha
@@ -221,7 +221,7 @@ Each time `crew rail` runs, and each time the host's follower refreshes after a 
 - **THEN** the follower's next refresh that asks chuck-herdr-alpha, at the next move there or within ten minutes, asks chuck-herdr-alpha alone to sweep its card sessions, and asks no other host
 
 ### Requirement: The rail says which sessions it ended
-After its groups and its open cards with no row, `crew rail` SHALL list each session it ended on that read, with its card key, the unit for a batch card's, its partition, its host and whether its card was closed or its row gone, and SHALL name each host whose sessions it could not check, with why. When it ended nothing and checked every host, it SHALL print nothing about sessions.
+After its groups and its open cards with no row, `crew rail` SHALL list each session it ended on that read, with its card key, the unit for a batch card's, its drive, its host and whether its card was closed or its row gone, and SHALL name each host whose sessions it could not check, with why. When it ended nothing and checked every host, it SHALL print nothing about sessions.
 
 #### Scenario: Two sessions ended
 - **WHEN** a rail read ends the sessions of `proposal/4` and `batch/3`
@@ -232,14 +232,14 @@ After its groups and its open cards with no row, `crew rail` SHALL list each ses
 - **THEN** the rail says nothing about sessions
 
 ### Requirement: A session crew can't judge is kept
-A rail read SHALL end no session whose row or card it cannot tell: none on a host that does not answer, which it names; no session for a card closed, and no batch card's, while the partition's run record cannot be read from its branch; and no session started less than two minutes before its host is checked, which a later read judges. A host that does not answer SHALL keep only the sessions on it: a card it posted or closed SHALL be judged from the branch like any other.
+A rail read SHALL end no session whose row or card it cannot tell: none on a host that does not answer, which it names; no session for a card closed, and no batch card's, while the drive's run record cannot be read from its branch; and no session started less than two minutes before its host is checked, which a later read judges. A host that does not answer SHALL keep only the sessions on it: a card it posted or closed SHALL be judged from the branch like any other.
 
 #### Scenario: The team's host is asleep
 - **WHEN** chuck-herdr-alpha does not answer
 - **THEN** the rail ends no session there, names chuck-herdr-alpha as not checked, and ends what it can judge elsewhere
 
 #### Scenario: The record is read in part
-- **WHEN** the partition's branch cannot be read
+- **WHEN** the drive's branch cannot be read
 - **THEN** the rail ends no session for a card closed and no batch card's session, and still ends a session whose proposal's row is gone
 
 #### Scenario: The host that closed a card is asleep

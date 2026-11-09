@@ -199,17 +199,15 @@ INSTALLED = "/etc/profiles/per-user/chuck/bin/crew"
 
 
 def deneb(tmp_path, monkeypatch):
-    """crew.load over a teams file of one standing partition, swancloud, on deneb, written in tmp_path."""
-    bp = ["afterthought/blueprints", "afterthought/crew"]
-    hosts = {"deneb": {"ssh": "deneb", "kind": "darwin", "sessions": {
-        "swancloud-1": {"dir": f"{tmp_path}/deneb/madswan", "partition": "personal", "repos": bp}}}}
-    teams = {"version": 5, "partitions": [{"label": "swancloud", "partition": "personal", "blueprints": ["afterthought/blueprints"],
-                                           "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
-                                           "machine": "deneb", "session": "swancloud-1",
-                                           "flume": {r: False for r in crew.KIND_ROLES}}]}
-    (tmp_path / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts}))
+    """crew.load over a teams file of one standing drive, swancloud, on deneb, written in tmp_path."""
+    teams = {"version": 6, "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}},
+             "drives": [{"label": "swancloud", "blueprints": ["afterthought/blueprints"],
+                         "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+                         "machine": "deneb", "session": "swancloud-1", "folder": f"{tmp_path}/deneb/madswan",
+                         "repos": ["afterthought/blueprints", "afterthought/crew"],
+                         "accounts": {r: "madswan" for r in crew.KIND_ROLES},
+                         "flume": {r: False for r in crew.KIND_ROLES}}]}
     (tmp_path / "teams.json").write_text(json.dumps(teams))
-    monkeypatch.setattr(crew, "HOSTS", tmp_path / "herdr-hosts.json")
     monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
     monkeypatch.setattr(crew, "this_host", lambda: "deneb")
     crew.load.cache_clear()
@@ -226,7 +224,7 @@ class TestBriefs:
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: [])
         monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
         text = crew.brief(fleet, "swancloud", "planner")
-        assert f"`{INSTALLED} send <partition> \"<text>\"`" in text and f"`{INSTALLED} tell <agent>" in text
+        assert f"`{INSTALLED} send <drive> \"<text>\"`" in text and f"`{INSTALLED} tell <agent>" in text
         assert text.count(INSTALLED) > 10
         assert str(crew.HOME) not in text and "plugin/bin/crew" not in text
 

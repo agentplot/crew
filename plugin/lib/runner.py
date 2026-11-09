@@ -12,7 +12,7 @@ reads (host_read) and never writes (state.5). A started piece's stage is read fr
 runner that took it and Flume's status of its place as that runner carried it (stage_of, flume_facts), and shown with
 its stream on every view (stream_said, piece_said).
 
-A start launches its bolt whole, refused only where no runner answers for the partition (runnerless), and every plan
+A start launches its bolt whole, refused only where no runner answers for the drive (runnerless), and every plan
 write reaches the places a started bolt launched as its own act: added work launched, dropped work dropped, a dependent
 launched again when what it waits on is (reach), an amendment a retry of construct or a launch anew (amending), and a
 move, split or change of After of launched work refused (launched_refusal); each launch's priority follows its bolt's
@@ -39,12 +39,12 @@ import re
 
 def runnerless(label, tips):
     """Why a start is refused for want of a runner (Decision 5), or None: tips, the hosts whose runner branch the
-    partition's state repository holds (plan.runner_tips); with none, no runner answers for the partition, so nothing
+    drive's state repository holds (plan.runner_tips); with none, no runner answers for the drive, so nothing
     would take the bolt's work."""
     if tips:
         return None
     return (f"no runner answers for {label}: its state repository holds no {runner_branch(label, '<host>')}, so nothing "
-            "would take the bolt's work; a start waits for a runner (Boomdrive) to serve the partition")
+            "would take the bolt's work; a start waits for a runner (Boomdrive) to serve the drive")
 
 
 REQUESTS = """\
@@ -95,7 +95,7 @@ ACTS = {
 }
 # The kind of a bolt's own launch, its base place: crew's kind bolt@1, named by its source (record 0056; Decision 2).
 BOLT_KIND = "crew/bolt"
-# The address a confirm confirms as: one of crew's five main-level roles of a partition, <label>/<role>, the recipient
+# The address a confirm confirms as: one of crew's five main-level roles of a drive, <label>/<role>, the recipient
 # crew names for every place it launches (design Decision 4 of crews-role-runs-confirm-what-they-collect).
 ROLE_ADDRESS = re.compile(r"^[a-z0-9][a-z0-9-]*/(design|planner|reviewer|ops|operator)$")
 # The work a request serves, as crew names it: a bolt's base place, a unit, a chore, a fix on a bolt or a fix of a
@@ -250,13 +250,13 @@ def append_refusal(before, after):
 # ------------------------------------------------------------------------------------------ the runners' branches
 
 def runner_branch(label, host):
-    """The branch a host's runner answers a partition's requests on, in the partition's state repository (Decision 4)."""
+    """The branch a host's runner answers a drive's requests on, in the drive's state repository (Decision 4)."""
     return f"{label}/runner/{host}"
 
 
 # A runner's branch as crew reads it: each file and the record set it holds, written by the host's runner alone with
 # these descriptors (boomdrive core.2), and never by crew (state.5). runner.rec names the host and the runner
-# serving the partition there, so a branch that exists says a runner answers; answers.rec where each request it has
+# serving the drive there, so a branch that exists says a runner answers; answers.rec where each request it has
 # read stands; places.rec Flume's status of each place it launched, `flume status --json <place>`'s answer on one line
 # as Flume gave it (boomdrive core.1), kept after Flume tidies the place until its work has left crew's plan,
 # and after those each role's latest run on the host, a Run record keyed by the role's address (R4 of
@@ -434,12 +434,12 @@ def run_waiting(reading, address):
 
 
 def of_host(reads, label, host):
-    """A host's reading among a partition's (host_read's, by host), or why none is: no runner branch for it exists."""
+    """A host's reading among a drive's (host_read's, by host), or why none is: no runner branch for it exists."""
     return reads.get(host) or host_read(label, host, None, {}, {})
 
 
 def takers(reads, n):
-    """The runners that took request n, from the partition's runners as crew read them (reads, host_read's by host): (the
+    """The runners that took request n, from the drive's runners as crew read them (reads, host_read's by host): (the
     readings whose answers hold it, the readings crew could not read), each by host."""
     return ([r for _, r in sorted(reads.items()) if not r["why"] and n in r["answers"]],
             [r for _, r in sorted(reads.items()) if r["why"]])
@@ -448,11 +448,11 @@ def takers(reads, n):
 def taken(reads, n):
     """The runner that took request n (takers): (its reading, None) for the one whose answers hold it; (None, None)
     while none read holds it and every one was read, the request not taken yet; (None, why) when two hold it, or none
-    read holds it and one could not be read, or no runner answers for the partition at all (read.1, read.3). crew names
+    read holds it and one could not be read, or no runner answers for the drive at all (read.1, read.3). crew names
     no host on a kit's launch: a runner whose configuration names its repository takes it (the user's ruling of
     2026-11-01)."""
     if not reads:
-        return None, f"no runner answers for the partition: no <label>/runner/<host> branch exists, so nothing takes request {n}"
+        return None, f"no runner answers for the drive: no <label>/runner/<host> branch exists, so nothing takes request {n}"
     hits, unread = takers(reads, n)
     if len(hits) > 1:
         return None, (f"request {n} was taken by the runners on {' and '.join(r['host'] for r in hits)}, whose configurations "
@@ -488,7 +488,7 @@ def kept_folder(reading, kit, what):
 
 
 def where(reads, launches, what, kit):
-    """Where a runner reported taking work (the user's ruling of 2026-11-01; Decision 4), from the partition's runners as
+    """Where a runner reported taking work (the user's ruling of 2026-11-01; Decision 4), from the drive's runners as
     crew read them (reads), the launches of the work (launches, requests.rec's records, a bolt's on its branch or a
     kit's) and the kit as the plan gives it (kit): the host whose runner took the newest of them taken (takers); the
     kit's folder there as that runner's repositories.rec reports it where it reports its repositories (kept_folder),
@@ -511,7 +511,7 @@ def where(reads, launches, what, kit):
 
 
 def newest_taker(reads, launches, what):
-    """The runner that took the newest of launches taken, from the partition's runners as crew read them (reads): (its
+    """The runner that took the newest of launches taken, from the drive's runners as crew read them (reads): (its
     reading, None); (None, None) while none has taken any and every runner was read; or (None, why) when none has and
     one could not be read, or two took the newest (read.1). The host it names stands whether or not crew can tell the
     kit's folder there (drive-state "A started bolt's host is named before its place is carried")."""
@@ -530,7 +530,7 @@ def newest_taker(reads, launches, what):
 # ------------------------------------------------------------------------------------------- a name's branch
 
 def kit_launches(requests, kit):
-    """Every launch of a partition's work in a kit's repository, by its name or forge address, dropped or not, a role's
+    """Every launch of a drive's work in a kit's repository, by its name or forge address, dropped or not, a role's
     left out: what the runners that took them report where the kit's work runs by (where)."""
     return [r for r in requests if r.get("Act") == "launch" and not (r.get("Work") or "").startswith("role/")
             and (r.get("Repo") or "").split("/")[-1] == kit.split("/")[-1]]
@@ -538,11 +538,11 @@ def kit_launches(requests, kit):
 
 def launch_repositories(reads, launches, kit):
     """The repositories a launch of a kit's work would be made in, where Flume would cut its place and read whether
-    its branch stands (flume 3), from the partition's runners as crew read them (reads, host_read's by host) and the
+    its branch stands (flume 3), from the drive's runners as crew read them (reads, host_read's by host) and the
     kit's launches (kit_launches): the kit's folder where its work runs, as where reads it from the runner that took the
     newest of them, and the folder each runner's repositories.rec reports it keeps the kit in, since a runner whose
     configuration names the repository may take the launch; as ([{"host", "dir"}], None), each once. ([], None) while no
-    runner has taken any of the kit's work and none reports keeping it: no launch of the partition's has cut a place
+    runner has taken any of the kit's work and none reports keeping it: no launch of the drive's has cut a place
     of the kit, and crew can name no repository to read. ([], why) when crew can't tell (read.1): where's own why, the
     runner that took the kit's work reporting no repositories and carrying no place of it naming its folder, or one
     keeping two repositories by its name."""
@@ -840,7 +840,7 @@ def base_said(s):
 def place_branch(work):
     """The branch Flume cuts a piece's place on, as Flume's status names it (`branch`) and sluice's landing on the bolt
     names it (sluice clause 23): <kind>/<name>, the kind and name its launch gives (reach), a unit's kind change; the
-    same whichever partition's launch made the place, since it is the work's own name and carries no partition's (crew
+    same whichever drive's launch made the place, since it is the work's own name and carries no drive's (crew
     record 0055, rejected). A fix on a bolt, fix/<bolt>/<name>, is Flume's fix kind named <bolt>--<name> (fix_launch),
     so fix/<bolt>--<name>. None for a fix of a kit's main, fix/main/<kit>/<name>, which lands on main and never on a
     bolt, and for a role's work, which the bolt's landings do not build."""
@@ -980,7 +980,7 @@ def restart(plan, requests, reads, bolt, label):
     """What crew bolt start appends for a started bolt whose own launch the runner refused, as Flume refuses it while
     its host has not locked crew/bolt@1 (crew-lands-each-bolt-through-flumes-base-place, Decision 3; bolt-teams "A
     start run again launches a bolt whose launch the runner refused"), from facts: plan, as the write leaves it;
-    requests, requests.rec's records before it; reads, the partition's runners as crew read them (host_read's, by
+    requests, requests.rec's records before it; reads, the drive's runners as crew read them (host_read's, by
     host). Returns (the requests to append, each (act, work, its fields), None): a drop of each of its pieces' launches
     standing that the runner has not answered launched, then a launch anew of its base place (bolt_launch), its pieces
     following by reach; or (None, why) for any other started bolt: one with no launch of its own, started before bolts
@@ -1013,7 +1013,7 @@ def restart(plan, requests, reads, bolt, label):
 def reach(plan, requests, bolt, label, again=()):
     """What a plan write asks of the runners for a started bolt (Decisions 5 and 7), as the requests to append in order,
     each (act, work, its fields as plan.request takes them), from facts: plan, as the write leaves it; requests,
-    requests.rec's records before them; label, the bolt's partition; again, the work (as requests name it) whose launch
+    requests.rec's records before them; label, the bolt's drive; again, the work (as requests name it) whose launch
     is dropped and launched anew, an amendment of a unit whose place is not launched. Each unit and chore of the bolt
     with no launch standing is launched, as a start launches them: in the file's order, each after the work its After
     names, cut from the bolt's branch, carrying the bolt's repository as the plan names it, for a runner whose
@@ -1106,7 +1106,7 @@ def launched_refusal(requests, work, how):
 # ------------------------------------------------------------------------------------------ answers and fixes
 
 def piece_stage(requests, reads, launch):
-    """A launch's piece's stage (stage_of), from requests.rec's records and the partition's runners as crew read them
+    """A launch's piece's stage (stage_of), from requests.rec's records and the drive's runners as crew read them
     (reads, host_read's by host): the answer of the runner that took the launch (taken) and its record of the place
     launched; launching while none has taken it, and unknown where crew can't tell which did."""
     n = number(launch.get("Request"))
@@ -1181,7 +1181,7 @@ def fix_launch(plan, requests, bolt, label, name, words):
     """The launch crew fix <bolt> <name> "<words>" appends for a fix on a started bolt (Decision 10), as (act, work, its
     fields as plan.request takes them), or (None, why): a place of the fix kind named <bolt>--<name>, cut from the
     bolt's branch, in the bolt's repository for a runner whose configuration names it to take, as reach launches its
-    units, with the bolt's priority and its partition's (label) intent, the planner as recipient, the fix's words as its
+    units, with the bolt's priority and its drive's (label) intent, the planner as recipient, the fix's words as its
     brief and nothing held. Refused while a launch of that fix stands on the bolt, merged or not, since the name is in
     use there (teams.3)."""
     work, base = f"fix/{bolt}/{name}", f"bolt/{bolt}"
@@ -1267,7 +1267,7 @@ def fixes_in_flight(fixes, bolt, requests=(), reads=None):
     fixes, each fix whose launch stands on the bolt as (its work, its launch, its stage) as plan.Stages.fixes reads
     them, from the runner that took it alone (fixes_on): each whose place has not merged into the bolt, landed or been
     dropped, one crew can't read counted in flight (read.1); and, given requests, requests.rec's records, and reads, the
-    partition's runners as crew read them, the live landing fix of the bolt's base place, read from the runner that took
+    drive's runners as crew read them, the live landing fix of the bolt's base place, read from the runner that took
     bolt/<bolt> (landing_fix; crews-bolt-kind-names-its-landing-fix, Decision 5), keyed by Flume's name for it,
     <bolt>-<n>, which no fix of crew's shares, with its note (landing_fix_note). A fix in flight holds the bolt's
     landing as today's does (plan.landing_unready, landing_rows); one the runner reports merged, a record Flume holds
@@ -1305,7 +1305,7 @@ def base_drop_due(plan, requests, reads):
     """The drops a plan write asks again of a bolt's base place (crew-lands-each-bolt-through-flumes-base-place,
     Decision 8; bolt-teams "A bolt's drop drops its base place last" and "A base place's drop the runner refused is
     asked again once nothing on its branch is live"), from plain facts: plan, as the write leaves it; requests,
-    requests.rec's records; reads, the partition's runners as crew read them. For each launch of bolt/<bolt> whose bolt
+    requests.rec's records; reads, the drive's runners as crew read them. For each launch of bolt/<bolt> whose bolt
     has left the plan, that a drop names, the newest drop of it answered refused by the runner that took the launch, as
     Flume refuses one while a place on its branch is live: its drop asked again, (act, work, its fields), once no piece
     of the bolt reads live, each piece's launch on its branch read dropped, merged, landed or refused, and no landing fix
@@ -1431,7 +1431,7 @@ def landing_outcome(launch, lands, reads):
     """A bolt's landing, or a fix of main's, as the runner reports it (crew-lands-each-bolt-through-flumes-base-place,
     Decision 6; bolt-teams "A landing's outcome is read from the runner's report"), from plain facts: launch, the
     newest launch not dropped of bolt/<bolt> or fix/main/<kit>/<name> (launch_of); lands, the land requests of it
-    (lands_of); reads, the partition's runners as crew read them (host_read's, by host). The base place is read from
+    (lands_of); reads, the drive's runners as crew read them (host_read's, by host). The base place is read from
     the runner that took the launch, its answers to the launch and the lands and Flume's status of the place as it
     carried it (flume_facts), each fact guarded (read.2). Returns {"outcome", and what goes with it}:
     unlaunched, with the runner's words, while the launch is unanswered, held or refused; landed, with Flume's commit,
@@ -1584,7 +1584,7 @@ def lands_due(rows, sent, requests, reads, posted=(), work=None):
     rows, the card's rows in its order (landing_rows' and each fix of main's), each {bolt, box, facts: {head}}, a fix of
     main's naming its work fix/main/<kit>/<name> as work; sent, {a row's work: (the card whose send ticked it, the head
     it ticked)}, for each row a send stands for, the card's answer's and an earlier one's (landings_sent); requests,
-    requests.rec's records; reads, the partition's runners as crew read them; posted, the lands crew recorded posting,
+    requests.rec's records; reads, the drive's runners as crew read them; posted, the lands crew recorded posting,
     [{work, card, head, request}] (lands_posted); work, each bolt's own work between the head ticked and its head now
     where it moved (bolt_work), by which the send still stands (send_stands). Returns [(work, the launch's number)] in
     the card's order with the fixes of main first, one for each row whose box is ticked on a send that stands for it at
@@ -1635,10 +1635,10 @@ def main_priority(plan):
 def main_fix_launch(plan, requests, label, repo, name, words, served):
     """The launch crew main fix <kit> <name> "<the failure's words>" appends (Decision 11; Decision 15 of
     the-team-machinery-leaves), as (act, work, its fields as plan.request takes them), or (None, why): a place of the fix
-    kind named main--<name>, cut from main, in the kit's repository (repo, as the partition's kits name it) for the
+    kind named main--<name>, cut from main, in the kit's repository (repo, as the drive's kits name it) for the
     runner whose configuration names it to take in the stream its host maps it to (the user's ruling of 2026-11-01), ahead of every
     bolt (main_priority), its intent the kit's main, main-level ops as its recipient, the failure's words as its brief,
-    and its submission held for the user's send (state.3). Refused while no runner answers for the partition (served,
+    and its submission held for the user's send (state.3). Refused while no runner answers for the drive (served,
     whether any runner's branch exists), since nothing would take it and the red main waits on it, the fix then being a
     bolt of one chore (state.3); and while a launch of that fix of the kit's main stands, landed or not, since the name
     is in use there."""
@@ -1712,13 +1712,13 @@ def role_launch(requests, named, label, role, host, stream, repo, name, brief):
     address, <label>/<role>, so its landing, or a wait on its caller, reaches the role's next run, and its brief the
     file's text whole, since the stage's agent is fresh. Refused for a repository not named as its forge address,
     <owner>/<name>, or one crew does not name (named: the blueprints repositories the teams file names and the
-    partition's kits, plan.land_named), for a brief with no words, and
+    drive's kits, plan.land_named), for a brief with no words, and
     while a launch of role/<role>/<name> stands, since the name is in use there."""
     if not FORGE.match(repo):
         return None, f"a repository is named by its forge address, <owner>/<name>, which the runner resolves to its clone, not {repo}"
     if repo not in named:
         return None, (f"crew names no repository {repo}: a role's work lands in a blueprints repository the teams file names or "
-                      "a kit the partition's plan or landings name, and it names " + ", ".join(sorted(n for n in named if FORGE.match(n))))
+                      "a kit the drive's plan or landings name, and it names " + ", ".join(sorted(n for n in named if FORGE.match(n))))
     if not brief.strip():
         return None, f"the brief for {name} holds no words, and a chore's agent starts fresh with its brief alone"
     work = f"role/{role}/{name}"
@@ -1768,7 +1768,7 @@ def sluice_preview(doc, at):
 def preview_report(reads, request):
     """A preview request as the runner on the host it names reports it (Decisions 2 and 3 of
     a-cards-preview-is-asked-of-the-runner; drive-state "A preview is read from the runner on the host it names"), from
-    facts alone (code.7): reads, the partition's runners as crew read them (host_read's, by host); request, a
+    facts alone (code.7): reads, the drive's runners as crew read them (host_read's, by host); request, a
     preview's record of requests.rec. Returns {state, host, head, and what goes with it}, head the request's revision:
     from that runner's previews.rec, held with its words; refused with its words; or done, its state, name and
     addresses from sluice's listing where the runner carried it, else from sluice's answer, unlisted where sluice's last

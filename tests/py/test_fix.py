@@ -57,7 +57,7 @@ class TestAFixOfAStartedBolt:
 
     @pytest.mark.parametrize("at, said", [
         ("landed", "^fix/x/rail-word has merged into bolt/x, so it is not dropped: what it changed is the bolt's, and a new fix undoes it$"),
-        (None, "^can't tell whether fix/x/rail-word's place has merged into bolt/x, so it is not dropped: no runner answers for the partition")])
+        (None, "^can't tell whether fix/x/rail-word's place has merged into bolt/x, so it is not dropped: no runner answers for the drive")])
     def test_a_merged_fix_or_one_crew_cant_read_is_not_dropped(self, at, said):
         w = self.bolt(runners=ran({2: at}) if at else None)
         self.fix(w, "start", "rail-word", "Say land.")

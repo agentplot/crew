@@ -17,7 +17,7 @@ import re
 
 import pytest
 
-from facts import FLEET as BASE, START, keeping
+from facts import FLEET as BASE, HOSTS, START
 
 import crew
 import plan
@@ -29,8 +29,8 @@ cards = importlib.util.module_from_spec(importlib.util.spec_from_loader("cards_h
 _loader.exec_module(cards)
 
 KIT = {"name": "switchboard-kit", "repo": "WilldanGroup/switchboard-kit", "main": "/kit/main", "dir": "/kit"}
-FLEET = {"partitions": {"wldn": BASE["partitions"]["wldn"], "madswan": {"label": "madswan", "machine": "mac-studio"}},
-         "hosts": {"mac-studio": keeping("/w", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit")}}
+FLEET = {"drives": {"wldn": BASE["drives"]["wldn"], "madswan": {"label": "madswan", "machine": "mac-studio"}},
+         "hosts": {"mac-studio": HOSTS["mac-studio"]}}
 # Where work ran, as the runner that took it reported (plan.bolt_at, plan.batch_unit_at), by the name a case gives it: a
 # bolt's, or the team a batch entry written before names in its place.
 WHERE = {"swb-1": {"label": "wldn", "machine": "chuck-herdr-alpha", "stream": "wldn", "kit": KIT},
@@ -45,16 +45,16 @@ WHERE = {"swb-1": {"label": "wldn", "machine": "chuck-herdr-alpha", "stream": "w
 
 # Where the bolts BATCH_UNITS names ran their work, as a runner reported it (plan.batch_unit_at).
 BUILT = {"tenant-zones": WHERE["swb-1"], "apex-zones": WHERE["swb-2"]}
-# Each partition's kits as its plan and landings name them (plan.partition_kits), which an area's key is checked against.
-PARTITION_KITS = {"wldn": ["atlas-kit", "breadboard-kit", "switchboard-kit"], "madswan": ["flywheel-next"]}
+# Each drive's kits as its plan and landings name them (plan.drive_kits), which an area's key is checked against.
+DRIVE_KITS = {"wldn": ["atlas-kit", "breadboard-kit", "switchboard-kit"], "madswan": ["flywheel-next"]}
 
 
 @pytest.fixture(autouse=True)
 def kits(monkeypatch):
-    """Each partition's kits as its plan and landings name them (plan.kits_read), with no branch read; and where a batch's
+    """Each drive's kits as its plan and landings name them (plan.kits_read), with no branch read; and where a batch's
     unit was built (plan.batch_unit_at) as a runner took its bolt's work, a case's batch naming between its unit and
     commit a name FLEET gives a host and kit, and none for any other name."""
-    monkeypatch.setattr(plan, "kits_read", lambda fleet, label: list(PARTITION_KITS.get(label, [])))
+    monkeypatch.setattr(plan, "kits_read", lambda fleet, label: list(DRIVE_KITS.get(label, [])))
 
     def unit_at(fleet, label, bolt, unit):
         t = (BUILT.get(bolt) or WHERE.get(bolt)
@@ -64,7 +64,7 @@ def kits(monkeypatch):
 
 
 def key(name, k, tool="post_request", label="wldn"):
-    return plan.card_refusal(FLEET, name, label, tool, k, PARTITION_KITS.get(label, []))
+    return plan.card_refusal(FLEET, name, label, tool, k, DRIVE_KITS.get(label, []))
 
 
 class TestKeys:
@@ -81,7 +81,7 @@ class TestKeys:
 
     @pytest.mark.parametrize("name, words", [
         ("wldn-operator", "The user is in your pane: ask them there."),
-        ("crw-9-unit-1", "Tell the partition's operator what you wait on, as your brief says.")])
+        ("crw-9-unit-1", "Tell the drive's operator what you wait on, as your brief says.")])
     def test_any_other_role_asks_nothing_on_a_card_and_is_told_whom_to_ask(self, name, words):
         """The operator agent posts none, the user being in its pane; an agent crew reads no role of, as crw-9-unit-1,
         tells the operator."""
@@ -135,8 +135,8 @@ class TestKeys:
         for k in ("gateway-check", "review/x/abc1234", "landing-of-y", "ask/wldn-ops/hold"):
             assert key("wldn-ops", k) is None
 
-    def test_an_area_is_made_only_under_a_kit_of_the_askers_partition(self):
-        """A kit of the partition is one its plan or its landings name (plan.partition_kits)."""
+    def test_an_area_is_made_only_under_a_kit_of_the_askers_drive(self):
+        """A kit of the drive is one its plan or its landings name (plan.drive_kits)."""
         assert key("wldn-ops", "create-area:WilldanGroup/switchboard-kit", "create_area") is None
         assert key("wldn-ops", "area:wldn-ops", "create_area") == (
             "crew refuses an area under area:wldn-ops: wldn-ops makes a kit's area only under create-area:<owner>/atlas-kit, "
@@ -301,7 +301,7 @@ class TestNames:
         ("wldn-ops", "op/a/1", "a step's card is crew's")])
     def test_the_hook_refuses_an_agents_post_under_crews_key_as_crew_sends_it(self, monkeypatch, agent, row, said):
         """rail-cards: an agent posts under a row's key as crew sends it: a row's key qualified
-        by its partition's label (cards.post_key, batch/7 as batch/7@wldn), and its revision."""
+        by its drive's label (cards.post_key, batch/7 as batch/7@wldn), and its revision."""
         monkeypatch.setenv("CREW_LABEL", "wldn")
         monkeypatch.setenv("CREW_AGENT", agent)
         monkeypatch.setattr(plan.crew, "load", lambda: FLEET)
@@ -359,7 +359,7 @@ class TestSessions:
                                                "PLANNOTATOR_SKIP_BROWSER_OPEN": "1", "PLANNOTATOR_REMOTE": "1",
                                                "PLANNOTATOR_PORT": plan.CARD_PORTS}
 
-    def test_a_card_command_runs_on_a_rails_key_for_its_partition(self):
+    def test_a_card_command_runs_on_a_rails_key_for_its_drive(self):
         label, d = plan.card_of(BASE, self.args("batch/1"))
         assert (label, d) == ("wldn", plan.CARDS / "wldn" / "batch/1")
         assert plan.card_of(BASE, self.args("batch/2-1", "x1"))[1] == plan.CARDS / "wldn" / "batch/2-1" / "x1"
@@ -373,10 +373,10 @@ class TestSessions:
         with pytest.raises(plan.Refusal, match=said):
             plan.card_of(BASE, self.args(k, unit))
 
-    def test_with_no_partition_it_is_refused(self, monkeypatch):
+    def test_with_no_drive_it_is_refused(self, monkeypatch):
         monkeypatch.delenv("CREW_LABEL", raising=False)
-        with pytest.raises(plan.Refusal, match="crew card runs as the card's partition"):
-            plan.card_of(dict(BASE, partitions={**BASE["partitions"], "madswan": {}}), self.args("proposal/1", label=None))
+        with pytest.raises(plan.Refusal, match="crew card runs as the card's drive"):
+            plan.card_of(dict(BASE, drives={**BASE["drives"], "madswan": {}}), self.args("proposal/1", label=None))
 
     @pytest.mark.parametrize("serves, decided, verdict", [
         (True, None, "serving"), (False, ("approved", "Ship it."), "decided"), (False, ("annotated", "x"), "decided"),
@@ -674,7 +674,7 @@ class ReadingActs:
     """A stand-in for the act's reach (plan.CardActs) where a card's reading session starts and ends: a session's link
     given, or its start refused with why, always (refused) or for each start in turn (refusals, None for a start that
     opens); what each unit made, by host (made, {host: {"made": …}}, a host missing from it not answering); the
-    partition's requests and runners (run); Pending You's tools answered from answers, a (got, words) pair."""
+    drive's requests and runners (run); Pending You's tools answered from answers, a (got, words) pair."""
 
     def __init__(self, answers=None, entries=(), refused=None, started=True, refusals=(), made=None, run=None):
         self.answers, self.held, self.refused, self.started = dict(answers or {}), list(entries), refused, started
@@ -700,7 +700,7 @@ class ReadingActs:
     def session(self, label, key, facts):
         return self.reading(label, key, facts)[0]
 
-    def partition(self, label):  # the partition's run record, which a session given again reads its kit's card in
+    def drive(self, label):  # the drive's run record, which a session given again reads its kit's card in
         return self.held
 
     def reading(self, label, key, facts):
@@ -747,7 +747,7 @@ class ReadingActs:
     def caller(self):
         return "wldn-planner"
 
-    def kits(self, label):  # the kits the partition's teams build, which tell land/<kit> from land/<bolt>
+    def kits(self, label):  # the kits the drive's teams build, which tell land/<kit> from land/<bolt>
         return ("switchboard-kit",)
 
 
@@ -835,7 +835,7 @@ class TestBatchRead:
             self.read(monkeypatch, tmp_path / "none", ReadingActs(), session=False)
 
     def test_off_the_main_levels_host_it_is_refused_naming_it(self, monkeypatch, tmp_path):
-        fleet = dict(FLEET, partitions=dict(FLEET["partitions"], wldn=dict(FLEET["partitions"]["wldn"], machine="chuck-herdr-alpha")))
+        fleet = dict(FLEET, drives=dict(FLEET["drives"], wldn=dict(FLEET["drives"]["wldn"], machine="chuck-herdr-alpha")))
         monkeypatch.setattr(plan, "CARDS", tmp_path)
         with pytest.raises(plan.Refusal, match="^batch/3's reading session runs on chuck-herdr-alpha"):
             plan.batch_card_read(fleet, "wldn", "batch/3", "wldn-planner", acts=ReadingActs())
@@ -982,7 +982,7 @@ class TestReadingAgain:
         monkeypatch.setattr(plan, "plan_of", lambda fleet, label: None)
         (tmp_path / "batch-wldn-3.md").write_text("# Batch 3\n")
         monkeypatch.setattr(plan, "batch_file", lambda label, n: tmp_path / f"batch-{label}-{n}.md")
-        fleet = dict(FLEET, partitions=dict(FLEET["partitions"], wldn=dict(FLEET["partitions"]["wldn"], machine="mac-studio")))
+        fleet = dict(FLEET, drives=dict(FLEET["drives"], wldn=dict(FLEET["drives"]["wldn"], machine="mac-studio")))
         plan.card_session(fleet, argparse.Namespace(key=key, unit=None, sub="session", label="wldn"), acts)
 
     def test_a_start_anew_changes_the_waiting_card_to_carry_its_link_and_is_recorded(self, monkeypatch, tmp_path, capsys):
@@ -1039,14 +1039,14 @@ class TestReadingAgain:
         monkeypatch.setattr(plan, "card_row", lambda fleet, label, k: (dict(key=k, doc=("page", "wldn", 6)),
                                                                        [{"proposal": 6, "changes": [{"do": f'unit add u{i} "U{i}." --bolt t'} for i in range(16)]}]))
         monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
-        fleet = dict(FLEET, partitions=dict(FLEET["partitions"], wldn=dict(FLEET["partitions"]["wldn"], machine="mac-studio")))
+        fleet = dict(FLEET, drives=dict(FLEET["drives"], wldn=dict(FLEET["drives"]["wldn"], machine="mac-studio")))
         plan.card_session(fleet, argparse.Namespace(key="proposal/4", unit=None, sub="session", label="wldn"), acts)
         assert seen == [dict(n=6, first=4), ("proposal/4", "relink")]
         assert [(e["Act"], e["Key"], e["Card"]) for e in acts.emitted] == [("card.reading", "proposal/4", "req_p4")]
 
 
 class TestLandingPreview:
-    """A bolt's row on its kit's landings card is read with no preview: the raise on the partition's main machine reads
+    """A bolt's row on its kit's landings card is read with no preview: the raise on the drive's main machine reads
     it from the runner's report (Decision 7 of a-cards-preview-is-asked-of-the-runner); a held row and a bolt that is
     no row end the reading, putting nothing away on the bolt's host (land_row)."""
     AT = dict(WHERE["swb-1"], machine="mac-studio")
@@ -2241,7 +2241,7 @@ class TestRecordCommand:
         assert str(e.value) == f"crew refuses the alternatives for record 0032 in switchboard-kit: {said}. Nothing is raised."
 
     @pytest.mark.parametrize("kit, n, status, more, said", [
-        ("flywheel-next", 32, "proposed", {}, "wldn's main level runs on mac-studio, and no space there keeps flywheel-next, so crew can't read its records"),
+        ("flywheel-next", 32, "proposed", {}, "wldn's main level runs on mac-studio, and the teams file keeps no flywheel-next there, so crew can't read its records"),
         ("atlas-kit", 0, "proposed", {}, "a record's number is its one to four digits, not 0"),
         ("atlas-kit", 21, "accepted", {"settled_in_pane": True}, "--settled-in-pane and --alternatives go with --proposed"),
         ("atlas-kit", 21, "rejected", {"alternatives": "a.md"}, "--settled-in-pane and --alternatives go with --proposed"),
@@ -2263,7 +2263,7 @@ class TestRecordCommand:
     def test_no_caller_is_refused_by_who_it_is_the_users_yes_read_in_its_own_transcript(self, monkeypatch, caller):
         """roles.2: crew records who ran it and in which session, and refuses no caller; the words are still read."""
         asked = []
-        monkeypatch.setattr(crew, "this_host", lambda: FLEET["partitions"]["wldn"]["machine"])
+        monkeypatch.setattr(crew, "this_host", lambda: FLEET["drives"]["wldn"]["machine"])
         monkeypatch.setenv("CREW_AGENT", caller)
         monkeypatch.setattr(plan.CardActs, "heard", lambda self, words: asked.append(words) or (heard(), "s-9"))
         a = argparse.Namespace(kit="switchboard-kit", number=32, status="proposed", settled_in_pane=True, excerpt="Yes, accept 32",

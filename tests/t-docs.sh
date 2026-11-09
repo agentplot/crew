@@ -11,10 +11,14 @@
 # construct and coder crew's conventions for its changes (docs.6): each task names its check, no proof list, tick a
 # task once its check passes. The README and the opening comment of crew's .config/sluice.toml say crew readies no
 # worktree, sluice equipping a place at Flume's asking, `sluice equip` (Flume's record 0036), and the comment cites no
-# plan.17, which is retired. README and the skill say a role's run's start takes the ends Flume holds for its role and
-# its end asks the runners to confirm them, and README's requests.rec names a confirm. README, the skill and the usage
-# say a piece's end is the runner's report alone, the record Flume holds for the runner among them, and name no
-# landing commit as what makes a piece merged or a bolt landed (record 0062's stopgap retired; docs.2).
+# plan.17, which is retired. README's The flake says the module's drives are keyed by label and listed in label order,
+# that another module can give a drive its machine and state, each written once, and what fails evaluation, with no
+# label listed twice. README and the skill say a role's run's start takes the ends Flume holds for its role and its end
+# asks the runners to confirm them, and README's requests.rec names a confirm. README and the skill say that crew
+# drive set mends what it replaces in a file at crew's own version and refuses it only where a check still fails
+# (record 0065, point 8). README, the skill and the usage say a piece's end is the runner's report alone, the record
+# Flume holds for the runner among them, and name no landing commit as what makes a piece merged or a bolt landed
+# (record 0062's stopgap retired; docs.2).
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -47,10 +51,10 @@ done
 for doc in usage readme skill; do
   team=$(grep -oE '(^|[^a-z_])crew +(list|status|up|rebuild|close|restart|resume|clear|down)([^a-z]|$)' <<<"${!doc}" || true)
   [[ -z $team ]] || fail "the $doc names a team command:"$'\n'"$team"
-  for gone in "<team or partition>" "(sent to <team" "SLUICE_BRANCH" "sluice_branch" "conductor fresh" "unit slot"; do
+  for gone in "<team or drive>" "(sent to <team" "SLUICE_BRANCH" "sluice_branch" "conductor fresh" "unit slot"; do
     lacks "${!doc}" "$gone"
   done
-  has "${!doc}" 'crew send'; has "${!doc}" '<partition> "<text>"'
+  has "${!doc}" 'crew send'; has "${!doc}" '<drive> "<text>"'
 done
 for doc in usage readme skill; do lacks "${!doc}" "unit approve"; lacks "${!doc}" "review/<unit>"; done
 for doc in usage readme skill; do has "${!doc}" "crew review"; done
@@ -58,8 +62,8 @@ for gone in "unit run" "unit wait" "unit free" "chore run" "chore wait" "chore f
   for doc in usage readme skill; do lacks "${!doc}" "$gone"; done
 done
 for gone in "unit run a code" "unit wait a" "chore free c"; do expect_fail "invalid choice" crew $gone; done
-expect_fail "crew: each partition's plan of bolts, its main level of agents in herdr" crew needs "what it needs"
-ok "none of the removed commands or roles is in the README, the skill or the usage, a team command among them, crew drives no stage and waits on none, crew send names a partition alone, and each names crew review"
+expect_fail "crew: each drive's plan of bolts, its main level of agents in herdr" crew needs "what it needs"
+ok "none of the removed commands or roles is in the README, the skill or the usage, a team command among them, crew drives no stage and waits on none, crew send names a drive alone, and each names crew review"
 
 for doc in usage readme skill; do has "${!doc}" "crew ops offer <env>"; has "${!doc}" "[--notes <file>] [--steps <file>]"; has "${!doc}" "[--ticked <n>[,<n>...]]"; done
 for doc in usage readme skill; do
@@ -124,13 +128,13 @@ expect_fail "unrecognized arguments: --merge" crew fix tenant-environments edge 
 ok "the README, the skill and the usage say a bolt's work is started by crew bolt start, refused for one started already, and name no give, agreement or dispatcher, a proven bolt waits to land, and crew fix names its bolt, with no --merge or --wait"
 
 for doc in usage readme skill; do
-  for want in "version 5, which lists no team" "version 2, 3 or 4 among them" "in Flume stream" "Path: flume" "no team's conductor, ops or slot" \
+  for want in "version 6, which lists no team" "version 2, 3, 4 or 5 among them" 'its drives under `drives`' "in Flume stream" "Path: flume" "no team's conductor, ops or slot" \
     "requests.rec" "<label>/runner/<host>" "crew answer" "fix <kit> <name> --send"; do has "${!doc}" "$want"; done
   for gone in "due to cross" "due back" "however they went down" "closes what the hold left" "crossed team" "version 3 of the teams file" \
     "Version 3 of the teams file" "version-2 file" "version 4 names" "version 4 of the teams file" "at version 2 or 3" "versions 2 and 3" \
-    "<team|label>"; do lacks "${!doc}" "$gone"; done
+    "<team|label>" "version 5, which lists no team" "<partition>"; do lacks "${!doc}" "$gone"; done
 done
-ok "the README, the skill and the usage say the teams file is version 5 and lists no team, an older one refused, that crew runs no team's agents, its launches in requests.rec and its runner's branch, crew answer and crew main fix, and no team due to cross or crossing"
+ok "the README, the skill and the usage say the teams file is version 6, its drives under drives, and lists no team, an older one refused, that crew runs no team's agents, its launches in requests.rec and its runner's branch, crew answer and crew main fix, and no team due to cross or crossing"
 
 # The README, the skill and the usage keep no team section, roles row or run-record act of the old path (Task 8.3 of
 # the-team-machinery-leaves): the README's roles are the five main-level definitions, the acts an older crew wrote are
@@ -143,7 +147,7 @@ for want in "## Bolts" "| main-level ops | \`main-ops.md\` |" "\`bolt.start\`" "
   "in entries from before, \`team/<team>\`"; do has "$readme" "$want"; done
 for gone in "**A team**" "of the team holding" "on the team's host" "its team's fix"; do lacks "$skill" "$gone"; done
 for doc in usage readme skill; do lacks "${!doc}" "bolt teams"; done
-has "$(head -1 <<<"$usage")" "crew: each partition's plan of bolts, its main level of agents in herdr, and its bolts' work in Flume."
+has "$(head -1 <<<"$usage")" "crew: each drive's plan of bolts, its main level of agents in herdr, and its bolts' work in Flume."
 ok "the README, the skill and the usage keep no team section, roles row or old run-record act as current, and the usage opens on the plan and the main level"
 
 for doc in usage readme skill; do
@@ -156,7 +160,7 @@ for doc in readme skill; do
   for want in "the ends Flume holds for" "asks the runners to confirm each end"; do has "${!doc}" "$want"; done
 done
 has "$readme" "and a confirm, which a role's run's end appends for each launch whose place's ends its turn took"
-ok "the README, the skill and the usage say a partition's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
+ok "the README, the skill and the usage say a drive's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
 
 for doc in usage readme skill; do
   for want in "piece's end is the runner's report alone" "the record Flume holds for the runner"; do has "${!doc}" "$want"; done
@@ -166,15 +170,26 @@ done
 ok "the README, the skill and the usage say a piece's end is the runner's report alone, the record Flume holds for the runner among them, name no landing commit as what makes a piece merged or a bolt landed, and read none on main for crew bolt land"
 
 # The teams file may name its host's kept repositories (record 0061): README and the skill say what crew names there, and
-# the spaces' folders where it names none.
+# the drives' folders where it names none. It is the one file crew reads for a host's drives (record 0064): README, the
+# skill and openspec/config.yaml name its hosts, each drive's folder, repos and accounts, and the host's consoles, and
+# none names swancloud's hosts file (docs.2).
 for doc in readme skill; do
   for want in "the file may name the kept repositories of the host it is written on, \`repositories\`" \
     "with exactly its \`dir\` and its \`checkout\`, each an absolute path" "the runner's container and view on a runner host" \
-    "Where the file names none, a kit's folder and checkout are those the spaces in the hosts file keep, \`<session dir>/<name>\` and \`<session dir>/<name>/main\`"; do
+    "Where the file names none, a kit's folder and checkout are \`<folder>/<name>\` and \`<folder>/<name>/main\` in the folder of the first drive on that host whose \`repos\` lists it" \
+    "\`repos\` is a drive's list of addresses, \`repositories\` the host's map of each address to its folder and checkout" \
+    "The teams file is the one file crew reads for a host's drives and the hosts that serve them" \
+    "\`hosts\`, each host crew reaches or reads, by the name \`hostname -s\` gives it, with exactly its \`ssh\` name and its \`kind\`, \`darwin\` or \`nixos\`" \
+    "\`folder\`, the absolute folder of its herdr session on its machine" \
+    "\`repos\`, the repositories that folder keeps there" "\`accounts\`, the Claude account each of its five main-level roles runs under" \
+    "\`consoles\`, for the host it is written on, each drive whose console that host opens"; do
     has "${!doc}" "$want"
   done
 done
-ok "the README and the skill say the teams file may name its host's kept repositories, whose folders and checkouts crew names there, and the spaces' where it names none"
+config=$(cat "$CREW/openspec/config.yaml")
+has "$config" "It is the one file crew reads for a host's drives"
+for doc in readme skill config usage; do lacks "${!doc}" "herdr-hosts"; lacks "${!doc}" "hosts file"; done
+ok "the README and the skill say the teams file is the one file crew reads for a host's drives, its hosts, each drive's folder, repos and accounts, and its consoles, that it may name its host's kept repositories, and the drives' folders where it names none, and nothing names swancloud's hosts file"
 
 has "$(cat "$CREW/CLAUDE.md")" "devenv shell -- "
 wrapped=$(grep -rlF -- 'devenv shell --' "$CREW/plugin/roles" "$CREW/plugin/skills" || true)
@@ -204,3 +219,17 @@ for want in "the check in crew's tiers that proves it" "tests/suite --affected" 
   has "$config" "$want"
 done
 ok "crew's openspec/config.yaml says crew's conventions for its changes: each task names its check, no proof list, and a task is ticked once its check passes"
+
+flake=$(awk '/^## The flake$/ { on = 1; next } /^## / { on = 0 } on' "$CREW/README.md")
+for want in "every drive by its label" "listed in the order of their labels" "its \`label\` its name, which no host sets" \
+  "can give a drive its \`machine\` and \`state\` by its label" "Each of the two is written once" "drives given as a list" \
+  "a \`label\` the host sets" "no drive,"; do
+  has "$flake" "$want"
+done
+lacks "$flake" "a label listed twice"
+ok "the README's flake says the drives are keyed by label and listed in label order, another module gives a drive's machine and state, each written once, and what fails evaluation, with no label listed twice"
+
+for doc in "$readme" "$skill"; do
+  has "$doc" "mends what it replaces"; has "$doc" "a check still fails"
+done
+ok "README and the skill say crew drive set mends what it replaces in a file at crew's own version and refuses it only where a check still fails"

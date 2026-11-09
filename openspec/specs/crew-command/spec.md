@@ -17,7 +17,7 @@ Every crew command SHALL answer `-h` or `--help` among its own arguments by prin
 - **THEN** crew prints the usage of `crew fix` and exits 0, and no fix is launched: no request and no entry
 
 #### Scenario: Every command
-- **WHEN** any command crew dispatches is run with arguments of its own shape and `--help` or `-h` among them, the internal `_` commands, `crew hold <host> "<why>" --help`, `crew send <partition> "<text>" --help`, `crew main up <label> --help` and `crew revive --help` among them
+- **WHEN** any command crew dispatches is run with arguments of its own shape and `--help` or `-h` among them, the internal `_` commands, `crew hold <host> "<why>" --help`, `crew send <drive> "<text>" --help`, `crew main up <label> --help` and `crew revive --help` among them
 - **THEN** it prints its usage and exits 0, with no call to herdr, ssh, sluice or any other tool, no agent started, no entry on any host and no write to the state branch; a command `crew` reads itself prints its own lines of `crew`'s usage header, and a command `crew` hands to a Python parser prints that parser's usage
 
 #### Scenario: crew's own usage
@@ -33,19 +33,23 @@ Every crew command SHALL answer `-h` or `--help` among its own arguments by prin
 - **THEN** the words are asked of the planner, as any tell to a role that runs as its kind is
 
 ### Requirement: crew runs itself on another host from the checkout of the repository it is
-When a crew command runs crew on another host, as a tell, a send, an ops act or a command forwarded to a main level's host does, it SHALL run the crew in the checkout that host keeps of the repository crew is, found as the host's sessions in the hosts file keep it. Where none of the host's sessions keeps that repository, the command SHALL be refused, naming the host and the repository crew looked for, and nothing SHALL be run there. No former address of crew's SHALL be followed.
+When a crew command runs crew on another host, as a tell, a send, an ops act or a command forwarded to a main level's host does, it SHALL reach the host by the `ssh` name the teams file's `hosts` gives it, and SHALL run the crew in the checkout that host keeps of the repository crew is, found where the teams file keeps it there: in the folder of a drive whose machine is that host and whose `repos` lists the repository. Where the teams file keeps no checkout of that repository on the host, or gives the host no `ssh` name, the command SHALL be refused, naming the host and what crew looked for, and nothing SHALL be run there. No former address of crew's SHALL be followed.
 
-#### Scenario: A send reaches another host's partition
-- **WHEN** crew is `agentplot/crew`, chuck-herdr-alpha's sessions keep `agentplot/crew` at `/workspace`, and the user runs `crew send wldn "<text>"` on deneb
-- **THEN** crew runs `/workspace/crew/main/plugin/bin/crew` on chuck-herdr-alpha, and wldn-operator receives the text
+#### Scenario: A send reaches another host's drive
+- **WHEN** crew is `agentplot/crew`, the teams file gives wldn the machine chuck-herdr-alpha, the folder `/workspace` and `repos` listing `agentplot/crew`, gives chuck-herdr-alpha the `ssh` name `box`, and the user runs `crew send wldn "<text>"` on deneb
+- **THEN** crew runs `/workspace/crew/main/plugin/bin/crew` on chuck-herdr-alpha over `ssh box`, and wldn-operator receives the text
 
 #### Scenario: A host that keeps no checkout of crew
-- **WHEN** none of chuck-herdr-alpha's sessions keeps `agentplot/crew`, and a command on deneb runs crew there
-- **THEN** it is refused saying none of chuck-herdr-alpha's sessions keeps agentplot/crew, the repository crew is, so crew can't run there, and nothing is run on chuck-herdr-alpha
+- **WHEN** no drive whose machine is chuck-herdr-alpha lists `agentplot/crew` in its `repos`, and a command on deneb runs crew there
+- **THEN** it is refused saying chuck-herdr-alpha keeps no checkout of agentplot/crew, the repository crew is, as the teams file gives it, so crew can't run there, and nothing is run on chuck-herdr-alpha
 
 #### Scenario: A checkout kept under crew's former address
-- **WHEN** chuck-herdr-alpha's sessions keep `afterthought/crew` and nothing by `agentplot/crew`, and a command on deneb runs crew there
+- **WHEN** wldn's `repos` lists `afterthought/crew` and nothing by `agentplot/crew`, and a command on deneb runs crew on chuck-herdr-alpha
 - **THEN** it is refused the same way, naming `agentplot/crew`
+
+#### Scenario: A host the file gives no ssh name
+- **WHEN** a command on deneb runs crew on a host the teams file's `hosts` does not name
+- **THEN** it is refused naming the host and the teams file's `hosts`, and no ssh is run
 
 ### Requirement: crew reads the repository it is from its own manifest
 crew SHALL read the repository it is from the `repository` of its own manifest, `plugin/.claude-plugin/plugin.json`, a GitHub address, and never from a name written in its code. Where the manifest cannot be read or names no GitHub repository, a command that runs crew on another host SHALL be refused naming the file, and nothing SHALL be run there. A command run for this host SHALL read no manifest.

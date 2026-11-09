@@ -547,7 +547,7 @@ def asked(n, revision="abc1234", done=False, work="bolt/y", host="deneb"):
 
 
 def deneb(answers="", previews=""):
-    """The partition's runners as crew read them: deneb's alone, with these answers and previews."""
+    """The drive's runners as crew read them: deneb's alone, with these answers and previews."""
     return {"deneb": runner.host_read("madswan", "deneb", TIP, branch(answers=answers, previews=previews), {})}
 
 
@@ -943,7 +943,7 @@ class TestStageOf:
         assert of("unit/teams-cross-to-flume-as-their-bolts-land", both) == {"stage": "unknown", "why": (
             "request 3 was taken by the runners on alpha and deneb, whose configurations each name its repository, so crew "
             "can't tell which place is its work")}
-        assert of("unit/b", {})["why"].startswith("no runner answers for the partition")
+        assert of("unit/b", {})["why"].startswith("no runner answers for the drive")
 
 
 class TestABasePlacesStatus:

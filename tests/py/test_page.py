@@ -121,7 +121,7 @@ class TestLabels:
 
 
 class TestFile:
-    D = dict(page.data([entry("capture", ["signals/x"], why="Ends </script><b>here</b> & more.")]), label="wldn", partitions=["wldn", "madswan"],
+    D = dict(page.data([entry("capture", ["signals/x"], why="Ends </script><b>here</b> & more.")]), label="wldn", drives=["wldn", "madswan"],
              made={"at": "2026-10-12T10:00:00Z", "label": "wldn", "commit": "a" * 40, "plan": "a" * 40})
 
     def test_the_data_is_one_block_that_typed_text_cannot_end_and_nothing_loads_from_outside_the_file(self):
@@ -134,23 +134,32 @@ class TestFile:
             assert no not in rest
         assert '<body data-view="board">' in rest and "prefers-color-scheme" in rest
 
-    def test_the_header_names_every_partition_its_own_current_and_each_other_linked_in_crews_layout(self):
-        """board-page "Three partitions": a page in crew's folder layout links the fleet page beside the folders, then
-        each other partition's folder beside it."""
+    def test_the_header_names_every_drive_its_own_current_and_each_other_linked_in_crews_layout(self):
+        """board-page "Three drives": a page in crew's folder layout links the fleet page beside the folders, then
+        each other drive's folder beside it."""
         assert page.nav(["wldn", "madswan"], "wldn", PurePath("/s/wldn/page.html")) == (
-            '<a class="part fleet" href="../page.html" title="every partition">fleet</a>'
+            '<a class="part fleet" href="../page.html" title="every drive">fleet</a>'
             '<span class="part" aria-current="page">wldn</span><a class="part" href="../madswan/page.html">madswan</a>')
 
-    def test_a_page_named_for_its_partition_links_the_others_beside_it_as_they_are_served(self):
+    def test_the_header_draws_the_pages_drives_in_its_drives_placeholder(self):
+        """board-page "Three drives": the template's header is <!--{{DRIVES}}-->, labelled Drives, filled from the page's
+        `drives` with the page's own label current."""
+        assert page.DRIVES == "<!--{{DRIVES}}-->" and page.TEMPLATE.read_text().count(page.DRIVES) == 1
+        assert '<nav class="parts" aria-label="Drives"><!--{{DRIVES}}--></nav>' in page.TEMPLATE.read_text()
+        out = page.render({"drives": ["wldn", "madswan"], "label": "wldn"}, PurePath("/s/wldn/page.html"))
+        assert ('<nav class="parts" aria-label="Drives"><a class="part fleet" href="../page.html" title="every drive">fleet</a>'
+                '<span class="part" aria-current="page">wldn</span><a class="part" href="../madswan/page.html">madswan</a></nav>') in out
+
+    def test_a_page_named_for_its_drive_links_the_others_beside_it_as_they_are_served(self):
         """board-page "Pages written side by side as they are served": <label>.html links <other>.html, and the fleet
         page as index.html beside it."""
         assert page.beside(PurePath("/w/wldn.html"), "wldn", "madswan") == "madswan.html"
         assert page.nav(["wldn", "madswan"], "wldn", PurePath("/w/wldn.html")).startswith(
-            '<a class="part fleet" href="index.html" title="every partition">fleet</a><span class="part" aria-current="page">wldn</span>')
+            '<a class="part fleet" href="index.html" title="every drive">fleet</a><span class="part" aria-current="page">wldn</span>')
         assert '<a class="part" href="madswan.html">madswan</a>' in page.nav(["wldn", "madswan"], "wldn", PurePath("/w/wldn.html"))
 
-    def test_a_folder_and_a_file_both_named_for_the_partition_swap_both(self):
-        """board-page "A folder and a file both named for the partition": no link to the fleet page."""
+    def test_a_folder_and_a_file_both_named_for_the_drive_swap_both(self):
+        """board-page "A folder and a file both named for the drive": no link to the fleet page."""
         assert page.beside(PurePath("/s/wldn/wldn.html"), "wldn", "madswan") == "../madswan/madswan.html"
         assert "fleet" not in page.nav(["wldn", "madswan"], "wldn", PurePath("/s/wldn/wldn.html"))
 
@@ -162,8 +171,8 @@ class TestFile:
         <label>/page.html, and to none in any other layout (read.1)."""
         assert page.fleet_back(PurePath(path), "swancloud") == back
 
-    def test_a_page_whose_file_and_folder_name_no_partition_names_the_others_unlinked(self):
-        """board-page "A page written where its layout names no partition": crew cannot tell where the others are, so
+    def test_a_page_whose_file_and_folder_name_no_drive_names_the_others_unlinked(self):
+        """board-page "A page written where its layout names no drive": crew cannot tell where the others are, so
         it links none (read.1); a name that only contains the label does not name it."""
         for path in ("/s/board.html", "/s/x/page.html", "/s/wldn-board.html"):
             assert page.beside(PurePath(path), "wldn", "madswan") is None
@@ -178,7 +187,7 @@ class TestFile:
 class TestMade:
     """lineage-page, "A host was asleep": the page is drawn from the branch's entries alone, a Mac that wrote some of
     them and does not answer among them, and names a host only for its kits."""
-    FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "state": "WilldanGroup/crew-state"}},
+    FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "state": "WilldanGroup/crew-state"}},
              "hosts": {"mac-studio": {"kind": "darwin"}, "macbook-pro": {"kind": "darwin"}}}
 
     def made(self, monkeypatch, capsys, kits):
@@ -192,7 +201,7 @@ class TestMade:
             return [dict(e, Host="macbook-pro") for e in FLOW]
         monkeypatch.setattr(record, "on_branch", branch)
         monkeypatch.setattr(board, "flow_read", lambda fleet, labels: {"found": [("wldn", "WilldanGroup/crew-state", "a" * 40, None)], "sv": {}})
-        monkeypatch.setattr(board, "board_data", lambda fleet, labels, read, now: {"partitions": [{"plan": "a" * 40}], "read_at": "x", "unread": {}})
+        monkeypatch.setattr(board, "board_data", lambda fleet, labels, read, now: {"drives": [{"plan": "a" * 40}], "read_at": "x", "unread": {}})
         monkeypatch.setattr(page, "describe", lambda *a, **k: kits)
         monkeypatch.setattr(page, "docks", lambda *a, **k: {})
         page.page(self.FLEET, argparse.Namespace(label="wldn", since=None, json=True, out=None))
@@ -209,7 +218,7 @@ class TestMade:
 
 
 class TestSites:
-    FLEET = {"hosts": {"mac-studio": {"kind": "darwin"}, "chuck-herdr-alpha": {"kind": "nixos"}}}
+    FLEET = {"hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}, "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}}}
     SITE = {"here": "https://unit-a--kit.local", "tailnet": "https://unit-a--kit--studio.dev.swancloud.net"}
     ROUTES = [{"name": "unit-a--kit", "url": "https://unit-a--kit.local"}]
 
@@ -219,6 +228,12 @@ class TestSites:
     def test_another_hosts_opens_by_its_tailnet_name_from_a_mac_only(self):
         assert sites.url_of(self.FLEET, "mac-studio", "chuck-herdr-alpha", self.SITE, self.ROUTES) == (self.SITE["tailnet"], None)
         assert sites.url_of(self.FLEET, "chuck-herdr-alpha", "mac-studio", self.SITE, self.ROUTES) == (self.SITE["tailnet"], "open from a Mac")
+
+    def test_where_the_teams_file_names_no_such_host_crew_says_it_cant_tell(self):
+        """read.1: the kind of the host crew runs on is read from the teams file's `hosts`, and a host it does not name is
+        neither a Mac nor not one."""
+        assert sites.url_of(self.FLEET, "macbook-pro", "mac-studio", self.SITE, self.ROUTES) == (
+            self.SITE["tailnet"], "open from a Mac: the teams file's hosts name no macbook-pro, so crew can't tell whether it is one")
 
     def test_none_where_none_runs_or_is_published(self):
         assert sites.url_of(self.FLEET, "mac-studio", "mac-studio", self.SITE, []) == (None, None)
@@ -245,14 +260,14 @@ class TestSitesOfAStartedBolt:
         monkeypatch.setattr(plan, "survey", lambda fleet, held, sites=False: sv)
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         # x's work taken by deneb's runner, which reported crew in /crew/main (plan.known_at); madswan's hosts its main
-        # level's and its runners' (plan.partition_hosts)
+        # level's and its runners' (plan.drive_hosts)
         monkeypatch.setattr(plan, "rail_runs", lambda found: {"madswan": ([], {})})
         monkeypatch.setattr(plan, "known_at", lambda fleet, label, b, run=None: dict(CREW_AT, label=label))
-        monkeypatch.setattr(plan, "partition_hosts", lambda fleet, label, fetch=True: ["deneb"])
+        monkeypatch.setattr(plan, "drive_hosts", lambda fleet, label, fetch=True: ["deneb"])
         return sites.sites(fleet, ["madswan"])
 
     def test_a_started_bolt_is_listed_with_no_server_saying_why(self, monkeypatch):
-        x, = self.listed(monkeypatch)["partitions"][0]["hosts"][0]["bolts"]
+        x, = self.listed(monkeypatch)["drives"][0]["hosts"][0]["bolts"]
         assert (x["bolt"], x["url"], x["units"], x["note"]) == ("x", None, [], sites.FLUME_PLACES)
 
     def test_its_line_says_where_its_work_runs(self, monkeypatch):
@@ -283,7 +298,7 @@ class TestMore:
 
     def test_the_page_opens_on_the_board_in_the_mockups_forms_with_a_phone_layout_and_no_team_to_narrow_it_to(self):
         """board-page, the removed "A viewer narrows every lane to one team", "The team chosen survives a reload" and "The
-        strip names the partition's teams" (Decision 11 of the-team-machinery-leaves)."""
+        strip names the drive's teams" (Decision 11 of the-team-machinery-leaves)."""
         rest = re.sub(r'(<script type="application/json" id="data">).*?(</script>)', r"\1\2", page.render(TestFile.D, PurePath("/s/wldn/page.html")), flags=re.S)
         for lane in ("Inception", "Bolt plan", "Construction", "Operation"):
             assert f'aria-label="{lane}"' in rest
@@ -325,7 +340,7 @@ class TestDocks:
     unit, tenant-environments started, its work taken by the box's runner in stream wldn, with a in code, b at construct
     and a fix, atlas-maps landed and deployed to mac-studio, a newer deploy waiting on the word, and operations waiting
     on the environment; and wldn's main level on mac-studio, its design agent, planner and reviewer in its session wldn
-    on account madswan-2, ops in ops on willdan, and its operator in op, which names no account."""
+    on account madswan-2, ops in ops on willdan, and its operator in op on credits, as wldn's `accounts` gives them."""
     SIG = "2026-10-01-planning/01-zones"
 
     @pytest.fixture(autouse=True)
@@ -337,9 +352,8 @@ class TestDocks:
         import copy
         from test_board import BOX, FLEET
         f = copy.deepcopy(FLEET)
-        f["hosts"][BOX]["sessions"] = {"crew-a": {"account": "madswan-2"}}  # where the runner takes the work, no agent of crew's
-        f["hosts"]["mac-studio"]["sessions"] = {"wldn": {"account": "madswan-2"}, "ops": {"account": "willdan"}, "op": {}}
-        f["partitions"]["wldn"]["sessions"] = dict({r: "wldn" for r in ("design", "planner", "reviewer")}, ops="ops", operator="op")
+        f["drives"]["wldn"]["sessions"] = dict({r: "wldn" for r in ("design", "planner", "reviewer")}, ops="ops", operator="op")
+        f["drives"]["wldn"]["accounts"] = dict({r: "madswan-2" for r in ("design", "planner", "reviewer")}, ops="willdan", operator="credits")
         return f
 
     def paged(self, label=None):
@@ -354,7 +368,7 @@ class TestDocks:
         d = page.data(lineage + OPS)
         for n in d["nodes"]:
             n["label"] = label if n["id"] == f"signals/{self.SIG}" and label else n.get("label")
-        d["board"] = dict(bd["partitions"][0], read_at=bd["read_at"], unread=bd["unread"])
+        d["board"] = dict(bd["drives"][0], read_at=bd["read_at"], unread=bd["unread"])
         # A fix in flight on tenant-environments, a Flume place, as the board draws a started bolt's fix.
         te = next(b for b in d["board"]["construction"] if b["bolt"] == "tenant-environments")
         te["fixes"] = [{"fix": "fix/tenant-environments/edge", "merged": False, "submission": None, "worktree": None,
@@ -490,14 +504,16 @@ class TestDocks:
         assert d["docks"]["operation:mac-studio/restart-roles/1"]["tail"] == "on mac-studio · handed to wldn-ops"
 
     def test_a_subscriptions_dock_lists_the_main_levels_sessions_on_it(self):
-        """board-page "A subscription's dock lists its sessions": madswan-2's dock lists the design agent, the planner and
-        the reviewer in mac-studio's session wldn, and willdan's ops; op names no account, so no dock lists it."""
+        """board-page "One account for three roles": madswan-2's dock lists the design agent, the planner and the reviewer
+        in mac-studio's session wldn, and willdan's ops, each account as wldn's `accounts` gives its roles."""
         d = self.paged()
         s = d["docks"]["subscription:madswan-2"]
         assert (s["title"], s["tail"]) == ("madswan-2", "Claude account")
         assert s["parts"] == [{"title": "sessions on it", "rows": [{"text": f"wldn-{r} · mac-studio session wldn"} for r in ("design", "planner", "reviewer")]}]
         assert [r["text"] for r in d["docks"]["subscription:willdan"]["parts"][0]["rows"]] == ["wldn-ops · mac-studio session ops"]
-        assert sorted(k for k in d["docks"] if k.startswith("subscription:")) == ["subscription:madswan-2", "subscription:willdan"]
+        assert [r["text"] for r in d["docks"]["subscription:credits"]["parts"][0]["rows"]] == ["wldn-operator · mac-studio session op"]
+        assert sorted(k for k in d["docks"] if k.startswith("subscription:")) == [
+            "subscription:credits", "subscription:madswan-2", "subscription:willdan"]
 
     def rest(self):
         return re.sub(r'(<script type="application/json" id="data">).*?(</script>)', r"\1\2", page.render(TestFile.D, PurePath("/s/wldn/page.html")), flags=re.S)
@@ -526,7 +542,7 @@ class TestDocks:
     def test_a_signals_typed_words_are_kept_as_they_are_in_the_dock_and_the_pages_block(self):
         """board-page "A dock of typed words"."""
         d = self.paged(label="Ends </script><b>here</b> & more.")
-        d.update(label="wldn", partitions=["wldn"], made=TestFile.D["made"])
+        d.update(label="wldn", drives=["wldn"], made=TestFile.D["made"])
         out = page.render(d, PurePath("/s/wldn/page.html"))
         block, = re.findall(r'<script type="application/json" id="data">(.*?)</script>', out, re.S)
         assert "</script>" not in block
@@ -573,7 +589,7 @@ class TestWord:
             assert no not in rest
 
     def test_a_kind_with_no_dock_yet_goes_to_its_role_and_any_other_to_the_operator(self):
-        assert [page.word_to(k, "wldn") for k in ("batch:14", "record:0038", "partition:wldn", "unit:nosuch", "nosuch:x")] == [
+        assert [page.word_to(k, "wldn") for k in ("batch:14", "record:0038", "drive:wldn", "unit:nosuch", "nosuch:x")] == [
             "wldn-planner", "wldn-design", "wldn-operator", "wldn-planner", "wldn-operator"]
 
 

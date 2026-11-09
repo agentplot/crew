@@ -22,7 +22,7 @@ Decides what each signal means, in batches and against the design as it stands, 
 - **THEN** it says so and starts nothing
 
 ### Requirement: A batch is fixed when curation starts
-A batch SHALL be every signal with no standing move, in the drive's state and in the partition's first blueprints repo, at the commits read when `crew curate` runs, or with `--only <capture>...` those of the named captures. A signal recorded after that SHALL wait for the next batch.
+A batch SHALL be every signal with no standing move, in the drive's state and in the drive's first blueprints repo, at the commits read when `crew curate` runs, or with `--only <capture>...` those of the named captures. A signal recorded after that SHALL wait for the next batch.
 
 #### Scenario: A signal arrives mid-run
 - **WHEN** a conductor records a signal while the curator is working

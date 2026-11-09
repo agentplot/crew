@@ -26,8 +26,9 @@ the Flume stream the team's work then ran in, is read by crew trace team/<team> 
 (Decision 8 of the-team-machinery-leaves).
 
 Each entry reaches the drive's branch of its state repository as it is written: the command that appended it
-pushes it there, to the same path under runs/<host>/, as a commit of its own from this host, before it goes on. The
-branch's file becomes the union by Id of what it had and what the host has, so a host only ever adds to its own files
+pushes it there, to the same path under runs/<host>/, as a commit of its own from this host, before it goes on; or,
+where it appends one before the branch can take it, as crew drive set appends its drive.set before the drive's state
+is made, by a later act of the same command, which pushes every entry the branch lacks. The branch's file becomes the union by Id of what it had and what the host has, so a host only ever adds to its own files
 and a host that is asleep or rebuilt loses nothing it pushed. A push that is refused is said once and changes nothing
 the command does; the entry waits in the host's file and goes first with the host's next. Every read, crew events,
 crew trace, the batches, the rail, the board and the page, reads the branch alone and asks no host (read.5).
@@ -36,7 +37,7 @@ crew trace, the batches, the rail, the board and the page, reads the branch alon
                 [--id I]                  append one entry, with the id a commit already names if given; prints its id
   record.py session                       the caller's Claude session as <host>:<id>, what a forwarded command carries
   record.py events [--label L] [--about <object>] [--since <time>] [--follow] [--json]
-                                          the entries on the partition's branch, in time order; --follow reads the
+                                          the entries on the drive's branch, in time order; --follow reads the
                                           branch as this host's cache holds it each time its tip moves, which this
                                           host's writes move at once, and fetches it once a minute where the host's
                                           follower does not, so another host's entries show within the minute
@@ -49,7 +50,7 @@ each end, all on agent/<label>-<role>, so crew trace agent/<label>-<role> lists 
 
 An object is a typed name: unit/<unit>, chore/<chore>, bolt/<bolt>, queue/<kit>, signals/<id>, agenda/<n>, team/<team>,
 agent/<name>, stage/<unit or chore>/<stage>, fix/<bolt>/<name>, fix/main/<kit>/<name> (a fix of a kit's red main, a Flume
-place on main), plan/<label>, proposal/<n>, batch/<n> (a review batch of the partition), and
+place on main), plan/<label>, proposal/<n>, batch/<n> (a review batch of the drive), and
 what a stage delivered in a file of the team's reports folder: report/<file name> and proof/<file name>. A signal is
 named by its full id, <capture>/<NN>-<slug>, or its short one, <capture>/<NN>, which is the one signal of that capture
 numbered NN."""
@@ -63,7 +64,7 @@ import crew  # noqa: E402
 from crew import Refusal, fail  # noqa: E402
 
 ROOT = pathlib.Path.home() / ".local/state/crew"
-# The clock the host's follower (board.py) and crew events --follow fetch a partition's branch on, never faster
+# The clock the host's follower (board.py) and crew events --follow fetch a drive's branch on, never faster
 # (plan.12's reading of 2026-10-28); crew's tests set CREW_TEST_PERIOD, so no tick of it falls inside a step (tests.8).
 PERIOD = 60
 DESCRIPTOR = """\
@@ -203,10 +204,12 @@ def turn_end_entry(run, n):
     return dict(act="turn.end", on=[f"agent/{run}"], why=f"turn {n} of {run} ended")
 
 
-def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None, by=None, **extra):
+def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None, by=None, push=True, **extra):
     """Append one entry to the label's run record on this host, in one write; its id, or None when it could not be
     written, which is said on standard error and nothing more. eid is an id made ahead with new_id; by, the role an
-    act of crew's own is in the name of, a card of crew's asked as its row's owner (briefs.16), else who asked."""
+    act of crew's own is in the name of, a card of crew's asked as its row's owner (briefs.16), else who asked. With
+    push, the entry is then pushed to the drive's branch (reach); without it, it is appended alone and the command
+    pushes it by a later act, as crew drive set does its drive.set, written before the drive's branch exists."""
     if not label:
         return None
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -247,7 +250,8 @@ def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None,
     except OSError as e:
         print(f"crew: the run record at {path} could not be written: {e.strerror or e}", file=sys.stderr)
         return None
-    reach(label, eid)
+    if push:
+        reach(label, eid)
     return eid
 
 
@@ -315,13 +319,14 @@ def entry_message(text, agent):
     return ("runs" + (f"({f['Host']})" if f.get("Host") else "") + f": {words}\n\nCrew-Entry: {f.get('Id')}\n")
 
 
-def reach(label, eid=None):
+def reach(label, eid=None, said=False):
     """Push each entry of this host's record of the label that its branch lacks, oldest first, normally the one just
     written, each a commit of its own and all in one push, by the write every state write takes (read.5, state.1), on
     this host before the command goes on; then note the newest the branch holds from here. Returns how many were
     pushed. With eid, the entry just written, a push that is refused is said once on standard error, naming it, and
     changes nothing else the command does (record.2): the entry stays in the host's file, and its next push takes it
-    first. With none, as crew events --push runs it, the refusal is the command's."""
+    first. With said and no eid, as crew drive set's last act runs it, a refused push is said once the same way,
+    naming the branch, and returns None. With neither, as crew events --push runs it, the refusal is the command's."""
     import plan  # plan.py imports this module; its git layer is only needed here
     where, seen = f"{label}/main", {"n": 0}
     try:
@@ -337,9 +342,14 @@ def reach(label, eid=None):
             plan.land(repo, ref, None, make)
     except (Refusal, OSError) as e:
         why = " ".join(str(e).split())  # one line, though git's and recfix's own words may span several
-        if eid is None:
+        if eid is None and not said:
             fail(f"nothing reached {where}: {why}")
-        print(f"crew: entry {eid} did not reach {where}: {why}; {crew.this_host()} keeps it and pushes it with its next entry", file=sys.stderr)
+        if eid is None:
+            print(f"crew: nothing reached {where}: {why}; {crew.this_host()} keeps what it holds and pushes it with its next entry",
+                  file=sys.stderr)
+        else:
+            print(f"crew: entry {eid} did not reach {where}: {why}; {crew.this_host()} keeps it and pushes it with its next entry",
+                  file=sys.stderr)
         return None
     mark_carried(label, seen.get("newest"))
     return seen["n"]
@@ -386,7 +396,7 @@ def parse(text):
 
 def acts_in(text, act):
     """The entries of one act in run-record text (parse), each found by its Act line before it is parsed, since a
-    partition's record is megabytes and an act like bolt.land a few entries of it."""
+    drive's record is megabytes and an act like bolt.land a few entries of it."""
     out, i, line = [], 0, f"\nAct: {act}"
     while (i := text.find(line, i)) >= 0:
         j = i + len(line)
@@ -503,12 +513,12 @@ def line(e, zoe=False):
 
 
 def labels_for(fleet, label):
-    """The partitions a read covers: the one named, else the caller's own, else all of them."""
+    """The drives a read covers: the one named, else the caller's own, else all of them."""
     if label:
-        crew.partition_of(fleet, label)
+        crew.drive_of(fleet, label)
         return [label]
     own = crew.caller_label(fleet)
-    return [own] if own in fleet["partitions"] else list(fleet["partitions"])
+    return [own] if own in fleet["drives"] else list(fleet["drives"])
 
 
 # A signal's object by its short id, signals/<capture>/<NN>, which names the one signal of that capture numbered NN.
@@ -561,8 +571,8 @@ def fresh(seen, entries):
 
 
 def follow_fetches(label, followed_here, follower, last, now, period=PERIOD):
-    """Whether crew events --follow fetches a partition's branch now (plan.12's reading of 2026-10-28): never while the
-    host's follower fetches it, the partition being one it follows (followed_here, board.labels_here) while someone
+    """Whether crew events --follow fetches a drive's branch now (plan.12's reading of 2026-10-28): never while the
+    host's follower fetches it, the drive being one it follows (followed_here, board.labels_here) while someone
     holds the host's follower lock (follower, board.follower_here: job, tab, or unknown, a holder whose line is not
     written yet), at its start too; else once its own clock is due, period seconds after its last fetch (last, None
     when it has made none, at its start or since a SIGUSR1). A decision on plain facts (code.7)."""
@@ -581,12 +591,12 @@ def follow(fleet, labels, about):
     """Each entry of the labels as it reaches their branches, one line each, until interrupted. Each second it reads
     each branch's tip as this host's cache holds it, with no process (plan.tip_here), and when the tip moved, reads
     again only the run-record files of the day the follow began or later whose blob changed (changed_files), printing
-    what it has not printed (fresh). It fetches a branch only for a partition the host's follower does not fetch, which
+    what it has not printed (fresh). It fetches a branch only for a drive the host's follower does not fetch, which
     moves the cache itself, as a write on this host does: at its start and then once a minute (follow_fetches); SIGUSR1
     makes its next fetch now. A branch's first read prints nothing, being what was there before. A branch that
     cannot be read is said once, until it reads again. It asks no host for anything (read.5)."""
     import time
-    import board  # board.py imports this module; the host's follower's lock and partitions are its
+    import board  # board.py imports this module; the host's follower's lock and drives are its
     import plan  # plan.py imports this module; its git layer is only needed here
 
     def stop(*_):

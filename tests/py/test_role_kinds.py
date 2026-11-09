@@ -2,7 +2,7 @@
 read as Flume reads a launch's own declaration, `flume launch --kinds <file>`, and plugin/flume/turn.md filled as Flume
 fills a stage's prompt. Flume's format as read on 2026-10-31 at agentplot/flume 3a126d4: its guides/kinds.mdx and
 reference/prompt-parts.md, crates/flume-core/src/prompt.rs `render`, and the kind fields weir-kinds names at the
-revision Flume pins (0b6eb5a, crates/weir-kinds/src/kinds.rs and quiet.rs). One kind for each role a partition's
+revision Flume pins (0b6eb5a, crates/weir-kinds/src/kinds.rs and quiet.rs). One kind for each role a drive's
 `flume` can name, each one stage, `turn`, that lands nothing and ends at its report in the place's own folder; and
 nothing in the file a launch or an account gives instead: a model, instructions or an environment."""
 import pathlib
@@ -24,7 +24,7 @@ STAGE_FIELDS = {"name", "prompt", "deliverables", "conversation", "agents", "mak
                 "max_send_backs", "repeat"}
 # Every prompt part Flume knows (flume-seams PromptPart), and those it fills for a stage of these kinds: a report
 # deliverable fills {{report}}; the runner's launch gives no brief, the stage makes nothing and does not repeat, and
-# the partition's blueprints repo need bind no change tool, so {{brief}}, {{made}}, {{group}}, {{notes}} and
+# the drive's blueprints repo need bind no change tool, so {{brief}}, {{made}}, {{group}}, {{notes}} and
 # {{change}} would each refuse the stage and start no agent.
 PARTS = {"brief", "name", "kind", "stage", "branch", "base", "place", "change", "report", "words", "unready", "needs",
          "made", "group", "notes"}
@@ -61,7 +61,7 @@ def keys(value):
     return set()
 
 
-def test_it_declares_one_kind_for_each_role_a_partition_can_run_as_its_kind():
+def test_it_declares_one_kind_for_each_role_a_drive_can_run_as_its_kind():
     assert set(DECLARED) == {f"crew-{role}" for role in crew.KIND_ROLES}
 
 

@@ -1,6 +1,6 @@
 """The main level and its agents (teams.2, teams.6, teams.7, teams.11, code.5): crew.load for the teams file at version
-5, its partitions alone, and each partition's Flume setting, crew.role_stream and
-crew.kind_role_of for which of a partition's main-level roles run as their kinds, crew.greet_waits for one look of
+6, its drives alone, and each drive's Flume setting, crew.role_stream and
+crew.kind_role_of for which of a drive's main-level roles run as their kinds, crew.greet_waits for one look of
 a greeting's wait, crew.standing_greeting for what a main level's agent is greeted with, crew.operator_session for where an operator runs, crew.tab_holds for what an operator's tab holds,
 crew.dead_said for a pane herdr lists with no terminal behind it and crew.opens_at for where a pane opens again,
 crew.last_conversation for where a role resumes,
@@ -8,8 +8,11 @@ crew.brief_due and crew.brief_role for the brief a session herdr resumed is give
 crew.main_named and crew.identity_withheld for whether a main level's agent herdr resumed gets its identity back on this host,
 and plan.kind_said for what crew main status says of a role that runs as its kind. Starting, greeting, reviving and
 taking them down through the command are the main level's journey's (t-journey-main)."""
+import builtins
 import json
 import os
+import pathlib
+import re
 
 import pytest
 
@@ -17,17 +20,27 @@ import crew
 import plan
 
 BOX = "chuck-herdr-alpha"
-FLEET = {"partitions": {"wldn": {"label": "wldn", "partition": "clients/willdan", "machine": BOX, "session": "wldn-3"}},
-         "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "madswan": {"partition": "business"}}}}}
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX, "session": "wldn-3"}},
+         "hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}, "consoles": {"wldn": "/w/willdan"}}
 STANDING = {r: False for r in crew.KIND_ROLES}
+HOSTS = {BOX: {"ssh": BOX, "kind": "nixos"}, "mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}
 
 
-def loaded(tmp_path, monkeypatch, data, hosts):
-    """crew.load over a teams file holding data and a hosts file holding hosts, written in tmp_path."""
-    (tmp_path / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts}))
+def every(account):
+    """A drive's `accounts`, every main-level role on one account."""
+    return {r: account for r in crew.KIND_ROLES}
+
+
+def loaded(tmp_path, monkeypatch, data, hosts_file=None):
+    """crew.load over a teams file holding data, written in tmp_path; with hosts_file, swancloud's hosts file beside it
+    in the home crew runs in, holding it, which crew reads nothing of (record 0064)."""
     (tmp_path / "teams.json").write_text(json.dumps(data))
-    monkeypatch.setattr(crew, "HOSTS", tmp_path / "herdr-hosts.json")
     monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+    if hosts_file is not None:
+        swancloud = tmp_path / ".config/swancloud"
+        swancloud.mkdir(parents=True, exist_ok=True)
+        (swancloud / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts_file}))
+        monkeypatch.setattr(pathlib.Path, "home", classmethod(lambda cls: tmp_path))
     crew.load.cache_clear()
     try:
         return crew.load()
@@ -36,64 +49,343 @@ def loaded(tmp_path, monkeypatch, data, hosts):
 
 
 class TestLoad:
-    """The teams file at version 5 holds partitions alone (Decision 2 of the-team-machinery-leaves): a partition's main
-    level and its blueprints come from the herdr session it runs in; the files' refusals by field are t-teams'."""
+    """The teams file at version 6 holds drives alone, under `drives`, each named by its label, and every fact crew
+    reads of a host's drives and of the hosts that serve them (main-level "Drives are declared in the teams file";
+    Boomdrive record 0028; record 0064): no hosts file is read; the files' refusals by field are t-teams'."""
 
-    def hosts(self, tmp_path):
-        def sess(space, partition, repos):
-            return {"dir": f"{tmp_path}/{space}", "partition": partition, "repos": repos}
-        willdan = ["WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"]
-        return {BOX: {"ssh": BOX, "sessions": {"wldn-3": sess("box/willdan", "clients/willdan", willdan)}},
-                "mac-studio": {"ssh": "mac-studio", "sessions": {
-                    "madswan-1": sess("mac/madswan", "business", ["afterthought/blueprints", "afterthought/crew"])}}}
-
-    def data(self, version=5, **more):
+    def data(self, version=6, key="drives", **more):
         part = {"state": "afterthought/crew-state", "review": {"every": 5, "hours": 4}, "flume": STANDING}
-        return dict({"version": version,
-                     "partitions": [dict(part, label="wldn", partition="clients/willdan", blueprints=["WilldanGroup/willdan-blueprints"],
-                                         machine=BOX, session="wldn-3"),
-                                    dict(part, label="madswan", partition="business", blueprints=["afterthought/blueprints"],
-                                         machine="mac-studio", session="madswan-1")]}, **more)
+        return dict({"version": version, "hosts": HOSTS,
+                     key: [dict(part, label="wldn", blueprints=["WilldanGroup/willdan-blueprints"], machine=BOX, session="wldn-3",
+                                folder="/box/willdan", repos=["WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"],
+                                accounts=every("ia")),
+                           dict(part, label="madswan", blueprints=["afterthought/blueprints"], machine="mac-studio",
+                                session="madswan-1", folder="/mac/madswan", repos=["afterthought/blueprints", "afterthought/crew"],
+                                accounts=every("madswan"))]}, **more)
 
-    def test_a_partitions_main_level_and_blueprints_come_from_its_session_and_the_fleet_holds_no_teams(self, tmp_path, monkeypatch):
-        fleet = loaded(tmp_path, monkeypatch, self.data(), self.hosts(tmp_path))
-        assert set(fleet) == {"hosts", "partitions", "repositories"} and list(fleet["partitions"]) == ["wldn", "madswan"]
-        p = crew.partition_of(fleet, "wldn")
-        assert (p["machine"], p["session"], p["ssh"]) == (BOX, "wldn-3", BOX) and "teams" not in p
-        assert p["checkout"] == f"{tmp_path}/box/willdan/willdan-blueprints/main"
+    def refused(self, tmp_path, monkeypatch, data, said):
+        """The file refused, saying said, naming the teams file's writer as the fix."""
+        with pytest.raises(crew.Refusal, match=said) as refused:
+            loaded(tmp_path, monkeypatch, data)
+        assert crew.WRITER in str(refused.value)
+        return str(refused.value)
+
+    def test_a_drives_main_level_folder_and_repos_come_from_its_entry_and_the_fleet_holds_no_teams(self, tmp_path, monkeypatch):
+        """main-level, No hosts file: the file gives every key, and crew loads it with none present."""
+        assert not hasattr(crew, "HOSTS") and not hasattr(crew, "read_hosts")
+        fleet = loaded(tmp_path, monkeypatch, self.data())
+        assert set(fleet) == {"hosts", "drives", "repositories", "consoles"} and list(fleet["drives"]) == ["wldn", "madswan"]
+        assert fleet["hosts"] == HOSTS and fleet["consoles"] == {} and fleet["repositories"] == {}
+        p = crew.drive_of(fleet, "wldn")
+        assert (p["machine"], p["session"], p["ssh"], p["folder"]) == (BOX, "wldn-3", BOX, "/box/willdan")
+        assert "teams" not in p and "dir" not in p
+        assert p["checkout"] == "/box/willdan/willdan-blueprints/main" and p["accounts"] == every("ia")
+        assert p["repos"] == ["WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"]
         assert p["flume"] == STANDING and p["sessions"]["planner"] == "wldn-3"
 
-    @pytest.mark.parametrize("version", [1, 2, 3, 4, 6, "5", True, None])
-    def test_another_version_is_refused_naming_5_and_the_machines_configuration(self, tmp_path, monkeypatch, version):
-        with pytest.raises(crew.Refusal, match=f"teams.json is version {json.dumps(version)}, "
-                           "and crew reads only version 5. It must be regenerated by the machine's configuration "
-                           "\\(swancloud's lib/crew-teams.nix\\); crew has done nothing."):
-            loaded(tmp_path, monkeypatch, self.data(version), self.hosts(tmp_path))
+    def test_clients_willdan_starts_in_its_folders_blueprints(self, tmp_path, monkeypatch):
+        """main-level, clients/willdan: wldn on chuck-herdr-alpha in wldn-2, its folder /workspace and its repos naming
+        willdan-blueprints, starts in /workspace/willdan-blueprints/main, and its plan is wldn/main of crew-state."""
+        data = self.data()
+        data["drives"][0].update(session="wldn-2", folder="/workspace", state="WilldanGroup/crew-state")
+        fleet = loaded(tmp_path, monkeypatch, data)
+        monkeypatch.setattr(crew, "definition", lambda role: ({"model": "opus", "effort": "high"}, ""))
+        monkeypatch.setattr(crew, "kits_on", lambda fleet, label, host, fetch=False: [])
+        assert crew.launch(fleet, "wldn", "operator")["cwd"] == "/workspace/willdan-blueprints/main"
+        assert crew.place_of_agent(fleet, "wldn-operator") == (BOX, "wldn-2")
+        assert crew.drive_of(fleet, "wldn")["state"] == "WilldanGroup/crew-state"
 
-    def test_a_file_that_still_lists_teams_is_refused_at_version_4_or_5(self, tmp_path, monkeypatch):
-        """main-level, The file before version 5: a version-4 file lists a team for each kit; nor does version 5 hold
-        one, a teams list being no field of it, never read in order to be ignored (code.5)."""
+    @pytest.mark.parametrize("given", [
+        {BOX: {"ssh": "box", "sessions": {"wldn-3": {"dir": "/elsewhere", "partition": "clients/willdan", "account": "credits",
+                                                     "repos": ["WilldanGroup/atlas-kit"]}}}},
+        {"mac-studio": {"ssh": "studio", "home": "/Users/chuck", "kind": "linux", "sessions": {}}},
+        {}])
+    def test_a_hosts_file_present_is_read_for_nothing(self, tmp_path, monkeypatch, given):
+        """main-level, A session's `partition` in the hosts file: whatever swancloud's hosts file gives wldn's session, its
+        partition, folder, account or ssh name, crew loads the teams file the same as with none, opening nothing of it."""
+        bare = loaded(tmp_path, monkeypatch, self.data())
+        opened = []
+        real_read, real_open = pathlib.Path.read_text, builtins.open
+        monkeypatch.setattr(pathlib.Path, "read_text", lambda self, *a, **k: opened.append(str(self)) or real_read(self, *a, **k))
+        monkeypatch.setattr(builtins, "open", lambda f, *a, **k: opened.append(str(f)) or real_open(f, *a, **k))
+        assert loaded(tmp_path, monkeypatch, self.data(), hosts_file=given) == bare
+        assert not [f for f in opened if "swancloud" in f or "herdr-hosts" in f]
+
+    @pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 7, "6", True, None])
+    def test_another_version_is_refused_naming_6_and_the_machines_configuration(self, tmp_path, monkeypatch, version):
+        with pytest.raises(crew.Refusal, match=f"teams.json is version {json.dumps(version)}, "
+                           "and crew reads only version 6. It must be regenerated by crew's own module, services.crew, "
+                           "crew drive set, or the machine's configuration that writes it; crew has done nothing."):
+            loaded(tmp_path, monkeypatch, self.data(version))
+
+    def test_the_file_at_version_5_is_refused_naming_version_6(self, tmp_path, monkeypatch):
+        """main-level, The file at version 5: its drives under `partitions`, each naming its `partition`, as deneb's file
+        held them on 2026-11-08, refused by its version before anything else of it is read."""
+        data = self.data(5, key="partitions")
+        for entry, grouping in zip(data["partitions"], ("clients/willdan", "business")):
+            entry["partition"] = grouping
+        read = []
+        monkeypatch.setattr(crew, "hosts_of", lambda data: read.append("hosts"))
+        with pytest.raises(crew.Refusal, match="teams.json is version 5, and crew reads only version 6. It must be regenerated by "
+                                               "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it; crew has done nothing."):
+            loaded(tmp_path, monkeypatch, data)
+        assert read == []
+
+    def test_a_version_6_file_whose_drives_are_under_partitions_lists_no_drives(self, tmp_path, monkeypatch):
+        """main-level, A version-6 file whose drives are under `partitions`: no former key is read, so it lists no
+        drives, as an empty `drives` does, and the fix is named."""
+        for data in (self.data(key="partitions"), self.data(drives=[])):
+            with pytest.raises(crew.Refusal, match="teams.json lists no drives: it must be regenerated by crew's own module, "
+                                                   "services.crew, crew drive set, or the machine's configuration that writes it; crew has done nothing."):
+                loaded(tmp_path, monkeypatch, data)
+
+    @pytest.mark.parametrize("refused", ["version", "teams", "drives", "state", "review", "flume", "repositories", "hosts",
+                                         "folder", "repos", "accounts", "consoles"])
+    def test_every_refusal_of_the_file_names_crews_own_module_and_no_other_repositorys(self, tmp_path, monkeypatch, refused):
+        """main-level, Every refusal of the file names crew's own fix: crew is the family's tool, not the fleet's, so the
+        fix of a refused teams file is crew's own module, services.crew, crew drive set, or the machine's configuration that writes it,
+        never swancloud's lib/crew-teams.nix (agentplot-design on batch 23 of crew-names-each-drive-once; code.5)."""
+        data = self.data()
+        if refused == "version":
+            data["version"] = 5
+        elif refused == "teams":
+            data["teams"] = []
+        elif refused == "drives":
+            data["drives"] = []
+        elif refused == "repositories":
+            data["repositories"] = {"agentplot/crew": {"dir": "crew"}}
+        elif refused == "hosts":
+            del data["hosts"]
+        elif refused == "consoles":
+            data["consoles"] = {"wldn": "w"}
+        else:
+            del data["drives"][0][refused]
+        with pytest.raises(crew.Refusal) as said:
+            loaded(tmp_path, monkeypatch, data)
+        assert crew.WRITER in str(said.value) and "services.crew" in crew.WRITER
+        assert "swancloud" not in str(said.value) and "crew-teams.nix" not in str(said.value)
+
+    def test_a_missing_file_is_refused_naming_its_four_writers(self, tmp_path, monkeypatch):
+        """main-level, No teams file: refused naming the file and crew's own module, services.crew, crew drive set and the
+        machine's configuration as its writers, with nothing done (design, Decision 13)."""
+        monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+        crew.load.cache_clear()
+        with pytest.raises(crew.Refusal) as said:
+            crew.load()
+        assert str(said.value) == (f"{tmp_path}/teams.json is missing: it must be written by crew's own module, services.crew, "
+                                   "crew drive set, or the machine's configuration that writes it; crew has done nothing.")
+
+    @pytest.mark.parametrize("text, words", [("{\"version\": 6,", "Expecting property name enclosed in double quotes"),
+                                             ("", "Expecting value: line 1 column 1"), ("version: 6", "Expecting value")])
+    def test_a_file_that_is_no_json_is_refused_naming_it_and_the_parsers_words(self, tmp_path, monkeypatch, text, words):
+        """main-level, A file that is no JSON: refused naming the file and the parser's words, a Refusal and never a
+        traceback (code.2), naming the writer as every refusal of the file does."""
+        (tmp_path / "teams.json").write_text(text)
+        monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+        crew.load.cache_clear()
+        with pytest.raises(crew.Refusal) as said:
+            crew.load()
+        assert str(said.value).startswith(f"{tmp_path}/teams.json is no JSON (") and words in str(said.value)
+        assert crew.WRITER in str(said.value)
+
+    @pytest.mark.parametrize("data", [[], "drives", 6, None])
+    def test_json_that_is_no_object_is_refused_naming_the_writer(self, tmp_path, monkeypatch, data):
+        """A file whose JSON is no object is a teams file of no shape crew reads: refused, never a traceback."""
+        with pytest.raises(crew.Refusal, match="not a teams file's object") as said:
+            loaded(tmp_path, monkeypatch, data)
+        assert crew.WRITER in str(said.value)
+
+    def test_fleet_of_plain_data_answers_as_load_does_on_the_same_file(self, tmp_path, monkeypatch):
+        """Decision 5: crew.load is a read of the file and crew.fleet_of(data, here), a function of the file's data and
+        this host's name that starts no process, and answers the same fleet; here is read only where the file names
+        kept repositories."""
+        for data in (self.data(), self.data(repositories={"afterthought/crew": {"dir": "/r/crew", "checkout": "/v/crew"}})):
+            monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+            assert crew.fleet_of(json.loads(json.dumps(data)), "mac-studio") == loaded(tmp_path, monkeypatch, data)
+        asked = []
+        assert crew.fleet_of(self.data(), lambda: asked.append(1))["repositories"] == {} and asked == []
+        with pytest.raises(crew.Refusal, match="is version 5"):
+            crew.fleet_of(self.data(5), "mac-studio")
+
+    @pytest.mark.parametrize("field, said", [
+        ("folder", "drive wldn in .*teams.json has no 'folder', the absolute folder of its herdr session on chuck-herdr-alpha"),
+        ("repos", "drive wldn in .*teams.json has no 'repos', the repositories its folder keeps on chuck-herdr-alpha"),
+        ("accounts", "drive wldn in .*teams.json has no 'accounts', which names the Claude account each of its roles, "
+                     "design, planner, reviewer, ops, operator, runs under")])
+    def test_a_drive_with_no_folder_repos_or_accounts_is_refused_naming_it_the_field_and_the_writer(self, tmp_path, monkeypatch, field, said):
+        """main-level, A drive with no folder, repos or accounts."""
+        data = self.data()
+        del data["drives"][0][field]
+        self.refused(tmp_path, monkeypatch, data, said)
+
+    @pytest.mark.parametrize("folder", ["work/willdan", "", None, ["/w"]])
+    def test_a_relative_folder_is_refused_naming_the_drive_and_its_folder(self, tmp_path, monkeypatch, folder):
+        """main-level, A relative folder."""
+        data = self.data()
+        data["drives"][0]["folder"] = folder
+        self.refused(tmp_path, monkeypatch, data, f"drive wldn in .*teams.json: 'folder' is the absolute folder of its herdr "
+                                                  f"session on chuck-herdr-alpha, not {re.escape(json.dumps(folder))}")
+
+    @pytest.mark.parametrize("repos, said", [
+        ("WilldanGroup/willdan-blueprints", "'repos' lists the repositories its folder keeps on chuck-herdr-alpha, each <owner>/<name>, not"),
+        (["willdan-blueprints"], "'repos' names \"willdan-blueprints\", which is no <owner>/<name>"),
+        (["WilldanGroup/willdan-blueprints", 7], "'repos' names 7, which is no <owner>/<name>")])
+    def test_a_repos_entry_that_is_no_address_is_refused(self, tmp_path, monkeypatch, repos, said):
+        data = self.data()
+        data["drives"][0]["repos"] = repos
+        self.refused(tmp_path, monkeypatch, data, f"drive wldn in .*teams.json: {said}")
+
+    @pytest.mark.parametrize("accounts, said", [
+        ({r: "ia" for r in ("design", "planner", "ops", "operator")}, "'accounts' leaves out the reviewer"),
+        (dict(every("ia"), dispatcher="ia"), "'accounts' names dispatcher, which is no main-level role"),
+        (dict(every("ia"), planner="IA"), "accounts.planner is the Claude account it runs under, a name crew accepts, not \"IA\""),
+        (dict(every("ia"), ops=None), "accounts.ops is the Claude account it runs under, a name crew accepts, not null"),
+        ("ia", "'accounts' names each of its roles with its Claude account, not \"ia\"")])
+    def test_an_account_left_out_or_named_wrongly_is_refused_naming_the_drive_and_the_role(self, tmp_path, monkeypatch, accounts, said):
+        """main-level, An account left out: wldn's accounts naming no reviewer is refused, naming wldn and the reviewer."""
+        data = self.data()
+        data["drives"][0]["accounts"] = accounts
+        self.refused(tmp_path, monkeypatch, data, f"drive wldn in .*teams.json: {said}")
+
+    def test_two_accounts_in_one_session_are_refused_naming_the_drive_the_session_and_both(self, tmp_path, monkeypatch):
+        """main-level, Two accounts in one session: wldn's design agent and ops run in wldn-2, the one on willdan-alex and
+        the other on credits; a herdr session runs under one account."""
+        data = self.data()
+        data["drives"][0].update(session="wldn-2", roles={"planner": {"session": "wldn-1"}},
+                                 accounts=dict(every("willdan-alex"), planner="ia", reviewer="ia", ops="credits"))
+        said = self.refused(tmp_path, monkeypatch, data, "drive wldn's design \\(willdan-alex\\), ops \\(credits\\), operator "
+                                                         "\\(willdan-alex\\) run in session wldn-2 under credits and willdan-alex, "
+                                                         "and a herdr session runs under one account")
+        assert "wldn-1" not in said
+        data["drives"][0]["accounts"]["ops"] = "willdan-alex"
+        p = crew.drive_of(loaded(tmp_path, monkeypatch, data), "wldn")
+        assert p["sessions"] == {"design": "wldn-2", "planner": "wldn-1", "ops": "wldn-2", "operator": "wldn-2", "reviewer": "wldn-1"}
+
+    def test_a_blueprints_repo_its_machine_does_not_keep_is_refused(self, tmp_path, monkeypatch):
+        """main-level, A blueprints repo its machine does not keep: wldn's repos does not list willdan-blueprints and the
+        box's file names it in no `repositories`."""
+        data = self.data()
+        data["drives"][0]["repos"] = ["WilldanGroup/switchboard-kit"]
+        self.refused(tmp_path, monkeypatch, data, "drive wldn: chuck-herdr-alpha keeps no WilldanGroup/willdan-blueprints, its "
+                                                  "first blueprints repo: .*teams.json lists it neither in the drive's 'repos' "
+                                                  "nor in 'repositories' for chuck-herdr-alpha")
+        named = {"WilldanGroup/willdan-blueprints": {"dir": "/r/willdan-blueprints", "checkout": "/v/willdan-blueprints"}}
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+        self.refused(tmp_path, monkeypatch, dict(data, repositories=named), "drive wldn: chuck-herdr-alpha keeps no")
+        monkeypatch.setattr(crew, "this_host", lambda: BOX)
+        assert crew.drive_of(loaded(tmp_path, monkeypatch, dict(data, repositories=named)), "wldn")["checkout"] == "/v/willdan-blueprints"
+
+    def test_a_machine_the_file_gives_no_host_for_is_refused(self, tmp_path, monkeypatch):
+        """main-level, A machine the file gives no host for: wldn runs on chuck-herdr-alpha and `hosts` names only deneb."""
+        data = dict(self.data(), hosts={"deneb": {"ssh": "deneb", "kind": "darwin"}})
+        self.refused(tmp_path, monkeypatch, data, "drive wldn runs on chuck-herdr-alpha, which .*teams.json's 'hosts' does not "
+                                                  "name. hosts: deneb")
+
+    def test_no_hosts_is_refused_naming_hosts_and_the_writer(self, tmp_path, monkeypatch):
+        """main-level, No hosts."""
+        data = self.data()
+        del data["hosts"]
+        self.refused(tmp_path, monkeypatch, data, "teams.json gives no 'hosts', the ssh name and kind of each host crew reaches or reads")
+
+    @pytest.mark.parametrize("deneb, said", [
+        ({"kind": "darwin"}, "host deneb in 'hosts' has no 'ssh'"),
+        ({"ssh": "deneb"}, "host deneb in 'hosts' has no 'kind'"),
+        ({"ssh": "deneb", "kind": "macos"}, "host deneb's 'kind' is darwin or nixos, not \"macos\""),
+        ({"ssh": "deneb", "kind": "darwin", "home": "/Users/chuck"}, "host deneb in 'hosts' gives 'home', which crew has no place for"),
+        ({"ssh": "", "kind": "darwin"}, "host deneb's 'ssh' is the name ssh reaches it by, not \"\""),
+        ("deneb", "host deneb in 'hosts' gives exactly its 'ssh' and its 'kind', not \"deneb\"")])
+    def test_a_host_named_wrongly_is_refused_naming_it_and_the_key(self, tmp_path, monkeypatch, deneb, said):
+        """main-level, A host named wrongly: no ssh, a kind of macos, or a home beside its ssh and kind."""
+        self.refused(tmp_path, monkeypatch, dict(self.data(), hosts=dict(HOSTS, deneb=deneb)), f"teams.json: {said}")
+
+    @pytest.mark.parametrize("hosts, said", [
+        ({"Deneb": {"ssh": "deneb", "kind": "darwin"}}, "'hosts' names \"Deneb\", which is no name crew accepts"),
+        (["deneb"], "'hosts' names each host crew reaches or reads, by its name, with its 'ssh' and its 'kind', not")])
+    def test_a_hosts_name_crew_does_not_accept_is_refused(self, tmp_path, monkeypatch, hosts, said):
+        self.refused(tmp_path, monkeypatch, dict(self.data(), hosts=hosts if isinstance(hosts, list) else dict(HOSTS, **hosts)),
+                     f"teams.json: {said}")
+
+    def test_a_roles_session_of_another_drive_loads_as_the_file_names_it(self, tmp_path, monkeypatch):
+        """main-level, A session of another drive: wldn's planner named madswan's session loads, checked against no list
+        of sessions: herdr runs the session the file names."""
+        data = self.data()
+        data["drives"][0]["roles"] = {"planner": {"session": "madswan-1"}}
+        fleet = loaded(tmp_path, monkeypatch, data)
+        assert crew.place_of_agent(fleet, "wldn-planner") == (BOX, "madswan-1")
+        assert crew.place_of_agent(fleet, "wldn-design") == (BOX, "wldn-3")
+
+    def test_the_consoles_of_the_host_load_and_a_console_of_no_drive_is_refused(self, tmp_path, monkeypatch):
+        """main-level, The consoles of the host and A console of no drive."""
+        consoles = {"wldn": "/Users/chuck/Code/clients/github_willdan", "madswan": "/Users/chuck/Code/github_afterthought"}
+        assert loaded(tmp_path, monkeypatch, self.data(consoles=consoles))["consoles"] == consoles
+        self.refused(tmp_path, monkeypatch, self.data(consoles=dict(consoles, swancloud="/w")),
+                     "teams.json: 'consoles' names swancloud, which is no drive the file lists. drives: wldn madswan")
+        self.refused(tmp_path, monkeypatch, self.data(consoles={"wldn": "Code/clients/github_willdan"}),
+                     "teams.json: consoles.wldn is the absolute folder its console's tabs open in, not \"Code/clients/github_willdan\"")
+        self.refused(tmp_path, monkeypatch, self.data(consoles=["wldn"]), "teams.json: 'consoles' maps each drive whose console")
+
+    def test_a_file_that_still_lists_teams_is_refused_at_version_4_5_or_6(self, tmp_path, monkeypatch):
+        """main-level, The file before version 5, A version-5 file that lists teams and A version-6 file that lists teams:
+        a version-4 or -5 file is refused by its version; nor does version 6 hold one, a teams list being no field of
+        it, never read in order to be ignored (code.5)."""
         teams = [{"name": "swb-1", "system": "Switchboard", "machine": BOX, "session": "wldn-3", "units": 4,
                   "repos": ["switchboard-kit", "willdan-blueprints"], "flume": "wldn"}]
-        with pytest.raises(crew.Refusal, match="is version 4, and crew reads only version 5.*swancloud's lib/crew-teams.nix"):
-            loaded(tmp_path, monkeypatch, self.data(4, teams=teams), self.hosts(tmp_path))
+        for version in (4, 5):
+            with pytest.raises(crew.Refusal, match=f"is version {version}, and crew reads only version 6.*crew's own module, services.crew"):
+                loaded(tmp_path, monkeypatch, self.data(version, key="partitions", teams=teams))
         for listed in (teams, []):
-            with pytest.raises(crew.Refusal, match="teams.json lists teams, which version 5 has no place for: crew runs no team. "
-                                                   "It must be regenerated by the machine's configuration \\(swancloud's lib/crew-teams.nix\\)"):
-                loaded(tmp_path, monkeypatch, self.data(teams=listed), self.hosts(tmp_path))
+            with pytest.raises(crew.Refusal, match="teams.json lists teams, which version 6 has no place for: crew runs no team. "
+                                                   "It must be regenerated by crew's own module, services.crew, crew drive set, or the machine's configuration"):
+                loaded(tmp_path, monkeypatch, self.data(teams=listed))
 
     def test_the_boxs_file_at_version_2_is_refused_by_its_version_with_nothing_further_read(self, tmp_path, monkeypatch):
-        """main-level, The box's file at version 2: chuck-herdr-alpha's file for wldn's teams, its partitions with a team
-        beside them as tests/lib.sh's teams_old writes it, is refused by its version alone, before its teams or the hosts
-        file is read (code.5)."""
+        """main-level, The box's file at version 2: chuck-herdr-alpha's file for wldn's teams, its `partitions` with a
+        team beside them as tests/lib.sh's teams_old writes it, is refused by its version alone, before its teams or its
+        hosts are read (code.5)."""
         teams = [{"name": "swb-1", "system": "Switchboard", "machine": BOX, "session": "wldn-1", "units": 4,
                   "repos": ["switchboard-kit", "willdan-blueprints"], "flume": False}]
         read = []
-        monkeypatch.setattr(crew, "read_hosts", lambda: read.append("hosts"))
-        with pytest.raises(crew.Refusal, match="teams.json is version 2, and crew reads only version 5. It must be regenerated by "
-                                               "the machine's configuration \\(swancloud's lib/crew-teams.nix\\); crew has done nothing."):
-            loaded(tmp_path, monkeypatch, self.data(2, teams=teams), self.hosts(tmp_path))
+        monkeypatch.setattr(crew, "hosts_of", lambda data: read.append("hosts"))
+        with pytest.raises(crew.Refusal, match="teams.json is version 2, and crew reads only version 6. It must be regenerated by "
+                                               "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it; crew has done nothing."):
+            loaded(tmp_path, monkeypatch, self.data(2, key="partitions", teams=teams))
         assert read == []
+
+
+class TestReadable:
+    """crew.readable: the data of a teams file crew can read at all, and the refusal of one it cannot, no JSON, no
+    UTF-8, no object or at a version this crew does not read, in the words crew.load gives for the same file (record
+    0065, point 6; a-drive-set-loses-no-drive-and-no-record, Decision 1). A file it gives the data of is at crew's own
+    version, and fleet_of makes every later check."""
+
+    def load_said(self, tmp_path, monkeypatch, raw):
+        (tmp_path / "teams.json").write_bytes(raw)
+        crew.load.cache_clear()
+        try:
+            with pytest.raises(crew.Refusal) as said:
+                crew.load()
+        finally:
+            crew.load.cache_clear()
+        return str(said.value)
+
+    @pytest.mark.parametrize("raw", [b"{\"version\": 6,", b"version: 6", b"\xff\xfe{}", b"[]", b"{}", b"{\"version\":\"6\"}",
+                                     b"{\"version\":true}", b"{\"version\":5}"])
+    def test_a_file_crew_cannot_read_at_all_is_refused_in_loads_words(self, tmp_path, monkeypatch, raw):
+        monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+        with pytest.raises(crew.Refusal) as said:
+            crew.readable(raw)
+        assert str(said.value) == self.load_said(tmp_path, monkeypatch, raw)
+        assert crew.WRITER in str(said.value)
+
+    @pytest.mark.parametrize("data, refused", [({"version": 6, "drives": [], "hosts": {}}, "lists no drives"),
+                                               ({"version": 6, "teams": []}, "lists teams, which version 6 has no place for")])
+    def test_a_file_at_crews_own_version_is_read_and_fleet_of_refuses_it(self, tmp_path, monkeypatch, data, refused):
+        monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
+        raw = json.dumps(data).encode()
+        assert crew.readable(raw) == data and crew.readable(raw.decode()) == data
+        with pytest.raises(crew.Refusal, match=refused) as said:
+            crew.fleet_of(crew.readable(raw), "mac-studio")
+        assert str(said.value) == self.load_said(tmp_path, monkeypatch, raw)
 
 
 class TestKeptRepositories:
@@ -104,32 +396,43 @@ class TestKeptRepositories:
     CREW = {"dir": "/Users/chuck/.local/share/flywheel/repositories/agentplot/crew", "checkout": "/Users/chuck/Code/boomdrive/agentplot/crew"}
 
     def load(self, tmp_path, monkeypatch, **more):
-        return loaded(tmp_path, monkeypatch, TestLoad().data(**more), TestLoad().hosts(tmp_path))
+        return loaded(tmp_path, monkeypatch, TestLoad().data(**more))
 
     def test_a_runner_hosts_kept_repositories_are_the_fleets_with_the_host_they_are_for(self, tmp_path, monkeypatch):
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         fleet = self.load(tmp_path, monkeypatch, repositories={"agentplot/crew": self.CREW})
         assert fleet["repositories"] == {"host": "deneb", "named": {"agentplot/crew": self.CREW}}
+        assert crew.kept_on(fleet, "deneb", "agentplot/crew") == self.CREW["checkout"]
 
     def test_a_file_that_names_none_names_no_repository_and_reads_no_host(self, tmp_path, monkeypatch):
-        """main-level, A file that names no repository: the logic tier's fixture refuses any process, so no host is read."""
-        assert self.load(tmp_path, monkeypatch)["repositories"] == {}
+        """main-level, A file that names no repository: the logic tier's fixture refuses any process, so no host is read;
+        madswan's folder keeps crew, so mac-studio keeps it there."""
+        fleet = self.load(tmp_path, monkeypatch)
+        assert fleet["repositories"] == {}
         assert self.load(tmp_path, monkeypatch, repositories={})["repositories"] == {}
+        assert crew.kit_kept(fleet, "mac-studio", "crew") == {"name": "crew", "repo": "afterthought/crew", "dir": "/mac/madswan/crew",
+                                                             "main": "/mac/madswan/crew/main"}
 
-    def test_a_partition_whose_blueprints_the_file_names_on_its_host_starts_in_the_files_checkout(self, tmp_path, monkeypatch):
+    def test_a_repository_no_drive_of_the_host_lists_is_not_kept(self, tmp_path, monkeypatch):
+        """main-level, A repository no drive of the host lists: mac-studio's drives list no atlas-kit, so it keeps none."""
+        fleet = self.load(tmp_path, monkeypatch)
+        assert crew.kit_kept(fleet, "mac-studio", "atlas-kit") is None
+        assert crew.kept_on(fleet, "mac-studio", "WilldanGroup/atlas-kit") is None
+
+    def test_a_drive_whose_blueprints_the_file_names_on_its_host_starts_in_the_files_checkout(self, tmp_path, monkeypatch):
         """Decision 6: madswan's main level runs on mac-studio, whose file names afterthought/blueprints, so its checkout,
-        where its roles start, is the file's; wldn's, on the box, is its session's as before."""
+        where its roles start, is the file's; wldn's, on the box, is its folder's as before."""
         monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
         named = {"afterthought/blueprints": {"dir": "/r/afterthought/blueprints", "checkout": "/v/afterthought/blueprints"}}
         fleet = self.load(tmp_path, monkeypatch, repositories=named)
-        assert crew.partition_of(fleet, "madswan")["checkout"] == "/v/afterthought/blueprints"
-        assert crew.partition_of(fleet, "wldn")["checkout"] == f"{tmp_path}/box/willdan/willdan-blueprints/main"
+        assert crew.drive_of(fleet, "madswan")["checkout"] == "/v/afterthought/blueprints"
+        assert crew.drive_of(fleet, "wldn")["checkout"] == "/box/willdan/willdan-blueprints/main"
         monkeypatch.setattr(crew, "definition", lambda role: ({"model": "opus", "effort": "high"}, ""))
         monkeypatch.setattr(crew, "kits_on", lambda fleet, label, host, fetch=False: [])
         assert crew.launch(fleet, "madswan", "design")["cwd"] == "/v/afterthought/blueprints"
         monkeypatch.setattr(crew, "this_host", lambda: BOX)
         fleet = self.load(tmp_path, monkeypatch, repositories=named)
-        assert crew.partition_of(fleet, "madswan")["checkout"] == f"{tmp_path}/mac/madswan/blueprints/main"
+        assert crew.drive_of(fleet, "madswan")["checkout"] == "/mac/madswan/blueprints/main"
 
     @pytest.mark.parametrize("repositories, said", [
         ([], "'repositories' maps each kept repository, <owner>/<name>, to its 'dir' and 'checkout', not \\[\\]"),
@@ -143,58 +446,58 @@ class TestKeptRepositories:
         ({"agentplot/crew": dict(CREW, dir="")}, "kept repository agentplot/crew's 'dir' is an absolute path, not \"\""),
         ({"agentplot/crew": dict(CREW, checkout=7)}, "kept repository agentplot/crew's 'checkout' is an absolute path, not 7")])
     def test_a_kept_repository_named_wrongly_is_refused_naming_the_file_it_and_the_fix(self, tmp_path, monkeypatch, repositories, said):
-        """main-level, A kept repository named wrongly: refused before anything else is read, the hosts file among it."""
+        """main-level, A kept repository named wrongly: refused before anything else is read, the hosts among it."""
         read = []
-        monkeypatch.setattr(crew, "read_hosts", lambda: read.append("hosts"))
+        monkeypatch.setattr(crew, "hosts_of", lambda data: read.append("hosts"))
         with pytest.raises(crew.Refusal, match=said) as refused:
             self.load(tmp_path, monkeypatch, repositories=repositories)
-        assert "teams.json" in str(refused.value) and "swancloud's lib/crew-teams.nix" in str(refused.value)
+        assert "teams.json" in str(refused.value) and crew.WRITER in str(refused.value)
         assert read == []
 
 
+DENEB = {"deneb": {"ssh": "deneb", "kind": "darwin"}}
+
+
 class TestRoleSettings:
-    """A partition's Flume setting for each of its main-level roles (record 0047 move 6, the change
-    roles-run-as-flume-kinds' Decision 3): `flume` on every partition, each of the five roles false while it stands or
+    """A drive's Flume setting for each of its main-level roles (record 0047 move 6, the change
+    roles-run-as-flume-kinds' Decision 3): `flume` on every drive, each of the five roles false while it stands or
     the stream its runs run in, and nothing else."""
 
-    NONE = object()  # a partition that names no `flume`
+    NONE = object()  # a drive that names no `flume`
 
     def load(self, tmp_path, monkeypatch, flume):
-        bp = ["afterthought/blueprints", "afterthought/crew"]
-        hosts = {"deneb": {"ssh": "deneb", "sessions": {
-            "madswan-1": {"dir": f"{tmp_path}/deneb/madswan", "partition": "business", "repos": bp},
-            "swancloud-1": {"dir": f"{tmp_path}/deneb/madswan", "partition": "personal", "repos": bp}}}}
         part = {"blueprints": ["afterthought/blueprints"], "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
-                "machine": "deneb"}
-        madswan = dict(part, label="madswan", partition="business", session="madswan-1", **({} if flume is self.NONE else {"flume": flume}))
-        swancloud = dict(part, label="swancloud", partition="personal", session="swancloud-1", flume=STANDING)
-        return loaded(tmp_path, monkeypatch, {"version": 5, "partitions": [madswan, swancloud]}, hosts)
+                "machine": "deneb", "folder": "/deneb/madswan", "repos": ["afterthought/blueprints", "afterthought/crew"],
+                "accounts": every("madswan")}
+        madswan = dict(part, label="madswan", session="madswan-1", **({} if flume is self.NONE else {"flume": flume}))
+        swancloud = dict(part, label="swancloud", session="swancloud-1", flume=STANDING)
+        return loaded(tmp_path, monkeypatch, {"version": 6, "hosts": DENEB, "drives": [madswan, swancloud]})
 
     TWO = {"design": False, "planner": "madswan-roles", "reviewer": "madswan-roles", "ops": False, "operator": False}
 
-    def test_each_partition_names_each_roles_stream_or_that_it_stands(self, tmp_path, monkeypatch):
+    def test_each_drive_names_each_roles_stream_or_that_it_stands(self, tmp_path, monkeypatch):
         fleet = self.load(tmp_path, monkeypatch, self.TWO)
-        assert crew.partition_of(fleet, "madswan")["flume"] == self.TWO
+        assert crew.drive_of(fleet, "madswan")["flume"] == self.TWO
         assert crew.role_stream(fleet, "madswan", "planner") == "madswan-roles"
         assert crew.role_stream(fleet, "madswan", "ops") is False
         assert crew.role_stream(fleet, "swancloud", "planner") is False
 
     @pytest.mark.parametrize("flume, said", [
-        (NONE, "partition madswan in .*teams.json has no 'flume', which names each of its roles, design, planner, reviewer, ops, operator"),
-        ([], "partition madswan in .*teams.json: 'flume' names each of its roles, not \\[\\]"),
-        (dict(TWO, dispatcher=False), "partition madswan in .*teams.json: 'flume' names dispatcher, which crew has no kind for"),
-        ({r: False for r in ("design", "planner", "reviewer", "ops")}, "partition madswan in .*teams.json: 'flume' leaves out operator"),
-        (dict(TWO, planner=True), "partition madswan in .*teams.json: flume.planner is false, or the name of a Flume stream its host declares, not true"),
+        (NONE, "drive madswan in .*teams.json has no 'flume', which names each of its roles, design, planner, reviewer, ops, operator"),
+        ([], "drive madswan in .*teams.json: 'flume' names each of its roles, not \\[\\]"),
+        (dict(TWO, dispatcher=False), "drive madswan in .*teams.json: 'flume' names dispatcher, which crew has no kind for"),
+        ({r: False for r in ("design", "planner", "reviewer", "ops")}, "drive madswan in .*teams.json: 'flume' leaves out operator"),
+        (dict(TWO, planner=True), "drive madswan in .*teams.json: flume.planner is false, or the name of a Flume stream its host declares, not true"),
         (dict(TWO, ops=None), "flume.ops is false, or the name of a Flume stream its host declares, not null"),
         (dict(TWO, design=""), "flume.design is false, or the name of a Flume stream its host declares, not \"\""),
         (dict(TWO, operator="Roles"), "flume.operator is false, or the name of a Flume stream its host declares, not \"Roles\""),
         (dict(TWO, reviewer=0), "flume.reviewer is false, or the name of a Flume stream its host declares, not 0")])
-    def test_a_partition_without_a_good_setting_is_refused_naming_it_the_role_and_the_fix(self, tmp_path, monkeypatch, flume, said):
+    def test_a_drive_without_a_good_setting_is_refused_naming_it_the_role_and_the_fix(self, tmp_path, monkeypatch, flume, said):
         with pytest.raises(crew.Refusal, match=said) as refused:
             self.load(tmp_path, monkeypatch, flume)
-        assert "swancloud's lib/crew-teams.nix" in str(refused.value)
+        assert crew.WRITER in str(refused.value)
 
-    def test_an_agent_name_is_its_partition_and_role_only_where_the_role_runs_as_its_kind(self, tmp_path, monkeypatch):
+    def test_an_agent_name_is_its_drive_and_role_only_where_the_role_runs_as_its_kind(self, tmp_path, monkeypatch):
         fleet = self.load(tmp_path, monkeypatch, self.TWO)
         assert crew.kind_role_of(fleet, "madswan-planner") == ("madswan", "planner")
         assert crew.kind_role_of(fleet, "madswan-reviewer") == ("madswan", "reviewer")
@@ -206,30 +509,26 @@ class TestRoleSettings:
         fleet = self.load(tmp_path, monkeypatch, self.TWO)
         with pytest.raises(crew.Refusal, match="dispatcher is no main-level role that runs as a kind. roles: design planner reviewer ops operator"):
             crew.role_stream(fleet, "madswan", "dispatcher")
-        with pytest.raises(crew.Refusal, match="no partition 'wldn'"):
+        with pytest.raises(crew.Refusal, match="no drive 'wldn'"):
             crew.role_stream(fleet, "wldn", "planner")
 
 
 class TestRoleSessions:
-    """A main-level role may run in a session of its own, named in its partition's roles (record 0035): so a
-    partition's design agent and planner sit in two sessions on two Claude accounts."""
+    """A main-level role may run in a session of its own, named in its drive's roles (record 0035): so a
+    drive's design agent and planner sit in two sessions on two Claude accounts, as the drive's `accounts` gives them."""
 
-    def load(self, tmp_path, monkeypatch, roles, extra=None):
-        def sess(space, partition, repos, account):
-            return {"dir": f"{tmp_path}/{space}", "partition": partition, "repos": repos, "account": account}
-        bp = ["afterthought/blueprints", "afterthought/crew"]
-        hosts = {"deneb": {"ssh": "deneb", "kind": "darwin", "sessions": dict({
-            "swancloud-1": sess("deneb/madswan", "personal", bp, "madswan"),
-            "swancloud-2": sess("deneb/madswan", "personal", bp, "madswan-2"),
-            "madswan-1": sess("deneb/madswan", "business", bp, "madswan-2")}, **(extra or {}))}}
-        teams = {"version": 5, "partitions": [{"label": "swancloud", "partition": "personal", "blueprints": ["afterthought/blueprints"],
-                                               "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
-                                               "machine": "deneb", "session": "swancloud-1", "roles": roles, "flume": STANDING}]}
-        return loaded(tmp_path, monkeypatch, teams, hosts)
+    def load(self, tmp_path, monkeypatch, roles, accounts=None):
+        teams = {"version": 6, "hosts": DENEB, "drives": [{
+            "label": "swancloud", "blueprints": ["afterthought/blueprints"], "state": "afterthought/crew-state",
+            "review": {"every": 5, "hours": 4}, "machine": "deneb", "session": "swancloud-1", "folder": "/deneb/madswan",
+            "repos": ["afterthought/blueprints", "afterthought/crew"], "roles": roles, "flume": STANDING,
+            "accounts": accounts or (dict(every("madswan"), planner="madswan-2", reviewer="madswan-2")
+                                     if (roles.get("planner") or {}).get("session") else every("madswan"))}]}
+        return loaded(tmp_path, monkeypatch, teams)
 
     def test_a_role_named_a_session_runs_there_the_reviewer_beside_the_planner_and_the_rest_in_the_main_levels(self, tmp_path, monkeypatch):
         fleet = self.load(tmp_path, monkeypatch, {"planner": {"session": "swancloud-2", "effort": "max"}})
-        p = crew.partition_of(fleet, "swancloud")
+        p = crew.drive_of(fleet, "swancloud")
         assert p["sessions"] == {"design": "swancloud-1", "planner": "swancloud-2", "ops": "swancloud-1", "operator": "swancloud-1",
                                  "reviewer": "swancloud-2"}
         assert crew.place_of_agent(fleet, "swancloud-planner") == ("deneb", "swancloud-2")
@@ -237,14 +536,14 @@ class TestRoleSessions:
         assert crew.main_sessions(p) == [("swancloud-1", ("design", "ops", "operator")), ("swancloud-2", ("planner",))]
 
     def test_with_none_named_every_role_is_in_the_main_levels_session(self, tmp_path, monkeypatch):
-        p = crew.partition_of(self.load(tmp_path, monkeypatch, {}), "swancloud")
+        p = crew.drive_of(self.load(tmp_path, monkeypatch, {}), "swancloud")
         assert crew.main_sessions(p) == [("swancloud-1", ("design", "planner", "ops", "operator"))]
 
     def test_a_role_that_runs_as_its_kind_stands_in_no_session_though_its_session_is_still_one(self, tmp_path, monkeypatch):
         """main-level, Two roles run as their kinds: no tab and no start for the planner; the session it was named
         stays one of the main level's, so a standing agent of it left there is ended (design Decision 14)."""
         fleet = self.load(tmp_path, monkeypatch, {"planner": {"session": "swancloud-2"}})
-        p = dict(crew.partition_of(fleet, "swancloud"))
+        p = dict(crew.drive_of(fleet, "swancloud"))
         p["flume"] = dict(p["flume"], planner="swancloud-main", ops="swancloud-main")
         assert crew.main_sessions(p) == [("swancloud-1", ("design", "operator")), ("swancloud-2", ())]
 
@@ -268,11 +567,9 @@ class TestRoleSessions:
         assert plan.kind_said("madswan-main", [], run, self.NOW).endswith("; no ask waits")
 
     @pytest.mark.parametrize("roles, said", [
-        ({"planner": {"session": "madswan-1"}}, "partition swancloud's planner runs in deneb's session madswan-1, which is in partition business, not personal"),
-        ({"planner": {"session": "swancloud-9"}}, "partition swancloud's planner uses herdr session swancloud-9, which .* does not list on deneb"),
         ({"planner": {"session": ""}}, "roles.planner.session must name a session of the main level's machine"),
         ({"planner": {"seat": "x"}}, "roles.planner sets only 'model', 'effort' or 'session'")])
-    def test_a_session_of_another_partition_or_none_is_refused(self, tmp_path, monkeypatch, roles, said):
+    def test_a_session_named_as_nothing_or_a_setting_crew_has_no_place_for_is_refused(self, tmp_path, monkeypatch, roles, said):
         with pytest.raises(crew.Refusal, match=said):
             self.load(tmp_path, monkeypatch, roles)
 
@@ -281,42 +578,41 @@ class TestRoleSessions:
         fleet = self.load(tmp_path, monkeypatch, {"planner": {"session": "swancloud-2"}})
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/weir"])
-        tok = crew.main_tokens(fleet, crew.partition_of(fleet, "swancloud"), "planner", "")
-        assert tok["KIT_CHECKOUTS"] == f"`{tmp_path}/deneb/madswan/crew/main` (its folder `{tmp_path}/deneb/madswan/crew`)"
-        assert tok["CHECKOUT"] == f"{tmp_path}/deneb/madswan/blueprints/main" and tok["FOLDER"] == f"{tmp_path}/deneb/madswan/blueprints"
+        tok = crew.main_tokens(fleet, crew.drive_of(fleet, "swancloud"), "planner", "")
+        assert tok["KIT_CHECKOUTS"] == "`/deneb/madswan/crew/main` (its folder `/deneb/madswan/crew`)"
+        assert tok["CHECKOUT"] == "/deneb/madswan/blueprints/main" and tok["FOLDER"] == "/deneb/madswan/blueprints"
         assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == ("swancloud's checkout, which deneb does not keep",
                                                                        "its folder, which deneb does not keep")
-        # the partition's kits, the repositories its plan and its landings name (Decision 3 of the-team-machinery-leaves),
+        # the drive's kits, the repositories its plan and its landings name (Decision 3 of the-team-machinery-leaves),
         # and on its cards those its main level's host keeps, by forge address
         assert tok["KITS"] == "crew, weir" and tok["CARDS"].endswith("The kits: crew: afterthought/crew.")
-        assert ("`swancloud-design` in session swancloud-1 (account madswan); `swancloud-planner` in session swancloud-2 "
-                "(account madswan-2)") in tok["MAIN_SESSIONS"]
+        assert tok["MAIN_SESSIONS"] == (
+            "`swancloud-design` in session swancloud-1 (account madswan); `swancloud-planner` in session swancloud-2 "
+            "(account madswan-2); `swancloud-ops` in session swancloud-1 (account madswan); `swancloud-operator` in session "
+            "swancloud-1 (account madswan); `swancloud-reviewer` in session swancloud-2 (account madswan-2)")
         assert tok["MAIN_SESSIONS"] in tok["ROSTER"] and "OPERATORS" not in tok
 
     def test_a_brief_names_each_kept_repositorys_checkout_and_folder_as_the_hosts_teams_file_gives_them(self, tmp_path, monkeypatch):
         """main-level, The design brief on a runner host and The operator's swancloud on a runner host (Decision 7 of
         a-kept-repositorys-folder-is-the-runners-container): deneb's file names the blueprints, crew and swancloud at
-        the runner's containers and views, and the tokens name them; the kits it names none of keep their spaces'."""
+        the runner's containers and views, and the tokens name them; the kits it names none of are in their drive's folder."""
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         r, v = "/Users/chuck/.local/share/flywheel/repositories", "/Users/chuck/Code/boomdrive"
         named = {a: {"dir": f"{r}/{a}", "checkout": f"{v}/{a}"} for a in ("afterthought/blueprints", "afterthought/crew", "afterthought/swancloud")}
-        def sess(space, partition, repos):
-            return {"dir": f"{tmp_path}/{space}", "partition": partition, "repos": repos}
-        hosts = {"deneb": {"ssh": "deneb", "kind": "darwin", "sessions": {
-                     "swancloud-1": sess("deneb/madswan", "personal", ["afterthought/blueprints", "afterthought/crew"]),
-                     "agentplot": sess("deneb/agentplot", "agentplot", ["agentplot/weir"])}},
-                 BOX: {"ssh": BOX, "kind": "nixos", "sessions": {"wldn-3": sess("box/willdan", "clients/willdan", ["WilldanGroup/willdan-blueprints"])}}}
         part = {"state": "afterthought/crew-state", "review": {"every": 5, "hours": 4}, "flume": STANDING}
-        teams = {"version": 5, "repositories": named, "partitions": [
-            dict(part, label="swancloud", partition="personal", blueprints=["afterthought/blueprints"], machine="deneb", session="swancloud-1"),
-            dict(part, label="wldn", partition="clients/willdan", blueprints=["WilldanGroup/willdan-blueprints"], machine=BOX, session="wldn-3")]}
-        fleet = loaded(tmp_path, monkeypatch, teams, hosts)
+        teams = {"version": 6, "repositories": named, "hosts": dict(DENEB, **{BOX: HOSTS[BOX]}), "drives": [
+            dict(part, label="swancloud", blueprints=["afterthought/blueprints"], machine="deneb", session="swancloud-1",
+                 folder="/deneb/madswan", repos=["afterthought/blueprints", "afterthought/crew", "agentplot/weir"],
+                 accounts=every("madswan")),
+            dict(part, label="wldn", blueprints=["WilldanGroup/willdan-blueprints"], machine=BOX, session="wldn-3",
+                 folder="/box/willdan", repos=["WilldanGroup/willdan-blueprints"], accounts=every("ia"))]}
+        fleet = loaded(tmp_path, monkeypatch, teams)
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/weir"])
-        tok = crew.main_tokens(fleet, crew.partition_of(fleet, "swancloud"), "design", "")
+        tok = crew.main_tokens(fleet, crew.drive_of(fleet, "swancloud"), "design", "")
         assert (tok["CHECKOUT"], tok["FOLDER"]) == (f"{v}/afterthought/blueprints", f"{r}/afterthought/blueprints")
         assert tok["KIT_CHECKOUTS"] == (f"`{v}/afterthought/crew` (its folder `{r}/afterthought/crew`; the runner's clone, which "
                                         "only the runner fetches), "
-                                        f"`{tmp_path}/deneb/agentplot/weir/main` (its folder `{tmp_path}/deneb/agentplot/weir`)")
+                                        "`/deneb/madswan/weir/main` (its folder `/deneb/madswan/weir`)")
         assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == (f"{v}/afterthought/swancloud", f"{r}/afterthought/swancloud")
         assert tok["TEAMS_DOORS"] == "`swancloud`"
         # drive-state "crew fetches nothing in the runner's clone": the runner's repositories named, no fetch or pull there
@@ -325,21 +621,33 @@ class TestRoleSessions:
         assert tok["BLUEPRINTS_COMMIT"].startswith("Until then, its checkout on this host is the runner's view")
         assert tok["SWANCLOUD_FETCH"].startswith("as the runner last fetched it, with no fetch of your own")
         # main-level, A box's operator: the box keeps no swancloud, and its tokens say so in words (teams.10)
-        tok = crew.main_tokens(fleet, crew.partition_of(fleet, "wldn"), "operator", "")
+        tok = crew.main_tokens(fleet, crew.drive_of(fleet, "wldn"), "operator", "")
         assert (tok["SWANCLOUD_CHECKOUT"], tok["SWANCLOUD_FOLDER"]) == (f"swancloud's checkout, which {BOX} does not keep",
                                                                        f"its folder, which {BOX} does not keep")
         assert tok["KIT_CHECKOUTS"] == "none on this host"
-        assert (tok["CHECKOUT"], tok["FOLDER"]) == (f"{tmp_path}/box/willdan/willdan-blueprints/main", f"{tmp_path}/box/willdan/willdan-blueprints")
+        assert (tok["CHECKOUT"], tok["FOLDER"]) == ("/box/willdan/willdan-blueprints/main", "/box/willdan/willdan-blueprints")
         assert tok["FETCHING"] == f"No checkout on {BOX} is a runner's clone, so you fetch from GitHub where this brief says."
         assert "git pull --rebase" in tok["BLUEPRINTS_COMMIT"]
         assert tok["SWANCLOUD_FETCH"] == "`git -C {{SWANCLOUD_CHECKOUT}} fetch -q origin`, then "
 
     @pytest.mark.parametrize("role", ["dispatcher", "conductor", "coder"])
     def test_a_role_with_no_definition_is_refused_a_dispatcher_among_them(self, tmp_path, monkeypatch, role):
-        """agent-models, A dispatcher's override: no partition role crew has no definition for, a team's least of all."""
-        with pytest.raises(crew.Refusal, match=f"partition swancloud in .*teams.json overrides role '{role}', which it has no "
+        """agent-models, A dispatcher's override: no drive role crew has no definition for, a team's least of all."""
+        with pytest.raises(crew.Refusal, match=f"drive swancloud in .*teams.json overrides role '{role}', which it has no "
                                                "definition for. roles: design planner main-ops operator reviewer"):
             self.load(tmp_path, monkeypatch, {role: {"effort": "high"}})
+
+    def test_a_brief_built_on_a_host_the_file_names_no_kind_for_is_refused(self, tmp_path, monkeypatch):
+        """teams.10: whether the host crew runs on is a Mac is read from `hosts`; a host it does not name gives no token."""
+        import plan
+        fleet = self.load(tmp_path, monkeypatch, {})
+        monkeypatch.setattr(crew, "this_host", lambda: "macbook-pro")
+        monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: [])
+        with pytest.raises(crew.Refusal, match="macbook-pro is no host .*teams.json's 'hosts' names, so crew can't tell whether "
+                                               "it is a Mac for swancloud's brief"):
+            crew.main_tokens(fleet, crew.drive_of(fleet, "swancloud"), "planner", "")
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        assert crew.main_tokens(fleet, crew.drive_of(fleet, "swancloud"), "planner", "")["SHOWING"].startswith("deneb is a Mac")
 
 
 class TestMoved:
@@ -405,13 +713,19 @@ class TestPlaces:
             crew.place_of_agent(FLEET, name)
         assert crew.label_of_agent(FLEET, name) is None
 
-    def test_an_operator_runs_in_the_session_named_for_its_partition(self):
-        assert crew.operator_session(FLEET, "wldn", "mac-studio") == {"partition": "clients/willdan"}
-        with pytest.raises(crew.Refusal, match=f"{BOX} has no session named wldn"):
+    def test_an_operator_runs_in_the_folder_the_hosts_consoles_give_its_drive(self, monkeypatch):
+        """operator-agent, A console the host names and A console the host does not name: the folder this host's
+        `consoles` gives the drive; a drive it names no console of is refused, naming it, the host and `consoles`, and
+        so is a label no drive has."""
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        assert crew.operator_session(FLEET, "wldn", "deneb") == "/w/willdan"
+        with pytest.raises(crew.Refusal, match=f"{BOX}'s teams file names no console of wldn in 'consoles', so no console of wldn opens here"):
             crew.operator_session(FLEET, "wldn", BOX)
-        fleet = dict(FLEET, partitions=dict(FLEET["partitions"], madswan={"label": "madswan", "partition": "personal"}))
-        with pytest.raises(crew.Refusal, match="mac-studio's session madswan is in partition business, not personal"):
-            crew.operator_session(fleet, "madswan", "mac-studio")
+        fleet = dict(FLEET, drives=dict(FLEET["drives"], madswan={"label": "madswan"}))
+        with pytest.raises(crew.Refusal, match="deneb's teams file names no console of madswan in 'consoles'"):
+            crew.operator_session(fleet, "madswan", "deneb")
+        with pytest.raises(crew.Refusal, match="no drive 'madswan'. drives: wldn"):
+            crew.operator_session(FLEET, "madswan", "deneb")
 
 
 # herdr 0.9.3's pane process-info on mac-studio, 2026-10-18: swancloud's rail tab (w2:pF) as herdr brought it back after
@@ -585,10 +899,10 @@ class TestBriefBack:
             crew.brief_role(FLEET, "swb-9-conductor", "conductor")
 
     def test_the_brief_comes_back_whole_behind_a_line_saying_what_it_is_and_to_read_a_file_it_is_cut_to(self):
-        said = crew.brief_back_said("wldn-planner", "You are wldn's planner.\n\nPlan the partition's bolts.")
+        said = crew.brief_back_said("wldn-planner", "You are wldn's planner.\n\nPlan the drive's bolts.")
         first, rest = said.split("\n\n", 1)
         assert first.startswith("[crew] This is your brief as wldn-planner") and "read that file whole now" in first
-        assert rest == "You are wldn's planner.\n\nPlan the partition's bolts."
+        assert rest == "You are wldn's planner.\n\nPlan the drive's bolts."
 
 
 class TestIdentityOnItsHost:
@@ -602,7 +916,7 @@ class TestIdentityOnItsHost:
     @pytest.mark.parametrize("name, label", [("swb-1-conductor", "wldn"), ("wldn-dispatch-chuck-herdr-alpha", "wldn"),
                                              ("madswan-planner", "wldn"), ("wldn-planner", ""), ("wldn-planner", None),
                                              ("", "wldn")])
-    def test_a_teams_agent_a_dispatcher_another_partitions_or_an_unlabelled_record_is_none(self, name, label):
+    def test_a_teams_agent_a_dispatcher_another_drives_or_an_unlabelled_record_is_none(self, name, label):
         assert crew.main_named(name, label) is None
 
     def test_on_its_main_levels_host_nothing_is_withheld(self):
@@ -624,9 +938,9 @@ class TestIdentityOnItsHost:
         assert "runs, crew has done nothing. In this session" in said
 
 
-def test_a_partition_crew_does_not_know_is_refused():
-    with pytest.raises(crew.Refusal, match="no partition 'nope'. partitions: wldn"):
-        crew.partition_of(FLEET, "nope")
+def test_a_drive_crew_does_not_know_is_refused():
+    with pytest.raises(crew.Refusal, match="no drive 'nope'. drives: wldn"):
+        crew.drive_of(FLEET, "nope")
 
 
 def test_a_greeting_never_taken_says_the_tell_that_would_send_it_once_the_agent_is_ready():

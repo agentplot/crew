@@ -28,7 +28,7 @@ See proposal.md for why. What exists:
 
 ### `crew signal land <capture-dir>`
 
-A `plan.py` command, run on the host that has the directory. `--label` or `CREW_LABEL` names the partition; the target is `signals/<capture>/` on main of its first blueprints repo, where `<capture>` is the directory's name.
+A `plan.py` command, run on the host that has the directory. `--label` or `CREW_LABEL` names the drive; the target is `signals/<capture>/` on main of its first blueprints repo, where `<capture>` is the directory's name.
 
 Checks, before any write, each failure naming the file:
 
@@ -48,7 +48,7 @@ Then one `land` on the blueprints repo's main with a `make` that, at each tip:
 
 The commit's subject is `signals(<capture>): land <n> signals (<who>)`, or `land the capture, unread`. Entries: `capture` with `On: capture/<capture>` when `capture.md` is first added, and one `capture` with `On: signals/<id>` per signal added, all with the commit. `By` is `CREW_AGENT` when set, else `<user>@<host>`; the sweep script exports `CREW_AGENT=signal-sweep` so its entries say what wrote them.
 
-The partition's role table does not gate this command: it is run by the job, as the user.
+The drive's role table does not gate this command: it is run by the job, as the user.
 
 *Alternative:* have crew observe new captures on main and write entries after the fact, leaving the pass's commits alone. Rejected: it gives the entries and none of the checks, and leaves a second write path into a shared record.
 

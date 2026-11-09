@@ -103,7 +103,7 @@ ok "the bolt reads proven once its chore lands on it as the runner reports, and 
 # The user writes on the card asking to try it running: ops's crew card preview writes one preview request on
 # wldn/main's requests.rec, naming the box, whose runner took the bolt's work, the bolt, its kit, its branch and its
 # head, and the card, changed in place, says it is asked of the runner on the box; once the runner reports it, sluice's
-# listing of it starting at one address, the rail's read on the partition's main machine changes the card listing the
+# listing of it starting at one address, the rail's read on the drive's main machine changes the card listing the
 # address; the user is done with it and ops's --done writes its done; asked again, it stands at the send.
 ops() { (export CREW_AGENT=wldn-ops; HOST=$box crew "$@"); }
 kit_repo=$(git --git-dir "$ws" show wldn/main:plan.rec | recsel -t Bolt -e "Bolt = 'y'" -P Repo)

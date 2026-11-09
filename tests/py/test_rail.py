@@ -19,8 +19,8 @@ import crew
 import plan
 
 BOX = "chuck-herdr-alpha"
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": BOX}},
-         "hosts": {BOX: {"ssh": BOX, "home": "/h/box"}, "mac-studio": {"ssh": "mac-studio", "home": "/h/mac"}}}
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX}},
+         "hosts": {BOX: {"ssh": "box", "kind": "nixos"}, "mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}}
 KIT = "switchboard-kit"
 NOW = START + datetime.timedelta(hours=4)
 
@@ -446,7 +446,9 @@ class TestRows:
         held = {"wldn": {"batches": [(2, iso(10), units)], "closed": set(), "posts": set(), "due": set()}}
         b, = [r for r in rows(held=held) if r["group"] == "batches"]
         assert (b["key"], b["what"]) == ("batch/2", ["batch 2 (wldn): " + ", ".join(f"u{c} (swb-1)" for c in "abcdefg")])
-        assert b["cmds"] == [("open", f"ssh -t {BOX} plannotator-tui /h/box/.local/state/crew/wldn-main/reports/batch-wldn-2.md"),
+        # main-level: a report on another host opens by its path under the home ssh starts in there, over the host's
+        # ssh name, so crew needs no host's home (record 0064, Decision 7)
+        assert b["cmds"] == [("open", "ssh -t box plannotator-tui .local/state/crew/wldn-main/reports/batch-wldn-2.md"),
                              ("answer", 'crew tell wldn-planner "On batch 2: "')]
         held["wldn"]["closed"] = {"batch/2"}
         assert not [r for r in rows(held=held) if r["group"] == "batches"]
@@ -596,9 +598,9 @@ class TestText:
                                            "  5m       a question (wldn), asked by swb-1-conductor on mac-studio (req_q2)"]
         assert "title" not in out and "open cards whose row is gone" not in out
 
-    def test_one_partitions_rail_of_a_read_of_two_is_the_rail_a_read_of_it_alone_gives(self):
-        """The host's follower reads every partition on the host at once (the crew-board spec, Two partitions on one
-        host): each partition's rail is made from that one read, with nothing of the other's."""
+    def test_one_drives_rail_of_a_read_of_two_is_the_rail_a_read_of_it_alone_gives(self):
+        """The host's follower reads every drive on the host at once (the crew-board spec, Two drives on one
+        host): each drive's rail is made from that one read, with nothing of the other's."""
         mine = rows([proposal(4)])
         theirs = [dict(r, label="swancloud", what=["swancloud's " + r["what"][0], *r["what"][1:]]) for r in rows([proposal(7)])]
         card = dict(label="swancloud", card="req_s7", key="proposal/7", by="swancloud-planner", host=BOX, at=NOW)
@@ -672,7 +674,7 @@ class TestText:
 
 
 class TestTheBranchAlone:
-    """card-sessions, "The host that closed a card is asleep": the rail reads the partition's run record from its
+    """card-sessions, "The host that closed a card is asleep": the rail reads the drive's run record from its
     branch alone, so a host that does not answer hides no card's post or close."""
     SV = {"macbook-pro": {"ok": False, "error": "ssh: connect to host macbook-pro port 22: Operation timed out"}}
 
@@ -834,7 +836,7 @@ def card(key, cid, by, host="mac-studio", minutes=0):
 
 
 def did(e, minutes=30, **f):
-    """A run-record entry of the partition, minutes before NOW."""
+    """A run-record entry of the drive, minutes before NOW."""
     return dict(f, Act=e, At=iso(minutes), Host="mac-studio", By=f.pop("By", "wldn-planner"))
 
 
@@ -850,7 +852,7 @@ class TestSweepJudged:
         return plan.sweep_judged("mac-studio", list(rows), list(cards_), list(entries), OWNERS, set(blind),
                                  None if proposed is None else set(proposed), NOW, kits=kits, kit_of=kit_of, labels=labels)
 
-    # The partition was labelled willdan and is labelled wldn now: a label changed is a partition removed and another
+    # The drive was labelled willdan and is labelled wldn now: a label changed is a drive removed and another
     # added (record 0055, rejected; record 0058's decision 6, proposed), so willdan's roles have left the fleet.
     LEFT = "{} left the fleet, so an answer here reaches nobody. "
 
@@ -858,25 +860,25 @@ class TestSweepJudged:
         ("willdan-ops", {"wldn"}, True), ("willdan-planner", {"wldn"}, True), ("willdan-design", {"wldn"}, True),
         ("wldn-ops", {"wldn"}, False), ("wldn-design", {"wldn"}, False), ("foo-bar-ops", {"foo-bar"}, False), ("foo-bar-ops", {"foo"}, True),
         ("swb-1-conductor", {"wldn"}, False), ("willdan-operator", {"wldn"}, False), ("chuck@mac-studio", {"wldn"}, False), (None, {"wldn"}, False)])
-    def test_a_role_left_the_fleet_when_it_is_a_partition_roles_name_whose_label_the_teams_file_no_longer_has(self, owner, labels, left):
+    def test_a_role_left_the_fleet_when_it_is_a_drive_roles_name_whose_label_the_teams_file_no_longer_has(self, owner, labels, left):
         assert cards.role_left(owner, labels) is left
 
     @pytest.mark.parametrize("key, stands, then", [
-        ("deploy/dev", False, "The deploy is offered again in the name of the ops of the partition that holds dev now."),
+        ("deploy/dev", False, "The deploy is offered again in the name of the ops of the drive that holds dev now."),
         ("deploy/dev", True, "Your word on dev's deploy stands, and the deploy goes on."),
-        ("op/dev/2", False, "The step on dev is recorded again by the partition that holds it now, its card in its ops's name."),
-        (f"land/{KIT}", False, "Its landings are carded by the ops of the partition that holds them now."),
-        ("proposal/508", False, "Proposal 508 is carded by the planner of the partition that holds it now."),
-        ("batch/62", False, "Batch 62 is carded by the planner of the partition that holds it now."),
-        ("record/atlas-kit/0021", False, "Record 0021 of atlas-kit is carded again with crew record by the design agent of the partition that holds it now.")])
+        ("op/dev/2", False, "The step on dev is recorded again by the drive that holds it now, its card in its ops's name."),
+        (f"land/{KIT}", False, "Its landings are carded by the ops of the drive that holds them now."),
+        ("proposal/508", False, "Proposal 508 is carded by the planner of the drive that holds it now."),
+        ("batch/62", False, "Batch 62 is carded by the planner of the drive that holds it now."),
+        ("record/atlas-kit/0021", False, "Record 0021 of atlas-kit is carded again with crew record by the design agent of the drive that holds it now.")])
     def test_a_card_whose_role_left_is_withdrawn_saying_how_whoever_holds_its_work_now_raises_it(self, key, stands, then):
         said = cards.left_said("willdan-ops", key, stands)
         assert said == self.LEFT.format("willdan-ops") + then
-        assert "wldn" not in said  # no partition is named as another's successor
+        assert "wldn" not in said  # no drive is named as another's successor
 
     def test_a_card_of_crews_whose_role_left_the_fleet_is_judged_to_withdraw_and_cards_no_row(self):
         """rail-cards "A card whose role left the fleet is withdrawn": deploy/dev's card in willdan-ops's name, and a
-        record's in willdan-design's, open on this host while the teams file labels the partition wldn."""
+        record's in willdan-design's, open on this host while the teams file labels the drive wldn."""
         d, rec = card("deploy/dev", "req_d1", "willdan-ops"), card("record/atlas-kit/0021", "req_r1", "willdan-design")
         rows_ = [row("deploy/dev", "operations")]
         j = self.judged(rows=rows_, cards_=[d, rec], labels={"wldn"})
@@ -885,14 +887,14 @@ class TestSweepJudged:
         assert j["none"] == rows_  # a card in a name that left cards no row, so its row is posted in its owner's name
 
     def test_a_card_of_a_standing_role_is_judged_as_it_was(self):
-        """rail-cards "The partition stays"."""
+        """rail-cards "The drive stays"."""
         d = card("deploy/dev", "req_d1", "wldn-ops")
         rows_ = [row("deploy/dev", "operations")]
         j = self.judged(rows=rows_, cards_=[d], labels={"wldn"})
         assert (j["left_fleet"], j["held"], j["none"]) == ([], [(d, rows_[0])], [])
 
-    def test_a_question_and_a_conductors_card_are_no_partition_roles_and_with_no_labels_nothing_is_judged_left(self):
-        """rail-cards "A question and a conductor's card are no partition role's"."""
+    def test_a_question_and_a_conductors_card_are_no_drive_roles_and_with_no_labels_nothing_is_judged_left(self):
+        """rail-cards "A question and a conductor's card are no drive role's"."""
         q, y = card("ask/willdan-planner/hold", "req_q1", "willdan-planner"), card("land/y", "req_l1", "swb-1-conductor")
         j = self.judged(cards_=[q, y], entries=[did("bolt.drop", On=["bolt/y"])], labels={"wldn"})
         assert (j["left_fleet"], j["questions"], j["gone"]) == ([], [q], [(y, None, "its bolt was dropped")])
@@ -1095,7 +1097,7 @@ class TestSweepJudged:
     LOST = did("card.close", 50, Card="req_b13", Key="batch/13", On=["batch/13"], State="lost", Outcome="lost to its owner: Not found")
 
     def moved(self, here, entries, cards_=(), rows_=(row("batch/13", "batches"),)):
-        """The sweep's judgment of batch 13, the partition's main level now on the box, read on here."""
+        """The sweep's judgment of batch 13, the drive's main level now on the box, read on here."""
         return plan.sweep_judged(here, list(rows_), list(cards_), list(entries), self.MOVED, set(), {13}, NOW)
 
     def test_a_batch_whose_card_is_held_on_another_host_is_posted_again_where_the_main_level_runs_and_nowhere_else(self):
@@ -1291,7 +1293,7 @@ class Acts:
     def caller(self):
         return "chuck@mac-studio"
 
-    def kits(self, label):  # the kits the partition's teams build, which tell land/<kit> from land/<bolt>
+    def kits(self, label):  # the kits the drive's teams build, which tell land/<kit> from land/<bolt>
         return ("switchboard-kit",)
 
     def now(self):
@@ -1323,10 +1325,10 @@ class Acts:
 
 
 def swept(rows_=(), cards_=(), entries=(), unread=None, proposed=(4, 5), handed=None, herdr=None, **kw):
-    """The sweep of a read of wldn on mac-studio, the partition's main machine here, with these rows and cards, its
+    """The sweep of a read of wldn on mac-studio, the drive's main machine here, with these rows and cards, its
     plan holding the proposals numbered proposed; handed, the host's follower's answers from its clock's last ask, and
     herdr, its listing of the askers read on that tick."""
-    fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], machine="mac-studio")})
+    fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], machine="mac-studio")})
     found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
     read = dict(found=found, sv=survey(), rows=list(rows_), cards=list(cards_), kits=kits_of(found),
                 unread=unread or {}, logs={"wldn": list(entries)}, proposed={"wldn": set(proposed)})
@@ -1373,9 +1375,9 @@ class TestSweep:
         assert acts.calls[-1][1:] == ("cancel_request", {"requestId": "req_l1", "name": "swb-1-conductor", "reason": "its bolt was dropped"})
         assert [(d["did"], d["words"]) for d in out["done"]] == [("withdrawn", "its bolt was dropped")]
 
-    def test_a_card_whose_partitions_label_changed_is_withdrawn_in_its_owners_name_and_its_row_raised_in_the_name_now(self):
-        """rail-cards "A partition's label changed under an open deploy card" and "The deploy row is carded in the
-        standing ops's name": the partition was labelled willdan and the teams file labels it wldn, as swancloud's is
+    def test_a_card_whose_drives_label_changed_is_withdrawn_in_its_owners_name_and_its_row_raised_in_the_name_now(self):
+        """rail-cards "A drive's label changed under an open deploy card" and "The deploy row is carded in the
+        standing ops's name": the drive was labelled willdan and the teams file labels it wldn, as swancloud's is
         afterthought on deneb since 2026-11-07 (signal 2026-11-07-agentplot-planner-2909addd/01 on agentplot/main of
         afterthought/crew-state); deploy/dev's card stands in willdan-ops's name while the offer waits."""
         seen = []
@@ -1386,7 +1388,7 @@ class TestSweep:
         d = card("deploy/dev", "req_d1", "willdan-ops")
         out, acts = swept(rows_=[row("deploy/dev", "operations")], cards_=[d], raises={"deploy": raise_deploy},
                           answers={"get_request": ({"status": "pending", "version": 2}, None)})
-        words = "willdan-ops left the fleet, so an answer here reaches nobody. The deploy is offered again in the name of the ops of the partition that holds dev now."
+        words = "willdan-ops left the fleet, so an answer here reaches nobody. The deploy is offered again in the name of the ops of the drive that holds dev now."
         assert acts.calls == [("crew", "get_request", {"requestId": "req_d1", "name": "crew"}),
                               ("willdan-ops", "get_request", {"requestId": "req_d1", "name": "willdan-ops"}),
                               ("willdan-ops", "cancel_request", {"requestId": "req_d1", "name": "willdan-ops", "reason": words})]
@@ -1397,8 +1399,8 @@ class TestSweep:
         assert plan.swept_cards([d], out, "mac-studio", NOW) == [dict(label="wldn", card="req_d2", key="deploy/dev", on="env/dev", by="wldn-ops",
                                                                       host="mac-studio", at=NOW)]
 
-    def test_a_card_whose_partition_stays_is_kept(self):
-        """rail-cards "The partition stays": deploy/dev's card in wldn-ops's name while the offer waits."""
+    def test_a_card_whose_drive_stays_is_kept(self):
+        """rail-cards "The drive stays": deploy/dev's card in wldn-ops's name while the offer waits."""
         d = card("deploy/dev", "req_d1", "wldn-ops")
         out, acts = swept(rows_=[row("deploy/dev", "operations")], cards_=[d], raises={"deploy": lambda *a, **k: pytest.fail("raised")},
                           answers={"get_request": ({"status": "pending", "version": 2}, None)})
@@ -1664,7 +1666,7 @@ class TestSweep:
         out, acts = swept(cards_=[q], listed={"crw-3-conductor": (False, None)}, handed=({}, None))
         assert (out, acts.calls, acts.emitted) == ({"done": [], "unswept": []}, [], [])
 
-    def test_a_ticks_failed_ask_handed_in_leaves_the_partition_unswept_and_asks_nothing_again(self):
+    def test_a_ticks_failed_ask_handed_in_leaves_the_drive_unswept_and_asks_nothing_again(self):
         said = "Pending You did not answer whoami within 30 seconds. " + plan.SWEEP_LATER
         out, acts = swept(cards_=[card("proposal/4", "req_p4", "wldn-planner")], entries=[did("plan.approve", On=["proposal/4"])], handed=({}, said))
         assert out == {"done": [], "unswept": [dict(label="wldn", why=said)]} and acts.calls == [] and acts.emitted == []
@@ -1672,7 +1674,7 @@ class TestSweep:
     def test_the_cards_asked_on_the_clock_are_those_the_sweep_would_ask_after(self):
         """plan.cards_asked, the follower's tick's ask: the cards of rows gone, held with their row, and questions."""
         p4, q = card("proposal/4", "req_p4", "wldn-planner"), card("ask/crw-3-conductor/hold", "req_q1", "crw-3-conductor")
-        fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], machine="mac-studio")})
+        fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], machine="mac-studio")})
         found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
         read = dict(found=found, sv=survey(), rows=[], cards=[p4, q], unread={}, kits=kits_of(found),
                     logs={"wldn": [did("plan.approve", On=["proposal/4"])]}, proposed={"wldn": {4, 5}})
@@ -1887,7 +1889,7 @@ class TestSweep:
 
     def test_a_batchs_card_held_on_another_host_is_posted_again_through_its_raise_and_never_asked_after_from_here(self):
         """rail-cards, "The main level moved to another host": batch 13's card is open on the box, whose sign-in this
-        host's does not reach, and the partition's main level runs here; its raise, handed the older copy, posts it
+        host's does not reach, and the drive's main level runs here; its raise, handed the older copy, posts it
         again, and the rail takes the new card as the row's."""
         seen = []
 
@@ -1981,7 +1983,7 @@ class TestSweep:
                                     words=f"its raise refused: {said}", new=None)]
         assert acts.emitted == [] and acts.calls == []
 
-    def test_a_partition_whose_record_could_not_be_read_from_its_branch_is_not_swept(self):
+    def test_a_drive_whose_record_could_not_be_read_from_its_branch_is_not_swept(self):
         out, acts = swept(cards_=[card("proposal/4", "req_p4", "wldn-planner")], unread={"wldn": {"wldn/main": "could not fetch wldn/main"}})
         assert out["unswept"] == [dict(label="wldn", why="its run record could not be read from wldn/main, so which cards are open can't be told: "
                                                          "could not fetch wldn/main")]
@@ -2010,7 +2012,7 @@ class TestAskerPane:
 
 
 class TestSettledSweep:
-    """review-batches: the rail's sweep, on the partition's main-level host, records crew's close of a batch that waits
+    """review-batches: the rail's sweep, on the drive's main-level host, records crew's close of a batch that waits
     on nothing once, in the planner's name, before it reaches Pending You, and withdraws a card open under its key with
     the same words."""
 
@@ -2059,7 +2061,7 @@ class TestSettledSweep:
         assert out == {"done": [dict(label="wldn", key="batch/3", card=None, by="wldn-planner", did="closed", words=WORDS, new=None)],
                        "unswept": [dict(label="wldn", why=said)]}
 
-    def test_a_partition_whose_record_did_not_answer_whole_records_no_close(self):
+    def test_a_drive_whose_record_did_not_answer_whole_records_no_close(self):
         """review-batches, "The record did not answer whole"."""
         out, acts = swept(entries=LANDED, unread={"wldn": {"wldn/main": "could not fetch wldn/main"}})
         assert acts.emitted == [] and out["done"] == [] and out["unswept"][0]["label"] == "wldn"
@@ -2079,7 +2081,7 @@ class TestBolts:
                                runs(at=self.AT))
 
     def test_each_units_stage_is_read_from_the_runners_records(self):
-        b = {x["bolt"]: x for x in self.data()["partitions"][0]["plans"][0]["bolts"]}
+        b = {x["bolt"]: x for x in self.data()["drives"][0]["plans"][0]["bolts"]}
         assert {u["unit"]: u["stage"] for u in b["tenant-environments"]["units"]} == {"early": "construct", "checked": "code", "stale": "code"}
         assert (b["tenant-environments"]["host"], b["tenant-environments"]["state"]) == (BOX, "active")
         zone, = b["apex-zones"]["units"]
@@ -2096,7 +2098,7 @@ class TestBolts:
     def test_a_held_bolt_shows_its_verification(self):
         """merge-gate "A bolt after its last unit's landing": zone-one's place landed at apex-zones' head, as the runner
         carries it."""
-        b = {x["bolt"]: x for x in self.data()["partitions"][0]["plans"][0]["bolts"]}
+        b = {x["bolt"]: x for x in self.data()["drives"][0]["plans"][0]["bolts"]}
         assert b["apex-zones"]["verification"] == {"state": "green", "said": "its head d185a87 is zone-one's landing, as the runner reports it"}
         assert "  verification: green, its head d185a87 is zone-one's landing, as the runner reports it" in plan.bolts_text(self.data())
 
@@ -2104,13 +2106,13 @@ class TestBolts:
         """merge-gate "A head that is no landing of the bolt's work": apex-zones' head is a commit zone-one did not land at."""
         sv = survey()
         sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["head"] = "e" * 40
-        b = {x["bolt"]: x for x in self.data(sv=sv)["partitions"][0]["plans"][0]["bolts"]}
+        b = {x["bolt"]: x for x in self.data(sv=sv)["drives"][0]["plans"][0]["bolts"]}
         assert b["apex-zones"]["verification"] == {"state": "none", "said": "its head eeeeeee is no landing of its work that the runner reports"}
         assert b["apex-zones"]["state"] == "active"
 
     def test_an_unreachable_hosts_bolts_read_unknown_and_the_host_is_named(self):
         d = self.data(sv=survey(ok=False))
-        assert {b["state"] for b in d["partitions"][0]["plans"][0]["bolts"]} == {"unknown"}
+        assert {b["state"] for b in d["drives"][0]["plans"][0]["bolts"]} == {"unknown"}
         assert plan.bolts_text(d).splitlines()[-1] == f"{BOX} did not answer (ssh: connect to host timed out): the stages of its bolts are unknown"
 
     def test_a_bolts_landing_is_said_from_the_run_record_each_state_its_own(self):
@@ -2119,7 +2121,7 @@ class TestBolts:
         queued = [dict(Act="bolt.submit", On=["bolt/tenant-environments"], Outcome="queued", Submission="412", Head="d" * 40)]
         d = plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, the_plan())], survey(), {}, None,
                             runs(at=self.AT), {"wldn": queued})
-        te = next(b for b in d["partitions"][0]["plans"][0]["bolts"] if b["bolt"] == "tenant-environments")
+        te = next(b for b in d["drives"][0]["plans"][0]["bolts"] if b["bolt"] == "tenant-environments")
         assert te["landing_record"] == dict(state="queued", n="412", head="d" * 40)
         assert f"tenant-environments  switchboard-kit  @ {BOX}, in Flume stream wldn  active  landing queued as #412" in plan.bolts_text(d)
         d = plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, the_plan())], survey(), {}, None,
@@ -2168,7 +2170,7 @@ class TestMainMoved:
             return "req_k2"
 
     def moved(self, acts, cards_=None, machine="mac-studio", answered=()):
-        fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], machine=machine)})
+        fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], machine=machine)})
         cards_ = cards_ if cards_ is not None else [dict(label="wldn", card="req_k1", key=f"land/{KIT}", by="wldn-ops", host="mac-studio")]
         found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
         read = dict(found=found, sv=survey(), cards=cards_, kits=kits_of(found),
@@ -2262,7 +2264,7 @@ class TestLandTime:
         import board
         read = self.read()
         rail = next(l for l in plan.rail_text(FLEET, ["wldn"], read, NOW).splitlines() if l.strip().startswith("apex-zones, on"))
-        ledger = next(b for b in board.board_data(FLEET, ["wldn"], read, NOW)["partitions"][0]["construction"] if b["bolt"] == "apex-zones")
+        ledger = next(b for b in board.board_data(FLEET, ["wldn"], read, NOW)["drives"][0]["construction"] if b["bolt"] == "apex-zones")
         assert rail.endswith(f"can land on your send of land/{KIT}; " + ledger["time"]["said"]) and ledger["time"]["shares"]["user"] == 120
 
     def test_a_kit_whose_queue_was_not_read_still_tells_its_time(self):
@@ -2272,7 +2274,7 @@ class TestLandTime:
         read = self.read()
         del read["sv"][BOX]["kits"]["/kit/main"]["decided"]
         rail = next(l for l in plan.rail_text(FLEET, ["wldn"], read, NOW).splitlines() if l.strip().startswith("apex-zones, on"))
-        assert rail.endswith(f"can land on your send of land/{KIT}; " + next(b for b in board.board_data(FLEET, ["wldn"], read, NOW)["partitions"][0]["construction"]
+        assert rail.endswith(f"can land on your send of land/{KIT}; " + next(b for b in board.board_data(FLEET, ["wldn"], read, NOW)["drives"][0]["construction"]
                                                     if b["bolt"] == "apex-zones")["time"]["said"])
         assert "can't be told" not in rail
 
@@ -2391,7 +2393,7 @@ class TestCrossedLandings:
 
 class TestPreviews:
     """The rail read's put-away of each preview whose card or row is gone, and its change of each card whose preview
-    the runner reports anew, on the partition's main machine alone (rail-cards "A card closed elsewhere", "A row gone
+    the runner reports anew, on the drive's main machine alone (rail-cards "A card closed elsewhere", "A row gone
     with no raise of its card", "A card is changed in place when the runner reports its preview anew"; Decisions 7 and
     8 of a-cards-preview-is-asked-of-the-runner): plan.sweep_previews and plan.previews_changed on a stand-in."""
     HEAD = "abc1234" + "0" * 33
@@ -2444,7 +2446,7 @@ class TestPreviews:
             iso(ago), "wldn-ops"))
 
     def read(self, rows_=(), cards_=(), entries=(), unread=None, machine="mac-studio"):
-        fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], machine=machine)})
+        fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], machine=machine)})
         found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
         return fleet, dict(found=found, rows=list(rows_), cards=list(cards_), unread=unread or {}, batched={"wldn": {}},
                            logs={"wldn": list(entries)}, runs={}, kits=kits_of(found))

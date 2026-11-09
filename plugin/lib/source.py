@@ -1,5 +1,5 @@
 """crew as a source of its host's Flume (record 0057, teams.25; Flume record 0039): the roles file crew writes from the
-teams file, one standing entry at `<label>/<role>` for each role that stands of each partition whose main level runs on
+teams file, one standing entry at `<label>/<role>` for each role that stands of each drive whose main level runs on
 the host, and the kinds folder the host's `sources/crew.toml` names beside it, holding crew's one kind package, its bolt
 kind `crew/bolt@1` (record 0056). The entries and their text are decided here on plain facts (code.7), from the fleet
 crew.load gives, and keep is the one act that writes them and the package; this module imports nothing of crew's
@@ -17,18 +17,18 @@ KINDS_DIR = Path.home() / ".local/share/flume/kinds/crew"
 # A version's bytes never change: a change to the kind is a new version beside it.
 KIND_PACKAGES = ((Path(__file__).resolve().parent.parent / "flume/kinds/bolt@1/kind.toml", Path("bolt@1/kind.toml")),)
 
-# A partition's main-level roles, each as it names its agent, in the order the file lists them: crew.KIND_ROLES.
+# A drive's main-level roles, each as it names its agent, in the order the file lists them: crew.KIND_ROLES.
 ROLES = ("design", "planner", "reviewer", "ops", "operator")
 
 
 def entries(fleet, host, asks):
-    """The roles file's entries on host, as (address, entry) in the teams file's partition order and ROLES' order: for
-    each partition whose machine is host, each role its `flume` names False, a standing agent's entry, `agent` the name
+    """The roles file's entries on host, as (address, entry) in the teams file's drive order and ROLES' order: for
+    each drive whose machine is host, each role its `flume` names False, a standing agent's entry, `agent` the name
     crew gives it, `<label>-<role>`, `session` the session crew opens it in, `answers` its words in asks where it has
-    any, and the operator its stream's answerer. None for another host's partition, nor for a role that runs as its
+    any, and the operator its stream's answerer. None for another host's drive, nor for a role that runs as its
     kind, whose run's entry comes with its crossing (Decision 3)."""
     found = []
-    for label, p in fleet["partitions"].items():
+    for label, p in fleet["drives"].items():
         if p["machine"] != host:
             continue
         for role in ROLES:
@@ -54,7 +54,7 @@ def text(entries, host):
     bytes. With no entry it gives `roles` none, which Flume reads as declaring nothing."""
     lines = [f"# crew's roles for Flume on {host}, written whole from crew's teams file by crew's follower and each start",
              "# of a main-level role, and renamed over the old one: an edit by hand is lost at the next write. Each role",
-             "# that stands, of each partition whose main level runs on this host, at <label>/<role> (crew record 0057)."]
+             "# that stands, of each drive whose main level runs on this host, at <label>/<role> (crew record 0057)."]
     for address, entry in entries:
         lines += ["", f"[roles.{quoted(address)}]"] + [f"{k} = {quoted(v)}" for k, v in entry.items()]
     return "\n".join(lines) + "\n"

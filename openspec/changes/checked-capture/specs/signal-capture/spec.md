@@ -74,7 +74,7 @@ crew SHALL copy the transcript record that holds a checked excerpt to a file und
 - **THEN** the commit holds the capture and its signal, and no file holding the rest of the record
 
 ### Requirement: An agent's signals live in the drive's state
-A capture and its signals recorded through `crew signal` SHALL be written, in one commit, to `signals/<capture>/` on the drive's branch of its state repository, in the shape the blueprints' `signals/README.md` gives. Signals read from meetings and channels SHALL stay in the partition's first blueprints repo. A signal's id SHALL be unique across both, and crew SHALL look an id up on the drive's branch first and in the blueprints after.
+A capture and its signals recorded through `crew signal` SHALL be written, in one commit, to `signals/<capture>/` on the drive's branch of its state repository, in the shape the blueprints' `signals/README.md` gives. Signals read from meetings and channels SHALL stay in the drive's first blueprints repo. A signal's id SHALL be unique across both, and crew SHALL look an id up on the drive's branch first and in the blueprints after.
 
 #### Scenario: A conductor's finding
 - **WHEN** swb-2's conductor records a signal

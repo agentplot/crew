@@ -1,5 +1,5 @@
 """crew as a source of its host's Flume (the flume-source spec; record 0057, teams.25): source.entries for the standing
-entry of each role that stands of each partition on the host, from the fleet crew.load gives of a teams file, and
+entry of each role that stands of each drive on the host, from the fleet crew.load gives of a teams file, and
 source.text for the roles file's text, read back as Flume reads it, as TOML; source.keep for crew's bolt kind written
 into the kinds folder beside it, whole and only when its bytes differ. That crew's follower and a main-level start write
 the file, renamed over the old one, is t-flume-source's and t-journey-main's."""
@@ -17,42 +17,34 @@ DENEB, BOX = "deneb", "chuck-herdr-alpha"
 STANDING = {r: False for r in crew.KIND_ROLES}
 
 
-def hosts(tmp_path):
-    """deneb's sessions of agentplot, madswan and swancloud, and the box's wldn-1 and wldn-2, as read 2026-11-07."""
-    def sess(space, partition, repos):
-        return {"dir": f"{tmp_path}/{space}", "partition": partition, "repos": repos}
-    afterthought = ["afterthought/blueprints", "afterthought/crew"]
-    willdan = ["WilldanGroup/willdan-blueprints"]
-    return {DENEB: {"ssh": DENEB, "sessions": {"agentplot": sess("agentplot", "agentplot", ["agentplot/blueprints"]),
-                                               "madswan": sess("madswan", "business", afterthought),
-                                               "swancloud": sess("swancloud", "personal", afterthought)}},
-            BOX: {"ssh": BOX, "sessions": {"wldn-1": sess("willdan-1", "clients/willdan", willdan),
-                                           "wldn-2": sess("willdan-2", "clients/willdan", willdan)}}}
+# deneb and the box, as the teams file's `hosts` names them (record 0064).
+HOSTS = {DENEB: {"ssh": DENEB, "kind": "darwin"}, BOX: {"ssh": BOX, "kind": "nixos"}}
+AFTERTHOUGHT = ["afterthought/blueprints", "afterthought/crew"]
 
 
 def teams(flume=None):
     """deneb's teams file as read 2026-11-07 16:30Z: agentplot, madswan and swancloud on deneb in sessions of their
-    labels' names, wldn on the box in wldn-2 with its planner in wldn-1, every role standing; flume gives a partition's
-    setting in its place."""
+    labels' names, wldn on the box in wldn-2 with its planner in wldn-1, every role standing, each drive's folder,
+    repos and accounts as deneb's hosts file gave its sessions; flume gives a drive's setting in its place."""
     flume = flume or {}
-    def part(label, partition, blueprints, machine, session, **more):
-        return dict({"label": label, "partition": partition, "blueprints": [blueprints], "machine": machine,
+    def part(label, blueprints, machine, session, folder, repos, accounts, **more):
+        return dict({"label": label, "blueprints": [blueprints], "machine": machine,
                      "session": session, "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+                     "folder": folder, "repos": repos, "accounts": {r: accounts.get(r, accounts["*"]) for r in crew.KIND_ROLES},
                      "flume": flume.get(label, STANDING)}, **more)
-    return {"version": 5, "partitions": [
-        part("agentplot", "agentplot", "agentplot/blueprints", DENEB, "agentplot"),
-        part("madswan", "business", "afterthought/blueprints", DENEB, "madswan"),
-        part("swancloud", "personal", "afterthought/blueprints", DENEB, "swancloud"),
-        part("wldn", "clients/willdan", "WilldanGroup/willdan-blueprints", BOX, "wldn-2", roles={"planner": {"session": "wldn-1"}})]}
+    return {"version": 6, "hosts": HOSTS, "drives": [
+        part("agentplot", "agentplot/blueprints", DENEB, "agentplot", "/d/agentplot", ["agentplot/blueprints"], {"*": "madswan"}),
+        part("madswan", "afterthought/blueprints", DENEB, "madswan", "/d/madswan", AFTERTHOUGHT, {"*": "madswan"}),
+        part("swancloud", "afterthought/blueprints", DENEB, "swancloud", "/d/swancloud", AFTERTHOUGHT, {"*": "madswan"}),
+        part("wldn", "WilldanGroup/willdan-blueprints", BOX, "wldn-2", "/workspace", ["WilldanGroup/willdan-blueprints"],
+             {"*": "willdan-alex", "planner": "ia", "reviewer": "ia"}, roles={"planner": {"session": "wldn-1"}})]}
 
 
 @pytest.fixture
 def fleet(tmp_path, monkeypatch):
-    """crew.load over deneb's teams file, or one whose partitions' `flume` the case gives, and the hosts file."""
+    """crew.load over deneb's teams file, or one whose drives' `flume` the case gives, and no other file."""
     def loaded(flume=None):
-        (tmp_path / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts(tmp_path)}))
         (tmp_path / "teams.json").write_text(json.dumps(teams(flume)))
-        monkeypatch.setattr(crew, "HOSTS", tmp_path / "herdr-hosts.json")
         monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
         crew.load.cache_clear()
         try:
@@ -69,12 +61,12 @@ def declared(fleet, host):
     return data.get("roles", {})
 
 
-def test_the_roles_are_the_ones_a_partitions_flume_names():
+def test_the_roles_are_the_ones_a_drives_flume_names():
     assert source.ROLES == crew.KIND_ROLES
 
 
 class TestEachStandingRoleIsDeclaredAtItsAddressAsItsAgent:
-    def test_deneb_holds_five_entries_for_each_of_its_three_partitions(self, fleet):
+    def test_deneb_holds_five_entries_for_each_of_its_three_drives(self, fleet):
         roles = declared(fleet(), DENEB)
         assert list(roles) == [f"{label}/{role}" for label in ("agentplot", "madswan", "swancloud") for role in source.ROLES]
         assert roles["agentplot/planner"]["agent"] == "agentplot-planner" and roles["madswan/ops"]["agent"] == "madswan-ops"
@@ -82,7 +74,7 @@ class TestEachStandingRoleIsDeclaredAtItsAddressAsItsAgent:
 
 
 class TestAnEntryNamesTheSessionCrewOpensItsAgentIn:
-    def test_sessions_of_the_partitions_names(self, fleet):
+    def test_sessions_of_the_drives_names(self, fleet):
         roles = declared(fleet(), DENEB)
         assert {a: e["session"] for a, e in roles.items()} == {a: a.split("/")[0] for a in roles}
 
@@ -103,7 +95,7 @@ class TestWhatARoleAnswersIsTheWordsCrewsBriefsGive:
 
     def test_the_briefs_sentence_on_whom_to_ask_gives_the_same_words(self):
         """The sentence the planner's, ops's and the design agent's briefs share (crew.brief needs the host and the
-        partition's kits, so the whole brief is t-briefs')."""
+        drive's kits, so the whole brief is t-briefs')."""
         said = crew.cards_how("crew", "madswan", "none yet")
         assert ("ask the agent whose it is with `crew tell`: `madswan-design` for the design, `madswan-ops` for a live "
                 "system, a deploy or a landing, `madswan-planner` for the plan.") in said
@@ -136,7 +128,7 @@ class TestAnEntryGivesAStandingAgentsKeysAlone:
         assert "2026" not in said
 
 
-class TestNoEntryForAPartitionOnAnotherHostOrARoleThatRunsAsItsKind:
+class TestNoEntryForADriveOnAnotherHostOrARoleThatRunsAsItsKind:
     def test_wldn_on_deneb(self, fleet):
         assert not [a for a in declared(fleet(), DENEB) if a.startswith("wldn/")]
 
@@ -144,7 +136,7 @@ class TestNoEntryForAPartitionOnAnotherHostOrARoleThatRunsAsItsKind:
         roles = declared(fleet({"madswan": dict(STANDING, planner="madswan")}), DENEB)
         assert [a for a in roles if a.startswith("madswan/")] == ["madswan/design", "madswan/reviewer", "madswan/ops", "madswan/operator"]
 
-    def test_a_host_that_is_no_partitions_machine_declares_nothing(self, fleet):
+    def test_a_host_that_is_no_drives_machine_declares_nothing(self, fleet):
         assert source.entries(fleet(), "mac-studio", crew.ASKS) == []
         assert tomllib.loads(source.text([], "mac-studio")) == {}
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""asks.py: what waits on a partition's main-level roles that run as their kinds (record 0047 move 6), decided from
+"""asks.py: what waits on a drive's main-level roles that run as their kinds (record 0047 move 6), decided from
 plain facts (code.7).
 
-A role its partition's `flume` names a stream for runs as its kind: no agent of it stands, and each of its runs is a
+A role its drive's `flume` names a stream for runs as its kind: no agent of it stands, and each of its runs is a
 place the host's runner launches while anything is pending for the role, one at a time. What is pending is each ask
-of the role on the partition's drive branch, asks.rec's Ask records, and each place the runner's records show
+of the role on the drive's branch, asks.rec's Ask records, and each place the runner's records show
 waiting on the role, that no ended turn took. A turn, asks.rec's Turn records, is a run's taking of everything pending
 at its start (crew role start), answered by its end (crew role end); a turn still open when the next run starts was a
 lost run's, superseded by the new turn, which takes its asks again, and answers nothing. roles.rec holds the record
@@ -177,28 +177,28 @@ def definition_of(role):
     return "main-ops" if role == "ops" else role
 
 
-def role_record(partition, role, meta):
-    """The role record of a role its partition runs as its kind (design Decision 6, role-runs "A role record names its
-    run"), from the partition's entry in the teams file as crew reads it and the role's definition's frontmatter, meta:
-    its address and run, the main level's host, the partition's first blueprints repo, crew's kinds and the role's, the
+def role_record(drive, role, meta):
+    """The role record of a role its drive runs as its kind (design Decision 6, role-runs "A role record names its
+    run"), from the drive's entry in the teams file as crew reads it and the role's definition's frontmatter, meta:
+    its address and run, the main level's host, the drive's first blueprints repo, crew's kinds and the role's, the
     place's name, the stream its `flume` names, priority 0, its intent, and the definition's model and effort after
     the teams file's override (Decision 16). None for a role that stands."""
-    stream = partition["flume"][role]
+    stream = drive["flume"][role]
     if stream is False:
         return None
-    label, o = partition["label"], (partition.get("roles") or {}).get(definition_of(role), {})
-    return {"Role": role, "Address": f"{label}/{role}", "Run": f"{label}-{role}", "Host": partition["machine"],
-            "Repository": partition["blueprints"][0], "Kinds": "crew", "Kind": f"crew-{role}", "Name": label, "Stream": stream,
+    label, o = drive["label"], (drive.get("roles") or {}).get(definition_of(role), {})
+    return {"Role": role, "Address": f"{label}/{role}", "Run": f"{label}-{role}", "Host": drive["machine"],
+            "Repository": drive["blueprints"][0], "Kinds": "crew", "Kind": f"crew-{role}", "Name": label, "Stream": stream,
             "Priority": "0", "Intent": f"{label}-{role}", "Model": o.get("model", meta["model"]), "Effort": o.get("effort", meta["effort"])}
 
 
-def roles_due(records, partition, metas):
-    """What the partition's roles.rec is due to match the teams file (role-runs "Role records follow the teams file"):
-    (each role record to write, missing from records or differing from what is there, in the order the partition names
-    its roles; each role whose record is to go, its partition no longer running it as its kind). records, the Role
-    records on the branch (parse_roles); metas, {role: its definition's frontmatter} for each role the partition runs as
+def roles_due(records, drive, metas):
+    """What the drive's roles.rec is due to match the teams file (role-runs "Role records follow the teams file"):
+    (each role record to write, missing from records or differing from what is there, in the order the drive names
+    its roles; each role whose record is to go, its drive no longer running it as its kind). records, the Role
+    records on the branch (parse_roles); metas, {role: its definition's frontmatter} for each role the drive runs as
     its kind."""
-    want = {r: role_record(partition, r, metas[r]) for r, s in partition["flume"].items() if s is not False}
+    want = {r: role_record(drive, r, metas[r]) for r, s in drive["flume"].items() if s is not False}
     have = {x["Role"]: x for x in records}
     return [rec for r, rec in want.items() if have.get(r) != rec], [r for r in have if r not in want]
 

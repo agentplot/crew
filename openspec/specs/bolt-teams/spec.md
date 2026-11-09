@@ -132,7 +132,7 @@ When a landed bolt's close is refused, crew SHALL record a `bolt.land` entry on 
 - **THEN** the read closes `z`, the run record holds its `bolt.land`, and no head line for `z` remains
 
 ### Requirement: A started bolt's work is launched whole
-`crew bolt start <bolt>` SHALL make one plan write, `bolt.start`, refused for a bolt started already, but as "A start run again launches a bolt whose launch the runner refused" has it, and while no runner answers for the partition. It SHALL read no host, make no branch, and read neither the kit's policy nor any host's sluice. Its write SHALL set `Path: flume` on the bolt, and no `Team`, and append the bolt's own launch ("A start launches the bolt's base place before its pieces"), then a launch for each of its units and chores in the file's order, cut from `bolt/<bolt>`, in the kit's repository and naming no host or stream, for a runner whose configuration names the repository to take. It SHALL start, restart and greet no agent.
+`crew bolt start <bolt>` SHALL make one plan write, `bolt.start`, refused for a bolt started already, but as "A start run again launches a bolt whose launch the runner refused" has it, and while no runner answers for the drive. It SHALL read no host, make no branch, and read neither the kit's policy nor any host's sluice. Its write SHALL set `Path: flume` on the bolt, and no `Team`, and append the bolt's own launch ("A start launches the bolt's base place before its pieces"), then a launch for each of its units and chores in the file's order, cut from `bolt/<bolt>`, in the kit's repository and naming no host or stream, for a runner whose configuration names the repository to take. It SHALL start, restart and greet no agent.
 
 #### Scenario: A bolt of three
 - **WHEN** `crew bolt start x` runs, `x` holding units `a` and `b`, `b` after `a`, and chore `c`, and a runner answers for madswan
@@ -186,7 +186,7 @@ A move out of a started bolt, a split, or a change of `After` on work whose laun
 `crew answer <work> "<words>"`, the planner's, the design agent's or main-level ops's, SHALL append a retry of the stage the work's place stopped short on or waits on, carrying the words, its agent kept open for the answer or not, and past its kind's bound or not, whatever stage it last delivered; or of its submission where that waits on its caller unheld. It SHALL be refused naming the place's stage when the place neither stopped short nor waits on its caller. For a live place, the refusal SHALL name that stage as the runner carried it, with the runner's host and when it carried it, and say that a wait Flume has told of since reaches crew with that runner's next carry. It SHALL be refused naming what crew could not read when it can't tell whether the place waits. It SHALL never say that a live place has nothing to answer.
 
 #### Scenario: A construct that asked
-- **WHEN** the runner's record shows `a`'s construct stopped short asking "Which partition's rail?", and the planner runs `crew answer a "madswan's"`
+- **WHEN** the runner's record shows `a`'s construct stopped short asking "Which drive's rail?", and the planner runs `crew answer a "madswan's"`
 - **THEN** `requests.rec` gains a retry of `a`'s construct with the words `madswan's`
 
 #### Scenario: A stop-short whose agent is kept open
@@ -236,7 +236,7 @@ When the runner's report has a started bolt's landing refused by Flume's verdict
 - **THEN** `requests.rec` gains no launch, and `x`'s row says it takes main first, naming `x-1`
 
 ### Requirement: A bolt whose work is on main lands by its close alone
-`crew bolt land` SHALL land a bolt never started, with no base place and no launch of its work, on the user's word, once its kit's main holds each of its units' changes, open or archived, and each of its chores. It SHALL read them in the checkout the partition's main-level host keeps of its kit, since no runner took any of its work. It SHALL record in its `bolt.land` entry the kit and the commit that main holds. It SHALL merge, submit and post nothing for it, and run no sluice. It SHALL be refused for such a bolt with no units or chores, whose kit that host keeps no checkout of, or while any unit's change is not on main.
+`crew bolt land` SHALL land a bolt never started, with no base place and no launch of its work, on the user's word, once its kit's main holds each of its units' changes, open or archived, and each of its chores. It SHALL read them in the checkout the drive's main-level host keeps of its kit, since no runner took any of its work. It SHALL record in its `bolt.land` entry the kit and the commit that main holds. It SHALL merge, submit and post nothing for it, and run no sluice. It SHALL be refused for such a bolt with no units or chores, whose kit that host keeps no checkout of, or while any unit's change is not on main.
 
 #### Scenario: A bolt built outside its branch
 - **WHEN** the plan holds the bolt `deploys-go-through-crew`, never started, and each of its units' changes is archived on crew's main
@@ -421,7 +421,7 @@ crew SHALL read a started bolt's landing from its launch, the lands of it in `re
 The first act on any host to read a bolt whose landing is decided SHALL record it: its kit's card's raise, the follower's sweep, a kit's read, or `crew bolt land` (`plan.21`); `crew bolts`, a view, SHALL write nothing (`state.4`). It SHALL write one `bolt.submit`, decided at its write's tip, with the outcome, the head, Flume's entry as `Submission` where it names one, and a refusal's or stop's words; nothing while it is asked, submitted or unknown.
 
 #### Scenario: Nobody runs anything
-- **WHEN** a land of `z` is posted, no agent of the partition runs a command, and the runner's branch then carries `z`'s base place landed at `5d1a9e0`
+- **WHEN** a land of `z` is posted, no agent of the drive runs a command, and the runner's branch then carries `z`'s base place landed at `5d1a9e0`
 - **THEN** the next raise of `z`'s kit's landings card records `z`'s `bolt.submit` landed and its `bolt.land` at `5d1a9e0`, and closes `z`
 
 #### Scenario: Two reads at once
@@ -445,7 +445,7 @@ The first act on any host to read a bolt whose landing is decided SHALL record i
 - **THEN** the read records nothing for `z`, and names that runner as one it could not read
 
 ### Requirement: A landing's record rests on the state repository alone
-A read of a bolt's landing SHALL take its outcome from the runners' branches in the partition's state repository and reach no host over ssh for it (`read.5`). It SHALL rest nothing on Flume's notice of the end to `<label>/ops`, and SHALL record the outcome whether ops runs or not (`roles.6`).
+A read of a bolt's landing SHALL take its outcome from the runners' branches in the drive's state repository and reach no host over ssh for it (`read.5`). It SHALL rest nothing on Flume's notice of the end to `<label>/ops`, and SHALL record the outcome whether ops runs or not (`roles.6`).
 
 #### Scenario: Read away from the kit's host
 - **WHEN** `z`'s kit is kept by deneb's runner, and a read of `z` on mac-studio finds its base place landed on deneb's runner's branch

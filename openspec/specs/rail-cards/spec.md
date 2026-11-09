@@ -30,7 +30,7 @@ Each rail row SHALL have one card key, the thing's and not its version's: `propo
 
 #### Scenario: A unit built again
 - **WHEN** unit `u` was constructed at head `abc1234`, and construct runs again and commits `def5678`
-- **THEN** no review row or key exists for either head; the unit's revised change is due for the partition's next batch, whose card's key is the batch's
+- **THEN** no review row or key exists for either head; the unit's revised change is due for the drive's next batch, whose card's key is the batch's
 
 #### Scenario: A verify report saved
 - **WHEN** unit `u`'s verify saves its report `verify-u-20261013-1200.md`
@@ -41,7 +41,7 @@ Each rail row SHALL have one card key, the thing's and not its version's: `propo
 - **THEN** the rail's row for proposal 5 has the key `proposal/4`, and its card is the chain's
 
 ### Requirement: A card says whose it is and where it belongs
-crew SHALL ask each card in the name of the role whose row it is, with the host as the session's machine and the kit's checkout as its folder; a question's card SHALL be asked in its asker's crew name by the asker's session. A card SHALL be filed in the area of its kit, found by the kit's git remote, in the group named for its partition; crew SHALL create a kit's area that does not exist with the key `create-area:<owner>/<kit>`, and an agent SHALL create one under no other key and never a group. A card's title SHALL be the question, read cold, naming the thing.
+crew SHALL ask each card in the name of the role whose row it is, with the host as the session's machine and the kit's checkout as its folder; a question's card SHALL be asked in its asker's crew name by the asker's session. A card SHALL be filed in the area of its kit, found by the kit's git remote, in the group named for its drive; crew SHALL create a kit's area that does not exist with the key `create-area:<owner>/<kit>`, and an agent SHALL create one under no other key and never a group. A card's title SHALL be the question, read cold, naming the thing.
 
 #### Scenario: A review card
 - **WHEN** a unit's change is due for a batch
@@ -49,7 +49,7 @@ crew SHALL ask each card in the name of the role whose row it is, with the host 
 
 #### Scenario: The first card in a kit
 - **WHEN** crew raises the first card in switchboard-kit and Pending You matches no area to its remote
-- **THEN** crew makes the area under `create-area:WilldanGroup/switchboard-kit`, named `switchboard-kit`, in the partition's group, and files the card there
+- **THEN** crew makes the area under `create-area:WilldanGroup/switchboard-kit`, named `switchboard-kit`, in the drive's group, and files the card there
 
 #### Scenario: A landing card
 - **WHEN** crew raises bolt `y`'s landing card for swb-1's team in switchboard-kit
@@ -101,7 +101,7 @@ An agent crew started SHALL adopt a card crew posted by calling Pending You's `g
 - **THEN** at its start `crew rail` names the card and its id, the conductor adopts it and acts on the answer
 
 ### Requirement: A crew agent's card acts are in the run record
-Each card crew posts, changes, withdraws or closes, each answer of the user's on one of them that crew reads, and each card a crew agent posts, changes or closes through Pending You's tools, SHALL be an entry in the partition's run record naming the row's object or the asker, the card's id in `Card` and the key in `Key`, crew's read from Pending You's own reply, an agent's from the tool's result; an agent's act whose result names no card SHALL be recorded on the agent with `State: unread`, and `crew rail` SHALL list each such act of the last 14 days with its agent, its act and its time. An entry SHALL NOT hold a card's title, summary or other text.
+Each card crew posts, changes, withdraws or closes, each answer of the user's on one of them that crew reads, and each card a crew agent posts, changes or closes through Pending You's tools, SHALL be an entry in the drive's run record naming the row's object or the asker, the card's id in `Card` and the key in `Key`, crew's read from Pending You's own reply, an agent's from the tool's result; an agent's act whose result names no card SHALL be recorded on the agent with `State: unread`, and `crew rail` SHALL list each such act of the last 14 days with its agent, its act and its time. An entry SHALL NOT hold a card's title, summary or other text.
 
 #### Scenario: A card posted and closed
 - **WHEN** crew raises `land/y`'s card `req_l1` and later closes it at the landing
@@ -201,14 +201,14 @@ A crew card's words SHALL be prose the phone wraps, in short paragraphs, cut at 
 - **THEN** each unit's paragraph is the reviewer's opening paragraph as prose in its summary and details, with no code block in its words, the reviewer's summary rides its face as inline Markdown, and the card wraps on the phone
 
 ### Requirement: The check refuses what it cannot read, and only for crew's sessions
-crew's hook SHALL run only in a session with `CREW_AGENT` set, and SHALL refuse a card's post, change or close, or an area's making, when it cannot read the agent's partition, the teams file, or crew's record of its cards, the run record on this host that holds the key of the card a change or close names, naming what it could not read and saying to try again later, never letting a call through on a guess. It SHALL read no plan and fetch no state branch. The user's own sessions SHALL be untouched.
+crew's hook SHALL run only in a session with `CREW_AGENT` set, and SHALL refuse a card's post, change or close, or an area's making, when it cannot read the agent's drive, the teams file, or crew's record of its cards, the run record on this host that holds the key of the card a change or close names, naming what it could not read and saying to try again later, never letting a call through on a guess. It SHALL read no plan and fetch no state branch. The user's own sessions SHALL be untouched.
 
 #### Scenario: The plan cannot be read
-- **WHEN** swb-1-conductor posts a question under `ask/swb-1-conductor/hold-the-macs` while the partition's state branch cannot be fetched
+- **WHEN** swb-1-conductor posts a question under `ask/swb-1-conductor/hold-the-macs` while the drive's state branch cannot be fetched
 - **THEN** the call goes through: the hook reads no plan, and judges the key by its form alone
 
 #### Scenario: crew's record of its cards cannot be read
-- **WHEN** swb-1-conductor calls `cancel_request` for its card `req_q1` and the hook cannot read the partition's run record on this host
+- **WHEN** swb-1-conductor calls `cancel_request` for its card `req_q1` and the hook cannot read the drive's run record on this host
 - **THEN** the call is refused, "crew could not check this card: <why>. Try it again later.", and nothing is closed
 
 #### Scenario: The user's own session
@@ -231,7 +231,7 @@ A card act Pending You refuses SHALL be refused in Pending You's own words and r
 - **THEN** the offer is recorded, no card posts, and the command says this computer is not signed in to Pending You
 
 ### Requirement: The landing card is posted once the bolt's verification is green
-crew SHALL keep one landings card for each kit with a proven bolt waiting on its main, keyed `land/<kit>`, in the name of the partition's main-level ops, posted on the partition's main host. A bolt SHALL be a row that can land once every unit and chore of it has merged, every unit's latest change has been in a batch whose card the user has answered, its verification is green, its head the landing of its work as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it alone"), and no fix of it is in flight. Rows SHALL be in the plan's order. The card SHALL ask only for the landing.
+crew SHALL keep one landings card for each kit with a proven bolt waiting on its main, keyed `land/<kit>`, in the name of the drive's main-level ops, posted on the drive's main host. A bolt SHALL be a row that can land once every unit and chore of it has merged, every unit's latest change has been in a batch whose card the user has answered, its verification is green, its head the landing of its work as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it alone"), and no fix of it is in flight. Rows SHALL be in the plan's order. The card SHALL ask only for the landing.
 
 #### Scenario: A green bolt
 - **WHEN** every unit and chore of bolt `y` of crew has merged, each unit's latest change has been in a batch the user has answered, `y`'s head `abc1234` is the landing of its last unit as the runner reports it, and no other bolt of crew can land
@@ -351,13 +351,13 @@ A card Pending You answers "not found" to the host's connection is lost: the hos
 - **THEN** the next rail read posts the deploy's card again under `deploy/dev`, its summary saying the older copy is dead and this one is the one to answer
 
 ### Requirement: The design agent posts a record's card under its record key
-A record's card SHALL be raised by crew through `crew record <kit> <number> --proposed`, keyed `record/<kit>/<number>`, where `<kit>` is the name of a kit one of the partition's teams builds and `<number>` the record's four digits, in the design agent's name; the design agent SHALL post none itself, and no agent SHALL post under a record key. A kit that is not the partition's SHALL be refused naming the partition's kits.
+A record's card SHALL be raised by crew through `crew record <kit> <number> --proposed`, keyed `record/<kit>/<number>`, where `<kit>` is the name of a kit one of the drive's teams builds and `<number>` the record's four digits, in the design agent's name; the design agent SHALL post none itself, and no agent SHALL post under a record key. A kit that is not the drive's SHALL be refused naming the drive's kits.
 
 #### Scenario: The design agent posts a record's card
 - **WHEN** wldn-design runs `crew record atlas-kit 21 --proposed`, and atlas-kit is built by one of wldn's teams
 - **THEN** one card keyed `record/atlas-kit/0021` is open in wldn-design's name, and the run record has a `card.post` entry on `record/atlas-kit/0021` with that key
 
-#### Scenario: A kit outside the partition
+#### Scenario: A kit outside the drive
 - **WHEN** wldn-design runs `crew record flywheel-next 3 --proposed`, and no team of wldn builds flywheel-next
 - **THEN** the command is refused, naming wldn's kits, and nothing is posted
 
@@ -697,7 +697,7 @@ A preview the runner refuses, in its own words or in sluice's as it carried them
 
 #### Scenario: The runner refuses the preview
 - **WHEN** swancloud-ops has run `crew card preview land/crew y`, writing request 12, and deneb's runner, where `y`'s work runs, answers request 12 refused with the words `its Act preview, which crew's implementation does not read`
-- **THEN** at the rail's next read on the partition's main machine `land/crew` is changed in place, `y`'s row saying its preview could not be brought up, in the runner's words, listing no addresses, and `y` keeps its box
+- **THEN** at the rail's next read on the drive's main machine `land/crew` is changed in place, `y`'s row saying its preview could not be brought up, in the runner's words, listing no addresses, and `y` keeps its box
 
 #### Scenario: The host's sluice has no preview command
 - **WHEN** deneb's runner runs a sluice that refuses `sluice preview`, and answers request 12 refused, carrying sluice's words
@@ -766,10 +766,10 @@ A post of a row's card that Pending You refuses SHALL be recorded as a `card.pos
 - **THEN** crew posts the card, and the rail's card line for `deploy/deneb` names it open, swancloud-ops's
 
 ### Requirement: A row's card its owner's host can't reach is raised again there
-A card belongs to the Pending You sign-in of the host it was posted from, and each row's card is raised and waited on only where its owner runs: a proposal's, a batch's, a deploy's, a step's and a kit's landings card on the partition's main level's host. When the owner's newest card under a row's key was posted from another host and no close ends it, or its last close is as lost to the owner on any host, and no newer card of the owner's is under the key, the rail's next read on the owner's host SHALL post the row's card again there under the row's key, through its kind's raise, its summary opening with the words that say an older copy was lost and to dismiss it in the app, while the row still waits on its card; and the rail SHALL take the new card as the row's. crew SHALL neither ask after nor close the older copy from a host whose sign-in does not reach it. A row that no longer waits SHALL have no card posted again, and the read SHALL say its raise posted none.
+A card belongs to the Pending You sign-in of the host it was posted from, and each row's card is raised and waited on only where its owner runs: a proposal's, a batch's, a deploy's, a step's and a kit's landings card on the drive's main level's host. When the owner's newest card under a row's key was posted from another host and no close ends it, or its last close is as lost to the owner on any host, and no newer card of the owner's is under the key, the rail's next read on the owner's host SHALL post the row's card again there under the row's key, through its kind's raise, its summary opening with the words that say an older copy was lost and to dismiss it in the app, while the row still waits on its card; and the rail SHALL take the new card as the row's. crew SHALL neither ask after nor close the older copy from a host whose sign-in does not reach it. A row that no longer waits SHALL have no card posted again, and the read SHALL say its raise posted none.
 
 #### Scenario: The main level moved to another host
-- **WHEN** batch 13's card was posted from mac-studio, the partition's main level now runs on deneb, the user has not answered the batch where crew can read it, and the rail is read on deneb
+- **WHEN** batch 13's card was posted from mac-studio, the drive's main level now runs on deneb, the user has not answered the batch where crew can read it, and the rail is read on deneb
 - **THEN** crew posts batch 13's card again on deneb under `batch/13` in the planner's name, its summary opening "An older copy of this card was lost: dismiss it in the app.", the rail shows the new card's id as the row's, and the read lists the older card as lost and the new one as posted
 
 #### Scenario: A proposal's card left on the host the main level left
@@ -911,7 +911,7 @@ A landings card the user has answered SHALL be left as it is until every bolt th
 - **THEN** the card is closed saying `y` landed and `z` was stopped, in the runner's words, and a new card follows it with `z` as a row with its box
 
 ### Requirement: A bolt's own landing card gives way to its kit's
-An open landing card under `land/<bolt>`, in a conductor's name, SHALL be withdrawn by the rail's sweep on the team's host, saying the bolt is now a row of its kit's landings card, and that card SHALL be raised for the bolt. crew SHALL raise no card under `land/<bolt>`. A bolt SHALL NOT be added to the plan under a name that is a kit's of its partition.
+An open landing card under `land/<bolt>`, in a conductor's name, SHALL be withdrawn by the rail's sweep on the team's host, saying the bolt is now a row of its kit's landings card, and that card SHALL be raised for the bolt. crew SHALL raise no card under `land/<bolt>`. A bolt SHALL NOT be added to the plan under a name that is a kit's of its drive.
 
 #### Scenario: A card from before
 - **WHEN** swc-1-conductor holds an open card under `land/y`, raised before this change, and the rail is read on swc-1's host
@@ -1150,7 +1150,7 @@ A card that carries a thing that must run SHALL say, in its words, that the user
 
 #### Scenario: Brought up
 - **WHEN** deneb's runner then answers that request done, with sluice's listing of its preview up at addresses `web` and `api`
-- **THEN** at the rail's next read on the partition's main machine `land/crew` is changed in place, its note saying `y`'s preview is up, `y`'s row listing `web` and `api` with sluice's addresses and saying a preview lands nothing
+- **THEN** at the rail's next read on the drive's main machine `land/crew` is changed in place, its note saying `y`'s preview is up, `y`'s row listing `web` and `api` with sluice's addresses and saying a preview lands nothing
 
 #### Scenario: Asked twice
 - **WHEN** `crew card preview land/crew y` is run again while deneb's runner reports `y`'s preview of `abc1234` up
@@ -1161,7 +1161,7 @@ A card that carries a thing that must run SHALL say, in its words, that the user
 - **THEN** `requests.rec` gains a second `preview` of `bolt/y` at `abc1234`, and the card says it is asked
 
 ### Requirement: A preview is released on the user's done and when its card or row ends
-crew SHALL put away a preview it asked for from a card by one request on the drive's branch, the same `preview` marked `Done: yes`: when the owner runs `--done` on the user's word; when the bolt's row is held for a fix, lands, is dropped or otherwise leaves its kit's landings card, at that card's raise; when a batch's card closes, for its lines no other open card carries; and at a rail read on the partition's main machine, for one whose card is closed or whose row is gone, once its ask is two minutes old. The card, while it waits, SHALL say it was put away. crew SHALL put away only a preview it asked for and has not put away, SHALL write no done for one the runner refused, and SHALL run no sluice command for it.
+crew SHALL put away a preview it asked for from a card by one request on the drive's branch, the same `preview` marked `Done: yes`: when the owner runs `--done` on the user's word; when the bolt's row is held for a fix, lands, is dropped or otherwise leaves its kit's landings card, at that card's raise; when a batch's card closes, for its lines no other open card carries; and at a rail read on the drive's main machine, for one whose card is closed or whose row is gone, once its ask is two minutes old. The card, while it waits, SHALL say it was put away. crew SHALL put away only a preview it asked for and has not put away, SHALL write no done for one the runner refused, and SHALL run no sluice command for it.
 
 #### Scenario: The user is done
 - **WHEN** the user writes "done with y's preview" on `land/crew` and swancloud-ops runs `crew card preview land/crew y --done`
@@ -1188,11 +1188,11 @@ crew SHALL put away a preview it asked for from a card by one request on the dri
 - **THEN** no done is written for it
 
 #### Scenario: A card closed elsewhere
-- **WHEN** batch 7's card is closed with no crew command closing it while crew's ask of `a/demo`'s preview stands, and no other open card holds `a`, and the rail is read on the partition's main machine more than two minutes after the ask
+- **WHEN** batch 7's card is closed with no crew command closing it while crew's ask of `a/demo`'s preview stands, and no other open card holds `a`, and the rail is read on the drive's main machine more than two minutes after the ask
 - **THEN** the rail's read writes its done, and says so
 
 #### Scenario: A row gone with no raise of its card
-- **WHEN** `y` leaves the plan by a write that raises no landings card while crew's ask of its preview stands, and the rail is read on the partition's main machine more than two minutes after the ask
+- **WHEN** `y` leaves the plan by a write that raises no landings card while crew's ask of its preview stands, and the rail is read on the drive's main machine more than two minutes after the ask
 - **THEN** the rail's read writes its done, and says so
 
 ### Requirement: A moved head releases the preview of the old one and asks for none
@@ -1332,14 +1332,14 @@ A deploy's card closed by its end recorded failed SHALL name the step that faile
 - **THEN** `deploy/srv`'s card is closed with each step's outcome, naming no words of what the user does
 
 ### Requirement: A card whose role left the fleet is withdrawn
-On each rail read crew SHALL withdraw, in its owner's name, each open card of its own six posted on that host whose owner is `<label>-planner`, `<label>-ops` or `<label>-design` for a label no partition of the teams file has now, saying the owner left the fleet and how whoever holds the work now raises it again. The close SHALL be recorded, withdrawn, and the rail SHALL no longer show the card. Any other card SHALL keep the paths it has.
+On each rail read crew SHALL withdraw, in its owner's name, each open card of its own six posted on that host whose owner is `<label>-planner`, `<label>-ops` or `<label>-design` for a label no drive of the teams file has now, saying the owner left the fleet and how whoever holds the work now raises it again. The close SHALL be recorded, withdrawn, and the rail SHALL no longer show the card. Any other card SHALL keep the paths it has.
 
-#### Scenario: A partition's label changed under an open deploy card
-- **WHEN** the teams file labels the partition `wldn`, and its run record holds `deploy/dev`'s card posted on this host in `willdan-ops`'s name and open while the offer waits
-- **THEN** the rail's read withdraws the card in `willdan-ops`'s name with "willdan-ops left the fleet, so an answer here reaches nobody. The deploy is offered again in the name of the ops of the partition that holds dev now.", records the close withdrawn with those words, and lists it among the cards it withdrew
+#### Scenario: A drive's label changed under an open deploy card
+- **WHEN** the teams file labels the drive `wldn`, and its run record holds `deploy/dev`'s card posted on this host in `willdan-ops`'s name and open while the offer waits
+- **THEN** the rail's read withdraws the card in `willdan-ops`'s name with "willdan-ops left the fleet, so an answer here reaches nobody. The deploy is offered again in the name of the ops of the drive that holds dev now.", records the close withdrawn with those words, and lists it among the cards it withdrew
 
-#### Scenario: The partition stays
-- **WHEN** the teams file labels the partition `wldn` and `deploy/dev`'s card is open in `wldn-ops`'s name while the offer waits
+#### Scenario: The drive stays
+- **WHEN** the teams file labels the drive `wldn` and `deploy/dev`'s card is open in `wldn-ops`'s name while the offer waits
 - **THEN** the rail's read leaves the card open and posts no other
 
 #### Scenario: A deploy whose word stands
@@ -1348,17 +1348,17 @@ On each rail read crew SHALL withdraw, in its owner's name, each open card of it
 
 #### Scenario: A record's card in a former design agent's name
 - **WHEN** `record/atlas-kit/0021`'s card is open in `willdan-design`'s name
-- **THEN** it is withdrawn, saying "Record 0021 of atlas-kit is carded again with crew record by the design agent of the partition that holds it now."
+- **THEN** it is withdrawn, saying "Record 0021 of atlas-kit is carded again with crew record by the design agent of the drive that holds it now."
 
-#### Scenario: A question and a conductor's card are no partition role's
+#### Scenario: A question and a conductor's card are no drive role's
 - **WHEN** a question card is open in `willdan-planner`'s name, and `land/y`'s card in `swb-1-conductor`'s
 - **THEN** the sweep judges neither as a role that left the fleet: the question is judged by its asker's pane and the landing card by its row
 
 ### Requirement: A card in a former name cards no row
-A card whose owner left the fleet SHALL card no row. A row whose only open card is such a card SHALL be posted through its kind's raise in its owner's name, as a row with no card open is. crew SHALL map no former name onto a new one, carry no card across, and take no partition as another's successor.
+A card whose owner left the fleet SHALL card no row. A row whose only open card is such a card SHALL be posted through its kind's raise in its owner's name, as a row with no card open is. crew SHALL map no former name onto a new one, carry no card across, and take no drive as another's successor.
 
 #### Scenario: The deploy row is carded in the standing ops's name
-- **WHEN** `deploy/dev`'s card is open in `willdan-ops`'s name, the offer of dev's deploy still waits, and the teams file labels the partition `wldn`
+- **WHEN** `deploy/dev`'s card is open in `willdan-ops`'s name, the offer of dev's deploy still waits, and the teams file labels the drive `wldn`
 - **THEN** the rail's read posts `deploy/dev`'s card through its raise in `wldn-ops`'s name, following no card
 
 ### Requirement: crew records the user's answer the first time it reads it
@@ -1537,7 +1537,7 @@ A row whose bolt's base place has a landing fix live SHALL be held with no box, 
 - **THEN** `y`'s row has no box and says Flume launches its landing fix
 
 ### Requirement: A card is changed in place when the runner reports its preview anew
-At each rail read on the partition's main machine, a card there that waits on the user and carries a standing ask SHALL be changed in place when the runner's report changes what the card says of that preview, its note naming the thing and what the preview now is. crew SHALL keep on that host what it last told each card of each preview, a cache whose loss costs one more change, and SHALL change no card for a report that changes nothing it says. A card the user has answered SHALL be left as it is.
+At each rail read on the drive's main machine, a card there that waits on the user and carries a standing ask SHALL be changed in place when the runner's report changes what the card says of that preview, its note naming the thing and what the preview now is. crew SHALL keep on that host what it last told each card of each preview, a cache whose loss costs one more change, and SHALL change no card for a report that changes nothing it says. A card the user has answered SHALL be left as it is.
 
 #### Scenario: The runner reports a preview brought up
 - **WHEN** `land/crew` waits on the user saying `y`'s preview is asked, and deneb's runner reports it up

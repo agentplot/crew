@@ -6,7 +6,7 @@ Makes every change the planner would make to a drive's plan a proposal the user 
 ## Requirements
 
 ### Requirement: The planner changes the plan only by a proposal
-A command that would write the plan, run by a partition's planner, SHALL be refused with a message naming `crew plan propose`. The planner SHALL change the plan only by writing a proposal, which changes nothing until it is approved.
+A command that would write the plan, run by a drive's planner, SHALL be refused with a message naming `crew plan propose`. The planner SHALL change the plan only by writing a proposal, which changes nothing until it is approved.
 
 #### Scenario: The planner adds a unit directly
 - **WHEN** `wldn-planner` runs `crew unit add <unit> "<intent>" --repo switchboard-kit`
@@ -29,7 +29,7 @@ A command that would write the plan, run by a partition's planner, SHALL be refu
 
 #### Scenario: Someone other than the planner
 - **WHEN** a conductor runs `crew plan propose`
-- **THEN** it is refused; only the partition's planner and the user write proposals
+- **THEN** it is refused; only the drive's planner and the user write proposals
 
 #### Scenario: An amendment to a unit in flight
 - **WHEN** the planner proposes `unit amend <unit> "<new intent>"` for a unit in code in a bolt a team holds

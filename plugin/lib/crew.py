@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """crew.py: read the teams file and answer from it.
 
-  crew.py labels                      every partition's label
+  crew.py labels                      every drive's label
   crew.py brief <label> <definition> [name]
-                                      a definition's brief for a partition's main level; name is the agent's own
+                                      a definition's brief for a drive's main level; name is the agent's own
   crew.py launch <label> <role> [resume]
                                       how crew-role starts a main level's role, as shell assignments
   crew.py tell <agent> "<text>" [--taken]
@@ -12,21 +12,21 @@
                                       --taken, read back from its transcript and sent once more when not taken
   crew.py tell --board < word.json    a word posted from a dock, {label, key, to, text}, checked and told its item's
                                       agent, marked [crew tell from <user>@board] (on <kind> <name>)
-  crew.py send <label> "<text>"       send the text to the partition's operator, its door, marked
+  crew.py send <label> "<text>"       send the text to the drive's operator, its door, marked
                                       [crew tell from <sender>] (sent to <label>)
   crew.py found <agent>               an agent of this host as herdr lists it, one JSON object, its name given back in
                                       the pane crew keeps for it when herdr dropped it there from the session crew
                                       started (read_agent from another host)
   crew.py _release                    what this crew is, crew_read of its own root, as one line of JSON, read before the
                                       teams file and reading nothing else (crew _release)
-  crew.py run-name                    the name and partition of the role's run FLUME_PLACE is, as shell assignments of
+  crew.py run-name                    the name and drive of the role's run FLUME_PLACE is, as shell assignments of
                                       CREW_AGENT and CREW_LABEL; nothing for a place that is no run
 
 The agents themselves, a main level's, are started, greeted and ended by plan.py's commands, through Agents here.
 
-Each role is an agent definition, roles/<role>.md: frontmatter naming its model and effort, which a partition's
+Each role is an agent definition, roles/<role>.md: frontmatter naming its model and effort, which a drive's
 `roles` in the teams file may override, and its brief as the body, with its {{TOKENS}} filled. Every token is built here
-from the partition's data; a token with no builder, or data a builder needs and the partition lacks, is an error, never
+from the drive's data; a token with no builder, or data a builder needs and the drive lacks, is an error, never
 blank text."""
 import functools, getpass, hashlib, itertools, json, os, pathlib, re, shlex, subprocess, sys, time
 # Run as the command, this module is the crew the modules it imports import, so a refusal raised in plan.py, which a
@@ -37,24 +37,27 @@ import source
 
 LIB = pathlib.Path(__file__).resolve().parent
 HOME = LIB.parent.parent
-HOSTS = pathlib.Path.home() / ".config/swancloud/herdr-hosts.json"
 # crew's own manifest, Claude Code's plugin.json, whose `repository` names the repository crew is: carried in every
 # install, a checkout's and the release the fleet copies whole, and read for crew's own address wherever crew needs it,
 # never a name written in crew's code (plan.22: no reader maps a former name).
 MANIFEST = LIB.parent / ".claude-plugin/plugin.json"
 TEAMS = pathlib.Path.home() / ".config/crew/teams.json"
-# The version of the teams file crew reads (Decision 2 of the-team-machinery-leaves): 5, its partitions alone, each
-# naming the Flume setting of each of its main-level roles (record 0047 move 6), as version 4 did beside its teams.
-VERSION = 5
+# The version of the teams file crew reads (code.5; Boomdrive record 0028): 6, its drives alone, each named by its label
+# and naming the Flume setting of each of its main-level roles (record 0047 move 6), as version 5 did under its former key.
+VERSION = 6
+# What writes the teams file, named as the fix of every refusal of it (code.5): crew's own module, crew's own command,
+# `crew drive set`, at setup's asking where Nix does not link the file, or the machine's configuration that writes it,
+# and no module of another repository's, since crew is the family's tool.
+WRITER = "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it"
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
-# The roles a partition's entry may override: each is a definition in roles/.
+# The roles a drive's entry may override: each is a definition in roles/.
 MAIN_ROLES = ("design", "planner", "main-ops", "operator", "reviewer")
-# A main level's standing roles, each in the session its partition names for it (record 0035): the design agent, the
-# planner, ops and the operator, the partition's one door. The reviewer opens beside the planner unless named apart.
+# A main level's standing roles, each in the session its drive names for it (record 0035): the design agent, the
+# planner, ops and the operator, the drive's one door. The reviewer opens beside the planner unless named apart.
 MAIN_STANDING = ("design", "planner", "ops", "operator")
 # A main level's roles that may run as Flume kinds crew's release carries (record 0047 move 6), each by the name its
-# agent takes, <label>-<role>: a partition's `flume` names every one, false while it stands.
+# agent takes, <label>-<role>: a drive's `flume` names every one, false while it stands.
 KIND_ROLES = ("design", "planner", "reviewer", "ops", "operator")
 # What tells whether an agent waits on a question crew's own hook saw it open: piped to the agent's host, whose crew may be older.
 QUESTIONS = (LIB / "questions.py").read_text()
@@ -121,39 +124,9 @@ def need(entry, what, field, kind=None):
     return entry[field]
 
 
-def read_hosts():
-    """swancloud's generated list of herdr hosts, which owns every ssh name, session and session's repos."""
-    if not HOSTS.exists():
-        fail(f"{HOSTS} is missing; swancloud's home-manager writes it")
-    return json.loads(HOSTS.read_text())["hosts"]
-
-
-def session_of(hosts, what, machine, session):
-    host = hosts.get(machine) or fail(f"{what} runs on {machine}, which {HOSTS} does not list. hosts: " + " ".join(hosts))
-    if session not in host["sessions"]:
-        fail(f"{what} uses herdr session {session}, which {HOSTS} does not list on {machine}. sessions: " + " ".join(host["sessions"]))
-    return host, host["sessions"][session]
-
-
-def repo_in(sess, what, machine, session, name):
-    """A repo named as `name` or `owner/name`, found in the repos the session's space keeps."""
-    kept = sess.get("repos") or []
-    found = [r for r in kept if r == name or r.split("/")[-1] == name]
-    if not found:
-        fail(f"{what}: the space of {machine}'s session {session} does not keep {name}. it keeps: " + (" ".join(kept) or "nothing"))
-    if len(found) > 1:
-        fail(f"{what}: {name} is ambiguous in the space of {machine}'s session {session}: " + " ".join(found))
-    return found[0]
-
-
-def checkout(sess, repo):
-    """A repo's main checkout in a session's folder: <dir>/<name>/main."""
-    return f"{sess['dir']}/{repo.split('/')[-1]}/main"
-
-
 def roles_of(entry, what):
-    """A partition's role overrides: a main-level role's model, effort or the session it runs in (record 0035), checked
-    by load against the hosts file."""
+    """A drive's role overrides: a main-level role's model, effort or the session it runs in (record 0035), a session
+    of the main level's machine named and checked against no list of sessions: herdr runs the session the file names."""
     roles = entry.get("roles") or {}
     if not isinstance(roles, dict):
         fail(f"{what} in {TEAMS}: 'roles' must map a role to its model, effort or session")
@@ -172,10 +145,10 @@ def roles_of(entry, what):
 
 
 def role_settings(entry, what):
-    """A partition's `flume`, the Flume setting of each of its main-level roles (record 0047 move 6): every role of
+    """A drive's `flume`, the Flume setting of each of its main-level roles (record 0047 move 6): every role of
     KIND_ROLES named, and no other, each False while it stands or the name of the Flume stream its runs run in on the
     main level's host."""
-    fix = f"regenerate {TEAMS} from the machine's configuration (swancloud's lib/crew-teams.nix)"
+    fix = f"regenerate {TEAMS} from {WRITER}"
     "flume" in entry or fail(f"{what} in {TEAMS} has no 'flume', which names each of its roles, " + ", ".join(KIND_ROLES)
                              + f", false or the name of a Flume stream its host declares: {fix}")
     flume = entry["flume"]
@@ -201,7 +174,7 @@ def repositories_of(data):
     for a file that names none, which names no repository (code.5). Every entry is checked before any is used: a
     `repositories` that is no object, a key that is no owner/name, or an entry that is not exactly an absolute `dir`
     and `checkout` is refused, naming the file, the repository and the machine's configuration (read.1)."""
-    fix = f"regenerate {TEAMS} from the machine's configuration (swancloud's lib/crew-teams.nix)"
+    fix = f"regenerate {TEAMS} from {WRITER}"
     if "repositories" not in data:
         return {}
     repos = data["repositories"]
@@ -217,93 +190,555 @@ def repositories_of(data):
     return {repo: {"dir": e["dir"], "checkout": e["checkout"]} for repo, e in repos.items()}
 
 
-@functools.lru_cache(maxsize=None)
-def load():
-    """The partitions, written by the machine's own configuration (swancloud's lib/crew-teams.nix), never by crew: the
-    file at version 5 (Decision 2 of the-team-machinery-leaves), its partitions alone, each with its main level and its
-    `flume`, the Flume setting of each of its main-level roles (record 0047 move 6), False while the role stands or the
-    stream its runs run in on the main level's host, every role of KIND_ROLES and no other. A file at any other
-    version, one that still lists teams among them, was written for a crew that runs them and is refused, as is a
-    `teams` list in a version-5 file, which holds none (code.5). Beside its partitions the file may name the kept
-    repositories of the host it is written on (repositories_of, record 0061), which the fleet keeps with that host as
-    `repositories`, {"host", "named"}, or {} for none. Every entry is checked here, against the hosts file, before any
-    is used, once a process: a later call is answered with the same fleet."""
-    if not TEAMS.exists():
-        fail(f"{TEAMS} is missing; the machine's configuration writes it")
-    data = json.loads(TEAMS.read_text())
+# The kinds of host crew reads (record 0064): whether a host is a Mac is all crew asks of its kind.
+HOST_KINDS = ("darwin", "nixos")
+
+
+def hosts_of(data):
+    """The hosts crew reaches or reads, as the teams file names them (record 0064): {<host>: {"ssh", "kind"}}, each by
+    the name `hostname -s` gives it, with exactly the name ssh reaches it by and its kind, darwin or nixos. Required,
+    with no default: a file with no `hosts`, a host's name crew does not accept, and an entry that lacks either key,
+    gives another or gives a kind crew does not read are refused, naming the file, the host, the key and the teams
+    file's writer (read.1)."""
+    fix = f"regenerate {TEAMS} from {WRITER}"
+    "hosts" in data or fail(f"{TEAMS} gives no 'hosts', the ssh name and kind of each host crew reaches or reads: {fix}")
+    hosts = data["hosts"]
+    isinstance(hosts, dict) or fail(f"{TEAMS}: 'hosts' names each host crew reaches or reads, by its name, with its 'ssh' "
+                                    f"and its 'kind', not {json.dumps(hosts)}: {fix}")
+    for host, e in hosts.items():
+        NAME.match(host) or fail(f"{TEAMS}: 'hosts' names {json.dumps(host)}, which is no name crew accepts: {fix}")
+        isinstance(e, dict) or fail(f"{TEAMS}: host {host} in 'hosts' gives exactly its 'ssh' and its 'kind', not {json.dumps(e)}: {fix}")
+        for k in sorted(set(e) - {"ssh", "kind"}):
+            fail(f"{TEAMS}: host {host} in 'hosts' gives '{k}', which crew has no place for: it gives exactly its 'ssh' "
+                 f"and its 'kind': {fix}")
+        for k in ("ssh", "kind"):
+            k in e or fail(f"{TEAMS}: host {host} in 'hosts' has no '{k}': {fix}")
+        isinstance(e["ssh"], str) and e["ssh"] or fail(
+            f"{TEAMS}: host {host}'s 'ssh' is the name ssh reaches it by, not {json.dumps(e['ssh'])}: {fix}")
+        isinstance(e["kind"], str) and e["kind"] in HOST_KINDS or fail(
+            f"{TEAMS}: host {host}'s 'kind' is " + " or ".join(HOST_KINDS) + f", not {json.dumps(e['kind'])}: {fix}")
+    return {host: {"ssh": e["ssh"], "kind": e["kind"]} for host, e in hosts.items()}
+
+
+def accounts_of(entry, what):
+    """A drive's `accounts`, the Claude account each of its main-level roles runs under (record 0064): every role of
+    KIND_ROLES named, and no other, each a name crew accepts, with no default (read.1)."""
+    fix = f"regenerate {TEAMS} from {WRITER}"
+    "accounts" in entry or fail(f"{what} in {TEAMS} has no 'accounts', which names the Claude account each of its roles, "
+                                + ", ".join(KIND_ROLES) + f", runs under: {fix}")
+    accounts = entry["accounts"]
+    isinstance(accounts, dict) or fail(f"{what} in {TEAMS}: 'accounts' names each of its roles with its Claude account, not "
+                                       f"{json.dumps(accounts)}: {fix}")
+    for role in accounts:
+        role in KIND_ROLES or fail(f"{what} in {TEAMS}: 'accounts' names {role}, which is no main-level role. roles: "
+                                   + " ".join(KIND_ROLES) + f": {fix}")
+    for role in KIND_ROLES:
+        role in accounts or fail(f"{what} in {TEAMS}: 'accounts' leaves out the {role}: {fix}")
+        a = accounts[role]
+        isinstance(a, str) and NAME.match(a) or fail(
+            f"{what} in {TEAMS}: accounts.{role} is the Claude account it runs under, a name crew accepts, not {json.dumps(a)}: {fix}")
+    return {role: accounts[role] for role in KIND_ROLES}
+
+
+def consoles_of(data, labels):
+    """The consoles of the host the teams file is written on (record 0064): {<label>: <folder>}, each drive whose
+    console this host opens, by its label, with the absolute folder its tabs open in; {} for a file that names none,
+    which opens no console. A label the file lists no drive by and a folder that is not absolute are refused, naming
+    the file and the teams file's writer (read.1)."""
+    fix = f"regenerate {TEAMS} from {WRITER}"
+    if "consoles" not in data:
+        return {}
+    consoles = data["consoles"]
+    isinstance(consoles, dict) or fail(f"{TEAMS}: 'consoles' maps each drive whose console this host opens, by its label, to "
+                                       f"the folder its tabs open in, not {json.dumps(consoles)}: {fix}")
+    for label, folder in consoles.items():
+        label in labels or fail(f"{TEAMS}: 'consoles' names {label}, which is no drive the file lists. drives: "
+                                + " ".join(labels) + f": {fix}")
+        isinstance(folder, str) and folder.startswith("/") or fail(
+            f"{TEAMS}: consoles.{label} is the absolute folder its console's tabs open in, not {json.dumps(folder)}: {fix}")
+    return dict(consoles)
+
+
+def read_teams(text):
+    """The teams file's data from its text, or its bytes as read: refused, naming the file and the JSON parser's words,
+    where it is no JSON, or no UTF-8, never a traceback (code.2)."""
+    try:
+        return json.loads(text)
+    except ValueError as e:
+        fail(f"{TEAMS} is no JSON ({e}): it must be regenerated by {WRITER}; crew has done nothing.")
+
+
+def known(data):
+    """A teams file's data, where crew can read it at all: refused, naming the file and the writer, where it is no JSON
+    object, or gives a version this crew does not read, a missing one or one that is no integer among them (code.5).
+    Every other check of the file is fleet_of's, which calls this first, so each refusal keeps one text."""
+    isinstance(data, dict) or fail(f"{TEAMS} holds {json.dumps(data)[:80]}, not a teams file's object: it must be regenerated "
+                                   f"by {WRITER}; crew has done nothing.")
     version = data.get("version")
     if type(version) is not int or version != VERSION:
         fail(f"{TEAMS} is version {json.dumps(version)}, and crew reads only version {VERSION}. "
-             f"It must be regenerated by the machine's configuration (swancloud's lib/crew-teams.nix); crew has done nothing.")
+             f"It must be regenerated by {WRITER}; crew has done nothing.")
+    return data
+
+
+def readable(text):
+    """The data of a teams file's text, or its bytes as read, where crew can read it at all (read_teams, then known):
+    refused, in the words crew.load gives for the same file, where it is no JSON or no UTF-8, holds no object, or gives
+    a version this crew does not read. A file it gives the data of is at crew's own version, and every later check is
+    fleet_of's (record 0065, point 6)."""
+    return known(read_teams(text))
+
+
+@functools.lru_cache(maxsize=None)
+def load():
+    """The drives, and everything crew reads of the hosts that serve them, from the teams file alone (record 0064;
+    code.5): the file read (readable) and checked whole (fleet_of), once a process, a later call answered with the
+    same fleet. The file is written by crew's own module, by `crew drive set` at setup's asking where Nix does not link
+    it, or by the machine's configuration (WRITER); no file of swancloud's or of any fleet's is read. This host is read
+    only where the file names kept repositories. A missing file is refused naming its writers."""
+    TEAMS.exists() or fail(f"{TEAMS} is missing: it must be written by {WRITER}; crew has done nothing.")
+    return fleet_of(readable(TEAMS.read_bytes()), this_host)
+
+
+def fleet_of(data, here):
+    """The fleet a teams file's data makes, every entry checked before any is used (code.7): a function of the file's
+    data and here, this host's name, or a function that reads it, called only where the file names kept repositories,
+    which the fleet keeps with this host. The file at version 6 (Boomdrive record 0028) gives its drives under
+    `drives`, each named by its label, with its main level, its herdr session's `folder` on its machine, the `repos`
+    that folder keeps, the Claude account each of its main-level roles runs under (`accounts`), and its `flume`, the
+    Flume setting of each of those roles (record 0047 move 6), False while the role stands or the stream its runs run
+    in on the main level's host; `hosts`, each host crew reaches or reads, with its ssh name and kind (hosts_of); and,
+    for the host it is written on, its kept repositories (repositories_of, record 0061), which the fleet keeps with
+    that host as `repositories`, {"host", "named"}, or {} for none, and the consoles it opens (consoles_of), {<label>:
+    <folder>}. Data that is no object, or a file at any other version, one that still lists teams among them, is
+    refused first, by known, in its words; a `teams` list in a version-6 file, which holds none, is refused here
+    (code.5). No key of a former version is read: a file with no `drives` lists none."""
+    known(data)
     "teams" not in data or fail(f"{TEAMS} lists teams, which version {VERSION} has no place for: crew runs no team. It must be "
-                                f"regenerated by the machine's configuration (swancloud's lib/crew-teams.nix); crew has done nothing.")
+                                f"regenerated by {WRITER}; crew has done nothing.")
+    fix = f"regenerate {TEAMS} from {WRITER}"
     # The host's kept repositories, for the host this file is written on alone (record 0061; Decision 4 of
     # a-kept-repositorys-folder-is-the-runners-container): the host is read only when the file names any.
     named = repositories_of(data)
-    repositories = {"host": this_host(), "named": named} if named else {}
-    hosts = read_hosts()
+    repositories = {"host": here() if callable(here) else here, "named": named} if named else {}
+    hosts = hosts_of(data)
     parts = {}
-    for p in data.get("partitions") or fail(f"{TEAMS} lists no partitions"):
-        label = need(p, "a partition", "label", str)
-        what = f"partition {label}"
+    for p in data.get("drives") or fail(f"{TEAMS} lists no drives: it must be regenerated by {WRITER}; crew has done nothing."):
+        label = need(p, "a drive", "label", str)
+        what = f"drive {label}"
         NAME.match(label) or fail(f"{what}: a label is lowercase words with dashes")
-        label not in parts or fail(f"{TEAMS} lists partition {label} twice")
-        name, machine, session = (need(p, what, f, str) for f in ("partition", "machine", "session"))
+        label not in parts or fail(f"{TEAMS} lists drive {label} twice")
+        machine, session = (need(p, what, f, str) for f in ("machine", "session"))
         blueprints = need(p, what, "blueprints", list)
         for b in blueprints:
             isinstance(b, str) and re.match(r"^[^/\s]+/[^/\s]+$", b) or fail(f"{what}: a blueprints repo is GitHub owner/name, not {json.dumps(b)}")
         # Where the drive's plan, moves and run record live: a branch <label>/main of this repository. Never a
         # default: a file without it predates state repositories and is regenerated, not guessed at.
         p.get("state") not in (None, "") or fail(
-            f"{what} in {TEAMS} names no state repository ('state'): regenerate {TEAMS} from the machine's configuration "
-            f"(swancloud's lib/crew-teams.nix), which gives every partition one")
+            f"{what} in {TEAMS} names no state repository ('state'): regenerate {TEAMS} from {WRITER}, which gives every "
+            f"drive one")
         isinstance(p["state"], str) and re.match(r"^[^/\s]+/[^/\s]+$", p["state"]) or fail(
             f"{what}: 'state' is its state repository as GitHub owner/name, not {json.dumps(p['state'])}")
-        # The partition's batch setting: a batch of its constructed changes is due every `every` of them or every
-        # `hours` hours (briefs.12). Never a default: swancloud's lib/crew-teams.nix writes it for every partition.
+        # The drive's batch setting: a batch of its constructed changes is due every `every` of them or every
+        # `hours` hours (briefs.12). Never a default: the machine's configuration writes it for every drive.
         r = p.get("review")
         isinstance(r, dict) and "every" in r and "hours" in r or fail(
-            f"{what} in {TEAMS} has no batch setting ('review', with 'every' and 'hours'): regenerate {TEAMS} from the "
-            f"machine's configuration (swancloud's lib/crew-teams.nix), which gives every partition one")
+            f"{what} in {TEAMS} has no batch setting ('review', with 'every' and 'hours'): regenerate {TEAMS} from "
+            f"{WRITER}, which gives every drive one")
         isinstance(r["every"], int) and not isinstance(r["every"], bool) and r["every"] > 0 or fail(
             f"{what}: 'review.every' is how many changes make a batch, a whole number of at least 1, not {json.dumps(r['every'])}")
         isinstance(r["hours"], (int, float)) and not isinstance(r["hours"], bool) and r["hours"] > 0 or fail(
             f"{what}: 'review.hours' is how many hours make a batch due, a number above 0, not {json.dumps(r['hours'])}")
-        host, sess = session_of(hosts, f"{what}'s main level", machine, session)
-        if sess.get("partition") != name:
-            fail(f"{what}'s main level runs in {machine}'s session {session}, which is in partition {sess.get('partition')}, not {name}")
-        repo_in(sess, f"{what}'s main level", machine, session, blueprints[0])
-        roles = roles_of(p, what)
-        for defn, o in sorted(roles.items()):
-            if "session" in o:
-                _, rs = session_of(hosts, f"{what}'s {defn}", machine, o["session"])
-                rs.get("partition") == name or fail(f"{what}'s {defn} runs in {machine}'s session {o['session']}, which is in "
-                                                     f"partition {rs.get('partition')}, not {name}")
-        # The partition's checkout, where its roles start: its first blueprints repo where its machine keeps it, the
+        # Its machine, a host the file names (hosts_of), and its herdr session's folder there, which keeps its repos.
+        machine in hosts or fail(f"{what} runs on {machine}, which {TEAMS}'s 'hosts' does not name. hosts: "
+                                 + (" ".join(hosts) or "none") + f": {fix}")
+        "folder" in p or fail(f"{what} in {TEAMS} has no 'folder', the absolute folder of its herdr session on {machine}: {fix}")
+        folder = p["folder"]
+        isinstance(folder, str) and folder.startswith("/") or fail(
+            f"{what} in {TEAMS}: 'folder' is the absolute folder of its herdr session on {machine}, not {json.dumps(folder)}: {fix}")
+        "repos" in p or fail(f"{what} in {TEAMS} has no 'repos', the repositories its folder keeps on {machine}, each "
+                             f"<owner>/<name>: {fix}")
+        repos = p["repos"]
+        isinstance(repos, list) or fail(f"{what} in {TEAMS}: 'repos' lists the repositories its folder keeps on {machine}, "
+                                        f"each <owner>/<name>, not {json.dumps(repos)}: {fix}")
+        for k in repos:
+            isinstance(k, str) and ADDRESS.fullmatch(k) or fail(
+                f"{what} in {TEAMS}: 'repos' names {json.dumps(k)}, which is no <owner>/<name>: {fix}")
+        accounts = accounts_of(p, what)
+        # Its first blueprints repo, kept on its machine: among its repos, or named in `repositories` where its
+        # machine is the host the file is written on.
+        b0 = blueprints[0]
+        b0 in repos or b0 in named and repositories["host"] == machine or fail(
+            f"{what}: {machine} keeps no {b0}, its first blueprints repo: {TEAMS} lists it neither in the drive's 'repos' "
+            f"nor in 'repositories' for {machine}: {fix}")
+        drive = dict(p, label=label, ssh=hosts[machine]["ssh"], folder=folder, repos=list(dict.fromkeys(repos)),
+                     accounts=accounts, roles=roles_of(p, what))
+        # A herdr session runs under one account: two of the drive's roles in one session name one.
+        by = {}
+        for role in MAIN_STANDING + ("reviewer",):
+            by.setdefault(role_session(drive, role), []).append(role)
+        for s, rs in by.items():
+            named_ = sorted({accounts[role] for role in rs})
+            len(named_) == 1 or fail(
+                f"{what}'s " + ", ".join(f"{role} ({accounts[role]})" for role in rs) + f" run in session {s} under "
+                + " and ".join(named_) + f", and a herdr session runs under one account: {fix}")
+        # The drive's checkout, where its roles start: its first blueprints repo where its machine keeps it, the
         # teams file's checkout where the file names it for this host (Decision 6 of
-        # a-kept-repositorys-folder-is-the-runners-container), else its session's.
-        at = kept_at({"repositories": repositories}, machine, sess, blueprints[0])
-        parts[label] = dict(p, label=label, partition=name, ssh=host["ssh"], dir=sess["dir"], checkout=at["main"],
-                            roles=roles, flume=role_settings(p, what))
-        parts[label]["sessions"] = {r: role_session(parts[label], r) for r in MAIN_STANDING + ("reviewer",)}
-    return {"hosts": hosts, "partitions": parts, "repositories": repositories}
+        # a-kept-repositorys-folder-is-the-runners-container), else its folder's (kept_at).
+        drive["checkout"] = kept_at({"repositories": repositories}, machine, drive, b0)["main"]
+        drive["flume"] = role_settings(p, what)
+        drive["sessions"] = {r: role_session(drive, r) for r in MAIN_STANDING + ("reviewer",)}
+        parts[label] = drive
+    return {"hosts": hosts, "drives": parts, "repositories": repositories, "consoles": consoles_of(data, list(parts))}
 
 
-def partition_of(fleet, label):
-    return fleet["partitions"].get(label) or fail(f"no partition '{label}'. partitions: " + " ".join(fleet["partitions"]))
+
+# ---------------------------------------------------------------------------------------------- crew drive set
+# The decisions of crew drive set <label>, which names a drive in this host's teams file from its flags and makes its
+# state, at setup's asking on a host Nix does not configure (Boomdrive record 0009's amendment; record 0064; code.5):
+# each a function of plain facts (code.7), the reads and acts thin around them in plan.py's drive_set.
+
+
+def aside_of(teams):
+    """Where crew drive set moves a teams file crew cannot read at all, once, beside it."""
+    return teams.with_name(teams.name + ".before-drive-set")
+
+
+def sentence(words):
+    """A refusal's words ended with one period, whether or not they end with one, so the next sentence follows."""
+    words = words.rstrip()
+    return words if words.endswith(".") else words + "."
+
+
+def drive_given(a, here):
+    """The drive crew drive set's flags give (a, the parsed flags), from the flags alone, every key a flag with no
+    default (code.5): {"drive": its entry, "hosts": {<host>: {"ssh", "kind"}}, "console": its folder or None,
+    "repositories": {<owner/name>: {"dir", "checkout"}}}. here is the host the command runs on, whose kept repositories
+    --repositories names. A flag left out, given more often than its count or given a value crew does not accept for
+    its key is refused naming the flag, before anything is read or written (read.1, code.2), as are flags that
+    disagree: a first --blueprints not among --repos, a --machine not among --hosts, a --repositories address not among
+    --repos, and --repositories where --machine is not here."""
+    label = a.label
+    NAME.match(label or "") or fail(f"crew drive set: a drive's label is lowercase words with dashes, not {json.dumps(label)}; "
+                                    "nothing was read or written")
+
+    def no(flag, why):
+        fail(f"crew drive set {label}: {flag} {why}; nothing was read or written")
+
+    def given(flag):
+        return getattr(a, flag[2:]) or []
+
+    def once(flag, what, required=True):
+        v = given(flag)
+        if not v:
+            if required:
+                no(flag, f"is required: {what}")
+            return None
+        len(v) == 1 or no(flag, f"is given {len(v)} times, and it is given once: {what}")
+        return v[0]
+
+    def some(flag, what):
+        return given(flag) or no(flag, f"is required, once or more: {what}")
+
+    def address(flag, v):
+        ADDRESS.fullmatch(v) or no(flag, f"names {json.dumps(v)}, which is no <owner>/<name>")
+        return v
+
+    def absolute(flag, v):
+        v.startswith("/") or no(flag, f"is an absolute path, not {json.dumps(v)}")
+        return v
+
+    def distinct(flag, names):
+        seen = set()
+        for n in names:
+            n not in seen or no(flag, f"names {n} twice, and each is given once")
+            seen.add(n)
+        return names
+
+    def per_role(flag, what, value):
+        pairs = given(flag) or no(flag, f"is required once for each role, " + ", ".join(KIND_ROLES) + f": {what}")
+        out = {}
+        for role, v in pairs:
+            role in KIND_ROLES or no(flag, f"names {role}, which is no main-level role. roles: " + " ".join(KIND_ROLES))
+            role not in out or no(flag, f"names the {role} twice, and each role is given once")
+            out[role] = value(role, v)
+        for role in KIND_ROLES:
+            role in out or no(flag, f"leaves out the {role}: it is given once for each role, " + ", ".join(KIND_ROLES))
+        return {role: out[role] for role in KIND_ROLES}
+
+    def account(role, v):
+        NAME.match(v) or no("--accounts", f"gives the {role} {json.dumps(v)}, which is no Claude account's name crew accepts")
+        return v
+
+    def stream(role, v):
+        if v == "false":
+            return False
+        v != "true" and NAME.match(v) or no("--flume", f"gives the {role} {json.dumps(v)}, which is false or the name of a Flume stream")
+        return v
+
+    state = address("--state", once("--state", "the drive's state repository, <owner>/<name>"))
+    blueprints = distinct("--blueprints", [address("--blueprints", b) for b in some(
+        "--blueprints", "the drive's blueprints repos, each <owner>/<name>, the first its default")])
+    machine = once("--machine", "the host its main level runs on, as hostname -s names it")
+    NAME.match(machine) or no("--machine", f"is a host's name crew accepts, not {json.dumps(machine)}")
+    session = once("--session", "the herdr session its main level runs in")
+    session or no("--session", "names no herdr session")
+    folder = absolute("--folder", once("--folder", "the absolute folder of its herdr session on its machine"))
+    repos = distinct("--repos", [address("--repos", r) for r in some(
+        "--repos", "the repositories its folder keeps on its machine, each <owner>/<name>")])
+    accounts = per_role("--accounts", "the Claude account each role runs under", account)
+    flume = per_role("--flume", "false while the role stands, or the Flume stream its runs run in", stream)
+    every, hours = once("--review", "how many changes make a batch, and how many hours make one due")
+    re.fullmatch(r"[0-9]+", every) and int(every) >= 1 or no(
+        "--review", f"gives {json.dumps(every)} changes a batch, and that is a whole number of at least 1")
+    re.fullmatch(r"[0-9]+(\.[0-9]+)?", hours) and float(hours) > 0 or no(
+        "--review", f"gives {json.dumps(hours)} hours a batch, and that is a number above 0")
+    review = {"every": int(every), "hours": int(float(hours)) if float(hours).is_integer() else float(hours)}
+    hosts = {}
+    for host, ssh, kind in some("--hosts", "each host the drive needs, by its name, with its ssh name and its kind"):
+        NAME.match(host) or no("--hosts", f"names {json.dumps(host)}, which is no host's name crew accepts")
+        host not in hosts or no("--hosts", f"names {host} twice, and each host is given once")
+        ssh or no("--hosts", f"gives {host} no ssh name")
+        kind in HOST_KINDS or no("--hosts", f"gives {host} the kind {json.dumps(kind)}, which is " + " or ".join(HOST_KINDS))
+        hosts[host] = {"ssh": ssh, "kind": kind}
+    roles = {}
+    for role, key, v in given("--roles"):
+        role in MAIN_ROLES or no("--roles", f"names {role}, which crew has no definition for. roles: " + " ".join(MAIN_ROLES))
+        key in ("model", "effort", "session") or no("--roles", f"sets {role}'s {json.dumps(key)}, and a role's model, effort or session is set")
+        key not in roles.get(role, {}) or no("--roles", f"sets {role}'s {key} twice, and each is set once")
+        v or no("--roles", f"sets {role}'s {key} to nothing")
+        key != "effort" or v in EFFORTS or no("--roles", f"sets {role}'s effort to {json.dumps(v)}, which is no effort level. levels: " + " ".join(EFFORTS))
+        roles.setdefault(role, {})[key] = v
+    console = once("--console", "the absolute folder the drive's console's tabs open in on this host", required=False)
+    console is None or absolute("--console", console)
+    repositories = {}
+    for repo, d, checkout in given("--repositories"):
+        address("--repositories", repo)
+        repo not in repositories or no("--repositories", f"names {repo} twice, and each is given once")
+        repositories[repo] = {"dir": absolute("--repositories", d), "checkout": absolute("--repositories", checkout)}
+    blueprints[0] in repos or no("--blueprints", f"names {blueprints[0]} first, the drive's default, and --repos does not name it: "
+                                 "the drive's first blueprints repo is kept on its machine, among --repos")
+    machine in hosts or no("--machine", f"is {machine}, which --hosts does not name: the drive's machine is among --hosts")
+    for repo in repositories:
+        repo in repos or no("--repositories", f"names {repo}, which --repos does not: a kept repository of the drive is among its --repos")
+    not repositories or machine == here or no(
+        "--repositories", f"names the kept repositories of the host crew drive set runs on, {here}, and the drive's machine is {machine}")
+    drive = {"label": label, "blueprints": blueprints, "state": state, "machine": machine, "session": session, "folder": folder,
+             "repos": repos, "accounts": accounts, "flume": flume, "review": review}
+    if roles:
+        drive["roles"] = roles
+    return {"drive": drive, "hosts": hosts, "console": console, "repositories": repositories}
+
+
+def teams_text(data):
+    """A teams file's text as crew's module writes it (json.nix, flake.2): every object's keys sorted, no space between
+    tokens and no newline after, so for the same settings it holds the same bytes whichever wrote it."""
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def settable(data):
+    """A teams file's data, as readable gives it, in the shape crew drive set needs to keep what each part holds beside
+    the drive (record 0065, point 8): refused, naming the key, where `drives` is no list of objects, or `hosts`,
+    `consoles` or `repositories` is no object, since the set could neither read nor keep what such a part holds. A
+    part that is absent or null holds nothing to keep, and passes. Every other check is fleet_of's, of the file the set
+    would write."""
+    drives = data.get("drives")
+    drives is None or isinstance(drives, list) or fail(
+        f"{TEAMS}: 'drives' lists each drive as an object, not {json.dumps(drives)[:80]}")
+    for d in drives or []:
+        isinstance(d, dict) or fail(f"{TEAMS}: 'drives' lists {json.dumps(d)[:80]}, which is no drive's object")
+    for key in ("hosts", "consoles", "repositories"):
+        v = data.get(key)
+        v is None or isinstance(v, dict) or fail(f"{TEAMS}: '{key}' is an object, not {json.dumps(v)[:80]}")
+
+
+def teams_set(data, given, here):
+    """The teams file's data (None for no file) with the drive given (drive_given) set in it, and the path of each key
+    it changed, never its value: the drive's entry replaced whole, drives.<label> for a new drive or one the file lists
+    more than once, which is written once, else drives.<label>.<key> for each key that changed; each host given set,
+    hosts.<host>; the drive's console set or removed, consoles.<label>; each kept repository given set, and one the file
+    holds kept only while another drive whose machine is here lists it in its repos, repositories.<owner/name>; the
+    drives with a label that is a string in the order of their labels, then any other in the file's order; the version
+    crew's own; every other key the file holds kept as it is, every other drive as the file holds it, its repos read
+    only where they are a list and only their strings, and a consoles or repositories left empty left out. A file's
+    data settable refuses is refused in its words, with nothing set (record 0065, point 8)."""
+    if data is not None:
+        settable(data)
+    was = data if data is not None else {}
+    drive = given["drive"]
+    label = drive["label"]
+    new = dict(was, version=VERSION)
+    mine = [d for d in was.get("drives") or [] if d.get("label") == label]
+    others = [d for d in was.get("drives") or [] if d.get("label") != label]
+    new["drives"] = sorted(others + [drive], key=lambda d: (0, d["label"]) if isinstance(d.get("label"), str) else (1, ""))
+    new["hosts"] = dict(was.get("hosts") or {}, **given["hosts"])
+    consoles = {k: v for k, v in (was.get("consoles") or {}).items() if k != label}
+    if given["console"] is not None:
+        consoles[label] = given["console"]
+    kept_by = {r for d in others if d.get("machine") == here and isinstance(d.get("repos"), list)
+               for r in d["repos"] if isinstance(r, str)}
+    repositories = {r: e for r, e in (was.get("repositories") or {}).items() if r in kept_by}
+    repositories.update(given["repositories"])
+    for key, value in (("consoles", consoles), ("repositories", repositories)):
+        if value:
+            new[key] = value
+        else:
+            new.pop(key, None)
+
+    def same(x, y):
+        return teams_text(x) == teams_text(y)
+    old = mine[0] if len(mine) == 1 else None
+    changed = [f"drives.{label}"] if old is None else [
+        f"drives.{label}.{k}" for k in sorted(set(old) | set(drive)) if k not in old or k not in drive or not same(old[k], drive[k])]
+    was_hosts = was.get("hosts") or {}
+    changed += [f"hosts.{h}" for h in sorted(given["hosts"]) if h not in was_hosts or not same(was_hosts[h], given["hosts"][h])]
+    if (was.get("consoles") or {}).get(label) != consoles.get(label):
+        changed.append(f"consoles.{label}")
+    was_kept = was.get("repositories") or {}
+    changed += [f"repositories.{r}" for r in sorted(set(was_kept) | set(repositories))
+                if r not in was_kept or r not in repositories or not same(was_kept[r], repositories[r])]
+    return new, changed
+
+
+def teams_step(f):
+    """What crew drive set does to the teams file, from plain facts (f): whether it is a link (linked) and where it
+    points (target), its text or None where there is none or it cannot be read (text), whether its aside is taken
+    (aside_taken), the drive given (drive_given) and this host (here), the text as read in bytes or as a string. One of: {"step": "write", "text", "changed"},
+    a new file or the drive set in one that loads; {"step": "unchanged"}, the text it would write being the file's
+    own; {"step": "aside", "reason", "text", "changed"}, a file crew cannot read at all (readable: no JSON, no UTF-8,
+    no object, or at a version this crew does not read) moved once to its aside and the file written new;
+    {"step": "linked", "target"}, a link whose file names the drive as given, written nothing. A file at crew's own
+    version is crew's own, never moved aside, since that would drop every other drive it names (record 0065, point 6;
+    code.5): the drive is set in it (teams_set) before it is checked, whatever it held for the drive's entry, the hosts,
+    console and kept repositories the flags give, so the set mends what it replaces, and the file it would write is
+    checked (fleet_of) (record 0065, point 8). Refused, with nothing written: an aside already taken (read.4); a file at
+    crew's own version whose parts are of a shape the set cannot keep (settable), in settable's words, or that still
+    fails a check once the drive is set, in fleet_of's, each saying the set sets only what its flags give and that the
+    file and every drive it names are left as they are, whether or not the aside is taken; a link whose file does not
+    name the drive as given, naming each key that differs or is missing and services.crew.settings.drives.<label>; and
+    a file crew would write where there was none or it was moved aside that it would refuse (fleet_of), in fleet_of's
+    words."""
+    given, here = f["given"], f["here"]
+    label = given["drive"]["label"]
+
+    def checked(data):
+        try:
+            fleet_of(data, here)
+        except Refusal as e:
+            fail(f"the teams file crew drive set would write is refused: {e} Nothing was written.")
+        return data
+    if f["linked"]:
+        where = (f"{TEAMS} is a link to {f['target']}, which crew's module writes, and crew drive set writes nothing there")
+        fix = (f"the machine's configuration gives the drive in services.crew.settings.drives.{label}, and its hosts, console and kept "
+               "repositories beside it in services.crew.settings; nothing was made")
+        f["text"] is not None or fail(f"{where}; crew cannot read the file it links to: {fix}")
+        try:
+            data = read_teams(f["text"])
+            fleet_of(data, here)
+        except Refusal as e:
+            fail(f"{where}; crew cannot load the file it links to ({e}): {fix}")
+        changed = teams_set(data, given, here)[1]
+        not changed or fail(f"{where}; the file it links to does not name drive {label} as given, " + ", ".join(changed)
+                            + f" differing or missing: {fix}")
+        return {"step": "linked", "target": f["target"]}
+    if f["text"] is None:
+        data, changed = teams_set(None, given, here)
+        return {"step": "write", "text": teams_text(checked(data)), "changed": changed}
+    try:
+        old = readable(f["text"])
+    except Refusal as e:
+        aside = aside_of(TEAMS)
+        not f["aside_taken"] or fail(
+            f"{TEAMS} is a file crew cannot load ({e}), and {aside}, where crew drive set moves such a file once, is taken: "
+            "both are left as they are, and nothing was written")
+        data, changed = teams_set(None, given, here)
+        return {"step": "aside", "reason": str(e), "text": teams_text(checked(data)), "changed": changed}
+    # crew's own file is set before it is checked, so a fault in what the set replaces is mended by it, and never moved
+    # aside, since that would drop every other drive it names (record 0065, points 6 and 8).
+    kept = (f"crew drive set sets only drive {label}'s entry and the hosts, console and kept repositories its flags give, and "
+            f"moves aside only a file crew cannot read at all, so {TEAMS} and every drive it names are left as they are, and "
+            "nothing was written")
+    try:
+        data, changed = teams_set(old, given, here)
+    except Refusal as e:
+        fail(f"{TEAMS} is at crew's version {VERSION}, and crew drive set cannot keep what it holds beside drive {label}: "
+             f"{sentence(str(e))} {kept}")
+    try:
+        fleet_of(data, here)
+    except Refusal as e:
+        fail(f"the teams file crew drive set would write is refused: {sentence(str(e))} {kept}")
+    text = teams_text(data)
+    now = f["text"].decode() if isinstance(f["text"], bytes) else f["text"]  # UTF-8, since it loaded
+    return {"step": "unchanged"} if text == now else {"step": "write", "text": text, "changed": changed}
+
+
+def state_unmade(label, words):
+    """What crew drive set says when the teams file names the drive as given and its state was not made (words, the
+    state's refusal): that the file names it, why the state was not made, and that the same command run again makes
+    it, finishing what this run left (record 0065, point 7)."""
+    return (f"{TEAMS} names drive {label} as given, and its state was not made: {sentence(words)} crew drive set {label} run "
+            "again with the same flags makes it.")
+
+
+def state_said(st):
+    """What crew state init says it did to a drive's branch (plan.py's state_init returns st): the steps it took, or
+    that the branch exists and there was nothing to do."""
+    if st["outcome"] == "exists":
+        return f"{st['branch']} of {st['repository']} exists, at {st['tip'][:7]}: nothing to do"
+    return f"{st['branch']} of {st['repository']} {st['tip'][:7]}: " + "; ".join(st["did"])
+
+
+def drive_said(done, as_json):
+    """crew drive set's answer from what it did (done: its label, its teams file's {"file", "outcome", "aside",
+    "reason", "target", "changed"} and its state's, as state_init returns it): a line for a file moved aside, then
+    one for the teams file and one for the state; or, as_json, one JSON object naming the label, the teams file's
+    outcome, written, unchanged or linked, the path a file was moved to or null and the keys changed, and the state's
+    repository, branch, tip, outcome, made, finished or exists, and the steps it took."""
+    label, t, st = done["label"], done["teams"], done["state"]
+    if as_json:
+        return json.dumps({"label": label,
+                           "teams": {"file": t["file"], "outcome": t["outcome"], "aside": t.get("aside"), "changed": t.get("changed") or []},
+                           "state": {k: st[k] for k in ("repository", "branch", "tip", "outcome", "did")}})
+    lines = [f"{t['file']} moved to {t['aside']}: crew could not load it: {t['reason']}"] if t.get("aside") else []
+    if t["outcome"] == "written":
+        lines.append(f"{t['file']}: drive {label} set, " + ("changing " + ", ".join(t["changed"]) if t.get("changed") else "no key changed"))
+    elif t["outcome"] == "unchanged":
+        lines.append(f"{t['file']} names drive {label} as given: nothing written")
+    else:
+        lines.append(f"{t['file']} is a link to {t['target']}, which crew's module writes: nothing written there, and it names "
+                     f"drive {label} as given")
+    return "\n".join(lines + [state_said(st)])
+
+def ssh_of(fleet, host):
+    """The name ssh reaches a host by, as the teams file's `hosts` gives it (record 0064); refused, naming the host and
+    `hosts`, for a host the file does not name, with no ssh run (read.1)."""
+    e = fleet["hosts"].get(host) or fail(f"{host} is no host {TEAMS}'s 'hosts' names, so crew can't reach it. hosts: "
+                                         + (" ".join(sorted(fleet["hosts"])) or "none"))
+    return e["ssh"]
+
+
+def is_mac(fleet, host):
+    """Whether a host is a Mac, as the teams file's `hosts` gives its kind (record 0064): True for darwin, False for
+    nixos, and None for a host the file does not name, which is neither (read.1)."""
+    e = fleet["hosts"].get(host)
+    return None if not e else e["kind"] == "darwin"
+
+
+def drive_of(fleet, label):
+    return fleet["drives"].get(label) or fail(f"no drive '{label}'. drives: " + " ".join(fleet["drives"]))
 
 
 def role_stream(fleet, label, role):
-    """The Flume stream a partition's main-level role runs in as its kind (record 0047 move 6), or False while it
-    stands, as the partition's `flume` names it."""
+    """The Flume stream a drive's main-level role runs in as its kind (record 0047 move 6), or False while it
+    stands, as the drive's `flume` names it."""
     role in KIND_ROLES or fail(f"{role} is no main-level role that runs as a kind. roles: " + " ".join(KIND_ROLES))
-    return partition_of(fleet, label)["flume"][role]
+    return drive_of(fleet, label)["flume"][role]
 
 
 def kind_role_of(fleet, name):
-    """The partition and role an agent name is, (label, role), where the name is <label>-<role> and its partition
+    """The drive and role an agent name is, (label, role), where the name is <label>-<role> and its drive
     runs that role as its kind; None for any other name, a role that stands among them."""
-    for label, p in fleet["partitions"].items():
+    for label, p in fleet["drives"].items():
         for role in KIND_ROLES:
             if name == f"{label}-{role}" and p["flume"][role] is not False:
                 return label, role
@@ -316,12 +751,12 @@ RUN_PLACE = re.compile(r"crew-([a-z]+)--([a-z0-9][a-z0-9-]*)")
 
 def run_of(fleet, place):
     """The role's run a Flume place is (record 0047 move 6), (label, role), from its path alone: its folder is
-    crew-<role>--<label>, the place the role record names, and its partition runs that role as its kind. None for any
+    crew-<role>--<label>, the place the role record names, and its drive runs that role as its kind. None for any
     other place, a change's or a fix's among them, and for one so named whose role stands."""
     m = RUN_PLACE.fullmatch(pathlib.PurePath(place or "").name)
-    if not m or m[2] not in fleet["partitions"] or m[1] not in KIND_ROLES:
+    if not m or m[2] not in fleet["drives"] or m[1] not in KIND_ROLES:
         return None
-    return (m[2], m[1]) if fleet["partitions"][m[2]]["flume"][m[1]] is not False else None
+    return (m[2], m[1]) if fleet["drives"][m[2]]["flume"][m[1]] is not False else None
 
 
 def run_here(fleet=None):
@@ -344,7 +779,7 @@ def caller(fleet=None):
 
 
 def caller_label(fleet=None):
-    """The partition a crew command runs as: CREW_LABEL, which crew gives each agent it starts, else the label of the
+    """The drive a crew command runs as: CREW_LABEL, which crew gives each agent it starts, else the label of the
     role's run its place is (run_here); None for none."""
     label = os.environ.get("CREW_LABEL")
     if label:
@@ -355,7 +790,7 @@ def caller_label(fleet=None):
 
 def run_exports(run):
     """What plugin/bin/crew sets for a role's run before it runs or forwards any command (code.3): its name and
-    partition as a standing agent's CREW_AGENT and CREW_LABEL, and no Claude session, which a run has none of crew's
+    drive as a standing agent's CREW_AGENT and CREW_LABEL, and no Claude session, which a run has none of crew's
     to read, as shell assignments quoted (teams.9); nothing for a place that is no run."""
     if not run:
         return ""
@@ -363,7 +798,7 @@ def run_exports(run):
 
 
 def role_session(p, role):
-    """The session a main-level role runs in: the one its partition's `roles` names for its definition, else the
+    """The session a main-level role runs in: the one its drive's `roles` names for its definition, else the
     main level's; the reviewer, named none, opens beside the planner (record 0035)."""
     o = (p.get("roles") or {}).get("main-ops" if role == "ops" else role) or {}
     if "session" in o:
@@ -373,26 +808,26 @@ def role_session(p, role):
 
 @functools.lru_cache(maxsize=None)
 def this_host():
-    """The host crew runs on, as `hostname -s` names it: the same name the hosts file and the teams file use. Read once
-    a process."""
+    """The host crew runs on, as `hostname -s` names it: the same name the teams file's `hosts` and each drive's
+    `machine` use. Read once a process."""
     return subprocess.run(["hostname", "-s"], capture_output=True, text=True, check=True).stdout.strip()
 
 
 def on_machine(fleet, host, argv, input=None):
-    """Run a command on a host: here when it is this host, else over ssh, never prompting. A host that does not
-    answer exits 255, as ssh does. herdr here goes through its session's Herdr, so what it does is read again."""
+    """Run a command on a host: here when it is this host, else over ssh by the name the teams file gives it (ssh_of),
+    never prompting. A host that does not answer exits 255, as ssh does. herdr here goes through its session's Herdr, so what it does is read again."""
     if host == this_host():
         if argv[:2] == ["herdr", "--session"] and input is None:
             return herdr_in(argv[2]).run(*argv[3:])
         return subprocess.run(argv, input=input, capture_output=True, text=True)
-    return subprocess.run(["ssh", "-o", "BatchMode=yes", fleet["hosts"][host]["ssh"], shlex.join(argv)],
+    return subprocess.run(["ssh", "-o", "BatchMode=yes", ssh_of(fleet, host), shlex.join(argv)],
                           input=input, capture_output=True, text=True)
 
 
 def place_of_agent(fleet, name):
     """The host and herdr session an agent crew starts runs in, from its name alone: a main level's standing role or
     its reviewer."""
-    for p in fleet["partitions"].values():
+    for p in fleet["drives"].values():
         l = p["label"]
         for role in MAIN_STANDING + ("reviewer",):
             if name == f"{l}-{role}":
@@ -401,19 +836,19 @@ def place_of_agent(fleet, name):
 
 
 def label_of_agent(fleet, name):
-    """The partition an agent crew starts works for, from its name alone."""
-    for l in fleet["partitions"]:
+    """The drive an agent crew starts works for, from its name alone."""
+    for l in fleet["drives"]:
         if name in (f"{l}-{r}" for r in MAIN_STANDING + ("reviewer",)):
             return l
     return None
 
 
 def send_door(fleet, name, caller):
-    """Where crew send delivers (briefs.10, record 0035): a partition named by its label, as (label, its operator). Any
-    other name, a team's from before teams left among them, is refused naming the partitions, never placed by a guess
-    (read.1), and so is the operator sending to its own partition, which it carries on with crew tell."""
-    name in fleet["partitions"] or fail(f"crew send sends to a partition by its label, not '{name}': partitions "
-                                        f"{' '.join(sorted(fleet['partitions'])) or 'none'}")
+    """Where crew send delivers (briefs.10, record 0035): a drive named by its label, as (label, its operator). Any
+    other name, a team's from before teams left among them, is refused naming the drives, never placed by a guess
+    (read.1), and so is the operator sending to its own drive, which it carries on with crew tell."""
+    name in fleet["drives"] or fail(f"crew send sends to a drive by its label, not '{name}': drives "
+                                        f"{' '.join(sorted(fleet['drives'])) or 'none'}")
     door = f"{name}-operator"
     if caller == door:
         fail(f"you are {name}'s door: carry it on with `crew tell <agent>`")
@@ -423,7 +858,7 @@ def send_door(fleet, name, caller):
 # Whom a word from the board goes to, by the role its item's kind names (record 0038 §3, board-page "A word goes to the
 # agent its item's kind names"): a bolt's, a unit's or chore's, a fix's, a proposal's or a batch's planner; a signal's or
 # a record's design agent; a landing's, a deploy's or an operation's main-level ops; and any other kind's, the
-# partition's operator.
+# drive's operator.
 ROLE_OF = {"bolt": "planner", "unit": "planner", "fix": "planner", "proposal": "planner", "batch": "planner",
            "signal": "design", "record": "design", "landing": "ops", "deploy": "ops", "operation": "ops"}
 
@@ -435,9 +870,9 @@ def tell(fleet, name, text, record=True, sender=None, taken=False, what="its pro
     an agent that is not up, one waiting on a question in its pane, and one crew can't read that of is reported, with
     nothing typed, and the tell fails. With taken, the text is taken or sent again (send_taken), and a sending not
     taken fails the tell, saying so of what was sent, with again, what to do once it is ready, when it was never
-    taken. A tell is in the run record of the recipient's partition, with its length and never its text.
+    taken. A tell is in the run record of the recipient's drive, with its length and never its text.
 
-    To a role its partition runs as its kind (record 0047 move 6), with no standing agent of it up, the tell is an ask
+    To a role its drive runs as its kind (record 0047 move 6), with no standing agent of it up, the tell is an ask
     of the role instead, of the kind ask, from the sender or crew (tell_ask), and does not fail for the agent not being
     up; a standing agent of it still up is told as today, and one crew can't read is refused (asks_instead). reading,
     what waits_on_question read of the agent, where the caller already read it."""
@@ -469,14 +904,14 @@ def tell(fleet, name, text, record=True, sender=None, taken=False, what="its pro
 
 def asks_instead(run, status, unread):
     """Whether a tell is an ask of the role rather than a prompt (role-runs "A tell finds a standing agent of the role
-    first"): the agent is a role its partition runs as its kind, run, and crew read that no standing agent of it is up.
+    first"): the agent is a role its drive runs as its kind, run, and crew read that no standing agent of it is up.
     One still up is told as today; one crew could not read is refused (tell_refusal), never asked on a guess (read.1)."""
     return bool(run) and status is None and not unread
 
 
 def tell_ask(fleet, run, text, frm, what="tell"):
-    """A tell to a role that runs as its kind, run (label, role), written as an ask of the role on its partition's
-    drive branch (plan.ask_write), from frm, carrying the text, typed into no pane; `asked <label>-<role>` once it is
+    """A tell to a role that runs as its kind, run (label, role), written as an ask of the role on its drive's
+    branch (plan.ask_write), from frm, carrying the text, typed into no pane; `asked <label>-<role>` once it is
     written. Whether it was written: an ask crew could not write is said, as a tell not typed is."""
     import plan  # plan imports this module
     name = f"{run[0]}-{run[1]}"
@@ -490,9 +925,9 @@ def tell_ask(fleet, run, text, frm, what="tell"):
 
 
 def send(fleet, name, text):
-    """Send the text to the door of the partition named by its label (briefs.10): a tell to its operator, marked with
+    """Send the text to the door of the drive named by its label (briefs.10): a tell to its operator, marked with
     who sent it and `(sent to <name>)` before the text, so the operator knows whom it is for. A send is one `send` entry in
-    the receiving partition's record, with its length and never its text, and no tell entry; one that typed nothing
+    the receiving drive's record, with its length and never its text, and no tell entry; one that typed nothing
     records nothing. To an operator that runs as its kind, with no standing operator up, the send is a `send` ask of it
     carrying `(sent to <name>)` and the text, its entry the ask's (tell)."""
     import record as rec  # record imports this module
@@ -506,17 +941,17 @@ def send(fleet, name, text):
     return sent
 
 
-# The kinds of item a word from the board is on: a dock's, and a batch, a record and the partition itself.
+# The kinds of item a word from the board is on: a dock's, and a batch, a record and the drive itself.
 KINDS = ("signal", "proposal", "bolt", "unit", "fix", "landing", "deploy", "operation", "subscription", "batch", "record",
-         "partition")
+         "drive")
 BOARD_KEY = re.compile(r"^([a-z]+):([A-Za-z0-9._:/+-]{1,200})$")
 WORD_MOST = 1000
 
 
 def board_word(fleet, raw):
     """A word posted from a dock, as the board's listener pipes it (record 0038 §4): one JSON object holding the
-    partition, the item's key, the agent and the text, each a string, the agent the one its item's kind goes to in that
-    partition (ROLE_OF); the text one line of at most WORD_MOST characters. Returns the agent
+    drive, the item's key, the agent and the text, each a string, the agent the one its item's kind goes to in that
+    drive (ROLE_OF); the text one line of at most WORD_MOST characters. Returns the agent
     and the text to tell it, `(on <kind> <name>) <text>`; anything else is refused (read.2)."""
     try:
         w = json.loads(raw)
@@ -525,7 +960,7 @@ def board_word(fleet, raw):
     if not isinstance(w, dict) or not all(isinstance(w.get(f), str) for f in ("label", "key", "to", "text")):
         fail("a word from the board is one JSON object holding label, key, to and text")
     label, key, to, text = w["label"], w["key"], w["to"], w["text"]
-    partition_of(fleet, label)
+    drive_of(fleet, label)
     m = BOARD_KEY.match(key) or fail(f"a word from the board is on an item's key, <kind>:<name>, not '{key}'")
     kind, name = m.groups()
     kind in KINDS or fail(f"a word from the board is on no item of the kind '{kind}': kinds " + " ".join(KINDS))
@@ -1217,13 +1652,13 @@ def greet_waits(name, status, asking, asked, out_of_time, hint, text):
 
 def greet_standing(fleet, name, wait=90):
     """Get an agent crew starts going (a main level's design agent, planner, ops or operator): tell it to read where its
-    partition stands and carry on with what is its role's. A name crew starts no agent by is refused."""
+    drive stands and carry on with what is its role's. A name crew starts no agent by is refused."""
     label, text, why, hint = standing_greeting(fleet, name)
     return greet_agent(fleet, name, text, [f"agent/{name}"], label, why, hint, wait)
 
 
 def standing_greeting(fleet, name):
-    """The greeting of an agent crew starts, by its role, read from its name alone: its partition, the text, the greet
+    """The greeting of an agent crew starts, by its role, read from its name alone: its drive, the text, the greet
     entry's why, and how it is started when it is not up. The reviewer, sent its batch as its prompt, and a name crew
     starts no agent by are refused."""
     label = label_of_agent(fleet, name) or fail(f"no agent {name}: crew starts none by that name")
@@ -1242,48 +1677,54 @@ def named_on(fleet, host):
     return (r.get("named") or {}) if r.get("host") == host else {}
 
 
-def kept_at(fleet, host, sess, repo):
-    """Where a host keeps a repository (owner/name) its session sess's space lists, {"dir" (its folder), "main" (its
-    checkout)}: the teams file's `dir` and `checkout` where the file names it for that host, else the hosts file's
-    layout, <sess dir>/<name> and <sess dir>/<name>/main (checkout)."""
+def kept_at(fleet, host, drive, repo):
+    """Where a host keeps a repository (owner/name) a drive whose machine it is lists in its `repos`, {"dir" (its
+    folder), "main" (its checkout)}: the teams file's `dir` and `checkout` where the file names it for that host,
+    else <folder>/<name> and <folder>/<name>/main in the drive's folder (record 0064)."""
     e = named_on(fleet, host).get(repo)
     if e:
         return {"dir": e["dir"], "main": e["checkout"]}
-    return {"dir": f"{sess['dir']}/{repo.split('/')[-1]}", "main": checkout(sess, repo)}
+    at = f"{drive['folder']}/{repo.split('/')[-1]}"
+    return {"dir": at, "main": f"{at}/main"}
 
 
 def kept(fleet, host):
-    """Every repository a host keeps, {"name", "repo" (owner/name), "dir", "main"}: those its teams file names for it
-    first, at the file's folder and checkout, whether or not a space lists them; then each its sessions' spaces keep
-    that the file does not name by address, at the first session whose space keeps it (kept_at)."""
+    """Every repository a host keeps, {"name", "repo" (owner/name), "dir", "main"}, read from the teams file alone
+    (record 0064): those it names for the host it is written on first, at the file's folder and checkout, whether or
+    not a drive lists them; then each repository in the `repos` of each drive whose machine is the host, in the file's
+    order, that the file does not name by address, in the folder of the first drive that lists it (kept_at). A host
+    keeps no other repository."""
     named = named_on(fleet, host)
     out = {r: {"name": r.split("/")[-1], "repo": r, "dir": e["dir"], "main": e["checkout"]} for r, e in named.items()}
-    for s in fleet["hosts"].get(host, {}).get("sessions", {}).values():
-        for r in s.get("repos") or []:
+    for p in fleet["drives"].values():
+        if p.get("machine") != host:
+            continue
+        for r in p.get("repos") or []:
             if r not in out:
-                out[r] = dict({"name": r.split("/")[-1], "repo": r}, **kept_at(fleet, host, s, r))
+                out[r] = dict({"name": r.split("/")[-1], "repo": r}, **kept_at(fleet, host, p, r))
     return list(out.values())
 
 
 def kept_on(fleet, host, repo):
     """The main checkout of a repo (owner/name) on a host, as it keeps it (kept): the teams file's checkout where the file
-    names it for that host, else the first of the host's sessions whose space keeps it; None where neither does."""
+    names it for that host, else the one in the folder of the first drive there whose `repos` lists it; None where
+    neither does."""
     return next((k["main"] for k in kept(fleet, host) if k["repo"] == repo), None)
 
 
 def kit_kept(fleet, host, kit):
     """A kit as a host keeps it, named as a plan names it, by its forge address, <owner>/<name>, or its name alone: the
     repository of that address, or of that name, among those the host keeps (kept), {"name", "repo" (owner/name as the
-    file or the space names it), "dir" (its folder), "main" (its main checkout)}; None where the host keeps none. Refused
-    for a name alone when the host keeps two repositories by it, counting those its teams file names with those its
-    spaces keep, since crew can't tell which is meant (read.1)."""
+    file or a drive's `repos` names it), "dir" (its folder), "main" (its main checkout)}; None where the host keeps
+    none. Refused for a name alone when the host keeps two repositories by it, counting those its teams file names with
+    those its drives' `repos` list, since crew can't tell which is meant (read.1)."""
     same = (lambda r: r == kit) if "/" in kit else (lambda r: r.split("/")[-1] == kit)
     found = [k for k in kept(fleet, host) if same(k["repo"])]
     if len(found) > 1:
         named = named_on(fleet, host)
         filed = [k["repo"] for k in found if k["repo"] in named]
-        who = (f"{host}'s spaces keep" if not filed else f"{host}'s teams file names" if len(filed) == len(found)
-               else f"{host}'s teams file and spaces keep")
+        who = (f"the teams file's drives on {host} keep" if not filed else f"{host}'s teams file names" if len(filed) == len(found)
+               else f"{host}'s teams file names and its drives keep")
         fail(f"{who} " + " and ".join(k["repo"] for k in found) + f" by the name {kit}, so crew can't tell which is meant")
     return found[0] if found else None
 
@@ -1308,12 +1749,6 @@ def fetches_in(fleet, host, path):
     pass and at once on a landing, a read that needs them fresher waiting for its next fetch (agentplot/boomdrive
     core.14; records 0056 and 0061); everywhere else as before."""
     return runners_clone(fleet, host, path) is None
-
-
-def session_checkouts(fleet, host, sess):
-    """The checkouts of the repositories a session's space keeps on a host, in its order, each where the host keeps it
-    (kept_at): the teams file's checkout where the file names it, else <sess dir>/<name>/main."""
-    return [kept_at(fleet, host, sess, r)["main"] for r in sess.get("repos") or []]
 
 
 # A GitHub repository's address as a manifest's `repository` gives it, its owner and name taken.
@@ -1348,23 +1783,24 @@ def crew_repository():
 
 def crew_on(fleet, host, here, repo):
     """The crew command on a host, crew being the repository repo (owner/name): the crew this host has installed where
-    host is here (crew_command), else the one in the checkout of repo the host's sessions keep, as kept_on finds it.
-    Refused where no session there keeps repo, naming it, since crew can't run there (read.1)."""
+    host is here (crew_command), else the one in the checkout of repo the teams file keeps there, as kept_on finds it.
+    Refused where the file keeps no checkout of repo there, naming it, since crew can't run there (read.1)."""
     if host == here:
         return crew_command()
-    c = kept_on(fleet, host, repo) or fail(f"none of {host}'s sessions keeps {repo}, the repository crew is, so crew can't run there")
+    c = kept_on(fleet, host, repo) or fail(f"{host} keeps no checkout of {repo}, the repository crew is, as the teams file gives "
+                                           "it, so crew can't run there")
     return f"{c}/plugin/bin/crew"
 
 
 def crew_at(fleet, host):
-    """The crew command on a host (crew_on): this crew here, else the checkout the host's spaces keep of the repository
-    crew's manifest names (crew_repository), read only for another host."""
+    """The crew command on a host (crew_on): this crew here, else the checkout the teams file keeps there of the
+    repository crew's manifest names (crew_repository), read only for another host."""
     here = this_host()
     return crew_on(fleet, host, here, None if host == here else crew_repository())
 
 
 def crew_argv(fleet, host, *args):
-    """crew on a host, run as the one asking here: their name, partition and Claude session go with it, so what it
+    """crew on a host, run as the one asking here: their name, drive and Claude session go with it, so what it
     records names them and not the host that did the work."""
     import record as rec  # record imports this module
     return ["env", f"CREW_AGENT={rec.who()}", f"CREW_LABEL={caller_label(fleet) or ''}",
@@ -1372,9 +1808,9 @@ def crew_argv(fleet, host, *args):
 
 
 def kits_on(fleet, label, host, fetch=False):
-    """The main checkouts on a host of a partition's kits, the repositories its plan and its landings name
-    (plan.kits_read), each as the host's spaces keep it (kit_kept), each once, a kit the host keeps no checkout of left
-    out: the kit folders its main level reaches on its host (the user's ruling of 2026-11-01). Read from the partition's
+    """The main checkouts on a host of a drive's kits, the repositories its plan and its landings name
+    (plan.kits_read), each as the host keeps it (kit_kept), each once, a kit the host keeps no checkout of left
+    out: the kit folders its main level reaches on its host (the user's ruling of 2026-11-01). Read from the drive's
     branch as crew's cache holds it, with no fetch (plan.12), as a standing agent's due restart reads it at each stop,
     or fetched first with fetch, as a role's start reads it."""
     import plan  # plan imports this module
@@ -1382,7 +1818,7 @@ def kits_on(fleet, label, host, fetch=False):
 
 
 def kits_kept(fleet, host, kits):
-    """The kits a host keeps of those named (a partition's, plan.partition_kits), each as the host's spaces keep it
+    """The kits a host keeps of those named (a drive's, plan.drive_kits), each as the host keeps it
     (kit_kept), each once by its main checkout, a kit the host keeps no checkout of left out."""
     out = {}
     for kit in kits:
@@ -1393,8 +1829,8 @@ def kits_kept(fleet, host, kits):
 
 
 def blueprints_on(fleet, label, host):
-    """The main checkouts on a host of the partition's blueprints repos, the default first."""
-    return [c for c in (kept_on(fleet, host, b) for b in partition_of(fleet, label)["blueprints"]) if c]
+    """The main checkouts on a host of the drive's blueprints repos, the default first."""
+    return [c for c in (kept_on(fleet, host, b) for b in drive_of(fleet, label)["blueprints"]) if c]
 
 
 def definition(role):
@@ -1410,10 +1846,10 @@ def definition(role):
 
 
 def launch(fleet, label, role, fetch=False):
-    """How crew-role starts a partition's main-level role: its folder, agent name, partition, the definition it comes
+    """How crew-role starts a drive's main-level role: its folder, agent name, drive, the definition it comes
     from, the folders it may also reach, its blueprints' and its kits' on its host (kits_on, fetched first with fetch),
     and the model and effort after the teams file's override."""
-    p = partition_of(fleet, label)
+    p = drive_of(fleet, label)
     roles = p["roles"]
     main = dict(cwd=p["checkout"], dirs=[d for d in blueprints_on(fleet, label, p["machine"])[1:] + kits_on(fleet, label, p["machine"], fetch)])
     if role in MAIN_STANDING + ("reviewer",):
@@ -1426,13 +1862,15 @@ def launch(fleet, label, role, fetch=False):
 
 
 def operator_session(fleet, label, host):
-    """The operator session of a partition on a host is the session named after its label there, where crew console
-    up opens the partition's console."""
-    p = partition_of(fleet, label)
-    sess = fleet["hosts"].get(host, {}).get("sessions", {}).get(label)
-    sess or fail(f"{host} has no session named {label} in {HOSTS}, so no operator session of {label} runs here")
-    sess.get("partition") == p["partition"] or fail(f"{host}'s session {label} is in partition {sess.get('partition')}, not {p['partition']}")
-    return sess
+    """The folder a drive's console opens in on a host, where crew console up opens it in the host's herdr session
+    named for the label: the folder the teams file's `consoles` gives the drive, which names the consoles of the host
+    it is written on alone (record 0064). Refused, naming the drive, the host and `consoles`, where it names none of
+    the drive's there, so that no console opens on a host the file does not say opens it (read.1)."""
+    drive_of(fleet, label)
+    folder = (fleet.get("consoles") or {}).get(label)
+    folder and host == this_host() or fail(f"{host}'s teams file names no console of {label} in 'consoles', so no console of "
+                                           f"{label} opens here")
+    return folder
 
 
 def reach(fleet, machine):
@@ -1532,11 +1970,11 @@ SENDERS = ("A message in your pane that begins `[crew tell from <name>]` was sen
            "sent from the board about the item it names, and answers no card; one that begins `[crew]` is crew's own; "
            "anything else typed there is the user.")
 
-# How anything for another partition is sent, beside every brief's roster (briefs.10): to that partition's operator,
+# How anything for another drive is sent, beside every brief's roster (briefs.10): to that drive's operator,
 # its one door, and to nobody else.
 def sends(cmd):
-    """How a brief says anything for another partition is sent, by crew's command cmd."""
-    return (f"`{cmd} send <partition> \"<text>\"`, which reaches that partition's operator, its one door, "
+    """How a brief says anything for another drive is sent, by crew's command cmd."""
+    return (f"`{cmd} send <drive> \"<text>\"`, which reaches that drive's operator, its one door, "
             "and to nobody else")
 
 # How an agent reports results, the same in every brief that reports them.
@@ -1559,7 +1997,7 @@ RESULTS = ("## Test, check and proof results\n\n"
 
 
 # How a main-level role's work reaches it, the brief's {{TURN}} (design Decision 9, role-runs "A run's brief says how a
-# turn goes"): for a role its partition runs as its kind, how a turn goes, with what is the role's own in a turn
+# turn goes"): for a role its drive runs as its kind, how a turn goes, with what is the role's own in a turn
 # (TURN_OWN); for one that stands, that its work reaches it in its pane.
 KIND_TURN = (
     "You run as your kind: no agent of you stands, and each run of you is one turn, a place the host's runner launches "
@@ -1585,8 +2023,8 @@ STANDING_TURN = ("You stand in your pane, an agent crew started and keeps up: yo
 
 
 def turn_said(p, defn):
-    """The brief's {{TURN}} for a partition's main-level role, by its definition: how a turn goes for a role its
-    partition runs as its kind (KIND_TURN, TURN_OWN), else how a standing role's work reaches it."""
+    """The brief's {{TURN}} for a drive's main-level role, by its definition: how a turn goes for a role its
+    drive runs as its kind (KIND_TURN, TURN_OWN), else how a standing role's work reaches it."""
     role = "ops" if defn == "main-ops" else defn
     if role in KIND_ROLES and p["flume"][role] is not False:
         return KIND_TURN + TURN_OWN.get(defn, "")
@@ -1596,24 +2034,29 @@ def turn_said(p, defn):
 def main_tokens(fleet, p, role, self_name):
     import plan  # plan imports this module
     label, host, cmd = p["label"], this_host(), crew_command()
-    # The partition's kits, the repositories its plan and its landings name, as crew's cache holds its branch (plan.12),
+    # The drive's kits, the repositories its plan and its landings name, as crew's cache holds its branch (plan.12),
     # and those its main level's host keeps a checkout of (Decision 3 of the-team-machinery-leaves).
     named = plan.kits_read(fleet, label, False)
     kept = kits_kept(fleet, p["machine"], named)
     names = {"design": f"{label}-design", "planner": f"{label}-planner", "main-ops": f"{label}-ops",
              "operator": f"{label}-operator", "reviewer": f"{label}-reviewer"}
-    account = lambda s: fleet["hosts"].get(p["machine"], {}).get("sessions", {}).get(s, {}).get("account", "")
-    places = "; ".join(f"`{label}-{r}` in session {s}" + (f" (account {account(s)})" if account(s) else "")
-                       for r, s in ((r, role_session(p, r)) for r in MAIN_STANDING + ("reviewer",)))
-    # The partitions whose operator can change the teams, by label for crew send: one whose main level runs on a Mac
+    # Each role's session, with the account the drive's `accounts` gives it (record 0064).
+    places = "; ".join(f"`{label}-{r}` in session {role_session(p, r)} (account {p['accounts'][r]})"
+                       for r in MAIN_STANDING + ("reviewer",))
+
+    def mac(h):
+        """Whether a host is a Mac, from the teams file's `hosts`; a host it does not name gives no token (teams.10)."""
+        m = is_mac(fleet, h)
+        m is not None or fail(f"{h} is no host {TEAMS}'s 'hosts' names, so crew can't tell whether it is a Mac for "
+                              f"{label}'s brief")
+        return m
+    # The drives whose operator can change the teams, by label for crew send: one whose main level runs on a Mac
     # keeping swancloud's checkout, where lib/crew-teams.nix is edited.
-    doors = sorted(f"`{o['label']}`" for o in fleet["partitions"].values()
-                   if fleet["hosts"].get(o["machine"], {}).get("kind") == "darwin" and kept_on(fleet, o["machine"], "afterthought/swancloud"))
+    doors = sorted(f"`{o['label']}`" for o in fleet["drives"].values()
+                   if mac(o["machine"]) and kept_on(fleet, o["machine"], "afterthought/swancloud"))
     # Each folder beside its checkout, as the main level's host keeps it (Decision 7 of
     # a-kept-repositorys-folder-is-the-runners-container): the teams file's where it names the repository for this
-    # host, else the spaces'; swancloud's in words where the host keeps none (teams.10).
-    sess = fleet["hosts"].get(p["machine"], {}).get("sessions", {}).get(p["session"]) or fail(
-        f"{p['machine']} has no session {p['session']}, where {label}'s main level runs")
+    # host, else the drive's folder's; swancloud's in words where the host keeps none (teams.10).
     swancloud = kit_kept(fleet, p["machine"], "afterthought/swancloud")
     # Each checkout here in the runner's clone, which the brief has the agent fetch and pull nothing in (fetches_in;
     # agentplot-design's ruling on batch 12, agentplot/boomdrive core.14): the blueprints' and the kits', each named.
@@ -1622,11 +2065,11 @@ def main_tokens(fleet, p, role, self_name):
                if not fetches_in(fleet, machine, at)]
     clone = lambda at: "" if fetches_in(fleet, machine, at) else "; the runner's clone, which only the runner fetches"
     tok = {
-        "SELF": self_name or names[role], "LABEL": label, "PARTITION": p["partition"], "HOST": host, "TEAM_CMD": cmd,
+        "SELF": self_name or names[role], "LABEL": label, "HOST": host, "TEAM_CMD": cmd,
         "BLUEPRINTS_REPOS": ", ".join(f"`{b}`" for b in p["blueprints"]), "SIGNALS_REPO": p["blueprints"][0],
         "PLANS": f"`{label}/main` of {p['state']}", "STATE_REPO": p["state"], "SIGNAL": signal_how(cmd, label, p["state"]),
         "CARDS": cards_how(cmd, label, kits_named(kept)), "RESULTS": RESULTS,
-        "CHECKOUT": p["checkout"], "FOLDER": kept_at(fleet, p["machine"], sess, p["blueprints"][0])["dir"],
+        "CHECKOUT": p["checkout"], "FOLDER": kept_at(fleet, p["machine"], p, p["blueprints"][0])["dir"],
         "SWANCLOUD_CHECKOUT": swancloud["main"] if swancloud else f"swancloud's checkout, which {p['machine']} does not keep",
         "SWANCLOUD_FOLDER": swancloud["dir"] if swancloud else f"its folder, which {p['machine']} does not keep",
         "MAIN_PLACE": f"session {p['session']} on {p['machine']}", "MAIN_SESSIONS": places,
@@ -1652,24 +2095,24 @@ def main_tokens(fleet, p, role, self_name):
             "`git -C {{SWANCLOUD_CHECKOUT}} fetch -q origin`, then "),
         "TEAMS_DOORS": ", ".join(doors) or "none", "TURN": turn_said(p, role),
         "SHOWING": (f"{host} is a Mac: open the site the user picks in terminal-browser beside your pane, "
-                    "`terminal-browser open <url> --split right`." if fleet["hosts"].get(host, {}).get("kind") == "darwin" else
+                    "`terminal-browser open <url> --split right`." if mac(host) else
                     f"{host} is a box, which can't open the dev.swancloud.net names: say so, and give the user the URL "
                     "`crew sites` marks to open from a Mac."),
     }
     tok["ROSTER"] = (
-        f"{label}'s main level ({p['partition']}) runs on {p['machine']}, in the `{label}` workspace of each of its sessions: {places}. "
-        f"`{label}-design`, the design agent, keeps the design true on main and curates signals; `{label}-planner` plans the partition's "
+        f"{label}'s main level runs on {p['machine']}, in the `{label}` workspace of each of its sessions: {places}. "
+        f"`{label}-design`, the design agent, keeps the design true on main and curates signals; `{label}-planner` plans the drive's "
         f"bolts and posts its review batches; `{label}-reviewer`, started fresh for each batch, summarizes its changes; `{label}-ops` lands "
-        f"proven bolts on the user's send on each kit's landings card; and `{label}-operator`, the partition's door, works for the user. "
+        f"proven bolts on the user's send on each kit's landings card; and `{label}-operator`, the drive's door, works for the user. "
         f"Any of these is reached with `{cmd} tell <agent> \"<text>\"`, wherever it runs; "
-        f"anything for another partition is sent with {sends(cmd)}. {SENDERS}")
+        f"anything for another drive is sent with {sends(cmd)}. {SENDERS}")
     return tok
 
 
 def brief(fleet, label, role, self_name=""):
-    """A definition's body, filled from the teams file for a partition's main level."""
+    """A definition's body, filled from the teams file for a drive's main level."""
     role in MAIN_ROLES or fail(f"no definition '{role}' for a main level. definitions: " + " ".join(MAIN_ROLES))
-    tok = main_tokens(fleet, partition_of(fleet, label), role, self_name)
+    tok = main_tokens(fleet, drive_of(fleet, label), role, self_name)
     def fill(m):
         k = m.group(1)
         if k not in tok:
@@ -1747,7 +2190,7 @@ def main_named(name, label):
 
 
 def kind_said(label, role):
-    """Why crew-role starts no standing agent of a role its partition runs as its kind (main-level "A role that runs as
+    """Why crew-role starts no standing agent of a role its drive runs as its kind (main-level "A role that runs as
     its kind is not started by crew-role", design Decision 14): its runs are places the host's runner launches, and the
     user opens one to talk with crew role open."""
     return (f"{label}'s {role} runs as its kind, so crew starts no standing agent of it: it is opened with crew role open "
@@ -1773,7 +2216,7 @@ def identity_withheld(name, label, here, main, unread=None):
 
 
 def brief_role(fleet, name, recorded):
-    """The partition and definition an agent's brief is built from: the definition crew-role recorded starting it from
+    """The drive and definition an agent's brief is built from: the definition crew-role recorded starting it from
     (recorded), else, for a session recorded before crew-role named it, the one its name gives. Refused for a name crew
     starts no agent by."""
     label = label_of_agent(fleet, name) or fail(f"no agent {name}: crew starts none by that name")
@@ -2141,13 +2584,13 @@ def launch_digest(l, text, names=None):
 
 def launch_now(fleet, scope, role):
     """The digest of what crew-role would start a standing role with now (launch_digest), its kits read from the
-    partition's branch as crew's cache holds it, with no fetch (kits_on)."""
+    drive's branch as crew's cache holds it, with no fetch (kits_on)."""
     l = launch(fleet, scope, role)
     return launch_digest(l, brief(fleet, scope, l["defn"], l["name"]))
 
 
 def standing_role(fleet, name):
-    """The partition and role crew-role starts a standing agent as, from its name alone: (label,
+    """The drive and role crew-role starts a standing agent as, from its name alone: (label,
     design|planner|ops|operator); None for the reviewer, or a name crew starts no agent by. Only a standing agent
     outlives a batch, so only it is restarted for an update (teams.19)."""
     label = label_of_agent(fleet, name)
@@ -2156,10 +2599,10 @@ def standing_role(fleet, name):
 
 
 def agents_here(fleet, label=None):
-    """The standing agents crew runs on this host, by name, of one partition or of every one: the main level's roles
+    """The standing agents crew runs on this host, by name, of one drive or of every one: the main level's roles
     whose machine this is."""
     host, out = this_host(), []
-    for l, p in sorted(fleet["partitions"].items()):
+    for l, p in sorted(fleet["drives"].items()):
         if label not in (None, l):
             continue
         out += [f"{l}-{r}" for r in MAIN_STANDING if p["machine"] == host]
@@ -2231,14 +2674,14 @@ def update_due(started, installed, launch, loaded):
     return (True, PLUGIN_SAID) if loaded else (False, None)
 
 
-# Why a main level's standing agent is due an end and never a restart once its partition runs its role as its kind
+# Why a main level's standing agent is due an end and never a restart once its drive runs its role as its kind
 # (end_due; design Decision 14 of roles-run-as-flume-kinds).
 KIND_SAID = "its role now runs as its kind, in Flume runs of its own"
 
 
 def end_due(fleet, name):
     """Why a standing agent is due an end rather than a restart, or None: a main level's design agent, planner, ops or
-    operator once its partition runs its role as its kind (kind_role_of; design Decision 14 of
+    operator once its drive runs its role as its kind (kind_role_of; design Decision 14 of
     roles-run-as-flume-kinds), read from the teams file alone, KIND_SAID; never another agent."""
     kind = kind_role_of(fleet, name)
     return KIND_SAID if kind and kind[1] in MAIN_STANDING else None
@@ -2279,10 +2722,10 @@ def launch_shell(fleet, scope, role, extra):
     (what the start is made of besides crew's plugin, launch_digest) and the claude arguments in `args`. A resume with
     no conversation to pick up starts the role fresh.
     A main level's role, fresh or resumed, is refused on any host but its main level's (main_elsewhere_said), and on
-    every host when its partition runs it as its kind (kind_said). Its kit folders are the partition's kits as its
+    every host when its drive runs it as its kind (kind_said). Its kit folders are the drive's kits as its
     branch stands on GitHub, fetched once for the start (kits_on), which its brief then reads with no fetch of its own."""
     if role in MAIN_STANDING + ("reviewer",):
-        p, here = partition_of(fleet, scope), this_host()
+        p, here = drive_of(fleet, scope), this_host()
         p["flume"][role] is False or fail(kind_said(p["label"], role))
         p["machine"] == here or fail(main_elsewhere_said(f"{p['label']}-{role}", p["label"], p["machine"], here))
     l, session = resolve(fleet, scope, role, extra, fetch=True)
@@ -2303,7 +2746,7 @@ def here(fleet):
     """What crew runs on this host: the labels of the main levels whose machine is here, each of whose sessions is one
     Agents (mains). A console runs no agent and is not listed."""
     host = this_host()
-    return [label for label, p in sorted(fleet["partitions"].items()) if p["machine"] == host]
+    return [label for label, p in sorted(fleet["drives"].items()) if p["machine"] == host]
 
 
 # ------------------------------------------------------------------------------------------ a main level's panes
@@ -2634,7 +3077,7 @@ class Agents:
 
 def main_sessions(p):
     """A main level's sessions, the main level's own first, each with its standing roles in MAIN_STANDING's order. A
-    role its partition runs as its kind stands in none (design Decision 14), but the session it stood in is still one,
+    role its drive runs as its kind stands in none (design Decision 14), but the session it stood in is still one,
     so a standing agent of it left there is ended."""
     by = {}
     for role in MAIN_STANDING:
@@ -2644,14 +3087,14 @@ def main_sessions(p):
 
 def main_state(label, p, session):
     """A main level's state folder in one of its sessions: <label>-main for the main level's own session, as it has
-    always been, and <label>-main-<session> for a session its partition names for a role apart."""
+    always been, and <label>-main-<session> for a session its drive names for a role apart."""
     return pathlib.Path.home() / ".local/state/crew" / (f"{label}-main" if session == p["session"] else f"{label}-main-{session}")
 
 
 def mains(fleet, label, force=False):
-    """A partition's main level as the Agents of each of its sessions (record 0035): the main level's own first, then
-    each session its partition names for a role apart, each with the roles standing there."""
-    p = partition_of(fleet, label)
+    """A drive's main level as the Agents of each of its sessions (record 0035): the main level's own first, then
+    each session its drive names for a role apart, each with the roles standing there."""
+    p = drive_of(fleet, label)
     return [Agents(fleet, "main", label, label, s, main_state(label, p, s), roles, p["checkout"], p["machine"], force=force)
             for s, roles in main_sessions(p)]
 
@@ -2659,20 +3102,19 @@ def mains(fleet, label, force=False):
 def main_holding(fleet, label, role, force=False):
     """The Agents of the main level's session a role runs in: the reviewer's is its own session's, beside the planner
     unless named apart, which need hold no standing role."""
-    p = partition_of(fleet, label)
+    p = drive_of(fleet, label)
     s = role_session(p, role)
     held = next((m for m in mains(fleet, label, force) if m.session == s), None)
     return held or Agents(fleet, "main", label, label, s, main_state(label, p, s), (), p["checkout"], p["machine"], force=force)
 
 
 def standing(fleet, kind, label, force=False):
-    """The partition's console on this host (console), as the Agents of its session here: its state folder, standing
+    """The drive's console on this host (console), as the Agents of its session here: its state folder, standing
     roles and the folder it runs in. A main level is mains."""
     host = this_host()
     state = pathlib.Path.home() / f".local/state/crew/{label}-{kind}"
     kind == "console" or fail(f"crew.standing: no kind {kind}")
-    sess = operator_session(fleet, label, host)
-    return Agents(fleet, "console", label, label, label, state, (), sess["dir"], host, host, force)
+    return Agents(fleet, "console", label, label, label, state, (), operator_session(fleet, label, host), host, host, force)
 
 
 def release_cmd(argv):
@@ -2693,7 +3135,7 @@ def main(a):
         return release_cmd(a[1:])
     fleet = load()
     if a[:1] == ["labels"]:
-        print("\n".join(fleet["partitions"]))
+        print("\n".join(fleet["drives"]))
     elif a[:1] == ["brief"] and len(a) >= 3:
         sys.stdout.write(brief(fleet, a[1], a[2], a[3] if len(a) > 3 else ""))
     elif a[:1] == ["launch"] and len(a) >= 3:

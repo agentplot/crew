@@ -13,7 +13,7 @@ import facts
 import plan
 import transcript
 
-FLEET = {**facts.FLEET, "partitions": {**facts.FLEET["partitions"], "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
+FLEET = {**facts.FLEET, "drives": {**facts.FLEET["drives"], "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 
 
 def word(**f):
@@ -46,6 +46,15 @@ class TestTell:
         with pytest.raises(crew.Refusal, match="no item of the kind 'team'"):
             crew.board_word(FLEET, word(key="team:swb-1", to="wldn-operator"))  # no team has a dock
 
+    def test_a_word_on_the_drive_goes_to_its_operator_and_the_former_kind_is_refused(self, told):
+        """A word on the drive itself, `drive:<label>`, goes to the drive's operator, its door; the kind named for a
+        partition is no kind of an item."""
+        assert crew.board_word(FLEET, word(key="drive:wldn", to="wldn-operator")) == ("wldn-operator", "(on drive wldn) Keep the zone check")
+        with pytest.raises(crew.Refusal, match="a word on a drive goes to wldn-operator, not wldn-planner"):
+            crew.board_word(FLEET, word(key="drive:wldn", to="wldn-planner"))
+        with pytest.raises(crew.Refusal, match="no item of the kind 'partition'"):
+            crew.board_word(FLEET, word(key="partition:wldn", to="wldn-operator"))
+
     def test_a_word_on_a_bolt_or_a_fix_goes_to_the_planner(self, told):
         """board-page "Each kind's agent": a bolt's and a fix's word goes to the planner, as a unit's does."""
         assert crew.board_word(FLEET, word(key="bolt:tenant-environments"))[0] == "wldn-planner"
@@ -74,7 +83,7 @@ class TestRefused:
         ('["wldn"]', "one JSON object holding label, key, to and text"),
         (json.dumps({"label": "wldn", "key": "unit:a", "to": "wldn-planner"}), "one JSON object holding label, key, to and text"),
         (word(text=7), "one JSON object holding label, key, to and text"),
-        (word(label="nosuch"), "no partition 'nosuch'. partitions: wldn swancloud"),
+        (word(label="nosuch"), "no drive 'nosuch'. drives: wldn swancloud"),
         (word(key="ledger:a"), "a word from the board is on no item of the kind 'ledger': kinds signal proposal"),
         (word(key="unit:a b"), "a word from the board is on an item's key, <kind>:<name>, not 'unit:a b'"),
         (word(key="proposal:4", to="wldn-ops"), "a word on a proposal goes to wldn-planner, not wldn-ops"),

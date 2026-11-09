@@ -54,7 +54,7 @@ def leave(monkeypatch):
     monkeypatch.setattr(plan, "land_hand", lambda fleet, label, kit, note=None: got["raised"].append((label, kit, note)))
 
     def run(excerpt=STOP, bolts=("y",)):
-        plan.bolt_leave({"partitions": {}}, argparse.Namespace(bolt=list(bolts), label=None, excerpt=excerpt))
+        plan.bolt_leave({"drives": {}}, argparse.Namespace(bolt=list(bolts), label=None, excerpt=excerpt))
         return got
     got["run"] = run
     return got

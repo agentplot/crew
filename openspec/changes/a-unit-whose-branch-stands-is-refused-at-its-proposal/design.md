@@ -41,7 +41,7 @@ The family: Flume owns the refusal and the branch (flume 3, 67, 78). It offers n
 
 ### Decision 2: read where a launch of the kit's work would be made
 
-The repository is the one Flume cuts the place in. That is not the checkout the partition's main-level host keeps (`main_kit`). On deneb, agentplot's runner cuts boomdrive's places in `~/.local/share/flywheel/repositories/agentplot/boomdrive`, while the main level's space keeps `~/Code/github_agentplot/boomdrive` (read 2026-11-07 from `agentplot/runner/deneb`'s `places.rec`).
+The repository is the one Flume cuts the place in. That is not the checkout the drive's main-level host keeps (`main_kit`). On deneb, agentplot's runner cuts boomdrive's places in `~/.local/share/flywheel/repositories/agentplot/boomdrive`, while the main level's space keeps `~/Code/github_agentplot/boomdrive` (read 2026-11-07 from `agentplot/runner/deneb`'s `places.rec`).
 
 `runner.launch_repositories` gives each repository once:
 - the kit's folder where its work runs, as `runner.where` reads it from the runner that took the newest of the kit's launches (its `repositories.rec`, else Flume's status of a place it carries);
@@ -62,7 +62,7 @@ Not taken: the main-level host's checkout. It is a guess at another repository.
 - the runner that took the kit's work carrying no place naming its folder;
 - a runner keeping two repositories by the kit's name.
 
-Where no runner of the partition has taken any of the kit's work and none reports keeping it, no repository is read and the add passes on its other checks. requests.rec and the runners' answers are append-only claims, so no launch of the partition's has cut a place of the kit, and crew can name no repository to read. That is a reading, not a fallback.
+Where no runner of the drive has taken any of the kit's work and none reports keeping it, no repository is read and the add passes on its other checks. requests.rec and the runners' answers are append-only claims, so no launch of the drive's has cut a place of the kit, and crew can name no repository to read. That is a reading, not a fallback.
 
 Not taken: refusing there. It would refuse every first unit of a kit new to the runners, with no way on in crew. A branch a person made by hand in a repository no runner reports is outside what crew can read, and Flume still refuses its launch.
 

@@ -16,7 +16,7 @@ import crew
 import plan
 
 KITS = ("crew", "swancloud")
-FLEET = {"partitions": {"swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
+FLEET = {"drives": {"swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 # Where each kit's work runs, as the runner that took it reported (plan.bolt_at, plan.kit_at): swancloud's on deneb,
 # crew's on mac-studio, each in stream swancloud.
 WHERE = {"swancloud": {"machine": "deneb", "stream": "swancloud",
@@ -68,7 +68,7 @@ def test_a_kits_card_is_on_the_kit_and_a_bolts_on_the_bolt_in_the_run_record():
     assert cards.row_object("land/crew") == "bolt/crew"  # no kit named: as before, a bolt's
 
 
-def test_a_bolt_named_as_a_kit_of_its_partition_is_refused():
+def test_a_bolt_named_as_a_kit_of_its_drive_is_refused():
     assert plan.kit_named("crew", KITS, "swancloud") == (
         "a bolt of swancloud may not be named crew: that is the name of a kit swancloud's plan or landings name, whose landings "
         "card is land/crew")
@@ -1259,10 +1259,10 @@ def row(bolt, head=H1, **more):
 class LandActs:
     """A stand-in for what the raise reaches (plan.CardActs) on the main machine: each bolt's row as its team's host
     gives it (rows, a missing one's host not answering), the forecasts, this host's run record (entries) and the
-    partition's (partition), and Pending You's tools answered from answers."""
+    drive's (drive), and Pending You's tools answered from answers."""
 
-    def __init__(self, rows, entries=(), partition=(), answers=None, here="mac-studio", against_main=None, main=MAIN, works=None):
-        self.rows, self.held, self.whole, self.answers, self.here = rows, list(entries), list(partition), dict(answers or {}), here
+    def __init__(self, rows, entries=(), drive=(), answers=None, here="mac-studio", against_main=None, main=MAIN, works=None):
+        self.rows, self.held, self.whole, self.answers, self.here = rows, list(entries), list(drive), dict(answers or {}), here
         self.calls, self.emitted, self.told, self.asked, self.works, self.worked = [], [], [], [], dict(works or {}), []
         # The forecast: each bolt's conflicts with main ({bolt: [("main", paths)]}) at the revision main (None, unread).
         self.against_main, self.main, self.forecasts, self.kept = dict(against_main or {}), main, [], {}
@@ -1322,7 +1322,7 @@ class LandActs:
     def entries(self, label):
         return self.held
 
-    def partition(self, label):
+    def drive(self, label):
         return self.whole
 
     def bridge(self, name, later, held=None):
@@ -1396,12 +1396,12 @@ def test_a_kits_card_is_raised_under_its_lock_every_read_and_act_inside_it(monke
     holds the kit's lock over the plan, the rows, the record and Pending You, so the second reads the first's close."""
     acts = LandActs({"y": row("y"), "z": row("z")}, answers=POSTED)
     seen = []
-    for name in ("land_row", "entries", "partition", "forecast", "bridge", "emit", "tell"):
+    for name in ("land_row", "entries", "drive", "forecast", "bridge", "emit", "tell"):
         monkeypatch.setattr(acts, name, lambda *a, f=getattr(acts, name), n=name, **k: seen.append((n, acts.holding)) or f(*a, **k))
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: seen.append(("plan", acts.holding)) or plan.Plan(PLAN))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     assert acts.locked == [("swancloud", "crew")]
-    assert {n for n, _ in seen} >= {"plan", "land_row", "entries", "partition", "bridge", "emit"}
+    assert {n for n, _ in seen} >= {"plan", "land_row", "entries", "drive", "bridge", "emit"}
     assert [(n, h) for n, h in seen if h != "crew"] == []
 
 
@@ -1467,7 +1467,7 @@ UP = {"name": "crew-z", "branch": "bolt/z", "revision": H1, "state": "up", "addr
 class TestRowPreview:
     @pytest.fixture(autouse=True)
     def runner_and_writes(self, monkeypatch):
-        """The partition's requests and runners as the case sets them (self.requests, self.reads); each plan write
+        """The drive's requests and runners as the case sets them (self.requests, self.reads); each plan write
         applied to requests.rec at a tip holding them; and no kit's policy read."""
         self.requests, self.reads, self.writes = [], mac_studio(), []
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (list(self.requests), dict(self.reads)))
@@ -1557,7 +1557,7 @@ def test_a_host_that_does_not_answer_is_named_and_the_rest_raised(monkeypatch, c
     assert (post["kind"], post["title"]) == ("approve", "Land the bolt y on crew's main")
 
 
-def test_off_the_partitions_main_machine_the_raise_is_refused_naming_it(monkeypatch):
+def test_off_the_drives_main_machine_the_raise_is_refused_naming_it(monkeypatch):
     with pytest.raises(crew.Refusal, match="crew's landings card is raised on mac-studio, where swancloud-ops's cards are"):
         raised(monkeypatch, LandActs({}, here="deneb"))
 
@@ -1743,7 +1743,7 @@ def test_a_bolt_left_whose_head_moved_is_left_no_more_and_recorded_so(monkeypatc
 def test_a_stop_in_ops_pane_shows_the_bolt_unticked_on_the_waiting_card_and_is_recorded(monkeypatch):
     """rail-cards "A bolt stopped in ops's pane is shown as left": crew bolt leave's note changes the card in place."""
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
-    acts = LandActs({"y": row("y"), "z": row("z")}, held, partition=[stop("z")], answers=dict(POSTED, **WAITING))
+    acts = LandActs({"y": row("y"), "z": row("z")}, held, drive=[stop("z")], answers=dict(POSTED, **WAITING))
     assert raised(monkeypatch, acts, note="z was stopped on your words in swancloud-ops's pane") == "req_k1"
     change = next(a for t, a in acts.calls if t == "update_request")
     assert change["changeNote"] == "z was stopped on your words in swancloud-ops's pane"
@@ -1823,7 +1823,7 @@ def test_a_conflict_the_record_holds_at_the_rows_head_holds_it_with_no_forecast_
     """rail-cards "Raised again at the same heads": the row is handed to the forecast as held, and held taking main first in the
     recorded files though the card's own forecast says nothing of it."""
     recorded = [dict(Act="forecast", On=["bolt/y"], Heads="bolt/y@abc1234 main@2222222", Paths="docs/a.md", Reached="wait")]
-    acts = LandActs({"y": row("y"), "z": row("z")}, partition=recorded, answers=POSTED, main=None)
+    acts = LandActs({"y": row("y"), "z": row("z")}, drive=recorded, answers=POSTED, main=None)
     assert raised(monkeypatch, acts) == "req_k1"
     assert acts.forecasts == [(["y", "z"], ["y"])] and acts.kept == {}
     post = next(a for t, a in acts.calls if t == "post_request")
@@ -1847,7 +1847,7 @@ def test_a_row_newly_taking_main_first_is_recorded_held_once_and_nobody_is_told(
     assert [e for e in acts.emitted if e["Act"] == "forecast"] == [HELD]
     post = next(a for t, a in acts.calls if t == "post_request")
     assert post["recommendedIds"] == ["land:y"] and post["options"][1]["detail"].startswith(MAIN_FIRST[0].upper() + MAIN_FIRST[1:])
-    again = LandActs({"y": row("y"), "z": row("z")}, partition=[HELD], answers=dict(POSTED, **WAITING),
+    again = LandActs({"y": row("y"), "z": row("z")}, drive=[HELD], answers=dict(POSTED, **WAITING),
                      against_main={"z": [("main", ["README.md"])]})
     raised(monkeypatch, again)
     assert {n for n, _ in again.told} == {"swancloud-ops"} and not [e for e in again.emitted if e["Act"] == "forecast"]
@@ -1857,7 +1857,7 @@ def test_a_row_newly_taking_main_first_is_recorded_held_once_and_nobody_is_told(
 def test_a_forecast_recorded_first_at_the_same_heads_is_not_recorded_again(monkeypatch):
     """A forecast the record holds at the same bolt head and revision of main, a conductor's wait's from before among
     them, is not recorded again."""
-    acts = LandActs({"y": row("y"), "z": row("z")}, partition=[dict(HELD, Reached="wait")], answers=POSTED,
+    acts = LandActs({"y": row("y"), "z": row("z")}, drive=[dict(HELD, Reached="wait")], answers=POSTED,
                     against_main={"z": [("main", ["README.md"])]})
     raised(monkeypatch, acts)
     assert not [e for e in acts.emitted if e["Act"] == "forecast"] and [n for n, _ in acts.told] == ["swancloud-ops"]
@@ -2261,7 +2261,7 @@ class TestTheRaisePostsTheLands:
 
 def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_ssh_refused(monkeypatch):
     """bolt-teams "A landing's record rests on the state repository alone", its scenario "Read away from the kit's host"
-    (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners' branches are the partition's
+    (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners' branches are the drive's
     state, so a host that is not the kit's reads y's landing from the runner's report and records it, reaching no
     host."""
     from test_landing import ASKED, base_run

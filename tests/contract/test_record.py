@@ -222,7 +222,7 @@ def test_a_plan_write_is_read_at_the_tip_it_leaves_once_it_returns_and_one_given
     """plan.2, read.5 (every-plan-write-is-an-act-with-its-entry): the write's commit names its entry, the write records
     it, and its own commit follows before the write returns, so no decision after it reads the branch below it; a write
     given no act, whose commit would name an entry nothing writes, is refused with the branch where it was."""
-    fleet = {"partitions": {}, "hosts": {}}
+    fleet = {"drives": {}, "hosts": {}}
     monkeypatch.setattr(crew, "load", lambda: fleet)
     monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
 

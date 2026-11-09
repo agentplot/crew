@@ -9,7 +9,7 @@ import crew
 import record
 
 FALSE = dict.fromkeys(crew.KIND_ROLES, False)
-FLEET = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "roles": {}, "flume": dict(FALSE, planner="madswan-main", operator="madswan-main")},
+FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "roles": {}, "flume": dict(FALSE, planner="madswan-main", operator="madswan-main")},
                         "wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "roles": {}, "flume": FALSE}}, "hosts": {}}
 
 
@@ -122,7 +122,7 @@ class TestSend:
     def test_a_send_to_a_teams_name_from_before_is_refused_and_asks_nothing(self, herdr):
         """operator-agent, A name crew does not know."""
         _, typed, asked, _ = herdr
-        with pytest.raises(crew.Refusal, match="crew send sends to a partition by its label, not 'swc-3'"):
+        with pytest.raises(crew.Refusal, match="crew send sends to a drive by its label, not 'swc-3'"):
             crew.send(FLEET, "swc-3", "hello")
         assert asked == [] and typed == []
 

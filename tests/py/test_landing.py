@@ -212,7 +212,7 @@ class TestTheLandingsPoint:
         asked = []
         monkeypatch.setattr(plan, "change_held", lambda main, ref, u: asked.append((main, ref, u)) or held.get(u))
         monkeypatch.setattr(plan, "kit_git", lambda fleet, t, where, *args: asked.append((where, *args)) or (0, "diff --git a/x b/x"))
-        fleet = {"partitions": {}, "hosts": {}}
+        fleet = {"drives": {}, "hosts": {}}
         f = dict(bolt="y", kit="switchboard-kit", units=["a", "b"], chores=["c"], head="def5678" + "0" * 33, base="abc1234",
                  host="box", main="/kit/main")
         folder = tmp_path / "def5678"
@@ -228,7 +228,7 @@ class TestTheLandingsPoint:
     def test_a_unit_whose_change_the_head_does_not_hold_refuses_and_nothing_is_written(self, monkeypatch, tmp_path):
         monkeypatch.setattr(plan, "change_held", lambda main, ref, u: None)
         monkeypatch.setattr(plan, "kit_git", lambda *a: pytest.fail("the diff was read after a change crew could not read"))
-        fleet = {"partitions": {}, "hosts": {}}
+        fleet = {"drives": {}, "hosts": {}}
         f = dict(bolt="y", kit="k", units=["a"], chores=[], head="def5678" + "0" * 33, base="abc1234", host="box", main="/kit/main")
         with pytest.raises(plan.Refusal, match="unit a's change is not on bolt y at def5678, open or archived, in /kit/main on box"):
             plan.landing_write(fleet, f, tmp_path / "def5678")
@@ -302,7 +302,7 @@ class TestTheLandingsPoint:
         diff = self.section("src/a.ts", int(1.5 * mb)) + self.section("src/b.ts", int(1.5 * mb)) + self.section("gen/c.json", 3 * mb)
         monkeypatch.setattr(plan, "change_held", lambda main, ref, u: [("proposal.md", "a's proposal")])
         monkeypatch.setattr(plan, "kit_git", lambda fleet, t, where, *args: (0, diff.strip()))
-        fleet = {"partitions": {}, "hosts": {}}
+        fleet = {"drives": {}, "hosts": {}}
         f = dict(bolt="y", kit="switchboard-kit", units=["a"], chores=[], head="def5678" + "0" * 33, base="abc1234",
                  host="box", main="/kit/main", repo="o/switchboard-kit")
         paths = [pathlib.Path(p) for p in plan.landing_write(fleet, f, tmp_path / "def5678")]
@@ -409,7 +409,7 @@ class TestTheLandingsAsks:
 
     def fleet(self, **flume):
         import crew
-        return {"partitions": {"swancloud": {"label": "swancloud", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
+        return {"drives": {"swancloud": {"label": "swancloud", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
                                              "flume": dict(dict.fromkeys(crew.KIND_ROLES, False), **flume)}}, "hosts": {}}
 
     @pytest.fixture
@@ -586,7 +586,7 @@ class TestTheFirstReadActs:
         def refused(fleet, a, by=None, close_why=None, card=True):
             raise plan.Refusal("chore c was added to y since it was checked; it has not landed")
         monkeypatch.setattr(plan, "bolt_land", refused)
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: list(self.tip))
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: list(self.tip))
         assert self.read("bolt-landed")[0] is True
         submit, close = self.emitted
         assert (submit["Act"], submit["Outcome"], submit["Submission"], submit["by"]) == ("bolt.submit", "landed", "412", "swancloud-ops")
@@ -744,7 +744,7 @@ class TestCrewBoltLandOfAStartedBolt:
         monkeypatch.setattr(plan, "host_run", no_host)
         monkeypatch.setattr(plan, "locate", lambda fleet, kind, name, label: ("swancloud", "o/state", "tip", plan.Plan(self.PLAN)))
         monkeypatch.setattr(plan, "default_label", lambda fleet, a: "swancloud")
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [])
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [])
         monkeypatch.setattr(plan, "write", lambda fleet, label, change, subject, **k: self.written.append((subject, k)))
         monkeypatch.setattr(plan, "launched_at", lambda *a, **k: None)
         monkeypatch.setattr(plan, "land_hand", lambda *a, **k: None)

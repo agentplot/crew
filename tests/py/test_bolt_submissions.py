@@ -13,8 +13,8 @@ import plan
 # ------------------------------------------------------------------------------------------------- crew bolts
 
 BOX = "chuck-herdr-alpha"
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": BOX}},
-         "hosts": {BOX: {"ssh": BOX, "home": "/h/box"}}}
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX}},
+         "hosts": {BOX: {"ssh": BOX, "kind": "nixos"}}}
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +46,7 @@ def bolts(at="code", carries=None, logs=None):
 
 
 def held(d):
-    return d["partitions"][0]["plans"][0]["bolts"][0]
+    return d["drives"][0]["plans"][0]["bolts"][0]
 
 
 def test_crew_bolts_says_a_bolt_carrying_another_bolts_work_is_held_naming_it():

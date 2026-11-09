@@ -1,7 +1,7 @@
 # A team's work through Flume, through the crew command on the stubs (record 0050 parts 2 and 3; the change
 # teams-cross-to-flume-as-their-bolts-land; Decisions 1 and 10 of the-team-machinery-leaves): crew runs no team's
 # conductor, ops or slot, so crew up is no command, answered with crew's usage, with no host reached and no pane opened. crew bolt start of a
-# bolt is refused while no runner answers for the partition, the plan unchanged and no branch made; once a runner
+# bolt is refused while no runner answers for the drive, the plan unchanged and no branch made; once a runner
 # answers, the plan marks the bolt Path: flume, naming no team, and requests.rec on the state branch holds the launch
 # of the bolt's base place, of crew's kind on main, and then a launch of each of its units and chores in its repository, naming no host or stream, for the
 # runner whose configuration names it to take (the user's ruling of 2026-11-01), no branch made and no agent started
@@ -31,7 +31,7 @@ expect_fail "no runner answers for wldn: its state repository holds no wldn/runn
   crew bolt start next
 eq "$(act_tip)" "$plan_at"
 git --git-dir "$r" rev-parse --verify -q bolt/next >/dev/null && fail "a start with no runner on the host made bolt/next on GitHub"
-ok "a start is refused while no runner answers for the partition, the plan unchanged and no branch made"
+ok "a start is refused while no runner answers for the drive, the plan unchanged and no branch made"
 
 # The runner on swb-1's host serves wldn: its own branch on the state repository, which crew reads and never writes.
 runner_rec=$(printf '%%rec: Runner\n%%key: Host\n%%type: Since date\n%%mandatory: Host Version Since\n%%allowed: Host Version Since\n\nHost: %s\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n' "$box")
@@ -57,7 +57,7 @@ ok "a start asks the runner for its bolt's base place, marks it Path: flume with
 # The runner launched a, and Flume's status of its place, carried on the runner's branch, shows its code stopped short
 # asking: the branch gains answers.rec and places.rec beside runner.rec.
 answers_rec=$(printf '%%rec: Answer\n%%key: Request\n%%type: Request int\n%%type: Outcome enum held launched done refused\n%%type: At date\n%%mandatory: Request Outcome At\n%%allowed: Request Outcome Place Words At\n\nRequest: 2\nOutcome: launched\nPlace: /flume/places/change--a\nAt: 2026-10-31T12:01:00Z\n')
-status='{"status":{"places":[{"place":"/flume/places/change--a","phase":"live","current":"code","stages":[{"name":"code","state":"ended_short","end":{"needs":"needs_answer","words":"Which partition'"'"'s rail?"}}],"waiting_on":{"act":"retry","stage":"code","why":"answer","words":"Which partition'"'"'s rail?"},"stalled":false}]}}'
+status='{"status":{"places":[{"place":"/flume/places/change--a","phase":"live","current":"code","stages":[{"name":"code","state":"ended_short","end":{"needs":"needs_answer","words":"Which drive'"'"'s rail?"}}],"waiting_on":{"act":"retry","stage":"code","why":"answer","words":"Which drive'"'"'s rail?"},"stalled":false}]}}'
 places_rec=$(printf '%%rec: Place\n%%key: Request\n%%type: Request int\n%%type: At date\n%%mandatory: Request Place At Status\n%%allowed: Request Place At Status\n\nRequest: 2\nPlace: /flume/places/change--a\nAt: 2026-10-31T12:02:00Z\nStatus: %s\n' "$status")
 tree=$(for f in runner answers places; do
   v=${f}_rec; printf '100644 blob %s\t%s.rec\n' "$(printf '%s\n' "${!v}" | git --git-dir "$ws" hash-object -w --stdin)" "$f"

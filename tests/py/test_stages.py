@@ -37,7 +37,7 @@ class TestCrossed:
         monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
 
     def stages(self, runners, main=(), chores=(), runs=None, bolt=None):
-        """Stages of x, started, holding a, b after a, and chore c, launched as requests 1 to 3, with the partition's runners
+        """Stages of x, started, holding a, b after a, and chore c, launched as requests 1 to 3, with the drive's runners
         as given (facts.ran, deneb's), and crew's kit as read on deneb holding main's changes and chores, and x's facts
         there as given (bolt, over crew_read's empty bolt)."""
         from facts import launched
@@ -54,7 +54,7 @@ class TestCrossed:
 
     def test_the_runners_host_silent_reads_every_crossed_piece_unknown(self):
         """bolt-plan "The runner's host is silent": deneb's runner branch can't be read, so crew can't tell which runner
-        took each launch; with no runner answering for the partition at all, nothing takes them (read.1)."""
+        took each launch; with no runner answering for the drive at all, nothing takes them (read.1)."""
         silent = {"deneb": runner.host_read("madswan", "deneb", "5e1f0c2a" + "0" * 32, {}, {"runner.rec": "recfix refused it"})}
         st = self.stages(silent)
         why = "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: recfix refused it"
@@ -62,7 +62,7 @@ class TestCrossed:
             ("unknown", f"no runner crew read has taken request {n}, and {why}") for n in (1, 2, 3)]
         assert st.unread(st.plan.bolt("x")) == ("deneb's runner", why)
         none = self.stages({})
-        assert none.of("a")["why"] == "no runner answers for the partition: no <label>/runner/<host> branch exists, so nothing takes request 1"
+        assert none.of("a")["why"] == "no runner answers for the drive: no <label>/runner/<host> branch exists, so nothing takes request 1"
 
     def test_requests_crew_cant_read_read_every_crossed_piece_unknown(self):
         st = self.stages(None, runs="could not fetch madswan/main of afterthought/crew-state over https: no network")
@@ -195,7 +195,7 @@ class TestEndsHeldForTheRunner:
 
     def test_a_launch_refused_for_a_change_its_bolt_holds_reads_refused(self):
         """bolt-plan "A launch refused for a change the bolt holds" (design Decision 4): the runner refused this
-        partition's launch of a because the base bolt/x already holds a change named a, and x's facts give a landing
+        drive's launch of a because the base bolt/x already holds a change named a, and x's facts give a landing
         commit naming change/a; a reads refused in the runner's words, and nothing of x's landing commits is read."""
         from facts import ran
         words = "the base bolt/x already holds a change named a"
@@ -309,7 +309,7 @@ class TestTheBoltsOwnRow:
 
     def stages(self, runners, base=True):
         """x started, holding unit a: its base place's launch request 1 and a's request 2 (a's alone, request 1, without
-        base), with the partition's runners as given (facts.ran, deneb's)."""
+        base), with the drive's runners as given (facts.ran, deneb's)."""
         w = FactsWrite(flume_plan([("x", None, None)], [("a", "x", [], "unit", [])]), label="madswan")
         w.plan.bolt("x").set("Path", "flume")
         if base:

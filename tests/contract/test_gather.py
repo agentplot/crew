@@ -527,7 +527,7 @@ class TestReadingsStamp:
         (cards / "told.json").write_text("{}")
         assert gather.readings_stamp(["wldn"]) != s
 
-    def test_another_partitions_folder_moves_it_not(self, cards):
+    def test_another_drives_folder_moves_it_not(self, cards):
         s = gather.readings_stamp(["wldn"])
         other = cards.parents[2] / "swancloud" / "proposal" / "4"
         other.mkdir(parents=True)

@@ -28,4 +28,4 @@ The operator's brief SHALL name swancloud's checkout and folder as its main leve
 
 #### Scenario: A box's operator
 - **WHEN** wldn's main level runs on the box, whose spaces and file keep no `afterthought/swancloud`
-- **THEN** the operator's brief builds with every token filled, saying the host keeps no checkout of swancloud, and sends a change to the teams to a partition whose main level keeps one
+- **THEN** the operator's brief builds with every token filled, saying the host keeps no checkout of swancloud, and sends a change to the teams to a drive whose main level keeps one

@@ -343,7 +343,7 @@ class TestWhichAct:
         assert plan.proposal_act("approve", 4, mine=False, outcome="x") is None
 
 
-CARDED = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], state="WilldanGroup/crew-state",
+CARDED = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], state="WilldanGroup/crew-state",
                                               checkout="/w/willdan-blueprints/main", blueprints=["WilldanGroup/willdan-blueprints"])})
 
 
