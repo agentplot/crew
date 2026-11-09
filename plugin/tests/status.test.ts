@@ -153,7 +153,7 @@ test("the planner's band draws a place's question in its bolt's ledger and the b
   const planner = [
     [['swancloud plan', 'bold'], ['  ', null], ['1 in flight', null], ['  ', null], ['1 place waits on an answer', null]],
     [['  ', null], ['crew', null], ['  ', null], ['◑○', null], ['  ', null], ['x', null], ['  ', null], ['in Flume stream swancloud', null], ['  ', null], ['0 of 2 merged', null]],
-    [['    ', null], ['◔', null], ['  ', null], ['a', null], ['  ', null], ['needs', null], ['  ', null], ["asks at construct: Which partition's rail?", null]],
+    [['    ', null], ['◔', null], ['  ', null], ['a', null], ['  ', null], ['needs', null], ['  ', null], ["asks at construct: Which drive's rail?", null]],
   ]
   const ops = [
     [['swancloud operations', 'bold'], ['  ', null], ['1 fix in flight', null]],
@@ -161,7 +161,7 @@ test("the planner's band draws a place's question in its bolt's ledger and the b
   ]
   const views = { ...VIEWS, views: { 'swancloud-planner': planner, 'swancloud-ops': ops } }
   const asked = await band($, on, { env: { CREW_AGENT: 'swancloud-planner', CREW_LABEL: 'swancloud' }, views })
-  expect(await asked.find({ type: 'Text', text: /^ {4}◔ {2}a {2}needs {2}asks at construct: Which partition's rail\?$/ })).toBeDefined()
+  expect(await asked.find({ type: 'Text', text: /^ {4}◔ {2}a {2}needs {2}asks at construct: Which drive's rail\?$/ })).toBeDefined()
   expect(await asked.find({ type: 'Text', text: /^ {2}crew {2}◑○ {2}x {2}in Flume stream swancloud {2}0 of 2 merged$/ })).toBeDefined()
   expect(await asked.find({ type: 'Text', text: /main--a-test-reads-its-fixture/ })).toBeUndefined()
 })

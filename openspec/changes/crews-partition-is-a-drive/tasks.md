@@ -41,7 +41,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 5. The mod
 
-- [ ] 5.1 crew's mod, its hooks' description and its cases say drive, the views it draws unchanged (design, Decision 6; Task notes 5.1). Verify `tests/suite mod` ends with "0 failed".
+- [x] 5.1 crew's mod, its hooks' description and its cases say drive, the views it draws unchanged (design, Decision 6; Task notes 5.1). Verify `tests/suite mod` ends with "0 failed".
 
 ## 6. The specs
 
