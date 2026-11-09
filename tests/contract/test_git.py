@@ -191,31 +191,30 @@ def test_a_bolt_github_deleted_after_it_landed_is_read_as_carrying_nothing_and_i
     assert repo.git("rev-parse", "refs/remotes/origin/bolt/deleting") == l214
 
 
-def test_a_kits_policy_is_read_from_mains_commit(repo):
-    """plan.POLICY (teams.5): the policy is what main's commit holds, as sluice reads a branch's policy, not the
-    main checkout's files; a main without one says so."""
+def test_mains_policy_is_read_from_origin_main_as_last_fetched_ahead_of_the_hosts_own(repo, tmp_path):
+    """plan.BOLT_HOME (plan.18), which bolts_local_said runs in a bolt's kit: a kit with an origin has its main's policy,
+    AT_MAIN, read from origin/main as this host last fetched it, fetching nothing itself, not from the host's own main,
+    which lags it (kit.bolt_home)."""
     import kit
-    repo.commit("main", {"README": "r\n"})
-    assert kit.policy_said(script("POLICY", str(repo.path), ".config/sluice.toml").stdout, "k", "h")[:2] == (None, "main")
-    text = '[branches."bolt/*"]\nrequired = ["#check-full"]\n'
-    repo.commit("chore: policy", {".config/sluice.toml": text})
-    (repo.path / ".config" / "sluice.toml").write_text("not what main holds\n")
-    assert kit.policy_said(script("POLICY", str(repo.path), ".config/sluice.toml").stdout, "k", "h")[:2] == (text, "main")
-
-
-def test_a_kits_policy_is_read_from_githubs_main_ahead_of_the_hosts_own(repo, tmp_path):
-    """plan.POLICY (plan.18): a kit on GitHub has its policy read from origin/main after a fetch,
-    where it was written, not from the host's own main, which lags it."""
-    import kit
-    pushed = kit_with_github(repo, tmp_path)
+    kit_with_github(repo, tmp_path)
+    repo.git("branch", "bolt/b")
     o = tmp_path / "other"
     (o / ".config").mkdir()
-    text = '[branches."bolt/*"]\nrequired = ["#check-full"]\n'
+    text = '[branches."bolt/*"]\nrequired = ["#check-full"]\nremote = "origin"\n'
     (o / ".config" / "sluice.toml").write_text(text)
     subprocess.run(["git", "-C", str(o), "add", ".config/sluice.toml"], check=True)
     subprocess.run(["git", "-C", str(o), "commit", "-qm", "chore: policy"], check=True)
     subprocess.run(["git", "-C", str(o), "push", "-q", "origin", "main"], check=True)
-    assert kit.policy_said(script("POLICY", str(repo.path), ".config/sluice.toml").stdout, "k", "h")[:2] == (text, "origin/main")
+
+    def home():
+        r = script("BOLT_HOME", str(repo.path), "b", kit.DECLARATION)
+        assert r.returncode == 0, r.stderr
+        return kit.said_of(r.stdout)["AT_MAIN"], kit.bolt_home(r.stdout, "b")
+
+    assert home() == ("-", (None, None))
+    repo.git("fetch", "-q", "origin")
+    at, lives = home()
+    assert (base64.b64decode(at).decode(), lives) == (text, (None, "origin"))
     assert not (repo.path / ".config" / "sluice.toml").exists()
 
 
