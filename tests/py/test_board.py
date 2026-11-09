@@ -2031,6 +2031,17 @@ class TestRuns:
         # a role that stands keeps its view as it was, and no run's lines
         assert v["wldn-design"] == view("wldn-design") and v["wldn-ops"] == view("wldn-ops")
 
+    def test_a_turns_ends_are_counted_on_its_head_line_and_listed_nowhere(self):
+        """Ends counted: the planner's run took one ask and nine ends of three places, Flume holding them for wldn/planner
+        (crew-board "A role that runs as its kind has its view"; design Decision 7 of crews-role-runs-confirm-what-they-collect)."""
+        ends = [f"end/{n}/change--u{n}/0a1b2c3d/stage/{s}/1/delivered" for n in (12, 14, 15) for s in ("construct", "code", "verify")]
+        r = roles(PLANNER, [an_ask(1, 9)], [a_turn(1, ["ask/1"] + ends)])
+        mine = view("wldn-planner", roles=r)
+        assert mine[:2] == ["wldn-planner run  in stream wldn-main  turn 1 took 1 and 9 ends  nothing waits", "  ask 1  tell from wldn-design"]
+        assert mine[2:] == view("wldn-planner") and not any("end/" in l or "stage/" in l for l in mine)
+        one = roles(PLANNER, [an_ask(1, 9)], [a_turn(1, ["ask/1", ends[0]], ended=True)])
+        assert view("wldn-planner", roles=one)[0] == "wldn-planner run  in stream wldn-main  turn 1 took 1 and 1 end, ended  nothing waits"
+
     def test_a_superseded_turn_is_not_the_runs_and_its_asks_wait_again_until_the_next_takes_them(self):
         lost = roles(PLANNER, [an_ask(1, 20)], [a_turn(1, ["ask/1"], superseded=2)])
         assert view("wldn-planner", roles=lost)[0] == "wldn-planner run  in stream wldn-main  no turn taken  1 ask waits, for 20m"
