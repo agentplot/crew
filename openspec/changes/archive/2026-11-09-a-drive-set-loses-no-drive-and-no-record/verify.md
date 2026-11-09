@@ -67,6 +67,8 @@ How the code meets each requirement of the delta:
 
 Observation, not a shortfall: `teams_step`'s refusal of a taken aside still says "a file crew cannot load (…)". Task note 1.2 keeps "the aside's taken refusal as now", and its test pins those words. `drive_set`'s own refusal for an aside taken in a race now says "cannot read at all". The two texts differ, and the spec asks only that both paths are named.
 
+Observation, not a shortfall: once archived, `openspec validate drive-setup --type spec --strict` gives one warning, which strict counts as a failure. The requirement "A set is one entry naming what it changed" is over 500 characters: the delta grows it from 326 to 613. The change's own `--strict` validation passes, and so does the spec's without `--strict`. 19 other specs on the branch already fail `openspec validate --specs --strict`. Splitting the requirement is the design agent's to judge.
+
 ## Outcome
 
 The checks pass and the work holds. The change is archived with this report.
