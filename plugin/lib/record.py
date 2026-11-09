@@ -449,7 +449,8 @@ def when(text):
 
 
 def line(e, zoe=False):
-    """One entry as one line: time, act, who, host, commit, what it acted on and what that came from."""
+    """One entry as one line: time, act, who, host, commit, what it acted on and what that came from; a landing's
+    bolt.submit or fix.merge with its Outcome, Request and Submission as written."""
     at = e["At"]
     commit = ",".join(c.rsplit("@", 1)[-1][:7] for c in e["Commit"]) or "-"
     s = f"{at[5:10]} {at[11:19]}  {e.get('Act', '?'):<13} {e.get('By', '?'):<20} {e.get('Host', '?'):<17}  {commit:<7}  " + " ".join(e["On"])
@@ -487,6 +488,9 @@ def line(e, zoe=False):
         s += f" ({e['Note']})"
     if e.get("Key") or e.get("Card"):
         s += " (card " + " ".join(x for x in (e.get("Key"), e.get("Card")) if x) + ")"
+    if e.get("Act") in ("bolt.submit", "fix.merge") and (e.get("Outcome") or e.get("Request") or e.get("Submission")):
+        # a landing's entry as written, an older crew's queued Submission among it (run-record "An entry an older crew wrote")
+        s += "  " + ", ".join(f"{k}: {e[k]}" for k in ("Outcome", "Request", "Submission") if e.get(k))
     if e.get("Refused"):
         s += f"  refused: {e['Refused']}"
     if zoe and e.get("Session") and ":" in e["Session"]:

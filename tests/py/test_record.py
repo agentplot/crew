@@ -328,6 +328,16 @@ class TestTrace:
                  entry("20261005T120100Z-mac-5-2", "2026-10-05T12:01:00Z", "chore.move", ["chore/bump", "bolt/b1"], ["queue/switchboard-kit"])]
         assert [e["Act"] for e in record.lineage(E + moved, "chore/bump")] == ["chore.add", "chore.move"]
 
+    def test_a_landings_line_says_its_outcome_request_and_submission_as_written(self):
+        """run-record "An entry an older crew wrote": crew events prints a bolt.submit an older crew queued with its
+        Submission, and one crew writes now with its Outcome and Request."""
+        old = entry("x", "2026-10-05T10:00:00Z", "bolt.submit", ["bolt/x"], Outcome="queued", Submission="355")
+        assert record.line(old).endswith("bolt/x  Outcome: queued, Submission: 355")
+        asked = entry("y", "2026-11-08T10:00:00Z", "bolt.submit", ["bolt/y"], Outcome="asked", Request="57", Card="req_1")
+        assert record.line(asked).endswith("bolt/y (card req_1)  Outcome: asked, Request: 57")
+        landed = entry("z", "2026-11-08T11:00:00Z", "bolt.submit", ["bolt/z"], Outcome="landed", Request="57", Submission="412")
+        assert record.line(landed).endswith("bolt/z  Outcome: landed, Request: 57, Submission: 412")
+
     def test_a_line_names_its_time_act_who_host_commit_objects_and_session_to_open(self):
         assert record.line(E[0], zoe=True) == ("10-05 10:00:00  capture       swb-2-conductor      chuck-herdr-alpha  aaaaaaa  signals/s/01-c"
                                               "  zoe sid-c2 on chuck-herdr-alpha")

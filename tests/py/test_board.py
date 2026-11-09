@@ -2126,16 +2126,52 @@ class TestALandingFromTheRunnersReport:
         b = self.ledger({"outcome": "submitted", "request": 57, "entry": "412", "state": "under_test"}, self.ASKED)
         assert board.head_said(b) == "landing #412 under test" and board.record_landing(b) == "landing #412 under test"
 
-    def test_a_landing_refused_stopped_or_landed_says_it_in_flumes_words(self):
+    FAILED = ("landing refused at aaaaaaa, a check failed, the bolt's, open for work: check-full failed: tests:logic; it waits "
+              "for a fix on the bolt, which ops starts with Flume's words, crew fix y <name> \"check-full failed: tests:logic\", "
+              "and lands again once that fix moves its head")
+
+    def test_a_failed_check_says_its_head_open_for_work_and_ops_fix_recorded_or_not(self):
+        """crew-board "A landing rejected" and bolt-teams "A check that ran and failed": the head its land was posted at,
+        the bolt open for work, and the fix ops starts with Flume's words, before the record holds it and after; nothing
+        once a fix has moved the head."""
         refused = {"outcome": "refused", "request": 57, "why": "failed", "words": "check-full failed: tests:logic"}
-        assert board.head_said(self.ledger(refused, self.ASKED)) == "landing refused, a check failed: check-full failed: tests:logic"
         rejected = dict(self.ASKED, state="rejected", words="landing refused, a check failed: check-full failed: tests:logic")
-        assert board.head_said(self.ledger(refused, rejected)).startswith("landing #57 rejected at aaaaaaa, open for work")
+        assert board.head_said(self.ledger(refused, self.ASKED)) == self.FAILED == board.head_said(self.ledger(refused, rejected))
         assert board.head_said(self.ledger(refused, dict(rejected, head="b" * 40))) == "waits to land"
-        stopped = {"outcome": "stopped", "request": 57, "by": "flume", "words": "the merge queue withdrew the submission"}
-        assert board.head_said(self.ledger(stopped)) == "landing stopped, nothing of the bolt's: the merge queue withdrew the submission"
+        assert board.record_landing(self.ledger(refused, rejected)) == ""
+
+    def test_a_conflict_says_it_takes_main_first_recorded_or_not(self):
+        """crew-board "A landing refused in conflict" and bolt-teams "A conflict is the bolt's": in Flume's words, that it
+        takes main first by the fix crew launches, naming no team."""
+        conflict = {"outcome": "refused", "request": 57, "why": "conflict", "words": "bolt/y conflicts with main on README.md",
+                    "files": ["README.md"], "main": "4d3d9be" + "0" * 33}
+        want = ("takes main first: its landing at aaaaaaa was refused in conflict with main at 4d3d9be: bolt/y conflicts with main "
+                "on README.md; crew launches the fix that takes main into it, ops starting nothing, and it lands again once that "
+                "fix moves its head")
+        rejected = dict(self.ASKED, state="rejected", words="landing refused in conflict with main at 4d3d9be: bolt/y conflicts")
+        assert board.head_said(self.ledger(conflict, self.ASKED)) == want == board.head_said(self.ledger(conflict, rejected))
+
+    def test_a_stop_says_its_head_and_a_landing_its_commit(self):
+        """crew-board "A landing stopped": at the head its land was posted at, in the runner's words."""
+        stopped = {"outcome": "stopped", "request": 57, "by": "runner", "words": "flume refused it: a place on bolt/y is live"}
+        recorded = {"state": "stopped", "n": None, "head": "a" * 40, "words": "flume refused it: a place on bolt/y is live"}
+        want = "landing stopped at aaaaaaa, nothing of the bolt's: flume refused it: a place on bolt/y is live"
+        assert board.head_said(self.ledger(stopped, self.ASKED)) == want == board.head_said(self.ledger(stopped, recorded))
         assert board.head_said(self.ledger({"outcome": "landed", "commit": "c" * 40})) == "landed at ccccccc"
-        assert board.record_landing(self.ledger(refused, rejected)) == "" and board.record_landing(self.ledger(stopped)) == ""
+        assert board.record_landing(self.ledger(stopped, recorded)) == ""
+
+    def test_landing_again_says_nothing_of_the_refusal_while_asked_and_both_once_in_the_queue(self):
+        """crew-board "Landing again": asked again as request 63, nothing of the refusal at its old head; bolt-teams
+        "Landing again": once the runner carries it as #415 under test, that it lands again after #412 was refused, and
+        work joining it is refused naming both."""
+        again = dict(self.ASKED, n="63", rejected=("412", "b" * 40))
+        assert board.head_said(self.ledger({"outcome": "asked", "request": 63}, again)) == "landing asked, request 63"
+        b = self.ledger({"outcome": "submitted", "request": 63, "entry": "415", "state": "under_test"}, again)
+        assert board.head_said(b) == board.record_landing(b) == "landing again as #415, under test, after #412 was refused"
+        assert plan.landing_hold(dict(again, entry="415"), "y", "unit a").startswith(
+            "bolt y is landing again as #415 (request 63), after #412 was refused, so unit a does not join it until its outcome is read")
+        assert plan.landing_hold(dict(self.ASKED, entry="412"), "y", "unit a").startswith(
+            "bolt y has its landing #412 in the merge queue (request 57), so unit a does not join it")
 
     def test_a_bolt_started_before_bolts_were_base_places_says_it_lands_under_the_crew_that_started_it(self):
         legacy = {"outcome": "legacy", "words": "y was started before bolts were base places and lands under the crew that started it"}
@@ -2154,3 +2190,13 @@ class TestALandingFromTheRunnersReport:
         said = [" ".join(f for f, _ in r["fields"] if f) if isinstance(r, dict) and "fields" in r else str(r) for r in board.ops_view(p)]
         text = "\n".join(said)
         assert "landing asked, request 57" in text and "landing #412 under test" in text, text
+
+    def test_ops_band_draws_the_head_line_of_a_bolt_started_before_bolts_were_base_places(self):
+        """crew-board "A bolt started before bolts were base places": the words show in ops's band as in the lane."""
+        legacy = {"outcome": "legacy", "words": "w was started before bolts were base places and lands under the crew that started it"}
+        p = {"label": "wldn", "construction": [dict(self.ledger(legacy, state="active"), bolt="w", repo="crew", markers=[], units=[],
+                                                    fixes=[], pips=[], stream=None, host="deneb")],
+             "environments": [], "fixing": [], "attention": []}
+        said = "\n".join(" ".join(f for f, _ in r["fields"] if f) if isinstance(r, dict) and "fields" in r else str(r)
+                         for r in board.ops_view(p))
+        assert legacy["words"] in said, said

@@ -467,9 +467,10 @@ class TestSubmit:
         a = plan.parser().parse_args(["bolt", "submit", *args])
         with pytest.raises(plan.Refusal) as e:
             plan.bolt_submit(FLEET, a)
-        assert str(e.value) == plan.SUBMIT_REFUSED == (
-            "crew bolt submit lands nothing: a bolt lands on the user's send of its row on its kit's landings card, which "
-            "crew carries to the runner as a land")
+        who = {0: "a bolt lands on the user's send of its row on its kit's", 1: "y lands on the user's send of its row on its kit's",
+               2: "y and z land on the user's send of their rows on their kit's"}[len(a.bolt)]
+        assert str(e.value) == plan.submit_refused(a.bolt) == (
+            f"crew bolt submit lands nothing: {who} landings card, which crew carries to the runner as a land")
 
     def test_its_refusal_records_no_act(self):
         assert ("bolt", "submit") not in plan.ACTS

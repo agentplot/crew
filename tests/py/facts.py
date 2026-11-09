@@ -141,6 +141,29 @@ class FactsWrite:
         return w
 
 
+def writes_at(monkeypatch, tip, text="%rec: Bolt\n\n%rec: Unit\n\n", label="swancloud"):
+    """plan.write stood in for by a write applied to a tip in memory: each change applied to a FactsWrite over text,
+    whose run record is tip (a list, oldest first, that each write's entries join, so a later write is applied to the
+    tip an earlier one left), a change that raises plan.Unposted writing nothing; each write's entries, its act's and
+    each also, as record.parse gives them with a refusal as refused and a Why as why, appended to the list returned."""
+    import plan
+    written = []
+
+    def write(fleet, label_, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
+        w = FactsWrite(text, label=label, entries=list(tip))
+        change(w)
+        es = [dict({**(fields or {}), **w.fields}, Act=w.act or act, On=list(on) + w.on, by=by, why=w.why or why)]
+        es += [dict({k: v for k, v in more.items() if k != "why"}, Act=a, On=list(o), by=by, why=more.get("why") or w.why or why)
+               for _, a, o, more in w.also]
+        for e in es:
+            tip.append(dict({k: v for k, v in e.items() if k not in ("refused", "why", "by")},
+                            **({"Refused": e["refused"]} if e.get("refused") else {}), **({"Why": e["why"]} if e.get("why") else {})))
+        written.extend(es)
+        return "c" * 40
+    monkeypatch.setattr(plan, "write", write)
+    return written
+
+
 def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standing=()):
     """A plan command's reads as a logic case gives them (plan.Reads): each unit's or chore's stage as given, else ready;
     a name free unless the kit's main holds a change (taken) or a chore (chores_taken) by it, or Flume's branch for it

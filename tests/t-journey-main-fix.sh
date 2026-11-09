@@ -54,7 +54,7 @@ ok "once the runner's record shows the fix's code delivered and its submission h
 
 # crew main fix --send lands nothing: refused at once, with or without the user's words, nothing appended
 for more in "" "--excerpt Land-it."; do
-  expect_fail "crew main fix --send lands nothing: a fix of main lands on the user's send of its row on its kit's landings card, which crew carries to the runner as a land" \
+  expect_fail "crew main fix --send lands nothing: fix a-test-reads-its-fixture of switchboard-kit's main lands on the user's send of its row, main--a-test-reads-its-fixture, on switchboard-kit's landings card, land/switchboard-kit, which crew carries to the runner as a land" \
     crew main fix switchboard-kit a-test-reads-its-fixture --send $more
 done
 eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -c)" "1"

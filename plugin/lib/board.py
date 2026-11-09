@@ -657,7 +657,7 @@ def head_said(b):
     rejected at its head, each in words of its own with its number (plan.phase_said); else its state (state_said)."""
     if unclosed(b):
         return f"landed on main, not closed: {unclosed(b)}"
-    return plan.landing_line(b.get("landing"), b.get("record"), b.get("head")) or state_said(b["state"])
+    return plan.landing_line(b.get("landing"), b.get("record"), b.get("head"), b.get("bolt")) or state_said(b["state"])
 
 
 def record_landing(b):
@@ -667,8 +667,15 @@ def record_landing(b):
     recorded it, with its number; nothing for any other state or none."""
     record, landing = b.get("record") or {}, b.get("landing") or {}
     if landing.get("outcome") in ("asked", "submitted") or record.get("state") in ("queued", "again", "asked"):
-        return plan.landing_line(landing if landing.get("outcome") in ("asked", "submitted") else None, record, b.get("head")) or ""
+        return plan.landing_line(landing if landing.get("outcome") in ("asked", "submitted") else None, record, b.get("head"),
+                                 b.get("bolt")) or ""
     return ""
+
+
+def legacy(b):
+    """Whether a held bolt was started before bolts were base places, and lands under the crew that started it (its
+    landing's outcome legacy; crew-lands-each-bolt-through-flumes-base-place, Decision 9)."""
+    return (b.get("landing") or {}).get("outcome") == "legacy"
 
 
 def needs_eye(b):
@@ -796,14 +803,14 @@ def operator_view(p):
 def ops_view(p):
     """Main-level ops's: the partition's operations in brief; each fix of a kit's main and each take-main fix in flight,
     with its stage (fixing; crew-board "A fix of main in ops's band"); each kit's landing row, its landings card ops's, naming
-    the bolts that wait on its main in the plan's order, each with its landing the run record holds queued or landing
-    again, with its number (record_landing), with its card, saying the landing is ops's once the user has answered it, and each started bolt
-    whose landing stands on no such row; then, environment by
-    environment, each deploy
-    waiting on the user's word with its card, each approved and not yet deployed, each running, and each operation step
-    waiting, handed or failed, with the deploy it comes after, or whose gate it is, and its doer; the head line of each
-    bolt that landed on main and whose close was refused, with its words (plan.21); and what keeps a host or the plan
-    from being read."""
+    the bolts that wait on its main in the plan's order, each with its landing asked of the runner with its request or
+    in the merge queue with its entry (record_landing), with its card, saying crew asks the runner to land what the user
+    ticked once they have answered it, and each started bolt whose landing stands on no such row; the head line of each
+    bolt that landed on main and whose close was refused, with its words (plan.21), and of each bolt started before
+    bolts were base places, which lands under the crew that started it (legacy); then, environment by environment, each
+    deploy waiting on the user's word with its card, each approved and not yet deployed, each running, and each
+    operation step waiting, handed or failed, with the deploy it comes after, or whose gate it is, and its doer; and
+    what keeps a host or the plan from being read."""
     pending = [(e["env"], d) for e in p.get("environments", []) for d in e["deploys"] if not d["ended"] and d["answer"] != "replaced"]
     steps = [(e["env"], w) for e in p.get("environments", []) for w in e["waiting"]]
     word = sum(d["answer"] == "waiting" for _, d in pending)
@@ -819,14 +826,14 @@ def ops_view(p):
             if m["group"] == "land":
                 lands.setdefault(m["key"], (m, []))[1].append(b["bolt"])
     landing = {b["bolt"]: f"{b['bolt']} {record_landing(b)}" for b in p.get("construction", []) if record_landing(b)}
-    for key, (m, bolts) in lands.items():  # a card the user answered leaves the landing to ops (Decision 3)
+    for key, (m, bolts) in lands.items():  # a card the user answered: crew carries the send to the runner (Decision 4)
         out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
                               "answered: crew asks the runner to land what the user ticked" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
     out += [row(fields(b["repo"] or "", b["bolt"], record_landing(b)), " ") for b in p.get("construction", [])
             if record_landing(b) and b["bolt"] not in rowed]
-    out += [bolt_row(b) for b in p.get("construction", []) if unclosed(b)]
+    out += [bolt_row(b) for b in p.get("construction", []) if unclosed(b) or legacy(b)]
     for e in p.get("environments", []):
         for d in (d for env, d in pending if env == e["env"]):
             out.append(row(fields(e["env"], f"deploy {d['to'][:7]}", deploy_state(d)), gutter(d["markers"]), 0, d["markers"]))

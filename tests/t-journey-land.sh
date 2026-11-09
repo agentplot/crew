@@ -36,13 +36,7 @@ kit_state() {
 }
 before=$(kit_state)
 : > "$CREW_TEST_LOG"
-# base_status <place> <phase JSON> <submission JSON> [<waiting_on JSON>]: Flume's status of a bolt's base place, as
-# flume 0.17.0 shapes it (tests/py/flume-0.17.0/README)
-base_status() {
-  printf '{"status":{"places":[{"place":"%s","kind":"bolt","identity":"crew/bolt@1","lands":true,"phase":%s,"stages":[],"current":null,"submission":%s,"waiting_on":%s}],"host":{}}}' \
-    "$1" "$2" "$3" "${4:-null}"
-}
-live=$(printf '{"read":"none","submits":0,"send_backs":0,"verdict":null,"waiting":null,"held":false}')
+live=$BASE_LIVE
 # flume_builds <chore> <bolt> <file>: what Flume does with a launched chore once it has built, done in a clone of its
 # own so the kit's checkout is crew's alone: its commit, carrying its trailer, landed on the bolt on GitHub; then the
 # fleet's timer fetches the kit on the box, and the runner carries the chore's place landed at the bolt's new head
@@ -160,7 +154,8 @@ eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Ac
 expect_ok on_box _land-card wldn switchboard-kit
 eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'launch' && Work = '$take'" -c)" "1"
 expect_ok crew rail --label wldn
-has "$out" "landing rejected at $(git -C "$k" rev-parse --short=7 origin/bolt/w), open for work: it lands again once a fix moves its head: landing refused, a check failed: $failed"
+has "$out" "w, on $box, in Flume stream wldn: landing refused at $(git -C "$k" rev-parse --short=7 origin/bolt/w), a check failed, the bolt's, open for work: $failed; it waits for a fix on the bolt, which ops starts with Flume's words, crew fix w <name> \"$failed\""
+has "$out" "z, on $box, in Flume stream wldn: takes main first: its landing at $(git -C "$k" rev-parse --short=7 origin/bolt/z) was refused in conflict with main at ${main:0:7}: $conflict; crew launches the fix that takes main into it"
 ok "Flume's refusals are recorded in its words: the conflicting bolt's take-main fix is launched once however often it is read, and the failed one's row is held"
 
 # The take-main fix lands on z, which reads proven at its new head with its own work unchanged: a second land on the send

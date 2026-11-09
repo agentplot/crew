@@ -108,9 +108,9 @@ class TestSend:
         a = plan.parser().parse_args(["main", "fix", "crew", "a-test-reads-its-fixture", *more])
         with pytest.raises(plan.Refusal) as e:
             plan.main_fix(madswan_fleet(), a)
-        assert str(e.value) == plan.SEND_REFUSED == (
-            "crew main fix --send lands nothing: a fix of main lands on the user's send of its row on its kit's landings card, "
-            "which crew carries to the runner as a land")
+        assert str(e.value) == plan.send_refused("crew", "a-test-reads-its-fixture") == (
+            "crew main fix --send lands nothing: fix a-test-reads-its-fixture of crew's main lands on the user's send of its "
+            "row, main--a-test-reads-its-fixture, on crew's landings card, land/crew, which crew carries to the runner as a land")
 
     def test_its_rows_send_makes_one_land_of_its_launch_due(self):
         w = self.launched()

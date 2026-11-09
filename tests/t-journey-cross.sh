@@ -2,9 +2,10 @@
 # teams-cross-to-flume-as-their-bolts-land; Decisions 1 and 10 of the-team-machinery-leaves): crew runs no team's
 # conductor, ops or slot, so crew up is no command, answered with crew's usage, with no host reached and no pane opened. crew bolt start of a
 # bolt is refused while no runner answers for the partition, the plan unchanged and no branch made; once a runner
-# answers, sluice makes the bolt's branch, the plan marks the bolt Path: flume, naming no team, and requests.rec on the
-# state branch holds a launch of each of its units and chores in its repository, naming no host or stream, for the
-# runner whose configuration names it to take (the user's ruling of 2026-11-01), and no agent starts; a second start of it is refused. Once the runner's record shows a's place stopped short asking, crew
+# answers, the plan marks the bolt Path: flume, naming no team, and requests.rec on the state branch holds the launch
+# of the bolt's base place, of crew's kind on main, and then a launch of each of its units and chores in its repository, naming no host or stream, for the
+# runner whose configuration names it to take (the user's ruling of 2026-11-01), no branch made and no agent started
+# (crew-lands-each-bolt-through-flumes-base-place, Decision 3); a second start of it is refused. Once the runner's record shows a's place stopped short asking, crew
 # answer a appends the retry of that stage with the answer's words, and crew fix of the bolt appends a launch of a fix
 # on it. Two bolts more of the kit are started beside it (Decision 14 of the-team-machinery-leaves). Once a is dropped
 # and Flume keeps change/a in the kit's repository on the box, an add of a again is refused, read there over ssh, and
@@ -40,40 +41,40 @@ git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$box" \
   "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com commit-tree "$tree" -m "runner: serve wldn on $box")"
 : > "$CREW_TEST_CLAUDE_LOG"
 expect_ok crew bolt start next
-has "$out" "next is started: sluice made bolt/next on GitHub (origin) from switchboard-kit's main at"
-has "$out" "no agent starts: unit/a (request 1), unit/b (request 2), chore/c (request 3) is launched in switchboard-kit, for a runner whose configuration names it to take, in the stream its host maps it to"
-git --git-dir "$r" rev-parse --verify -q bolt/next >/dev/null || fail "the start made no bolt/next on GitHub"
+has "$out" "next's base place, bolt/next, is asked of the runner (request 1), which has sluice make its branch from main"
+has "$out" "no agent starts: unit/a (request 2), unit/b (request 3), chore/c (request 4) is launched in switchboard-kit, for a runner whose configuration names it to take, in the stream its host maps it to"
+git --git-dir "$r" rev-parse --verify -q bolt/next >/dev/null && fail "the start made bolt/next on GitHub"
 eq "$(git --git-dir "$ws" show wldn/main:plan.rec | recsel -t Bolt -e "Bolt = 'next'" -P Team,Path | tr '\n' ' ')" "flume "
 eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -P Act,Work,Repo,Kind,Base,Host,Stream,After | grep . | paste -sd ' ' -)" \
-  "launch unit/a switchboard-kit change bolt/next launch unit/b switchboard-kit change bolt/next 1 launch chore/c switchboard-kit chore bolt/next"
+  "launch bolt/next switchboard-kit crew/bolt main launch unit/a switchboard-kit change bolt/next launch unit/b switchboard-kit change bolt/next 2 launch chore/c switchboard-kit chore bolt/next"
 eq "$(launches)" ""
 eq "$(field "$HOST" bolt.start On bolt/next)" "bolt/next"
 plan_at=$(act_tip)
 expect_fail "bolt next is started already" crew bolt start next
 eq "$(act_tip)" "$plan_at"
-ok "a start makes its bolt's branch, marks it Path: flume with no team and launches each unit and chore, b after a, starting no agent, and a second start is refused"
+ok "a start asks the runner for its bolt's base place, marks it Path: flume with no team and launches each unit and chore, b after a, making no branch and starting no agent, and a second start is refused"
 
 # The runner launched a, and Flume's status of its place, carried on the runner's branch, shows its code stopped short
 # asking: the branch gains answers.rec and places.rec beside runner.rec.
-answers_rec=$(printf '%%rec: Answer\n%%key: Request\n%%type: Request int\n%%type: Outcome enum held launched done refused\n%%type: At date\n%%mandatory: Request Outcome At\n%%allowed: Request Outcome Place Words At\n\nRequest: 1\nOutcome: launched\nPlace: /flume/places/change--a\nAt: 2026-10-31T12:01:00Z\n')
+answers_rec=$(printf '%%rec: Answer\n%%key: Request\n%%type: Request int\n%%type: Outcome enum held launched done refused\n%%type: At date\n%%mandatory: Request Outcome At\n%%allowed: Request Outcome Place Words At\n\nRequest: 2\nOutcome: launched\nPlace: /flume/places/change--a\nAt: 2026-10-31T12:01:00Z\n')
 status='{"status":{"places":[{"place":"/flume/places/change--a","phase":"live","current":"code","stages":[{"name":"code","state":"ended_short","end":{"needs":"needs_answer","words":"Which partition'"'"'s rail?"}}],"waiting_on":{"act":"retry","stage":"code","why":"answer","words":"Which partition'"'"'s rail?"},"stalled":false}]}}'
-places_rec=$(printf '%%rec: Place\n%%key: Request\n%%type: Request int\n%%type: At date\n%%mandatory: Request Place At Status\n%%allowed: Request Place At Status\n\nRequest: 1\nPlace: /flume/places/change--a\nAt: 2026-10-31T12:02:00Z\nStatus: %s\n' "$status")
+places_rec=$(printf '%%rec: Place\n%%key: Request\n%%type: Request int\n%%type: At date\n%%mandatory: Request Place At Status\n%%allowed: Request Place At Status\n\nRequest: 2\nPlace: /flume/places/change--a\nAt: 2026-10-31T12:02:00Z\nStatus: %s\n' "$status")
 tree=$(for f in runner answers places; do
   v=${f}_rec; printf '100644 blob %s\t%s.rec\n' "$(printf '%s\n' "${!v}" | git --git-dir "$ws" hash-object -w --stdin)" "$f"
 done | git --git-dir "$ws" mktree)
 git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$box" "$(git --git-dir "$ws" -c user.name=runner -c user.email=runner@example.com \
   commit-tree "$tree" -p "refs/heads/wldn/runner/$box" -m "runner: a's place stopped short")"
 expect_ok crew answer a "wldn's"
-has "$out" "unit/a's place /flume/places/change--a is asked to run code again with the answer (request 4): the runner on $box retries it"
-eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Request = 4" -P Act,Work,Of,Stage,Words | grep . | paste -sd ' ' -)" \
-  "retry unit/a 1 code wldn's"
+has "$out" "unit/a's place /flume/places/change--a is asked to run code again with the answer (request 5): the runner on $box retries it"
+eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Request = 5" -P Act,Work,Of,Stage,Words | grep . | paste -sd ' ' -)" \
+  "retry unit/a 2 code wldn's"
 eq "$(field "$HOST" stage.answer On)" "unit/a bolt/next"
 ok "crew answer of a place the runner shows stopped short asking appends the retry of its stage with the answer's words"
 
 : > "$CREW_TEST_CLAUDE_LOG"
 expect_ok crew fix next tidy "Tidy the rail's words."
-has "$out" "fix next--tidy is launched on bolt/next in switchboard-kit (request 5) for a runner whose configuration names it to take"
-eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Request = 5" -P Act,Work,Kind,Name,Base,Brief | grep . | paste -sd ' ' -)" \
+has "$out" "fix next--tidy is launched on bolt/next in switchboard-kit (request 6) for a runner whose configuration names it to take"
+eq "$(git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Request = 6" -P Act,Work,Kind,Name,Base,Brief | grep . | paste -sd ' ' -)" \
   "launch fix/next/tidy fix next--tidy bolt/next Tidy the rail's words."
 eq "$(field "$HOST" fix.start On)" "fix/next/tidy bolt/next"
 eq "$(launches)" ""

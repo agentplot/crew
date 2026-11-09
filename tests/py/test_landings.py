@@ -113,6 +113,17 @@ def test_a_fix_in_flight_holds_its_row_in_its_words_with_no_box():
         ("z", False, "held for fix/z/old until it merges or is dropped")]
 
 
+def test_a_bolt_started_before_bolts_were_base_places_has_no_box_beside_one_that_can_land():
+    """rail-cards "A bolt started before bolts were base places", beside a bolt that can land (Decision 9): its row is
+    held with no box in the words that say it lands under the crew that started it, and the card shows the other
+    alone."""
+    import runner
+    rows = plan.landing_rows(["y", "z"], {"y": facts("y", legacy=runner.legacy_said("y")), "z": facts("z")}, {})
+    assert [(r["bolt"], r["box"], r.get("why")) for r in rows] == [
+        ("y", False, "y was started before bolts were base places and lands under the crew that started it"), ("z", True, None)]
+    assert [r["bolt"] for r in plan.card_rows(rows)] == ["z"]
+
+
 def test_a_landing_refused_at_the_bolts_present_head_holds_its_row():
     head = "d" * 40
     held = plan.refusals([submitted("y", "c" * 40), submitted("y", head, "bolt/y did not land: sluice found a conflict")])
@@ -2100,16 +2111,15 @@ def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_
     """bolt-teams "Read from any host" (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners'
     branches are the partition's state, so a host that is not the kit's reads y's landing from the runner's report and
     records it, reaching no host."""
-    import record
     from test_landing import ASKED, base_run
-    emitted = []
 
     def refused(*a, **k):
         raise AssertionError("ssh: connect to host deneb: refused")
     monkeypatch.setattr(crew, "on_machine", refused)
     monkeypatch.setattr(plan, "host_run", refused)
     monkeypatch.setattr(crew, "this_host", lambda: "macbook-pro")
-    monkeypatch.setattr(record, "emit", lambda label, act, on=(), *a, **f: emitted.append(dict(f, Act=act, On=list(on))))
+    from facts import writes_at
+    emitted = writes_at(monkeypatch, [ASKED])
     monkeypatch.setattr(plan, "unlanded_ask", lambda *a, **k: None)
     landed, said = plan.landing_read({}, "swancloud", "y", base_run("bolt-failed"), [ASKED])
     assert (landed, said) == (False, "landing refused, a check failed: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")

@@ -678,6 +678,20 @@ def base_run(fixture=None, more=None, land=True, refused=None):
 ASKED = dict(Act="bolt.submit", On=["bolt/y"], Card="req_k1", Head=TIP, Request="2", Outcome="asked")
 
 
+def test_a_fix_while_the_landing_is_under_test_is_refused_naming_its_entry():
+    """bolt-teams "A fix while the landing is under test": the runner carries y's base place with its submission #412
+    under test, and crew fix y logic is refused naming #412, its land's request beside it, at the tip it is applied
+    to (plan.phase_at)."""
+    import runner
+    from facts import FactsWrite
+    requests, reads = base_run("bolt-submitted")
+    text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in requests)
+    w = FactsWrite("%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\n", files={"requests.rec": text},
+                   runners=reads, label="swancloud", entries=[ASKED])
+    assert plan.landing_hold(plan.phase_at(w, "y"), "y", "fix y--logic").startswith(
+        "bolt y has its landing #412 in the merge queue (request 2), so fix y--logic does not join it until its outcome is read")
+
+
 class TestTheLandingsRecord:
     """bolt-teams "A landing's outcome is read from the runner's report" (Decision 6): what crew records of a landing
     once the runner's report decides it (plan.landing_entry), once per land, from the land it posted."""
@@ -689,8 +703,9 @@ class TestTheLandingsRecord:
         return l, plan.landing_entry(list(entries), "y", l)
 
     def test_a_landing_is_recorded_landed_with_its_land_and_the_head_it_carried(self):
+        """run-record "A landing whose entry Flume names": the landed bolt.submit carries Submission 412."""
         l, got = self.entry("bolt-landed")
-        assert got == dict(Request="2", Head=TIP, Submission=None, Outcome="landed",
+        assert got == dict(Request="2", Head=TIP, Submission="412", Outcome="landed",
                            Why=f"bolt(y): landed on main at {COMMIT[:7]}, as the runner reports it")
 
     def test_a_failed_check_and_a_conflict_are_recorded_refused_in_flumes_words(self):
@@ -727,6 +742,9 @@ class TestTheFirstReadActs:
             raise AssertionError("a landing's read reaches no host")
         monkeypatch.setattr(crew, "on_machine", no_host)
         monkeypatch.setattr(plan, "host_run", no_host)
+        from facts import writes_at
+        self.tip = []  # the run record at the tip a write is applied to, which read() sets and each write joins
+        self.emitted = writes_at(monkeypatch, self.tip)
         monkeypatch.setattr(record, "emit", lambda label, act, on=(), *a, **f: self.emitted.append(dict(f, Act=act, On=list(on))))
         monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\n"))
         monkeypatch.setattr(plan, "bolt_land", lambda fleet, a, by=None, close_why=None, card=True: self.closed.append((a.bolt, by, close_why, card)))
@@ -735,15 +753,37 @@ class TestTheFirstReadActs:
         monkeypatch.setenv("CREW_AGENT", "swancloud-planner")
 
     def read(self, fixture, entries=(ASKED,), card=True, **more):
+        self.tip[:] = list(entries) + [e for e in self.tip if e not in entries]
         return plan.landing_read({}, "swancloud", "y", base_run(fixture, **more), list(entries), card)
 
     def test_a_landing_closes_the_bolt_at_flumes_commit_in_ops_name(self):
         assert self.read("bolt-landed", card=False)[0] is True
         (e,) = self.emitted
-        assert (e["Act"], e["Outcome"], e["Request"], e["by"]) == ("bolt.submit", "landed", "2", "swancloud-ops")
+        assert (e["Act"], e["Outcome"], e["Request"], e["Submission"], e["by"]) == ("bolt.submit", "landed", "2", "412", "swancloud-ops")
         assert self.closed == [("y", "swancloud-ops", "plan(y): land the bolt, landed at a7c3e9f as the runner reports it, read by "
                                 "swancloud-planner", False)]
         assert self.asked == [] and self.taken == []
+
+    def test_a_landing_whose_close_is_refused_is_recorded_landed_all_the_same(self, monkeypatch):
+        def refused(fleet, a, by=None, close_why=None, card=True):
+            raise plan.Refusal("chore c was added to y since it was checked; it has not landed")
+        monkeypatch.setattr(plan, "bolt_land", refused)
+        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: list(self.tip))
+        assert self.read("bolt-landed")[0] is True
+        submit, close = self.emitted
+        assert (submit["Act"], submit["Outcome"], submit["Submission"], submit["by"]) == ("bolt.submit", "landed", "412", "swancloud-ops")
+        assert (close["Act"], close["refused"]) == ("bolt.land", "chore c was added to y since it was checked; it has not landed")
+
+    def test_two_reads_at_once_record_once(self, monkeypatch):
+        """bolt-teams "Two reads at once": the second read's write is applied to a tip that holds the first's entry, so
+        it writes nothing, asks nothing, and a close the first made is no refusal of the second's."""
+        self.read("bolt-failed")
+        first = list(self.tip)
+        plan.landing_read({}, "swancloud", "y", base_run("bolt-failed"), [ASKED], True)  # read below the first's write
+        assert [e["Act"] for e in self.emitted] == ["bolt.submit"] and len(self.asked) == 1 and self.tip == first
+        landed = [ASKED, dict(ASKED, Outcome="landed", Request="2"), {"Act": "bolt.land", "On": ["bolt/y"], "Head": COMMIT}]
+        assert plan.closed_already([{"Act": "bolt.start", "On": ["bolt/y"]}] + landed, "y")
+        assert not plan.closed_already([{"Act": "bolt.start", "On": ["bolt/y"]}, dict(landed[2], Refused="no")], "y")
 
     def test_a_failed_check_is_recorded_once_and_asks_ops_with_flumes_words(self):
         assert self.read("bolt-failed")[0] is False

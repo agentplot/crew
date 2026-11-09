@@ -884,7 +884,7 @@ class TestLandingOf:
 
     def test_the_place_over_landed_is_landed_with_its_commit(self):
         got = self.of(ran({1: "flume-0.17.0/bolt-landed"}, unplaced={2: "-"}))
-        assert got == {"outcome": "landed", "commit": "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0"}
+        assert got == {"outcome": "landed", "commit": "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0", "entry": "412", "request": 2}
         assert runner.landing_said(got) == "landed at a7c3e9f"
 
     def test_a_failed_check_is_refused_the_bolts_with_flumes_words(self):

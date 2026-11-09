@@ -2103,18 +2103,31 @@ class TestMainMoved:
                 raise crew.Refusal(self.refuse)
             return "req_k2"
 
-    def moved(self, acts, cards_=None, machine="mac-studio"):
+    def moved(self, acts, cards_=None, machine="mac-studio", answered=()):
         fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], machine=machine)})
         cards_ = cards_ if cards_ is not None else [dict(label="wldn", card="req_k1", key=f"land/{KIT}", by="wldn-ops", host="mac-studio")]
         found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
-        read = dict(found=found, sv=survey(), cards=cards_, kits=kits_of(found))
+        read = dict(found=found, sv=survey(), cards=cards_, kits=kits_of(found),
+                    swept={"answered": {c: dict(at=None, answer="approved", heads=None) for c in answered}})
         return plan.sweep_moved(fleet, read, acts)
+
+    def test_a_card_whose_answer_the_sweep_recorded_is_raised_so_its_lands_are_posted(self):
+        """rail-cards "A send's lands are posted by the first act that reads it": the host's follower's sweep records
+        the user's answer on land/<kit>, and its read raises the card at once, main having not moved, so the raise posts
+        the send's lands; a card answered before this read is raised by none."""
+        acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
+        got = self.moved(acts, answered=["req_k1"])
+        assert acts.raised == [KIT]
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True)], "unread": []}
+        assert f"landings cards raised on the user's send, its lands posted:\n  land/{KIT} (wldn): raised" in text([], moved=got)
+        acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
+        assert self.moved(acts, answered=["req_other"]) == {"raised": [], "unread": []} and acts.raised == []
 
     def test_a_card_main_moved_under_is_raised_again_and_said(self):
         acts = self.Acts({KIT: (self.M2, None)}, {KIT: self.M1})
         got = self.moved(acts)
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None)], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False)], "unread": []}
         assert ("landings cards forecast again, main having moved:\n"
                 f"  land/{KIT} (wldn): main is at e4f5a6b, its rows forecast at a1b2c3d: raised again (req_k2)") in text([], moved=got)
 

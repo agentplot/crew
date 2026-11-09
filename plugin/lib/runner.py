@@ -1210,7 +1210,7 @@ def landing_of(launch, lands, reads):
     the runner that took the launch, its answers to the launch and the lands and Flume's status of the place as it
     carried it (flume_facts), each fact guarded (read.2). Returns {"outcome", and what goes with it}:
     unlaunched, with the runner's words, while the launch is unanswered, held or refused; landed, with Flume's commit,
-    once the place is over landed; dropped, once it is over dropped; none, while no land stands; asked, with the
+    the merge queue's entry where Flume names one and the newest land's request, once the place is over landed; dropped, once it is over dropped; none, while no land stands; asked, with the
     newest land's request, while the runner has not answered it or Flume has not submitted it yet, the place's
     submissions fewer than the lands the runner carried; stopped, in the runner's words, when it answered the newest
     land refused, as when a place on the branch is live; submitted, with the merge queue's entry and its state, while
@@ -1238,7 +1238,8 @@ def landing_of(launch, lands, reads):
     if place is not None and f is None:
         return {"outcome": "unknown", "why": f"Flume's status of {work}'s place, as the runner carried it, holds no place {place['place']}"}
     if f and f["over"] == "landed":
-        return {"outcome": "landed", "commit": f["commit"]} if f["commit"] else {
+        return dict({"outcome": "landed", "commit": f["commit"]}, **({"entry": f["entry"]} if f["entry"] else {}),
+                    **({"request": number(lands[-1].get("Request"))} if lands else {})) if f["commit"] else {
             "outcome": "unknown", "why": f"Flume's status of {work}'s place says it landed and names no commit"}
     if f and f["over"] == "dropped":
         return {"outcome": "dropped"}
@@ -1272,12 +1273,18 @@ def landing_of(launch, lands, reads):
     return asked
 
 
-def landing_said(l):
+def landing_said(l, bolt=None, head=None):
     """A landing (landing_of) in the words of its head line and its row (Decision 10): asked with its request;
     under test or waiting with the merge queue's entry; landed at its commit; refused in Flume's words; stopped in the
-    runner's or Flume's; unknown with why; "" for none, unlaunched (base_said) and dropped."""
+    runner's or Flume's; unknown with why; "" for none, unlaunched (base_said) and dropped. Given the bolt and the head
+    its land was posted at, the words a view shows say that head and what comes next (bolt-teams "A landing that did not
+    land is the bolt's only for its own content"): a failed check, that the bolt is open for work and ops starts a fix
+    on it with Flume's words, crew fix <bolt> <name> "<words>"; a conflict, that it takes main first, by the fix crew
+    launches to take main into it, ops starting nothing; a stop, at that head. Without them, the words the run record
+    keeps of a refusal (landing_entry)."""
     o = l.get("outcome")
     first = (l.get("words") or "").strip().splitlines()[0] if (l.get("words") or "").strip() else ""
+    at = f" at {head[:7]}" if head else ""
     if o == "asked":
         return f"landing asked, request {l['request']}"
     if o == "submitted":
@@ -1285,11 +1292,20 @@ def landing_said(l):
         return f"landing #{l['entry']} {state}" if l.get("entry") else f"landing submitted, request {l['request']}"
     if o == "landed":
         return f"landed at {(l.get('commit') or '')[:7]}"
+    if o == "refused" and l.get("why") == "conflict":
+        main = f" at {l['main'][:7]}" if l.get("main") else ""
+        if bolt is None:
+            return f"landing refused in conflict with main{main}: {first}"
+        return (f"takes main first: its landing{at} was refused in conflict with main{main}: {first}; crew launches the "
+                "fix that takes main into it, ops starting nothing, and it lands again once that fix moves its head")
     if o == "refused":
-        return (f"landing refused in conflict with main" + (f" at {l['main'][:7]}" if l.get("main") else "") + f": {first}"
-                if l.get("why") == "conflict" else f"landing refused, a check failed: {first}")
+        if bolt is None:
+            return f"landing refused, a check failed: {first}"
+        return (f"landing refused{at}, a check failed, the bolt's, open for work: {first}; it waits for a fix on the bolt, "
+                f"which ops starts with Flume's words, crew fix {bolt} <name> \"{first}\", and lands again once that fix "
+                "moves its head")
     if o == "stopped":
-        return f"landing stopped, nothing of the bolt's: {first}"
+        return f"landing stopped{at}, nothing of the bolt's: {first}"
     if o == "unknown":
         return f"can't tell its landing: {l.get('why')}"
     return ""
