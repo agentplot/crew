@@ -426,8 +426,6 @@ class TestWhenABoltIsFetched:
         asks = []
         monkeypatch.setattr(plan, "READ", plan.Reading())
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: ([], {}))
-        monkeypatch.setattr(plan, "submits_read", lambda fleet, label: [])  # the run record's bolt.submit entries
-        monkeypatch.setattr(plan, "submits_at", lambda repo, tip: [])
         monkeypatch.setattr(plan, "rail_runs", lambda found: {"wldn": ([], {})})
         monkeypatch.setattr(plan, "bolt_at", lambda fleet, label, b, run=None: self.WHERE if plan.started(b) else None)
         monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [])  # the run record crew bolts reads its landings from
@@ -582,27 +580,25 @@ class TestCrewBoltsCrossed:
                                f"waits on its caller at {at}: {words}")
         assert "verify" not in line
 
-    def test_a_bolt_whose_units_its_branch_holds_reads_where_it_runs_and_each_unit_merged(self):
-        """bolt-plan "A unit whose work its bolt's branch holds is built" (signal 2026-11-07-agentplot-planner-cbc41169/02):
-        x's a and b ran as another partition's places and landed on x, x's head b's landing; crew launched
-        them again here and the runner refused each, the bolt already holding the change, so the runner carries no place
-        of x's; y, started, runs on deneb, whose runner reports crew in its repositories.rec. crew bolts reads x at deneb,
-        in no stream while no place of x's is carried (Decision 1 of a-bolts-landing-on-main-reads-landed), never "where
-        it runs can't be told", each of a and b merged at its landing, and x waiting to land."""
+    def test_a_bolt_whose_places_the_runner_holds_ended_reads_each_unit_merged(self):
+        """bolt-plan "A landing held for the runner": Flume landed x's a and b on x and tidied their places, holding each
+        record for the runner, which carries them as their status (tests/py/flume-0.20.0/landed-held.json), a at
+        1111111 and b at 2222222, x's head b's landing; y, started, runs on deneb. crew bolts reads x at deneb, in the stream
+        the held records name, waiting to land, each of a and b merged on a line naming its place, and no line saying a
+        landing on its bolt names it."""
         from facts import crew_read, launched, madswan_fleet, ran
         fleet = madswan_fleet()
         p, requests = launched(["x", "y"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("y1", "y", [], "unit", [])],
                                fleet=fleet)
-        runners = ran({3: "code"}, refused={n: f"the base bolt/x already holds a change named {u}" for n, u in ((1, "a"), (2, "b"))})
-        landings = {"change/a": {"commit": "1" * 40, "at": "2026-11-07T19:10:00Z"}, "change/b": {"commit": "2" * 40, "at": "2026-11-07T19:20:00Z"}}
+        runners = ran({1: "flume-0.20.0/landed-held", 2: "flume-0.20.0/landed-held", 3: "code"}, commits={1: "1" * 40, 2: "2" * 40})
         d = plan.bolts_data(fleet, ["madswan"], [("madswan", "afterthought/crew-state", "abcdef1" + "0" * 33, p)],
-                            crew_read(bolts={"x": {"landings": landings, "head": "2" * 40}, "y": {}}), {},
-                            runs={"madswan": (requests, runners)})
+                            crew_read(bolts={"x": {"head": "2" * 40}, "y": {}}), {}, runs={"madswan": (requests, runners)})
         out = plan.bolts_text(d).splitlines()
-        assert "x  crew  @ deneb  waits" in out, out
-        assert f"  {'a':<40} {'merged':<12}   change/a landed on its bolt at 1111111" in out
-        assert f"  {'b':<40} {'merged':<12}   change/b landed on its bolt at 2222222" in out
-        assert not any("can't be told" in line for line in out)
+        assert "x  crew  @ deneb, in Flume stream madswan  waits" in out, out
+        place = "flume/change--crew-runs-from-its-own-file-alone"
+        for u in "ab":
+            assert any(line.startswith(f"  {u:<40} {'merged':<12} {place}") for line in out), out
+        assert not any("landed on its bolt" in line or "can't be told" in line for line in out)
 
     def test_a_question_and_sluices_words_are_on_the_pieces_line(self):
         """bolt-plan "A construct that asked" and "Sent back by sluice"."""

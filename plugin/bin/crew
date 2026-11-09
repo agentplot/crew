@@ -6,10 +6,10 @@
 # configuration names its kit's repository, which crew bolts shows, the kit's folder there the one that runner's
 # repositories.rec names, or, where it reports none, the one its newest place of the kit names, a runner that reports
 # neither leaving the kit unread. crew starts no stage and waits on none: a stage's start and end are Flume's, and
-# crew bolts reads them from the runner's records, a unit, chore or fix merged once a landing sluice made on its bolt
-# names its place's branch, whatever the runner reports, a fix's fix/<bolt>--<name> only from a landing at or after
-# its launch; once the kit's main holds the bolt's landing, its Sluice-From naming bolt/<bolt> or its second parent a
-# head crew submitted of it, a landed bolt's pieces are read from that landing on main, its branch standing or not.
+# crew bolts reads them from the runner's records: a piece's end is the runner's report alone,
+# the record Flume holds for the runner after it tidies a place among them, a unit, chore or fix merged once the
+# runner reports its place landed on its bolt, and no landing commit on the bolt or on main read for it; a landed bolt
+# closes once each of its pieces reads landed so, its branch standing or not.
 # Each partition names its flume, an object of its five main-level roles, design, planner, reviewer, ops and operator,
 # each false while it stands or the Flume stream its runs run in on the main level's host: a role that runs as its
 # kind, whose runs are launched by the host's runner while something is pending for it (crew role below); with flume

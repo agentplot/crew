@@ -34,8 +34,9 @@
 # its waiter on the box calls sluice wait again while sluice is undecided, then reads the landing from sluice's record,
 # recording it landed and closing the bolt; and with the waiter stopped too, GitHub having deleted the bolt's branch and
 # the box's runner carrying no place of its work, ops's crew bolt land reads it from sluice's record first, records it
-# landed, naming the commit main holds, and closes it (bolt-teams "A landed bolt whose branch and places are gone";
-# Decision 3 of a-bolts-landing-on-main-reads-landed). With wldn's ops, planner and design agent running as their kinds, a
+# landed, naming the commit main holds, and closes it, the bolt holding no piece whose end the runner's report must
+# carry (bolt-teams "A landed bolt closes on its pieces' ends as the runner reports them"). With wldn's ops, planner and
+# design agent running as their kinds, a
 # bolt submitted from ops's run returns once it is queued, and the landing's read asks the planner and the design
 # agent, or ops with sluice's words for one refused. A bolt no team holds lands once its unit's change is on main; a
 # delete sluice refuses is named in its words, the branch kept on GitHub; a bolt made before gives went through sluice

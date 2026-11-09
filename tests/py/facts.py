@@ -246,14 +246,15 @@ def flume_fixture(name):
 
 
 def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", unplaced=None, refused=None,
-        keeps=("afterthought/crew",)):
+        keeps=("afterthought/crew",), commits=None):
     """A host's runner as crew reads it from its branch (runner.host_read): each launch in launched, {request's number:
     the Flume status fixture its place stands at (flume_fixture: tests/py/flume-0.3.6/<name>.json, or another version's
     named with its folder)}, answered launched and carried in places.rec at the fixture's own place, its repository given
     as repository, and its stream the partition's label, as its host's Flume configuration maps it; each in unplaced,
     {request's number: its place}, answered launched at that place with no status of it carried yet; each in held
     answered held, with the runner's words where held is {request's number: words}; and each in refused, {request's
-    number: the runner's words}, answered refused. Its repositories.rec names each forge address in keeps at repository,
+    number: the runner's words}, answered refused; each in commits, {request's number: a commit}, has its fixture's
+    landed commit, as a place tidied over landed names it, set to that commit. Its repositories.rec names each forge address in keeps at repository,
     the kit's folder on host where crew reads it (runner.where, Decision 1 of a-bolts-landing-on-main-reads-landed); a
     runner given no repository, or keeps None, reports no repositories."""
     import json
@@ -264,6 +265,8 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
         status = json.loads(flume_fixture(name).read_text())
         for p in status["status"]["places"]:
             p.update(repository=repository, stream={"name": label, "from": "intent"})
+            if n in (commits or {}):
+                p["phase"]["tidied"]["over"]["landed"]["commit"] = commits[n]
         where = status["status"]["places"][0]["place"].split("@")[0]
         answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: 2026-10-31T12:01:00Z\n"
         places += f"\nRequest: {n}\nPlace: {where}\nAt: 2026-10-31T12:02:00Z\nStatus: {json.dumps(status)}\n"

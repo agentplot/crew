@@ -313,17 +313,16 @@ class TestRows:
         assert land["cmds"] == []
 
     def test_a_bolt_whose_head_is_its_take_main_fix_landed_beside_the_queue_can_land(self):
-        """merge-gate "A take-main fix landed beside the queue": zone-one merged at 1111111, read from the bolt's own
-        landing, and the runner carries apex-zones' take-main fix landed at the bolt's head, which sluice landed beside
-        its queue with nothing run: the bolt is green, naming the fix, and a row of its kit's landings card that can
-        land, as any landing of its work."""
+        """merge-gate "A take-main fix landed beside the queue": zone-one merged at f564d22, the record Flume holds for
+        the runner after its tidy (tests/py/flume-0.20.0/landed-held.json), and the runner carries apex-zones' take-main
+        fix landed at the bolt's head, which sluice landed beside its queue with nothing run: the bolt is green, naming
+        the fix, and a row of its kit's landings card that can land, as any landing of its work."""
         import runner
         fix = (runner.REQUESTS + f"\nRequest: 1\nAct: launch\nHost: {BOX}\nWork: fix/apex-zones/take-main\nRepo: WilldanGroup/{KIT}\n"
                "Kind: fix\nName: apex-zones--take-main\nBase: bolt/apex-zones\nStream: wldn\nPriority: 1\nIntent: wldn/apex-zones\n"
                "Recipient: wldn/ops\nBrief: Take main in.\nDate: 2026-10-31T12:00:00Z\nBy: wldn-ops\n")
         sv = survey()
-        sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]["landings"] = {"change/zone-one": {"commit": "1" * 40, "at": iso(40)}}
-        runs_ = runs(before=fix, at={"zone-one": None}, numbered={1: "landed"})
+        runs_ = runs(before=fix, at={"zone-one": "flume-0.20.0/landed-held"}, numbered={1: "landed"})
         st = plan.Stages(FLEET, the_plan(), sv, runs_, "wldn")
         assert st.verification(the_plan().bolt("apex-zones"), BOLT_HEAD) == (
             "green", "its head d185a87 is apex-zones--take-main's landing, as the runner reports it")
