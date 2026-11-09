@@ -39,7 +39,7 @@ crew's `.config/sluice.toml` SHALL require the `check-full` tasks of every `bolt
 - **WHEN** crew's `.config/sluice.toml` is read
 - **THEN** `[branches."bolt/*"]` and `[branches.main]` each require `#check-full` and trust `open` alone, and its executor is `open`
 
-### Requirement: A bolt's verification is its work's landing at its head, as the runner reports it
+### Requirement: A bolt's verification is its work's landing at its head, as the runner reports it alone
 A bolt's verification SHALL be green when its head, read where the bolt lives, is the commit at which one of its units, chores or fixes reads merged or landed as the runner reports it, a record Flume holds for the runner after its tidy among them; none when the head is no such commit; and unknown with no head to read. Its words SHALL name the head and the work. crew SHALL read no `Sluice-Result` or `Sluice-From` trailer and run no sluice command for it.
 
 #### Scenario: A bolt after its last unit's landing
@@ -50,7 +50,7 @@ A bolt's verification SHALL be green when its head, read where the bolt lives, i
 - **WHEN** Flume landed unit `a`'s place on `bolt/b` at its head and tidied it, holding its record for the runner, and the runner carries that record as `a`'s status, tidied and landed at the head
 - **THEN** the bolt's verification is green, naming the head and `a`, as the runner reports it
 
-#### Scenario: A landing read from the bolt's own landings
+#### Scenario: A head only a landing commit names
 - **WHEN** unit `a`'s place was tidied before the runner carried its end, the runner last carrying it at submitted, and the landing commit at `bolt/b`'s head names `a`'s branch in its `Sluice-From`
 - **THEN** crew reads no such landing: the bolt's verification reads none, and the bolt is not offered for landing
 
