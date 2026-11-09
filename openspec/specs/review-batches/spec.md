@@ -1,7 +1,7 @@
 # review-batches Specification
 
 ## Purpose
-The user reads a partition's constructed and amended changes in batches, after building has started: each construct makes its change due, the planner starts the partition's reviewer when a batch is due and posts the batch as one card, and the notes the user sends from it reach each unit's conductor, which runs construct again with no approval asked (`briefs.12`, record 0014).
+The user reads a drive's constructed and amended changes in batches, after building has started: each construct makes its change due, the planner starts the drive's reviewer when a batch is due and posts the batch as one card, and the notes the user sends from it reach each unit's conductor, which runs construct again with no approval asked (`briefs.12`, record 0014).
 
 ## Requirements
 
@@ -12,13 +12,13 @@ A unit's change SHALL be due for the user's review each time a construct stage o
 - **WHEN** a unit already in a batch is constructed again with the user's notes
 - **THEN** its change is due again, and counts toward the next batch
 
-### Requirement: The planner starts the partition's reviewer
-When a batch is due, crew SHALL tell the partition's planner once, and the planner SHALL start the reviewer: a main-level role, run fresh for each batch in its own tab of the main level's workspace, beside the planner, on the main level's host. Where the partition runs its reviewer as its kind, `crew review <label>` SHALL instead write an ask of the reviewer carrying the batch, as the reviewer's first message carries it today, open no tab and start no agent, and `crew review <label> --wait` SHALL refuse, saying the batch's delivery reaches the planner as an ask.
+### Requirement: The planner starts the drive's reviewer
+When a batch is due, crew SHALL tell the drive's planner once, and the planner SHALL start the reviewer: a main-level role, run fresh for each batch in its own tab of the main level's workspace, beside the planner, on the main level's host. Where the drive runs its reviewer as its kind, `crew review <label>` SHALL instead write an ask of the reviewer carrying the batch, as the reviewer's first message carries it today, open no tab and start no agent, and `crew review <label> --wait` SHALL refuse, saying the batch's delivery reaches the planner as an ask.
 
 A standing reviewer SHALL be sent its batch taken or sent again: only once it accepts input, read back from its transcript within a short time, and sent once more when it is not there. When the second sending is not taken either, crew SHALL clear what was left typed in its input, record the start refused, and refuse, naming `crew review <label>` as the way on; a refused start SHALL be no batch, its number taken by the next start, and `crew review <label> --wait` after it SHALL refuse. When `crew review <label>` finds the reviewer up, idle or done with no question open, its session holding no batch and no summary written since its last start, crew SHALL end it, record the end, say so, and start the batch's reviewer afresh, ending nothing when no batch is due. A reviewer at work, at a question, or that took its batch SHALL be refused, and one whose taking crew cannot read SHALL be refused naming what it could not read. `crew review <label> --wait` on a reviewer that took no batch SHALL refuse, naming `crew review <label>`, and end nothing.
 
 #### Scenario: A batch is due
-- **WHEN** a conductor's wait finds a batch due in the wldn partition
+- **WHEN** a conductor's wait finds a batch due in the wldn drive
 - **THEN** wldn-planner is told once, and starts `wldn-reviewer` in the `wldn` workspace
 
 #### Scenario: A reviewer that runs as its kind
@@ -130,7 +130,7 @@ A batch SHALL wait on nothing once each of its units has landed, has been droppe
 
 #### Scenario: Every unit has landed
 - **WHEN** batch 3 holds `x1` and `x2`, no card of it was ever closed, and the bolt holding both has landed
-- **THEN** the rail and the board have no row for batch 3, no card is posted for it, and the next rail read on the partition's main-level host records crew's close of `batch/3` in the planner's name, "its batch waits on nothing: x1 and x2 have landed"
+- **THEN** the rail and the board have no row for batch 3, no card is posted for it, and the next rail read on the drive's main-level host records crew's close of `batch/3` in the planner's name, "its batch waits on nothing: x1 and x2 have landed"
 
 #### Scenario: A later batch holds the unit
 - **WHEN** batch 5 holds `x1`, the user's notes on it were given in the planner's pane, `x1` was constructed again, and batch 7 holds its new change
@@ -173,19 +173,19 @@ A batch SHALL wait on nothing once each of its units has landed, has been droppe
 - **THEN** `x1`'s bolt's landing row says it lands once you have answered batch 7, as before
 
 #### Scenario: The record did not answer whole
-- **WHEN** the partition's branch cannot be read, so its run record cannot be
-- **THEN** the sweep records no close for any batch, says the partition was not swept, and names the branch
+- **WHEN** the drive's branch cannot be read, so its run record cannot be
+- **THEN** the sweep records no close for any batch, says the drive was not swept, and names the branch
 
 #### Scenario: A host does not answer
 - **WHEN** macbook-pro, which holds a wldn operator session, does not answer a rail read
 - **THEN** each batch is closed as far as the entries on `wldn/main` show it, as when every host answers
 
 ### Requirement: A batch is answered by the user's own words in a main-level pane
-A batch SHALL also be answered by the user's own words in the planner's pane or the operator's pane of its partition. The agent in that pane SHALL run `crew card answer batch/<n> --excerpt "<the user's words>"`. crew SHALL record the batch answered only when it finds the words in that agent's own live session transcript, on the host where the command runs, in a record the session received and that crew reads as the user's under `signals.5`. That is typing in the pane, or a `crew tell` from `<user>@<host>`. A later echo of the same words, in a tool's output or a tell, SHALL NOT hide the user's record. crew SHALL refuse the command, recording no answer, in each of these cases:
+A batch SHALL also be answered by the user's own words in the planner's pane or the operator's pane of its drive. The agent in that pane SHALL run `crew card answer batch/<n> --excerpt "<the user's words>"`. crew SHALL record the batch answered only when it finds the words in that agent's own live session transcript, on the host where the command runs, in a record the session received and that crew reads as the user's under `signals.5`. That is typing in the pane, or a `crew tell` from `<user>@<host>`. A later echo of the same words, in a tool's output or a tell, SHALL NOT hide the user's record. crew SHALL refuse the command, recording no answer, in each of these cases:
 - the words are not in the transcript, or are only in what the agent wrote itself;
 - the record holding them is a tool's output, crew's own message, or another agent's tell;
 - crew cannot read the transcript, or cannot tell that it is the live session's;
-- the caller is not that partition's planner or operator;
+- the caller is not that drive's planner or operator;
 - the run record holds no batch `n`;
 - the batch was already answered, by a tap, its reading session's send, or a pane;
 - the batch waits on nothing.
@@ -259,7 +259,7 @@ A unit of a started bolt SHALL become due for review when the runner's records r
 
 #### Scenario: Merged, then batched
 - **WHEN** `a` of started `x` lands on `bolt/x` at `9f1c2ab`, its change archived there
-- **THEN** `a` counts toward the partition's next batch, named `a:x@9f1c2ab`
+- **THEN** `a` counts toward the drive's next batch, named `a:x@9f1c2ab`
 
 #### Scenario: Constructed but not landed
 - **WHEN** `b`'s construct has delivered and its place is in code
@@ -276,15 +276,15 @@ A unit of a started bolt SHALL become due for review when the runner's records r
 - **WHEN** the reviewer's turn took batches 21 and 22, only 21's summary is written, and it runs `crew review delivered`
 - **THEN** batch 21 is delivered, and batch 22 is refused, naming its file
 
-### Requirement: A batch spans the partition's bolts
-A batch SHALL hold the changes due across every bolt of a partition. A partition SHALL have a batch setting, a count N and a number of hours T, read from its entry in the teams file. A batch SHALL be due, at the rail's sweep on the partition's main-level host, when N changes are due across its bolts, or when T hours have passed since the partition's last batch and at least one change is due, whichever comes first.
+### Requirement: A batch spans the drive's bolts
+A batch SHALL hold the changes due across every bolt of a drive. A drive SHALL have a batch setting, a count N and a number of hours T, read from its entry in the teams file. A batch SHALL be due, at the rail's sweep on the drive's main-level host, when N changes are due across its bolts, or when T hours have passed since the drive's last batch and at least one change is due, whichever comes first.
 
 #### Scenario: Changes from several bolts
-- **WHEN** a partition's setting is 5 and 4 hours, and two units of bolt `x` and three of bolt `y` have been constructed since its last batch
+- **WHEN** a drive's setting is 5 and 4 hours, and two units of bolt `x` and three of bolt `y` have been constructed since its last batch
 - **THEN** a batch is due at the rail's next sweep on the main level's host, holding those five changes
 
 #### Scenario: The time is reached
-- **WHEN** two changes have been constructed across the partition's bolts since its last batch, four hours ago
+- **WHEN** two changes have been constructed across the drive's bolts since its last batch, four hours ago
 - **THEN** a batch is due, holding those two
 
 #### Scenario: Nothing due
@@ -295,8 +295,8 @@ A batch SHALL hold the changes due across every bolt of a partition. A partition
 - **WHEN** the rail's sweep runs on a host that is not wldn's main-level host
 - **THEN** it reckons no batch for wldn
 
-### Requirement: A batch is reckoned from the partition's branch, never a host
-Whether a batch is due, what a review holds, and whether every unit's latest change of a bolt has been in a batch, SHALL be read from the run record on the partition's branch alone, asking no host for it. A host that does not answer SHALL hold none of them. When the branch cannot be read, each SHALL be refused naming the branch, as crew can't tell then which changes have been in a batch.
+### Requirement: A batch is reckoned from the drive's branch, never a host
+Whether a batch is due, what a review holds, and whether every unit's latest change of a bolt has been in a batch, SHALL be read from the run record on the drive's branch alone, asking no host for it. A host that does not answer SHALL hold none of them. When the branch cannot be read, each SHALL be refused naming the branch, as crew can't tell then which changes have been in a batch.
 
 #### Scenario: The laptop asleep at the rail's sweep
 - **WHEN** the rail's sweep on chuck-herdr-alpha, wldn's main-level host, runs while macbook-pro, which holds a wldn operator session, does not answer, and five changes are due

@@ -1,4 +1,4 @@
-"""The board of a partition's flow (the crew-board spec): board.board_data on one read of the plan, proposals, signals,
+"""The board of a drive's flow (the crew-board spec): board.board_data on one read of the plan, proposals, signals,
 kits and run record, as plan.rail_read and board.signals give it, and board.board_text, board.frame_text and
 board.stamp on what that makes. That crew board reads it all and writes nothing, and the host's follower's refresh writes the
 frame the board tab draws, are the board journey's (t-journey-board)."""
@@ -20,7 +20,7 @@ import plan
 
 BOX = "chuck-herdr-alpha"
 KIT = {"name": "switchboard-kit", "main": "/kit/main", "dir": "/kit"}
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio",
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio",
                                  "blueprints": ["WilldanGroup/willdan-blueprints"], "state": "WilldanGroup/crew-state"}},
          "hosts": {BOX: {"kind": "nixos", "ssh": BOX},
                    "mac-studio": {"kind": "darwin", "ssh": "mac-studio",
@@ -132,9 +132,9 @@ def flume_runs(p, placed):
 
 def read(sv=None, signals=None, props=(), landings=(), rows=None, cards=(), errors=None, unread=None, pl=True, entries=(), logs=(),
          roles=None, placed=None):
-    """The read the board is made from; entries are the partition's run record entries the operations are read from,
+    """The read the board is made from; entries are the drive's run record entries the operations are read from,
     whose rail rows join the plan's, as plan.rail_record makes them, logs every entry it read, roles what it read of
-    the roles the partition runs as their kinds (board.roles_read), none by default, and placed where each started
+    the roles the drive runs as their kinds (board.roles_read), none by default, and placed where each started
     bolt's work stands on its host's runner (flume_runs), PLACED by default."""
     p = the_plan() if pl else None
     found = [("wldn", "WilldanGroup/crew-state", "tip0" if pl else None, p)]
@@ -168,7 +168,7 @@ N = iter(range(1, 1000))
 
 
 def entry(act, minutes, env="mac-studio", **f):
-    """A run-record entry on the partition's main level's host, minutes before the board was read."""
+    """A run-record entry on the drive's main level's host, minutes before the board was read."""
     on = [f"bolt/{f.pop('bolt')}"] if act == "bolt.land" else [f"env/{env}"]
     return dict(Id=f"{ago(minutes)}-mac-studio-1-{next(N)}", At=ago(minutes), Host="mac-studio", Act=act, On=on, From=[], Commit=[], **f)
 
@@ -254,7 +254,7 @@ class TestText:
                       f"  mac-studio  deploy {S1[:7]} from nothing deployed  done {board.local(ago(50))}  approved by wldn-ops  carrying atlas-maps",
                       "  mac-studio  restart-roles/1  handed to wldn-ops",
                       "✓ mac-studio  rotate-key  waits on the user  Rotate the key.  no card open"]
-        env, = data(entries=OPS)["partitions"][0]["environments"]
+        env, = data(entries=OPS)["drives"][0]["environments"]
         assert (sorted(env), [d["row"] for d in env["deploys"]], [w["row"] for w in env["waiting"]]) == (
             ["deploys", "env", "waiting"], ["deploy/mac-studio", None], [None, "op/mac-studio/2"])
 
@@ -265,13 +265,13 @@ class TestText:
         op = lane(board.board_text(data(entries=OPS, logs=logs)), "Operation")
         assert op[0] == f"✓ mac-studio  deploy {S2[:7]} from {S1[:7]}  waits on the user's word  carrying atlas-zones  no card open, its post refused"
         assert op[-1] == "✓ mac-studio  rotate-key  waits on the user  Rotate the key.  no card open"
-        env, = data(entries=OPS, logs=logs)["partitions"][0]["environments"]
+        env, = data(entries=OPS, logs=logs)["drives"][0]["environments"]
         assert env["deploys"][0]["markers"][0]["refused"] == REFUSED_POST["Refused"]
         assert env["waiting"][1]["markers"][0]["refused"] is None
 
     def test_a_card_posted_after_a_refused_post_is_open_and_owes_nothing(self):
         d = data(entries=OPS, logs=OPS + [REFUSED_POST], cards=[DEPLOY_CARD])
-        assert d["partitions"][0]["environments"][0]["deploys"][0]["markers"][0]["refused"] is None
+        assert d["drives"][0]["environments"][0]["deploys"][0]["markers"][0]["refused"] is None
         assert lane(board.board_text(d), "Operation")[0].endswith("card open, asked by wldn-ops")
 
     def test_a_deploy_that_failed_says_at_which_step_and_one_whose_commit_no_landing_holds_says_so(self):
@@ -298,17 +298,17 @@ class TestText:
         sv = dict(kits(), **{"macbook-pro": {"ok": False, "error": "ssh: connect to host macbook-pro port 22: Operation timed out"}})
         landed = [dict(label="wldn", bolt="tenant-environments", units=["a", "b"], at=plan.utc(ago(5)), by="wldn-ops", host="macbook-pro")]
         d = board.board_data(fleet, ["wldn"], read(sv=sv, unread={"wldn": {}}, landings=landed), NOW)
-        p = d["partitions"][0]
+        p = d["drives"][0]
         assert "macbook-pro" not in p["hosts"] and "macbook-pro" not in json.dumps(p["attention"])
         assert [a for a in p["attention"] if a["what"] in ("host", "plan")] == []
 
     def test_a_branch_whose_run_record_cannot_be_read_is_named_as_the_plans(self):
         d = data(unread={"wldn": {"wldn/main": "could not fetch wldn/main of WilldanGroup/crew-state over https: timed out"}})
-        assert [a for a in d["partitions"][0]["attention"] if a["what"] in ("host", "plan")] == [
+        assert [a for a in d["drives"][0]["attention"] if a["what"] in ("host", "plan")] == [
             {"what": "plan", "name": "wldn/main", "why": "its run record: could not fetch wldn/main of WilldanGroup/crew-state over https: timed out"}]
         assert ("! the plan, wldn/main: its run record: could not fetch wldn/main of WilldanGroup/crew-state over https: timed out"
                 in lane(board.board_text(d), "attention"))
-        assert sorted(d["partitions"][0]["hosts"]) == [BOX, "mac-studio"]
+        assert sorted(d["drives"][0]["hosts"]) == [BOX, "mac-studio"]
 
     def test_a_plan_that_cannot_be_read_is_named_for_attention(self):
         d = board.board_data(FLEET, ["wldn"], read(pl=False, errors={"wldn/main of WilldanGroup/crew-state": "plan.rec fails recfix --check"}), NOW)
@@ -317,12 +317,12 @@ class TestText:
 
 class TestData:
     def test_the_json_lists_no_teams_and_no_object_says_whose_team_it_is(self):
-        """crew-board, the removed "The board's JSON lists each partition's teams" and "Each object in the board's JSON
-        says whose it is": an object's partition and kit say whose it is (Decision 11 of the-team-machinery-leaves)."""
+        """crew-board, the removed "The board's JSON lists each drive's teams" and "Each object in the board's JSON
+        says whose it is": an object's drive and kit say whose it is (Decision 11 of the-team-machinery-leaves)."""
         landings = [dict(label="wldn", bolt="atlas-maps", units=["map-one"], at=NOW - datetime.timedelta(hours=1), by="wldn-ops", host="mac-studio")]
         props = [{"label": "wldn", "proposal": 2, "by": "chuck@mac-studio", "opened": "2026-10-12", "case": "Tenants get d.",
                   "changes": [{"do": 'unit add d "Unit d." --bolt tenant-environments', "bolts": ["tenant-environments"]}]}]
-        p = data(signals=SIGS, props=props, entries=OPS, landings=landings)["partitions"][0]
+        p = data(signals=SIGS, props=props, entries=OPS, landings=landings)["drives"][0]
 
         def keys(x):
             """Every key of x's objects, a bolt's time left out, whose holders keep their names (plan.20)."""
@@ -333,7 +333,7 @@ class TestData:
         assert all(p[k] for k in ("construction", "operation", "environments")) and p["bolt_plan"]["proposals"] and p["inception"]["explorations"]
 
     def test_the_hosts_are_named_with_whether_they_answered(self):
-        assert data()["partitions"][0]["hosts"] == {BOX: True, "mac-studio": True}
+        assert data()["drives"][0]["hosts"] == {BOX: True, "mac-studio": True}
 
     @pytest.mark.parametrize("at, held", [("2026-10-01", "2026-10-01"), ("2026-10-01T10:00:00", "2026-10-01T10:00:00Z"),
                                           ("2026-10-01T12:00:00+02:00", "2026-10-01T10:00:00Z"), ("not a time", None)])
@@ -389,14 +389,16 @@ class TestFollower:
     def test_who_follows_is_read_from_the_lock_and_an_unreadable_holder_is_unknown(self, line, free, who):
         assert board.follower_of(line, free) == who
 
-    def test_it_follows_each_partition_whose_session_of_its_name_on_the_host_is_its_own(self):
-        fleet = {"partitions": {"wldn": {"partition": "clients/willdan"}, "swancloud": {"partition": "personal"},
-                                "madswan": {"partition": "business"}, "agentplot": {"partition": "agentplot"}},
+    def test_it_follows_each_drive_whose_label_names_a_session_on_the_host(self):
+        """A session named for a drive's label is the drive's, as swancloud names and checks each drive's sessions: the
+        hosts file's `partition` of a session, swancloud's, is read by nothing, so madswan's session in another and
+        agentplot's in none are followed as wldn's and swancloud's are, and wldn-5, no drive's label, is not."""
+        fleet = {"drives": {"wldn": {}, "swancloud": {}, "madswan": {}, "agentplot": {}, "atlas": {}},
                  "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "wldn-5": {"partition": "clients/willdan"},
                                                        "swancloud": {"partition": "personal"}, "madswan": {"partition": "personal"},
                                                        "agentplot": {"partition": None}}},
                            BOX: {"sessions": {"wldn": {"partition": "clients/willdan"}}}}}
-        assert board.labels_here(fleet, "mac-studio") == ["wldn", "swancloud"]
+        assert board.labels_here(fleet, "mac-studio") == ["wldn", "swancloud", "madswan", "agentplot"]
         assert board.labels_here(fleet, BOX) == ["wldn"] and board.labels_here(fleet, "macbook-pro") == []
 
     @pytest.mark.parametrize("m, kept, crew_read, how", [
@@ -526,13 +528,13 @@ class TestInstalledCrew:
 
 class TestRefresh:
     """The host's follower's refresh (the crew-board spec, The rail and the board come from one read, A refresh after
-    nothing moved reads nothing, A refresh after a change reads only what moved): one read for every partition with an
+    nothing moved reads nothing, A refresh after a change reads only what moved): one read for every drive with an
     operator session on the host, kept, and the frames written from it; each step around it stands in here, the read,
     the views and the stamps, so what is asked is what the case shows."""
 
-    FLEET = {"partitions": {"wldn": {"label": "wldn", "partition": "clients/willdan", "state": "o/state", "blueprints": ["o/bp"],
+    FLEET = {"drives": {"wldn": {"label": "wldn", "state": "o/state", "blueprints": ["o/bp"],
                                      "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}},
-                            "swancloud": {"label": "swancloud", "partition": "personal", "state": "o/state", "blueprints": ["o/bp"],
+                            "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["o/bp"],
                                           "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}},
              "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "swancloud": {"partition": "personal"}}}}}
 
@@ -572,7 +574,7 @@ class TestRefresh:
                     "sv": {}, "rows": [], "cards": [], "unread": {}, "batched": {}, "served": served is not None, "kits": kits_of(self.found)}
         monkeypatch.setattr(board, "flow_read", flow_read)
         monkeypatch.setattr(board, "board_data", lambda fleet, labels, read, now: {"read_at": board.iso(now), "from": "mac-studio",
-                                                                                   "partitions": [{"label": labels[0]}], "unread": {}})
+                                                                                   "drives": [{"label": labels[0]}], "unread": {}})
         monkeypatch.setattr(plan, "rail_text", lambda fleet, labels, read, now: f"rail of {labels[0]}" + (", served" if read["served"] else ""))
         monkeypatch.setattr(board, "here_read", lambda fleet, l: {"host": "mac-studio", "version": None, "held": None, "agents": {}})
         monkeypatch.setattr(board, "agent_views", lambda data: {"read_at": data["read_at"], "views": {}})
@@ -595,7 +597,7 @@ class TestRefresh:
 
     def test_the_follower_runs_pending_yous_notice_while_a_role_here_runs_as_its_kind(self, tmp_path, monkeypatch):
         """role-runs "The follower hears Pending You's notice while a role here runs as its kind": started at a tick
-        while a partition whose main level is here names a stream for a role, once, started again when it ended, and
+        while a drive whose main level is here names a stream for a role, once, started again when it ended, and
         ended once none does (design Decision 5 of roles-run-as-flume-kinds)."""
         started = []
 
@@ -616,7 +618,7 @@ class TestRefresh:
         monkeypatch.setattr(board, "HEARD", tmp_path / "heard.log")
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         stands = {r: False for r in crew.KIND_ROLES}
-        runs = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": dict(stands, planner="madswan-main")}}}
+        runs = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": dict(stands, planner="madswan-main")}}}
         f = board.Follower(None)
         f.hear(runs)
         f.hear(runs)
@@ -624,20 +626,20 @@ class TestRefresh:
         started[0].code = 1
         f.hear(runs)
         assert len(started) == 2, "a notice that ended was not started again"
-        f.hear({"partitions": {"madswan": dict(runs["partitions"]["madswan"], flume=stands)}})
+        f.hear({"drives": {"madswan": dict(runs["drives"]["madswan"], flume=stands)}})
         assert started[1].ended and f.notice is None
-        f.hear({"partitions": {"madswan": dict(runs["partitions"]["madswan"], machine="mac-studio")}})
+        f.hear({"drives": {"madswan": dict(runs["drives"]["madswan"], machine="mac-studio")}})
         assert len(started) == 2, "a notice was run for a role whose main level is on another host"
 
     def frame(self, label, kind="rail"):
         return json.loads((board.FRAMES / f"{label}{'.' + kind if kind != 'board' else ''}.json").read_text())
 
-    def test_one_read_writes_every_partitions_frames_with_what_it_said(self, follower):
+    def test_one_read_writes_every_drives_frames_with_what_it_said(self, follower):
         follower.refresh()
         assert self.reads == [(["wldn", "swancloud"], True, "a" * 40, "")], "the read was not handed the tips the caches hold"
         assert self.frame("wldn")["text"] == "rail of wldn\ncrew: a word the read said\na plan it could not read"
         assert self.frame("swancloud")["text"] == "rail of swancloud\ncrew: a word the read said"
-        assert self.frame("swancloud", "board")["partitions"] == [{"label": "swancloud"}] and self.frame("wldn", "agents")["views"] == {}
+        assert self.frame("swancloud", "board")["drives"] == [{"label": "swancloud"}] and self.frame("wldn", "agents")["views"] == {}
 
     def test_a_refresh_with_nothing_moved_reads_nothing_sweeps_nothing_and_writes_the_frames_again(self, follower):
         follower.refresh()
@@ -658,8 +660,8 @@ class TestRefresh:
         follower.refresh()
         assert len(self.reads) == 3 and self.frame("wldn")["text"].startswith("rail of wldn, served"), "an unmoved kit was not served"
 
-    def test_its_check_stamps_the_readings_of_each_partitions_hosts_with_its_kits(self, follower):
-        """The card-sessions spec, A reading sent on one host: every host where a partition's card sessions are swept,
+    def test_its_check_stamps_the_readings_of_each_drives_hosts_with_its_kits(self, follower):
+        """The card-sessions spec, A reading sent on one host: every host where a drive's card sessions are swept,
         its main machine and its runners', has its readings stamped at its first refresh; then this host's at each, in
         this process, and another's when something there could have moved (hosts_due)."""
         follower.refresh()
@@ -756,7 +758,7 @@ class TestRefresh:
         self.looks["state"] = {"wldn": "d" * 40, "swancloud": ""}
         assert box_asked() and not box_asked()
         self.looks["state"] = {"wldn": "d" * 40, "swancloud": "e" * 40}
-        assert not box_asked(), "a move of a partition with nothing on the box asked it"
+        assert not box_asked(), "a move of a drive with nothing on the box asked it"
         self.readings[BOX], self.runner[BOX] = None, "p" * 40  # the box asked, and its readings can't be stamped
         assert box_asked() and box_asked(), "a host whose last answer could not be read was not asked again"
         self.readings[BOX] = "r1"
@@ -764,7 +766,7 @@ class TestRefresh:
         aged(follower)
         assert box_asked() and not box_asked()
 
-    def test_a_runners_report_with_no_move_of_its_partitions_branch_reads_it_again(self, follower):
+    def test_a_runners_report_with_no_move_of_its_drives_branch_reads_it_again(self, follower):
         """The crew-board spec, A runner's report: the look stamps the runners' branches, and one moved reads wldn again
         with its unmoved kit served."""
         self.looks["runners"] = {"wldn": {BOX: "r" * 40}, "swancloud": {}}
@@ -869,7 +871,7 @@ class TestRefresh:
         self.found = [("wldn", "o/state", "d" * 40, None)]
         follower.refresh()
         follower.refresh()
-        assert len(self.reads) == 2 and reckoned[-1] == set(), "a partition told at an older tip was not reckoned at the new one"
+        assert len(self.reads) == 2 and reckoned[-1] == set(), "a drive told at an older tip was not reckoned at the new one"
 
     def test_a_tell_that_did_not_go_through_is_tried_again_at_the_next_tick_and_not_between(self, follower, monkeypatch):
         """wldn's planner is not up: the tell starts herdr, so it is not made at every refresh."""
@@ -967,7 +969,7 @@ def test_the_check_asks_each_host_once_for_its_kits_and_its_readings(monkeypatch
     assert asked == [(BOX, ["/kit/main"], ["wldn"]), ("mac-studio", [], ["wldn", "swancloud"]), ("macbook-pro", ["/b/main"], ["wldn"])]
     assert got == {"kits": {(BOX, "/kit/main"): "s", ("macbook-pro", "/b/main"): None}, "readings": {BOX: "r", "mac-studio": "r", "macbook-pro": None},
                    "routes": {}}
-    fleet = {"partitions": {"wldn": {"machine": "mac-studio", "state": "o/state"}, "swancloud": {"machine": "mac-studio", "state": "o/state"}}}
+    fleet = {"drives": {"wldn": {"machine": "mac-studio", "state": "o/state"}, "swancloud": {"machine": "mac-studio", "state": "o/state"}}}
     monkeypatch.setattr(plan, "runner_tips", lambda repo, label, fetch=True: {BOX: "r" * 40} if label == "wldn" and not fetch else {})
     assert board.readings_hosts(fleet, ["wldn", "swancloud"]) == {BOX: ["wldn"], "mac-studio": ["wldn", "swancloud"]}
 
@@ -986,7 +988,7 @@ class TestMoved:
         assert board.moved(self.KEPT, self.now()) == {"crew": False, "state": set(), "blueprints": set(), "kits": set(), "readings": set(),
                                                       "cards": False, "read": False, "any": False}
 
-    def test_one_state_tip_moved_names_its_partition_alone(self):
+    def test_one_state_tip_moved_names_its_drive_alone(self):
         m = board.moved(self.KEPT, self.now(state={"wldn": "d" * 40}))
         assert m["state"] == {"wldn"} and not m["crew"] and m["blueprints"] == m["kits"] == set() and m["any"]
 
@@ -1037,9 +1039,9 @@ class TestMoved:
         m = board.moved(kept, dict(kept, cards=board.cards_stamp(self.FOUND, None, False, 2, {"crw-3-conductor": (False, None)})))
         assert m["cards"] and not m["read"]
 
-    def test_a_runners_branch_moved_reads_its_partition_again(self):
-        """A runner's report of the places it runs arrives on its own branch, with no move of the partition's: the read
-        rests on it as on the partition's branch, so it moves that partition's state, and its runner gone does too."""
+    def test_a_runners_branch_moved_reads_its_drive_again(self):
+        """A runner's report of the places it runs arrives on its own branch, with no move of the drive's: the read
+        rests on it as on the drive's branch, so it moves that drive's state, and its runner gone does too."""
         kept = dict(self.KEPT, runners={"wldn": {BOX: "r" * 40}, "swancloud": {}})
         assert not board.moved(kept, dict(kept))["any"]
         m = board.moved(kept, dict(kept, runners={"wldn": {BOX: "q" * 40}, "swancloud": {}}))
@@ -1105,7 +1107,7 @@ class TestAsking:
     def basis(self, tip="a" * 40, runner="r" * 40):
         return board.host_basis(BOX, ["wldn"], {"wldn": tip, "swancloud": "s" * 40}, {"wldn": {BOX: runner, "mac-studio": "m" * 40}})
 
-    def test_a_hosts_basis_is_its_partitions_branches_and_its_runners_and_no_queue(self):
+    def test_a_hosts_basis_is_its_drives_branches_and_its_runners_and_no_queue(self):
         """A submission's move is in the host's runner's report, so a moved runner's branch is the host's move, and no
         queue of sluice's is in its basis (crew record 0056 points 1 and 4)."""
         b = self.basis()
@@ -1113,7 +1115,7 @@ class TestAsking:
         assert b != self.basis(tip="d" * 40) and b != self.basis(runner="q" * 40)
         assert json.loads(b) == [["wldn", "a" * 40, "r" * 40]]
         assert b == board.host_basis(BOX, ["wldn"], {"wldn": "a" * 40, "swancloud": "e" * 40}, {"wldn": {BOX: "r" * 40, "mac-studio": "n" * 40}}), (
-            "a move of a partition the host does not serve, or of another host's runner, moved the host's basis")
+            "a move of a drive the host does not serve, or of another host's runner, moved the host's basis")
 
     def test_a_host_is_asked_never_asked_moved_unanswered_or_ten_minutes_on_and_else_not(self):
         b, now = self.basis(), 1000.0
@@ -1137,7 +1139,7 @@ class TestAsking:
         assert not board.cards_due(["req_p4"], [], found, listed, now - board.DISCOVERY + 1, now)
 
     def test_each_repository_is_fetched_once_with_every_branch_read_of_it(self):
-        fleet = {"partitions": {"wldn": {"label": "wldn", "state": "o/state", "blueprints": ["o/bp", "o/other"]},
+        fleet = {"drives": {"wldn": {"label": "wldn", "state": "o/state", "blueprints": ["o/bp", "o/other"]},
                                 "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["s/bp"]},
                                 "madswan": {"label": "madswan", "state": "m/state", "blueprints": ["o/bp"]}}}
         assert board.fetches(fleet, ["wldn", "swancloud", "madswan"]) == {
@@ -1321,8 +1323,8 @@ class TestMore:
 
     def test_the_json_holds_each_lanes_objects_and_the_ledgers_units_and_fixes(self):
         d = data(signals=SIGS)
-        p = d["partitions"][0]
-        assert sorted(d) == ["from", "partitions", "read_at", "unread"]
+        p = d["drives"][0]
+        assert sorted(d) == ["drives", "from", "read_at", "unread"]
         assert sorted(p) == ["asking", "attention", "bolt_plan", "cards", "construction", "environments", "fixing", "hosts", "inception", "kits",
                              "label", "operation", "plan", "records", "runs"]
         assert p["kits"] == ["breadboard-kit", "switchboard-kit"]
@@ -1337,10 +1339,10 @@ class TestMore:
         assert board.read_frame("wldn") is None
         (tmp_path / "wldn.json").write_text('{"read_at": ')
         assert board.read_frame("wldn") is None
-        (tmp_path / "wldn.json").write_text('{"partitions": []}')
+        (tmp_path / "wldn.json").write_text('{"drives": []}')
         assert board.read_frame("wldn") is None
         board.write_frame("wldn", dict(data(), read_at=board.iso(NOW)))
-        assert board.read_frame("wldn")["partitions"][0]["label"] == "wldn" and sorted(p.name for p in tmp_path.iterdir()) == ["wldn.json"]
+        assert board.read_frame("wldn")["drives"][0]["label"] == "wldn" and sorted(p.name for p in tmp_path.iterdir()) == ["wldn.json"]
 
 
 def view(name, **kw):
@@ -1403,7 +1405,7 @@ class TestViews:
             "ssh-fix": {"head": LANDED, "head_at": ago(20), "changes": ["ssh-one"], "archived": ["ssh-one"]}})
         card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW)
         d = data(sv=sv, cards=[card])
-        ledgers = {b["bolt"]: b["markers"] for b in d["partitions"][0]["construction"]}
+        ledgers = {b["bolt"]: b["markers"] for b in d["drives"][0]["construction"]}
         assert [m["key"] for m in ledgers["doctor-rows"]] == [m["key"] for m in ledgers["ssh-fix"]] == ["land/switchboard-kit"]
         assert ledgers["ssh-fix"][0]["card"]["by"] == "wldn-ops"
         assert "✓ land/switchboard-kit  doctor-rows, ssh-fix  wait to land  card open, asked by wldn-ops" in view("wldn-ops", sv=sv, cards=[card])
@@ -1426,7 +1428,7 @@ class TestViews:
         card = dict(label="wldn", card="req_k1", key="land/switchboard-kit", by="wldn-ops", host="mac-studio", at=NOW - datetime.timedelta(hours=1),
                     answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="ticked doctor-rows", heads="doctor-rows@d185a87"))
         d = data(sv=sv, cards=[card])
-        (m,) = d["partitions"][0]["construction"][0]["markers"]
+        (m,) = d["drives"][0]["construction"][0]["markers"]
         assert m["card"]["answered"] == board.iso(NOW - datetime.timedelta(minutes=5))
         assert ("✓ land/switchboard-kit  doctor-rows  waits to land  answered: the landing is yours  card answered, waits on wldn-ops"
                 in view("wldn-ops", sv=sv, cards=[card]))
@@ -1522,7 +1524,7 @@ class TestViews:
         monkeypatch.setattr(board, "SHOWN", 6)
         assert view("wldn-design")[1:] == ["  switchboard-kit command-cost  Reading: what each crew command costs."]
 
-    def test_an_operator_reads_the_partitions_board_in_brief_and_what_waits_on_the_user(self):
+    def test_an_operator_reads_the_drives_board_in_brief_and_what_waits_on_the_user(self):
         mine = view("wldn-operator", props=WAITS, signals=SIGS)
         assert mine[:4] == [f"wldn board  read from {BOX}, mac-studio", "Inception  3 signals not moved  1 exploration",
                             "Bolt plan  1 proposal open  1 planned  1 queued", "Construction"]
@@ -1744,7 +1746,7 @@ class TestTime:
         sv[BOX]["kits"]["/kit/main"]["decided"] = [{"id": 40, "bolt": "tenant-environments", "branch": "bolt/tenant-environments", "worktree": "unit/a",
                                                     "pull_head": None, "submitted": ago(30), "started": None, "decided": ago(18), "event": "landed"}]
         assert self.head(sv=sv).endswith(f"on {BOX}  in Flume stream wldn  {TE_TIME}")
-        assert data(sv=sv)["partitions"][0]["construction"][0]["time"]["shares"] == data()["partitions"][0]["construction"][0]["time"]["shares"]
+        assert data(sv=sv)["drives"][0]["construction"][0]["time"]["shares"] == data()["drives"][0]["construction"][0]["time"]["shares"]
 
     def test_an_age_that_cant_be_told_says_why_and_shows_no_share(self):
         unread = {"wldn": {"wldn/main of WilldanGroup/crew-state": "fetch failed"}}
@@ -1754,7 +1756,7 @@ class TestTime:
 
     def test_the_json_carries_the_age_the_shares_and_the_holder_now(self):
         logs = [dict(Act="stage.start", On=["stage/a/code", "unit/a", "agent/swb-1-unit-1"], At=ago(50))]
-        te = data(logs=logs)["partitions"][0]["construction"][0]
+        te = data(logs=logs)["drives"][0]["construction"][0]
         assert te["time"] == {"age": 200, "shares": {"team": 50, "kit": 0, "team_or_kit": 0, "user": 0, "hold": 0, "nobody": 150},
                               "now": {"holder": "team", "what": "code on a", "since": ago(50)},
                               "said": f"3h 20m: team 50m, nobody 2h 30m; team since {hm(50)}, code on a"}
@@ -1778,14 +1780,14 @@ class TestCards:
                    answered=dict(at=NOW - datetime.timedelta(minutes=5), answer="approved", heads=None))
         v = board.agent_views(data(cards=[p57]))
         assert ["".join(t for t, _ in l) for l in v["cards"]["wldn-planner"]] == ["  your card  proposal/57  req_57  answered 5m ago, yours to act on"]
-        (c,) = data(cards=[p57])["partitions"][0]["cards"]
+        (c,) = data(cards=[p57])["drives"][0]["cards"]
         assert (c["answered"], c["answer"]) == (board.iso(NOW - datetime.timedelta(minutes=5)), "approved")
-        (c,) = data(cards=[dict(p57, answered=None)])["partitions"][0]["cards"]
+        (c,) = data(cards=[dict(p57, answered=None)])["drives"][0]["cards"]
         assert (c["answered"], c["answer"]) == (None, None)
 
     def test_the_board_lists_each_open_card_with_what_it_is(self):
         rec = dict(QUESTION, card="req_r1", key="record/atlas-kit/0021", by="wldn-design")
-        assert [(c["card"], c["kind"], c["by"]) for c in data(cards=[rec, QUESTION])["partitions"][0]["cards"]] == [
+        assert [(c["card"], c["kind"], c["by"]) for c in data(cards=[rec, QUESTION])["drives"][0]["cards"]] == [
             ("req_q1", "question", "wldn-ops"), ("req_r1", "record", "wldn-design")]
 
     def test_the_design_agent_sees_each_record_proposed_and_not_yet_accepted_or_rejected_with_its_card(self, monkeypatch):
@@ -1796,7 +1798,7 @@ class TestCards:
                                                                                             State="settled in the pane"),
                 dict(Act="record.proposed", On=["record/atlas-kit/0023"], At=ago(40)), dict(Act="record.accepted", On=["record/atlas-kit/0023"], At=ago(30))]
         rec = dict(QUESTION, card="req_r1", key="record/atlas-kit/0021", by="wldn-design")
-        assert [(r["kit"], r["number"], r["settled"], r["card"] and r["card"]["card"]) for r in data(logs=logs, cards=[rec])["partitions"][0]["records"]] == [
+        assert [(r["kit"], r["number"], r["settled"], r["card"] and r["card"]["card"]) for r in data(logs=logs, cards=[rec])["drives"][0]["records"]] == [
             ("atlas-kit", "0021", False, "req_r1"), ("atlas-kit", "0022", True, None)]
         assert view("wldn-design", logs=logs, cards=[rec]) == [
             "wldn inception  0 signals not moved  2 records proposed  1 exploration",
@@ -1816,7 +1818,7 @@ def test_a_chore_is_marked_in_a_ledger_a_planned_bolt_and_the_queue(monkeypatch)
     monkeypatch.setitem(globals(), "PLACED", dict(PLACED, bump=("submitted", None)))
     sv = kits()
     d = data(sv=sv)
-    ledger = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "tenant-environments")
+    ledger = next(b for b in d["drives"][0]["construction"] if b["bolt"] == "tenant-environments")
     assert [(u["unit"], u["kind"], u["stage"]) for u in ledger["units"]] == [("a", "unit", "code"), ("bump", "chore", "submitted")]
     out = board.board_text(d)
     assert "    bump  chore submitted #413" in lane(out, "Construction")
@@ -1840,7 +1842,7 @@ class TestStarted:
         read of crew holds beside, and bolts each bolt's facts there."""
         from facts import crew_read, launched, madswan_fleet
         fleet = madswan_fleet()
-        fleet["partitions"]["madswan"].update(machine="deneb", blueprints=["afterthought/blueprints"], state="afterthought/crew-state")
+        fleet["drives"]["madswan"].update(machine="deneb", blueprints=["afterthought/blueprints"], state="afterthought/crew-state")
         p, requests = launched(["x"], work=[("a", "x", [], "unit", []), ("b", "x", ["a"], "unit", []), ("y1", "y", [], "unit", [])],
                                fleet=fleet, planned=["y"])
         runs = {"madswan": (requests + [plan.Rec("Request", list(f.items())) for f in extra], runners)}
@@ -1861,9 +1863,9 @@ class TestStarted:
         assert lane(board.board_text(d), "Construction") == [
             "  crew x  on deneb  in Flume stream madswan  its age can't be told: the run record of the last 60 days holds no start of it",
             "    a  code 6/26", "    b  waiting  on a"]
-        x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
-        assert (x["host"], x["stream"]) == ("deneb", "madswan") and "teams" not in d["partitions"][0]
-        assert [b["bolt"] for b in d["partitions"][0]["bolt_plan"]["planned"]] == ["y"]
+        x = next(b for b in d["drives"][0]["construction"] if b["bolt"] == "x")
+        assert (x["host"], x["stream"]) == ("deneb", "madswan") and "teams" not in d["drives"][0]
+        assert [b["bolt"] for b in d["drives"][0]["bolt_plan"]["planned"]] == ["y"]
 
     def test_a_started_bolts_ledger_shows_no_server(self, monkeypatch):
         """crew-board "A started bolt's work shows no server": a server running in x's own worktree, as a bolt given before
@@ -1874,7 +1876,7 @@ class TestStarted:
         site = {"here": "https://bolt--crew.local"}
         kit = dict(sites={"/crew/bolts/x": site}, routes=[{"name": "bolt--crew", "url": "https://bolt--crew.local"}])
         d = self.data(ran({1: "code"}, held=[2]), kit=kit, bolts={"x": {"worktree": "/crew/bolts/x"}})
-        x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
+        x = next(b for b in d["drives"][0]["construction"] if b["bolt"] == "x")
         assert x["url"] is None and {u["url"] for u in x["units"]} == {None}
         assert "server" not in "\n".join(lane(board.board_text(d), "Construction")[:3])
 
@@ -1886,7 +1888,7 @@ class TestStarted:
         from facts import ran
         claim = "claimed by deneb's runner; launching once no other runner has claimed it"
         d = self.data(ran(held={1: claim, 2: None}, keeps=None))
-        x = next(b for b in d["partitions"][0]["construction"] if b["bolt"] == "x")
+        x = next(b for b in d["drives"][0]["construction"] if b["bolt"] == "x")
         assert (x["host"], x["stream"]) == ("deneb", None)
         assert lane(board.board_text(d), "Construction")[1:] == [f"    a  launching  held by the runner: {claim}", "    b  waiting  on a"]
         assert lane(board.board_text(d), "Construction")[0].startswith("  crew x  on deneb  ")
@@ -1933,10 +1935,10 @@ class TestStarted:
         import runner
         d = self.data({"deneb": runner.host_read("madswan", "deneb", "5e1f0c2a" + "0" * 32, {}, {"runner.rec": "recfix refused it"})})
         assert {"what": "runner", "name": "deneb's runner", "why": "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: "
-                "recfix refused it"} in d["partitions"][0]["attention"]
+                "recfix refused it"} in d["drives"][0]["attention"]
         assert {"what": "runner", "name": "madswan's runners", "why": "no runner answers for madswan: its state repository holds no "
-                "madswan/runner/<host>"} in self.data({})["partitions"][0]["attention"]
-        assert {u["stage"] for b in d["partitions"][0]["construction"] if b["bolt"] == "x" for u in b["units"]} == {"unknown"}
+                "madswan/runner/<host>"} in self.data({})["drives"][0]["attention"]
+        assert {u["stage"] for b in d["drives"][0]["construction"] if b["bolt"] == "x" for u in b["units"]} == {"unknown"}
 
     def test_a_crossed_pieces_pip_is_the_stage_it_waits_at(self):
         assert board.pips([{"stage": "needs", "flume": {"of": "code"}}, {"stage": "submitted"}, {"stage": "launching"}, {"stage": "refused"}]) == "◑◕○?"
@@ -1993,7 +1995,7 @@ ATTENDED = ["! bolt board-done: every unit has landed on main, and the bolt is s
 
 def runs_named(r):
     """What the attention line names of the roles' runs in the board read with roles r."""
-    return [a for a in data(roles=r)["partitions"][0]["attention"] if a["what"] == "run"]
+    return [a for a in data(roles=r)["drives"][0]["attention"] if a["what"] == "run"]
 
 
 class TestRuns:
@@ -2075,12 +2077,12 @@ class TestRuns:
         # the runs still have their views from asks.rec
         assert view("wldn-design", roles=r)[0] == "wldn-design run  in stream wldn-main  no turn taken  nothing waits"
 
-    def test_the_board_reads_the_roles_beside_the_plan_and_a_partition_running_none_reads_nothing_more(self, monkeypatch):
+    def test_the_board_reads_the_roles_beside_the_plan_and_a_drive_running_none_reads_nothing_more(self, monkeypatch):
         shown, ran = [], []
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: shown.append((repo, tip, path)) or "%rec: Ask\n")
         monkeypatch.setattr(plan, "runners", lambda repo, label: ran.append((repo, label)) or {})
-        fleet = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], flume=dict(crew_standing(), planner="wldn-main")),
-                                        "madswan": dict(FLEET["partitions"]["wldn"], label="madswan", flume=crew_standing())})
+        fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], flume=dict(crew_standing(), planner="wldn-main")),
+                                        "madswan": dict(FLEET["drives"]["wldn"], label="madswan", flume=crew_standing())})
         got = board.roles_read(fleet, [("wldn", "WilldanGroup/crew-state", "tip0", None), ("madswan", "WilldanGroup/crew-state", "tip1", None)])
         assert list(got) == ["wldn"] and got["wldn"]["kinds"] == {"planner": "wldn-main"} and got["wldn"]["asks"] == "%rec: Ask\n"
         assert got["wldn"]["reading"]["why"] == "no runner answers on mac-studio: wldn/runner/mac-studio does not exist"
@@ -2093,7 +2095,7 @@ def crew_standing():
 
 
 class TestLandingsUnderAnotherName:
-    """bolt-plan "Landings under another name", on the board: a partition whose run record holds a landing under
+    """bolt-plan "Landings under another name", on the board: a drive whose run record holds a landing under
     agentplot/tailrace and, after it, a kit.rename of tailrace to timber names agentplot/tailrace as written, its kits
     read as the rail's read reads them (plan.kits_at; the landings a tip holding both entries gives, which test_kits'
     TestRunsRead proves); and the agents' views keep the keys crew's mod reads (code.8), so plugin/hooks/status.js is
@@ -2109,8 +2111,8 @@ class TestLandingsUnderAnotherName:
 
     def test_the_board_names_the_kit_as_its_landing_wrote_it_and_the_views_keep_their_keys(self, monkeypatch):
         landed, before = self.board(monkeypatch, [self.LANDED]), self.board(monkeypatch, [])
-        assert landed["partitions"][0]["kits"] == ["agentplot/tailrace", "breadboard-kit", "switchboard-kit"]
-        assert before["partitions"][0]["kits"] == ["breadboard-kit", "switchboard-kit"]
+        assert landed["drives"][0]["kits"] == ["agentplot/tailrace", "breadboard-kit", "switchboard-kit"]
+        assert before["drives"][0]["kits"] == ["breadboard-kit", "switchboard-kit"]
         v, was = json.loads(json.dumps(board.agent_views(landed))), json.loads(json.dumps(board.agent_views(before)))
         assert set(v) == set(was) == {"read_at", "stale_after_ms", "stale", "views", "cards"}
         assert set(v["views"]) == set(was["views"])

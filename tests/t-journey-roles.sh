@@ -1,6 +1,6 @@
-# A partition's main-level roles that run as their kinds, through the crew command on the stubs (tests.11, record
+# A drive's main-level roles that run as their kinds, through the crew command on the stubs (tests.11, record
 # 0022; record 0047 move 6): with madswan's planner and operator named a stream, a tell to the planner with no
-# standing agent of it up is an ask of the role from its sender on madswan's drive branch, its role record written in
+# standing agent of it up is an ask of the role from its sender on madswan's branch, its role record written in
 # the same commit, nothing typed into any pane and one ask entry holding the words' length and never their text, which
 # crew trace of the run lists; a send to madswan is an ask of its operator carrying whom it was for; and a tell to wldn's
 # planner, which stands, is refused as today with nothing asked. The planner's run, named from its place: crew role start
@@ -45,7 +45,7 @@ ok "a tell to a role that runs as its kind is an ask from its sender with its ro
 CREW_AGENT=swancloud-planner expect_ok crew send madswan "The zone check fails"
 has "$out" "asked madswan-operator"
 eq "$(asks -e "Role = 'operator'" -p From,What,Words | tr '\n' ' ')" "From: swancloud-planner What: send Words: (sent to madswan) The zone check fails "
-ok "a send to a partition whose operator runs as its kind is an ask of the operator carrying whom it was for"
+ok "a send to a drive whose operator runs as its kind is an ask of the operator carrying whom it was for"
 
 # wldn's planner stands: a tell to it, not up, is refused as today, and nothing is asked.
 blueprints WilldanGroup/willdan-blueprints >/dev/null; crew state init wldn >/dev/null
@@ -156,9 +156,9 @@ ok "a land in a repository crew does not name, or outside a role's run, is refus
 # for it from asks.rec, and once mac-studio's runner shows the design agent's run lost the attention line names it, its
 # place and host, and no command.
 expect_ok crew board --label madswan --json
-eq "$(jq -c '.partitions[0].runs | map([.run, .stream, (.turn.turn // "none"), .waiting])' <<<"$out")" \
+eq "$(jq -c '.drives[0].runs | map([.run, .stream, (.turn.turn // "none"), .waiting])' <<<"$out")" \
    '[["madswan-design","madswan-main","none",1],["madswan-planner","madswan-main","1",1],["madswan-operator","madswan-main","none",1]]'
-eq "$(jq -c '[.partitions[0].attention[] | select(.what == "run")]' <<<"$out")" "[]"
+eq "$(jq -c '[.drives[0].attention[] | select(.what == "run")]' <<<"$out")" "[]"
 lost='{"status":{"places":[{"place":"/flume/places/crew-design--madswan","phase":"live","current":"turn","waiting_on":{"act":"retry","stage":"turn","why":"lost","since":1793440000,"words":null},"stalled":false}],"host":{}}}'
 runner_commit "runner: madswan/design's run lost" "$(printf '%%rec: Place\n%%key: Request\n%%type: Request int\n%%type: At date\n%%mandatory: Request Place At Status\n%%allowed: Request Place At Status\n\n%%rec: Run\n%%key: Address\n%%type: At date\n%%mandatory: Address At\n%%allowed: Address Place At Status Words\n\nAddress: madswan/design\nPlace: /flume/places/crew-design--madswan\nAt: 2026-10-31T12:20:00Z\nStatus: %s\n' "$lost")"
 expect_ok crew board --label madswan

@@ -8,7 +8,7 @@ context: |
   from {{TOKENS}}) and skills. Needs only herdr, jq, python3, git, wt and
   openspec on the machine; no service of its own.
 
-  Partitions are data in ~/.config/crew/teams.json, written by the machine's
+  Drives are data in ~/.config/crew/teams.json, written by the machine's
   configuration: crew's own module, services.crew from crew's flake
   (flake.nix, nix/; flake.1, flake.2), or swancloud's lib/crew-teams.nix;
   hosts and sessions come from swancloud's
@@ -25,7 +25,7 @@ context: |
   Runs on the Macs (mac-studio, macbook-pro) and on NixOS workspace boxes
   Each role's model and effort are in its definition's frontmatter (plugin/roles/), overridden only in the teams file.
 
-  Vocabulary: partition, session (a herdr server), connection (a session in
+  Vocabulary: drive, session (a herdr server), connection (a session in
   a window's sidebar), operator session, operator agent, herdr workspace (a
   sidebar entry), bolt, unit, design agent, planner, dispatcher.
 

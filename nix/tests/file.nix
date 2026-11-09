@@ -1,5 +1,5 @@
 # The crew-flake spec's file (record 0058, flake.2), over options.nix
-# evaluated alone beside a system's `assertions`: deneb's partitions
+# evaluated alone beside a system's `assertions`: deneb's drives
 # render nix/tests/files/deneb.json byte for byte, with its kept
 # repositories nix/tests/files/runner.json (record 0061), the version is crew's,
 # and what crew refuses fails evaluation, by tryEval where the module
@@ -48,22 +48,26 @@ let
     lib.head (builtins.match ".*\nVERSION = ([0-9]+)\n.*" (builtins.readFile ../../plugin/lib/crew.py))
   );
 
-  # deneb's partitions with the first one's partition changed by `change`.
+  # deneb's drives with the first one changed by `change`.
   first =
     change:
     deneb
     // {
-      partitions = [ (change (lib.head deneb.partitions)) ] ++ lib.tail deneb.partitions;
+      drives = [ (change (lib.head deneb.drives)) ] ++ lib.tail deneb.drives;
     };
   noState = first (p: removeAttrs p [ "state" ]);
   dispatcher = first (p: lib.recursiveUpdate p { flume.dispatcher = false; });
   planner = first (p: lib.recursiveUpdate p { flume.planner = true; });
-  madswan = lib.elemAt deneb.partitions 2;
+  madswan = lib.elemAt deneb.drives 2;
   twice = deneb // {
-    partitions = deneb.partitions ++ [ madswan ];
+    drives = deneb.drives ++ [ madswan ];
   };
   teams = deneb // {
     teams = [ ];
+  };
+  # deneb's drives under the version-5 file's key, with no `drives`.
+  partitions = removeAttrs deneb [ "drives" ] // {
+    partitions = deneb.drives;
   };
 
   # runner's settings with crew's kept repository changed by `change`, and
@@ -86,7 +90,7 @@ let
   };
 in
 {
-  "deneb's partitions" =
+  "deneb's drives" =
     t.expect (renders deneb) "deneb's settings do not evaluate"
     ++ lib.optionals (renders deneb) (
       t.expect (
@@ -94,8 +98,8 @@ in
       ) "deneb's settings render ${text deneb}, not nix/tests/files/deneb.json"
       ++ t.expect (failures deneb == [ ]) "deneb's settings fail: ${toString (failures deneb)}"
       ++ t.expect (
-        !(lib.head rendered.partitions) ? roles
-      ) "afterthought's partition, which gives no roles, renders a roles key"
+        !(lib.head rendered.drives) ? roles
+      ) "afterthought's drive, which gives no roles, renders a roles key"
     );
 
   "A runner host's kept repositories" =
@@ -144,25 +148,27 @@ in
       !renders (deneb // { version = 4; })
     ) "a host's settings set version 4, and evaluation holds";
 
-  "A partition with no state repository" = t.expect (
-    !renders noState
-  ) "a partition with no state evaluates";
+  "A drive with no state repository" = t.expect (!renders noState) "a drive with no state evaluates";
 
   "A label twice" =
     t.expect (
       failures twice != [ ]
-    ) "services.crew.settings.partitions lists madswan twice, and no assertion fails"
+    ) "services.crew.settings.drives lists madswan twice, and no assertion fails"
     ++
       lib.concatMap
         (words: t.expect (says twice words) "the failure names no ${words}: ${toString (failures twice)}")
         [
-          "services.crew.settings.partitions"
+          "services.crew.settings.drives"
           "madswan"
         ];
 
+  "Drives under `partitions`" = t.expect (
+    !renders partitions
+  ) "services.crew.settings lists its drives under partitions with no drives, and evaluation holds";
+
   "A role crew has no kind for" =
-    t.expect (!renders dispatcher) "a partition's flume names dispatcher, and evaluation holds"
-    ++ t.expect (!renders planner) "a partition's flume gives planner true, and evaluation holds";
+    t.expect (!renders dispatcher) "a drive's flume names dispatcher, and evaluation holds"
+    ++ t.expect (!renders planner) "a drive's flume gives planner true, and evaluation holds";
 
   "Teams" =
     t.expect (failures teams != [ ]) "services.crew.settings gives teams, and no assertion fails"

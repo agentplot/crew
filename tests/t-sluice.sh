@@ -53,9 +53,9 @@ expect_fail "unrecognized arguments: --merge" crew fix tenant-environments edge-
 fix_lands tenant-environments edge-sign-in sign-in
 eq "$(landed)" $'sluice chore(land): #2 fix/tenant-environments/edge-sign-in\npassed (stub)'
 expect_ok crew bolts tenant-environments --json
-eq "$(jq -r '.partitions[0].plans[0].bolts[0] | "\(.fixes[0].fix) \(.fixes[0].merged) \(.verification.state)"' <<<"$out")" \
+eq "$(jq -r '.drives[0].plans[0].bolts[0] | "\(.fixes[0].fix) \(.fixes[0].merged) \(.verification.state)"' <<<"$out")" \
   "fix/tenant-environments/edge-sign-in true green"
-eq "$(jq -r '.partitions[0].plans[0].bolts[0] | "\(.verification.state), \(.verification.said)"' <<<"$out")" \
+eq "$(jq -r '.drives[0].plans[0].bolts[0] | "\(.verification.state), \(.verification.said)"' <<<"$out")" \
   "green, its head $(git -C "$k" rev-parse origin/bolt/tenant-environments | cut -c1-7) is tenant-environments--edge-sign-in's landing, as the runner reports it"
 ok "a unit's and a fix's merge into a started bolt is Flume's submission to sluice, crew merging nothing, and crew reads each merged and the bolt's verification from the runner's report of its work's landing at its head"
 

@@ -1,6 +1,6 @@
-"""The fleet page (the fleet-page spec): page.fleet_data on the board of every partition, as board.board_data gives it,
-and each partition's run-record entries; page.fleet_links and page.linked for its links. That crew page --fleet makes
-it from one read of every partition and writes it whole is the board journey's (t-journey-board)."""
+"""The fleet page (the fleet-page spec): page.fleet_data on the board of every drive, as board.board_data gives it,
+and each drive's run-record entries; page.fleet_links and page.linked for its links. That crew page --fleet makes
+it from one read of every drive and writes it whole is the board journey's (t-journey-board)."""
 import datetime
 import json
 import re
@@ -16,23 +16,23 @@ def sess(partition, account="madswan"):
     return {"dir": "/w", "partition": partition, "repos": [], **({"account": account} if account else {})}
 
 
-def main(label, partition, machine, session, sessions=None):
+def main(label, machine, session, sessions=None):
     roles = dict.fromkeys(("design", "planner", "ops", "operator", "reviewer"), session)
-    return {"label": label, "partition": partition, "machine": machine, "session": session, "sessions": dict(roles, **(sessions or {}))}
+    return {"label": label, "machine": machine, "session": session, "sessions": dict(roles, **(sessions or {}))}
 
 
 # madswan, swancloud and wldn, in the teams file's order, each a main level, the one kind of agent crew starts
 # (the-team-machinery-leaves). swancloud's main level runs on deneb in its session swancloud, its operator in
 # swancloud-3, a session the hosts file names no account for; deneb's swancloud-2, on another account, and agentplot-2,
-# on madswan, hold no agent of any partition; chuck-herdr-alpha, where wldn's runner takes its work, holds none either.
+# on madswan, hold no agent of any drive; chuck-herdr-alpha, where wldn's runner takes its work, holds none either.
 FLEET = {
     "hosts": {"deneb": {"sessions": {"madswan": sess("business"), "swancloud": sess("personal"), "swancloud-2": sess("personal", "madswan-2"),
                                      "swancloud-3": sess("personal", None), "agentplot-2": sess("agentplot")}},
               "mac-studio": {"sessions": {"wldn": sess("clients/willdan", "willdan-alex")}},
               "chuck-herdr-alpha": {"sessions": {"wldn-1": sess("clients/willdan", "ia")}}},
-    "partitions": {"madswan": main("madswan", "business", "deneb", "madswan"),
-                   "swancloud": main("swancloud", "personal", "deneb", "swancloud", {"operator": "swancloud-3"}),
-                   "wldn": main("wldn", "clients/willdan", "mac-studio", "wldn")},
+    "drives": {"madswan": main("madswan", "deneb", "madswan"),
+                   "swancloud": main("swancloud", "deneb", "swancloud", {"operator": "swancloud-3"}),
+                   "wldn": main("wldn", "mac-studio", "wldn")},
 }
 
 
@@ -70,7 +70,7 @@ LOGS = {"swancloud": [
     entry("bolt.land", ["bolt/r"], "2026-10-22T09:00:00Z", Repo="crew", Head="9" * 40, By="swancloud-ops", Refused="the bolt holds a unit not merged")]}
 
 BOARD = {"read_at": "2026-10-23T12:00:00Z", "from": "deneb", "unread": {"the plan of madswan": "fetch failed: timed out"},
-         "partitions": [
+         "drives": [
              part("madswan", {"deneb": True}, plan=None,
                   attention=[{"what": "plan", "name": "the plan of madswan", "why": "fetch failed: timed out"}]),
              part("swancloud", {"deneb": True, "mac-studio": "its kits: ssh: timed out"}, kits=["crew", "swancloud"],
@@ -89,21 +89,25 @@ def fleet(board=BOARD, logs=LOGS, usage=None):
 
 
 def of(d, label):
-    return next(p for p in d["partitions"] if p["label"] == label)
+    return next(p for p in d["drives"] if p["label"] == label)
 
 
 class TestWhereItRuns:
-    def test_every_partition_in_the_teams_files_order_with_its_plans_commit_and_what_could_not_be_read(self):
-        """fleet-page "Three partitions": a block for each, in order, as of when and which commit of each plan."""
+    def test_every_drive_in_the_teams_files_order_with_its_plans_commit_and_what_could_not_be_read(self):
+        """fleet-page "Three drives": a block for each, in order, as of when and which commit of each plan."""
         d = fleet()
-        assert [p["label"] for p in d["partitions"]] == ["madswan", "swancloud", "wldn"]
+        assert [p["label"] for p in d["drives"]] == ["madswan", "swancloud", "wldn"]
         assert d["made"] == {"at": "2026-10-23T12:00:00Z", "since": SINCE}
-        assert [(p["plan"], p["commit"]) for p in d["partitions"]] == [(None, "madswan/main not read"), ("c" * 40, "swancloud/main ccccccc"),
+        assert [(p["plan"], p["commit"]) for p in d["drives"]] == [(None, "madswan/main not read"), ("c" * 40, "swancloud/main ccccccc"),
                                                                        ("c" * 40, "wldn/main ccccccc")]
         assert of(d, "madswan")["unread"] == {"the plan of madswan": "fetch failed: timed out"} and of(d, "wldn")["unread"] == {}
-        b = dict(BOARD, partitions=[part("wldn", {"chuck-herdr-alpha": True}, plan=None)], unread={})
+        b = dict(BOARD, drives=[part("wldn", {"chuck-herdr-alpha": True}, plan=None)], unread={})
         assert of(fleet(b), "wldn")["commit"] == "wldn/main not started"
-        assert of(d, "madswan")["partition"] == "business"
+        # Each drive is named by its label alone (main-level "Drives are declared in the teams file"): no grouping of a
+        # session's is carried, and the page's block draws the label, its plan's commit and its cards.
+        assert all("partition" not in p for p in d["drives"]) and of(d, "madswan")["label"] == "madswan"
+        script = page.FLEET.read_text()
+        assert 'h2.append(link(p.link, "pt-name", p.label));' in script and "pt-of" not in script
 
     def test_a_host_that_did_not_answer_is_named_with_its_why_and_the_rest_shown(self):
         """fleet-page "A host that does not answer"."""
@@ -116,7 +120,7 @@ class TestWhereItRuns:
 
     def test_each_session_names_its_agents_and_its_account_and_one_no_agent_runs_in_is_left_out(self):
         """fleet-page "Two sessions on two accounts": deneb's swancloud holds the main level but its operator, account
-        madswan; swancloud-2, the partition's, holds none of its agents."""
+        madswan; swancloud-2, the drive's, holds none of its agents."""
         deneb = next(h for h in of(fleet(), "swancloud")["hosts"] if h["host"] == "deneb")
         assert [(s["session"], s["agents"], s["account"]) for s in deneb["sessions"]] == [
             ("swancloud", ["swancloud-design", "swancloud-planner", "swancloud-ops", "swancloud-reviewer"], "madswan"),
@@ -144,7 +148,7 @@ class TestKits:
         return {k["kit"]: k for k in of(fleet(), "swancloud")["kits"]}
 
     def test_each_kit_once_in_the_boards_order_naming_no_team(self):
-        """The partition's kits, the repositories its plan and its landings name (plan.partition_kits), as the board read them."""
+        """The drive's kits, the repositories its plan and its landings name (plan.drive_kits), as the board read them."""
         assert list(self.kits()) == ["crew", "swancloud"] and not any("teams" in k for k in self.kits().values())
 
     def test_a_kits_last_landing_is_its_newest_in_the_window_a_refused_one_and_another_kits_passed_over(self):
@@ -166,20 +170,20 @@ class TestKits:
         assert sc["said"][1] == "c in construction; 1 bolt planned; 2 units queued"
 
     def test_a_bolt_waiting_with_no_card_open_and_a_kit_with_nothing_queued_say_so(self):
-        b = dict(BOARD, partitions=[part("wldn", {"chuck-herdr-alpha": True}, kits=["switchboard-kit"],
+        b = dict(BOARD, drives=[part("wldn", {"chuck-herdr-alpha": True}, kits=["switchboard-kit"],
                                          construction=[ledger("s", "switchboard-kit", "waits", [unit("s1", "merged")])])])
         k, = of(fleet(b), "wldn")["kits"]
         assert k["said"] == ["no landing since 2026-10-16", "s waits to land, no card open"]
-        assert of(fleet(dict(BOARD, partitions=[part("wldn", {"chuck-herdr-alpha": True}, kits=["switchboard-kit"])])), "wldn")["kits"][0]["said"][1] == "nothing queued"
+        assert of(fleet(dict(BOARD, drives=[part("wldn", {"chuck-herdr-alpha": True}, kits=["switchboard-kit"])])), "wldn")["kits"][0]["said"][1] == "nothing queued"
 
 
 class TestNoTeams:
-    def test_a_partitions_block_names_no_team_slot_or_conductor(self):
-        """fleet-page, the removed "Each partition shows its teams and how busy each is" and "Each team shows what each of
+    def test_a_drives_block_names_no_team_slot_or_conductor(self):
+        """fleet-page, the removed "Each drive shows its teams and how busy each is" and "Each team shows what each of
         its slots is doing" (Decision 11 of the-team-machinery-leaves)."""
         d = fleet()
         words = json.dumps(d)
-        assert not any("teams" in p for p in d["partitions"])
+        assert not any("teams" in p for p in d["drives"])
         assert '"slot' not in words and "conductor" not in words and "team" not in words.replace("teams file", "")
 
 
@@ -199,27 +203,27 @@ class TestAttention:
 class TestLinks:
     LABELS = ["madswan", "swancloud", "wldn"]
 
-    def test_served_as_index_html_each_partition_is_its_label_html_and_a_subscriptions_its_dock_there(self):
-        """fleet-page "Served beside the partitions' pages": wldn's name links to wldn.html, and swancloud on the
+    def test_served_as_index_html_each_drive_is_its_label_html_and_a_subscriptions_its_dock_there(self):
+        """fleet-page "Served beside the drives' pages": wldn's name links to wldn.html, and swancloud on the
         madswan subscription to swancloud's page with madswan's dock open."""
         links = page.fleet_links(PurePath("/srv/board/index.html"), self.LABELS)
         assert links == {"madswan": "madswan.html", "swancloud": "swancloud.html", "wldn": "wldn.html"}
         d = fleet()
         page.linked(d, links)
         m = next(s for s in d["subscriptions"]["items"] if s["account"] == "madswan")
-        assert of(d, "wldn")["link"] == "wldn.html" and {"label": "swancloud", "link": "swancloud.html#dock=subscription:madswan"} in m["partitions"]
+        assert of(d, "wldn")["link"] == "wldn.html" and {"label": "swancloud", "link": "swancloud.html#dock=subscription:madswan"} in m["drives"]
 
-    def test_written_as_page_html_each_partition_is_its_folders_page(self):
+    def test_written_as_page_html_each_drive_is_its_folders_page(self):
         """fleet-page "Crew's own layout": wldn's name links to wldn/page.html."""
         assert page.fleet_links(PurePath("/h/.local/state/crew/page.html"), self.LABELS)["wldn"] == "wldn/page.html"
 
-    def test_a_name_that_says_no_layout_links_no_partition_and_no_subscriptions_dock(self):
+    def test_a_name_that_says_no_layout_links_no_drive_and_no_subscriptions_dock(self):
         """fleet-page "A name that says no layout": crew cannot tell where the pages are (read.1)."""
         assert page.fleet_links(PurePath("/srv/fleet.html"), self.LABELS) is None
         d = fleet()
         page.linked(d, None)
-        assert {p["link"] for p in d["partitions"]} == {None}
-        assert {p["link"] for s in d["subscriptions"]["items"] for p in s["partitions"]} == {None}
+        assert {p["link"] for p in d["drives"]} == {None}
+        assert {p["link"] for s in d["subscriptions"]["items"] for p in s["drives"]} == {None}
 
 
 # Decision 1's file: deneb's readings of madswan, made, and of credits, not made.
@@ -375,8 +379,8 @@ class TestSubscriptions:
 
 
 class TestOnASubscription:
-    def test_two_partitions_on_one_subscription_each_session_with_its_agents(self):
-        """fleet-page "Two partitions on one subscription" and "A session crew runs nothing in": madswan's main level in
+    def test_two_drives_on_one_subscription_each_session_with_its_agents(self):
+        """fleet-page "Two drives on one subscription" and "A session crew runs nothing in": madswan's main level in
         deneb's madswan, swancloud's but its operator in its swancloud, and agentplot-2 running none."""
         m = subs()["madswan"]
         assert [(s["host"], s["session"], s["agents"], s["said"]) for s in m["sessions"]] == [
@@ -386,22 +390,22 @@ class TestOnASubscription:
              "swancloud-design, swancloud-planner, swancloud-ops, swancloud-reviewer"),
             ("deneb", "agentplot-2", [], "runs no crew agent")]
         assert not any("teams" in s for s in m["sessions"])
-        assert (m["partitions"], m["sessions_said"], m["partitions_said"]) == ([{"label": "madswan", "link": None}, {"label": "swancloud", "link": None}], None, None)
+        assert (m["drives"], m["sessions_said"], m["drives_said"]) == ([{"label": "madswan", "link": None}, {"label": "swancloud", "link": None}], None, None)
 
     def test_a_session_no_agent_runs_in_and_one_with_no_account_on_no_subscription(self):
         s = subs()
         assert [(x["host"], x["session"], x["said"]) for x in s["madswan-2"]["sessions"]] == [("deneb", "swancloud-2", "runs no crew agent")]
-        assert (s["madswan-2"]["partitions"], s["madswan-2"]["partitions_said"]) == ([], "no partition's agents run on it")
+        assert (s["madswan-2"]["drives"], s["madswan-2"]["drives_said"]) == ([], "no drive's agents run on it")
         assert [(x["host"], x["session"], x["agents"]) for x in s["ia"]["sessions"]] == [("chuck-herdr-alpha", "wldn-1", [])]
         assert [(x["host"], x["session"]) for x in s["willdan-alex"]["sessions"]] == [("mac-studio", "wldn")]
         assert all(x["session"] != "swancloud-3" for v in s.values() for x in v["sessions"])
 
     def test_a_subscription_no_session_runs_on_says_so(self):
         f = subs(("deneb", made("fable-test", ago(3))))["fable-test"]
-        assert (f["sessions"], f["sessions_said"], f["partitions"], f["partitions_said"]) == (
-            [], "no session of herdr-hosts is on it", [], "no partition's agents run on it")
+        assert (f["sessions"], f["sessions_said"], f["drives"], f["drives_said"]) == (
+            [], "no session of herdr-hosts is on it", [], "no drive's agents run on it")
 
-    def test_where_a_partition_runs_reads_the_same_placement(self):
+    def test_where_a_drive_runs_reads_the_same_placement(self):
         assert page.agents_in(FLEET, "swancloud") == {
             ("deneb", "swancloud"): ["swancloud-design", "swancloud-planner", "swancloud-ops", "swancloud-reviewer"],
             ("deneb", "swancloud-3"): ["swancloud-operator"]}
@@ -411,10 +415,10 @@ class TestTheSection:
     USAGE = {"deneb": published("deneb", MADSWAN, CREDITS),
              "mac-studio": {"file": "/u/mac-studio.json", "why": "it is not JSON: Expecting value: line 1 column 1 (char 0)"}}
 
-    def test_the_fleets_data_holds_the_subscriptions_beside_the_partitions_and_each_unreadable_file(self):
+    def test_the_fleets_data_holds_the_subscriptions_beside_the_drives_and_each_unreadable_file(self):
         """fleet-page "A file that is not of the shape": deneb's readings shown, mac-studio's file named."""
         d = fleet(usage=self.USAGE)
-        assert list(d) == ["made", "subscriptions", "unread_usage", "partitions"]
+        assert list(d) == ["made", "subscriptions", "unread_usage", "drives"]
         assert d["subscriptions"]["said"] == "as published by deneb"
         assert [(s["account"], s["state"]) for s in d["subscriptions"]["items"]] == [
             ("credits", "unread"), ("ia", "none"), ("madswan", "read"), ("madswan-2", "none"), ("willdan-alex", "none")]
@@ -427,16 +431,16 @@ class TestTheSection:
         assert {s["state"] for s in d["subscriptions"]["items"]} == {"none"}
         assert fleet(usage={"deneb": self.USAGE["mac-studio"]})["subscriptions"]["said"] == "no published use could be read"
 
-    def test_a_subscriptions_partitions_link_to_their_pages_at_its_dock(self):
+    def test_a_subscriptions_drives_link_to_their_pages_at_its_dock(self):
         d = fleet()
         page.linked(d, page.fleet_links(PurePath("/srv/board/index.html"), ["madswan", "swancloud", "wldn"]))
         m = next(s for s in d["subscriptions"]["items"] if s["account"] == "madswan")
-        assert m["partitions"] == [{"label": "madswan", "link": "madswan.html#dock=subscription:madswan"},
+        assert m["drives"] == [{"label": "madswan", "link": "madswan.html#dock=subscription:madswan"},
                                    {"label": "swancloud", "link": "swancloud.html#dock=subscription:madswan"}]
         page.linked(d, None)
-        assert {p["link"] for s in d["subscriptions"]["items"] for p in s["partitions"]} == {None}
+        assert {p["link"] for s in d["subscriptions"]["items"] for p in s["drives"]} == {None}
 
-    def test_the_section_stands_above_the_partitions_sets_every_text_as_text_and_loads_nothing(self):
+    def test_the_section_stands_above_the_drives_sets_every_text_as_text_and_loads_nothing(self):
         """fleet-page "Offline", with the subscriptions drawn: a bar's width a number, never markup."""
         out, block, rest = TestFile().rendered(fleet(usage=self.USAGE))
         assert rest.index('<section class="subs"') < rest.index('<main class="fleet"')
@@ -476,19 +480,19 @@ class TestFile:
         """fleet-page "Offline": every block draws from the file alone, and the browser makes no request."""
         assert page.FLEET.read_text().count(page.DATA) == 1
         out, block, rest = self.rendered()
-        assert [p["label"] for p in json.loads(block)["partitions"]] == ["madswan", "swancloud", "wldn"]
+        assert [p["label"] for p in json.loads(block)["drives"]] == ["madswan", "swancloud", "wldn"]
         for no in ("<script src", "<link", "@import", "http://", "https://", "src=", "url(", "{{DATA}}", "innerHTML", "outerHTML",
                    "insertAdjacentHTML", "document.write", "fetch(", "XMLHttpRequest", "WebSocket", "EventSource", "<button", "<input",
                    "<select", "<textarea", "<form", "onclick", "addEventListener"):
             assert no not in rest, no
         assert "textContent" in rest and 'setAttribute("href"' in rest
 
-    def test_its_colour_tokens_are_the_partition_pages_light_and_dark(self):
+    def test_its_colour_tokens_are_the_drive_pages_light_and_dark(self):
         """The two templates share their tokens by copy, so a case holds them equal (design, Risks)."""
         fleet_tokens, page_tokens = tokens(page.FLEET.read_text()), tokens(page.TEMPLATE.read_text())
         assert len(fleet_tokens) == 3 and fleet_tokens == page_tokens
 
-    def test_its_partitions_sit_side_by_side_and_stack_under_760_px(self):
+    def test_its_drives_sit_side_by_side_and_stack_under_760_px(self):
         rest = self.rendered()[2]
         assert "grid-template-columns:repeat(auto-fit,minmax(380px,1fr))" in rest
         assert re.search(r"@media \(max-width:759px\)\{.*?\.fleet\{grid-template-columns:1fr", rest, re.S)
@@ -496,7 +500,7 @@ class TestFile:
     def test_typed_words_are_kept_as_text_and_cannot_end_the_data_block(self):
         """fleet-page "Typed words": an attention item holding </script><b>here</b>, a host's error as it was read."""
         said = "mac-studio did not answer (its kits: </script><b>here</b> & more)"
-        b = dict(BOARD, partitions=[part("wldn", {"chuck-herdr-alpha": True},
+        b = dict(BOARD, drives=[part("wldn", {"chuck-herdr-alpha": True},
                                          attention=[{"what": "host", "name": "mac-studio", "why": "its kits: </script><b>here</b> & more"}])])
         out, block, rest = self.rendered(fleet(b))
         assert "<b>here</b>" not in block and of(json.loads(block), "wldn")["attention"] == [said]

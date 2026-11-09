@@ -149,7 +149,7 @@ def test_a_rename_is_a_block_naming_both_names_and_no_bolt(monkeypatch):
     of low risk."""
     monkeypatch.setattr(plan.record, "reach", lambda label, eid=None: 0)
     dos = ("kit rename flywheel-cloud boomdrive-cloud", "kit rename tailrace timber")
-    fleet = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
+    fleet = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
              "hosts": {"deneb": keeping("/d/agentplot", "afterthought/crew")}}
     landed = lambda n, repo: f"Id: 2026110{n}T100000Z-deneb-1-{n}\nAt: 2026-11-0{n}T10:00:00Z\nHost: deneb\nBy: chuck\nAct: bolt.land\nRepo: {repo}\n"
     finished = lambda: FactsWrite(plan_text(bolts=[("crew-bolt", "crew", False)], units=[("crew-unit", "crew", "crew-bolt", [])]),
@@ -345,7 +345,7 @@ def test_a_reading_opened_after_the_card_was_raised_changes_the_planners_card_to
 # The rail's sweep raises a proposal's card again on the plan as it stands, not on the plan its read holds: wldn's
 # proposal 538 was approved at 9b8c8c1 and its card closed, and the sweep, on a read from before, posted it again 15 s
 # after (signal 2026-10-23-swancloud-planner-727dc1ea/01).
-SWEPT_FLEET = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], state="WilldanGroup/crew-state",
+SWEPT_FLEET = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], state="WilldanGroup/crew-state",
                                                    checkout="/w/willdan-blueprints/main", blueprints=["WilldanGroup/willdan-blueprints"])})
 TODAY = "2026-10-23"
 
@@ -404,7 +404,7 @@ class OnTheTip:
                             if path == "proposals.rec" else None)
         for name in ("row_card_post", "row_card_change", "row_card_close"):
             monkeypatch.setattr(plan, name, lambda *a, name=name, **kw: self.called.append((name, a, kw)) or "req_2")
-        # no runner has reported taking the kit's work, so the card is filed in the partition's blueprints (plan.kit_at)
+        # no runner has reported taking the kit's work, so the card is filed in the drive's blueprints (plan.kit_at)
         monkeypatch.setattr(plan, "runners", lambda repo, label: {})
         monkeypatch.setattr(plan, "kit_at", lambda fleet, label, kit, run=None: plan.fail(f"no runner has reported taking {kit}'s work yet"))
 

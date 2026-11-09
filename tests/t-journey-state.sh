@@ -1,5 +1,5 @@
 # A drive's state and its run record, through the crew command on the stubs (tests.11, record 0022): a plan command
-# names recutils when it is missing; crew state init starts a branch, adopts a partition's old plans with their history
+# names recutils when it is missing; crew state init starts a branch, adopts a drive's old plans with their history
 # and its moves, finishes a run stopped partway, and keeps two drives' branches apart; a record that can't be written
 # changes nothing else; a write's commit changes its own files and names its entry, which follows as a commit of its
 # own, and every entry is on the branch when the command that wrote it returns; a push the branch refuses is said and
@@ -91,7 +91,7 @@ eq "$(git --git-dir "$as" ls-tree --name-only swancloud/main)" $'plan.rec\nruns'
 expect_ok crew state init swancloud
 has "$out" "added moves.rec"; lacks "$out" "started an empty plan"
 git --git-dir "$as" merge-base madswan/main swancloud/main >/dev/null 2>&1 && fail "madswan's and swancloud's branches share history"
-ok "state init adopts a partition's first old plan with its history, joins another naming where it came from, copies its moves, finishes a stopped run, and keeps two drives' branches apart"
+ok "state init adopts a drive's first old plan with its history, joins another naming where it came from, copies its moves, finishes a stopped run, and keeps two drives' branches apart"
 
 export CREW_LABEL=wldn
 crew bolt new tenants "Tenants." --repo switchboard-kit >/dev/null

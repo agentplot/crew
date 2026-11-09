@@ -35,7 +35,7 @@ in
 
   # A nix-darwin system of aarch64-darwin with the flake's module enabled
   # for the primary user alice, at /Users/alice, as host-a with deneb's
-  # partitions, and the module `given`.
+  # drives, and the module `given`.
   darwinSystem =
     given:
     inputs.nix-darwin.lib.darwinSystem {
@@ -58,7 +58,7 @@ in
 
   # A NixOS system of x86_64-linux with the flake's module enabled for the
   # normal user alice, beside the normal user bob, as host-a with deneb's
-  # partitions, and the module `given`.
+  # drives, and the module `given`.
   nixosSystem =
     given:
     inputs.nixpkgs.lib.nixosSystem {

@@ -56,7 +56,7 @@ def test_the_plan_takes_a_chore_among_its_units_and_refuses_any_other_kind():
         plan.recfix(text.replace("Kind: chore", "Kind: spike"), "plan.rec")
 
 
-MADSWAN = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
+MADSWAN = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
                                       "flume": {"design": False, "planner": "madswan-main", "reviewer": False, "ops": "madswan-main",
                                                 "operator": False}}}}
 
@@ -274,7 +274,7 @@ def pushed(state, branch, files, message):
 
 def renamed_fleet(state):
     """madswan's fleet with its main level on deneb, whose spaces keep agentplot/timber and no tailrace."""
-    return dict(state.fleet, partitions={state.LABEL: dict(state.fleet["partitions"][state.LABEL], machine="deneb")},
+    return dict(state.fleet, drives={state.LABEL: dict(state.fleet["drives"][state.LABEL], machine="deneb")},
                 hosts={"deneb": {"sessions": {"main": {"dir": "/d", "repos": ["agentplot/timber", "agentplot/boomdrive-cloud"]}}}})
 
 

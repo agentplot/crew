@@ -126,6 +126,13 @@ has "$out" "crew-role <label> design|planner|ops|reviewer|operator [resume]"
 nothing_done "crew --help"
 ok "every command crew dispatches answers -h or --help with its usage and exits 0, calling no tool, starting no agent, writing no entry and moving no branch"
 
+before
+expect_fail "which drive? drives: wldn madswan swancloud" crew main up
+expect_fail 'usage: crew send <drive> "<text>"' crew send
+expect_ok crew --help; has "$out" 'crew send     <drive> "<text>"'; has "$out" "send anything for another drive to its operator"
+nothing_done "crew main up with no label"
+ok "a command given no label asks which drive, naming the drives, and crew send's usage names a drive"
+
 CREW_AGENT=wldn-design expect_ok crew tell wldn-planner "--help with which table holds tenants ZQXN"
 has "$out" "asked wldn-planner"
 eq "$(git --git-dir "$ws" show wldn/main:asks.rec | recsel -t Ask -P Words | grep ZQXN)" "--help with which table holds tenants ZQXN"

@@ -107,7 +107,7 @@ def submit(monkeypatch, tmp_path):
     monkeypatch.setattr(plan, "landing_state", lambda t: tmp_path / "crew")
     monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", f"{label}/main"))
     monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "tip")
-    monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: [
+    monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [
         dict({k: v for k, v in e.items() if v not in (None, "") and k not in ("frm", "refused")}, From=e.get("frm") or [],
              **({"Refused": e["refused"]} if e.get("refused") else {})) for e in got["emitted"]])
     monkeypatch.setattr(plan.READ, "drop_kit", lambda *a: None)
@@ -120,7 +120,7 @@ def submit(monkeypatch, tmp_path):
 
     def run(excerpt=None, bolts=("y",)):
         a = argparse.Namespace(bolt=list(bolts), label=None, excerpt=excerpt)
-        plan.bolt_submit({"partitions": {}}, a)
+        plan.bolt_submit({"drives": {}}, a)
         return got
     got["run"] = run
     return got
@@ -256,7 +256,7 @@ class TestTheWordsAtAClose:
         monkeypatch.setattr(plan.crew, "this_host", lambda: "deneb")
         monkeypatch.setattr(plan, "host_run", lambda fleet, host, script, *args: BEFORE.replace(f"GITHUB={OLD}", f"GITHUB={NEW}"))
         monkeypatch.setattr(plan, "stages_for", lambda fleet, label, pl, bs: type("S", (), {"of": lambda s, u: {"stage": "landed"}})())
-        monkeypatch.setattr(plan, "partition_entries", lambda fleet, label: entries)
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: entries)
         monkeypatch.setattr(plan, "write", lambda fleet, label, change, subject, **k: wrote.append(k.get("by")))
         monkeypatch.setattr(plan, "plan_of", lambda fleet, label: None)
         monkeypatch.setattr(plan, "sweep_on", lambda fleet, t, what, landed=None, **k: tidied.append(landed))
@@ -297,7 +297,7 @@ def leave(monkeypatch):
     monkeypatch.setattr(plan, "land_hand", lambda fleet, label, kit, note=None, pane=None: got["raised"].append((label, kit, note)))
 
     def run(excerpt=STOP, bolts=("y",)):
-        plan.bolt_leave({"partitions": {}}, argparse.Namespace(bolt=list(bolts), label=None, excerpt=excerpt))
+        plan.bolt_leave({"drives": {}}, argparse.Namespace(bolt=list(bolts), label=None, excerpt=excerpt))
         return got
     got["run"] = run
     return got

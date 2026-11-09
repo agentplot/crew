@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """page.py: a drive's page, one HTML file: its board, its lineage and its deploys, drawn from its run record; and
-the fleet page, every partition at once.
+the fleet page, every drive at once.
 
   crew page <label> [--out <file>] [--since <time>]
-                                     the partition's board, as crew board reads it, which the page opens on; the
+                                     the drive's board, as crew board reads it, which the page opens on; the
                                      drive's signals, agenda items, proposals, units and bolts as columns, a line for
                                      each link between two of them, a timeline of the entries beneath, and each
                                      object's history; and its deploys, a timeline by environment, each deploy with
@@ -15,24 +15,24 @@ the fleet page, every partition at once.
                                      reading names, with its five-hour, seven-day and per-model use as the host
                                      holding its sign-in published it in ~/.local/state/crew/usage/<host>.json, which
                                      host read it and how long ago, a reading not made marked, and the sessions and
-                                     partitions on it; then every partition of the teams file at once, a block to
+                                     drives on it; then every drive of the teams file at once, a block to
                                      each, from one read of all of them, the one crew board makes: where it runs,
                                      each host and the herdr sessions its agents run in with each one's Claude
                                      account; its kits, each main's last landing and what is queued for it; and
-                                     what needs attention; each partition a link to its page, and each partition on
+                                     what needs attention; each drive a link to its page, and each drive on
                                      a subscription to its page at the subscription's dock, in the layout of the file: <label>.html beside index.html, <label>/page.html
                                      beside page.html, none, said so, for any other name; written whole to
-                                     ~/.local/state/crew/page.html, beside the partitions' folders, or to --out, with
+                                     ~/.local/state/crew/page.html, beside the drives' folders, or to --out, with
                                      each published file it could not read printed, and that no use is published
                                      when none is
 
-The board is the one read crew board makes (board.flow_read), of the one partition. Which objects the lineage holds,
+The board is the one read crew board makes (board.flow_read), of the one drive. Which objects the lineage holds,
 how they are linked and each one's history are read from the run record's entries alone, by the walk crew trace makes
 (record.lineage), so the page and the trace cannot disagree. Labels and present status are read from the plan and kits
 the board read, at the commit the entries were read at, which a command fetches once (plan.12); no entry holds them
 (record.3). The deploys are the ops entries of the main level's host and the landings, as ops.environments reads them
 (plan.14), a deploy's release notes the proposals the lineage joins to each bolt it carried. The fleet page is the
-board of every partition from the one read crew board makes of them all, its landings read from the run record in
+board of every drive from the one read crew board makes of them all, its landings read from the run record in
 the board's window (read.5), and each session's account from the hosts file (code.5);
 its subscriptions' use is what each host published in this host's ~/.local/state/crew/usage/, which swancloud's
 reader writes and crew only reads, by no ssh and no credential (read.5), beside the work of the sessions on each.
@@ -51,7 +51,7 @@ DATA = "/*{{DATA}}*/"
 # The run record's window on the fleet page: record.when's default, the board's.
 WINDOW = datetime.timedelta(days=7)
 NO_ACCOUNT = "no account named in herdr-hosts"
-PARTITIONS = "<!--{{PARTITIONS}}-->"
+DRIVES = "<!--{{DRIVES}}-->"
 # The page's columns, in the flow's order; a chore stands in the units' column (plan.11).
 COLUMNS = ("signals/", "agenda/", "proposal/", ("unit/", "chore/"), "bolt/")
 # Present status, as the page colours it: open, in flight, done or dropped; None when it can't be told.
@@ -182,7 +182,7 @@ def release_notes(d, bolt):
 
 def deploys(d, entries, machine, since=None):
     """The deploys view: each environment's deploys that moved since since or are still open, and the operations waiting
-    on it, from the ops entries the partition's main level's host wrote and the landings (ops.environments), each
+    on it, from the ops entries the drive's main level's host wrote and the landings (ops.environments), each
     carried bolt with its release notes from the page's lineage: [{env, deploys, waiting}], by environment."""
     mine = [e for e in entries if ((e.get("Act") or "").startswith("ops.") and e.get("Host") == machine)
             or e.get("Act") == "bolt.land"]
@@ -194,31 +194,31 @@ def deploys(d, entries, machine, since=None):
 # ------------------------------------------------------------------------------------------------- the fleet
 
 def fleet_data(fleet, bd, logs, usage, now):
-    """The fleet page's data: every partition of the teams file in its order, from the board of all of them (bd, as
-    board.board_data gives it), each partition's run-record entries (logs, by label), the use the hosts published (usage,
-    as usage_files reads it) and the time. The record is read in its window, the board's (WINDOW). Each partition is
+    """The fleet page's data: every drive of the teams file in its order, from the board of all of them (bd, as
+    board.board_data gives it), each drive's run-record entries (logs, by label), the use the hosts published (usage,
+    as usage_files reads it) and the time. The record is read in its window, the board's (WINDOW). Each drive is
     where it runs, its kits and their mains, and what needs attention, naming no team (fleet-page); each subscription
-    its use, who read it and how long ago, and the sessions and partitions on it; and each published file crew could not
+    its use, who read it and how long ago, and the sessions and drives on it; and each published file crew could not
     read, with why: each with the words the page says of it; nothing here reads (code.7)."""
     since = board.iso(now - WINDOW)
-    by = {p["label"]: p for p in bd["partitions"]}
-    parts = [fleet_partition(fleet, by[l], bd["unread"], sorted((e for e in logs.get(l, []) if e["At"] >= since), key=lambda e: (e["At"], e["Id"])), since)
-             for l in fleet["partitions"] if l in by]
+    by = {p["label"]: p for p in bd["drives"]}
+    parts = [fleet_drive(fleet, by[l], bd["unread"], sorted((e for e in logs.get(l, []) if e["At"] >= since), key=lambda e: (e["At"], e["Id"])), since)
+             for l in fleet["drives"] if l in by]
     readings, unread = usage_checked(usage)
     read = [h for h in usage if h not in {u["host"] for u in unread}]
     said = ("no host has published any use" if not usage else f"as published by {', '.join(read)}" if read else "no published use could be read")
     return {"made": {"at": board.iso(now), "since": since},
             "subscriptions": {"said": said, "items": subscriptions(fleet, readings, now)},
-            "unread_usage": unread, "partitions": parts}
+            "unread_usage": unread, "drives": parts}
 
 
-def fleet_partition(fleet, part, unread, entries, since):
-    """One partition's block: its label and name, the commit its plan was read at and what could not be read, where it
+def fleet_drive(fleet, part, unread, entries, since):
+    """One drive's block: its label, the commit its plan was read at and what could not be read, where it
     runs, its kits and its attention in the board's words, with how many of its cards are open."""
-    l, p = part["label"], fleet["partitions"][part["label"]]
+    l = part["label"]
     attention = [board.attention_text(a) for a in part["attention"]]
     mine = {n: why for n, why in unread.items() if n.startswith(f"{l}/main of ") or n == f"the plan of {l}"}
-    return {"label": l, "partition": p["partition"], "plan": part["plan"], "unread": mine,
+    return {"label": l, "plan": part["plan"], "unread": mine,
             "commit": f"{l}/main " + (part["plan"][:7] if part["plan"] else "not read" if mine else "not started"),
             "hosts": where(fleet, l, part["hosts"]), "kits": fleet_kits(part, entries, since),
             "attention": attention, "attention_said": attention or ["nothing needs attention"], "cards": len(part["cards"]),
@@ -230,12 +230,12 @@ def account_said(account):
 
 
 def where(fleet, label, asked):
-    """Each host the partition runs on, by name: those the board asked (asked, {host: True or why it did not answer},
+    """Each host the drive runs on, by name: those the board asked (asked, {host: True or why it did not answer},
     its main level's and its runners', plan.hosts_of) and its main level's, marked answered, not, or not asked; under
-    each, in the hosts file's order, each session an agent of the partition runs in, its main level's standing roles
+    each, in the hosts file's order, each session an agent of the drive runs in, its main level's standing roles
     in it, and the account the hosts file gives the session, said when it names none (read.2). A session no agent of
-    the partition runs in is left out."""
-    p = fleet["partitions"][label]
+    the drive runs in is left out."""
+    p = fleet["drives"][label]
     placed = agents_in(fleet, label)
     out = []
     for h in sorted(set(asked) | {p["machine"]}):
@@ -252,10 +252,10 @@ def where(fleet, label, asked):
 
 
 def agents_in(fleet, label):
-    """Which of a partition's agents crew starts in which session, {(host, session): [agent]}: its main level's roles in
+    """Which of a drive's agents crew starts in which session, {(host, session): [agent]}: its main level's roles in
     theirs on its host, its standing roles and the reviewer crew review starts beside the planner unless named apart,
-    the one kind of agent crew starts (the-team-machinery-leaves), as the partition page's subscription dock lists them."""
-    p = fleet["partitions"][label]
+    the one kind of agent crew starts (the-team-machinery-leaves), as the drive page's subscription dock lists them."""
+    p = fleet["drives"][label]
     out = {}
     for r in crew.MAIN_STANDING + ("reviewer",):
         out.setdefault((p["machine"], p["sessions"][r]), []).append(f"{label}-{r}")
@@ -263,7 +263,7 @@ def agents_in(fleet, label):
 
 
 def fleet_kits(part, entries, since):
-    """Each of the partition's kits, the repositories its plan and its landings name (plan.partition_kits, as the board
+    """Each of the drive's kits, the repositories its plan and its landings name (plan.drive_kits, as the board
     read them), once, in their order; its main's last landing in the window, the newest bolt.land not refused whose
     Repo is the kit as written, or none since the window's start; and what is queued for that main: its started bolts that wait to land, each with its landing's card
     open or none, those in construction, and its planned bolts and queued units, counted."""
@@ -295,21 +295,21 @@ def landed_said(landing, since):
 
 
 def fleet_links(path, labels):
-    """Where each partition's page is from the fleet page written to path (a PurePath), in the layout of its own file:
-    index.html, as swancloud's board serves it beside the partitions' pages, puts each at <label>.html; page.html,
+    """Where each drive's page is from the fleet page written to path (a PurePath), in the layout of its own file:
+    index.html, as swancloud's board serves it beside the drives' pages, puts each at <label>.html; page.html,
     crew's own, at <label>/page.html. None for any other name, since crew cannot tell where the pages are (read.1)."""
     layout = {"index.html": "{}.html", "page.html": "{}/page.html"}.get(path.name)
     return {l: layout.format(l) for l in labels} if layout else None
 
 
 def linked(d, links):
-    """Each partition of the fleet's data given its page's link, and each subscription's partitions that link with the
+    """Each drive of the fleet's data given its page's link, and each subscription's drives that link with the
     subscription's dock open there (#dock=subscription:<account>, the address the dock keeps); none where links is
     None."""
-    for p in d["partitions"]:
+    for p in d["drives"]:
         p["link"] = links[p["label"]] if links else None
     for s in d["subscriptions"]["items"]:
-        for p in s["partitions"]:
+        for p in s["drives"]:
             p["link"] = f"{links[p['label']]}#dock=subscription:{s['account']}" if links else None
 
 
@@ -483,11 +483,11 @@ def subscriptions(fleet, readings, now):
 
 
 def on_subscription(fleet, account):
-    """The sessions and partitions on a subscription, beside its use and computed from nothing of it: each session the
-    hosts file gives account, by host and on each in the file's order, with crew's agents in it across every partition,
-    the main levels' roles (agents_in); and the partitions with an agent in one of them, in the teams file's order, each
+    """The sessions and drives on a subscription, beside its use and computed from nothing of it: each session the
+    hosts file gives account, by host and on each in the file's order, with crew's agents in it across every drive,
+    the main levels' roles (agents_in); and the drives with an agent in one of them, in the teams file's order, each
     linked to its page at the subscription's dock (linked)."""
-    labels = list(fleet["partitions"])
+    labels = list(fleet["drives"])
     placed = {l: agents_in(fleet, l) for l in labels}
     sessions, on = [], set()
     for h in sorted(fleet["hosts"]):
@@ -499,8 +499,8 @@ def on_subscription(fleet, account):
             on |= {l for l, _ in here}
             sessions.append({"host": h, "session": s, "agents": agents, "said": ", ".join(agents) or "runs no crew agent"})
     return {"sessions": sessions, "sessions_said": None if sessions else "no session of herdr-hosts is on it",
-            "partitions": [{"label": l, "link": None} for l in labels if l in on],
-            "partitions_said": None if on else "no partition's agents run on it"}
+            "drives": [{"label": l, "link": None} for l in labels if l in on],
+            "drives_said": None if on else "no drive's agents run on it"}
 
 
 # ------------------------------------------------------------------------------------------------- the docks
@@ -581,7 +581,7 @@ def docks(d, fleet, label):
     (the-team-machinery-leaves). Each page is made from the page's data, its lineage and the fleet crew already loaded, and nothing else; an
     item it names is a link only where it has a dock (record 0038, S27, S28). Every page names, as its `to`, the agent a
     word from its dock goes to (word_to)."""
-    B, p = d["board"], crew.partition_of(fleet, label)
+    B, p = d["board"], crew.drive_of(fleet, label)
     nodes = {n["id"]: n for n in d["nodes"]}
     read_at = plan.utc(B["read_at"])
 
@@ -708,7 +708,7 @@ def docks(d, fleet, label):
 
 def word_to(key, label):
     """The agent a dock's word goes to, by its item's kind (crew.ROLE_OF, record 0038 §3): its role's agent of the
-    partition, a bolt's, a unit's and a fix's the planner (board-page "A word goes to the agent its item's kind
+    drive, a bolt's, a unit's and a fix's the planner (board-page "A word goes to the agent its item's kind
     names")."""
     return f"{label}-{crew.ROLE_OF.get(key.partition(':')[0], 'operator')}"
 
@@ -798,7 +798,7 @@ def beside(path, label, other):
 
 
 def fleet_back(path, label):
-    """Where the fleet page is from this partition's page, written to path (a PurePath), in the layout of its own file:
+    """Where the fleet page is from this drive's page, written to path (a PurePath), in the layout of its own file:
     index.html beside a page whose file alone is named label, as swancloud's board serves them; ../page.html from a
     page.html in a folder named label, crew's own. None for any other layout, since crew cannot tell where the fleet
     page is (read.1)."""
@@ -812,15 +812,15 @@ def fleet_back(path, label):
 
 def nav(labels, label, path):
     """A link to the fleet page in the layout of this page's file, path (fleet_back), where it can be told; then the
-    partitions in the teams file's order, this page's marked current and each other a link to its page in that layout
-    (beside), or named without a link when that layout names no partition."""
+    drives in the teams file's order, this page's marked current and each other a link to its page in that layout
+    (beside), or named without a link when that layout names no drive."""
     def part(l):
         if l == label:
             return f'<span class="part" aria-current="page">{html.escape(l)}</span>'
         link = beside(path, label, l)
         return f'<a class="part" href="{html.escape(link)}">{html.escape(l)}</a>' if link else f'<span class="part">{html.escape(l)}</span>'
     back = fleet_back(path, label)
-    return (f'<a class="part fleet" href="{html.escape(back)}" title="every partition">fleet</a>' if back else "") + "".join(part(l) for l in labels)
+    return (f'<a class="part fleet" href="{html.escape(back)}" title="every drive">fleet</a>' if back else "") + "".join(part(l) for l in labels)
 
 
 def embedded(d):
@@ -838,9 +838,9 @@ def template(path, *marks):
 
 
 def render(d, path):
-    """The page to be written to path: the template with the partitions' links in their placeholder, and the data in
+    """The page to be written to path: the template with the drives' links in their placeholder, and the data in
     its own (embedded)."""
-    return template(TEMPLATE, DATA, PARTITIONS).replace(PARTITIONS, nav(d["partitions"], d["label"], path)).replace(DATA, embedded(d))
+    return template(TEMPLATE, DATA, DRIVES).replace(DRIVES, nav(d["drives"], d["label"], path)).replace(DATA, embedded(d))
 
 
 def render_fleet(d):
@@ -867,7 +867,7 @@ def write(path, text):
 
 def page(fleet, a):
     label = a.label
-    crew.partition_of(fleet, label)
+    crew.drive_of(fleet, label)
     repo, ref = plan.state_of(fleet, label)
     day, stamp = record.when(a.since) if a.since else ("0000-00-00", None)
     tips = {}
@@ -876,21 +876,21 @@ def page(fleet, a):
     if missing:
         fail(f"no page is written: {branch} of {repo} could not be read ({missing.get(branch)}), and the page names the commit it is drawn from")
     tip = tips.get(label) or fail(f"no page is written: {branch} of {repo} is not started, so there is no commit to draw from: crew state init {label}")
-    # The board's read, of this partition alone: the branch's tip is the one just fetched, so both views are of one
+    # The board's read, of this drive alone: the branch's tip is the one just fetched, so both views are of one
     # commit. A host, plan or signal home it could not read is in the board's attention, and the page still written.
     read = board.flow_read(fleet, [label])
     now = datetime.datetime.now(datetime.timezone.utc)
     bd = board.board_data(fleet, [label], read, now)
-    part = bd["partitions"][0]
+    part = bd["drives"][0]
     pl = next((f[3] for f in read["found"] if f[0] == label and f[2] == part["plan"]), None)
     d = data(entries, stamp)
     unreachable = describe(fleet, label, repo, part["plan"] or tip, d, pl, read["sv"] if pl else None)  # hosts, for their kits alone
     d["made"] = {"at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "label": label, "repo": repo, "commit": tip, "plan": part["plan"], "since": stamp,
                  "unreachable": unreachable}
     d["board"] = dict(part, read_at=bd["read_at"], unread=bd["unread"])
-    d["deploys"] = deploys(d, entries, fleet["partitions"][label]["machine"], stamp)
+    d["deploys"] = deploys(d, entries, fleet["drives"][label]["machine"], stamp)
     d["docks"] = docks(d, fleet, label)
-    d["partitions"], d["label"] = list(fleet["partitions"]), label
+    d["drives"], d["label"] = list(fleet["drives"]), label
     if a.json:
         print(json.dumps(d, indent=1))
         return
@@ -898,8 +898,8 @@ def page(fleet, a):
     write(out, render(d, out))
     print(out)
     print(header(d["made"]))
-    if any(beside(out, label, l) is None for l in d["partitions"] if l != label):
-        print(f"the other partitions are not linked: {out} is neither named {label}.html nor in a folder {label}")
+    if any(beside(out, label, l) is None for l in d["drives"] if l != label):
+        print(f"the other drives are not linked: {out} is neither named {label}.html nor in a folder {label}")
     if not d["entries"]:
         print("nothing has been recorded" + (f" since {stamp}" if stamp else ""))
     for h, why in unreachable.items():
@@ -907,13 +907,13 @@ def page(fleet, a):
 
 
 def fleet_page(fleet, a):
-    """crew page --fleet: one read of every partition in the teams file, the read crew board makes of all of them, made
+    """crew page --fleet: one read of every drive in the teams file, the read crew board makes of all of them, made
     into the fleet page with the use the hosts published in this host's ~/.local/state/crew/usage/, and written whole to
-    --out or beside the partitions' pages; its path printed, then as of when and which commit of each plan, each host or
-    plan of a partition that did not answer, that the partitions are not linked when the file's name gives no layout,
+    --out or beside the drives' pages; its path printed, then as of when and which commit of each plan, each host or
+    plan of a drive that did not answer, that the drives are not linked when the file's name gives no layout,
     each published file that could not be read, and that no use is published when the folder holds none. Nothing is
     refused for a silent host or an unreadable file (read.3)."""
-    labels = list(fleet["partitions"])
+    labels = list(fleet["drives"])
     read = board.flow_read(fleet, labels)
     now = datetime.datetime.now(datetime.timezone.utc)
     bd = board.board_data(fleet, labels, read, now)
@@ -928,14 +928,14 @@ def fleet_page(fleet, a):
         return
     write(out, render_fleet(d))
     print(out)
-    for p in d["partitions"]:
+    for p in d["drives"]:
         print(f"as of {d['made']['at'][:10]} {d['made']['at'][11:16]}Z · {p['commit']}")
-    for p in bd["partitions"]:
+    for p in bd["drives"]:
         for x in p["attention"]:
             if x["what"] in ("host", "plan", "signals"):
                 print(f"{p['label']}: {board.attention_text(x)}")
     if links is None:
-        print(f"the partitions are not linked: {out} is named neither index.html nor page.html")
+        print(f"the drives are not linked: {out} is named neither index.html nor page.html")
     for u in d["unread_usage"]:
         print(f"the use published in {u['file']} could not be read: {u['why']}")
     if not usage:
@@ -955,10 +955,10 @@ def main(argv):
     plan.need_recutils()
     a = ap.parse_args(argv)
     if a.fleet:
-        a.label is None or fail(f"crew page takes a partition's label or --fleet, not both: {a.label} and --fleet")
+        a.label is None or fail(f"crew page takes a drive's label or --fleet, not both: {a.label} and --fleet")
         a.since is None or fail("crew page --fleet takes no --since: the fleet page reads the run record in the board's window")
         return fleet_page(crew.load(), a)
-    a.label or fail("crew page takes a partition's label, or --fleet for every partition")
+    a.label or fail("crew page takes a drive's label, or --fleet for every drive")
     page(crew.load(), a)
 
 

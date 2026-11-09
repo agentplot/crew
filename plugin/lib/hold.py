@@ -49,10 +49,10 @@ GO_NOTICE = "{host} is no longer held: crew starts agents there again. Carry on 
 # ------------------------------------------------------------------------------------------- what crew decides
 
 def hosts_named(fleet, which):
-    """The hosts a command acts on: every host crew runs agents on, each partition's main level's, for --all; else the
+    """The hosts a command acts on: every host crew runs agents on, each drive's main level's, for --all; else the
     one named, which must be a host of the hosts file."""
     if which in (None, "--all"):
-        return sorted({p["machine"] for p in fleet["partitions"].values()})
+        return sorted({p["machine"] for p in fleet["drives"].values()})
     which in fleet["hosts"] or fail(f"{which} is no host of the fleet's hosts file. hosts: " + " ".join(sorted(fleet["hosts"])))
     return [which]
 
@@ -158,7 +158,7 @@ def own_work(info):
 
 
 def labels_here(fleet):
-    """The partitions crew runs anything for on this host."""
+    """The drives crew runs anything for on this host."""
     return crew.here(fleet)
 
 
@@ -320,7 +320,7 @@ def go(fleet, a):
     print(f"{host} is no longer held")
     plan.revive_cmd(fleet, argparse.Namespace())
     tell_each(fleet, up, GO_NOTICE.format(host=host))
-    for label in sorted(fleet["partitions"]):
+    for label in sorted(fleet["drives"]):
         if label in fleet["hosts"].get(host, {}).get("sessions", {}):
             try:
                 plan.console_cmd(fleet, argparse.Namespace(act="up", label=label, tabs=[]))
@@ -330,7 +330,7 @@ def go(fleet, a):
 
 
 def update_here(fleet, a):
-    """crew _update: every standing agent of this host, or of one partition here, that an update has made due handed to
+    """crew _update: every standing agent of this host, or of one drive here, that an update has made due handed to
     crew _renew, which restarts it once it is idle; none while the host is held, whose go does it."""
     host, h = crew.this_host(), crew.held()
     if h:
@@ -450,7 +450,7 @@ def renew(fleet, a):
 
 
 def kind_end(fleet, main, role):
-    """A main level's standing agent ended once idle and never started again, its partition now running its role as its
+    """A main level's standing agent ended once idle and never started again, its drive now running its role as its
     kind (design Decision 14 of roles-run-as-flume-kinds; host-holds-and-updates "A standing agent of a role that now
     runs as its kind is ended at its next stop"): its exit typed as a restart's is, watched for when slow, its pane left
     with nothing started in it, and recorded (agent.end). Nothing starts it again: it stands in no session of the main

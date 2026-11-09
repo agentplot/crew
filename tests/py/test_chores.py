@@ -181,7 +181,7 @@ class TestBolts:
         assert plan.land_refusal(TE, ["a", "bump"], of, [], "wldn") == "chore bump has not landed on main: it is merged"
 
     def test_crew_bolts_marks_a_chore_and_its_queue(self):
-        data = {"partitions": [{"label": "wldn", "plans": [{"repo": "r", "plan": "abcdef0", "queue": [
+        data = {"drives": [{"label": "wldn", "plans": [{"repo": "r", "plan": "abcdef0", "queue": [
             {"unit": "tidy", "kind": "chore", "repo": KIT, "stage": "queued", "sources": []}],
             "bolts": [{"bolt": TE, "repo": KIT, "team": "swb-1", "host": "box", "state": "active", "fixes": [], "units": [
                 {"unit": "bump", "kind": "chore", "stage": "verify", "tasks": None, "worktree": "/kit/places/chore-bump"}]}]}]}], "unreachable": {}}

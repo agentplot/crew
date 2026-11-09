@@ -78,7 +78,7 @@ let
     options = {
       every = mkOption {
         type = types.ints.positive;
-        description = "How many of the partition's constructed changes make a batch.";
+        description = "How many of the drive's constructed changes make a batch.";
       };
       hours = mkOption {
         type = types.addCheck types.number (n: n > 0) // {
@@ -110,24 +110,20 @@ let
     };
   };
 
-  partition = types.submodule {
+  drive = types.submodule {
     freeformType = json;
     options = {
       label = mkOption {
         type = name;
-        description = "The partition's label, which names its main level and its state branch `<label>/main`.";
-      };
-      partition = mkOption {
-        type = types.nonEmptyStr;
-        description = "The partition the main level's session is in, as the hosts file names it.";
+        description = "The drive's label, which names its main level and its state branch `<label>/main`.";
       };
       blueprints = mkOption {
         type = types.nonEmptyListOf repository;
-        description = "The partition's blueprints repositories, each `owner/name`, the first the one its main level works in.";
+        description = "The drive's blueprints repositories, each `owner/name`, the first the one its main level works in.";
       };
       state = mkOption {
         type = repository;
-        description = "The partition's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record.";
+        description = "The drive's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record.";
       };
       machine = mkOption {
         type = name;
@@ -139,7 +135,7 @@ let
       };
       review = mkOption {
         type = review;
-        description = "The partition's batch setting: a batch is due every `every` changes or every `hours` hours.";
+        description = "The drive's batch setting: a batch is due every `every` changes or every `hours` hours.";
       };
       flume = mkOption {
         type = flume;
@@ -174,7 +170,7 @@ let
     if cfg.settings.repositories == null then [ ] else builtins.attrNames cfg.settings.repositories;
   unaddressed = lib.filter (r: builtins.match "[^/[:space:]]+/[^/[:space:]]+" r == null) addresses;
 
-  labels = map (p: p.label) cfg.settings.partitions;
+  labels = map (p: p.label) cfg.settings.drives;
   twice = lib.unique (lib.filter (label: lib.count (l: l == label) labels > 1) labels);
 in
 {
@@ -191,7 +187,7 @@ in
     host = mkOption {
       type = name;
       example = "deneb";
-      description = "This host, as `hostname -s` names it and the partitions' `machine` names a host. It is no key of the file: crew reads its host from `hostname -s`.";
+      description = "This host, as `hostname -s` names it and the drives' `machine` names a host. It is no key of the file: crew reads its host from `hostname -s`.";
     };
 
     settings = mkOption {
@@ -204,9 +200,9 @@ in
             readOnly = true;
             description = "The teams file's version, crew's own, read from plugin/lib/crew.py; no host sets it.";
           };
-          partitions = mkOption {
-            type = types.nonEmptyListOf partition;
-            description = "Every partition, listed once, with its `machine`.";
+          drives = mkOption {
+            type = types.nonEmptyListOf drive;
+            description = "Every drive, listed once, with its `machine`.";
           };
           repositories = unset (types.attrsOf kept) "The repositories this host keeps, each by its address, `owner/name`, with its `dir` and its `checkout`, which crew names on this host as the kit's folder and checkout; none where unset, and the file then names none.";
         };
@@ -219,7 +215,7 @@ in
     assertions = [
       {
         assertion = twice == [ ];
-        message = "services.crew.settings.partitions lists ${lib.concatStringsSep ", " twice} twice: each partition is listed once, by its label.";
+        message = "services.crew.settings.drives lists ${lib.concatStringsSep ", " twice} twice: each drive is listed once, by its label.";
       }
       {
         assertion = unaddressed == [ ];

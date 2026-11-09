@@ -67,8 +67,8 @@ ok "a rewritten teams file has the roles file renamed over the old one"
 # A teams file crew refuses: the roles file as it was, the teams file named
 cp "$(roles_file mac-studio)" "$T/roles.before"
 was=$(inode "$(roles_file mac-studio)")
-rewrite "$(teams_file mac-studio)" 's/"version": 5/"version": 4/'
-expect_fail "$(teams_file mac-studio) is version 4" crew _follow --once
+rewrite "$(teams_file mac-studio)" 's/"version": 6/"version": 5/'
+expect_fail "$(teams_file mac-studio) is version 5" crew _follow --once
 eq "$(inode "$(roles_file mac-studio)")" "$was"
 cmp -s "$T/roles.before" "$(roles_file mac-studio)" || fail "a refused teams file changed the roles file"
 ok "a teams file crew refuses leaves the roles file as it was, naming the teams file"

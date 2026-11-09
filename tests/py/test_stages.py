@@ -37,7 +37,7 @@ class TestCrossed:
         monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
 
     def stages(self, runners, main=(), chores=(), runs=None, bolt=None):
-        """Stages of x, started, holding a, b after a, and chore c, launched as requests 1 to 3, with the partition's runners
+        """Stages of x, started, holding a, b after a, and chore c, launched as requests 1 to 3, with the drive's runners
         as given (facts.ran, deneb's), and crew's kit as read on deneb holding main's changes and chores, and x's facts
         there as given (bolt, over crew_read's empty bolt)."""
         from facts import launched
@@ -54,7 +54,7 @@ class TestCrossed:
 
     def test_the_runners_host_silent_reads_every_crossed_piece_unknown(self):
         """bolt-plan "The runner's host is silent": deneb's runner branch can't be read, so crew can't tell which runner
-        took each launch; with no runner answering for the partition at all, nothing takes them (read.1)."""
+        took each launch; with no runner answering for the drive at all, nothing takes them (read.1)."""
         silent = {"deneb": runner.host_read("madswan", "deneb", "5e1f0c2a" + "0" * 32, {}, {"runner.rec": "recfix refused it"})}
         st = self.stages(silent)
         why = "deneb's runner can't be read: madswan/runner/deneb at 5e1f0c2: recfix refused it"
@@ -62,7 +62,7 @@ class TestCrossed:
             ("unknown", f"no runner crew read has taken request {n}, and {why}") for n in (1, 2, 3)]
         assert st.unread(st.plan.bolt("x")) == ("deneb's runner", why)
         none = self.stages({})
-        assert none.of("a")["why"] == "no runner answers for the partition: no <label>/runner/<host> branch exists, so nothing takes request 1"
+        assert none.of("a")["why"] == "no runner answers for the drive: no <label>/runner/<host> branch exists, so nothing takes request 1"
 
     def test_requests_crew_cant_read_read_every_crossed_piece_unknown(self):
         st = self.stages(None, runs="could not fetch madswan/main of afterthought/crew-state over https: no network")
@@ -168,7 +168,7 @@ class TestBuiltOnItsBolt:
     """bolt-plan "A unit whose work its bolt's branch holds is built" (crew record 0056 decision 2: crew reads a bolt's
     places from what the work's tools hold; read.1, read.2): a piece whose place's branch a landing on its bolt names is
     merged at that landing, read from the bolt's branch as the kit was read, whatever the runner reports of its place and
-    whichever partition's launch made it; no partition is mapped onto another (crew record 0055, rejected). x, a, b and
+    whichever drive's launch made it; no drive is mapped onto another (crew record 0055, rejected). x, a, b and
     c as TestCrossed has them."""
     FLEET = madswan_fleet()
     stages = TestCrossed.stages
@@ -210,7 +210,7 @@ class TestBuiltOnItsBolt:
 
     def test_a_launch_refused_for_a_change_its_bolt_already_holds_reads_merged_and_asks_nothing(self):
         """The reading of 2026-11-07 (afterthought-planner on deneb; signal 2026-11-07-agentplot-planner-cbc41169/02):
-        a's place ran as another partition's launch and landed on x; crew launched a again for this partition and the
+        a's place ran as another drive's launch and landed on x; crew launched a again for this drive and the
         runner refused it because the base bolt already holds the change. With x's landing of change/a, a is merged
         there and nothing waits on it; without one, a stays refused with the runner's words, never guessed built."""
         from facts import ran
@@ -221,8 +221,8 @@ class TestBuiltOnItsBolt:
         assert (s["stage"], s["flume"]) == ("merged", {"stage": "merged", "commit": "1" * 40, "landed": "2026-11-07T19:10:00Z",
                                                         "on": "bolt", "branch": "change/a"})
 
-    def test_a_unit_another_partitions_place_built_with_no_launch_here_is_merged_by_its_branch_alone(self):
-        """Whichever partition's launch made a's place, its branch is change/a, the unit's own name: this partition
+    def test_a_unit_another_drives_place_built_with_no_launch_here_is_merged_by_its_branch_alone(self):
+        """Whichever drive's launch made a's place, its branch is change/a, the unit's own name: this drive
         holds no launch of a at all, so the runner's records give it none, and x's landing of change/a makes it merged;
         a landing naming another branch builds nothing, and a fix's work is read from the landing naming its own place's
         branch alone."""

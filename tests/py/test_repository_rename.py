@@ -372,7 +372,7 @@ class TestRefused:
     def test_a_bolts_name(self):
         assert self.refusal(new="crew-bolt", stands=["bolt trc-1 has not landed"]) == (
             "crew-bolt is the name of bolt crew-bolt of madswan, so land/crew-bolt would name the bolt and not the repository: "
-            "a repository and a bolt of one partition take different names")
+            "a repository and a bolt of one drive take different names")
 
     def test_work_standing_both_named_in_one_message(self):
         assert self.refusal(stands=["bolt trc-1 has not landed", "madswan-ops's card land/tailrace is open"],
@@ -411,7 +411,7 @@ class TestRefused:
 
 def fleet(*repos):
     """madswan's fleet, its main level on deneb, whose spaces keep repos (owner/name)."""
-    return {"partitions": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
+    return {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": STANDING}},
             "hosts": {"deneb": keeping("/d/agentplot", *repos)}}
 
 
@@ -509,25 +509,25 @@ class TestRunAgain:
         assert w.files["runs/deneb/2026-10-30.rec"] == runs(entry(1, "bolt.land", on=["bolt/trc-1"], Repo="trc"), earlier)
 
 
-class TestAPartitionIsNeverRenamed:
-    """Decision 8 (drive-state "A partition is never renamed"): a label changed in the teams file is one partition removed
-    and another added, and crew kit rename renames a repository within one partition alone."""
+class TestADriveIsNeverRenamed:
+    """Decision 8 (drive-state "A drive is never renamed"): a label changed in the teams file is one drive removed
+    and another added, and crew kit rename renames a repository within one drive alone."""
 
-    AFTERTHOUGHT = {"partitions": {"afterthought": {"label": "afterthought", "machine": "deneb", "state": "afterthought/crew-state",
+    AFTERTHOUGHT = {"drives": {"afterthought": {"label": "afterthought", "machine": "deneb", "state": "afterthought/crew-state",
                                                     "flume": STANDING}}, "hosts": {}}
 
-    def test_a_former_label_is_no_partition_and_the_new_label_its_own_branch(self):
-        with pytest.raises(plan.Refusal, match="^no partition 'swancloud'. partitions: afterthought$"):
-            plan.crew.partition_of(self.AFTERTHOUGHT, "swancloud")
+    def test_a_former_label_is_no_drive_and_the_new_label_its_own_branch(self):
+        with pytest.raises(plan.Refusal, match="^no drive 'swancloud'. drives: afterthought$"):
+            plan.crew.drive_of(self.AFTERTHOUGHT, "swancloud")
         assert plan.state_of(self.AFTERTHOUGHT, "afterthought") == ("afterthought/crew-state", "afterthought/main")
 
-    def test_kit_rename_renames_a_repository_within_its_partition_alone(self):
+    def test_kit_rename_renames_a_repository_within_its_drive_alone(self):
         a = plan.do_args("madswan", "kit rename tailrace timber --label madswan")
         assert {k: v for k, v in vars(a).items() if k not in ("do",)} == {
             "cmd": "kit", "sub": "rename", "old": "tailrace", "new": "timber", "label": "madswan"}
-        with pytest.raises(plan.Refusal, match="names partition afterthought, and the proposal is madswan's"):
+        with pytest.raises(plan.Refusal, match="names drive afterthought, and the proposal is madswan's"):
             plan.do_args("madswan", "kit rename tailrace timber --label afterthought")
-        for argv in (["partition", "rename", "swancloud", "afterthought"], ["label", "rename", "swancloud", "afterthought"]):
+        for argv in (["drive", "rename", "swancloud", "afterthought"], ["label", "rename", "swancloud", "afterthought"]):
             with pytest.raises(plan.Refusal):
                 plan.parser(plan.Strict).parse_args(argv)
         assert not [k for k in plan.OPS if k[1] == "rename" and k != ("kit", "rename")]

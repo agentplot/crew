@@ -1,12 +1,12 @@
 # crew-board Specification
 
 ## Purpose
-The board of a partition's flow: four lanes, Inception, Bolt plan, Construction and Operation, each object on one line with the rail's decisions as markers on it, read from crew's state and writing nothing, as text in the terminal and as JSON for the page; and each crew agent's view of it.
+The board of a drive's flow: four lanes, Inception, Bolt plan, Construction and Operation, each object on one line with the rail's decisions as markers on it, read from crew's state and writing nothing, as text in the terminal and as JSON for the page; and each crew agent's view of it.
 
 ## Requirements
 
 ### Requirement: Operation shows each environment's deploys and the operations waiting
-After the bolts landed in the last seven days, the Operation lane SHALL show each environment's deploys that moved in those seven days or are still open, newest first, each on one line with the commit and the one it comes from, where it stands, whose word it was deployed on and the bolts it carried, or the commit the record can't place when no landing in it left main there; then each operation on that environment whose latest state is waiting, handed or failed. A deploy waiting on the user's word and an operation waiting on the user SHALL carry their rail row's marker. All of it SHALL be read from the run record's `ops.*` entries of the main level's host and its landings, and `crew board --json` SHALL give it as each partition's `environments`.
+After the bolts landed in the last seven days, the Operation lane SHALL show each environment's deploys that moved in those seven days or are still open, newest first, each on one line with the commit and the one it comes from, where it stands, whose word it was deployed on and the bolts it carried, or the commit the record can't place when no landing in it left main there; then each operation on that environment whose latest state is waiting, handed or failed. A deploy waiting on the user's word and an operation waiting on the user SHALL carry their rail row's marker. All of it SHALL be read from the run record's `ops.*` entries of the main level's host and its landings, and `crew board --json` SHALL give it as each drive's `environments`.
 
 #### Scenario: A deploy done and a newer one offered
 - **WHEN** wldn-ops approved the deploy of mac-studio to a landing's commit, the deployer recorded it done, and a deploy of the next landing's commit is offered
@@ -32,18 +32,18 @@ Main-level ops (`<label>-ops`) SHALL have a view among the agents' views, drawn 
 - **THEN** swancloud-ops's view shows the deploy with ✓ and says it has no card open, its post refused
 
 ### Requirement: The board prints four lanes in order
-`crew board [--label L]` SHALL print, for each partition read (the one named, else the caller's, else every partition), a header naming the partition, the time it was read and the hosts that answered, then four lanes in this order: Inception, Bolt plan, Construction, Operation, then the attention line. Each object SHALL be one line. A lane with nothing in it SHALL say none.
+`crew board [--label L]` SHALL print, for each drive read (the one named, else the caller's, else every drive), a header naming the drive, the time it was read and the hosts that answered, then four lanes in this order: Inception, Bolt plan, Construction, Operation, then the attention line. Each object SHALL be one line. A lane with nothing in it SHALL say none.
 
 #### Scenario: Nothing in flight
-- **WHEN** `crew board --label wldn` runs on a partition whose plan holds no bolt, no queued unit and no open proposal
+- **WHEN** `crew board --label wldn` runs on a drive whose plan holds no bolt, no queued unit and no open proposal
 - **THEN** it prints wldn's header and the four lanes in order, each saying none
 
-#### Scenario: Every partition
+#### Scenario: Every drive
 - **WHEN** `crew board` runs with no label outside any agent
-- **THEN** it prints one board per partition in the teams file, one after another
+- **THEN** it prints one board per drive in the teams file, one after another
 
 ### Requirement: Inception shows the signals no move has taken and the explorations
-The Inception lane SHALL list every signal, on the drive's branch or on main of the partition's first blueprints repo, that has no move in `moves.rec`, grouped by who captured it, each group with how many it holds and how old its oldest is, each signal with its kind and its first words. It SHALL then list each exploration folder on main of each kit the partition's teams build, with the first line of its first file.
+The Inception lane SHALL list every signal, on the drive's branch or on main of the drive's first blueprints repo, that has no move in `moves.rec`, grouped by who captured it, each group with how many it holds and how old its oldest is, each signal with its kind and its first words. It SHALL then list each exploration folder on main of each kit the drive's teams build, with the first line of its first file.
 
 #### Scenario: A moved signal leaves
 - **WHEN** a signal captured by wldn-planner is routed to a unit
@@ -61,7 +61,7 @@ The Bolt plan lane SHALL list each open proposal with its number, who proposed i
 - **THEN** Bolt plan lists apex-zones with its repository and goal, and zone-one under it as ready
 
 ### Requirement: Operation shows the bolts landed in the last seven days
-The Operation lane SHALL list each bolt landed in the last seven days, newest first, from the `bolt.land` entries of the partition's run record that were not refused, with when it landed, who landed it and its units.
+The Operation lane SHALL list each bolt landed in the last seven days, newest first, from the `bolt.land` entries of the drive's run record that were not refused, with when it landed, who landed it and its units.
 
 #### Scenario: A landing
 - **WHEN** wldn-ops landed bolt apex-zones two days ago
@@ -72,7 +72,7 @@ The Operation lane SHALL list each bolt landed in the last seven days, newest fi
 - **THEN** Operation does not list it
 
 ### Requirement: Each rail row is a marker on its object
-Every row `crew rail` would list for the partition SHALL appear on the board as a marker on the line of its object, and never as a line of its own: ✓ on a proposal's line for an open proposal, ✓ on a unit's line for a unit in review, ✎ on a unit's line for a verify report the user has not answered, and ✓ on a ledger's head line for a bolt waiting to land. Each marker SHALL say whether that row's card is open and who asked it, and, when none is open and the last post under the row's key was refused, that the row owes its card because Pending You refused its post.
+Every row `crew rail` would list for the drive SHALL appear on the board as a marker on the line of its object, and never as a line of its own: ✓ on a proposal's line for an open proposal, ✓ on a unit's line for a unit in review, ✎ on a unit's line for a verify report the user has not answered, and ✓ on a ledger's head line for a bolt waiting to land. Each marker SHALL say whether that row's card is open and who asked it, and, when none is open and the last post under the row's key was refused, that the row owes its card because Pending You refused its post.
 
 #### Scenario: A unit in review
 - **WHEN** unit a is in review and swb-1-conductor has a card open under its key
@@ -90,11 +90,11 @@ Every row `crew rail` would list for the partition SHALL appear on the board as 
 The board SHALL print no command that answers or moves anything, and SHALL write nothing: no commit, no run-record entry, no file in a kit or a blueprints repo.
 
 #### Scenario: Read only
-- **WHEN** `crew board` runs on a partition with a proposal open, a unit in review and a bolt to land
+- **WHEN** `crew board` runs on a drive with a proposal open, a unit in review and a bolt to land
 - **THEN** its output holds no `crew plan approve`, `crew unit approve` or `crew tell`, the drive's branch has the same tip, and the run record has no new entry
 
 ### Requirement: The attention line names what is wrong
-The board SHALL end with an attention line, each item marked !, naming each host that did not answer for its kits, never for its run record, which is read from the partition's branch; each plan or signals home it could not read, with why, the branch among them when its run record could not be read; and each bolt a team holds whose every unit has landed but which is still in the plan. A ledger whose bolt is in that state SHALL also carry ! on its head line. With nothing to name, the attention line SHALL say none.
+The board SHALL end with an attention line, each item marked !, naming each host that did not answer for its kits, never for its run record, which is read from the drive's branch; each plan or signals home it could not read, with why, the branch among them when its run record could not be read; and each bolt a team holds whose every unit has landed but which is still in the plan. A ledger whose bolt is in that state SHALL also carry ! on its head line. With nothing to name, the attention line SHALL say none.
 
 #### Scenario: A host down
 - **WHEN** the box holding swb-1 does not answer
@@ -109,22 +109,22 @@ The board SHALL end with an attention line, each item marked !, naming each host
 - **THEN** its ledger's head carries ! and the attention line names the bolt as landed and still in the plan
 
 ### Requirement: The board prints its lanes as JSON
-`crew board --json` SHALL print the same board as JSON: for each partition, its lanes as lists of objects, each object with its partition, its team where it has one, and its markers, each marker with its rail group, its card key, when its row began to wait, its card, and, when no card is open, the words of Pending You's refusal of the last post under its key, or none, and the attention items; and the hosts that did not answer and the plans not read.
+`crew board --json` SHALL print the same board as JSON: for each drive, its lanes as lists of objects, each object with its drive, its team where it has one, and its markers, each marker with its rail group, its card key, when its row began to wait, its card, and, when no card is open, the words of Pending You's refusal of the last post under its key, or none, and the attention items; and the hosts that did not answer and the plans not read.
 
 #### Scenario: The page's input
 - **WHEN** `crew board --label wldn --json` runs while unit a is in review
 - **THEN** the JSON's Construction lane holds tenant-environments with team swb-1, and unit a with a marker of group review and its card key
 
 ### Requirement: The rail and the board come from one read
-When the host's follower refreshes, crew SHALL read the plan, the kits and the run record once for both the rail and the board, and once for every partition with an operator session on the host, each kit read once however many of those partitions it serves: it SHALL write each partition's rail, what `crew rail` prints, as that partition's rail frame, and its board's data as its board frame; the rail tab SHALL draw the rail's frame and the board tab SHALL draw the board from that same read at its own width. When the follower has not refreshed a frame for more than three of its periods, its tab SHALL say how old it is; when none was ever written, the tab SHALL say so and that the host's follower writes it.
+When the host's follower refreshes, crew SHALL read the plan, the kits and the run record once for both the rail and the board, and once for every drive with an operator session on the host, each kit read once however many of those drives it serves: it SHALL write each drive's rail, what `crew rail` prints, as that drive's rail frame, and its board's data as its board frame; the rail tab SHALL draw the rail's frame and the board tab SHALL draw the board from that same read at its own width. When the follower has not refreshed a frame for more than three of its periods, its tab SHALL say how old it is; when none was ever written, the tab SHALL say so and that the host's follower writes it.
 
 #### Scenario: One refresh
-- **WHEN** the host's follower refreshes for a partition with three units in flight on one host
+- **WHEN** the host's follower refreshes for a drive with three units in flight on one host
 - **THEN** that host's kits are read once and the state branch fetched once for both frames
 
-#### Scenario: Two partitions on one host
-- **WHEN** the host's follower on mac-studio, which holds operator sessions of wldn and swancloud, makes its first refresh, and both partitions' teams build kits on the box
-- **THEN** the box's kits are gathered once for both partitions, and wldn's and swancloud's rail frames, board frames and agents' views are each written from that one read
+#### Scenario: Two drives on one host
+- **WHEN** the host's follower on mac-studio, which holds operator sessions of wldn and swancloud, makes its first refresh, and both drives' teams build kits on the box
+- **THEN** the box's kits are gathered once for both drives, and wldn's and swancloud's rail frames, board frames and agents' views are each written from that one read
 
 #### Scenario: The loop has stopped
 - **WHEN** the host's follower has not run for five minutes
@@ -135,11 +135,11 @@ When the host's follower refreshes, crew SHALL read the plan, the kits and the r
 - **THEN** it says there is no board for wldn yet and that the host's follower writes it
 
 ### Requirement: The host's follower runs with no tab
-`crew _follow` SHALL be the host's follower with no tab, the command a job of the host's runs: once a minute on its clock, and whenever this host's cache of a partition's state branch moves, for every partition with an operator session on the host, it SHALL make the refresh the rail tab's loop makes. crew SHALL run no service of its own for it.
+`crew _follow` SHALL be the host's follower with no tab, the command a job of the host's runs: once a minute on its clock, and whenever this host's cache of a drive's state branch moves, for every drive with an operator session on the host, it SHALL make the refresh the rail tab's loop makes. crew SHALL run no service of its own for it.
 
 #### Scenario: The host's job follows
 - **WHEN** swancloud's job runs `crew _follow` on mac-studio, which holds operator sessions of wldn and swancloud, and no console tab is open
-- **THEN** both partitions' board frames, rail frames and agents' views are written each period, the card sessions of closed cards are ended, and due restarts are handed out
+- **THEN** both drives' board frames, rail frames and agents' views are written each period, the card sessions of closed cards are ended, and due restarts are handed out
 
 ### Requirement: A host has one follower
 Whoever follows on a host, `crew _follow` or a rail tab's loop, SHALL hold the host's follower lock while it follows, saying which it is. A `crew _follow` started while another holds it SHALL wait for it, reading nothing; a rail tab that cannot take it SHALL draw the frames and try again.
@@ -153,7 +153,7 @@ Whoever follows on a host, `crew _follow` or a rail tab's loop, SHALL hold the h
 - **THEN** the rail tab draws the follower's frames and reads nothing itself
 
 ### Requirement: A refresh after nothing moved reads nothing
-Before it reads, the host's follower SHALL check whether anything the refresh acts on has moved since its last read: each partition's state branch, its runners' branches and blueprints main as this host's caches hold them; each kit's refs, worktrees, places' changes and slots files, on every host it reads; each of those hosts' card readings folder, where a reading the user sent back lands; the cards as Pending You last answered for them; crew's checkout; and the teams file. It SHALL stamp this host's kits and readings in its own process at each refresh, starting nothing, and SHALL ask another host for its kits' and readings' stamps only when something there could have moved: when the drive's branch of a partition with work on that host moved, when that host's runner's branch moved, when the host did not answer the last time it was asked, and otherwise once in ten minutes; a host not asked SHALL count as unmoved. When nothing has moved, the follower SHALL start no read and no process, and at a tick of its clock none beyond its fetches, and SHALL write each partition's rail frame, board frame and agents' views again from its last read, as of the check.
+Before it reads, the host's follower SHALL check whether anything the refresh acts on has moved since its last read: each drive's state branch, its runners' branches and blueprints main as this host's caches hold them; each kit's refs, worktrees, places' changes and slots files, on every host it reads; each of those hosts' card readings folder, where a reading the user sent back lands; the cards as Pending You last answered for them; crew's checkout; and the teams file. It SHALL stamp this host's kits and readings in its own process at each refresh, starting nothing, and SHALL ask another host for its kits' and readings' stamps only when something there could have moved: when the branch of a drive with work on that host moved, when that host's runner's branch moved, when the host did not answer the last time it was asked, and otherwise once in ten minutes; a host not asked SHALL count as unmoved. When nothing has moved, the follower SHALL start no read and no process, and at a tick of its clock none beyond its fetches, and SHALL write each drive's rail frame, board frame and agents' views again from its last read, as of the check.
 
 #### Scenario: An idle host
 - **WHEN** the host's follower on mac-studio ticks, every card it acts on answered at an earlier ask, and nothing it read has moved since its last refresh
@@ -163,7 +163,7 @@ Before it reads, the host's follower SHALL check whether anything the refresh ac
 - **WHEN** the box runs wldn's runner and holds a kit of wldn's, and the box's runner reports, or wldn's branch moves
 - **THEN** the follower's next refresh asks the box for its kits' and readings' stamps in one ssh, and the refresh after it, with nothing moved since, asks the box nothing
 
-#### Scenario: A partition with nothing on the box moves
+#### Scenario: A drive with nothing on the box moves
 - **WHEN** swancloud's branch moves, and no kit, runner or card session of swancloud's is on the box
 - **THEN** the follower's next refresh asks the box nothing
 
@@ -192,7 +192,7 @@ Before it reads, the host's follower SHALL check whether anything the refresh ac
 - **THEN** the follower's next refresh on its clock takes the kit as moved and gathers it again
 
 ### Requirement: A refresh after a change reads only what moved
-When something has moved, the host's follower SHALL read again only what rests on what moved: a moved state tip, that partition's plan, proposals and run record at the new tip; a moved blueprints tip, its signals; a moved kit, that kit alone, on its host; a moved runner's branch, that partition's runners' records at the new tip, each piece's stage and submission among them, and no kit gathered whose stamp did not move; a moved readings folder, that host's card sessions swept and nothing read; cards whose answers moved, the card sweep run and nothing read. What did not move SHALL be taken from the follower's last read, which crew SHALL never read as a fact once what it was read at has moved, and keep in the follower's process alone, writing none of it.
+When something has moved, the host's follower SHALL read again only what rests on what moved: a moved state tip, that drive's plan, proposals and run record at the new tip; a moved blueprints tip, its signals; a moved kit, that kit alone, on its host; a moved runner's branch, that drive's runners' records at the new tip, each piece's stage and submission among them, and no kit gathered whose stamp did not move; a moved readings folder, that host's card sessions swept and nothing read; cards whose answers moved, the card sweep run and nothing read. What did not move SHALL be taken from the follower's last read, which crew SHALL never read as a fact once what it was read at has moved, and keep in the follower's process alone, writing none of it.
 
 #### Scenario: The plan moved and no kit did
 - **WHEN** the user approves a proposal on mac-studio, moving wldn's state branch there, and no kit has moved
@@ -207,15 +207,15 @@ When something has moved, the host's follower SHALL read again only what rests o
 - **THEN** the follower's refresh after its clock's fetch brings the report shows `submitted #41` on `a`'s line, gathers no kit and starts no sluice
 
 ### Requirement: The follower fetches on a one-minute clock
-The host's follower SHALL fetch once a minute on its own clock, never faster, each repository it reads once, carrying every branch it reads of that repository in the one fetch: each partition's state branch with its runners' branches, and its blueprints main. It SHALL never fetch because an entry arrived. A branch a repository does not have yet SHALL cost that repository's fetch no more than one fetch again without it. Between its clock's ticks it SHALL look at this host's caches with no process, refreshing within a few seconds when a write on this host moves one; it SHALL start no `crew events --follow` to wake on.
+The host's follower SHALL fetch once a minute on its own clock, never faster, each repository it reads once, carrying every branch it reads of that repository in the one fetch: each drive's state branch with its runners' branches, and its blueprints main. It SHALL never fetch because an entry arrived. A branch a repository does not have yet SHALL cost that repository's fetch no more than one fetch again without it. Between its clock's ticks it SHALL look at this host's caches with no process, refreshing within a few seconds when a write on this host moves one; it SHALL start no `crew events --follow` to wake on.
 
 #### Scenario: An entry from another host
 - **WHEN** a place's runner on the box reports, or an agent on the box writes an entry, and wldn's branch gains it
 - **THEN** mac-studio's follower shows it at its clock's next fetch, within a minute, and fetched nothing in between
 
-#### Scenario: Two partitions in one state repository
+#### Scenario: Two drives in one state repository
 - **WHEN** the follower follows madswan and swancloud, whose branches are both in afterthought/crew-state
-- **THEN** each tick fetches afterthought/crew-state once, both partitions' branches and their runners' in that one fetch
+- **THEN** each tick fetches afterthought/crew-state once, both drives' branches and their runners' in that one fetch
 
 #### Scenario: An entry written on this host
 - **WHEN** the user approves a unit from the rail tab's shell on mac-studio
@@ -241,7 +241,7 @@ The host's follower SHALL ask Pending You about the cards its sweep acts on, and
 - **THEN** the cards count as moved again at the follower's next ask, not at each tick before it
 
 ### Requirement: What no stamp sees is read on the follower's clock
-At a tick of its clock that asks a host (the requirement *A refresh after nothing moved reads nothing* says when), the host's follower SHALL read again that host's dev servers as portless lists them, and at a tick that asks Pending You (the requirement *The follower asks Pending You about cards on its clock*), herdr's listing of each card's asker its card sweep acts on; it SHALL take a change in either as moved, drawing the frames again and sweeping the cards with it, with nothing gathered. At every refresh, whether or not anything moved, it SHALL work out from the run record's times and the time now whether a batch is due by hours, and tell the partition's planner once when one is.
+At a tick of its clock that asks a host (the requirement *A refresh after nothing moved reads nothing* says when), the host's follower SHALL read again that host's dev servers as portless lists them, and at a tick that asks Pending You (the requirement *The follower asks Pending You about cards on its clock*), herdr's listing of each card's asker its card sweep acts on; it SHALL take a change in either as moved, drawing the frames again and sweeping the cards with it, with nothing gathered. At every refresh, whether or not anything moved, it SHALL work out from the run record's times and the time now whether a batch is due by hours, and tell the drive's planner once when one is.
 
 #### Scenario: A dev server started by hand
 - **WHEN** a dev server is started by hand on the box, and nothing else moves
@@ -370,7 +370,7 @@ Every holder of a bolt's time SHALL be read from what crew already keeps, and no
 `board.agent_views` SHALL give the planner's band each launched place that stopped short asking or waits on its caller, past its kind's bound among them whatever stage it last delivered, with its question or Flume's words and the stage it waits to retry or its submission. It SHALL give main-level ops's band each fix of main and each take-main fix in flight with its stage. crew's mod SHALL draw both above the agent's prompt.
 
 #### Scenario: A question in the planner's band
-- **WHEN** `a`'s construct stopped short asking "Which partition's rail?"
+- **WHEN** `a`'s construct stopped short asking "Which drive's rail?"
 - **THEN** madswan-planner's view lists `a` with that question, and the mod draws it
 
 #### Scenario: A place past its bound in the planner's band
@@ -382,7 +382,7 @@ Every holder of a bolt's time SHALL be read from what crew already keeps, and no
 - **THEN** madswan-ops's view lists it at code, and the mod draws it
 
 ### Requirement: A role that runs as its kind has its view
-Each role its partition runs as its kind SHALL have a view among the agents' views under its run's name, `<label>-<role>`, drawn above its run's prompt by crew's mod where crew's plugin loads: what its turn took, and how many asks wait for the role and since when.
+Each role its drive runs as its kind SHALL have a view among the agents' views under its run's name, `<label>-<role>`, drawn above its run's prompt by crew's mod where crew's plugin loads: what its turn took, and how many asks wait for the role and since when.
 
 #### Scenario: A run with an ask waiting
 - **WHEN** madswan's planner run took two asks and a third has waited four minutes
@@ -469,7 +469,7 @@ Among the cards `board.agent_views` gives an agent's band, a card whose answer t
 - **THEN** crew's mod draws that line above ops's view as given
 
 ### Requirement: The follower runs no sluice
-The host's follower SHALL start no sluice process: no `sluice overview --watch`, no `sluice overview` at its clock's tick, and no `sluice status`. It SHALL keep no submission of its own. It SHALL learn that a piece's submission moved from the partition's runner's branch, which it looks at with no process and fetches on its clock. crew SHALL read and name no folder of sluice's.
+The host's follower SHALL start no sluice process: no `sluice overview --watch`, no `sluice overview` at its clock's tick, and no `sluice status`. It SHALL keep no submission of its own. It SHALL learn that a piece's submission moved from the drive's runner's branch, which it looks at with no process and fetches on its clock. crew SHALL read and name no folder of sluice's.
 
 #### Scenario: A merge moves in sluice's queue
 - **WHEN** a unit's merge into a bolt of switchboard-kit on the box is queued in sluice, and the box's runner has not reported since
@@ -480,7 +480,7 @@ The host's follower SHALL start no sluice process: no `sluice overview --watch`,
 - **THEN** the follower's refresh after its clock's next fetch shows `submitted #41` on the unit's line, gathering no kit whose stamp did not move
 
 #### Scenario: A follower's life
-- **WHEN** the follower on mac-studio reads two partitions whose bolts are in switchboard-kit on the box, through a read, ticks with nothing moved, a runner's report and a gather of the kit
+- **WHEN** the follower on mac-studio reads two drives whose bolts are in switchboard-kit on the box, through a read, ticks with nothing moved, a runner's report and a gather of the kit
 - **THEN** it starts no `sluice` process on either host and opens no ssh for a sluice command
 
 ### Requirement: A gather runs no sluice

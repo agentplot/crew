@@ -6,7 +6,7 @@ One list of everything that waits on the user, read from the state crew already 
 ## Requirements
 
 ### Requirement: The rail lists what waits on the user in four groups
-`crew rail [--label L]` SHALL print, from any host, what waits on the user in a partition, or in every partition when no label is given or known. It SHALL group the rows in this order: proposals, batches, land, operations. A verify report SHALL be no row: its findings are fixed in one round with no wait on the user (`teams.17`). Every group heading SHALL be printed, with `none` under a group that has no rows.
+`crew rail [--label L]` SHALL print, from any host, what waits on the user in a drive, or in every drive when no label is given or known. It SHALL group the rows in this order: proposals, batches, land, operations. A verify report SHALL be no row: its findings are fixed in one round with no wait on the user (`teams.17`). Every group heading SHALL be printed, with `none` under a group that has no rows.
 
 #### Scenario: Something waits in two groups
 - **WHEN** a proposal is open and a deploy is offered, and nothing else waits
@@ -50,7 +50,7 @@ Each unit whose stage is review SHALL be a row under review, naming its team and
 - **THEN** the drive's branch, the kits and the run record are unchanged
 
 ### Requirement: A host that does not answer is named
-When a team's host does not answer, `crew rail` SHALL print the rows it could read and name that host, saying that its units and bolts may also wait on the user. It SHALL exit zero. When a partition's plan cannot be read, it SHALL name it and exit non-zero.
+When a team's host does not answer, `crew rail` SHALL print the rows it could read and name that host, saying that its units and bolts may also wait on the user. It SHALL exit zero. When a drive's plan cannot be read, it SHALL name it and exit non-zero.
 
 #### Scenario: The box is asleep
 - **WHEN** chuck-herdr-alpha does not answer
@@ -86,7 +86,7 @@ A fix of the kit's main whose code has delivered and whose submission waits held
 - **THEN** crew's landings row has a line `fix main--a-test-reads-its-fixture` with the failure's first line, and names its `--send` command
 
 ### Requirement: A bolt whose every unit has merged and that has not landed is a row of its kit's
-Each kit with a bolt in flight whose units have all merged and not all landed SHALL be one row under land, keyed `land/<kit>`, naming the partition's main-level ops and, in the plan's order, each such bolt with what it waits on. A bolt not yet proven SHALL say what it waits on: the verification as it reads, the units due a batch, the batches waiting on the user's answer, a fix in flight, a landing sluice rejected at its head for the bolt's own content, said as rejected with the bolt open for work, or that it takes main first, forecast at its present head to conflict with what main holds. A bolt whose landing the run record has queued, or landing again, SHALL say so with its number and that no work joins it until sluice decides, and SHALL be none of the bolts that can land (bolt-teams "A landing queued holds its bolt's work"). A bolt that can land whose last landing at its head sluice or its host stopped SHALL say, beside that it can land, what stopped it and that main-level ops submits it again once that is cleared. Once a bolt can land, the row SHALL carry `crew tell <label>-ops "Land <bolts that can land, in order>."`. The row SHALL have begun to wait at the time of the earliest last commit among its bolts' branches.
+Each kit with a bolt in flight whose units have all merged and not all landed SHALL be one row under land, keyed `land/<kit>`, naming the drive's main-level ops and, in the plan's order, each such bolt with what it waits on. A bolt not yet proven SHALL say what it waits on: the verification as it reads, the units due a batch, the batches waiting on the user's answer, a fix in flight, a landing sluice rejected at its head for the bolt's own content, said as rejected with the bolt open for work, or that it takes main first, forecast at its present head to conflict with what main holds. A bolt whose landing the run record has queued, or landing again, SHALL say so with its number and that no work joins it until sluice decides, and SHALL be none of the bolts that can land (bolt-teams "A landing queued holds its bolt's work"). A bolt that can land whose last landing at its head sluice or its host stopped SHALL say, beside that it can land, what stopped it and that main-level ops submits it again once that is cleared. Once a bolt can land, the row SHALL carry `crew tell <label>-ops "Land <bolts that can land, in order>."`. The row SHALL have begun to wait at the time of the earliest last commit among its bolts' branches.
 
 #### Scenario: The last unit merges
 - **WHEN** the last unit of crew's bolt `b` merges into `bolt/b` through sluice, every unit's change has been in a batch the user has answered, and the runner carries that unit's place landed at `bolt/b`'s head

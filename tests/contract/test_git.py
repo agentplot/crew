@@ -953,7 +953,7 @@ def work_kit(repo, monkeypatch):
     monkeypatch.setattr(crew, "this_host", lambda: "here")
     kit = {"name": "k", "repo": "o/k", "main": str(repo.path), "dir": str(repo.path)}
     monkeypatch.setattr(plan, "kit_at", lambda fleet, label, name, run=None: {"label": label, "machine": "here", "kit": kit})
-    fleet = {"partitions": {"p": {"label": "p", "machine": "here", "teams": []}}, "teams": {}, "hosts": {}}
+    fleet = {"drives": {"p": {"label": "p", "machine": "here", "teams": []}}, "teams": {}, "hosts": {}}
     repo.commit("chore: start", {"a.txt": "one\n"})
     repo.git("switch", "-q", "-c", "bolt/z")
     repo.commit("feat: the bolt's own", {"a.txt": "one, as the bolt has it\n"})
@@ -1046,7 +1046,7 @@ def test_the_runners_branches_come_with_the_drives_branch_in_one_fetch_and_each_
         "deneb", "\nRequest: 3\nOutcome: launched\nPlace: /crew/places/change--a\nAt: 2026-10-31T12:01:00Z\n",
         f"\nRequest: 3\nPlace: /crew/places/change--a\nAt: 2026-10-31T12:02:00Z\nStatus: {status}\n"))
     state.push("madswan/runner/gamma", dict(runner_files("gamma"), **{"answers.rec": runner.ANSWERS + "\nRequest: 1\nOutcome: queued\nAt: 2026-10-31T12:01:00Z\n"}))
-    state.push("swancloud/runner/deneb", runner_files("deneb"))  # another partition's runner on the same repository
+    state.push("swancloud/runner/deneb", runner_files("deneb"))  # another drive's runner on the same repository
     fetches = []
     git = plan.git
     monkeypatch.setattr(plan, "git", lambda repo, *args, **k: (fetches.append(args) if args[0] == "fetch" else None, git(repo, *args, **k))[1])
@@ -1075,7 +1075,7 @@ def test_the_followers_fetch_brings_every_branch_of_a_repository_in_one_and_a_br
     """plan.tips_of, the host's follower's one fetch of a repository at its clock's tick (Decision 3 of
     a-followers-tick-reads-nothing-while-nothing-moved; sluice core.31, the remote's one fetch a tick): madswan/main and
     swancloud/main, each with its runners' branches, in one git fetch, read from the cache's files after; with a
-    partition's branch not made yet, the fetch that cannot find it is made again without it, the one there read and the
+    drive's branch not made yet, the fetch that cannot find it is made again without it, the one there read and the
     other None."""
     import plan
     swan = state.push("swancloud/main", {"plan.rec": plan.HEADER}, "plan: start (chuck@deneb)")

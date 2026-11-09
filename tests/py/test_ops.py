@@ -1,8 +1,8 @@
-"""The operations on a partition's environments, a deploy being one kind (plan.14): ops.state on the run record's ops
+"""The operations on a drive's environments, a deploy being one kind (plan.14): ops.state on the run record's ops
 entries, the rail rows ops.rows makes of them, the approval's refusal and the arguments crew ops refuses; and the
 deploy's and the step's cards crew raises (record 0031): the steps and notes an offer is handed, the deploy card's
 facts, whether its card is posted or changed, what it closes with, a step's card's facts from its text, and which
-step's card is raised, one at a time. That each act is an entry of the run record on the partition's main level's
+step's card is raised, one at a time. That each act is an entry of the run record on the drive's main level's
 host, that crew ops word and steps read them back, that quiet reads the host's agents and test slots, that each card
 is posted, changed and closed, and that a command run elsewhere runs there are the ops journey's (t-journey-ops)."""
 import io
@@ -257,7 +257,7 @@ class TestRefusals:
     @pytest.mark.parametrize("argv, said", [
         (["offer", "mac-studio", "--label", "wldn", "--from", "none", "--to", "nothex"], "--to nothex is no commit: a sha in hex"),
         (["offer", "Bad_Env", "--label", "wldn", "--from", "none", "--to", S1], "Bad_Env is no environment's name: lowercase words and dashes"),
-        (["word", "mac-studio", "--label", "nolabel"], "no partition nolabel in the teams file. partitions: wldn"),
+        (["word", "mac-studio", "--label", "nolabel"], "no drive nolabel in the teams file. drives: wldn"),
         (["step", "mac-studio", "--label", "wldn", "--key", "has space", "--state", "done"], "--key has space is no step key crew takes"),
         (["step", "mac-studio", "--label", "wldn", "--key", "k", "--state", "waiting", "--doer", "user", "--held"],
          "--held marks an agent's step held for the user's word: give its --doer, main-ops"),
@@ -269,7 +269,7 @@ class TestRefusals:
         (["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "end", "--outcome", "failed", "--does", "read the log"], None),
         (["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "step", "--step", "guests", "--outcome", "failed",
           "--does", "read the log"], None)])
-    def test_a_commit_an_environment_a_partition_or_a_key_crew_cant_take_is_refused(self, argv, said):
+    def test_a_commit_an_environment_a_drive_or_a_key_crew_cant_take_is_refused(self, argv, said):
         assert ops.args_refusal(FLEET, ops.parser().parse_args(argv)) == said
 
     def test_crew_ops_answers_help_as_the_deployers_probe_reads_it(self, capsys):
@@ -352,7 +352,7 @@ class TestRangesKits:
 
     def test_a_session_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
         import crew
-        fleet = {"hosts": {}, "partitions": {}, "repositories": self.FILE}
+        fleet = {"hosts": {}, "drives": {}, "repositories": self.FILE}
         assert crew.session_checkouts(fleet, "deneb", self.SESS) == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
         assert crew.session_checkouts(fleet, "mac-studio", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
         assert crew.session_checkouts({"hosts": {}}, "deneb", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
@@ -365,7 +365,7 @@ class TestRangesKits:
         view = tmp_path / "v/agentplot/crew"
         view.mkdir(parents=True)
         fleet = {"hosts": {"deneb": {"sessions": {"madswan": dict(self.SESS, dir=str(tmp_path / "d"))}}},
-                 "partitions": {"madswan": {"label": "madswan", "machine": "deneb", "session": "madswan"}},
+                 "drives": {"madswan": {"label": "madswan", "machine": "deneb", "session": "madswan"}},
                  "repositories": {"host": "deneb", "named": {"agentplot/crew": {"dir": str(tmp_path / "r"), "checkout": str(view)}}}}
         asked = []
 
@@ -752,7 +752,7 @@ class TestStepRecordedAgain:
         return card(act, key, card_id, minutes, By="swancloud-ops", **f)
 
     def again(self, *written, es=None):
-        """step_again on this host's record as written, its ops entries the partition's unless es gives them."""
+        """step_again on this host's record as written, its ops entries the drive's unless es gives them."""
         return ops.step_again([x for x in written if x["Act"].startswith("ops.")] if es is None else es, list(written), self.K, "swancloud")
 
     def test_a_step_recorded_again_with_new_words_changes_its_open_card_in_place_naming_what_changed(self):

@@ -132,7 +132,7 @@ expect_ok crew go --all
 eq "$(mains)" "$here"
 ok "crew hold --all --now holds every host crew runs agents on and ends every agent there at once, and crew go --all brings them back"
 
-# wldn's planner stands, then its partition comes to run it as its kind (design Decision 14): crew update passes it
+# wldn's planner stands, then its drive comes to run it as its kind (design Decision 14): crew update passes it
 # over, and at the end of its turn the Stop hook hands it its end, given once it is idle, its pane left with nothing
 # started in it and its log saying why; nothing starts it again.
 HOST=$box expect_ok crew main up wldn

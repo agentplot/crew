@@ -1,7 +1,8 @@
-# crew reads teams.json version 5 alone: partitions with their main levels, role overrides, and errors for anything
-# missing or inconsistent; a file at another version, one listing teams among them, is refused naming the machine's
-# configuration (Decision 2 of the-team-machinery-leaves). What a partition's session resolves its main level to is
-# the logic tier's (tests/py/test_teams.py).
+# crew reads teams.json version 6 alone: drives under `drives`, each named by its label, with their main levels, role
+# overrides, and errors for anything missing or inconsistent; a file at another version, version 5 and its
+# `partitions` among them, or one listing teams, is refused naming the machine's configuration (main-level "Drives are
+# declared in the teams file"). A session's `partition` in the hosts file is swancloud's and read by nothing. What a
+# drive's session resolves its main level to is the logic tier's (tests/py/test_teams.py).
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
 
@@ -9,7 +10,7 @@ expect_ok crewpy labels; eq "$out" $'wldn\nmadswan\nswancloud'
 
 edit teams "$(part wldn)['roles'] = {'planner': {'effort': 'max'}, 'operator': {'model': 'claude-opus-5-5'}}"
 expect_ok crewpy labels
-ok "roles overrides on a partition"
+ok "roles overrides on a drive"
 
 edit teams "$(part wldn)['roles'] = {'conductor': {'effort': 'max'}}"
 expect_fail "overrides role 'conductor', which it has no definition for" crewpy labels
@@ -23,57 +24,68 @@ edit teams "$(part wldn)['roles'] = {}"
 ok "an override naming a role crew has no definition for, the dispatcher's or a team's among them, or an unknown effort, is refused"
 
 edit teams "del $(part madswan)['session']"
-expect_fail "partition madswan in" crewpy labels; has "$out" "has no 'session'"
+expect_fail "drive madswan in" crewpy labels; has "$out" "has no 'session'"
 fixtures
 ok "a missing field is an error"
 
 edit teams "del $(part wldn)['state']"
-expect_fail "partition wldn in" crewpy labels
+expect_fail "drive wldn in" crewpy labels
 has "$out" "names no state repository ('state')"; has "$out" "swancloud's lib/crew-teams.nix"
 fixtures
 edit teams "$(part madswan)['state'] = 'crew-state'"
-expect_fail "partition madswan: 'state' is its state repository as GitHub owner/name, not \"crew-state\"" crewpy labels
+expect_fail "drive madswan: 'state' is its state repository as GitHub owner/name, not \"crew-state\"" crewpy labels
 fixtures
 expect_ok crewpy labels
-ok "a partition without a state repository, or with one not named owner/name, is refused, naming the fix"
+ok "a drive without a state repository, or with one not named owner/name, is refused, naming the fix"
 
 edit teams "del $(part wldn)['review']"
-expect_fail "partition wldn in" crewpy labels
+expect_fail "drive wldn in" crewpy labels
 has "$out" "has no batch setting ('review', with 'every' and 'hours')"; has "$out" "swancloud's lib/crew-teams.nix"
 fixtures
 edit teams "del $(part madswan)['review']['hours']"
-expect_fail "partition madswan in" crewpy labels; has "$out" "has no batch setting ('review', with 'every' and 'hours')"
+expect_fail "drive madswan in" crewpy labels; has "$out" "has no batch setting ('review', with 'every' and 'hours')"
 fixtures
 edit teams "$(part madswan)['review']['every'] = 0"
-expect_fail "partition madswan: 'review.every' is how many changes make a batch, a whole number of at least 1, not 0" crewpy labels
+expect_fail "drive madswan: 'review.every' is how many changes make a batch, a whole number of at least 1, not 0" crewpy labels
 fixtures
 edit teams "$(part swancloud)['review']['hours'] = '4'"
-expect_fail "partition swancloud: 'review.hours' is how many hours make a batch due, a number above 0, not \"4\"" crewpy labels
+expect_fail "drive swancloud: 'review.hours' is how many hours make a batch due, a number above 0, not \"4\"" crewpy labels
 fixtures
 expect_ok crewpy labels
-ok "a partition without its batch setting, or with one crew can't read, is refused, naming the field and the fix"
+ok "a drive without its batch setting, or with one crew can't read, is refused, naming the field and the fix"
 
 edit teams "del $(part swancloud)['flume']"
-expect_fail "partition swancloud in" crewpy labels; has "$out" "has no 'flume'"; has "$out" "swancloud's lib/crew-teams.nix"
+expect_fail "drive swancloud in" crewpy labels; has "$out" "has no 'flume'"; has "$out" "swancloud's lib/crew-teams.nix"
 fixtures
-ok "a partition without its flume is refused, naming the field and the fix"
+ok "a drive without its flume is refused, naming the field and the fix"
 
 edit hosts "d['hosts']['mac-studio']['sessions']['madswan-1']['partition'] = None"
-expect_fail "partition madswan's main level runs in mac-studio's session madswan-1, which is in partition None, not business" crewpy labels
+expect_ok crewpy labels; eq "$out" $'wldn\nmadswan\nswancloud'
+edit hosts "del d['hosts']['mac-studio']['sessions']['madswan-1']['partition']"
+expect_ok crewpy labels
 fixtures
+ok "a session's partition in the hosts file, none or missing, is read by nothing"
+
 edit hosts "d['hosts']['chuck-herdr-alpha']['sessions']['wldn-3']['repos'].remove('WilldanGroup/willdan-blueprints')"
 expect_fail "the space of chuck-herdr-alpha's session wldn-3 does not keep WilldanGroup/willdan-blueprints" crewpy labels
 fixtures
-ok "a main level in a session of no partition, or one whose space does not keep its blueprints, is refused"
+ok "a main level in a session whose space does not keep its blueprints is refused"
 
-for v in 1 2 3 4; do
+for v in 1 2 3 4 5; do
   fixtures $v
-  expect_fail "teams.json is version $v, and crew reads only version 5" crewpy labels
+  expect_fail "teams.json is version $v, and crew reads only version 6" crewpy labels
   has "$out" "It must be regenerated by the machine's configuration (swancloud's lib/crew-teams.nix); crew has done nothing."
 done
 expect_fail "must be regenerated" crew bolts
 fixtures
+edit teams "d['version'] = 5; d['partitions'] = [dict(p, partition='business') for p in d.pop('drives')]"
+expect_fail "teams.json is version 5, and crew reads only version 6" crewpy labels
+has "$out" "It must be regenerated by the machine's configuration (swancloud's lib/crew-teams.nix); crew has done nothing."
+fixtures
+edit teams "d['partitions'] = d.pop('drives')"
+expect_fail "teams.json lists no drives: it must be regenerated by the machine's configuration (swancloud's lib/crew-teams.nix)" crewpy labels
+fixtures
 edit teams "d['teams'] = []"
-expect_fail "teams.json lists teams, which version 5 has no place for: crew runs no team" crewpy labels
+expect_fail "teams.json lists teams, which version 6 has no place for: crew runs no team" crewpy labels
 has "$out" "swancloud's lib/crew-teams.nix"
-ok "a file at version 1 to 4, or one at 5 that lists teams, is refused with the fix named"
+ok "a file at version 1 to 5, version 5's partitions among them, one at 6 with its drives under partitions, or one at 6 that lists teams, is refused with the fix named"

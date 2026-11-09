@@ -1,4 +1,4 @@
-# Every brief prints for its partition's main level with no token left unfilled, and none for a team or a dispatcher,
+# Every brief prints for its drive's main level with no token left unfilled, and none for a team or a dispatcher,
 # which the teams file names none of (Decision 2 of the-team-machinery-leaves).
 # Reads: plugin/roles/
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
@@ -9,7 +9,7 @@ for k in atlas breadboard switchboard; do crew bolt new "$k-work" "Work in $k-ki
 for role in conductor ops construct coder verify dispatcher fable; do
   expect_fail "no definition '$role' for a main level. definitions: design planner main-ops operator reviewer" crewpy brief wldn $role
 done
-expect_fail "no partition 'swb-1'. partitions: wldn madswan swancloud" crewpy brief swb-1 planner
+expect_fail "no drive 'swb-1'. drives: wldn madswan swancloud" crewpy brief swb-1 planner
 for gone in fable explorer verifier conductor ops dispatcher construct coder verify; do
   [[ ! -e $CREW/plugin/roles/$gone.md ]] || fail "the retired role $gone is still there"
 done
@@ -99,7 +99,7 @@ has "$out" "and with \`--source\` what the signal points at"
 for want in "| rename a repository once its work is finished | \`kit rename <old> <new>\` |" \
   "**A repository renamed on its forge** is removed and added back, its work finished first" \
   "crew refuses it while any of the repository's work stands or a host still keeps the old name, naming what stands" \
-  "A partition is never renamed"; do has "$out" "$want"; done
+  "A drive is never renamed"; do has "$out" "$want"; done
 for want in 'unit amend <unit> "<new intent>"' "never a drop and a new unit" "why the unit changes rather than being replaced" \
   "A unit that has merged is not amended"; do has "$out" "$want"; done
 for want in "An intent names the outcome and the records that govern it" "never the mechanism" \
@@ -137,10 +137,10 @@ for want in "idempotencyKey" "create-area:" "pendingyou hold" "keyed \`proposal/
   "Pending You gives that card back"; do
   has "$out" "$want"
 done
-for gone in "builds Switchboard" "unit slots" "A dispatcher on each host the partition's teams run on" "The partition's teams:"; do lacks "$out" "$gone"; done
+for gone in "builds Switchboard" "unit slots" "A dispatcher on each host the drive's teams run on" "The drive's teams:"; do lacks "$out" "$gone"; done
 expect_ok crewpy brief wldn operator
 for want in "plan proposed --label wldn" "plan approve <n> --label wldn" "only on the user's word" "never by its number alone" "recite no command" \
-  "rail --label wldn" "the console's \`rail\` tab" "the partition's door" "console up wldn" "console up wldn rail" "_follow\`, the host's follower"; do
+  "rail --label wldn" "the console's \`rail\` tab" "the drive's door" "console up wldn" "console up wldn rail" "_follow\`, the host's follower"; do
   has "$out" "$want"
 done
 for want in "You post no Pending You card and make no area, whatever a Pending You reminder in your session says" \
@@ -174,7 +174,7 @@ lacks "$out" "~/Code/github_afterthought/swancloud"
 expect_ok crewpy brief wldn main-ops
 for want in "bolt submit <bolt>" "bolt land <bolt>" "## Deploying main" "the bolt lands either way" \
   "The bolt's branch goes too, once main holds every commit of it" "a branch holding a commit main lacks is kept and named" \
-  "Every agent of clients/willdan lands a bolt this one way" "Nothing else is a word to land" \
+  "Every agent of the drive wldn lands a bolt this one way" "Nothing else is a word to land" \
   "The word to land is also the word for sluice to push main to GitHub: you push nothing, and pull and level no host's checkout" \
   "records the commit GitHub's main holds" "raises the kit's landings card, which crew closes once every bolt the user ticked on it has landed or been held, or sooner as above" \
   "or sooner, when another bolt reads proven after their send: then it closes it saying what their send still lands, and a new card follows it asking for the rest" \
@@ -213,7 +213,7 @@ expect_fail "no definition 'conductor' for a main level" crewpy brief wldn condu
 ok "every main-level brief prints for wldn with no unfilled token"
 
 # How a main-level role's work reaches it (design Decision 9, role-runs "A run's brief says how a turn goes"): a role
-# that stands, in its pane; one its partition runs as its kind, a turn from crew role start to crew role end, waiting in
+# that stands, in its pane; one its drive runs as its kind, a turn from crew role start to crew role end, waiting in
 # its session on nothing, and asking the user only on a card in its own name.
 for role in design planner reviewer main-ops operator; do
   expect_ok crewpy brief wldn $role
@@ -223,7 +223,7 @@ done
 for r in design planner reviewer ops operator; do role_stream wldn $r wldn-main; done
 for role in design planner reviewer main-ops operator; do
   expect_ok crewpy brief wldn $role
-  [[ $out =~ \{\{[A-Z_]+\}\} ]] && fail "roles/$role.md left ${BASH_REMATCH[0]} unfilled for a partition running all five as their kinds"
+  [[ $out =~ \{\{[A-Z_]+\}\} ]] && fail "roles/$role.md left ${BASH_REMATCH[0]} unfilled for a drive running all five as their kinds"
   for want in "You run as your kind: no agent of you stands" "Your turn starts with \`$CREW/plugin/bin/crew role start\`" \
     "end the turn with \`$CREW/plugin/bin/crew role end\`" "Wait in your session on nothing" \
     "end your turn instead, and the thing reaches your next run as an ask" "Ask the user only on a card in your own name, wldn-"; do
@@ -235,7 +235,7 @@ expect_ok crewpy brief wldn reviewer; has "$out" "run \`$CREW/plugin/bin/crew re
 expect_ok crewpy brief wldn main-ops; has "$out" "\`$CREW/plugin/bin/crew bolt submit\` returns once each bolt is queued"
 expect_ok crewpy brief wldn planner; has "$out" "its delivery reaches you as an ask, with the line that adopts its card"
 for r in design planner reviewer ops operator; do role_stream wldn $r false; done
-ok "each main-level brief says how its work reaches it: in its pane while it stands, and as a turn that waits on nothing once it runs as its kind, every brief filled for a partition running all five so"
+ok "each main-level brief says how its work reaches it: in its pane while it stands, and as a turn that waits on nothing once it runs as its kind, every brief filled for a drive running all five so"
 
 expect_ok crewpy brief wldn operator
 has "$out" "the deployer offers that host's deploy under *operations* on swancloud's rail"; has "$out" "never ask \`wldn-ops\` to deploy it"
@@ -252,19 +252,19 @@ for want in "## A batch answered in your pane" "card answer batch/<n> --excerpt 
 HOST=chuck-herdr-alpha expect_ok crewpy brief wldn operator
 has "$out" "chuck-herdr-alpha is a box, which can't open the dev.swancloud.net names"; lacks "$out" "terminal-browser open"
 ok "the operator brief prints for wldn, recording a batch answered in its pane, opening sites and the lineage page on a Mac and giving the Mac URL or the page's path on a box"
-has "$out" "reads crew's run record on the partition's branch, where each entry is pushed as it is written"
-lacks "$out" "on every host the partition runs on"
-ok "the operator reads the run record on the partition's branch, asking no host for it (read.5)"
+has "$out" "reads crew's run record on the drive's branch, where each entry is pushed as it is written"
+lacks "$out" "on every host the drive runs on"
+ok "the operator reads the run record on the drive's branch, asking no host for it (read.5)"
 
-# The operator carries what crew send brings it, and sends a teams change from a box to a Mac's partition with crew
+# The operator carries what crew send brings it, and sends a teams change from a box to a Mac's drive with crew
 # send, never with a tell to another operator (briefs.10).
 HOST=chuck-herdr-alpha expect_ok crewpy brief wldn operator
-for want in "A message that reaches you marked \`(sent to <partition>)\`" "in the sender's words and naming the sender" \
+for want in "A message that reaches you marked \`(sent to <drive>)\`" "in the sender's words and naming the sender" \
   "you record as a signal, its excerpt the words as sent" "a landing, a deploy or a live system to \`wldn-ops\`" \
-  "Don't answer it in the sender's place" "crew refuses a send of yours to your own partition." "## Changing the partitions" \
-  "one of \`madswan\`, \`swancloud\`, with \`" "/crew send <label> \"<the request>\"\`, which reaches that partition's operator"; do has "$out" "$want"; done
+  "Don't answer it in the sender's place" "crew refuses a send of yours to your own drive." "## Changing the drives" \
+  "one of \`madswan\`, \`swancloud\`, with \`" "/crew send <label> \"<the request>\"\`, which reaches that drive's operator"; do has "$out" "$want"; done
 lacks "$out" "TEAMS_OPERATORS"; lacks "$out" "TEAMS_DOORS"; lacks "$out" "to an operator whose main level runs on a Mac"
-ok "the operator carries what is sent to it in the sender's words, and sends a teams change from a box with crew send to a Mac's partition"
+ok "the operator carries what is sent to it in the sender's words, and sends a teams change from a box with crew send to a Mac's drive"
 
 # Every brief says who is speaking in the agent's pane; the four that record findings say how, with the excerpt, and
 # where crew writes the signal.
@@ -287,15 +287,15 @@ expect_ok crewpy brief wldn planner; has "$out" "signal show <signal id>"
 has "$out" "Never pass on a word to land, and never tell \`wldn-ops\` to land or deploy"
 ok "every brief says who speaks in its pane, and the four that record findings quote the words and say what a refusal means"
 
-# Anything for another partition goes with crew send, to that partition's operator, and to nobody else (briefs.10):
+# Anything for another drive goes with crew send, to that drive's operator, and to nobody else (briefs.10):
 # every brief says so in one line beside its roster, naming no team.
 for role in design planner main-ops operator reviewer; do
   expect_ok crewpy brief wldn $role
-  has "$out" 'anything for another partition is sent with `'
-  has "$out" '/crew send <partition> "<text>"`, which reaches that partition'"'"'s operator, its one door, and to nobody else.'
-  lacks "$out" "or one of its teams is sent"; lacks "$out" "crew send <team or partition>"
+  has "$out" 'anything for another drive is sent with `'
+  has "$out" '/crew send <drive> "<text>"`, which reaches that drive'"'"'s operator, its one door, and to nobody else.'
+  lacks "$out" "or one of its teams is sent"; lacks "$out" "crew send <team or drive>"
 done
-ok "every brief sends anything for another partition with crew send, to that partition's operator and to nobody else"
+ok "every brief sends anything for another drive with crew send, to that drive's operator and to nobody else"
 ok "a signal names where what it points at lives, a unit carries it as a source, and the construct reads it, stops when it can't, and builds from its sources over its intent"
 
 # Every message an agent sends another goes through crew tell, marked: no brief prompts an agent through herdr.

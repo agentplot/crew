@@ -11,7 +11,7 @@ let
   base = t.nixosSystem { };
   inherit (base) pkgs;
 
-  # The module's file for deneb's partitions: nix/tests/files/deneb.json.
+  # The module's file for deneb's drives: nix/tests/files/deneb.json.
   file = (pkgs.writeText "crew-teams.json" (builtins.readFile ./files/deneb.json)).outPath;
 
   # Compared as text: a regular expression may not hold a store path.

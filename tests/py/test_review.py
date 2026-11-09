@@ -10,7 +10,7 @@ import crew
 import plan
 
 BOX = "chuck-herdr-alpha"
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": BOX}}, "hosts": {"mac-studio": {"ssh": "chuck@mac-studio"}}}
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX}}, "hosts": {"mac-studio": {"ssh": "chuck@mac-studio"}}}
 # Where each bolt's work ran, as the runner that took it reported (plan.batch_unit_at)
 AT = {"b1": {"label": "wldn", "machine": BOX, "stream": "wldn", "kit": {"name": "switchboard-kit", "main": "/kit/main", "dir": "/kit/main"}},
       "b2": {"label": "wldn", "machine": "mac-studio", "stream": "wldn", "kit": {"name": "atlas-kit", "main": "/atlas/main", "dir": "/atlas/main"}}}
@@ -94,7 +94,7 @@ def test_a_tell_herdr_refused_to_type_says_why_in_crews_words():
 
 
 def test_an_agent_crew_starts_none_by_that_name_is_refused():
-    fleet = {"partitions": {"wldn": {"label": "wldn", "machine": BOX, "session": "wldn-3"}}}
+    fleet = {"drives": {"wldn": {"label": "wldn", "machine": BOX, "session": "wldn-3"}}}
     assert crew.place_of_agent(fleet, "wldn-planner") == (BOX, "wldn-3")
     with pytest.raises(crew.Refusal, match="no agent somebody: crew starts none by that name"):
         crew.place_of_agent(fleet, "somebody")
@@ -102,7 +102,7 @@ def test_an_agent_crew_starts_none_by_that_name_is_refused():
 
 class TestAReviewerUp:
     """What crew review does with a standing reviewer herdr reads up (teams.2, teams.15; review-batches "The planner
-    starts the partition's reviewer"): plan.reviewer_up_said on herdr's status, a question open, whether its session
+    starts the drive's reviewer"): plan.reviewer_up_said on herdr's status, a question open, whether its session
     received a batch and whether a summary was written since its last start. madswan's batch 28, 2026-10-26: a reviewer
     idle with an empty input box and crew review refusing it twice as still reviewing. That the command ends it, starts
     the batch's reviewer afresh and records the end, and that --wait refuses, is t-journey-review's."""
@@ -137,15 +137,15 @@ class TestAReviewerUp:
 
 
 class TestAReviewerThatRunsAsItsKind:
-    """A partition that runs its reviewer as its kind is asked a batch by crew review and handed it back by crew review
-    delivered (design Decision 11; review-batches "The planner starts the partition's reviewer" and "A reviewer's run
+    """A drive that runs its reviewer as its kind is asked a batch by crew review and handed it back by crew review
+    delivered (design Decision 11; review-batches "The planner starts the drive's reviewer" and "A reviewer's run
     hands its batch back"): the batch ask's words, the --wait refusal, the batches a turn took, whether a summary is
     written, and what the delivery records, raises and asks. That the command does it on the stubs is
     t-journey-review's."""
     START = {"Act": "review.start", "Batch": "21", "At": "2026-10-31T10:00:00Z", "Units": "x1:swb-1@abc1234"}
 
     def fleet(self, **flume):
-        return {"partitions": {"wldn": {"label": "wldn", "machine": BOX, "blueprints": ["WilldanGroup/willdan-blueprints"], "roles": {},
+        return {"drives": {"wldn": {"label": "wldn", "machine": BOX, "blueprints": ["WilldanGroup/willdan-blueprints"], "roles": {},
                                         "flume": dict(dict.fromkeys(crew.KIND_ROLES, False), **flume)}},
                 "hosts": {}}
 
@@ -249,10 +249,10 @@ class TestAReviewerThatRunsAsItsKind:
 
     def test_it_is_refused_anywhere_but_the_reviewers_run(self, run, monkeypatch):
         monkeypatch.setenv("FLUME_PLACE", "/flume/places/crew-planner--wldn")
-        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a partition's reviewer"):
+        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a drive's reviewer"):
             self.delivered(self.fleet(reviewer="wldn-main", planner="wldn-main"))
         monkeypatch.delenv("FLUME_PLACE")
-        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a partition's reviewer"):
+        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a drive's reviewer"):
             self.delivered(self.fleet(reviewer="wldn-main"))
         assert run["emitted"] == [] and run["asks"] == []
 

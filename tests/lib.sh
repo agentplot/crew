@@ -5,7 +5,7 @@
 #     madswan, madswan-1, -2                                         business (label madswan)
 #     swancloud, swancloud-1                                         personal (label swancloud)
 #
-# The teams file holds these three partitions alone, wldn's main level in wldn-3 on the box and madswan's and
+# The teams file holds these three drives alone, wldn's main level in wldn-3 on the box and madswan's and
 # swancloud's on mac-studio. Each host has its own HOME under hosts/<host>/home and its sessions' folders under
 # hosts/<host>/work/<space>. Commands run as mac-studio unless HOST says otherwise.
 set -euo pipefail
@@ -80,39 +80,40 @@ merge_as() {
 }
 launches() { cat "$CREW_TEST_CLAUDE_LOG"; }
 
-fixtures() {  # the teams file (version 5, or an older one named: teams_old) and the hosts file, written into every host's HOME
-  local v=${1:-5} h
+fixtures() {  # the teams file (version 6, or an older one named: teams_old) and the hosts file, written into every host's HOME
+  local v=${1:-6} h
   for h in mac-studio chuck-herdr-alpha; do
     mkdir -p "$(home_of $h)/.config/crew" "$(home_of $h)/.config/swancloud"
     hosts_json > "$(home_of $h)/.config/swancloud/herdr-hosts.json"
-    if [[ $v == 5 ]]; then teams_json; else teams_old "$v"; fi > "$(home_of $h)/.config/crew/teams.json"
+    if [[ $v == 6 ]]; then teams_json; else teams_old "$v"; fi > "$(home_of $h)/.config/crew/teams.json"
   done
 }
 
-# teams_json: the teams file, version 5, its partitions alone, every partition's main-level roles standing, `flume`
-# false throughout
+# teams_json: the teams file, version 6, its drives alone under `drives`, each named by its label with no `partition`,
+# every drive's main-level roles standing, `flume` false throughout; the hosts file's sessions keep their `partition`,
+# as swancloud writes it, which crew reads nothing of
 teams_json() { cat <<'EOF'
-{ "version": 5,
-  "partitions": [
-    { "label": "wldn", "partition": "clients/willdan", "blueprints": ["WilldanGroup/willdan-blueprints"],
+{ "version": 6,
+  "drives": [
+    { "label": "wldn", "blueprints": ["WilldanGroup/willdan-blueprints"],
       "state": "WilldanGroup/crew-state", "review": {"every": 5, "hours": 4},
       "machine": "chuck-herdr-alpha", "session": "wldn-3",
       "flume": {"design": false, "planner": false, "reviewer": false, "ops": false, "operator": false} },
-    { "label": "madswan", "partition": "business", "blueprints": ["afterthought/blueprints", "agentplot/blueprints"],
+    { "label": "madswan", "blueprints": ["afterthought/blueprints", "agentplot/blueprints"],
       "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
       "machine": "mac-studio", "session": "madswan-1",
       "flume": {"design": false, "planner": false, "reviewer": false, "ops": false, "operator": false} },
-    { "label": "swancloud", "partition": "personal", "blueprints": ["afterthought/blueprints"],
+    { "label": "swancloud", "blueprints": ["afterthought/blueprints"],
       "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
       "machine": "mac-studio", "session": "swancloud-1",
       "flume": {"design": false, "planner": false, "reviewer": false, "ops": false, "operator": false} } ] }
 EOF
 }
 
-# teams_old <version>: the teams file as the machine's configuration wrote it for a crew that ran teams, at that
-# version, its partitions with a team listed beside them, which crew refuses
+# teams_old <version>: the teams file as the machine's configuration wrote it for an older crew, at that version, its
+# drives under `partitions` with a team listed beside them, which crew refuses
 teams_old() {
-  teams_json | jq --argjson v "$1" '.version = $v | .teams = [{name: "swb-1", system: "Switchboard", machine: "chuck-herdr-alpha",
+  teams_json | jq --argjson v "$1" '.version = $v | .partitions = .drives | del(.drives) | .teams = [{name: "swb-1", system: "Switchboard", machine: "chuck-herdr-alpha",
     session: "wldn-1", units: 4, repos: ["switchboard-kit", "willdan-blueprints"], flume: false}]'
 }
 
@@ -306,8 +307,8 @@ exec(sys.argv[2])
 json.dump(d, open(f, "w"), indent=1)' "$f" "$2"
   done
 }
-part() { echo "[p for p in d['partitions'] if p['label'] == '$1'][0]"; }
-# role_stream <label> <role> <stream|false>: on every host, the partition's main-level role set to run as its kind in
+part() { echo "[p for p in d['drives'] if p['label'] == '$1'][0]"; }
+# role_stream <label> <role> <stream|false>: on every host, the drive's main-level role set to run as its kind in
 # that Flume stream, or to stand (record 0047 move 6)
 role_stream() { local s="'$3'"; [[ $3 == false ]] && s=False; edit teams "$(part "$1")['flume']['$2'] = $s"; }
 
@@ -458,7 +459,7 @@ place() {
   echo "$kd/places/$3"
 }
 # stage <unit> [label]: the unit's stage as crew bolts reads it
-stage() { crew bolts --label "${2:-wldn}" --json | jq -r --arg u "$1" '[.partitions[].plans[].bolts[].units[] | select(.unit == $u) | .stage] | first // "none"'; }
+stage() { crew bolts --label "${2:-wldn}" --json | jq -r --arg u "$1" '[.drives[].plans[].bolts[].units[] | select(.unit == $u) | .stage] | first // "none"'; }
 
 # transcript <host> <session> [account folder]: a Claude Code transcript of that session on the host, its JSON lines
 # read from standard input, in the account's folder (~/.claude unless named); prints its path

@@ -101,11 +101,11 @@ class TestStart:
         assert start(w, "z") == [(4, "unit/c")]
         assert [r["Act"] for r in requests(w)] == ["launch", "launch", "priority", "launch", "priority", "priority"]
 
-    def test_a_start_with_no_runner_for_the_partition_is_refused_naming_it(self):
+    def test_a_start_with_no_runner_for_the_drive_is_refused_naming_it(self):
         """The state repository holds no madswan/runner/<host> at all: nothing would take the bolt's work."""
         assert runner.runnerless("madswan", {}) == (
             "no runner answers for madswan: its state repository holds no madswan/runner/<host>, so nothing would take the bolt's "
-            "work; a start waits for a runner (Boomdrive) to serve the partition")
+            "work; a start waits for a runner (Boomdrive) to serve the drive")
         assert runner.runnerless("madswan", {"alpha": "a" * 40}) is None
 
     def test_what_the_start_says_names_each_launch_and_that_no_agent_starts(self):
@@ -115,7 +115,7 @@ class TestStart:
 
 
 def ops(w, *dos, stages=None, n=None):
-    """Plan commands applied to the write as a proposal holds them, in madswan's partition (facts.apply)."""
+    """Plan commands applied to the write as a proposal holds them, in madswan's drive (facts.apply)."""
     from facts import apply, known
     return apply(w, *dos, ctx=known(w, stages=stages, n=n, fleet=FLEET))
 
@@ -358,10 +358,10 @@ class TestAnswer:
         with pytest.raises(plan.Refusal, match=r"^no launch of b stands in requests.rec, so no Flume place of it waits on an answer"):
             plan.answer_place(w, "b", "yes")
 
-    def test_a_partition_no_runner_answers_for_refuses_naming_why(self):
+    def test_a_drive_no_runner_answers_for_refuses_naming_why(self):
         w = launched("x", work=[unit("a")])
         with pytest.raises(plan.Refusal, match=r"^can't tell whether unit/a's place waits on an answer: no runner answers for the "
-                                               r"partition: no <label>/runner/<host> branch exists, so nothing takes request 1$"):
+                                               r"drive: no <label>/runner/<host> branch exists, so nothing takes request 1$"):
             plan.answer_place(w, "a", "yes")
 
     def test_a_place_held_for_its_after_work_has_nothing_to_answer(self):
