@@ -9,4 +9,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 2. The docs
 
-- [ ] 2.1 README, the crew skill, the usage headers of `crew` and `plan.py` and `plan.drive_set`'s docstring say that `crew drive set` mends what it replaces in a file at crew's own version and refuses it only where a check still fails, and `tests/t-docs.sh` holds README and the skill to saying so (design, Decision 2; Task notes 2.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 2.1 README, the crew skill, the usage headers of `crew` and `plan.py` and `plan.drive_set`'s docstring say that `crew drive set` mends what it replaces in a file at crew's own version and refuses it only where a check still fails, and `tests/t-docs.sh` holds README and the skill to saying so (design, Decision 2; Task notes 2.1). Verify `tests/suite t-docs` ends with "0 failed".

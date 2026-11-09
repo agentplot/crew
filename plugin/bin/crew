@@ -65,9 +65,12 @@
 #                                      repository the file names, writes the file as crew's module writes it, refused
 #                                      with nothing written when crew would refuse that file, moves a file crew cannot
 #                                      read at all (no JSON, no object, or at a version this crew does not read) aside
-#                                      once, to teams.json.before-drive-set, refuses one at crew's own version that
-#                                      fails a check, in crew's words, with nothing written, and writes nothing where
-#                                      the file is a link, going on only where the linked file names the drive as given;
+#                                      once, to teams.json.before-drive-set, never moves aside one at crew's own
+#                                      version but mends what it replaces there, writing it wherever every check
+#                                      passes once the drive is set and refusing it, in crew's words, with nothing
+#                                      written, where a check still fails or a part of it is of a shape the set
+#                                      cannot keep, and writes nothing where the file is a link, going on only where
+#                                      the linked file names the drive as given;
 #                                      then makes <label>/main of its state repository as crew state init does, a
 #                                      repository crew cannot fetch from refused before anything is written. Run again
 #                                      with the same flags it changes nothing; a change of the file is one drive.set

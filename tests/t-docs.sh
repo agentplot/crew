@@ -14,7 +14,9 @@
 # plan.17, which is retired. README's The flake says the module's drives are keyed by label and listed in label order,
 # that another module can give a drive its machine and state, each written once, and what fails evaluation, with no
 # label listed twice. README and the skill say a role's run's start takes the ends Flume holds for its role and its end
-# asks the runners to confirm them, and README's requests.rec names a confirm.
+# asks the runners to confirm them, and README's requests.rec names a confirm. README and the skill say that crew
+# drive set mends what it replaces in a file at crew's own version and refuses it only where a check still fails
+# (record 0065, point 8).
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -217,3 +219,8 @@ for want in "every drive by its label" "listed in the order of their labels" "it
 done
 lacks "$flake" "a label listed twice"
 ok "the README's flake says the drives are keyed by label and listed in label order, another module gives a drive's machine and state, each written once, and what fails evaluation, with no label listed twice"
+
+for doc in "$readme" "$skill"; do
+  has "$doc" "mends what it replaces"; has "$doc" "a check still fails"
+done
+ok "README and the skill say crew drive set mends what it replaces in a file at crew's own version and refuses it only where a check still fails"

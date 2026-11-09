@@ -19,12 +19,14 @@ five times. A write that changes several files is one commit; its run-record ent
            [--console F] [--repositories <repo> <dir> <checkout>]... [--json]
                                              the drive named in this host's teams file from its flags, every key a flag
                                              with no default, the rest of the file kept, nothing written where it is a
-                                             link, a file crew cannot read at all moved aside once and one at crew's own
-                                             version that fails a check refused; its drive.set entry written once the
-                                             file is; then <label>/main made as crew state init makes it, pushing the
-                                             entry, a state not made refused as a state.init that the same command again
-                                             makes; run on the host it is invoked on, never forwarded, at Boomdrive's
-                                             setup's asking where Nix does not link the file
+                                             link, a file crew cannot read at all moved aside once, and one at crew's own
+                                             version never moved aside: the set mends what it replaces there, refused
+                                             only where a check still fails once the drive is set or a part of it is of
+                                             a shape the set cannot keep; its drive.set entry written once the file is;
+                                             then <label>/main made as crew state init makes it, pushing the entry, a
+                                             state not made refused as a state.init that the same command again makes;
+                                             run on the host it is invoked on, never forwarded, at Boomdrive's setup's
+                                             asking where Nix does not link the file
   crew bolts [<bolt>] [--label L] [--json]   every bolt, unit and chore of the plans, each one's stage read from its kit,
                                              and each merge and landing standing in sluice with its number and state
   crew rail [--label L]                      what waits on the user: open proposals, review batches and bolts to
@@ -1329,7 +1331,9 @@ def drive_set(a):
     the state repository is fetched, refused naming the repository where crew cannot fetch from it, nothing written
     (read.1); then, under a lock on the file's folder, the file is read, decided on (crew.teams_step) and written by a
     new file renamed over it (teams.9), a file crew cannot read at all linked to its aside first, which a taken aside
-    refuses, and a file at crew's own version that fails a check refused with nothing written. Once the file names the
+    refuses, and a file at crew's own version never moved aside: the set mends what it replaces there, the file written
+    wherever the file it would write passes every check, and refused with nothing written where a check still fails or
+    a part of it is of a shape the set cannot keep (record 0065, point 8; crew.teams_step). Once the file names the
     drive as given, where a key of it changed, one drive.set entry naming each by its path is appended to this host's
     run record at once, without a push of its own, since a new drive has no branch yet to take it (Decision 10;
     a-drive-set-loses-no-drive-and-no-record, Decision 3); then crew loads the file afresh and the state is made by
