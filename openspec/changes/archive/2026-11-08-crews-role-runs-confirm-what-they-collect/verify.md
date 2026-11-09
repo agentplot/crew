@@ -68,4 +68,12 @@ All 12 tasks in `tasks.md` are ticked. Each one's named case or test exists, and
 
 ## Findings
 
-None. The work holds against every requirement and scenario of the change's three delta specs. The dependencies the design names are other tools' work, and nothing of crew's waits on them: `flume confirm` is on agentplot/flume's bolt `flumes-ends-are-owed-until-confirmed`, and the runner's reading of a confirm is Boomdrive's.
+No finding blocks the change.
+
+One warning appeared after the archive:
+
+- `openspec/specs/role-runs/spec.md` was valid under `openspec validate --type spec --strict` before the archive. It now carries one warning: the requirement "A run's start gives its brief and what it took" is over 500 characters once it names the ends. Nothing else changed in it.
+- Strict mode counts any warning as a failure, as it already does for drive-state, crew-board and 16 other specs on main.
+- The change itself validates strict, and no check of crew's reads the warning. Splitting that requirement is a wording chore for a later change.
+
+The work holds against every requirement and scenario of the change's three delta specs. The dependencies the design names are other tools' work, and nothing of crew's waits on them: `flume confirm` is on agentplot/flume's bolt `flumes-ends-are-owed-until-confirmed`, and the runner's reading of a confirm is Boomdrive's.
