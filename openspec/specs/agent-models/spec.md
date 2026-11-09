@@ -1,7 +1,7 @@
 # agent-models Specification
 
 ## Purpose
-Says which model and effort each agent crew starts runs with, where they are set, and how one team or partition overrides them.
+Says which model and effort each agent crew starts runs with, where they are set, and how one team or drive overrides them.
 
 ## Requirements
 

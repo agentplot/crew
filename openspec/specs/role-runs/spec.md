@@ -1,7 +1,7 @@
 # role-runs Specification
 
 ## Purpose
-Runs a main-level role its partition names a Flume stream for as a kind crew's release carries, on demand rather than standing all day: whatever names the role is an ask on the drive's branch, the host's runner keeps one run of it while anything is pending, and the run takes everything pending at its start, acts on it, and ends its turn with a report, its work that lands a place it launches.
+Runs a main-level role its drive names a Flume stream for as a kind crew's release carries, on demand rather than standing all day: whatever names the role is an ask on the drive's branch, the host's runner keeps one run of it while anything is pending, and the run takes everything pending at its start, acts on it, and ends its turn with a report, its work that lands a place it launches.
 
 ## Requirements
 

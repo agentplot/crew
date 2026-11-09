@@ -1,7 +1,7 @@
 # fleet-page Specification
 
 ## Purpose
-The fleet page: every partition in the teams file at once, where it runs, the kits it builds and their mains, its teams and how busy each is, the Claude account each session runs on and what needs attention, each partition's page a link away.
+The fleet page: every drive in the teams file at once, where it runs, the kits it builds and their mains, its teams and how busy each is, the Claude account each session runs on and what needs attention, each drive's page a link away.
 
 ## Requirements
 

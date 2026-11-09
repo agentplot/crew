@@ -1,7 +1,7 @@
 # bolt-plan Specification
 
 ## Purpose
-Keeps what a partition means to build, its bolts and their units, in one plain-text plan per blueprints repo. Every stage of the work is read from the kits rather than recorded by hand.
+Keeps what a drive means to build, its bolts and their units, in one plain-text plan per blueprints repo. Every stage of the work is read from the kits rather than recorded by hand.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # operator-agent Specification
 
 ## Purpose
-A standing agent in each operator session that works for the user. It says where the partition's work stands, opens what is running, and carries requests to the agent whose job they are.
+A standing agent in each operator session that works for the user. It says where the drive's work stands, opens what is running, and carries requests to the agent whose job they are.
 
 ## Requirements
 

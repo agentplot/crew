@@ -1,7 +1,7 @@
 # main-level Specification
 
 ## Purpose
-Above a partition's bolt teams: a design agent that elaborates on main, a planner across the bolts, a dispatcher on each host that runs them, and ops that lands them. Signals are what reaches them from outside.
+Above a drive's bolt teams: a design agent that elaborates on main, a planner across the bolts, a dispatcher on each host that runs them, and ops that lands them. Signals are what reaches them from outside.
 
 ## Requirements
 

@@ -45,7 +45,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 6. The specs
 
-- [ ] 6.1 Each spec's purpose says drive where it said partition, edited in place as no delta can carry it (design, Decision 7; Task notes 6.1). Verify `openspec validate --specs` exits 0, its totals saying "0 failed".
+- [x] 6.1 Each spec's purpose says drive where it said partition, edited in place as no delta can carry it (design, Decision 7; Task notes 6.1). Verify `openspec validate --specs` exits 0, its totals saying "0 failed".
 - [ ] 6.2 Every scenario's name says drive in `openspec/specs/` and in this change's delta alike, and every open change's words say drive, so each change that validated before still does (design, Decision 7; Task notes 6.2). Verify `for c in crews-partition-is-a-drive a-started-bolts-kit-folder-is-read-as-main-reads-it a-unit-whose-branch-stands-is-refused-at-its-proposal a-users-step-of-any-length-gets-its-card checked-capture crew-fetches-nothing-in-the-runners-clone crews-module-is-keyed-as-flumes-is crews-tests-keep-the-hosts-load-within-its-cores daily-pass-through-crew lineage-page; do openspec validate "$c" --strict || exit 1; done` exits 0.
 
 ## 7. The word stays gone

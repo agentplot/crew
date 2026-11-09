@@ -1,7 +1,7 @@
 # flume-source Specification
 
 ## Purpose
-crew as a source of its host's Flume (Flume record 0039; agentplot/flume v0.17.0, `reference/configuration.md`, "The host's sources" and "A source's roles"): the roles file crew writes from its teams file, declaring at each address of a partition on the host the agent that holds it, and the kinds folder beside it. The host declares the source, naming both paths; crew writes what they hold (record 0057, `teams.25`).
+crew as a source of its host's Flume (Flume record 0039; agentplot/flume v0.17.0, `reference/configuration.md`, "The host's sources" and "A source's roles"): the roles file crew writes from its teams file, declaring at each address of a drive on the host the agent that holds it, and the kinds folder beside it. The host declares the source, naming both paths; crew writes what they hold (record 0057, `teams.25`).
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # review-batches Specification
 
 ## Purpose
-The user reads a partition's constructed and amended changes in batches, after building has started: each construct makes its change due, the planner starts the partition's reviewer when a batch is due and posts the batch as one card, and the notes the user sends from it reach each unit's conductor, which runs construct again with no approval asked (`briefs.12`, record 0014).
+The user reads a drive's constructed and amended changes in batches, after building has started: each construct makes its change due, the planner starts the drive's reviewer when a batch is due and posts the batch as one card, and the notes the user sends from it reach each unit's conductor, which runs construct again with no approval asked (`briefs.12`, record 0014).
 
 ## Requirements
 

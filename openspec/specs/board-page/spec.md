@@ -1,7 +1,7 @@
 # board-page Specification
 
 ## Purpose
-The board view of crew's page: one partition's flow, read by `crew board`, drawn as the Boomdrive mockup draws its phases view; and the page's deploys view, each environment's deploys as a timeline.
+The board view of crew's page: one drive's flow, read by `crew board`, drawn as the Boomdrive mockup draws its phases view; and the page's deploys view, each environment's deploys as a timeline.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # crew-board Specification
 
 ## Purpose
-The board of a partition's flow: four lanes, Inception, Bolt plan, Construction and Operation, each object on one line with the rail's decisions as markers on it, read from crew's state and writing nothing, as text in the terminal and as JSON for the page; and each crew agent's view of it.
+The board of a drive's flow: four lanes, Inception, Bolt plan, Construction and Operation, each object on one line with the rail's decisions as markers on it, read from crew's state and writing nothing, as text in the terminal and as JSON for the page; and each crew agent's view of it.
 
 ## Requirements
 
