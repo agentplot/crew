@@ -1,0 +1,190 @@
+{
+  "status": {
+    "places": [
+      {
+        "place": "/Users/chuck/.local/share/flume/places/0132f9d25666/change--crew-runs-from-its-own-file-alone@1794196571",
+        "repository": "/Users/chuck/.local/share/flywheel/repositories/agentplot/crew",
+        "address": "agentplot/crew",
+        "kind": "change",
+        "version": 3,
+        "declared": "flume",
+        "identity": "flume/change@3",
+        "kind_from": {
+          "identity": {
+            "source": "flume",
+            "name": "change",
+            "version": 3,
+            "spelled": "flume/change@3"
+          },
+          "source": "flume",
+          "hash": "sha256:faf88896b4bf2be5e0ae9980bc5e17265909f8a6eea3468393548b483c8cb5d3"
+        },
+        "name": "crew-runs-from-its-own-file-alone",
+        "branch": "change/crew-runs-from-its-own-file-alone",
+        "base": "bolt/crew-names-each-drive-once",
+        "base_from": "merge-queue",
+        "mark": "boomdrive:agentplot/1140",
+        "lands": true,
+        "phase": {
+          "tidied": {
+            "over": "dropped",
+            "at": 1794196571,
+            "pending_for": [
+              "boomdrive"
+            ]
+          }
+        },
+        "readiness": {
+          "steps": [
+            {
+              "step": "toolchain",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "proto install",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "moon --version",
+              "passed": true,
+              "words": ""
+            },
+            {
+              "step": "moon setup",
+              "passed": true,
+              "words": ""
+            }
+          ]
+        },
+        "stages": [
+          {
+            "name": "construct",
+            "state": "delivered",
+            "starts": 1,
+            "end": {
+              "head": "12687f3559058822e1e06fa7116d86769f2ca99e",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          },
+          {
+            "name": "code",
+            "state": "delivered",
+            "starts": 1,
+            "end": {
+              "head": "c0038d25741e000f162dec44cea5ab0954dc1ce9",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          },
+          {
+            "name": "verify",
+            "state": "delivered",
+            "starts": 1,
+            "end": {
+              "head": "cc0cd44970533319399a86e58cdc313cea8a74cf",
+              "report": null,
+              "words": null,
+              "needs": null,
+              "last_words": null,
+              "commits": [],
+              "screen": null,
+              "made": []
+            },
+            "refused_part": null,
+            "refused_setting": null,
+            "conversation": false
+          }
+        ],
+        "current": "verify",
+        "agent": null,
+        "head": null,
+        "delivered": null,
+        "tasks": null,
+        "submission": null,
+        "refused_acts": [],
+        "cannot_read": [],
+        "failures": [],
+        "recipients": [
+          "agentplot/planner",
+          "boomdrive"
+        ],
+        "recipients_from": {
+          "from": "launch"
+        },
+        "hold_words": {},
+        "waiting_on": null,
+        "stalled": false,
+        "holds": [],
+        "priority": 5,
+        "stream": {
+          "name": "agentplot",
+          "from": "intent"
+        },
+        "label": null,
+        "intent": {
+          "from": "launch",
+          "name": "agentplot/crew-names-each-drive-once",
+          "digest": "b27a7275640188b2ae8d243d60ad430d8971fc33bd10b932ba7b3edc3b14e5fd"
+        },
+        "moves": [],
+        "unsettled": [],
+        "uncarried": [],
+        "ends": [],
+        "clues": null,
+        "line": {
+          "name": "change--crew-runs-from-its-own-file-alone",
+          "kind": "change@3",
+          "stage": null,
+          "run": null,
+          "tasks": null,
+          "state": "dropped",
+          "full": "change--crew-runs-from-its-own-file-alone · change@3 · dropped",
+          "short": "dropped"
+        }
+      }
+    ],
+    "host": {
+      "running": 7,
+      "bound": null,
+      "room": null,
+      "queue": [],
+      "streams": [],
+      "pools": [],
+      "terminal_kept": [],
+      "addresses": [],
+      "watch": {
+        "bound": {
+          "seconds": 60
+        }
+      },
+      "watch_settled": 1794196569,
+      "terminals": [],
+      "bases": [],
+      "terminal_setup": [],
+      "configuration": {
+        "local": {},
+        "values": []
+      },
+      "sources": []
+    }
+  }
+}

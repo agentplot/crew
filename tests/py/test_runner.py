@@ -705,6 +705,8 @@ def test_crew_runs_no_sluice_command_for_a_preview():
 
 FLUME = pathlib.Path(__file__).parent / "flume-0.3.6"
 FLUME_17 = pathlib.Path(__file__).parent / "flume-0.17.0"
+FLUME_20 = pathlib.Path(__file__).parent / "flume-0.20.0"
+HELD = "/Users/chuck/.local/share/flume/places/0132f9d25666/change--crew-runs-from-its-own-file-alone"
 CODE ="/Users/chuck/Code/github_afterthought/crew/places/change--teams-cross-to-flume-as-their-bolts-land"
 WORDS = ("check-full failed on bolt/crew-runs-its-work-through-flume with change/teams-cross-to-flume-as-their-bolts-land "
          "merged: tests:logic (1 failed: tests/py/test_runner.py::TestStageOf::test_a_crossed_piece_reads_its_stage)")
@@ -737,6 +739,18 @@ def flume_17(name, n=362, work="unit/pull-requests-are-queued-on-the-forge", bas
     r = runner.host_read("agentplot", "deneb", TIP, branch(answers=answer(n, "launched", p["place"]), places=placed(n, status, p["place"])), {})
     launch = held(rec(n, "launch", work, Base=base))[0]
     return p, runner.stage_of(work, launch, r["answers"][n], r["places"][n], True)
+
+
+def held_for_the_runner(name, base="bolt/crew-names-each-drive-once", work="unit/crew-runs-from-its-own-file-alone", n=1140):
+    """A piece's stage as stage_of reads it from a record Flume 0.20.0 holds for the runner after it tidies the place
+    (tests/py/flume-0.20.0/<name>.json), its launch request n on deneb answered launched at the place's location and the
+    record carried on one line in places.rec at its location@at, as the runner carries it."""
+    status = json.loads((FLUME_20 / f"{name}.json").read_text())
+    p = status["status"]["places"][0]
+    where = p["place"].split("@")[0]
+    r = runner.host_read("agentplot", "deneb", TIP, branch(answers=answer(n, "launched", where), places=placed(n, status, where)), {})
+    launch = held(rec(n, "launch", work, Base=base))[0]
+    return runner.stage_of(work, launch, r["answers"][n], r["places"][n], True)
 
 
 class TestStageOf:
@@ -871,6 +885,19 @@ class TestStageOf:
 
     def test_dropped_it_is_dropped(self):
         assert stage("dropped") == {"stage": "dropped", "place": CODE}
+
+    def test_a_landing_held_for_the_runner_is_merged_at_its_commit(self):
+        """bolt-plan "A landing held for the runner", on flume 0.20.0's own record (tests/py/flume-0.20.0/): Flume landed
+        the place and tidied it, holding its record for the runner, `{"tidied":{"over":{"landed":…},"pending_for":
+        ["boomdrive"]}}` at `<location>@<at>`, and the runner carries it as the place's status; the piece reads merged at
+        the record's commit on its bolt, and landed at it for a launch on main (design Decision 1)."""
+        assert held_for_the_runner("landed-held") == {"stage": "merged", "commit": "f564d22041933732ee004aa33d1b629a97272cd9", "place": HELD}
+        main = held_for_the_runner("landed-held", base="main", work="fix/main/crew/red")
+        assert (main["stage"], main["commit"]) == ("landed", "f564d22041933732ee004aa33d1b629a97272cd9")
+
+    def test_a_drop_held_for_the_runner_is_dropped(self):
+        """bolt-plan "A drop held for the runner": the place's work over dropped, tidied and held for boomdrive."""
+        assert held_for_the_runner("dropped-held") == {"stage": "dropped", "place": HELD}
 
     def test_a_status_with_no_entry_for_its_place_or_no_json_is_unknown(self):
         r = runner.host_read("madswan", "deneb", TIP, branch(answers=answer(3, "launched", "/elsewhere"), places=placed(3, fixture("code").replace("\n", " "), "/elsewhere")), {})
@@ -1053,7 +1080,7 @@ class TestBasePlaceFixes:
 
 class TestVerification:
     """A bolt's verification is its work's landing at its head, as the runner reports it (merge-gate "A bolt's
-    verification is its work's landing at its head, as the runner reports it"; runner.verification): green once some
+    verification is its work's landing at its head, as the runner reports it alone"; runner.verification): green once some
     unit, chore or fix of it reads merged or landed at the head's commit, none for any other head, unknown with no
     head."""
 
@@ -1076,11 +1103,6 @@ class TestVerification:
         required check reads its changes (sluice clause 140)."""
         assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER)), ("fix/b/take-main", self.merged())]) == (
             "green", "its head d185a87 is b--take-main's landing, as the runner reports it")
-
-    def test_a_piece_read_from_its_bolts_landing_says_so(self):
-        piece = self.merged(on="bolt", branch="change/a", landed="2026-11-08T10:00:00Z")
-        assert runner.verification(self.HEAD, [("unit/a", piece)]) == (
-            "green", "its head d185a87 is a's landing, as its landing on the bolt names it")
 
     def test_a_piece_merged_at_another_commit_leaves_the_head_no_landing(self):
         assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER))]) == (

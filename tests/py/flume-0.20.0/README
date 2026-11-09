@@ -1,0 +1,23 @@
+flume 0.20.0's status of one tidied place whose record Flume holds for the runner, `{"tidied":{"over":…,"at":…,
+"pending_for":["boomdrive"]}}`, its place `<location>@<at>`, as a host's runner carries it in places.rec once it names
+itself a recipient of each launch (agentplot/boomdrive the-runner-carries-each-places-end, 76e0226; Boomdrive record
+0030) and crew reads a piece's end from it (runner.flume_facts, runner.stage_of; tests/py/test_runner.py,
+tests/py/test_stages.py, tests/py/test_fix.py; the change crew-reads-each-pieces-end-from-the-runners-report).
+
+No place on deneb was tidied with its record held for boomdrive when these were made, on 2026-11-09, so both are made
+from a record deneb's runner carried for real: request 1140's, change--crew-runs-from-its-own-file-alone on
+bolt/crew-names-each-drive-once, on afterthought/crew-state's agentplot/runner/deneb at 4a86f81b (2026-11-09,
+03:56:18Z), tidied over landed at f564d220 and pending for agentplot/planner, a launch made before the runner named
+itself a recipient. Its keys are those flume 0.20.0 printed for a live place on deneb that day, `flume status --json
+--repository <crew> change--a-drive-set-loses-no-drive-and-no-record`. Each is changed by flume v0.20.0's own types
+(crates/flume-seams/src/held.rs Phase::Tidied and Over; crates/flume-core/src/answer.rs PlaceStatus) only as a record
+held for the runner differs: recipients ["agentplot/planner", "boomdrive"], as a launch naming the runner fixes them,
+and pending_for ["boomdrive"], the planner's end collected and the runner's not. Each is trimmed as flume-0.3.6/ is:
+each readiness step's words emptied, the place's ends emptied, and the host's lists emptied, its configuration's
+tables and lists with them. Everything else is as flume printed it.
+
+landed-held.json    request 1140's record held for boomdrive: phase tidied over landed {commit f564d220…}, at
+                    1794196571, and head, delivered, tasks, submission and agent null, as status gives a tidied place's;
+                    its line landed
+dropped-held.json   landed-held.json with its work over dropped (Over::Dropped, a unit variant serialised as its name),
+                    its line dropped

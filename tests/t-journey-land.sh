@@ -14,12 +14,13 @@
 # order; Flume refuses the first for a conflict with main and the second for a failed check: the raise records both,
 # launches the first's take-main fix once however often it reads it, and holds the second's row in Flume's words; once
 # the take-main fix lands on its bolt, which reads proven at its new head with its own work unchanged, the next raise
-# posts a second land of it on the standing send; Flume lands it on main, GitHub deletes its branch and the runner
-# carries no place of its work, so its report never reads it landed, and ops's crew bolt land closes it at the landing
-# its kit's main holds, its chore read landed through that landing (bolt-teams "A bolt whose landing main holds closes
-# whatever the runner carried of its places"). Through it all, no sluice, wt or gh call is made, and the kit's
-# checkout on the box keeps its HEAD, index and refs but its remotes' (Decision 1). Every decision on the way is a logic
-# case (tests/py/test_runner.py, test_landings.py, test_landing.py).
+# posts a second land of it on the standing send; Flume lands it on main, GitHub deletes its branch and Flume tidies its
+# places, holding each one's record for the runner, which carries it as the place's status, and ops's crew bolt land
+# closes it at Flume's commit as the runner reports it, its chore read landed from its own record and no landing commit
+# on its kit's main read for it (bolt-teams "A landing records the commit main holds", "A landed bolt closes on its
+# pieces' ends as the runner reports them"; crew record 0056 point 4). Through it all, no sluice, wt or gh call is
+# made, and the kit's checkout on the box keeps its HEAD, index and refs but its remotes' (Decision 1). Every decision
+# on the way is a logic case (tests/py/test_runner.py, test_landings.py, test_landing.py).
 # Reads: plugin/lib/board.py plugin/roles/
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 bolt_world
@@ -214,22 +215,25 @@ lz2=$(land_of z)
 has "$out" "card land/switchboard-kit: z is asked of the runner to land at $(git -C "$fl" rev-parse --short=7 HEAD) (request $lz2), on the user's send"
 ok "once the take-main fix lands on the bolt, which reads proven at its new head, the next raise posts a second land of it on the standing send"
 
-# Flume lands z on main through the merge queue, its landing naming bolt/z, GitHub deletes the branch, and Flume tidies
-# the box's places of z's work, so the runner carries none and its report never reads z landed: ops's crew bolt land
-# reads the landing main holds, z's chore read landed through it, and closes z at it.
+# Flume lands z on main through the merge queue, GitHub deletes the branch, and Flume tidies the box's places of z's
+# work, holding each one's record for the runner, which carries it as the place's status: ops's crew bolt land reads
+# z's base place landed from that record and closes z at Flume's commit, its chore read landed from its own, no landing
+# commit on main read for it.
 git -C "$fl" fetch -q origin; git -C "$fl" checkout -q --detach origin/main
 git -C "$fl" merge -q --no-ff -m "chore(land): #9 bolt/z" -m "Sluice-From: wldn-ops (bolt/z)" origin/bolt/z
+zc=$(git -C "$fl" rev-parse "origin/bolt/z^1")  # the chore's landing on z, which its take-main fix merged main into
 git -C "$fl" push -q origin HEAD:refs/heads/main; git -C "$fl" push -q origin :refs/heads/bolt/z
 zl=$(git -C "$fl" rev-parse HEAD)
 git -C "$k" fetch -q --prune origin
-runner_tidies $box $(req -e "Act = 'launch' && (Work = 'bolt/z' || Base = 'bolt/z')" -P Request)
+runner_writes $box "$(request_of bolt/z)" /flume/places/bolt--z "$(held_status /flume/places/bolt--z "$zl")" \
+  "$(request_of chore/z-files)" /flume/places/chore--z-files "$(held_status /flume/places/chore--z-files "$zc")"
 out=$(export CREW_AGENT=wldn-ops; on_box bolt land z 2>&1) || fail "ops's crew bolt land z failed:"$'\n'"$out"
-has "$out" "z has landed at switchboard-kit's ${zl:0:7}, as its kit's main holds it"
+has "$out" "z has landed at switchboard-kit's ${zl:0:7}, as the runner reports it"
 eq "$(field $box bolt.land Head bolt/z) $(field $box bolt.land By bolt/z)" "$zl wldn-ops"
-eq "$(field $box bolt.submit Outcome bolt/z)" "asked"  # no outcome of the runner's is recorded for it
+eq "$(field $box bolt.submit Outcome bolt/z)" "landed"
 [[ -z $(plan -t Bolt -e "Bolt = 'z'" -P Bolt) ]] || fail "z is still in the plan"
 [[ -z $(plan -t Unit -e "Bolt = 'z'" -P Unit) ]] || fail "z's chore is still in the plan"
-ok "a bolt Flume landed, its branch deleted from GitHub and its places no longer carried by the runner, is closed by ops's crew bolt land at the landing its kit's main holds"
+ok "a bolt Flume landed, its branch deleted from GitHub and its places tidied, is closed by ops's crew bolt land at Flume's commit, read from the records Flume holds for the runner"
 
 # Nothing of crew's ran sluice, wt or gh, nor moved the kit's checkout but its remotes
 # each stub logs its call as `<host> <tool> <args>`, wherever it runs, a command run over ssh among them
