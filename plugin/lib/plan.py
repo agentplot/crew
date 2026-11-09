@@ -11684,8 +11684,10 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             for key, part in batch_cards(n, units, h.get("posts", set())):
                 if key in h["closed"]:
                     continue
-                home = fleet["hosts"].get(main, {}).get("home")
-                f = str(batch_file(l, n)) if main == here else f"{home}/.local/state/crew/{l}-main/reports/batch-{l}-{n}.md" if home else None
+                # On another host, the report by its path under the home ssh starts in there (record 0064, Decision 7),
+                # for a host the teams file's `hosts` names, opened over its ssh name (opener).
+                f = (str(batch_file(l, n)) if main == here else
+                     f".local/state/crew/{l}-main/reports/batch-{l}-{n}.md" if main in fleet["hosts"] else None)
                 k = key.partition("-")[2]
                 card = f", card {k} of {-(-len(units) // 5)}" if k else ""
                 rows.append(dict(group="batches", label=l, key=key, at=utc(at), doc=("batch", l, n),

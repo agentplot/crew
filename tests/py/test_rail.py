@@ -20,7 +20,7 @@ import plan
 
 BOX = "chuck-herdr-alpha"
 FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX}},
-         "hosts": {BOX: {"ssh": BOX, "home": "/h/box"}, "mac-studio": {"ssh": "mac-studio", "home": "/h/mac"}}}
+         "hosts": {BOX: {"ssh": "box", "kind": "nixos"}, "mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}}
 KIT = "switchboard-kit"
 NOW = START + datetime.timedelta(hours=4)
 
@@ -373,7 +373,9 @@ class TestRows:
         held = {"wldn": {"batches": [(2, iso(10), units)], "closed": set(), "posts": set(), "due": set()}}
         b, = [r for r in rows(held=held) if r["group"] == "batches"]
         assert (b["key"], b["what"]) == ("batch/2", ["batch 2 (wldn): " + ", ".join(f"u{c} (swb-1)" for c in "abcdefg")])
-        assert b["cmds"] == [("open", f"ssh -t {BOX} plannotator-tui /h/box/.local/state/crew/wldn-main/reports/batch-wldn-2.md"),
+        # main-level: a report on another host opens by its path under the home ssh starts in there, over the host's
+        # ssh name, so crew needs no host's home (record 0064, Decision 7)
+        assert b["cmds"] == [("open", "ssh -t box plannotator-tui .local/state/crew/wldn-main/reports/batch-wldn-2.md"),
                              ("answer", 'crew tell wldn-planner "On batch 2: "')]
         held["wldn"]["closed"] = {"batch/2"}
         assert not [r for r in rows(held=held) if r["group"] == "batches"]
