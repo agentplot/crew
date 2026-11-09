@@ -1123,6 +1123,16 @@ class TestBaseDrop:
         assert runner.base_drop_due(w.plan, asked, refused) == []
         assert runner.base_drop_due(w.plan, rs, ran({1: "flume-0.17.0/bolt-submitted", 2: "dropped"})) == []
 
+    def test_not_while_a_landing_fix_is_live_and_once_it_has_ended(self, monkeypatch):
+        """bolt-teams "Not while a landing fix is live" (crews-bolt-kind-names-its-landing-fix, Decision 5): x's base
+        place lists its landing fix live, so its refused drop is not asked again; once the fix has ended, one is."""
+        w, rs = self.dropped(monkeypatch)
+        refused = {4: "flume refused it: a place on bolt/x is live"}
+        live = ran({1: "flume-0.19.0/bolt-conflict-fixing", 2: "dropped"}, refused=refused)
+        assert runner.base_drop_due(w.plan, rs, live) == []
+        ended = ran({1: "flume-0.19.0/bolt-fixed-landed", 2: "dropped"}, refused=refused)
+        assert runner.base_drop_due(w.plan, rs, ended) == [("drop", "bolt/x", {"Of": "1"})]
+
     def test_a_bolt_still_in_the_plan_or_one_with_no_drop_is_asked_nothing(self):
         p = plan.Plan(flume_plan([("x", None, "flume")]))
         rs = held(rec(1, "launch", "bolt/x", **dict(BOLT, Name="x")), rec(2, "drop", "bolt/x", Of=1))
