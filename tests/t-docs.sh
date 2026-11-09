@@ -136,15 +136,26 @@ for doc in usage readme; do has "${!doc}" "turns/<role>.md"; done
 ok "the README, the skill and the usage say a drive's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
 
 # The teams file may name its host's kept repositories (record 0061): README and the skill say what crew names there, and
-# the spaces' folders where it names none.
+# the drives' folders where it names none. It is the one file crew reads for a host's drives (record 0064): README, the
+# skill and openspec/config.yaml name its hosts, each drive's folder, repos and accounts, and the host's consoles, and
+# none names swancloud's hosts file (docs.2).
 for doc in readme skill; do
   for want in "the file may name the kept repositories of the host it is written on, \`repositories\`" \
     "with exactly its \`dir\` and its \`checkout\`, each an absolute path" "the runner's container and view on a runner host" \
-    "Where the file names none, a kit's folder and checkout are those the spaces in the hosts file keep, \`<session dir>/<name>\` and \`<session dir>/<name>/main\`"; do
+    "Where the file names none, a kit's folder and checkout are \`<folder>/<name>\` and \`<folder>/<name>/main\` in the folder of the first drive on that host whose \`repos\` lists it" \
+    "\`repos\` is a drive's list of addresses, \`repositories\` the host's map of each address to its folder and checkout" \
+    "The teams file is the one file crew reads for a host's drives and the hosts that serve them" \
+    "\`hosts\`, each host crew reaches or reads, by the name \`hostname -s\` gives it, with exactly its \`ssh\` name and its \`kind\`, \`darwin\` or \`nixos\`" \
+    "\`folder\`, the absolute folder of its herdr session on its machine" \
+    "\`repos\`, the repositories that folder keeps there" "\`accounts\`, the Claude account each of its five main-level roles runs under" \
+    "\`consoles\`, for the host it is written on, each drive whose console that host opens"; do
     has "${!doc}" "$want"
   done
 done
-ok "the README and the skill say the teams file may name its host's kept repositories, whose folders and checkouts crew names there, and the spaces' where it names none"
+config=$(cat "$CREW/openspec/config.yaml")
+has "$config" "It is the one file crew reads for a host's drives"
+for doc in readme skill config usage; do lacks "${!doc}" "herdr-hosts"; lacks "${!doc}" "hosts file"; done
+ok "the README and the skill say the teams file is the one file crew reads for a host's drives, its hosts, each drive's folder, repos and accounts, and its consoles, that it may name its host's kept repositories, and the drives' folders where it names none, and nothing names swancloud's hosts file"
 
 has "$(cat "$CREW/CLAUDE.md")" "devenv shell -- "
 wrapped=$(grep -rlF -- 'devenv shell --' "$CREW/plugin/roles" "$CREW/plugin/skills" || true)

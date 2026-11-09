@@ -54,4 +54,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 ## 5. The docs
 
-- [ ] 5.1 README, the crew skill and `openspec/config.yaml` name the teams file as the one file crew reads for a host's drives: its `hosts`, each drive's `folder`, `repos` and `accounts`, and `consoles`. None names swancloud's hosts file (design, Decisions 1 to 6; Task notes 5.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 5.1 README, the crew skill and `openspec/config.yaml` name the teams file as the one file crew reads for a host's drives: its `hosts`, each drive's `folder`, `repos` and `accounts`, and `consoles`. None names swancloud's hosts file (design, Decisions 1 to 6; Task notes 5.1). Verify `tests/suite t-docs` ends with "0 failed".
