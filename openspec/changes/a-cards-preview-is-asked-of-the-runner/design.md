@@ -443,6 +443,12 @@ The guard `test_crew_runs_no_sluice_command_for_a_preview`, in `tests/py/test_ru
   - no step reads `~/.local/state/crew/previews`.
 - Run `tests/moon-tasks` and commit `tests/moon.yml` if the test's `# Reads:` line changes (`tests.10`).
 
+**4.2** The verify run's `t-journey-land` (moon `exitCode: -1` after 3 m 15 s, at 18:54:53 on 2026-11-08, nothing captured) was its runner ended by a signal and not the test failing:
+- Its scratch folder, `/tmp/crew-test.NWyoVP`, made at 18:51:37 when the task started, still holds all 29 of the test's `ok` lines, written until 18:56:44, two minutes after moon recorded the end. `tests/run` removes a passed test's folder and prints its line, and did neither.
+- `tests/slot`, and the test under it, ran on. `tests/slot` passes a TERM, INT or HUP to the test's group, and a KILL of it ends the group through its keeper. So the signal reached `tests/run` alone. It was not sent to the group, and not to `tests/slot`.
+- Nothing the test or crew runs signals a pid outside its own test. The test's kills reach only processes it started (`submitters`, `stopped`, the decoy). crew's own kills are a card session's recorded plannotator pid and the landing waiter's own children.
+- Alone and through moon, `tests/run t-journey-land` and `tests/suite t-journey-land` end "1 passed, 0 failed" on the change, in 5 m 18 s and 4 m 40 s. Nothing in the change is fixed for it.
+
 **5.1** `plugin/roles/main-ops.md` and `plugin/roles/planner.md` as Decision 10. `tests/t-briefs.sh`'s phrases at its batch-card and landings-card checks follow them.
 
 **5.2** `README.md`, `plugin/skills/crew/SKILL.md` and `plugin/bin/crew`'s usage of `crew card preview` say the preview is asked of the runner on the host where its work runs. They also say every row that can land offers one, and the card lists its addresses once the runner reports them. README's sentences on `[preview]` and "no preview" go, and so does "sluice's one preview of a revision kept while another of crew's records still names it". `tests/t-docs.sh`'s preview checks stand.
