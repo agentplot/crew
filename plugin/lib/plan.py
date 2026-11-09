@@ -1705,8 +1705,8 @@ def kit_labels(fleet, kit):
 
 def main_kit(fleet, label, kit):
     """Where crew acts on a kit before any runner has taken the work in hand (the user's ruling of 2026-11-01; Decision 4
-    of the-team-machinery-leaves): the checkout the drive's main-level host keeps of it, as that host's spaces keep
-    it (crew.kit_kept), in the shape bolt_at gives a bolt's, {"label", "machine", "stream" None, "kit"}; None where the
+    of the-team-machinery-leaves): the checkout the drive's main-level host keeps of it, as the teams file keeps it
+    there (crew.kit_kept), in the shape bolt_at gives a bolt's, {"label", "machine", "stream" None, "kit"}; None where the
     host keeps none. A start's branch and checks, a new unit's name, a bolt never started landed, the design agent's
     records, a proposal's records and the board's explorations are read and acted on there."""
     host = crew.drive_of(fleet, label)["machine"]
@@ -1716,7 +1716,7 @@ def main_kit(fleet, label, kit):
 
 def main_kit_read(fleet, label, kit):
     """A kit's checkout on its drive's main-level host (main_kit) for a view, None where crew can't tell it, its
-    spaces keeping none or two by the kit's name: the board shows no explorations of it then."""
+    teams file keeping none or two by the kit's name there: the board shows no explorations of it then."""
     try:
         return main_kit(fleet, label, kit)
     except Refusal:
@@ -1728,7 +1728,7 @@ def main_kit_said(fleet, label, kit, what):
     and, since a kit renamed on its host is kept there by its new name alone, the way on when it was (Decision 2 of
     a-kit-renamed-on-its-host-is-renamed-across-the-plan)."""
     host = crew.drive_of(fleet, label)["machine"]
-    return (f"{label}'s main level runs on {host}, and no space there keeps {kit}, so crew can't {what}; if it was "
+    return (f"{label}'s main level runs on {host}, and the teams file keeps no {kit} there, so crew can't {what}; if it was "
             f"renamed on its host, crew kit rename {kit} <new> names it so in the plan")
 
 
