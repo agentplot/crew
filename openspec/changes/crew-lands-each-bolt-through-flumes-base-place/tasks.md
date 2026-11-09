@@ -55,4 +55,4 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 ## 9. The words
 
 - [x] 9.1 Main-level ops's brief has the user's send on the kit's landings card as the one word to land and names no `crew bolt submit`, `wt submit` or `sluice withdraw`, and the planner's and operator's briefs follow (design Decision 11; Task notes 9.1). Verify `tests/suite t-briefs` ends with "0 failed".
-- [ ] 9.2 The usage of `plugin/bin/crew`, README, `plugin/skills/crew/SKILL.md` and CLAUDE.md say a bolt starts as a base place and lands on the user's send through the runner, and `crew bolt submit` and `crew main fix --send` refuse (design Decision 11; Task notes 9.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 9.2 The usage of `plugin/bin/crew`, README, `plugin/skills/crew/SKILL.md` and CLAUDE.md say a bolt starts as a base place and lands on the user's send through the runner, and `crew bolt submit` and `crew main fix --send` refuse (design Decision 11; Task notes 9.1). Verify `tests/suite t-docs` ends with "0 failed".
