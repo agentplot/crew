@@ -719,6 +719,13 @@ class TestTheLandingsRecord:
         _, got = self.entry("bolt-withdrawn")
         assert (got["Outcome"], got["Why"], got.get("Refused")) == ("stopped", "the merge queue withdrew the submission", None)
 
+    def test_a_land_the_runner_refused_is_recorded_stopped_with_no_submission(self):
+        """run-record "A land the runner refused": the runner answered land 2 of y refused, a place on bolt/y live,
+        Flume naming no submission; the bolt.submit carries no Submission."""
+        _, got = self.entry("bolt-submitted", more={}, refused={2: "flume refused it: a place on bolt/y is live"})
+        assert (got["Outcome"], got["Why"], got["Request"], got["Submission"]) == (
+            "stopped", "flume refused it: a place on bolt/y is live", "2", None)
+
     def test_one_recorded_already_and_one_undecided_are_recorded_nothing(self):
         _, got = self.entry("bolt-failed")
         assert self.entry("bolt-failed", entries=(ASKED, dict(ASKED, Outcome=None, Refused=got["Refused"])))[1] is None
@@ -810,6 +817,43 @@ class TestTheFirstReadActs:
         self.read("bolt-submitted", more={}, refused={2: "flume refused it: a place on bolt/y is live"})
         (e,) = self.emitted
         assert (e["Outcome"], e["why"]) == ("stopped", "flume refused it: a place on bolt/y is live")
+
+    def test_a_launch_refused_for_a_kind_its_host_has_not_locked_reads_unlaunched_and_appends_nothing(self):
+        """bolt-teams "A kind its host has not locked": the runner answered y's launch refused in Flume's words naming
+        the lock; a read of y says so, records nothing and appends no request, so nothing launches it again."""
+        import runner
+        requests, reads = base_run(refused={1: "flume refused the launch: crew/bolt@1 is not locked on deneb"})
+        launch = runner.launch_of(requests, "bolt/y")
+        assert runner.landing_of(launch, runner.lands_of(requests, launch), reads) == {
+            "outcome": "unlaunched", "words": "flume refused the launch: crew/bolt@1 is not locked on deneb", "refused": True}
+        assert plan.landing_read({}, "swancloud", "y", (requests, reads), [ASKED], True) == (
+            False, "its base place is unlaunched: the runner refused its launch: flume refused the launch: crew/bolt@1 is not "
+                   "locked on deneb; crew bolt start runs it again")
+        assert self.emitted == [] and self.closed == [] and self.asked == [] and self.taken == []
+
+    def test_three_bolts_on_one_send_two_land_and_the_conflicting_one_takes_main_in(self):
+        """bolt-teams "Three bolts on one send": lands of y, z and w posted in that order; the runner reports y and w
+        landed and z refused in conflict; y and w are closed and z's take-main fix is launched, none holding another."""
+        import runner
+        from facts import ran
+        from test_runner import BOLT, held, rec
+        requests = held(*[rec(n, "launch", f"bolt/{b}", **dict(BOLT, Name=b)) for n, b in ((1, "y"), (2, "z"), (3, "w"))],
+                        *[rec(n + 3, "land", f"bolt/{b}", Of=n) for n, b in ((1, "y"), (2, "z"), (3, "w"))])
+        reads = ran({1: "flume-0.17.0/bolt-landed", 2: "flume-0.17.0/bolt-conflict", 3: "flume-0.17.0/bolt-landed"},
+                    label="swancloud", unplaced={4: "-", 5: "-", 6: "-"})
+        self.tip[:] = [dict(Act="bolt.submit", On=[f"bolt/{b}"], Card="req_k1", Head=TIP, Request=str(n), Outcome="asked")
+                       for n, b in ((4, "y"), (5, "z"), (6, "w"))]
+        mp = pytest.MonkeyPatch()
+        mp.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
+            "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in "yzw") + "%rec: Unit\n\n"))
+        try:
+            got = [plan.landing_read({}, "swancloud", b, (requests, reads), list(self.tip), True)[0] for b in "yzw"]
+        finally:
+            mp.undo()
+        assert got == [True, False, True]
+        assert [c[0] for c in self.closed] == ["y", "w"] and [t[0] for t in self.taken] == ["z"]
+        assert [(e["On"], e.get("Outcome"), bool(e.get("refused"))) for e in self.emitted] == [
+            (["bolt/y"], "landed", False), (["bolt/z"], None, True), (["bolt/w"], "landed", False)]
 
     def test_undecided_or_unknown_it_records_nothing(self):
         assert self.read("bolt-submitted") == (False, "landing #412 under test")

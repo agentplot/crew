@@ -194,6 +194,18 @@ class TestReach:
         assert [(r["Act"], r.get("Of")) for r in requests(w)[1:]] == [("drop", "1")]
         assert w.plan.item("a").get("Bolt") is None and w.plan.bolt("x") is None
 
+    def test_a_requeue_drops_the_units_launch_and_then_the_base_place(self):
+        """bolt-plan "Requeuing a unit that has a place": started x with its base place, unit a launched; the requeue's
+        commit drops a's launch and then bolt/x's, a queued with no bolt, so it is launched afresh once a bolt it is
+        placed in is started."""
+        w = launched("x", work=[unit("a")])
+        act, work, given = runner.bolt_launch(w.plan, "x", "madswan")
+        plan.request(w, act, work, **given)
+        ops(w, 'bolt drop x "Later." --requeue')
+        assert [(r["Act"], r["Work"], r.get("Of")) for r in requests(w)] == [
+            ("launch", "unit/a", None), ("launch", "bolt/x", None), ("drop", "unit/a", "1"), ("drop", "bolt/x", "2")]
+        assert w.plan.bolt("x") is None and w.plan.item("a").get("Bolt") is None and w.plan.item("a").get("After") is None
+
     def test_a_drop_asks_no_host_and_a_bolt_with_no_base_place_keeps_its_branch_the_users(self, monkeypatch, capsys):
         """bolt-plan "The drop's host does not answer" and bolt-teams "A drop of it": started x, its unit a's launch
         standing and no launch of bolt/x, since x was started before bolts were base places, while every host is

@@ -188,6 +188,75 @@ class TestRows:
         land, = [r for r in rows(held=held) if r["group"] == "land"]
         assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land on your send of land/{KIT}; follows: the next card under land/{KIT} carries it"
 
+    def runner_rows(self, fixture=None, answered=True, entries=(), legacy=False):
+        """apex-zones's land line with its base place as the runner on the box reports it (crew-lands-each-bolt-through-
+        flumes-base-place, Decision 10): launched, at the flume 0.17.0 fixture named (tests/py/flume-0.17.0/bolt-*.json)
+        or not yet placed; a land of it posted, answered launched or not; the run record holding entries; with legacy,
+        no launch of bolt/apex-zones at all. (its line, whether it can land, the land's request)."""
+        from facts import ran
+        import runner
+        p = the_plan()
+        requests, _ = runs(p)["wldn"]
+        n = {r.get("Work"): r.get("Request") for r in requests if r.get("Act") == "launch"}
+        base = n["bolt/apex-zones"]
+        if legacy:
+            requests = [r for r in requests if r.get("Work") != "bolt/apex-zones"]
+        m = runner.next_request(requests)
+        requests = requests + [plan.Rec("Request", runner.request_fields(m, "land", "bolt/apex-zones", {"Of": base},
+                                                                         "2026-11-08T12:00:00Z", "wldn-ops"))]
+        launched = dict({n["unit/zone-one"]: "landed"}, **({base: f"flume-0.17.0/{fixture}"} if fixture else {}))
+        unplaced = dict({} if fixture else {base: "/flume/places/bolt--apex-zones"}, **({str(m): "-"} if answered else {}))
+        reads = ran(launched, host=BOX, label="wldn", repository="/kit/main", unplaced=unplaced)
+        held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "refused": plan.refusals(entries),
+                         "stopped": plan.stops(entries), "phases": plan.landing_phases(entries)}}
+        land, = [r for r in plan.rail_rows(FLEET, [("wldn", "WilldanGroup/crew-state", "tip", p)], survey(), [], {}, held,
+                                           {"wldn": (requests, reads)}) if r["group"] == "land"]
+        return land["what"][1].split(": ", 1)[1], land["bolts"][0]["can"], m
+
+    def test_the_runners_landing_on_the_land_line_holds_its_work_and_is_no_bolt_that_can_land(self):
+        """crew-rail "A landing asked", "A landing in the merge queue" and "A landing crew can't tell": asked with its
+        request, #412 waiting or under test with Flume's entry, or can't be told and why, each holding the bolt's work."""
+        joins = ": no unit, chore or fix joins it until its outcome is read"
+        line, can, m = self.runner_rows(answered=False)
+        assert (line, can) == (f"landing asked, request {m}{joins}", False)
+        assert self.runner_rows("bolt-waiting")[:2] == (f"landing #412 waiting in the merge queue{joins}", False)
+        assert self.runner_rows("bolt-submitted")[:2] == (f"landing #412 under test{joins}", False)
+        unread = ("can't tell its landing: Flume could not read bolt/apex-zones's submission: sluice status #412 exited 3: the "
+                  "queue's record is locked")
+        assert self.runner_rows("bolt-unread")[:2] == (unread, False)
+        asked = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=BOLT_HEAD, Request="9", Outcome="asked")]
+        assert self.runner_rows("bolt-unread", entries=asked)[:2] == (unread + joins, False)
+
+    def test_a_land_asked_again_after_a_refusal_says_its_request_and_nothing_of_the_refusal(self):
+        """crew-rail "Landing again": b's take-main fix moved its head and crew posted its land again as request 63."""
+        old, now = "c" * 40, BOLT_HEAD
+        entries = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=old, Request="57", Outcome="asked"),
+                   dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=old, Request="57", Refused="landing refused in conflict"),
+                   dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=now, Request="63", Outcome="asked")]
+        line, can, _ = self.runner_rows(answered=False, entries=entries)
+        assert line.startswith("landing asked, request ") and "refused" not in line and can is False
+
+    def test_a_refusal_at_the_head_its_land_was_posted_at_holds_the_line_in_flumes_words_recorded_or_not(self):
+        """crew-rail "A landing refused for a failed check" and "A landing refused in conflict": before the read records
+        it and after."""
+        asked = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=BOLT_HEAD, Request="9", Outcome="asked")]
+        line, can, _ = self.runner_rows("bolt-failed", entries=asked)
+        assert line.startswith("landing refused at d185a87, a check failed, the bolt's, open for work: ") and can is False
+        assert "crew fix apex-zones <name> " in line and line.endswith("lands again once that fix moves its head")
+        recorded = asked + [dict(asked[0], Outcome=None, Refused="landing refused in conflict with main at 9f1c2ab: x")]
+        line, can, _ = self.runner_rows("bolt-conflict", entries=recorded)
+        assert line.startswith("takes main first: its landing at d185a87 was refused in conflict with main at 9f1c2ab: ") and can is False
+
+    def test_a_stop_at_its_head_can_land_on_the_next_send_and_a_bolt_started_before_lands_under_its_crew(self):
+        """crew-rail "A stopped landing", read from the runner before a read records it, and "A bolt started before bolts
+        were base places"."""
+        asked = [dict(Act="bolt.submit", On=["bolt/apex-zones"], Head=BOLT_HEAD, Request="9", Outcome="asked")]
+        line, can, _ = self.runner_rows("bolt-withdrawn", entries=asked)
+        assert line.startswith(f"can land on your send of land/{KIT}; its last landing at d185a87 was stopped, nothing of the "
+                               "bolt's: ") and "it lands on your next send" in line and can is True
+        assert self.runner_rows(legacy=True)[:2] == (
+            "apex-zones was started before bolts were base places and lands under the crew that started it", False)
+
     def test_a_bolt_carrying_another_bolts_work_is_held_on_its_land_line_and_left_out_of_the_tell(self):
         """crew-rail "A bolt carrying another bolt's work is held on its land line" (plan.8): its kit's read says the
         bolt holds another bolt's landing main lacks, so its line says so, naming the bolt and its landing, and it can't

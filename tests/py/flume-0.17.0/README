@@ -22,6 +22,8 @@ bolt-*.json         a bolt's base place, of crew's kind crew/bolt@1 (stages = []
                     SubmissionRead), `crates/flume-seams/src/held.rs` (Phase, Over, WaitingOn, Waits) and what
                     `submit.rs` (`verdict`) and `status.rs` (`base_waiting_on`) set for a base place, trimmed as above.
   bolt-submitted    submitted to sluice as entry 412, under test; waiting on nobody, its submission open
+  bolt-waiting      bolt-submitted with the entry's state waiting, in the queue and not yet under test
+  bolt-unread       bolt-submitted with the submission's read could_not_read, naming why
   bolt-landed       over, landed at a7c3e9f with the verdict landed
   bolt-failed       the verdict failed with sluice's words, waiting on its caller (why submission) with Flume's
   bolt-conflict     the verdict conflict naming the files, the entry's state naming main's revision 9f1c2ab, waiting

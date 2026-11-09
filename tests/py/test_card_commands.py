@@ -1223,6 +1223,18 @@ def test_a_sent_landings_card_reads_each_land_crew_posted_with_its_request_and_n
     assert plan.row_name("fix/main/crew/red") == "main--red" and plan.row_name("bolt/a") == "a"
 
 
+def test_a_land_posted_on_an_earlier_send_is_named_with_its_request():
+    """rail-cards "The landings card's read prints the lands crew posted", from an earlier send: z, which an earlier
+    send still lands, its land posted as request 41 on that card's send, comes first, named with its request."""
+    heads = plan.card_heads("a@abc1234")
+    got = {"status": "answered", "turn": "agent", "answer": {"approved": True}}
+    entries = [dict(Act="bolt.submit", On=["bolt/z"], Card="req_k0", Head="0a1b2c3", Request="41", Outcome="asked")]
+    said = plan.landing_lines("swancloud", got, heads, ["z"], posted={plan.row_name(p["work"]): p["request"] for p in plan.lands_posted(entries)})
+    assert said == ["  to land on the user's send of an earlier card: z", "  to land, in the card's order: a",
+                    "  z: asked of the runner to land, request 41",
+                    "  a: no land is posted for it yet: crew's next raise of the card posts it"]
+
+
 def test_a_lone_row_approved_lands_it_and_a_send_ticking_none_lands_nothing():
     one = plan.card_heads("y@abc1234")
     approved = {"status": "answered", "turn": "agent", "answer": {"approved": True}}

@@ -4174,7 +4174,7 @@ def landing_line(landing, phase, head, bolt=None):
     if o == "submitted" and phase and phase.get("rejected") and landing.get("entry"):
         state = runner.landing_said(landing).split(f"#{landing['entry']} ", 1)[-1]
         return f"landing again as #{landing['entry']}, {state}, after {rejected_said(*phase['rejected'])} was refused"
-    if o in ("submitted", "landed", "unknown"):
+    if o in ("asked", "submitted", "landed", "unknown"):
         return runner.landing_said(landing)
     if o == "stopped":
         return runner.landing_said(landing, head=at or head)
@@ -9645,6 +9645,9 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                 lands = [landing["words"]]
             elif o == "refused" and here:  # Flume refused it at this head, recorded or not: held in Flume's words (rail-cards)
                 lands = [landing_line(landing, phase, head, b.name())]
+            elif o == "unknown":  # crew can't tell it from the runner's report: said, and why (read.1)
+                lands = [landing_line(landing, phase, head, b.name()) + (": no unit, chore or fix joins it until its outcome is read"
+                                                                         if phase and phase["state"] in ("queued", "again", "asked") else "")]
             elif o in ("asked", "submitted") or o != "stopped" and phase and phase["state"] in ("queued", "again", "asked"):
                 lands = [f"{landing_line(landing, phase, head, b.name())}: no unit, chore or fix joins it until its outcome is read"]
             elif not lands and carry:  # another bolt's work it carries holds it as a conflict does (plan.8)
@@ -11641,8 +11644,8 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     take-main fix"). Each ticked bolt that landed since the card was posted or left the plan (gone, ticked_gone) is said
     so and left out of it, so a send some of whose bolts landed gives the rest alone (main-level "Ops lands a bolt on a
     send that still stands"). Each bolt it lands whose last landing sluice or its host stopped (stopped, {bolt: (head,
-    words)}, stops) is said with what stopped it and the head it was at, the same submit landing it once that is
-    cleared (rail-cards "Checks that never ran")."""
+    words)}, stops) is said with what stopped it and the head it was at, and that it lands again only on the user's next
+    send, with no land named for it, its last land being spent (rail-cards "A landing stopped keeps its box")."""
     ticked, earlier, stopped, gone = ticked_of(got, heads), list(earlier), stopped or {}, gone or {}
     lands = [b for b in ticked or [] if b not in main_first and b not in gone]
     lines = [f"  can't tell whether the user's earlier send still lands {b}: {why}" for b, why in unknown]
@@ -11659,7 +11662,7 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
               "it lands again only on the user's next send" for b in both if b in stopped]
     posted = posted or {}
     return lines + [f"  {b}: asked of the runner to land, request {posted[b]}" if b in posted else
-                    f"  {b}: no land is posted for it yet: crew's next raise of the card posts it" for b in both]
+                    f"  {b}: no land is posted for it yet: crew's next raise of the card posts it" for b in both if b not in stopped]
 
 
 def send_entries(fleet, label, entries):

@@ -836,10 +836,10 @@ def test_a_stopped_bolt_beside_one_proven_since_closes_the_card_and_the_one_that
         [stopped_box("z"), box("w")], [], [])
 
 
-def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_beside_the_command_that_lands_it():
-    """rail-cards "Checks that never ran": crew card read land/crew names z as still landing on the send, saying what
-    stopped its last landing and at which head, with the command that lands it; a bolt it does not land says nothing,
-    nor does one whose last landing was not stopped."""
+def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_naming_no_land_for_it():
+    """rail-cards "A landing stopped keeps its box": crew card read land/crew says what stopped z's last landing and
+    at which head, that it lands again only on the user's next send, and names no land of it, its land being spent; a
+    bolt it does not land says nothing, nor does one whose last landing was not stopped."""
     sent = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:y", "land:z"]}}
     heads = plan.card_heads("y@abc1234 z@abc1234")
     stopped = plan.stops([dict(submitted("z", H2), Why=STOP, Outcome="stopped"), dict(submitted("w", H1), Why="x", Outcome="stopped"),
@@ -848,7 +848,9 @@ def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_beside_the_comma
         "  to land, in the card's order: y and z",
         f"  z's last landing at def5678 was stopped, nothing of the bolt's: {STOP}; it lands again only on the user's "
         "next send",
-        "  y: no land is posted for it yet: crew's next raise of the card posts it", "  z: no land is posted for it yet: crew's next raise of the card posts it"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
+    assert plan.landing_lines("swancloud", sent, heads, [], [], stopped, posted={"y": "57", "z": "41"})[-1] == (
+        "  y: asked of the runner to land, request 57")
     assert plan.landing_lines("swancloud", sent, heads) == plan.landing_lines("swancloud", sent, heads, [], [], {})
     assert plan.landing_lines("swancloud", {}, [], ["z"], [], stopped)[1].startswith("  z's last landing at def5678 was stopped")
 
@@ -2018,6 +2020,18 @@ class TestLandsDue:
         assert self.due([hold("y", "held: carries bolt x's work, its landing 1a2b3c4, which main lacks")], sent) == []
         assert self.due([], sent) == []
 
+    def test_no_land_while_a_batch_waits(self):
+        """review-batches "No land while a batch waits": the user's send stands at y's head, and y's unit a's latest
+        change is in batch 7, which the user has not answered: y's landing facts read no row (landing_facts), the row
+        saying it lands once the user has answered batch 7 (batch_waits), so the raise's rows hold none of y and no land
+        of y's launch is due, though its send stands."""
+        work = [("a", "unit", "merged")]
+        assert plan.landing_facts("y", "crew", work, H1, None, set(), {"a": 7}, {}, 0, None) is None
+        assert plan.batch_waits(["a"], set(), {"a": 7}) == "the user has not answered batch 7"
+        rows = [box(b) for b in ["z"] if plan.landing_facts(b, "crew", work, H1, None, set(), {}, {}, 0, None)]
+        rows += [box("y")] if plan.landing_facts("y", "crew", work, H1, None, set(), {"a": 7}, {}, 0, None) else []
+        assert self.due(rows, {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_1", H1[:7])}) == [("bolt/z", 2)]
+
     def test_an_outcome_crew_cant_tell_posts_nothing_again_at_that_head(self):
         import runner
         from test_runner import rec
@@ -2086,8 +2100,9 @@ class TestTheRaisePostsTheLands:
             "bolt/w": ("req_k0", "1111111"), self.FIX: ("req_k0", "2222222"), "bolt/y": ("req_k1", "abc1234")}
 
     def test_a_raise_reading_the_send_posts_the_lands_of_the_ticked_rows_and_a_second_raise_none(self, monkeypatch, capsys):
-        """rail-cards "Read with no session of ops's running": the user ticked y and z; the raise posts two lands in the
-        card's order, says each, and leaves the card while they land; the next raise posts none."""
+        """rail-cards "Read with no session of ops's running" and "Two bolts sent": the user ticked y and z; the raise
+        posts two lands in the card's order, says each, tells no agent and leaves the card while they land; the next
+        raise posts none."""
         monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
         requests = TestLandsDue().requests()[:3]  # y's and z's base places and y's unit, no fix of main
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
@@ -2103,8 +2118,9 @@ class TestTheRaisePostsTheLands:
         assert "card land/crew: y is asked of the runner to land at abc1234 (request 4), on the user's send" in out
         assert "card land/crew: z is asked of the runner to land at abc1234 (request 5), on the user's send" in out
         assert "card land/crew: req_k1 is left as it is, the user having answered it" in out
+        assert acts.told == []
         plan.raise_landings(FLEET, "swancloud", "crew", acts)
-        assert len(acts.posts) == 1
+        assert len(acts.posts) == 1 and acts.told == []
 
 
 def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_ssh_refused(monkeypatch):

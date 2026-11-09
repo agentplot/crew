@@ -2177,6 +2177,12 @@ class TestALandingFromTheRunnersReport:
         legacy = {"outcome": "legacy", "words": "y was started before bolts were base places and lands under the crew that started it"}
         assert board.head_said(self.ledger(legacy)) == legacy["words"]
 
+    def test_a_runner_that_cant_be_read_says_its_landing_cant_be_told_and_why(self):
+        """crew-board "A runner that can't be read": the land posted as request 57, the runner that took the work unread."""
+        unknown = {"outcome": "unknown", "why": "the runner on deneb that took request 41 can't be read: fetch failed"}
+        assert board.head_said(self.ledger(unknown, self.ASKED)) == (
+            "can't tell its landing: the runner on deneb that took request 41 can't be read: fetch failed")
+
     def test_with_nothing_asked_the_head_line_says_its_state(self):
         assert board.head_said(self.ledger({"outcome": "none"})) == "waits to land"
         assert board.head_said(self.ledger({"outcome": "unlaunched", "refused": True, "words": "not locked"}, state="active")) == ""
