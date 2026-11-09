@@ -874,6 +874,48 @@ class TestEnd:
         assert "- ask/1: tell from madswan-design\n- ask/2: card from crew on card/req_a1\n" in text and "proposed the fix bolt" in text
         assert f"turn 1 of madswan-planner is ended, and its report is {report}." in capsys.readouterr().out
 
+    def test_a_turns_end_asks_the_runners_to_confirm_its_ends_in_the_same_commit(self, in_run, monkeypatch, tmp_path, capsys):
+        """role-runs, Two places' ends and Three ends of two places; drive-state, A confirm in a turn's end: the turn took
+        two ends of request 12's place and one of request 14's, and its end asks a confirm of each launch, oldest first."""
+        one = owed_status()
+        one["status"]["places"][0]["ends"][1]["owed"] = [{"recipient": "boomdrive", "expired": True, "known": True}]
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12, (14, "launch", "chore/b", dict(LAUNCH_12[3], Name="b", Base="main")))
+        runner_holds(monkeypatch, in_run.files, (14, "/kit/places/chore--b", one), (12, "/kit/places/change--a", owed_status()))
+        start(in_run)
+        before = in_run.files["requests.rec"]
+        report = tmp_path / "turn.md"
+        end(in_run, report, "acted on the stop-short")
+        assert len(in_run.writes) == 2 and in_run.writes[1].startswith(
+            "turn(madswan-planner): 1 ends, asking 2 confirms of 3 ends (madswan-planner)\n")
+        assert asks.parse(in_run.files["asks.rec"])[1][0]["Ended"]
+        import plan
+        rs = plan.Plan(in_run.files["requests.rec"]).recs("Request")
+        assert in_run.files["requests.rec"].startswith(before)
+        assert [(r.get("Request"), r.get("Act"), r.get("Work"), r.get("Of"), r.get("Recipient"), r.all("Delivery")) for r in rs[2:]] == [
+            ("15", "confirm", "unit/a", "12", "madswan/planner", OWED), ("16", "confirm", "chore/b", "14", "madswan/planner", OWED[1:])]
+        assert "- 3 ends of requests 12 and 14, their confirmation asked of the runners\n" in report.read_text()
+        assert "The 3 ends it took are confirmed to Flume as madswan/planner once the runners carry requests 15 and 16." in capsys.readouterr().out
+
+    def test_a_turn_with_no_ends_appends_no_request(self, in_run, tmp_path, capsys):
+        """role-runs, A turn with no ends."""
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        start(in_run)
+        end(in_run, tmp_path / "turn.md", "done")
+        assert in_run.files["requests.rec"] == requests_held(LAUNCH_12)
+        assert in_run.writes[1].startswith("turn(madswan-planner): 1 ends (madswan-planner)\n") and "confirm" not in capsys.readouterr().out
+
+    def test_a_run_with_no_turn_asks_no_confirm(self, in_run, tmp_path):
+        """role-runs, A lost run: turn 1 took two ends and was superseded before its end, so nothing names them confirmed
+        and the next start takes them again; a run ending with no turn open asks nothing."""
+        lost = f"Took: ask/1\nTook: end/12/{OWED[0]}\nTook: end/12/{OWED[1]}\nSuperseded: 2"
+        in_run.files["asks.rec"] = LOST.replace("Took: ask/1", lost)
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        before = dict(in_run.files)
+        end(in_run, tmp_path / "turn.md", "nothing waited")
+        assert in_run.files == before and in_run.writes == []
+        again = [owed(12, "stage/construct/2/delivered"), owed(12, "stage/code/1/ended-short")]
+        assert asks.taken_ends(again, [launch(12)], "madswan/planner") == again
+
     def test_an_ask_written_after_the_start_waits_for_the_next_run(self, in_run, tmp_path):
         """role-runs, An ask during a run."""
         start(in_run)

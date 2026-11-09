@@ -7162,9 +7162,13 @@ def role_start(fleet, a):
 def role_end(fleet, a):
     """crew role end --report <path> "<what was done>", a role's run's last act (design Decision 7; role-runs "A run's end
     answers what it took"): the run's open turn recorded ended with the words, in one commit, and the report written at
-    the path, the stage's deliverable, naming the turn, what it took and what was done. With no open turn, a run that
-    found nothing pending, the report says no turn was taken and nothing is recorded, so every run delivers its stage.
-    Refused anywhere but a role's run (run_named)."""
+    the path, the stage's deliverable, naming the turn, what it took and what was done. In that commit, one confirm is
+    appended to requests.rec for each launch whose place's ends the turn took, oldest first, naming the launch, the
+    role's address and each end's delivery key in the order taken, for the runner that holds the launch to confirm to
+    Flume as the role (asks.turn_confirms; design Decisions 3, 4 and 6 of crews-role-runs-confirm-what-they-collect),
+    read at the tip the write is applied to for each launch's work (plan.1); a turn that took no end appends none. With
+    no open turn, a run that found nothing pending, the report says no turn was taken and nothing is recorded, so every
+    run delivers its stage, and no confirm is asked. Refused anywhere but a role's run (run_named)."""
     label, role, run = run_named(fleet, "crew role end")
     report = pathlib.Path(a.report).expanduser()
     ended = {}
@@ -7180,9 +7184,13 @@ def role_end(fleet, a):
         rec.set("Ended", now, after="Began")
         rec.set("Said", a.words, after="Ended")
         w.replace("asks.rec", pl.text())
+        confirms = asks.turn_confirms(t["Took"], request_dicts(requests_of(w).recs("Request")))
+        asked = [request(w, "confirm", work, Of=n, Recipient=f"{label}/{role}", Delivery=keys) for n, work, keys in confirms]
+        m = sum(len(keys) for _, _, keys in confirms)
         e = record.turn_end_entry(run, t["Turn"])
-        w.subject, w.why = f"turn({run}): {t['Turn']} ends", e["why"]
-        ended.update(turn=t, held=held, at=now)
+        w.subject, w.why = f"turn({run}): {t['Turn']} ends" + (
+            f", asking {len(asked)} {'confirm' if len(asked) == 1 else 'confirms'} of {m} {'end' if m == 1 else 'ends'}" if asked else ""), e["why"]
+        ended.update(turn=t, held=held, at=now, asked=asked, ends=m)
         return []
     try:
         write(fleet, label, change, f"turn({run})", act="turn.end", on=[f"agent/{run}"])
@@ -7195,6 +7203,10 @@ def role_end(fleet, a):
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(asks.report(ended["turn"], ended["held"], a.words, ended["at"]))
     print(f"turn {ended['turn']['Turn']} of {run} is ended, and its report is {report}.")
+    if ended["asked"]:
+        n = len(ended["asked"])
+        print(f"The {ended['ends']} {'end' if ended['ends'] == 1 else 'ends'} it took {'is' if ended['ends'] == 1 else 'are'} confirmed to "
+              f"Flume as {label}/{role} once the runners carry {'request' if n == 1 else 'requests'} {asks.listed([str(x) for x in ended['asked']])}.")
 
 
 def role_open(fleet, a):
