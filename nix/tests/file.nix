@@ -192,9 +192,9 @@ in
       ++ t.expect (
         rendered ? hosts && rendered ? consoles && !(rendered ? repositories)
       ) "deneb's file renders without its hosts or consoles, or with repositories"
-      ++ t.expect (lib.all (
-        d: d ? folder && d ? repos && d ? accounts && !(d ? partition)
-      ) rendered.drives) "a drive of deneb's file renders without its folder, repos or accounts, or with a partition"
+      ++ t.expect (lib.all (d: d ? folder && d ? repos && d ? accounts && !(d ? partition))
+        rendered.drives
+      ) "a drive of deneb's file renders without its folder, repos or accounts, or with a partition"
       ++ t.expect (
         map (d: d.label) rendered.drives == [
           "afterthought"
@@ -279,7 +279,8 @@ in
     ++ t.expect (!renders noRepos) "a drive with no repos evaluates"
     ++ t.expect (!renders noAccounts) "a drive with no accounts evaluates";
 
-  "A relative folder" = t.expect (!renders relativeFolder) "a drive whose folder is work/madswan evaluates"
+  "A relative folder" =
+    t.expect (!renders relativeFolder) "a drive whose folder is work/madswan evaluates"
     ++ t.expect (!renders relative) "a kept repository whose dir is relative evaluates";
 
   "A repos entry with no owner" = t.expect (
@@ -297,7 +298,9 @@ in
     ) "settings giving deneb's drives and no hosts evaluate, and no assertion fails"
     ++ lib.optionals (renders noHosts) (
       lib.concatMap
-        (words: t.expect (says noHosts words) "the failure names no ${words}: ${toString (failures noHosts)}")
+        (
+          words: t.expect (says noHosts words) "the failure names no ${words}: ${toString (failures noHosts)}"
+        )
         [
           "services.crew.settings.hosts"
           "names no host"
