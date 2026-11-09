@@ -37,6 +37,17 @@ Every such citation in `plugin/` and `tests/` was read, including the later name
 
 The base already held unresolved citations, mostly shorthand, such as rail-cards "A row taking main first stays on the card" at `plugin/lib/cards.py:883`. They are on lines this branch does not change, so they are not this change's and are left out.
 
+## The archive
+
+`openspec archive` applied the deltas to the main specs: 42 requirements added, 40 modified, 27 removed. Nothing in the repository names the change's old directory.
+
+`openspec validate --specs --strict` on the archived specs passes 6 of 26 specs and fails 20, with warnings and no errors. At the base, and at this branch before the archive, it already failed 18. The two specs that now fail are `merge-gate` and `role-runs`. Each fails only on the warning "Requirement text is very long (>500 characters)", the same warning the other 18 carry, for a requirement this change modifies:
+
+- merge-gate "Every merge into a bolt or onto main is a submission sluice gates"
+- role-runs "A capture and a landing are asks"
+
+The change itself validates strictly, so this does not hold up the archive.
+
 ## What holds
 
 - The whole checks pass.

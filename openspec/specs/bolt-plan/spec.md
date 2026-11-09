@@ -168,41 +168,6 @@ Once launched, a unit, chore or fix SHALL read queued while Flume waits for room
 - **WHEN** the runner's record shows `a`'s place landed on `bolt/x`, and `x` has not landed
 - **THEN** `crew bolts` shows `a` merged
 
-### Requirement: A bolt is created, dropped and landed through crew
-`crew bolt new` SHALL add a bolt with its repo, goal and sources; `crew bolt order` moves it; `crew bolt drop` SHALL remove it and its units, or with `--requeue` queue them, and in either case SHALL drop each of the bolt's launches still standing in the drop's own commit, a requeued unit's among them, so a requeued unit is launched afresh once a bolt it is placed in is started. `crew bolt submit` SHALL submit its branch to its kit's main through sluice; `crew bolt land` SHALL remove a landed bolt and its units, and land and drop SHALL have sluice delete its branch, keeping and naming one holding work main lacks. No command SHALL give a bolt to a team.
-
-#### Scenario: Landing too early
-- **WHEN** `crew bolt land` runs while one of the bolt's units has not landed on main
-- **THEN** it is refused, naming that unit
-
-#### Scenario: The bolt's branch is deleted at its land
-- **WHEN** `crew bolt land` runs for a landed bolt whose branch is on GitHub
-- **THEN** the bolt leaves the plan, sluice deletes `bolt/<bolt>` from GitHub, and the branch is gone from the kit's host
-
-#### Scenario: A delete sluice refuses
-- **WHEN** `crew bolt land` runs and sluice refuses to delete `bolt/<bolt>` because a submission is still queued on it
-- **THEN** the bolt leaves the plan, the branch stays on GitHub, and crew names it with sluice's words
-
-#### Scenario: Dropping a bolt in flight
-- **WHEN** the planner drops a bolt whose branch's tip main holds
-- **THEN** the bolt and its units are gone from the plan, sluice deletes `bolt/<bolt>` from GitHub, and the branch is gone from the kit's host
-
-#### Scenario: A dropped bolt holds work main lacks
-- **WHEN** the planner drops a bolt into which a unit has merged that main does not hold
-- **THEN** the bolt and its units are gone from the plan, sluice refuses the delete, the branch stays on GitHub and on the kit's host, and the drop names it as its unmerged work with sluice's words, the user's to keep or delete, and records it once
-
-#### Scenario: The drop's host does not answer
-- **WHEN** the planner drops a bolt while its kit's host does not answer
-- **THEN** the drop names the host and the command, and the bolt is gone from the plan
-
-#### Scenario: Requeuing a unit that has a place
-- **WHEN** `crew bolt drop x "Later." --requeue` runs while unit `a` of started `x` has a launched place
-- **THEN** `a` is in its repository's queue with no bolt or `After`, `x` is gone from the plan, and `requests.rec` gains a drop of `a`'s launch, in the drop's commit
-
-#### Scenario: A give
-- **WHEN** anyone runs `crew bolt give swb-1`
-- **THEN** crew refuses it as no command it has, and the plan is unchanged
-
 ### Requirement: A unit's intent is amended through crew, its construct run again
 `crew unit amend <unit> "<new intent>"` SHALL replace the unit's intent. A unit with a place SHALL also be marked amended, its construct run again with the new intent as the bolt's work is started, never handed to a team's host or told to a conductor. The command, direct or by an approval, SHALL answer once its write is made and wait on no agent (`code.9`). A unit merged into its bolt or landed SHALL be refused; run by the planner it SHALL be refused outside a proposal.
 
@@ -237,31 +202,20 @@ A crew command SHALL read each kit once and fetch the state branch once on each 
 - **WHEN** the host's follower looks again and nothing it read has moved
 - **THEN** it reads no kit and fetches no branch at that look
 
-### Requirement: A bolt on GitHub is fetched before crew bolts and a landing read it
-As main is read (plan.18), crew SHALL read a bolt on GitHub as the host last fetched it on every read of a kit and every refresh of the rail and the board, fetching nothing. `crew bolts` and a landing's submission SHALL fetch the kit's origin first. A fetch that fails SHALL be named with git's words, never read past to the host's copy.
-
-#### Scenario: crew bolts after a landing elsewhere
-- **WHEN** a merge has landed on GitHub's `bolt/b` since the host last fetched, and `crew bolts` runs
-- **THEN** it fetches the kit's origin once on the kit's host and shows the merged unit as `merged`
-
-#### Scenario: The board does not fetch
-- **WHEN** the rail's or the board's refresh reads the kit
-- **THEN** no fetch is run, and the bolt is read at `origin/bolt/b` as the host last fetched it
-
-#### Scenario: A fetch that fails
-- **WHEN** `crew bolts` runs and the fetch of the kit's origin on the kit's host fails
-- **THEN** the kit's stages read `unknown`, naming that GitHub could not be fetched and git's words, and nothing is read from the host's `bolt/b`
-
 ### Requirement: A bolt's work starts by crew bolt start
-`crew bolt start <bolt>` SHALL make `bolt/<bolt>` through sluice from the kit's main, in the checkout the partition's main-level host keeps of the kit, mark the bolt `Path: flume` and request a launch of each unit and chore of it in its repository, with its `After` and priority and naming no host or stream, for a runner whose configuration names the repository to take, in one plan write, starting no agent, and record `bolt.start`. A proposal MAY hold it; the user runs it directly; no other agent SHALL. It SHALL be refused, with the plan unchanged and no branch made, while that host keeps no checkout of the kit or is held, or no runner answers for the partition.
+`crew bolt start <bolt>` SHALL mark the bolt `Path: flume` and request, in one plan write that records `bolt.start`, the launch of the bolt's base place and after it a launch of each unit and chore of it on `bolt/<bolt>`, with its `After` and priority, each in the bolt's repository and naming no host or stream, for a runner whose configuration names the repository to take, as bolt-teams "A bolt is a base place of crew's kind" and "A start launches the bolt's base place before its pieces" give their fields (record 0056). It SHALL start no agent, make no branch and read no host. A proposal MAY hold it; the user runs it directly; no other agent SHALL. It SHALL be refused, with the plan unchanged and nothing requested, while no runner answers for the partition, and for a bolt started already, but one whose own launch the runner answered refused, which it launches anew as bolt-teams "A start run again launches a bolt whose launch the runner refused" has it.
 
 #### Scenario: A bolt is started
-- **WHEN** the user approves a proposal holding `crew bolt start b`, a bolt of switchboard-kit with two units, and a runner answers for wldn
-- **THEN** `bolt/b` is made on GitHub by sluice, `b` is marked `Path: flume`, two launch requests name switchboard-kit and no host or stream, no agent starts, and the run record has `bolt.start` on `bolt/b`
+- **WHEN** the user approves a proposal holding `crew bolt start b`, a bolt of switchboard-kit with unit `a` and chore `c`, and a runner answers for wldn
+- **THEN** `b` is marked `Path: flume`; `requests.rec` gains, in that one commit, the launch of `bolt/b`'s base place and then the launches of `a` and `c` on `bolt/b`, each naming switchboard-kit and no host or stream; no branch is made and no agent starts; and the run record has `bolt.start` on `bolt/b`
 
 #### Scenario: A partition no runner answers for
 - **WHEN** `crew bolt start b` runs and wldn's state repository holds no runner's branch
-- **THEN** it is refused, naming that no runner answers for wldn, the plan is unchanged and no branch is made
+- **THEN** it is refused, naming that no runner answers for wldn, the plan is unchanged and nothing is requested
+
+#### Scenario: A bolt started before bolts were base places
+- **WHEN** `b` is started, `requests.rec` holds its units' launches and no launch of `bolt/b`, and `crew bolt start b` runs
+- **THEN** it is refused, saying `b` is started already, and nothing is written
 
 #### Scenario: An agent starts a bolt directly
 - **WHEN** `wldn-ops` runs `crew bolt start b` outside a proposal
@@ -336,8 +290,8 @@ crew SHALL read a kit by the name each of its records gives it: a `Repo` in the 
 - **THEN** crew reads request 1 as `flywheel-cloud`'s launch, and no runner is read as having taken `boomdrive-cloud`'s work from it
 
 #### Scenario: A fix of main read as written
-- **WHEN** the fix of main `x` was launched as `fix/main/tailrace/x`, its code delivered and its submission held, and the run record holds a `kit.rename` entry of `tailrace` to `timber`
-- **THEN** it is shown on `tailrace`'s landings row, and `crew main fix timber x --send` is refused as no launch of `fix/main/timber/x` standing
+- **WHEN** request 1 launched the fix of main `x` as `fix/main/tailrace/x`, its code delivered and its submission held, and the run record holds a `kit.rename` entry of `tailrace` to `timber`
+- **THEN** it is shown on `tailrace`'s landings row, the user's send of that row posts a land with `Work: fix/main/tailrace/x` and `Of: 1`, and no land names `fix/main/timber/x`
 
 #### Scenario: A source read as written
 - **WHEN** a unit's source names `WilldanGroup/old-board:docs/adr/0017`, and the work's kit is `switchboard-kit`
@@ -468,3 +422,44 @@ In its one commit, `crew kit rename <old> <new>` SHALL rename `<old>` to `<new>`
 #### Scenario: The host's kept entries go first
 - **WHEN** deneb kept a `bolt.land` entry under `tailrace` unpushed, and the user runs the rename on deneb
 - **THEN** crew pushes that entry before it reads the branch, and the rename's commit renames it with the others
+
+### Requirement: A bolt on GitHub is fetched before crew bolts reads it
+As main is read (plan.18), crew SHALL read a bolt on GitHub as the host last fetched it on every read of a kit and every refresh of the rail and the board, fetching nothing. `crew bolts` SHALL fetch the kit's origin first. A fetch that fails SHALL be named with git's words, never read past to the host's copy.
+
+#### Scenario: crew bolts after a landing elsewhere
+- **WHEN** a merge has landed on GitHub's `bolt/b` since the host last fetched, and `crew bolts` runs
+- **THEN** it fetches the kit's origin once on the kit's host and shows the merged unit as `merged`
+
+#### Scenario: The board does not fetch
+- **WHEN** the rail's or the board's refresh reads the kit
+- **THEN** no fetch is run, and the bolt is read at `origin/bolt/b` as the host last fetched it
+
+#### Scenario: A fetch that fails
+- **WHEN** `crew bolts` runs and the fetch of the kit's origin on the kit's host fails
+- **THEN** the kit's stages read `unknown`, naming that GitHub could not be fetched and git's words, and nothing is read from the host's `bolt/b`
+
+### Requirement: A bolt is created and dropped through crew
+`crew bolt new` SHALL add a bolt with its repo, goal and sources; `crew bolt order` moves it; `crew bolt drop` SHALL remove it and its units, or with `--requeue` queue them, its commit dropping each of the bolt's launches still standing, a requeued unit's among them, as bolt-teams "A bolt's drop drops its base place last" and "A base place's drop the runner refused is asked again once nothing on its branch is live" have it, and asking nothing of a host. No command SHALL give a bolt to a team.
+
+#### Scenario: The drop's host does not answer
+- **WHEN** the planner drops started bolt `x`, whose unit `a`'s launch stands, while `x`'s kit's host does not answer
+- **THEN** `x` and its units are gone from the plan, the drop's commit holds the drops of `a`'s and `bolt/x`'s launches, and no host is asked
+
+#### Scenario: Requeuing a unit that has a place
+- **WHEN** `crew bolt drop x "Later." --requeue` runs while unit `a` of started `x` has a launched place
+- **THEN** `a` is in its repository's queue with no bolt or `After`, `x` is gone from the plan, and `requests.rec` gains a drop of `a`'s launch and then a drop of `bolt/x`'s launch, in the drop's commit, so `a` is launched afresh once a bolt it is placed in is started
+
+#### Scenario: A give
+- **WHEN** anyone runs `crew bolt give swb-1`
+- **THEN** crew refuses it as no command it has, and the plan is unchanged
+
+### Requirement: A landed bolt leaves the plan with its units
+`crew bolt land` SHALL remove a landed bolt and its units from the plan, and SHALL be refused while one of its units has not landed on main. A bolt SHALL land only as bolt-teams "A bolt lands on the user's send alone, carried to the runner as a land" has it, and no plan command SHALL make, submit or delete its branch (record 0056).
+
+#### Scenario: Landing too early
+- **WHEN** `crew bolt land` runs while one of the bolt's units has not landed on main
+- **THEN** it is refused, naming that unit
+
+#### Scenario: A landed bolt's close deletes no branch
+- **WHEN** the runner carries Flume's status of `b`'s base place over, landed at `9f1c2ab`, and `crew bolt land b` runs
+- **THEN** `b` and its units leave the plan, no sluice, `wt` or `gh` command is run, and `bolt/b` is left to Flume's tidy and sluice
