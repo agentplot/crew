@@ -30,7 +30,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 ## 5. The views
 
 - [x] 5.1 A landing's words, the bolt's head line and ops's band name Flume's landing fix, what it does, that it is due, or that the bound is spent (design Decision 6; Task notes 5.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_runner.py tests/py/test_landings.py tests/py/test_board.py'` exits 0.
-- [ ] 5.2 The mod draws ops's band with a landing fix in flight as the views give it (design Decision 6; Task notes 5.2). Verify `tests/suite mod` ends with "0 failed".
+- [x] 5.2 The mod draws ops's band with a landing fix in flight as the views give it (design Decision 6; Task notes 5.2). Verify `tests/suite mod` ends with "0 failed".
 
 ## 6. The brief and the docs
 
