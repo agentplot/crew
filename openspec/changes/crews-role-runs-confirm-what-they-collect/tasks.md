@@ -14,7 +14,7 @@ Work the tasks in order, each in the place's worktree, from its root. Each check
 
 ## 2. The commands
 
-- [ ] 2.1 `crew role start` reads the runners once, takes the owed ends no confirm names into its turn with the asks and waits, prints them after the waits, records no turn for ends alone, and counts only the asks and waits in its entry (design Decisions 2, 6, 7 and 8; Task notes 2.1). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_asks.py::TestStart'`.
+- [x] 2.1 `crew role start` reads the runners once, takes the owed ends no confirm names into its turn with the asks and waits, prints them after the waits, records no turn for ends alone, and counts only the asks and waits in its entry (design Decisions 2, 6, 7 and 8; Task notes 2.1). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_asks.py::TestStart'`.
 - [ ] 2.2 `crew role end` appends one confirm per launch whose ends its turn took, in the commit that ends the turn, writes the report's count line, and appends none for a turn with no ends or a run with no turn (design Decisions 3, 4 and 6; Task notes 2.2). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_asks.py::TestEnd'`.
 
 ## 3. The prompt, the docs and the journey

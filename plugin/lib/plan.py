@@ -7034,10 +7034,20 @@ def run_named(fleet, cmd):
     return run[0], run[1], f"{run[0]}-{run[1]}"
 
 
-def run_waits(fleet, label, role):
-    """The places that wait on a role (asks.waits_on, design Decision 5), read from requests.rec at the tip this command
-    fetched and each host's runner beside it (runner_facts): (the waits, the words of each host whose runner can't be
-    read). What waits on such a host is not taken, so it stays pending for the role's next run (read.3)."""
+def request_dicts(requests):
+    """requests.rec's records as asks takes them: each a dict of its fields, a field held more than once by its first
+    value, but a confirm's Delivery, the list of its keys."""
+    return [dict(dict((f, v) for f, v in reversed(q.fields)), **({"Delivery": q.all("Delivery")} if q.get("Delivery") else {}))
+            for q in requests]
+
+
+def run_reads(fleet, label, role):
+    """What a role's run's start reads of the runners, in one read (runner_facts, plan.12; design Decision 8 of
+    crews-role-runs-confirm-what-they-collect): requests.rec at the tip this command fetched and each host's runner
+    beside it, as (the places that wait on the role, asks.waits_on, design Decision 5 of roles-run-as-flume-kinds; every
+    end Flume owes the role's address of a place crew launched, asks.ends_owed; the requests, as asks takes them; the
+    words of each host whose runner can't be read). What waits on such a host, and what Flume owes there, is not taken,
+    so it stays pending for the role's next run (read.3)."""
     requests, reads = runner_facts(fleet, label)
     places, unread = [], []
     for h, r in sorted(reads.items()):
@@ -7045,8 +7055,9 @@ def run_waits(fleet, label, role):
             unread.append(r["why"])
             continue
         places += [{"Request": str(n), "Place": p["place"], "Status": p["status"]} for n, p in sorted(r["places"].items()) if not p["why"]]
-    reqs = [dict((f, v) for f, v in reversed(q.fields)) for q in requests]
-    return asks.waits_on(f"{label}/{role}", reqs, places), unread
+    reqs = request_dicts(requests)
+    address = f"{label}/{role}"
+    return asks.waits_on(address, reqs, places), asks.ends_owed(address, reqs, places), reqs, unread
 
 
 def turn_file(label, role):
@@ -7089,11 +7100,15 @@ def role_start(fleet, a):
     one commit, the turn that takes every ask of the role and every place that waits on it that no ended turn took,
     each turn of the run still open, a lost or retried run's, marked superseded by it, its asks taken again; then the
     role's brief written to the host's file for it (turn_file) and its path printed to read whole first, then each ask
-    taken, oldest first, each place, and the role's answered cards (run_cards_said). With nothing pending, no turn is
-    recorded, and it says so. Refused anywhere but a role's run (run_named)."""
+    taken, oldest first, each place, the ends Flume holds for the role it took, and the role's answered cards
+    (run_cards_said). The turn takes, beside what is pending, each end Flume owes the role's address that no confirm of
+    the address names in requests.rec at the tip the write is applied to, so a confirm written meanwhile is seen (plan.1;
+    asks.taken_ends, design Decisions 1, 2 and 5 of crews-role-runs-confirm-what-they-collect); its end asks for their
+    confirmation. The ends make no role wanted: with nothing pending, no turn is recorded and no end taken, and it says
+    so; its entry counts the asks and waiting places alone. Refused anywhere but a role's run (run_named)."""
     label, role, run = run_named(fleet, "crew role start")
     repo, ref = state_of(fleet, label)
-    waits, unread = run_waits(fleet, label, role)
+    waits, owed, _, unread = run_reads(fleet, label, role)
     taken = {}
 
     def change(w):
@@ -7102,20 +7117,22 @@ def role_start(fleet, a):
         mine, places = asks.pending(held, waits, turns, role)
         if not (mine or places):
             raise NothingPending()
+        ends = asks.taken_ends(owed, request_dicts(requests_of(w).recs("Request")), f"{label}/{role}")
         n = asks.next_turn(turns)
         old = {t["Turn"] for t in asks.superseded(turns, run)}
         for t in pl.recs("Turn"):
             if t.get("Turn") in old:
                 t.set("Superseded", str(n))
-        took = asks.took(mine, places)
+        took = asks.took(mine, places, ends)
         now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         pl.insert(Rec("Turn", [("Turn", str(n)), ("Role", role), ("Run", run), ("Place", f"crew-{role}--{label}"),
                                ("Host", crew.this_host())] + [("Took", t) for t in took] + [("Began", now)]))
         w.replace("asks.rec", pl.text())
-        e = record.turn_begin_entry(run, n, len(took))
-        w.subject, w.why, w.fields = f"turn({run}): {n} takes {len(took)}" + (f", superseding {', '.join(sorted(old, key=int))}" if old else ""), \
-            e["why"], {"Took": e["Took"]}
-        taken.update(n=n, asks=mine, places=places, old=sorted(old, key=int))
+        k = len(mine) + len(places)
+        e = record.turn_begin_entry(run, n, k)
+        w.subject, w.why, w.fields = f"turn({run}): {n} takes {k}" + (f" and {len(ends)} {'end' if len(ends) == 1 else 'ends'}" if ends else "") \
+            + (f", superseding {', '.join(sorted(old, key=int))}" if old else ""), e["why"], {"Took": e["Took"]}
+        taken.update(n=n, asks=mine, places=places, ends=ends, old=sorted(old, key=int))
         return []
     try:
         write(fleet, label, change, f"turn({run})", act="turn.begin", on=[f"agent/{run}"])
@@ -7134,6 +7151,8 @@ def role_start(fleet, a):
         print("\n".join(asks.ask_said(x)))
     for x in taken["places"]:
         print("\n".join(asks.wait_said(x)))
+    for line in asks.ends_said(taken["ends"]):
+        print(line)
     for why in unread:
         print(f"{why}: what waits on {run} there is left for its next run")
     for line in run_cards_said(fleet, label, run):

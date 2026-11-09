@@ -777,6 +777,83 @@ class TestStart:
         assert "unit/a waits on you: the place /kit/places/change--a, launched by request 7 (place/7@1793440000)\n  which bolt?\n" in out
         assert "mac-studio's runner can't be read: madswan/runner/mac-studio at abc1234: it holds no runner.rec: what waits on madswan-planner there is left for its next run" in out
 
+    def test_a_start_takes_the_ends_flume_holds_for_the_role_and_prints_them_after_the_waits(self, in_run, monkeypatch, capsys):
+        """role-runs, A unit's ends taken and The ends it took: the turn takes the asks, the waiting place and both ends
+        Flume owes madswan/planner of request 12's place, and prints the ends after the waits, before the cards."""
+        stopped = json.loads(status(waiting_on={"why": "answer", "stage": "construct", "since": 1793440000, "words": "which bolt?"}))
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12, (13, "launch", "unit/b", dict(LAUNCH_12[3], Name="b")))
+        runner_holds(monkeypatch, in_run.files, (13, "/kit/places/change--b", stopped), (12, "/kit/places/change--a", owed_status()))
+        start(in_run)
+        (t,) = asks.parse(in_run.files["asks.rec"])[1]
+        assert t["Took"] == ["ask/1", "ask/2", "place/13@1793440000"] + [f"end/12/{k}" for k in OWED]
+        out = capsys.readouterr().out.split("\n")
+        at = out.index("unit/b waits on you: the place /kit/places/change--b, launched by request 13 (place/13@1793440000)")
+        assert out[at + 1:at + 5] == [
+            "  which bolt?", "Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):",
+            "unit/a (the place /kit/places/change--a, request 12): stage/construct/2/delivered (expired), stage/code/1/ended-short",
+            "cards read as madswan-planner"]
+
+    def test_ends_alone_take_no_turn(self, in_run, monkeypatch, capsys):
+        """role-runs, Ends alone start no turn: every ask taken by an ended turn, and request 12's ends still owed."""
+        in_run.files["asks.rec"] = LOST.replace("Began:", "Ended: 2026-10-31T10:20:00Z\nSaid: done\nBegan:").replace("Took: ask/1", "Took: ask/1\nTook: ask/2")
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        runner_holds(monkeypatch, in_run.files, (12, "/kit/places/change--a", owed_status()))
+        before = dict(in_run.files)
+        start(in_run)
+        assert in_run.files == before and in_run.writes == [] and in_run.entries == []
+        out = capsys.readouterr().out
+        assert "Nothing waits for madswan-planner: no turn is taken and nothing is recorded." in out and "stage/" not in out
+
+    def test_an_end_a_confirm_names_is_not_taken_again(self, in_run, monkeypatch):
+        """role-runs, An end already asked confirmed: a confirm of the construct's end at the tip the write is applied to,
+        written after the runners were read, holds it; the code's is taken."""
+        runner_holds(monkeypatch, {"requests.rec": requests_held(LAUNCH_12)}, (12, "/kit/places/change--a", owed_status()))
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12, (13, "confirm", "unit/a", dict(Of=12, Recipient="madswan/planner", Delivery=OWED[:1])))
+        start(in_run)
+        (t,) = asks.parse(in_run.files["asks.rec"])[1]
+        assert t["Took"] == ["ask/1", "ask/2", f"end/12/{OWED[1]}"]
+
+    def test_the_entry_counts_the_asks_and_waits_alone(self, in_run, monkeypatch):
+        """run-record: a turn.begin's Took is how many of what was pending it took; the ends are named in its subject."""
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        runner_holds(monkeypatch, in_run.files, (12, "/kit/places/change--a", owed_status()))
+        start(in_run)
+        assert len(asks.parse(in_run.files["asks.rec"])[1][0]["Took"]) == 4
+        assert in_run.entries == [("turn.begin", ["agent/madswan-planner"], "turn 1 of madswan-planner", {"Took": "2"})]
+        assert in_run.writes[0].startswith("turn(madswan-planner): 1 takes 2 and 2 ends (madswan-planner)\n")
+
+
+def owed_status():
+    """The flume-deliveries fixture's place as Flume would give it with its ends owed to madswan's planner: its
+    construct's second start delivered, expired, and its code ended short, and its construct's first start lost,
+    confirmed by the planner and owed to boomdrive alone; its stop-short answered, so it waits on nobody and its ends are
+    all that is the planner's of it."""
+    st = json.loads(delivered().replace("agentplot/planner", "madswan/planner"))
+    st["status"]["places"][0]["waiting_on"] = None
+    return st
+
+
+OWED = [f"{DELIVERY}stage/construct/2/delivered", f"{DELIVERY}stage/code/1/ended-short"]
+
+
+def requests_held(*recs):
+    """requests.rec as crew writes it, holding requests made as plan.request makes them: (n, act, work, {field: value})."""
+    import plan
+    import runner
+    return runner.REQUESTS + "".join("\n" + "\n".join(plan.Rec("Request", runner.request_fields(n, act, work, g, "2026-11-08T10:00:00Z", "madswan-dispatch")).lines()) + "\n"
+                                     for n, act, work, g in recs)
+
+
+LAUNCH_12 = (12, "launch", "unit/a", dict(Repo="afterthought/crew", Kind="change", Name="a", Base="bolt/b", Priority=2, Intent="madswan/b",
+                                          Recipient="madswan/planner", Brief="Build a."))
+
+
+def runner_holds(monkeypatch, files, *places):
+    """madswan's runner on deneb carrying each place (request, path, status), requests.rec as files holds it read by
+    runner_facts beside it."""
+    import plan
+    reads = {"deneb": {"why": None, "places": {int(n): {"place": where, "at": "t", "status": st, "why": None} for n, where, st in places}}}
+    monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (plan.Plan(files.get("requests.rec") or "").recs("Request"), reads))
 
 class TestEnd:
     """crew role end (design Decision 7; role-runs "A run's end answers what it took")."""
