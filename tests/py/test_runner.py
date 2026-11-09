@@ -250,6 +250,13 @@ class TestPreviewRequest:
         assert runner.request_refusal(have, rec(2, "drop", "bolt/y", Of=1)) == (
             "drop 2 for bolt/y names request 1, which is no launch")
 
+    def test_a_bolts_preview_and_its_base_places_land_stand_side_by_side(self):
+        """drive-state "A preview and a land of one bolt": a land names the base place's launch by Of, never the
+        preview of the same work."""
+        have = held(rec(1, "launch", "bolt/y", **dict(BOLT, Name="y")), rec(2, "preview", "bolt/y", **PREVIEW))
+        assert runner.request_refusal(have, rec(3, "land", "bolt/y", Of=1)) is None
+        assert runner.request_refusal(have, rec(3, "land", "bolt/y", Of=2)) == "land 3 for bolt/y names request 2, which is no launch"
+
     def test_the_descriptor_takes_a_preview_last_its_done_and_its_fields_after_base(self):
         lines = runner.REQUESTS.splitlines()
         assert "%type: Act enum launch retry drop priority land preview" in lines
