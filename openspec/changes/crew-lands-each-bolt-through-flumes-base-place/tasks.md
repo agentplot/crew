@@ -44,7 +44,7 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 7. Nothing of crew's runs a tool for a bolt
 
-- [ ] 7.1 No command string in `plan.py`, `gather.py`, `kit.py`, `board.py`, `runner.py` or `plugin/bin/crew` runs sluice, `wt submit`, `wt merge`, `wt remove`, `gh` or `read-tree`, but the preview functions' (design Decision 1; Task notes 7.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_no_tool_for_a_bolt.py'` exits 0.
+- [x] 7.1 No command string in `plan.py`, `gather.py`, `kit.py`, `board.py`, `runner.py` or `plugin/bin/crew` runs sluice, `wt submit`, `wt merge`, `wt remove`, `gh` or `read-tree`, but the preview functions' (design Decision 1; Task notes 7.1). Verify `devenv shell -- bash -c 'moon run tests:venv >/dev/null && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_no_tool_for_a_bolt.py'` exits 0.
 - [ ] 7.2 The stubs' log of a bolt's run from start to close holds no sluice, `wt` or `gh` call, and no scratch kit's `HEAD`, index or refs but its remotes' moved (design Decision 1; Task notes 7.2). Verify `tests/suite t-journey-land` ends with "0 failed".
 
 ## 8. The views
