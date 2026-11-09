@@ -60,6 +60,7 @@ signal a-finding "it asserts" --excerpt "the words"
 signal move x attach
 signal show x
 state init wldn
+drive set pat
 plan approve 3
 plan answer x q
 rail
