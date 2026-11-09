@@ -400,8 +400,14 @@ def fleet_of(data, here):
 
 
 def aside_of(teams):
-    """Where crew drive set moves a teams file crew cannot load, once, beside it."""
+    """Where crew drive set moves a teams file crew cannot read at all, once, beside it."""
     return teams.with_name(teams.name + ".before-drive-set")
+
+
+def sentence(words):
+    """A refusal's words ended with one period, whether or not they end with one, so the next sentence follows."""
+    words = words.rstrip()
+    return words if words.endswith(".") else words + "."
 
 
 def drive_given(a, here):
@@ -577,11 +583,14 @@ def teams_step(f):
     points (target), its text or None where there is none or it cannot be read (text), whether its aside is taken
     (aside_taken), the drive given (drive_given) and this host (here), the text as read in bytes or as a string. One of: {"step": "write", "text", "changed"},
     a new file or the drive set in one that loads; {"step": "unchanged"}, the text it would write being the file's
-    own; {"step": "aside", "reason", "text", "changed"}, a file crew cannot load moved once to its aside and the file
-    written new; {"step": "linked", "target"}, a link whose file names the drive as given, written nothing. Refused,
-    with nothing written: an aside already taken (read.4); a link whose file does not name the drive as given, naming
-    each key that differs or is missing and services.crew.settings.drives.<label>; and a file crew would refuse
-    (fleet_of), in fleet_of's words."""
+    own; {"step": "aside", "reason", "text", "changed"}, a file crew cannot read at all (readable: no JSON, no UTF-8,
+    no object, or at a version this crew does not read) moved once to its aside and the file written new;
+    {"step": "linked", "target"}, a link whose file names the drive as given, written nothing. Refused, with nothing
+    written: an aside already taken (read.4); a file at crew's own version that fails a check (fleet_of), crew's own
+    file, which is never moved aside, since that would drop every other drive it names (record 0065, point 6; code.5),
+    whether or not the aside is taken, naming the check in fleet_of's words; a link whose file does not name the
+    drive as given, naming each key that differs or is missing and services.crew.settings.drives.<label>; and a file
+    crew would write that it would refuse (fleet_of), in fleet_of's words."""
     given, here = f["given"], f["here"]
     label = given["drive"]["label"]
 
@@ -609,8 +618,7 @@ def teams_step(f):
         data, changed = teams_set(None, given, here)
         return {"step": "write", "text": teams_text(checked(data)), "changed": changed}
     try:
-        old = read_teams(f["text"])
-        fleet_of(old, here)
+        old = readable(f["text"])
     except Refusal as e:
         aside = aside_of(TEAMS)
         not f["aside_taken"] or fail(
@@ -618,6 +626,11 @@ def teams_step(f):
             "both are left as they are, and nothing was written")
         data, changed = teams_set(None, given, here)
         return {"step": "aside", "reason": str(e), "text": teams_text(checked(data)), "changed": changed}
+    try:
+        fleet_of(old, here)
+    except Refusal as e:
+        fail(f"{TEAMS} is at crew's version {VERSION} and fails a check: {sentence(str(e))} crew drive set moves aside only a "
+             "file crew cannot read at all, so the file and every drive it names are left as they are, and nothing was written")
     data, changed = teams_set(old, given, here)
     text = teams_text(checked(data))
     now = f["text"].decode() if isinstance(f["text"], bytes) else f["text"]  # UTF-8, since it loaded
