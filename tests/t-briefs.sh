@@ -577,5 +577,5 @@ for want in "on your main level's host, \`$v/afterthought/swancloud\`, in its fo
   "cut from GitHub's main, as the runner last fetched it, with no fetch of your own, since this host's runner alone fetches swancloud's clone: \`git -C $v/afterthought/swancloud worktree add -b crew-teams/<label> $r/afterthought/swancloud/places/crew-teams-<label> origin/main\`" \
   "\`wt -C $r/afterthought/swancloud/places/crew-teams-<label> remove --foreground\`"; do has "$out" "$want"; done
 lacks "$out" "~/Code/github_afterthought/swancloud"; lacks "$out" "$(space mac-studio madswan)/swancloud"; lacks "$out" "fetch -q origin"
-teams_json > "$tf"
+teams_json mac-studio > "$tf"
 ok "on a runner host the design agent's and the operator's briefs name the teams file's checkouts with the folders it gives, and fetch nothing in the runner's clone"
