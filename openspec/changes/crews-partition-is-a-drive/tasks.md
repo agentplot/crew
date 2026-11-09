@@ -37,7 +37,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 ## 4. The briefs and the docs
 
 - [x] 4.1 Every brief names its drive by its label, no brief or builder keeps `{{PARTITION}}`, and each role's words say drive (design, Decisions 1 and 3; Task notes 4.1). Verify `tests/suite t-briefs` ends with "0 failed".
-- [ ] 4.2 README, the crew skill, CLAUDE.md and `openspec/config.yaml` say drive, README naming the teams file's version 6, its `drives` and the module's keys with no `partition` (design, Decisions 1, 2 and 4; Task notes 4.2). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.2 README, the crew skill, CLAUDE.md and `openspec/config.yaml` say drive, README naming the teams file's version 6, its `drives` and the module's keys with no `partition` (design, Decisions 1, 2 and 4; Task notes 4.2). Verify `tests/suite t-docs` ends with "0 failed".
 
 ## 5. The mod
 
