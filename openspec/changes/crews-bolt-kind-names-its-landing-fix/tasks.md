@@ -34,5 +34,5 @@ Submit nothing, and never run `wt submit --help`. An end-to-end test whose `# Re
 
 ## 6. The brief and the docs
 
-- [ ] 6.1 Main-level ops's brief starts no fix where the row says Flume's landing fix covers it, starts one where the row names none, and says what to do past the bound and for a landing fix that asks (design Decision 7; Task notes 6.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 6.1 Main-level ops's brief starts no fix where the row says Flume's landing fix covers it, starts one where the row names none, and says what to do past the bound and for a landing fix that asks (design Decision 7; Task notes 6.1). Verify `tests/suite t-briefs` ends with "0 failed".
 - [ ] 6.2 README and the crew skill say that Flume launches a bolt's landing fix where its base place names one, and that crew's take-main fix and ops's fix are for the rest (design Decision 7; Task notes 6.2). Verify `tests/suite t-docs` ends with "0 failed".

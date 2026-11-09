@@ -364,7 +364,7 @@ ok "the roles that report results carry one glyph-list section, the same in each
 # and the user's words in ops's pane are no word to land (main-level "The user's words in ops's pane are no word to
 # land"; Decision 11 of crew-lands-each-bolt-through-flumes-base-place).
 expect_ok crewpy brief wldn main-ops
-for want in "Tell the user Flume's words, the check that failed, and start a fix on the bolt with them: \`$CREW/plugin/bin/crew fix <bolt> <name> \"<Flume's words>\" --label wldn\`" \
+for want in "tell the user Flume's words, the check that failed, and start a fix on the bolt with them: \`$CREW/plugin/bin/crew fix <bolt> <name> \"<Flume's words>\" --label wldn\`" \
   "Its row has its box again on the kit's landings card once the fix has merged and the bolt reads proven again, the card saying what changed of its work" \
   "start nothing yourself, and tell the user the files in conflict" \
   "its row keeps its box with the runner's or Flume's words, and the send that ticked it is spent" \
@@ -558,6 +558,23 @@ for want in "Every bolt is a base place of Flume's, and its units, chores and fi
   "who proposes it as a bolt of one chore, first among the planned"; do has "$out" "$want"; done
 lacks "$out" "who decide which team builds it"; lacks "$out" "--team <team>"; lacks "$out" "main fix <kit> <name> --send"
 ok "a bolt's places' answers and fixes are the planner's, its landing carried to the runner on the user's send, and a red main is a Flume fix place landed on the same send"
+
+# Flume launches a bolt's landing fix where its base place names one (main-level "Main-level ops answers a landing that
+# does not land", its scenario "Flume's landing fix"; crews-bolt-kind-names-its-landing-fix, Decision 7): ops starts
+# nothing where the row says Flume's landing fix covers it, starts the fix only where the row names none or says Flume
+# ran its landing fixes, and past the bound starts one by hand or tells the planner and the user; a landing fix that
+# asks is told to the user.
+expect_ok crewpy brief wldn main-ops
+for want in "Where its row says Flume's landing fix takes main in, or that Flume launches its landing fix, the fix is Flume's, launched on its own forecast: start nothing, and tell the user in one line" \
+  "Only where its row names no landing fix of Flume's, or says Flume ran its landing fixes, start that fix yourself" \
+  "Where its row says Flume's landing fix makes the failed checks pass, or that Flume launches its landing fix, the fix is Flume's: start nothing" \
+  "Where its row names no landing fix of Flume's, tell the user Flume's words, the check that failed, and start a fix on the bolt with them" \
+  "Flume's landing fix, a fix place on the bolt named \`<bolt>-<n>\`, takes main into the bolt" \
+  "the bolt's row says Flume ran its landing fixes, or how its fix ended, and that it waits on ops, and crew asks you once in Flume's words, launching nothing" \
+  "or, where you judge the bolt should not land, tell the planner and the user in one line" \
+  "crew cannot answer a fix it did not launch, so tell the user in one line that it waits and on what" \
+  "each take-main fix and each landing fix Flume runs on a bolt in flight"; do has "$out" "$want"; done
+ok "main-level ops starts no fix Flume's landing fix covers, and one past its bound"
 
 # A runner host's teams file names its kept repositories (record 0061; Decision 7 of
 # a-kept-repositorys-folder-is-the-runners-container): built there, the design agent's brief names its blueprints
