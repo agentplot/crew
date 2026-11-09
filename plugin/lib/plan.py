@@ -4163,7 +4163,8 @@ def landing_line(landing, phase, head, bolt=None):
         if at and head and not at_head(at, head):
             return None  # a fix has moved its head since: the refusal holds nothing (held_at)
         return runner.landing_said(landing, bolt or "<bolt>", at or head)
-    return phase_said(phase, head)
+    # a landing fix live with nothing else to say, as a forecast's is (runner.fix_clause; crews-bolt-kind-names-its-landing-fix, Decision 6)
+    return phase_said(phase, head) or (runner.fix_clause(landing) if landing else "") or None
 
 
 def phase_at(w, bolt):
@@ -4242,7 +4243,10 @@ def landing_read(fleet, label, bolt, run=None, entries=None, card=True):
     (landing_close), with card False leaving its kit's card to the raise that read it. The read that records a refusal
     or a stop asks main-level ops where it runs as its kind, keyed by the land's
     request (unlanded_ask); a conflict launches the take-main fix on the bolt, once however often it is read
-    (take_main_launch). Each record is decided at the tip its write is applied to, so two reads at once record once.
+    (take_main_launch). Where the bolt's base place names a landing fix (runner.landing_way;
+    crews-bolt-kind-names-its-landing-fix, Decision 4), a refusal whose way on is Flume's, its landing fix live, landed
+    or due, launches nothing and asks nothing, and one whose way on is its caller's, past the bound or its fix dropped
+    or not launched, asks ops in Flume's words (runner.caller_said) and launches nothing. Each record is decided at the tip its write is applied to, so two reads at once record once.
     Nothing is recorded for a landing undecided or one crew can't tell (read.1). (whether it reads landed, what is said
     of it), said too."""
     requests, reads = run or runner_facts(fleet, label)
@@ -4262,9 +4266,12 @@ def landing_read(fleet, label, bolt, run=None, entries=None, card=True):
             landing_record(fleet, label, bolt, l, said, ops)
             landing_close(fleet, label, bolt, l, entries, card)
         return True, said
-    if l["outcome"] in ("refused", "stopped") and landing_record(fleet, label, bolt, l, said, ops):
-        unlanded_ask(fleet, label, bolt, kit_name, landing_request(entries, bolt, l), said)
-    if l["outcome"] == "refused" and l.get("why") == "conflict":
+    by = (l.get("fix") or {}).get("by", "crew")  # whose a refusal's way on is (runner.landing_way)
+    if l["outcome"] in ("refused", "stopped") and landing_record(fleet, label, bolt, l, said, ops) and (
+            l["outcome"] == "stopped" or by in ("crew", "caller")):
+        unlanded_ask(fleet, label, bolt, kit_name, landing_request(entries, bolt, l),
+                     runner.caller_said(l, bolt) if l["outcome"] == "refused" and by == "caller" else said)
+    if l["outcome"] == "refused" and l.get("why") == "conflict" and by == "crew":
         take_main_launch(fleet, label, None, bolt, (l.get("main") or "", l.get("words") or "", l.get("request")))
     return False, said
 

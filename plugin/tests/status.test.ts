@@ -117,6 +117,24 @@ test("ops's band draws a landing asked with its request and one under test with 
   expect(at(/curation-and-holds  0 of 2 merged/)).toBe(-1)
 })
 
+// crew-board "The mod draws it" (code.8; crews-bolt-kind-names-its-landing-fix, Decision 6): ops's band lists Flume's
+// landing fix y-1 among its fixes in flight, as board.py's ops_view draws it from the base place's status
+// (flume_waits), and the band shows the line as it is.
+test("ops's band draws a landing fix in flight as the views give it", async ($, on) => {
+  const ops = [
+    [['swancloud operations', 'bold'], ['  ', null], ['1 fix in flight', null]],
+    [['  ', null], ['crew', null], ['  ', null], ['fix y-1', null], ['  ', null], ['landing fix', null], ['  ', null],
+      ["Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab", null], ['  ', null], ['on deneb', 'dim']],
+  ]
+  const views = { ...VIEWS, views: { ...VIEWS.views, 'swancloud-ops': ops } }
+  const ui = await band($, on, { env: { CREW_AGENT: 'swancloud-ops', CREW_LABEL: 'swancloud' }, views })
+  const lines = (await ui.findAll({ type: 'Text' })).map((t) => t.text)
+  const at = (pattern) => lines.findIndex((l) => pattern.test(l))
+  expect(at(/^swancloud operations {2}1 fix in flight$/)).toBeGreaterThanOrEqual(0)
+  expect(at(/^ {2}crew {2}fix y-1 {2}landing fix {2}Take main into the bolt: Flume's landing fix y-1 merges main at 9f1c2ab {2}on deneb$/))
+    .toBeGreaterThan(at(/^swancloud operations/))
+})
+
 // crew-board "A merge standing in sluice" and "A landing standing in sluice": the numbers sluice gave the submissions
 // are on the ledger's lines as board.py's ledger_rows draws them, and the band shows them as they are (teams.22).
 test("a ledger's standing merge and landing are drawn with their numbers", async ($, on) => {

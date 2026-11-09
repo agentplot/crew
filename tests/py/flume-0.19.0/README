@@ -1,0 +1,25 @@
+flume 0.19.0's status of a bolt's base place, `flume status --json <place>`, as a host's runner carries it in places.rec
+and crew reads its landing fix from it (runner.flume_facts, runner.landing_fix, runner.landing_of; tests/py/test_runner.py,
+tests/py/test_landing.py, tests/py/test_landings.py, tests/py/test_board.py; crews-bolt-kind-names-its-landing-fix,
+Decision 3).
+
+None of these was recorded, since no host ran crew's kind naming its landing fix when they were made: each is written
+from flume 0.19.0's own shapes, `crates/flume-core/src/answer.rs` (PlaceStatus: fix_kind, fix_limit, forecast, fixes,
+on_branch), `crates/flume-seams/src/held.rs` (ForecastHeld, FixCause, FixEnded, BaseFix, FixKind),
+`crates/flume-seams/src/merge_queue.rs` (Forecast) and what `crates/flume-core/src/fixes.rs` (`decide`) and
+`status.rs` (`base_waiting_on`, the fix_limit of a kind that gives one) set, over flume-0.17.0/bolt-failed.json's
+base place, trimmed as flume-0.17.0/ is. Each is a base place of crew/bolt@1 named y on bolt/y, its fix kind
+flume/fix@1 from flume's own source and its fix_limit 3, each fix named y-<n> at the place fix--y-<n>.
+
+bolt-conflict-fixing   the verdict conflict on entry 412 against main at 9f1c2ab, and its fix y-1, cause conflicted 412,
+                       live: on its branch, the base place waiting on no caller and its submission's waiting cleared
+bolt-failed-fix-due    the verdict failed on entry 412, waiting on its caller (why submission), and no fix yet
+bolt-failed-spent      the verdict failed on entry 415, and three fixes, y-1 conflicted 412 landed, y-2 failed 413 landed
+                       and y-3 forecast refused, none naming 415: waiting on its caller with the bound spent in Flume's
+                       words
+bolt-forecast-fixing   never submitted, its forecast in conflict with main at 9f1c2ab, and its fix y-1, cause forecast
+                       at its head onto 9f1c2ab, live
+bolt-conflict-dropped  the verdict conflict on entry 412, and y-1 naming it dropped, waiting on its caller with the
+                       merge queue's words
+bolt-fixed-landed      the verdict conflict on entry 412, and y-1 naming it landed at 5a6b7c8, the bolt's head now,
+                       waiting on its caller unsubmitted

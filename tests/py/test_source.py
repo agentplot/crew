@@ -5,6 +5,7 @@ into the kinds folder beside it, whole and only when its bytes differ. That crew
 the file, renamed over the old one, is t-flume-source's and t-journey-main's."""
 import json
 import os
+import re
 import tomllib
 
 import pytest
@@ -148,15 +149,18 @@ class TestNoEntryForAPartitionOnAnotherHostOrARoleThatRunsAsItsKind:
         assert tomllib.loads(source.text([], "mac-studio")) == {}
 
 
-# crew's bolt kind as it ships, byte for byte: a change to it fails here, since a version's bytes never change and a
-# change to the kind is bolt@2 beside it (the flume-source spec; crew-lands-each-bolt-through-flumes-base-place,
+# crew's bolt kind as it ships, byte for byte: a change to it fails here, since a version's bytes never change once
+# released and a change to the kind is then bolt@2 beside it (the flume-source spec; crew-lands-each-bolt-through-
+# flumes-base-place, Decision 2). bolt@1's first release names its landing fix (crews-bolt-kind-names-its-landing-fix,
 # Decision 2).
-BOLT_KIND = b"""# crew's bolt as a Flume base place (record 0056; crew-lands-each-bolt-through-flumes-base-place, Decision 2).
+BOLT_KIND = b"""# crew's bolt as a Flume base place, naming its landing fix (record 0056; crew-lands-each-bolt-through-flumes-base-place, Decision 2; crews-bolt-kind-names-its-landing-fix, Decision 2).
 [kinds.bolt]
 version = 1
 branch = "bolt"
 lands = true
 stages = []
+landing_fix = "flume/fix@1"
+max_landing_fixes = 3
 """
 
 
@@ -169,7 +173,17 @@ class TestCrewsKindsFolderHoldsItsBoltKind:
     def test_the_package_ships_as_pinned_and_is_a_base_place(self):
         (package, under), = source.KIND_PACKAGES
         assert package.read_bytes() == BOLT_KIND and under.as_posix() == "bolt@1/kind.toml"
-        assert tomllib.loads(BOLT_KIND.decode()) == {"kinds": {"bolt": {"version": 1, "branch": "bolt", "lands": True, "stages": []}}}
+        assert tomllib.loads(BOLT_KIND.decode()) == {"kinds": {"bolt": {
+            "version": 1, "branch": "bolt", "lands": True, "stages": [],
+            "landing_fix": "flume/fix@1", "max_landing_fixes": 3}}}
+
+    def test_the_landing_fix_is_named_by_identity_and_bounded(self):
+        (package, _), = source.KIND_PACKAGES
+        bolt = tomllib.loads(package.read_text())["kinds"]["bolt"]
+        assert re.fullmatch(r"[a-z0-9-]+/[a-z0-9-]+@[0-9]+", bolt["landing_fix"])
+        assert bolt["landing_fix"].replace("@", "/").split("/") == ["flume", "fix", "1"]
+        limit = bolt["max_landing_fixes"]
+        assert isinstance(limit, int) and not isinstance(limit, bool) and limit > 0
 
     def test_written_once_with_an_entry_and_nothing_else_in_the_folder(self, tmp_path, fleet):
         _, kinds, kind = self.kept(tmp_path, fleet())
