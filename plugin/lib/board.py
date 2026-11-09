@@ -1411,8 +1411,8 @@ class Follower:
         self.notice = None
 
     def fleet(self):
-        """The teams file and the hosts file read afresh, not as this process first read them, the drives followed
-        with them, and crew's Flume roles file kept from them (crew.keep_roles, teams.25); a teams file crew refuses
+        """The teams file read afresh, not as this process first read it, the drives its `consoles` names followed
+        (labels_here), and crew's Flume roles file kept from it (crew.keep_roles, teams.25); a teams file crew refuses
         leaves both as they were, said (read.1)."""
         crew.load.cache_clear()
         try:

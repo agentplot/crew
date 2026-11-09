@@ -454,7 +454,7 @@ class TestHosts:
                  "hosts": {"deneb": {}, "box": {}, "mac-studio": {}, "macbook-pro": {}}}
         assert hold.hosts_named(fleet, "--all") == ["deneb", "mac-studio"]
         assert hold.hosts_named(fleet, "macbook-pro") == ["macbook-pro"]
-        with pytest.raises(crew.Refusal, match="nowhere is no host of the fleet's hosts file. hosts: box deneb mac-studio macbook-pro"):
+        with pytest.raises(crew.Refusal, match="nowhere is no host the teams file's hosts name. hosts: box deneb mac-studio macbook-pro"):
             hold.hosts_named(fleet, "nowhere")
 
 

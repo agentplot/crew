@@ -50,10 +50,10 @@ GO_NOTICE = "{host} is no longer held: crew starts agents there again. Carry on 
 
 def hosts_named(fleet, which):
     """The hosts a command acts on: every host crew runs agents on, each drive's main level's, for --all; else the
-    one named, which must be a host of the hosts file."""
+    one named, which must be a host the teams file's `hosts` names (record 0064)."""
     if which in (None, "--all"):
         return sorted({p["machine"] for p in fleet["drives"].values()})
-    which in fleet["hosts"] or fail(f"{which} is no host of the fleet's hosts file. hosts: " + " ".join(sorted(fleet["hosts"])))
+    which in fleet["hosts"] or fail(f"{which} is no host the teams file's hosts name. hosts: " + " ".join(sorted(fleet["hosts"])))
     return [which]
 
 
