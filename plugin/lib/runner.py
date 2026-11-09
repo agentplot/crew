@@ -24,8 +24,8 @@ A fix on a started bolt is a launch of Flume's fix kind on the bolt's branch (fi
 (fixes_in_flight); a started bolt whose landing sluice refused for a conflict with main takes main in by one
 (take_main). A red main's fix is a launch of the fix kind on main with its submission held, taken by the runner that
 keeps the kit (main_fix_launch); its kit's landings row carries it once its code has delivered and its submission
-waits held (main_fixes_waiting), and the user's send of it is the retry of its submission, made once (send_refusal,
-sent_of).
+waits held (main_fixes_waiting), and the user's send of it is its kit's landings card's, carried to the runner as a land
+of its launch (lands_due, sent_of).
 
 A main-level role that runs as its kind has its run read from the runner's records (role_run), and its work that lands
 is a launch of Flume's chore kind on its repository's default branch, the role's address its recipient (role_launch).
@@ -48,8 +48,8 @@ def runnerless(label, tips):
 
 REQUESTS = """\
 # crew's requests of the runners: a launch of a Flume place for a started
-# bolt's work, a fix or a role's work that lands, or a retry, drop or priority
-# of a place launched.
+# bolt's base place, its work, a fix or a role's work that lands, or a retry,
+# drop, priority or land of a place launched.
 # Written only by crew, each in the commit of the plan write that occasions it;
 # numbered once, and never changed or removed. The runner whose configuration
 # names a launch's Repo takes it, or for a role's the runner on its Host, and
@@ -57,11 +57,11 @@ REQUESTS = """\
 # never writes.
 
 %rec: Request
-%doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work; or a retry, drop or priority of the place the launch Of names launched, taken by the runner that took it.
+%doc: A request for Work: a launch of a Flume place of Kind named Name, cut from Base of Repo, taken by a runner whose configuration names Repo, in the stream its host maps it to, or by Host's runner in Stream for a role's work, a bolt's own launch its base place of crew's kind crew/bolt; or a retry, drop, priority or land of the place the launch Of names launched, taken by the runner that took it, a land the user's send of a bolt or a fix of main.
 %key: Request
 %type: Request,Of,After,Priority int
-%type: Act enum launch retry drop priority
-%type: Kind enum change chore fix
+%type: Act enum launch retry drop priority land
+%type: Kind regexp #^(change|chore|fix|crew/bolt)$#
 %type: Hold enum submission
 %type: Submission bool
 %type: Host regexp /^[a-z0-9][a-z0-9-]*$/
@@ -73,17 +73,29 @@ REQUESTS = """\
 FIELDS = ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent", "Recipient", "Hold",
           "After", "Brief", "Of", "Stage", "Submission", "Words", "Date", "By")
 # What every request carries, and, by its act, what it must carry beside them and what else it may: a launch of a
-# role's work names its Host and Stream, and a launch of a kit's work neither (request_refusal).
+# role's work names its Host and Stream, and a launch of a kit's work neither, and a bolt's own launch carries no Brief
+# (request_refusal); a land names the launch it lands and nothing else (crew-lands-each-bolt-through-flumes-base-place,
+# Decision 4).
 COMMON = ("Request", "Act", "Work", "Date", "By")
 ACTS = {
     "launch": (("Repo", "Kind", "Name", "Base", "Priority", "Intent", "Recipient", "Brief"), ("Hold", "After", "Host", "Stream")),
     "retry": (("Of",), ("Stage", "Submission", "Words")),
     "drop": (("Of",), ()),
     "priority": (("Of", "Priority"), ()),
+    "land": (("Of",), ()),
 }
-# The work a request serves, as crew names it: a unit, a chore, a fix on a bolt or a fix of a kit's main, or a role's
-# work that lands (Decision 10 of roles-run-as-flume-kinds).
-WORK = re.compile(r"^(?:unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+# The kind of a bolt's own launch, its base place: crew's kind bolt@1, named by its source (record 0056; Decision 2).
+BOLT_KIND = "crew/bolt"
+# The work a request serves, as crew names it: a bolt's base place, a unit, a chore, a fix on a bolt or a fix of a
+# kit's main, or a role's work that lands (Decision 10 of roles-run-as-flume-kinds).
+WORK = re.compile(r"^(?:bolt/N|unit/N|chore/N|fix/N/N|fix/main/N/N|role/N/N)$".replace("N", "[a-z0-9][a-z0-9-]*"))
+
+
+def needs(act, work):
+    """What a request of act for work must carry beside COMMON (ACTS): a bolt's own launch, its base place, runs no
+    agent and so carries no Brief."""
+    need = ACTS[act][0]
+    return tuple(f for f in need if f != "Brief") if act == "launch" and work.startswith("bolt/") else need
 
 
 def number(v):
@@ -113,20 +125,25 @@ def request_fields(n, act, work, given, date, by):
 def request_refusal(requests, new):
     """Why crew's own rules refuse a request (plan.1), beyond what recfix checks of requests.rec, or None: requests, the
     file's records before it, and new, the request appended, each a record of the plan's kind (plan.Rec). A request is
-    the next by number; its work is a unit's, a chore's or a fix's as crew names them; it carries every field its act
-    needs and none its act does not take; a launch of a role's work names the host and stream its role runs in, and a
-    launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
-    host's Flume configuration maps the repository to (settled with the user 2026-11-01); a retry, drop or priority names by Of a launch of the same
-    work; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds its
-    submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
+    the next by number; its work is a bolt's, a unit's, a chore's or a fix's as crew names them; it carries every field
+    its act needs and none its act does not take; a launch of a role's work names the host and stream its role runs in,
+    and a launch of a kit's work neither, a runner whose configuration names its repository taking it in the stream its
+    host's Flume configuration maps the repository to (settled with the user 2026-11-01); a bolt's own launch, of
+    bolt/<bolt>, names crew's kind crew/bolt and the base main, and no Brief or After, since its base place runs no
+    agent, and no other launch names that kind, though no rule holds a bolt's pieces after its base place in the file,
+    since a fix on a bolt started before bolts were base places, which has no launch of its own, is launched on its
+    branch still (crew-lands-each-bolt-through-flumes-base-place, Decisions 3 and 9), and a start's order is its own
+    (bolt_launch, reach); a retry, drop, priority or land names by Of a launch of the same work, and a land a launch of a bolt or
+    of a fix of main; a launch's After names launches on the same base, the work of the same bolt; a fix of main holds
+    its submission; and a retry starts a stage again or submits again, not both (Decision 4)."""
     n, act, work = new.get("Request"), new.get("Act"), new.get("Work")
     want = next_request(requests)
     if number(n) != want:
         return (f"request {n} is not the next in requests.rec: it holds "
                 + (f"requests 1 to {want - 1}" if want > 2 else "request 1" if want == 2 else "none") + f", so the next is {want}")
     if act not in ACTS:
-        return f"request {n} is a {act}, and a request is a launch, a retry, a drop or a priority"
-    need, may = ACTS[act]
+        return f"request {n} is a {act}, and a request is a launch, a retry, a drop, a priority or a land"
+    need, may = needs(act, work or ""), ACTS[act][1] + (("Brief",) if act == "launch" and (work or "").startswith("bolt/") else ())
     missing = [f for f in COMMON + need if not new.get(f)]
     if missing:
         return (f"{act} {n} for {work} names no {' and no '.join(missing)}: a {act} carries "
@@ -135,13 +152,25 @@ def request_refusal(requests, new):
     if extra:
         return f"{act} {n} for {work} carries {', '.join(extra)}, which a {act} does not take"
     if not WORK.match(work):
-        return (f"{act} {n} serves {work}, and a request serves unit/<unit>, chore/<chore>, fix/<bolt>/<name>, fix/main/<kit>/<name> "
-                "or role/<role>/<name>")
+        return (f"{act} {n} serves {work}, and a request serves bolt/<bolt>, unit/<unit>, chore/<chore>, fix/<bolt>/<name>, "
+                "fix/main/<kit>/<name> or role/<role>/<name>")
     if act == "launch" and work.startswith("role/") and not (new.get("Host") and new.get("Stream")):
         return f"launch {n} of {work} names no Host or no Stream: a role's work runs on the host and in the stream its role runs in"
     if act == "launch" and not work.startswith("role/") and (new.get("Host") or new.get("Stream")):
         return (f"launch {n} of {work} names a Host or a Stream: a kit's work is taken by a runner whose configuration "
                 "names its repository, in the stream its host's Flume configuration maps the repository to, and crew names neither")
+    if act == "launch" and work.startswith("bolt/"):
+        if new.get("Kind") != BOLT_KIND:
+            return f"launch {n} of {work} names Kind {new.get('Kind')}: a bolt's base place is of crew's kind {BOLT_KIND}"
+        if new.get("Base") != "main":
+            return f"launch {n} of {work} names Base {new.get('Base')}: a bolt's base place is cut from main"
+        if new.get("Brief"):
+            return f"launch {n} of {work} names a Brief: a bolt's base place runs no agent, so it carries none"
+        if new.all("After"):
+            return (f"launch {n} of {work} names After {', '.join(new.all('After'))}: a bolt's base place lands after every "
+                    "place on its branch, so it comes after no launch")
+    if act == "launch" and not work.startswith("bolt/") and new.get("Kind") == BOLT_KIND:
+        return f"launch {n} of {work} names Kind {BOLT_KIND}, which is a bolt's base place's alone, of bolt/<bolt>"
     by = {r.get("Request"): r for r in requests}
     if act != "launch":
         of = by.get(new.get("Of"))
@@ -150,6 +179,9 @@ def request_refusal(requests, new):
                 "" if of is not None else ": requests.rec does not hold it")
         if of.get("Work") != work:
             return f"{act} {n} for {work} names launch {of.get('Request')}, which is {of.get('Work')}'s"
+        if act == "land" and not work.startswith(("bolt/", "fix/main/")):
+            return (f"land {n} for {work} names launch {of.get('Request')}, which is no bolt's or fix of main's: a land is the "
+                    "user's send of a bolt or of a fix of main")
     for a in new.all("After"):
         l = by.get(a)
         if l is None or l.get("Act") != "launch":
@@ -557,12 +589,16 @@ def flume_facts(status, place):
     verdict, vf = tagged(sub.get("verdict"))
     count = lambda v: v if isinstance(v, int) and not isinstance(v, bool) else None
     waiting = p.get("waiting_on") if isinstance(p.get("waiting_on"), dict) else {}
+    entry_state, ef = tagged(at(entry, "state"))
     return {
-        "repository": text(p.get("repository")), "stream": text(at(p, "stream", "name")),
+        "repository": text(p.get("repository")), "stream": text(at(p, "stream", "name")), "head": text(p.get("head")),
         "phase": phase, "over": over, "commit": text(of.get("commit")) if over == "landed" else None,
         "current": current, "state": text(at(stage, "state")), "end": at(stage, "end") if isinstance(at(stage, "end"), dict) else {},
         "tasks": tasks,
-        "entry": text(at(entry, "id")), "entry_state": tagged(at(entry, "state"))[0],
+        "entry": text(at(entry, "id")), "entry_state": entry_state,
+        "entry_base": text(ef.get("base")) if entry_state == "conflict" else None,
+        "files": tuple(f for f in (vf.get("files") if isinstance(vf.get("files"), list) else ef.get("files") if isinstance(ef.get("files"), list)
+                                   else []) if isinstance(f, str)) if verdict == "conflict" or entry_state == "conflict" else (),
         "unread": text(rf.get("reason")) if read == "could_not_read" else None,
         "request": text(sub.get("request")), "submits": count(sub.get("submits")), "send_backs": count(sub.get("send_backs")),
         "verdict": verdict, "verdict_words": text(vf.get("words")) or text(vf.get("reason")), "held": sub.get("held") is True,
@@ -572,8 +608,8 @@ def flume_facts(status, place):
 
 
 def stage_of(work, launch, answer, place, read, after=()):
-    """A crossed piece's stage (Decision 8), from plain facts: work, as requests name it (unit/<u>, chore/<c>,
-    fix/<bolt>/<name>, fix/main/<kit>/<name>); launch, its newest launch not dropped (launch_of), None for none;
+    """A crossed piece's stage (Decision 8), from plain facts: work, as requests name it (bolt/<bolt>, unit/<u>,
+    chore/<c>, fix/<bolt>/<name>, fix/main/<kit>/<name>); launch, its newest launch not dropped (launch_of), None for none;
     answer, the runner's answer to that launch, None while it has none; place, the runner's record of the place it
     launched (host_read's), None while it has none; read, True when its host's runner branch was read, else why not;
     after, the work its launch's After names (after_work). Returns {"stage", and what goes with it}: unknown, with why,
@@ -586,12 +622,18 @@ def stage_of(work, launch, answer, place, read, after=()):
     words, once its stage stopped short asking or found work; stalled, or else waits, with Flume's words and why, while
     it waits on its caller, the submission held among them; submitted, with sluice's number; its stage, with sluice's
     words, once sent back after a failed or conflicting submission; else its current stage. Each names its place, and
-    a stage of a change its tasks, ticked and in all."""
+    a stage of a change its tasks, ticked and in all. A bolt's base place, bolt/<bolt>, is read as a piece of its own
+    for the bolt's own row (crew-lands-each-bolt-through-flumes-base-place, Decision 3): unlaunched, with the runner's
+    words, while its launch is unanswered, held or refused (refused then marked); live while its place is, since it has
+    no stage, its landing read apart (landing_of); and landed, dropped or unknown as any piece's."""
     if read is not True:
         return {"stage": "unknown", "why": read}
     if launch is None:
         return {"stage": "unknown", "why": f"{work} has no launch in requests.rec"}
     n, outcome = launch.get("Request"), answer.get("Outcome") if answer is not None else None
+    if work.startswith("bolt/") and outcome in (None, "held", "refused"):
+        return dict({"stage": "unlaunched"}, **({"words": answer.get("Words")} if answer is not None and answer.get("Words") else {}),
+                    **({"refused": True} if outcome == "refused" else {}))
     if answer is None:
         return {"stage": "launching"}
     if outcome == "held" and not launch.all("After"):
@@ -623,6 +665,8 @@ def stage_of(work, launch, answer, place, read, after=()):
         return dict(res, stage="unknown", why=(
             f"{said} says its work is {f['over']}, and a place of a kind that lands ends landed or dropped" if f["over"] else
             f"{said} gives phase {f['phase']}, which crew does not read" if f["phase"] else f"{said} gives no phase crew reads"))
+    if work.startswith("bolt/"):
+        return dict(res, stage="live")
     if f["state"] == "waiting_for_room":
         return dict(res, stage="queued", of=f["current"])
     if f["waiting"] == "answer":
@@ -640,6 +684,34 @@ def stage_of(work, launch, answer, place, read, after=()):
     if f["send_backs"] and f["verdict"] in ("failed", "conflict"):
         return dict(res, stage=f["current"], words=f["verdict_words"], sent_back=f["send_backs"], verdict=f["verdict"])
     return dict(res, stage=f["current"])
+
+
+def legacy_said(bolt):
+    """What every view says of a started bolt with no launch of bolt/<bolt> (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 9): sluice made its branch before bolts were base places, and it lands under the crew that started it."""
+    return f"{bolt} was started before bolts were base places and lands under the crew that started it"
+
+
+def base_said(s):
+    """A bolt's base place's stage (stage_of of bolt/<bolt>) as its head line says it, or "" while it reads live or has
+    landed, when its landing says the rest (landing_of): unlaunched with the runner's words, refused or held, or that no
+    runner has answered it yet; launching while the runner has carried none of Flume's status of it; dropped; or why
+    crew can't tell."""
+    st = s.get("stage")
+    first = (s.get("words") or "").strip().splitlines()[0] if (s.get("words") or "").strip() else ""
+    if st == "legacy":
+        return s.get("words") or ""
+    if st == "unlaunched":
+        return ("its base place is unlaunched: " + ("the runner refused its launch" if s.get("refused") else
+                "the runner holds its launch" if first else "no runner has answered its launch yet")
+                + (f": {first}" if first else "") + ("; crew bolt start runs it again" if s.get("refused") else ""))
+    if st == "launching":
+        return "its base place is launching"
+    if st == "dropped":
+        return "its base place is dropped"
+    if st == "unknown":
+        return f"can't tell its base place: {s.get('why')}"
+    return ""
 
 
 def place_branch(work):
@@ -665,6 +737,25 @@ def built_on_bolt(work, s, landings):
         return s
     kept = {k: s[k] for k in ("place", "tasks") if s.get(k)}
     return dict(kept, stage="merged", commit=landing["commit"], landed=landing["at"], on="bolt", branch=place_branch(work))
+
+
+def verification(head, pieces):
+    """A bolt's verification (record 0025 point 4, crew record 0056 points 1 and 4; read.1, read.2), from plain facts:
+    head, the bolt's head as read where the bolt lives (gather.bolt_read), None where there is none; pieces, its units,
+    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of or built_on_bolt gives it.
+    Returns (state, words): "green", naming the head and the work, for the first piece in the order given that reads
+    merged or landed with its commit the head, since every piece lands on its bolt through a submission sluice lands
+    only on its required checks passing, or beside its queue when none of them reads its changes (teams.5, sluice
+    clause 140), so a head that is a piece's landing is one the kit's checks passed, a landing beside reading the same;
+    "none" for any other head, a commit pushed another way or a landing the runner does not report among them; and
+    "unknown" with no head. A piece with no commit matches nothing, and the commits compare whole."""
+    if not head:
+        return "unknown", "no head crew can read"
+    for work, s in pieces:
+        if s.get("stage") in ("merged", "landed") and s.get("commit") and s["commit"] == head:
+            how = "as its landing on the bolt names it" if s.get("on") == "bolt" else "as the runner reports it"
+            return "green", f"its head {head[:7]} is {bare(work)}'s landing, {how}"
+    return "none", f"its head {head[:7]} is no landing of its work that the runner reports"
 
 
 def working(reading):
@@ -761,6 +852,52 @@ def built_order(work):
         order.append(u)
         placed.add(u.name())
     return order
+
+
+def bolt_launch(plan, bolt, label):
+    """The launch of a started bolt's base place (crew-lands-each-bolt-through-flumes-base-place, Decision 3), as (act,
+    work, its fields as plan.request takes them): a place of crew's kind crew/bolt named the bolt, cut from main, in
+    the bolt's repository as the plan names it, for a runner whose configuration names it to take in the stream its
+    host maps it to, at the bolt's priority (priority_of), its intent the bolt's, main-level ops as its recipient,
+    since what follows a landing is ops's (plan.16), and no Brief, since a base place runs no agent, and no After, since
+    it lands after every place on its branch. A start appends it before its pieces' launches (reach)."""
+    return ("launch", f"bolt/{bolt}", {
+        "Repo": plan.bolt(bolt).get("Repo"), "Kind": BOLT_KIND, "Name": bolt, "Base": "main",
+        "Priority": priority_of(plan, bolt), "Intent": f"{label}/{bolt}", "Recipient": f"{label}/ops"})
+
+
+def restart(plan, requests, reads, bolt, label):
+    """What crew bolt start appends for a started bolt whose own launch the runner refused, as Flume refuses it while
+    its host has not locked crew/bolt@1 (crew-lands-each-bolt-through-flumes-base-place, Decision 3; bolt-teams "A
+    start run again launches a bolt whose launch the runner refused"), from facts: plan, as the write leaves it;
+    requests, requests.rec's records before it; reads, the partition's runners as crew read them (host_read's, by
+    host). Returns (the requests to append, each (act, work, its fields), None): a drop of each of its pieces' launches
+    standing that the runner has not answered launched, then a launch anew of its base place (bolt_launch), its pieces
+    following by reach; or (None, why) for any other started bolt: one with no launch of its own, started before bolts
+    were base places (Decision 9), one whose launch is unanswered, held or launched, and one whose launch, or a piece's,
+    crew can't tell the runner's answer to (read.1)."""
+    started = f"bolt {bolt} is started already"
+    own = launch_of(requests, f"bolt/{bolt}")
+    if own is None:
+        return None, f"{started}, before bolts were base places, and lands under the crew that started it"
+    n = number(own.get("Request"))
+    reading, why = taken(reads, n)
+    if why:
+        return None, f"{started}, and crew can't tell whether the runner refused its launch: {why}"
+    answer = reading["answers"].get(n) if reading else None
+    if answer is None or answer.get("Outcome") != "refused":
+        return None, started
+    drops = []
+    for l in standing(requests):
+        if l.get("Base") != f"bolt/{bolt}":
+            continue
+        m = number(l.get("Request"))
+        r, why = taken(reads, m)
+        if why:
+            return None, f"{started}, and crew can't tell whether {l.get('Work')}'s launch was launched: {why}"
+        if r is None or (r["answers"].get(m) or {}).get("Outcome") != "launched":
+            drops.append(("drop", l.get("Work"), {"Of": l.get("Request")}))
+    return drops + [bolt_launch(plan, bolt, label)], None
 
 
 def reach(plan, requests, bolt, label, again=()):
@@ -938,19 +1075,25 @@ def fix_launch(plan, requests, bolt, label, name, words):
         "Priority": priority_of(plan, bolt), "Intent": f"{label}/{bolt}", "Recipient": f"{label}/planner", "Brief": words}), None
 
 
-def take_main(plan, requests, bolt, label, main, words):
+def take_main_name(main, request=None):
+    """A take-main fix's name: take-main-<main's revision, seven>, or, where the merge queue recorded no revision of main,
+    take-main-l<the land's request>, so each conflict read launches its fix once."""
+    return f"take-main-{main[:7]}" if main else f"take-main-l{request}"
+
+
+def take_main(plan, requests, bolt, label, main, words, request=None):
     """The launch of a crossed bolt's take-main fix (Decision 10, plan.8), once sluice refused its landing for a
     conflict with main at main (its revision): a fix as fix_launch makes it, named take-main-<main, seven>, its brief
     saying to take origin/main into the bolt and resolve, with sluice's words of the conflict, and beginning as every
     take-main fix's does, so the bolt's row says it takes main first (plan.TAKE_MAIN); None while a fix of that name
     stands on the bolt, so a refusal read twice launches it once."""
-    name = f"take-main-{main[:7]}"
+    name = take_main_name(main, request)
     if launch_of(requests, f"fix/{bolt}/{name}") is not None:
         return None
     return fix_launch(plan, requests, bolt, label, name, (
-        f"Take main into the bolt: merge origin/main, at {main[:7]}, into this place, cut from bolt/{bolt}, resolving each "
-        f"conflicting path keeping both intents, main's and the bolt's; sluice refused the bolt's landing for its conflict "
-        f"with main: {words}"))[0]
+        f"Take main into the bolt: merge origin/main" + (f", at {main[:7]}," if main else "") + f" into this place, cut from "
+        f"bolt/{bolt}, resolving each conflicting path keeping both intents, main's and the bolt's; the merge queue refused "
+        f"the bolt's landing for its conflict with main: {words}"))[0]
 
 
 def fix_drop_refusal(of, work, launch, s):
@@ -1009,6 +1152,211 @@ def fixes_in_flight(requests, reads, bolt):
             if l.get("Work").startswith(f"fix/{bolt}/") and s["stage"] not in ("merged", "landed", "dropped")}
 
 
+def base_drop_asked(plan, requests):
+    """Whether base_drop_due has anything to judge, from requests.rec and the plan alone: a launch of bolt/<bolt> whose
+    bolt has left the plan, that a drop names. A plan write reads the runners for base_drop_due only then."""
+    drops = {r.get("Of") for r in requests if r.get("Act") == "drop"}
+    return any(l.get("Act") == "launch" and (l.get("Work") or "").startswith("bolt/") and l.get("Request") in drops
+               and plan.bolt(l.get("Work")[5:]) is None for l in requests)
+
+
+def base_drop_due(plan, requests, reads):
+    """The drops a plan write asks again of a bolt's base place (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 8; bolt-teams "A bolt's drop drops its base place last" and "A base place's drop the runner refused is
+    asked again once nothing on its branch is live"), from plain facts: plan, as the write leaves it; requests,
+    requests.rec's records; reads, the partition's runners as crew read them. For each launch of bolt/<bolt> whose bolt
+    has left the plan, that a drop names, the newest drop of it answered refused by the runner that took the launch, as
+    Flume refuses one while a place on its branch is live: its drop asked again, (act, work, its fields), once no piece
+    of the bolt reads live, each piece's launch on its branch read dropped, merged, landed or refused, and once for each
+    refusal, a drop asked and not yet answered asking none. None where crew can't tell (read.1)."""
+    out = []
+    for l in requests:
+        work = l.get("Work") or ""
+        if l.get("Act") != "launch" or not work.startswith("bolt/") or plan.bolt(work[5:]) is not None:
+            continue
+        drops = [r for r in requests if r.get("Act") == "drop" and r.get("Of") == l.get("Request")]
+        n = number(l.get("Request"))
+        reading, why = taken(reads, n)
+        if not drops or why or reading is None:
+            continue
+        answer = reading["answers"].get(number(drops[-1].get("Request")))
+        if answer is None or answer.get("Outcome") != "refused":
+            continue
+        place = reading["places"].get(n)
+        f = flume_facts(place["status"], place["place"]) if place and not place.get("why") else None
+        if f and f["over"]:
+            continue
+        pieces = [p for p in requests if p.get("Act") == "launch" and p.get("Base") == work]
+        if any(piece_stage(requests, reads, p)["stage"] not in ("dropped", "merged", "landed", "refused") for p in pieces):
+            continue
+        out.append(("drop", work, {"Of": l.get("Request")}))
+    return out
+
+
+# ------------------------------------------------------------------------------------- a landing through the runner
+
+def lands_of(requests, launch):
+    """The land requests of a launch (Decision 4 of crew-lands-each-bolt-through-flumes-base-place), in requests.rec's
+    order: each land whose Of names it."""
+    n = launch.get("Request") if launch is not None else None
+    return [r for r in requests if r.get("Act") == "land" and n is not None and r.get("Of") == n]
+
+
+def landing_of(launch, lands, reads):
+    """A bolt's landing, or a fix of main's, as the runner reports it (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 6; bolt-teams "A landing's outcome is read from the runner's report"), from plain facts: launch, the
+    newest launch not dropped of bolt/<bolt> or fix/main/<kit>/<name> (launch_of); lands, the land requests of it
+    (lands_of); reads, the partition's runners as crew read them (host_read's, by host). The base place is read from
+    the runner that took the launch, its answers to the launch and the lands and Flume's status of the place as it
+    carried it (flume_facts), each fact guarded (read.2). Returns {"outcome", and what goes with it}:
+    unlaunched, with the runner's words, while the launch is unanswered, held or refused; landed, with Flume's commit,
+    the merge queue's entry where Flume names one and the newest land's request, once the place is over landed; dropped, once it is over dropped; none, while no land stands; asked, with the
+    newest land's request, while the runner has not answered it or Flume has not submitted it yet, the place's
+    submissions fewer than the lands the runner carried; stopped, in the runner's words, when it answered the newest
+    land refused, as when a place on the branch is live; submitted, with the merge queue's entry and its state, while
+    it waits or is under test; refused, the bolt's, for a failed check, with Flume's words; refused, a conflict, with
+    the files and main's revision where the merge queue records one; stopped, in Flume's words, for a submission
+    withdrawn or refused; unknown, naming why, where crew can't read the runner, the place's status, or the submission
+    (read.1)."""
+    if launch is None:
+        return {"outcome": "unknown", "why": "no launch of it stands in requests.rec"}
+    work, n = launch.get("Work"), number(launch.get("Request"))
+    reading, why = taken(reads, n)
+    if why:
+        return {"outcome": "unknown", "why": why}
+    answer = reading["answers"].get(n) if reading else None
+    if answer is None or answer.get("Outcome") in ("held", "refused"):
+        return dict({"outcome": "unlaunched"}, **({"words": answer.get("Words")} if answer is not None and answer.get("Words") else {}),
+                    **({"refused": True} if answer is not None and answer.get("Outcome") == "refused" else {}))
+    if answer.get("Outcome") != "launched":
+        return {"outcome": "unknown", "why": f"the runner answered launch {n} of {work} {answer.get('Outcome')}, and a launch is "
+                                             "answered held, launched or refused"}
+    place = reading["places"].get(n)
+    if place is not None and place.get("why"):
+        return {"outcome": "unknown", "why": place["why"]}
+    f = flume_facts(place["status"], place["place"]) if place is not None else None
+    if place is not None and f is None:
+        return {"outcome": "unknown", "why": f"Flume's status of {work}'s place, as the runner carried it, holds no place {place['place']}"}
+    if f and f["over"] == "landed":
+        return dict({"outcome": "landed", "commit": f["commit"]}, **({"entry": f["entry"]} if f["entry"] else {}),
+                    **({"request": number(lands[-1].get("Request"))} if lands else {})) if f["commit"] else {
+            "outcome": "unknown", "why": f"Flume's status of {work}'s place says it landed and names no commit"}
+    if f and f["over"] == "dropped":
+        return {"outcome": "dropped"}
+    if not lands:
+        return {"outcome": "none"}
+    land = lands[-1]
+    asked = {"outcome": "asked", "request": number(land.get("Request"))}
+    la = reading["answers"].get(number(land.get("Request")))
+    if la is None:
+        return asked
+    if la.get("Outcome") == "refused":
+        return dict(asked, outcome="stopped", by="runner", words=la.get("Words") or "the runner refused the land")
+    carried = sum(1 for l in lands if (reading["answers"].get(number(l.get("Request"))) or {}).get("Outcome") not in (None, "refused"))
+    if f is None or (f["submits"] is not None and f["submits"] < carried):
+        return asked
+    if f["unread"]:
+        return dict(asked, outcome="unknown", why=f"Flume could not read {work}'s submission: {f['unread']}")
+    if f["entry_state"] in ("waiting", "under_test"):
+        return dict(asked, outcome="submitted", entry=f["entry"], state=f["entry_state"])
+    entry = {"entry": f["entry"]} if f["entry"] else {}
+    if f["verdict"] == "failed":
+        return dict(asked, outcome="refused", why="failed", words=f["verdict_words"] or f["waiting_words"] or "", **entry)
+    if f["verdict"] == "conflict":
+        return dict(asked, outcome="refused", why="conflict", words=f["verdict_words"] or f["waiting_words"] or "",
+                    files=list(f["files"]), main=f["entry_base"], **entry)
+    if f["verdict"] in ("withdrawn", "refused"):
+        return dict(asked, outcome="stopped", by="flume", words=f["waiting_words"] or f["verdict_words"] or f"the merge queue {f['verdict']} it",
+                    **entry)
+    if f["entry_state"] == "landed":
+        return dict(asked, outcome="submitted", entry=f["entry"], state="landed")
+    return asked
+
+
+def landing_said(l, bolt=None, head=None):
+    """A landing (landing_of) in the words of its head line and its row (Decision 10): asked with its request;
+    under test or waiting with the merge queue's entry; landed at its commit; refused in Flume's words; stopped in the
+    runner's or Flume's; unknown with why; "" for none, unlaunched (base_said) and dropped. Given the bolt and the head
+    its land was posted at, the words a view shows say that head and what comes next (bolt-teams "A landing that did not
+    land is the bolt's only for its own content"): a failed check, that the bolt is open for work and ops starts a fix
+    on it with Flume's words, crew fix <bolt> <name> "<words>"; a conflict, that it takes main first, by the fix crew
+    launches to take main into it, ops starting nothing; a stop, at that head. Without them, the words the run record
+    keeps of a refusal (landing_entry)."""
+    o = l.get("outcome")
+    first = (l.get("words") or "").strip().splitlines()[0] if (l.get("words") or "").strip() else ""
+    at = f" at {head[:7]}" if head else ""
+    if o == "asked":
+        return f"landing asked, request {l['request']}"
+    if o == "submitted":
+        state = {"under_test": "under test", "waiting": "waiting in the merge queue", "landed": "landed in the merge queue"}.get(l.get("state"), l.get("state") or "")
+        return f"landing #{l['entry']} {state}" if l.get("entry") else f"landing submitted, request {l['request']}"
+    if o == "landed":
+        return f"landed at {(l.get('commit') or '')[:7]}"
+    if o == "refused" and l.get("why") == "conflict":
+        main = f" at {l['main'][:7]}" if l.get("main") else ""
+        if bolt is None:
+            return f"landing refused in conflict with main{main}: {first}"
+        return (f"takes main first: its landing{at} was refused in conflict with main{main}: {first}; crew launches the "
+                "fix that takes main into it, ops starting nothing, and it lands again once that fix moves its head")
+    if o == "refused":
+        if bolt is None:
+            return f"landing refused, a check failed: {first}"
+        return (f"landing refused{at}, a check failed, the bolt's, open for work: {first}; it waits for a fix on the bolt, "
+                f"which ops starts with Flume's words, crew fix {bolt} <name> \"{first}\", and lands again once that fix "
+                "moves its head")
+    if o == "stopped":
+        return f"landing stopped{at}, nothing of the bolt's: {first}"
+    if o == "unknown":
+        return f"can't tell its landing: {l.get('why')}"
+    return ""
+
+
+def lands_due(rows, sent, requests, reads, posted=(), work=None):
+    """The lands the user's send on a kit's landings card makes due (crew-lands-each-bolt-through-flumes-base-place,
+    Decisions 4 and 5; rail-cards "A landings row is due one land for each send and head"), from plain facts (code.7):
+    rows, the card's rows in its order (landing_rows' and each fix of main's), each {bolt, box, facts: {head}}, a fix of
+    main's naming its work fix/main/<kit>/<name> as work; sent, {a row's work: (the card whose send ticked it, the head
+    it ticked)}, for each row a send stands for, the card's answer's and an earlier one's (landings_sent); requests,
+    requests.rec's records; reads, the partition's runners as crew read them; posted, the lands crew recorded posting,
+    [{work, card, head, request}] (lands_posted); work, each bolt's own work between the head ticked and its head now
+    where it moved (bolt_work), by which the send still stands (send_stands). Returns [(work, the launch's number)] in
+    the card's order with the fixes of main first, one for each row whose box is ticked on a send that stands for it at
+    its head now, that can land (a box), whose launch stands, and none of whose lands was posted at its head now nor
+    stands undecided (landing_of: asked or submitted) nor is read unknown, and no land of which posted on the same send
+    was stopped, the send then spent; a bolt started before bolts were base places, with no launch of its own, none."""
+    work, due = work or {}, []
+    posted = list(posted)
+    for r in sorted(rows, key=lambda r: not (r.get("work") or "").startswith("fix/main/")):
+        w = r.get("work") or f"bolt/{r['bolt']}"
+        if not r.get("box") or w not in sent:
+            continue
+        card, at = sent[w]
+        head = (r.get("facts") or {}).get("head") or ""
+        if not send_stood(at, head, work.get(r["bolt"])):
+            continue
+        launch = launch_of(requests, w)
+        if launch is None:
+            continue
+        mine = [p for p in posted if p.get("work") == w]
+        if any(p.get("head") and head and (head.startswith(p["head"]) or p["head"].startswith(head)) for p in mine):
+            continue
+        l = landing_of(launch, lands_of(requests, launch), reads)
+        if l["outcome"] in ("asked", "submitted", "unknown", "unlaunched", "landed", "dropped"):
+            continue
+        if l["outcome"] == "stopped" and any(p.get("card") == card and str(p.get("request")) == str(l.get("request")) for p in mine):
+            continue
+        due.append((w, number(launch.get("Request"))))
+    return due
+
+
+def send_stood(sent, head, work):
+    """plan.send_stands, which this module may not import: whether a send at sent still stands at head, the heads one
+    by prefix, or the bolt's own work between them unchanged (work, bolt_work's), read with no why (read.1)."""
+    if sent and head and (head.startswith(sent) or sent.startswith(head)):
+        return True
+    return bool(work) and not work.get("why") and not work.get("gained") and not work.get("lost")
+
+
 # ------------------------------------------------------------------------------------------------ a fix of main
 
 def main_priority(plan):
@@ -1043,42 +1391,25 @@ def main_fix_launch(plan, requests, label, repo, name, words, served):
 
 
 def sent_of(requests, reads, launch):
-    """The retry that sent a fix of main's held submission on the user's word (Decision 11), standing for its launch:
-    the newest retry of its submission, unless the runner that took the launch (reads, by host; taken) answered it
-    refused; None while none stands. One whose runner crew can't read or tell stands, so no send is made twice on a
-    reading crew lacks (read.1)."""
-    n = launch.get("Request")
-    sent = next((r for r in reversed(requests) if r.get("Act") == "retry" and r.get("Of") == n and r.get("Submission") == "yes"), None)
-    reading = taken(reads, number(n))[0] if sent is not None else None
+    """The land that carries the user's send of a fix of main's row (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 5), standing for its launch: the newest land of it (lands_of), unless the runner that took the launch
+    (reads, by host; taken) answered it refused; None while none stands. One whose runner crew can't read or tell
+    stands, so no send is carried twice on a reading crew lacks (read.1); which lands are due is lands_due's."""
+    lands = lands_of(requests, launch)
+    sent = lands[-1] if lands else None
+    reading = taken(reads, number(launch.get("Request")))[0] if sent is not None else None
     answer = reading["answers"].get(number(sent.get("Request"))) if reading else None
     return None if answer is not None and answer.get("Outcome") == "refused" else sent
-
-
-def send_refusal(work, launch, s, sent):
-    """Why crew main fix <kit> <name> --send appends no retry of a fix of main's submission (Decision 11, state.3), or
-    None to send it: no launch of it stands; the user's send of it was made already (sent_of), which the runner acts
-    on, so it is not made twice; crew can't tell its stage (read.1); or its place is not one whose code has delivered
-    and whose submission waits held, the one a send submits. s, its stage (piece_stage)."""
-    if launch is None:
-        return f"no launch of {work} stands in requests.rec, so there is no fix of main to send"
-    if sent is not None:
-        return (f"{work} was sent on the user's word by request {sent.get('Request')}, which the runner that took it acts "
-                "on, so it is not sent twice")
-    if s["stage"] == "unknown":
-        return f"can't tell whether {work}'s submission waits held, so it is not sent: {s['why']}"
-    if s["stage"] in ("waits", "stalled") and s.get("held"):
-        return None
-    return (f"{work}'s place{' ' + s['place'] if s.get('place') else ''} is {stage_said(s)}, and a fix of main is sent only once "
-            "its code has delivered and its submission waits held")
 
 
 def main_fixes_waiting(requests, reads):
     """Each fix of main a kit's landings row carries (Decision 11; crew-rail "A fix of main waits to land on its kit's
     row"): those whose launch stands and whose code has delivered with its submission waiting held, their stage read
     from the runner that took them (reads, by host; taken, piece_stage), in requests.rec's order, each {kit, name, host,
-    brief, since, carried, sent}: kit, the kit its launch's Repo names; since, when Flume read it waiting, in seconds,
-    or None; carried, when the runner carried that status; sent, the number of the request that sent it on the user's
-    word (sent_of), None while it waits on that word. One crew can't read is left off, as a bolt whose stage crew can't
+    brief, since, carried, head, launch, sent}: kit, the kit its launch's Repo names; since, when Flume read it waiting,
+    in seconds, or None; carried, when the runner carried that status; head, the head Flume's status names its place
+    at, or None; launch, its launch's number; sent, the number of the land that carries the user's send of it (sent_of),
+    None while it waits on that send. One crew can't read is left off, as a bolt whose stage crew can't
     read is, being in no state it can tell to send (read.1)."""
     out = []
     for l in standing(requests):
@@ -1091,8 +1422,9 @@ def main_fixes_waiting(requests, reads):
         reading = taken(reads, number(l.get("Request")))[0]
         place, sent = reading["places"][number(l.get("Request"))], sent_of(requests, reads, l)
         _, _, kit, name = work.split("/", 3)
+        f = flume_facts(place["status"], place["place"])
         out.append(dict(kit=(l.get("Repo") or kit).split("/")[-1], name=name, host=reading["host"], brief=l.get("Brief") or "",
-                        since=flume_facts(place["status"], place["place"])["waiting_since"], carried=place["at"],
+                        since=f["waiting_since"], carried=place["at"], head=f["head"], launch=number(l.get("Request")),
                         sent=number(sent.get("Request")) if sent is not None else None))
     return out
 

@@ -1574,7 +1574,7 @@ TURN_OWN = {
     "reviewer": " A batch asked of you names the file its summary goes to; once each batch your turn took has its summary "
                 "written, run `{{TEAM_CMD}} review delivered`, which records it, raises its card in the planner's name and "
                 "asks the planner.",
-    "main-ops": " From your run, `{{TEAM_CMD}} bolt submit` returns once each bolt is queued: how each landing ends "
+    "main-ops": " You run nothing for a landing: crew carries the user's send to the runner, and how each landing ends "
                 "reaches your next run as an ask when it does not land, and the planner's and the design agent's when it "
                 "does.",
     "planner": " `{{TEAM_CMD}} review {{LABEL}}` asks the reviewer a batch where it runs as its kind, and its delivery "

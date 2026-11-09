@@ -258,17 +258,6 @@ EOF
   echo "$r"
 }
 
-# pull <owner/name> <branch> <draft: true|false>: an open pull request from the branch into main on GitHub, as
-# sluice's landing opens one, in the stub gh's file; prints its number
-pull() {
-  local f=$T/gh-pulls.json; [[ -e $f ]] || echo '[]' > "$f"
-  jq --arg repo "$1" --arg head "$2" --argjson draft "$3" \
-    '. + [{repo: $repo, number: (length + 1), head: $head, base: "main", state: "open", isDraft: $draft}]' "$f" > "$f.new" &&
-    mv "$f.new" "$f" && jq 'length' "$f"
-}
-# drafted <number>: whether the stub gh holds that pull request a draft, true or false
-drafted() { jq -r --argjson n "$1" '.[] | select(.number == $n) | .isDraft' "$T/gh-pulls.json"; }
-
 # clone <owner/name> <dir>: a checkout of a bare remote, as a session's space keeps it
 clone() { git clone -q "$(remote "$1")" "$2"; }
 
@@ -372,8 +361,28 @@ EOF
 }
 # landed_status <place> <commit>: Flume's status of a place whose work has landed at the commit, as runner_writes takes it
 landed_status() { printf '{"status":{"places":[{"place":"%s","phase":{"over":{"over":{"landed":{"commit":"%s"}}}},"current":"verify","stages":[]}]}}' "$1" "$2"; }
-# request_of <work>: the number of the newest launch of the work (unit/<u>, chore/<c>, fix/<bolt>/<name>) in requests.rec
+# request_of <work>: the number of the newest launch of the work (unit/<u>, chore/<c>, fix/<bolt>/<name>, bolt/<bolt>)
+# in requests.rec
 request_of() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'launch' && Work = '$1'" -P Request | tail -1; }
+# base_status <place> <phase JSON> <submission JSON> [<waiting_on JSON>]: Flume's status of a bolt's base place, as
+# flume 0.17.0 shapes it (tests/py/flume-0.17.0/README)
+base_status() {
+  printf '{"status":{"places":[{"place":"%s","kind":"bolt","identity":"crew/bolt@1","lands":true,"phase":%s,"stages":[],"current":null,"submission":%s,"waiting_on":%s}],"host":{}}}' \
+    "$1" "$2" "$3" "${4:-null}"
+}
+# BASE_LIVE: a live base place's submission, none read yet
+BASE_LIVE='{"read":"none","submits":0,"send_backs":0,"verdict":null,"waiting":null,"held":false}'
+# base_made <host> <bolt> [<kit checkout>]: what the runner on <host> does with a bolt's base place's launch
+# (crew-lands-each-bolt-through-flumes-base-place, Decision 2): Flume launches it, which has sluice make bolt/<bolt>
+# from main on GitHub, and the runner carries its status live; the kit's checkout ($k unless named) fetches it, as the
+# fleet's timer does
+base_made() {
+  local d=${3:-$k} r
+  r=$(git -C "$d" remote get-url origin); r=${r#file://}; [[ -d $r ]] || r=$r.git  # the bare remote GitHub's address stands for
+  git --git-dir "$r" update-ref "refs/heads/bolt/$2" "$(git --git-dir "$r" rev-parse refs/heads/main)"
+  git -C "$d" fetch -q origin
+  runner_writes "$1" "$(request_of "bolt/$2")" "/flume/places/bolt--$2" "$(base_status "/flume/places/bolt--$2" '"live"' "$BASE_LIVE")"
+}
 # flume_lands <host> <unit|chore> <name> <bolt> [<file>]: what Flume does with a launched unit or chore once it has
 # built: its place, cut from the bolt on GitHub, commits its work, a unit's change written and archived and a chore's
 # commit carrying its trailer, and submits it to the bolt through sluice, which lands it there as a merge commit

@@ -5,18 +5,13 @@
 
 The request is JSON: {"kits": [{"main": <kit's main checkout>, "dir": <the kit's folder>, "bolts": [<bolt>, ...],
 "fetch": <true to fetch the kit's GitHub, its origin, before reading it, never given for the runner's clone, which crew
-fetches nothing in>,
-"queued": <the host's follower's [submissions, why] of the kit's queue,
-read from its overview watch, in place of running sluice>, "decided": <with queued, the follower's [submissions, why]
-of those it kept of the asked bolts and saw decided>}],
+fetches nothing in>}],
 "sites": <true to also read each worktree's dev server names with devurl, and the host's running portless routes>,
 "board": <true to also read the explorations on the kit's main>,
 "stamped": <true to also give each kit's stamp, taken before it is read>,
 "stamp": <true to give each kit's stamp alone and read nothing else: the host's follower's check that nothing moved,
 answered {"kits": {<main>: <stamp>}, "readings": <the stamp of the card readings folders of the partitions named>}>,
 "labels": <with stamp, the partitions whose card readings folders on the host to stamp>,
-"overview": <with stamp, the main checkouts whose sluice overview to read once, answered "overviews": {<main>:
-[<document>, <why it can't be read>]}>,
 "routes": <with stamp, true to read the host's portless routes too, answered "routes">}.
 The answer, on stdout, is JSON keyed by each kit's main checkout: the changes main holds (open or archived) and the
 chores its history holds (each `Chore:` trailer's name), and for each local bolt/* branch, and each bolt asked for,
@@ -29,15 +24,12 @@ why they can't be read (landings_error); each place under <dir>/places with its 
 its planning is complete, read from the change archived there once its merge has archived it; each chore's place,
 <dir>/places/chore-<name> on chore/<name>, with its bolt,
 head, head's time and how many commits of its own it holds beyond the bolt; the kit's
-policy, its main's .config/sluice.toml as text; each bolt's verdict, the Sluice-Result trailer on its head when
-sluice landed it, and, for a head sluice landed beside its queue with nothing run, sluice's record of that submission,
-read by one `sluice status <n> --json`, which names the verdict that covers it (landing_read); and, for a kit the request asks bolts of, the submissions standing in sluice's queue (submissions)
-and those its branches' recent events name decided (decided), read from one `sluice overview --json`, or each and
-why it can't be read; with the follower's queue handed in (queued, and its kept decided submissions, decided) it runs
-no sluice for its queue, and it never reads sluice's record of a branch's submissions. With sites, each worktree's devurl names and the host's
+policy, its main's .config/sluice.toml as text. It runs no sluice and reads nothing of sluice's queue or records: a
+bolt's verification and each piece's submission are read from the runner's report (crew record 0056 points 1 and
+4). With sites, each worktree's devurl names and the host's
 portless routes; with board, each
 folder under openspec/explorations/ on main with the first line of its first .md file. It reads with git, the file
-system, devurl, portless and sluice and, for a change whose workflow it does not read itself, openspec, and changes
+system, devurl and portless and, for a change whose workflow it does not read itself, openspec, and changes
 nothing.
 It needs nothing but python3's standard library, since it is sent to hosts whose crew may be older."""
 import datetime, fnmatch, hashlib, json, os, re, subprocess, sys, tomllib
@@ -295,50 +287,6 @@ def head_at(cwd, ref):
     return (run(["git", "log", "-1", "--format=%cI", ref], cwd) or "").strip() or None
 
 
-# The trailers sluice writes on a landing commit (sluice record 0006, clause 23): its verdict, the submission it landed
-# and the combination tested for it, which every landing through sluice's queue names and a landing beside the queue,
-# with nothing run, never does (sluice clause 140, core.39; sluice-core text.rs, landing_message and beside_message,
-# read at v0.68.1 and v0.69.0).
-LANDING_TRAILERS = ("Sluice-Result", "Sluice-Submission", "Sluice-Tested")
-
-# The fields crew reads of sluice's record of a submission landed beside its queue, as `sluice status <n> --json` prints
-# it (sluice-core records.rs Submission, read at v0.69.0): covered_by, {at, result, ran, replayed}, the verdict that
-# covers the revision it landed on, which sluice records from 0.69.0 on (sluice record 0083) and before it never.
-BESIDE_FIELDS = ("id", "branch", "state", "landed_as", "beside", "covered_by")
-
-
-def landing_read(main, ref):
-    """sluice's verdict on the landing at a bolt's head (ref), read in the kit's main checkout, as (verdict, beside):
-    verdict its Sluice-Result trailer, "" when the head is no landing of sluice's; beside None but for a head that names
-    a submission and no combination tested, a landing beside sluice's queue with nothing run, for which it is sluice's
-    record of that submission, where sluice names the verdict that covers the landing (sluice clause 140, record 0083):
-    {"submission": the number its Sluice-Submission names, "record": the record's BESIDE_FIELDS, or None, "why": why the
-    record can't be read, or None}, read by one `sluice status <n> --json` (sluice core.11), and never from the
-    trailer's words, which name it too (read.2)."""
-    out = run(["git", "log", "-1", "--format=" + "%x00".join(f"%(trailers:key={k},valueonly)" for k in LANDING_TRAILERS), ref], main)
-    result, submission, tested = ([p.strip() for p in (out or "").split("\0")] + ["", "", ""])[:3]
-    if not result or not submission or tested:
-        return result, None
-    if not submission.isdigit():
-        return result, {"submission": submission, "record": None,
-                        "why": f"its Sluice-Submission, {submission!r}, is no number sluice's record can be asked for"}
-    what = f"sluice status {submission}"
-    ran, why = sluice_ran(main, ["status", submission, "--json"], what)
-    doc = None
-    if ran is not None:
-        code, said, err = ran
-        if code:
-            why = sluice_said(what, code, said, err)
-        else:
-            try:
-                doc = json.loads(said)
-            except ValueError:
-                pass
-            why = None if isinstance(doc, dict) else f"{what} printed no record"
-    record = {k: doc.get(k) for k in BESIDE_FIELDS} if isinstance(doc, dict) and not why else None
-    return result, {"submission": submission, "record": record, "why": why}
-
-
 # A change's tasks and whether its planning is complete, read from its files by openspec 1.14.1's own rules for its
 # spec-driven schema (dist/utils/task-progress.js, dist/core/artifact-graph, dist/utils/change-metadata.js), so
 # neither needs openspec started. tests/t-stage-facts.sh holds this reading to openspec's on the same worktrees.
@@ -578,8 +526,9 @@ def stamp(req):
     """A kit's stamp, what moves whenever anything kit() reads of it moves, read with os.stat and os.scandir alone so a
     check that nothing moved starts no process (plan.12): the size and time of every file of the kit's git folder the
     gather reads through git (HEAD, packed-refs, config, every loose ref, each worktree's HEAD and gitdir), of every file
-    of each unit's place's change folder and its archive and openspec config, hashed to one value. It reads nothing under the git folder's sluice/: a kit's queue is its overview's to say (sluice
-    ADR 0023), followed by the host's follower. None when a file it reads can't be read (read.1); a kit with no checkout
+    of each unit's place's change folder and its archive and openspec config, hashed to one value. It reads nothing under
+    the git folder's sluice/: a submission's move is in its runner's report, which the host's follower reads (crew
+    record 0056 points 1 and 4). None when a file it reads can't be read (read.1); a kit with no checkout
     stamps as such, and its gather says so."""
     main, kdir = req["main"], os.path.realpath(req["dir"])
     seen = Seen()
@@ -679,178 +628,9 @@ def readings_stamp(labels):
     return seen.digest()
 
 
-SLUICE_ANSWER = 15  # seconds the gather gives sluice overview to answer
-
-
-def overview(main):
-    """sluice's overview of a kit's queue, read in its main checkout on this host: `sluice overview --json`, sluice's
-    one contract for a reader (sluice ADR 0023), as (its document, None), or (None, why) when sluice is not on the
-    host, fails, prints no JSON, or does not answer within SLUICE_ANSWER seconds (read.1)."""
-    ran, why = sluice_ran(main, ["overview", "--json"], "sluice overview")
-    if why:
-        return None, why
-    code, out, err = ran
-    if code:
-        return None, sluice_said("sluice overview", code, out, err)
-    try:
-        return json.loads(out), None
-    except ValueError:
-        return None, "sluice overview printed no JSON"
-
-
-def sluice_ran(main, args, what):
-    """A sluice command run in a kit's main checkout on this host, as ((exit, stdout, stderr), None), or (None, why)
-    when sluice is not on the host, can't be run, or does not answer within SLUICE_ANSWER seconds (read.1); what names
-    the command in why."""
-    try:
-        r = subprocess.run(["sluice", *args], cwd=main, capture_output=True, text=True, timeout=SLUICE_ANSWER)
-    except FileNotFoundError:
-        return None, "this host has no sluice on its path"
-    except subprocess.TimeoutExpired:
-        return None, f"{what} did not answer within {SLUICE_ANSWER} seconds"
-    except OSError as e:
-        return None, f"{what} could not run: {e}"
-    return (r.returncode, r.stdout, r.stderr), None
-
-
-def sluice_said(what, code, out, err):
-    """Why a sluice command failed, in its words: sluice says why as {"error": {"message": ...}} under --json, clap on
-    standard error."""
-    try:
-        said = json.loads(out)["error"]["message"]
-    except (ValueError, TypeError, KeyError):
-        said = next((l.strip() for l in (err or "").splitlines() if l.strip()), "")
-    return f"{what} exited {code}" + (f": {said}" if isinstance(said, str) and said else "")
-
-
-def queue(main):
-    """The submissions standing in sluice's queue for a kit, read in its main checkout on this host (teams.22, record
-    0046 part 2): its overview, read by submissions_of; (None, why) when it can't be read (overview, read.1)."""
-    doc, why = overview(main)
-    return (None, why) if why else submissions_of(doc)
-
-
 def text(v):
     """A field that is text, else None, so a missing or mistyped value never becomes text (read.2)."""
     return v if isinstance(v, str) and v else None
-
-
-def overview_branches(doc):
-    """The branches a sluice/overview@1 document holds, (list, None), or (None, why) for a document of another schema
-    or one that holds no list of them (read.1)."""
-    schema = doc.get("schema") if isinstance(doc, dict) else None
-    if schema != "sluice/overview@1":
-        return None, (f"sluice overview printed {schema}, not the sluice/overview@1 crew reads" if isinstance(schema, str)
-                      else "sluice overview printed no schema, where crew reads sluice/overview@1")
-    if not isinstance(doc.get("branches"), list):
-        return None, "sluice overview's sluice/overview@1 holds no list of branches"
-    return doc["branches"], None
-
-
-def submissions_of(doc):
-    """The submissions a sluice/overview@1 document holds standing (sluice 0.51.3: each branch's submissions still in a
-    chain, as `sluice status <id> --json` prints each), as ([{id, branch, head, state, worktree, pull_head, submitted,
-    started}], None): worktree the branch it came from or pull/<n>, pull_head the branch a pull request was opened from,
-    submitted when it was submitted, and started when the checks of the candidate testing it began, from its branch's
-    candidates, None while none tests it; every field guarded so a missing or mistyped one is None, never text
-    (read.2), and one with no number or branch left out. (None, why) for a document of another schema."""
-    branches, why = overview_branches(doc)
-    if why:
-        return None, why
-    out = []
-    for b in branches:
-        subs = b.get("submissions") if isinstance(b, dict) else None
-        cands = b.get("candidates") if isinstance(b, dict) and isinstance(b.get("candidates"), list) else []
-        started = {n: text(c.get("started")) for c in cands if isinstance(c, dict) and c.get("state") == "testing"
-                   and isinstance(c.get("submissions"), list) for n in c["submissions"]}
-        for x in subs if isinstance(subs, list) else []:
-            if not isinstance(x, dict):
-                continue
-            n, branch = x.get("id"), text(x.get("branch")) or text(b.get("branch"))
-            if not isinstance(n, int) or isinstance(n, bool) or not branch:
-                continue
-            frm = x.get("from") if isinstance(x.get("from"), dict) else {}
-            out.append({"id": n, "branch": branch, "head": text(x.get("head")), "state": text(x.get("state")),
-                        "worktree": text(frm.get("worktree")), "pull_head": text(frm.get("head")),
-                        "submitted": text(x.get("submitted")), "started": started.get(n)})
-    return out, None
-
-
-def decided_in(doc):
-    """The submissions a sluice/overview@1 document names decided, from each branch's recent events, the last ten
-    landed, blamed and conflict events of its log (sluice ADR 0023), as ([{id, branch, worktree, pull_head, event,
-    decided, submitted, started}], None): each number an event names, as its list (ids, sluice 0.56.0) or its one id
-    (sluice 0.51.3), on the event's branch, worktree the place it came from (the branch's recent_from, pull/<n> for a
-    pull request), event what was decided and decided the event's time; pull_head, submitted and started None, since an
-    event gives none. Every field guarded so a missing or mistyped one is None, never text (read.2), a number that is no
-    number and an event on no branch left out; (None, why) for a document of another schema (overview_branches)."""
-    branches, why = overview_branches(doc)
-    if why:
-        return None, why
-    out = []
-    for b in branches:
-        branch = text(b.get("branch")) if isinstance(b, dict) else None
-        if not branch:
-            continue
-        frm = b.get("recent_from") if isinstance(b.get("recent_from"), dict) else {}
-        for ev in b.get("recent") if isinstance(b.get("recent"), list) else []:
-            if not isinstance(ev, dict):
-                continue
-            for n in ev["ids"] if isinstance(ev.get("ids"), list) else [ev.get("id")]:
-                if isinstance(n, int) and not isinstance(n, bool):
-                    out.append({"id": n, "branch": branch, "worktree": text(frm.get(str(n))), "pull_head": None,
-                                "event": text(ev.get("event")), "decided": text(ev.get("at")), "submitted": None, "started": None})
-    return out, None
-
-
-def decided_of(doc):
-    """Every submission a `sluice status <branch> --all --json` document holds (sluice 0.51.3's record of a branch, each
-    a sluice/submission@1, the decided among them, standing or not), as the landing reads it once on the team's host
-    (plan.history_read), as ([{id, branch, head, state, submitted, told, worktree, pull_head}], None): told when sluice
-    told its outcome, or, for one withdrawn and never told, when it was withdrawn; sluice's record keeps no time a
-    decided submission's checks began. Every field guarded so a missing or
-    mistyped one is None, never text (read.2), and one with no number or branch left out; (None, why) for a document
-    that holds no list of submissions, or a record of another schema."""
-    subs = doc.get("submissions") if isinstance(doc, dict) else None
-    if not isinstance(subs, list):
-        return None, "sluice status printed no list of submissions"
-    out = []
-    for x in subs:
-        if not isinstance(x, dict):
-            continue
-        schema = x.get("schema")
-        if schema is not None and schema != "sluice/submission@1":
-            return None, f"sluice status printed a record of {schema}, not the sluice/submission@1 crew reads"
-        n, branch = x.get("id"), text(x.get("branch")) or text(doc.get("branch"))
-        if not isinstance(n, int) or isinstance(n, bool) or not branch:
-            continue
-        frm = x.get("from") if isinstance(x.get("from"), dict) else {}
-        gone = x.get("withdrawn") if isinstance(x.get("withdrawn"), dict) else {}
-        out.append({"id": n, "branch": branch, "head": text(x.get("head")), "state": text(x.get("state")),
-                    "submitted": text(x.get("submitted")), "told": text(x.get("told")) or text(gone.get("at")),
-                    "worktree": text(frm.get("worktree")), "pull_head": text(frm.get("head"))})
-    return out, None
-
-
-def status_read(branch, code, out, err):
-    """What `sluice status <branch> --all --json` printed, its exit and its standard output and error, read as
-    decided_of reads its document: (submissions, None), [] for a branch sluice holds no record of yet, which sluice
-    0.51.3 refuses as not_found (a bolt given and nothing submitted to it), or (None, why) in sluice's words (read.1). A
-    decision on plain facts, the landing's one read of sluice's record (plan.history_read)."""
-    if code:
-        try:
-            error = json.loads(out)["error"]
-        except (ValueError, TypeError, KeyError):
-            error = None
-        said = error.get("message") if isinstance(error, dict) else None
-        if isinstance(said, str) and error.get("kind") == "not_found" and (said == f"no branch {branch}" or said.startswith(f"no branch {branch};")):
-            return [], None
-        return None, sluice_said(f"sluice status {branch}", code, out, err)
-    try:
-        doc = json.loads(out)
-    except ValueError:
-        return None, f"sluice status {branch} printed no JSON"
-    return decided_of(doc)
 
 
 def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False):
@@ -894,9 +674,6 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
                            "worktree": wt if at.get(wt) == f"bolt/{b}" else None,
                            "head": (run(["git", "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], main) or "").strip() or None if ref else None,
                            "head_at": head_at(main, ref) if ref else None,
-                           # sluice's verdict on the bolt's last landing: its head's trailer, empty when it is no landing,
-                           # and for a landing beside sluice's queue, sluice's record naming the verdict that covers it.
-                           **(dict(zip(("verdict", "beside"), landing_read(main, ref))) if ref else {"verdict": None, "beside": None}),
                            **({"error": why} if why else {})}
     # Each bolt's own line beyond main, read where it lives, every bolt GitHub holds among them (bolt_lines), and what
     # each bolt read carries of another's (carries, carried_bolts): a bolt never carries another bolt's work to main
@@ -926,27 +703,6 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
         elif branch.startswith("chore/") and os.path.basename(path) == f"chore-{branch[6:]}":
             bolt = bolt_of(ups.get(branch))
             out["chore_places"][branch[6:]] = dict(chore_place(path, bolt, reads.get(bolt)), branch=branch, bolt=bolt)
-    # What stands in sluice's queue, read once for a kit this host holds a bolt of (teams.22): each submission's number
-    # on its bolt's row, a queue that can't be read said there, never read as empty (read.1).
-    # The host's follower hands in what its overview watch of the kit last read (queued) and what it kept of each
-    # submission it saw decided (decided), so sluice is not run again; where it has none, the overview read here goes
-    # back with the answer, the document its new watch starts from. The decided are its time in the gate (plan.20),
-    # read from the overview alone: no gather reads sluice's record of a branch's submissions.
-    if req.get("bolts"):
-        if req.get("queued"):
-            subs, why = req["queued"]
-            decided, dwhy = req.get("decided") or (None, "the host's follower handed in its queue and nothing it kept of the decided")
-        else:
-            doc, why = overview(main)
-            subs, why = (None, why) if why else submissions_of(doc)
-            decided, dwhy = decided_in(doc) if doc is not None else (None, why)
-            if stamped and doc is not None:
-                out["overview"] = doc
-        out["submissions"], out["decided"] = subs, decided
-        if why:
-            out["submissions_error"] = why
-        if dwhy:
-            out["decided_error"] = dwhy
     if sites:
         out["sites"] = {path: devurl(path) for path, branch in at.items()
                         if os.path.dirname(path) in (places, os.path.join(kdir, "bolts")) and branch}
@@ -958,14 +714,12 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
 
 def read(request, running=None):
     """The answer to a request: with stamp, each kit's stamp alone by its main checkout and the stamp of the card readings
-    folders of the partitions it names, the follower's check that nothing moved, and, at its clock's tick, each named
-    kit's overview (overview, [document, why]) and the host's portless routes (routes) when asked; else, by each kit's
-    main checkout, each kit as kit() reads it, with stamped, the host's follower's, its stamp too, taken before the kit
-    is read, so anything that moves while it is read moves the stamp the follower next compares, and the overview it
-    read of the kit's queue (overview), which its watch of the kit starts from."""
+    folders of the partitions it names, the follower's check that nothing moved, and, at its clock's tick, the host's
+    portless routes (routes) when asked; else, by each kit's main checkout, each kit as kit() reads it, with stamped,
+    the host's follower's, its stamp too, taken before the kit is read, so anything that moves while it is read moves
+    the stamp the follower next compares. It runs no sluice."""
     if request.get("stamp"):
         return {"kits": {k["main"]: stamp(k) for k in request["kits"]}, "readings": readings_stamp(request.get("labels", [])),
-                **({"overviews": {m: list(overview(m)) for m in request["overview"]}} if request.get("overview") else {}),
                 **({"routes": routes()} if request.get("routes") else {})}
     out = {}
     for k in request["kits"]:

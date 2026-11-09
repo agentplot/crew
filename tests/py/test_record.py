@@ -57,6 +57,16 @@ class TestEmit:
         assert (e["Outcome"], e["Submission"], e["Head"], e["Base"]) == ("queued", "412", "a" * 40, "b" * 40)
         assert "Submission" in text.split("%allowed:", 1)[1].splitlines()[0].split()
 
+    def test_a_lands_request_is_kept_on_its_entry_and_read_back(self, here):
+        """run-record "A land crew posts is one entry naming its request"
+        (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the land crew posted on the user's send, on its
+        bolt.submit marked asked with the card and the head it ticked."""
+        record.emit("wldn", "bolt.submit", ["bolt/z"], Outcome="asked", Request="57", Card="req_1", Head="a" * 7)
+        text = next(here.glob("*.rec")).read_text()
+        e, = record.parse(text)
+        assert (e["Outcome"], e["Request"], e["Card"], e["Head"]) == ("asked", "57", "req_1", "a" * 7)
+        assert "Request" in text.split("%allowed:", 1)[1].splitlines()[0].split()
+
     def test_a_failed_deploys_words_of_what_the_user_does_are_kept_on_its_entry_and_read_back(self, here):
         record.emit("wldn", "ops.deploy", ["env/srv"], Head="a" * 40, Phase="end", Outcome="failed", Does="read the log; ask ops to offer it again")
         text = next(here.glob("*.rec")).read_text()
@@ -318,6 +328,16 @@ class TestTrace:
         moved = [entry("20261005T120000Z-mac-5-1", "2026-10-05T12:00:00Z", "chore.add", ["chore/bump", "queue/switchboard-kit"]),
                  entry("20261005T120100Z-mac-5-2", "2026-10-05T12:01:00Z", "chore.move", ["chore/bump", "bolt/b1"], ["queue/switchboard-kit"])]
         assert [e["Act"] for e in record.lineage(E + moved, "chore/bump")] == ["chore.add", "chore.move"]
+
+    def test_a_landings_line_says_its_outcome_request_and_submission_as_written(self):
+        """run-record "An entry an older crew wrote": crew events prints a bolt.submit an older crew queued with its
+        Submission, and one crew writes now with its Outcome and Request."""
+        old = entry("x", "2026-10-05T10:00:00Z", "bolt.submit", ["bolt/x"], Outcome="queued", Submission="355")
+        assert record.line(old).endswith("bolt/x  Outcome: queued, Submission: 355")
+        asked = entry("y", "2026-11-08T10:00:00Z", "bolt.submit", ["bolt/y"], Outcome="asked", Request="57", Card="req_1")
+        assert record.line(asked).endswith("bolt/y (card req_1)  Outcome: asked, Request: 57")
+        landed = entry("z", "2026-11-08T11:00:00Z", "bolt.submit", ["bolt/z"], Outcome="landed", Request="57", Submission="412")
+        assert record.line(landed).endswith("bolt/z  Outcome: landed, Request: 57, Submission: 412")
 
     def test_a_line_names_its_time_act_who_host_commit_objects_and_session_to_open(self):
         assert record.line(E[0], zoe=True) == ("10-05 10:00:00  capture       swb-2-conductor      chuck-herdr-alpha  aaaaaaa  signals/s/01-c"

@@ -382,7 +382,7 @@ class TestNoFetchInTheRunnersClone:
         assert crew.fetches_in(dict(self.FLEET, repositories={}), "deneb", "/v/agentplot/crew")
         assert crew.fetches_in(TestBeforeARunnerTookIt.FLEET, "deneb", "/v/agentplot/crew")
 
-    FETCHING = ("MAIN", "POLICY", "GIVE_READ", "LANDED", "CARRIES", "LAND_COPIES", "BOLT_CREATE")
+    FETCHING = ("MAIN", "CARRIES")
 
     def test_a_script_is_told_fetch_no_in_the_runners_clone_and_nothing_elsewhere(self):
         assert plan.fetch_told(self.FLEET, "deneb", "/v/agentplot/crew", plan.MAIN) == "fetch=no\n" + plan.MAIN

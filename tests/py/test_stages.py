@@ -176,12 +176,12 @@ class TestBuiltOnItsBolt:
         landed = self.stages(runners, main=["a"], bolt={"landings": LANDED})
         assert [landed.of(n)["stage"] for n in "ab"] == ["landed", "merged"]
 
-    def test_every_piece_merged_on_a_bolt_sluice_passed_reads_it_proven(self):
-        """bolt-plan "A unit whose work its bolt's branch holds is built": x's head is sluice's landing, passed, and
-        every piece is read merged from x's landings, so x waits to land (teams.16); with the runner's records alone
-        it stays active."""
+    def test_every_piece_merged_on_a_bolt_whose_head_is_its_last_landing_reads_it_proven(self):
+        """bolt-plan "A unit whose work its bolt's branch holds is built": x's head is chore c's landing, and every
+        piece is read merged from x's landings, so x is green (runner.verification) and waits to land (teams.16); with
+        the runner's records alone it stays active, its head no landing of its work that the runner reports."""
         from facts import ran
-        green = {"landings": LANDED, "verdict": "passed (35 run, 0 replayed)"}
+        green = {"landings": LANDED, "head": LANDED["chore/c"]["commit"]}
         st = self.stages(ran({2: "submitted"}), bolt=green)
         assert st.bolt_state(st.plan.bolt("x")) == "waits"
         st = self.stages(ran({2: "submitted"}), bolt=dict(green, landings={}))
@@ -259,3 +259,71 @@ class TestABoltWhoseLaunchesWereAllRefused:
         runners = {**ran(refused={1: "the base bolt/x already holds a change named a"}), **ran({2: "code"}, host="alpha")}
         with pytest.raises(plan.Refusal, match="the runner on deneb took bolt x's work and has carried no place of it yet"):
             plan.bolt_at(self.FLEET, "madswan", p.bolt("x"), (requests, runners))
+
+
+class TestTheBoltsOwnRow:
+    """bolt-teams "A start run again launches a bolt whose launch the runner refused" and "A bolt started before bolts
+    were base places lands under the crew that started it" (crew-lands-each-bolt-through-flumes-base-place, Decisions 3
+    and 9): a started bolt's row reads its base place's launch as the runner answers it (plan.Stages.base,
+    runner.stage_of of bolt/<bolt>), unlaunched in the runner's words while it is not launched, live once Flume holds
+    it, and a started bolt with no launch of its own reads as started before bolts were base places."""
+    FLEET = madswan_fleet()
+
+    @pytest.fixture(autouse=True)
+    def writer(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
+
+    def stages(self, runners, base=True):
+        """x started, holding unit a: its base place's launch request 1 and a's request 2 (a's alone, request 1, without
+        base), with the partition's runners as given (facts.ran, deneb's)."""
+        w = FactsWrite(flume_plan([("x", None, None)], [("a", "x", [], "unit", [])]), label="madswan")
+        w.plan.bolt("x").set("Path", "flume")
+        if base:
+            act, work, given = runner.bolt_launch(w.plan, "x", "madswan")
+            plan.request(w, act, work, **given)
+        plan.reach_places(self.FLEET, w, "x")
+        requests = plan.Plan(w.files["requests.rec"]).recs("Request")
+        st = plan.Stages(self.FLEET, w.plan, crew_read(bolts={"x": {}}), runs={"madswan": (requests, runners)}, label="madswan")
+        return st, st.base(w.plan.bolt("x"))
+
+    def test_a_launch_no_runner_has_answered_is_unlaunched(self):
+        from facts import ran
+        _, b = self.stages(ran())
+        assert b == {"stage": "unlaunched"}
+        assert runner.base_said(b) == "its base place is unlaunched: no runner has answered its launch yet"
+
+    def test_a_launch_the_runner_refused_is_unlaunched_in_its_words_and_started_again_by_a_start(self):
+        """bolt-teams "A kind its host has not locked": x stays started and its row says the runner's words."""
+        from facts import ran
+        words = "flume refused the launch: crew/bolt@1 is not locked on deneb (flume kinds lock --host crew/bolt@1)"
+        _, b = self.stages(ran(refused={1: words}))
+        assert b == {"stage": "unlaunched", "words": words, "refused": True}
+        assert runner.base_said(b) == f"its base place is unlaunched: the runner refused its launch: {words}; crew bolt start runs it again"
+
+    def test_a_launch_the_runner_holds_is_unlaunched_in_its_words(self):
+        from facts import ran
+        _, b = self.stages(ran(held={1: "no room in stream madswan"}))
+        assert b == {"stage": "unlaunched", "words": "no room in stream madswan"}
+        assert runner.base_said(b) == "its base place is unlaunched: the runner holds its launch: no room in stream madswan"
+
+    def test_a_base_place_flume_holds_is_live_and_one_landed_names_its_commit(self):
+        from facts import ran
+        _, b = self.stages(ran({1: "flume-0.17.0/bolt-submitted"}))
+        assert (b["stage"], runner.base_said(b)) == ("live", "")
+        _, b = self.stages(ran({1: "flume-0.17.0/bolt-landed"}))
+        assert (b["stage"], b["commit"]) == ("landed", "a7c3e9f1b2d4c6e8a0b1c3d5e7f9a1b3c5d7e9f0")
+
+    def test_a_started_bolt_with_no_launch_of_its_own_was_started_before_bolts_were_base_places(self):
+        from facts import ran
+        _, b = self.stages(ran({1: "code"}), base=False)
+        assert b == {"stage": "legacy", "words": "x was started before bolts were base places and lands under the crew that started it"}
+        assert runner.base_said(b) == b["words"]
+
+    def test_runners_crew_cant_read_leave_it_unknown_naming_why(self):
+        from facts import ran
+        w = FactsWrite(flume_plan([("x", None, "flume")], [("a", "x", [], "unit", [])]), label="madswan")
+        st = plan.Stages(self.FLEET, w.plan, crew_read(bolts={"x": {}}), runs={"madswan": "recfix refused requests.rec"}, label="madswan")
+        b = st.base(w.plan.bolt("x"))
+        assert b["stage"] == "unknown" and runner.base_said(b) == (
+            "can't tell its base place: crew can't read madswan's requests or runners: recfix refused requests.rec")
+        assert st.base(FactsWrite(flume_plan([("y", None, None)]), label="madswan").plan.bolt("y")) is None

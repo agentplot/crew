@@ -73,6 +73,7 @@ commit_all "$w" "plan: by hand"; push_state "$w"
 flume_world
 keeps $box breadboard-kit "$bk"  # the box's runner keeps breadboard-kit beside switchboard-kit
 crew bolt start b1 >/dev/null; crew bolt start d1 >/dev/null
+base_made $box b1; base_made $box d1 "$bk"  # the box's runner launches each base place, which has sluice make its branch
 mkdir -p "$(space mac-studio willdan)/willdan-blueprints/main"
 crew main up wldn >/dev/null 2>&1
 # A batch every two changes. The runner's records carry each place at 12:01Z on 2026-10-31, so the partition's clock is
@@ -181,6 +182,7 @@ ok "a batch card's one session reads the summary and every unit's change, archiv
 # m1 is started, its work taken by mac-studio's runner, which keeps atlas-kit, and z1's place lands on it there.
 keeps mac-studio atlas-kit "$ak"
 crew bolt start m1 >/dev/null
+base_made mac-studio m1 "$ak"
 k=$ak flume_lands mac-studio unit z1 m1
 z1at=$(git -C "$ak" rev-parse origin/bolt/m1)
 

@@ -1388,7 +1388,7 @@ class TestLanding:
         c = landing()["card"]
         assert c["summary"] == ("6 units land, every one merged and every unit read in a batch (6 and 7). sluice is green at "
                                 "4581216 since 14:02, its pull request #23 linked below. main has moved 1 landing since the bolt was cut.")
-        assert c["rationale"] == ("After it lands: main-level ops lands it through sluice and every host takes it; srv's deploy "
+        assert c["rationale"] == ("After you approve: crew asks the runner to land it, Flume submits it through the merge queue, and every host takes it once it lands; srv's deploy "
                                   "will be offered on a card.")
         assert c["context"]["background"].startswith("Read in its batches:\nbatch 6: 4 units\nbatch 7: 2 units\n\nA note naming a defect")
 
@@ -1603,8 +1603,8 @@ class TestLandings:
         assert c["questions"][1]["recommendedIds"] == ["land:b5", "land:b6", "land:b7"]
 
     def test_several_lists_each_carry_what_follows_a_yes_and_the_card_carries_no_rationale(self):
-        then = ("After they land: main-level ops lands them through sluice in this order, closing each as it lands, "
-                "and every host takes them.")
+        then = ("After you send: crew asks the runner to land them in this order, Flume submits each through the merge queue, "
+                "each closed as it lands, and every host takes them.")
         c = landings(7)["card"]
         assert "rationale" not in c
         assert [q["rationale"] for q in c["questions"]] == [then, then]
@@ -1620,11 +1620,11 @@ class TestLandings:
 
     STOP = ("abc1234def", "sluice itself failed (could not release try/1a2b3c4, whose worktree no longer exists)")
     STOPPED = ("Its last landing at abc1234 was stopped, nothing of the bolt's: sluice itself failed (could not release "
-               "try/1a2b3c4, whose worktree no longer exists). wldn-ops submits it again once that is cleared.")
+               "try/1a2b3c4, whose worktree no longer exists). Your send of it is spent: ticked again, it lands on this send.")
 
     def test_one_row_stopped_says_so_on_its_face_and_keeps_its_approval(self):
-        """rail-cards "A landing sluice or its host stopped keeps its box": the one row's card is today's approve, its
-        summary saying what stopped its last landing at its head and who submits it again."""
+        """rail-cards "A landing the runner or Flume stopped keeps its box": the one row's card is today's approve, its
+        summary saying what stopped its last landing at its head and that the send of it is spent."""
         b = built.landings_card(dict(kit="crew", rows=[landings_row("b1", stopped=self.STOP)], ops="wldn-ops"))
         c = b["card"]
         assert c["kind"] == "approve" and self.STOPPED in c["summary"] and b["heads"] == ["b1@abc1234"]
@@ -1658,8 +1658,8 @@ class TestLandings:
         assert (c["kind"], c["highStakes"], c["recommendedIds"]) == ("multi", True, ["land:y"])
         assert [o["id"] for o in c["options"]] == ["land:y", "land:z"]
         assert c["options"][1]["detail"].startswith("Takes main first: forecast to conflict with main on README.md at e4f5a6b")
-        assert c["options"][1]["consequence"] == ("Ticked, it lands once a fix on it has taken main in and sluice has proven "
-                                                  "it, your send standing through it.")
+        assert c["options"][1]["consequence"] == built.TAKING_TICKED == (
+            "Ticked, it lands once a fix on it has taken main in and it reads proven at its new head, your send standing through it.")
         assert b["heads"] == ["y@abc1234", "z@abc1234:main"]
         assert "z takes main first, and is unticked." in c["summary"]
         face = "\n".join(c["artifacts"][0]["lines"])

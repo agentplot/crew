@@ -94,10 +94,10 @@ _made wldn a
 _batch-card wldn 1
 _land-row wldn tenant-environments
 _land-card wldn switchboard-kit
-_landing-read wldn tenant-environments
 _release
 main up wldn
 main fix switchboard-kit red "main is red"
+main fix switchboard-kit red --send
 review wldn --wait
 review delivered
 revive
