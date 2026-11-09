@@ -1,7 +1,8 @@
-# The crew-flake spec's settings: deneb's four partitions, in the order and
+# The crew-flake spec's settings: deneb's four drives, in the order and
 # with the values of deneb's ~/.config/crew/teams.json read 2026-11-07,
-# which nix/tests/files/deneb.json holds byte for byte; and `runner`, the
-# same partitions with crew's and swancloud's kept repositories at the
+# each named by its label alone as version 6 holds them, which
+# nix/tests/files/deneb.json holds byte for byte; and `runner`, the
+# same drives with crew's and swancloud's kept repositories at the
 # runner's container and view record 0060 lays out, which
 # nix/tests/files/runner.json holds byte for byte.
 let
@@ -33,10 +34,9 @@ rec {
   };
 
   deneb = {
-    partitions = [
+    drives = [
       {
         label = "afterthought";
-        partition = "personal";
         blueprints = [ "afterthought/blueprints" ];
         state = "afterthought/crew-state";
         machine = "deneb";
@@ -46,7 +46,6 @@ rec {
       }
       {
         label = "agentplot";
-        partition = "agentplot";
         blueprints = [ "agentplot/blueprints" ];
         state = "afterthought/crew-state";
         machine = "deneb";
@@ -56,7 +55,6 @@ rec {
       }
       {
         label = "madswan";
-        partition = "business";
         blueprints = [
           "afterthought/blueprints"
           "agentplot/blueprints"
@@ -69,7 +67,6 @@ rec {
       }
       {
         label = "wldn";
-        partition = "clients/willdan";
         blueprints = [ "WilldanGroup/willdan-blueprints" ];
         state = "WilldanGroup/crew-state";
         machine = "chuck-herdr-alpha";

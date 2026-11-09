@@ -60,7 +60,7 @@ stdenvNoCC.mkDerivation {
   dontFixup = true;
   passthru = { inherit release; };
   meta = {
-    description = "crew: each partition's plan of bolts, its main level of Claude agents, and its bolts' work as Flume runs it";
+    description = "crew: each drive's plan of bolts, its main level of Claude agents, and its bolts' work as Flume runs it";
     homepage = "https://github.com/agentplot/crew";
     mainProgram = "crew";
     inherit platforms;

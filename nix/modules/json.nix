@@ -3,7 +3,7 @@
 # depth, lists included, then builtins.toJSON, which sorts each object's
 # keys and adds no space, with no newline after. That is what the fleet's
 # writer gives (swancloud's lib/herdr-published.nix `teamsJsonFor`), so for
-# the same partitions the module's file holds the same bytes, and the gate
+# the same drives the module's file holds the same bytes, and the gate
 # compares the text without building it.
 { lib }:
 let
