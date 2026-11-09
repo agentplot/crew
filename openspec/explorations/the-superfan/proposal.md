@@ -139,7 +139,12 @@ Reconciled, the runner's pass runs `millpond tick`, as it runs Flume's settle. T
 - crew may run no loop that wakes roles (`roles.7`).
 - The runner runs no housekeeping but the settle (Boomdrive `core.13`).
 
-A clock for those weeks is a stopgap, which the user chooses (principle 12): a timer of the fleet's on deneb, or a pass woken by hand (§10).
+**The clock for those weeks is a `/loop` in one Claude session** (the user's: "could we use /loop in a claude session?").
+- **What it is.** One session on deneb, started by the user or by ops on their word. Its `/loop` runs every four hours and only sends `flume wake agentplot/superfan-<tool>` for each of the four tools. It watches and reads nothing.
+- **What a pass stays.** Each pass stays its own fresh, bounded, read-only Flume session.
+- **Why `roles.7` holds.** The session only sends `flume wake`, as Pending You's wake mod does, and is no process of crew's.
+- **Its limits**, from Claude Code's scheduler: a job lives only in its session, a recurring one expires after 7 days, and it fires only while the session is idle and up to 30 minutes late. So whoever starts it restarts it each week and after any reboot, and a stopped loop shows only as the superfans' silence.
+- **What retires it.** It is no code anywhere, so nothing is retired but the session. The runner's tick replaces it (crew record 0063, decision 10).
 
 ## 5. The watch and the pass
 
@@ -235,7 +240,7 @@ Where the design and the build go:
 
 ## 9. The steps
 
-1. **The superfans**, recording with `crew signal` (crew record 0063): their kind, brief, settings and four addresses, woken as §10's first question settles.
+1. **The superfans**, recording with `crew signal` (crew record 0063): their kind, brief, settings and four addresses, woken every four hours by a `/loop` session (§4).
 2. **millpond's intake**, `land`, in agentplot/millpond, in the setup *with crew*, with crew's `state.1` amended for the inbox's writes. Then `run` and `tick`.
 3. **The runner's pass runs the tick** (Boomdrive record 0033). The passes become adapters on it, writing capture lines.
 4. **The watches**: each tool's adapter, and crew's reader command that wakes the tool's superfan.
@@ -243,13 +248,7 @@ Where the design and the build go:
 
 ## 10. What the user decides
 
-1. **What wakes the superfans until millpond's tick runs** (§4). This is a stopgap, named in its record with the change that retires it (principle 12). The options:
-   - a timer of the fleet's on deneb, one per superfan, running `flume wake agentplot/superfan-<tool>` every four hours, retired by step 3;
-   - a pass woken by hand, by the user or by ops on their word, until step 3;
-   - no superfan until step 3.
-
-   Recommended: the fleet's timer. A host's own timer is its service manager's (Boomdrive `core.13`), so no family tool gains code that step 3 removes.
-2. **Whether to take the design**: crew record 0063, Boomdrive record 0033 and the two amendments of millpond's statement, each proposed until the user says yes.
+**Whether to take the design**: crew record 0063, Boomdrive record 0033 and the two amendments of millpond's statement, each proposed until the user says yes, on the records' cards.
 
 ## Proposed amendments to millpond's statement
 
