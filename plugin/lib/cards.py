@@ -783,8 +783,10 @@ def landing_card(f):
     and before the pull request, as many as the card's artifacts leave room for (record 0031 §3).
     As the one row of its kit's landings card (landings_card), f also holds key, land/<kit>; forecast and
     forecast_why, as forecast_said takes them; held, [{bolt, why}], the bolts held on the card with no box; left,
-    whether the user cleared this bolt on their last send; and stopped and ops, its last landing at its head stopped by
-    sluice or its host and the ops who submits it again, which its summary says (stopped_said)."""
+    whether the user cleared this bolt on their last send; and stopped, its last landing at its head stopped by the
+    runner or Flume, nothing of the bolt's, which its summary says with the send it spent (stopped_said)."""
+    if f.get("fix"):
+        return fix_card(f)
     units, chores, batches = list(f["units"]), list(f.get("chores") or []), f.get("batches") or {}
     parts = ([plural(len(units), "unit")] if units else []) + ([plural(len(chores), "chore")] if chores else [])
     what = joined(parts) if parts else "nothing"
@@ -793,7 +795,7 @@ def landing_card(f):
     said = [] if approved is None else [  # the head moved after the user's answer and before the landing (plan.16)
         f"Its head moved since your approval, from {approved[:7]} to {head}: approving this lands {head}." if approved else
         f"Its head is now {head}, and crew holds no record of the head you approved: approving this lands {head}."]
-    if f.get("stopped"):  # its last landing at its head stopped by sluice or its host, which holds nothing
+    if f.get("stopped"):  # its last landing at its head stopped by the runner or Flume, which holds nothing
         said.append(stopped_said(f))
     said.append(f"{what[0].upper()}{what[1:]} {'lands' if len(units) + len(chores) == 1 else 'land'}, every one merged"
                 + (f" and every unit read in a batch ({joined([str(b) for b in read])})." if read else "."))
@@ -806,8 +808,8 @@ def landing_card(f):
     if "forecast" in f:  # a row of its kit's landings card (rail-cards "The landings card forecasts each row's conflicts")
         said.append(forecast_said(f["forecast"], f.get("forecast_why"), f.get("would_main")))
     offers = list(f.get("offers") or [])
-    then = ("After it lands: main-level ops lands it through sluice and every host takes it"
-            + (f"; {joined(offers)}'s deploy will be offered on a card." if offers else "."))
+    then = ("After you approve: crew asks the runner to land it, Flume submits it through the merge queue, and every host "
+            "takes it once it lands" + (f"; {joined(offers)}'s deploy will be offered on a card." if offers else "."))
     lands = text_list(f"What lands: {plural(len(units), 'unit') if units else 'no units'}, "
                       f"{plural(len(chores), 'chore') if chores else 'no chores'}", f"land-{f['bolt']}.txt",
                       units + [f"{c} (chore)" for c in chores])
@@ -845,6 +847,27 @@ def landing_card(f):
                  approve=high(f"Land {f['bolt']} on {f['kit']}'s main"), recommendedIds=["approve"], rationale=by_words(then, DETAIL))
 
 
+def fix_said(f):
+    """What a fix of main's row of its kit's landings card says (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 5): the failure it fixes, in the first line of its brief, that its code delivered at its head and its
+    submission waits held, and that the user's send of it is carried to the runner, which lands it."""
+    return (f"It fixes main's red: {(f.get('brief') or 'no words').rstrip('.')}. Its code delivered at {f['head'][:7]} and its "
+            "submission waits held: your send of it is carried to the runner, which lands it through the merge queue.")
+
+
+def fix_card(f):
+    """A kit's landings card whose one row is a fix of main (landings_card's approve form; Decision 5): an approval of
+    risk high, the fix's words on its face, its send the word to land it."""
+    held = list(f.get("held") or [])
+    said = [fix_said(f)] + ([f"Held, with no box: {joined([h['bolt'] for h in held])}."] if held else [])
+    background = f"A note on this card goes to main-level ops; it holds nothing of the fix."
+    shown = [text_list(f"What lands: fix {f['bolt']}", f"land-{f['bolt']}.txt", [f"{f['bolt']}: {f.get('brief') or ''}"])]
+    return built(f.get("key") or f"land/{f['kit']}", f"Land the fix {f['bolt']} on {f['kit']}'s main", " ".join(said),
+                 background, [], shown, f.get("follows"), head=f["head"], kind="approve", intent="approve",
+                 approve=high(f"Land {f['bolt']} on {f['kit']}'s main"), recommendedIds=["approve"],
+                 rationale=by_words("After it lands: crew asks the runner to land what you approved, and every host takes it.", DETAIL))
+
+
 def forecast_said(forecast, why=None, would=None):
     """What a row of a kit's landings card says of its forecast (rail-cards "The landings card forecasts each row's
     conflicts"): forecast, [(with, paths)] as plan.row_forecasts gives it, "main" or a bolt above it, paths None for one
@@ -867,11 +890,17 @@ def forecast_said(forecast, why=None, would=None):
     return " ".join(said)
 
 
+# What a tick on a row taking main first does (rail-cards "A send stands for a ticked bolt taking main in"): the send
+# stands through its take-main fix, and crew asks the runner to land it once it reads proven at its new head.
+TAKING_TICKED = ("Ticked, it lands once a fix on it has taken main in and it reads proven at its new head, your send standing "
+                 "through it.")
+
+
 def taking_said(r):
     """What a row of a kit's landings card taking main first says in place of its forecast (rail-cards "A row taking
     main first stays on the card"): r's taking, why it takes main first as plan.landing_rows words it, and what a tick
     on it does, which its send stands through (plan.send_stands)."""
-    return f"It {r['taking'].rstrip('.')}. Ticked, it lands once a fix on it has taken main in and sluice has proven it, your send standing through it."
+    return f"It {r['taking'].rstrip('.')}. {TAKING_TICKED}"
 
 
 def row_said(r):
@@ -894,6 +923,8 @@ def landings_form(n):
 def row_bits(r):
     """A landings row's counts, the batches its units were read in (None when none was), and sluice's verdict and when;
     it names no team or conductor (the-team-machinery-leaves)."""
+    if r.get("fix"):
+        return ("a fix of main", None, f"delivered at {r['head'][:7]}, its submission held")
     units, chores, batches = list(r["units"]), list(r.get("chores") or []), r.get("batches") or {}
     parts = ([plural(len(units), "unit")] if units else []) + ([plural(len(chores), "chore")] if chores else [])
     read = sorted({batches[u] for u in units if u in batches})
@@ -903,15 +934,16 @@ def row_bits(r):
 
 
 def stopped_said(r):
-    """What a landings row says of its last landing at its head when sluice or its host stopped it, nothing of the
-    bolt's (rail-cards "A landing sluice or its host stopped keeps its box"): r's stopped, (head, words), as
-    plan.landing_rows gives it, and r's ops, the main-level ops whose card it is, who submits it again once that is
-    cleared; "" when none was stopped."""
+    """What a landings row says of its last landing at its head when the runner or Flume stopped it, nothing of the
+    bolt's (rail-cards "A landing the runner or Flume stopped keeps its box";
+    crew-lands-each-bolt-through-flumes-base-place, Decision 7): r's stopped, (head, words), as plan.landing_rows gives
+    it, and that the send that ticked it is spent, so it lands again only on the user's next send; "" when none was
+    stopped."""
     if not r.get("stopped"):
         return ""
     head, words = r["stopped"]
     return (f"Its last landing at {head[:7]} was stopped, nothing of the bolt's: {words.rstrip('.')}. "
-            f"{r.get('ops') or 'Main-level ops'} submits it again once that is cleared.")
+            "Your send of it is spent: ticked again, it lands on this send.")
 
 
 def row_counts(r):
@@ -924,6 +956,8 @@ def row_paragraph(n, r):
     """A landings row on the card's face, as Markdown: its place and bolt, its units and chores one a line,
     its batches, sluice's verdict and when, how far main moved, its forecast, what stopped its last
     landing at its head (stopped_said), and its reading, preview and pull request as links."""
+    if r.get("fix"):
+        return f"**{n}. fix {r['bolt']}**\n\n{fix_said(r)}"
     units, chores = list(r["units"]), list(r.get("chores") or [])
     moved = r.get("moved") or 0
     lines = [f"**{n}. {r['bolt']}**"
@@ -997,11 +1031,11 @@ def landings_card(f):
         return {"id": f"land:{r['bolt']}", "label": cut(f"{i}. {r['bolt']}", LABEL),
                 "detail": by_words((f"{r['taking'][0].upper()}{r['taking'][1:].rstrip('.')}. " if r.get("taking") else
                                     "Left on your last send. " if r["left"] else "") + row_counts(r), DETAIL),
-                "consequence": by_words("Ticked, it lands once a fix on it has taken main in and sluice has proven it, your send standing through it." if r.get("taking") else row_said(r), DETAIL)}
+                "consequence": by_words(TAKING_TICKED if r.get("taking") else row_said(r), DETAIL)}
     options = [option(i, r) for i, r in enumerate(rows, 1)]
     ticked = [o["id"] for o, r in zip(options, rows) if not r["left"] and not r.get("taking")]
-    then = by_words("After they land: main-level ops lands them through sluice in this order, closing each as it lands, "
-                    "and every host takes them.", DETAIL)
+    then = by_words("After you send: crew asks the runner to land them in this order, Flume submits each through the merge "
+                    "queue, each closed as it lands, and every host takes them.", DETAIL)
     if form == "multi":
         shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": n}, recommendedIds=ticked,
                      rationale=then)

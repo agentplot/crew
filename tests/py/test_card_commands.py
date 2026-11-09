@@ -703,7 +703,7 @@ def test_a_landing_on_the_users_words_sends_them_answered_here_and_records_the_o
     in the conversation, Pending You sent the user's words, the run record the outcome alone (record.3); one the user
     also tapped is acked with the words."""
     landed = plan.landed_words("c" * 40, "24")
-    outcome, said = plan.pane_landed(landed, "wldn-ops", "2026-10-22T21:04:00Z", "Land swb-1's bolt")
+    outcome, said = f"Landed on the user's word in wldn-ops's pane; {landed}", f'Landed on the user\'s word in wldn-ops\'s pane, "Land swb-1\'s bolt"; {landed}'
     acts = Acts({"get_request": ({"status": "pending", "version": 1}, None)}, entries=HELD)
     assert plan.row_card_close(None, "wldn", "wldn-ops", "land/b1", outcome=outcome, acts=acts, said=said, here=True) == "req_c1"
     assert acts.calls[1] == ("cancel_request", {"requestId": "req_c1", "name": "wldn-ops", "reason": cards.cut(said, cards.OUTCOME),
@@ -750,7 +750,7 @@ def test_the_close_of_a_card_the_user_answered_records_what_they_answered_in_cre
     sent = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"], "note": "z after its fix"}}
     held = [post("land/crew", "swancloud-ops", "req_k1")]
     acts = Acts({"get_request": (sent, None)}, entries=held, caller="swancloud-ops")
-    plan.row_card_close(None, "swancloud", "swancloud-ops", "land/crew", outcome="Landing as you ticked: y.", acts=acts,
+    plan.row_card_close(None, "swancloud", "swancloud-ops", "land/crew", outcome="Asked of the runner as you ticked: y.", acts=acts,
                         offered=["land:y", "land:z"], Rows="1")
     assert (acts.emitted[0]["State"], acts.emitted[0]["Answer"], acts.emitted[0]["Rows"]) == ("closed", "ticked y, left z, with a note", "1")
     assert "after its fix" not in repr(acts.emitted)
@@ -765,7 +765,7 @@ def test_the_close_of_a_card_the_user_answered_records_what_they_answered_in_cre
 
 def test_a_card_closed_as_answered_in_its_owners_pane_records_the_pane_as_its_answer():
     landed = plan.landed_words("c" * 40, "24")
-    outcome, said = plan.pane_landed(landed, "wldn-ops", "2026-10-22T21:04:00Z", "Land swb-1's bolt")
+    outcome, said = f"Landed on the user's word in wldn-ops's pane; {landed}", f'Landed on the user\'s word in wldn-ops\'s pane, "Land swb-1\'s bolt"; {landed}'
     acts = Acts({"get_request": ({"status": "pending", "turn": "you", "version": 1}, None)}, entries=HELD)
     plan.row_card_close(None, "wldn", "wldn-ops", "land/b1", outcome=outcome, acts=acts, said=said, here=True)
     assert (acts.emitted[0]["State"], acts.emitted[0]["Answer"]) == ("closed", "answered in wldn-ops's pane")
@@ -1200,14 +1200,41 @@ def test_a_sent_landings_card_reads_the_ticked_bolts_in_its_order_and_the_submit
     heads = plan.card_heads("a@abc1234 b@abc1234 c@def5678")
     got = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:c", "land:a"], "note": {"text": "c first"}}}
     assert plan.landing_lines("swancloud", got, heads) == [
-        "  to land, in the card's order: a and c", "  lands them: crew bolt submit a c --label swancloud"]
+        "  to land, in the card's order: a and c", "  a: no land is posted for it yet: crew's next raise of the card posts it", "  c: no land is posted for it yet: crew's next raise of the card posts it"]
     assert "  note: c first" in cards.answer_lines("land/crew", "req_k1", got)
+
+
+def test_a_sent_landings_card_reads_each_land_crew_posted_with_its_request_and_no_command():
+    """rail-cards "The landings card's read prints the lands crew posted", "Two bolts sent": a and c ticked, b cleared,
+    crew's raise posting a's land as request 57 and c's as 58 (crew-lands-each-bolt-through-flumes-base-place,
+    Decision 10): each with its request, and no crew bolt submit or any command."""
+    heads = plan.card_heads("a@abc1234 b@abc1234 c@def5678")
+    got = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:c", "land:a"]}}
+    entries = [dict(Act="bolt.submit", On=["bolt/a"], Card="req_k1", Head="abc1234", Request="57", Outcome="asked"),
+               dict(Act="bolt.submit", On=["bolt/c"], Card="req_k1", Head="def5678", Request="58", Outcome="asked")]
+    said = plan.landing_lines("swancloud", got, heads, posted={plan.row_name(p["work"]): p["request"] for p in plan.lands_posted(entries)})
+    assert said == ["  to land, in the card's order: a and c", "  a: asked of the runner to land, request 57",
+                    "  c: asked of the runner to land, request 58"]
+    assert not [l for l in said if "crew " in l or "submit" in l]
+    assert plan.row_name("fix/main/crew/red") == "main--red" and plan.row_name("bolt/a") == "a"
+
+
+def test_a_land_posted_on_an_earlier_send_is_named_with_its_request():
+    """rail-cards "The landings card's read prints the lands crew posted", from an earlier send: z, which an earlier
+    send still lands, its land posted as request 41 on that card's send, comes first, named with its request."""
+    heads = plan.card_heads("a@abc1234")
+    got = {"status": "answered", "turn": "agent", "answer": {"approved": True}}
+    entries = [dict(Act="bolt.submit", On=["bolt/z"], Card="req_k0", Head="0a1b2c3", Request="41", Outcome="asked")]
+    said = plan.landing_lines("swancloud", got, heads, ["z"], posted={plan.row_name(p["work"]): p["request"] for p in plan.lands_posted(entries)})
+    assert said == ["  to land on the user's send of an earlier card: z", "  to land, in the card's order: a",
+                    "  z: asked of the runner to land, request 41",
+                    "  a: no land is posted for it yet: crew's next raise of the card posts it"]
 
 
 def test_a_lone_row_approved_lands_it_and_a_send_ticking_none_lands_nothing():
     one = plan.card_heads("y@abc1234")
     approved = {"status": "answered", "turn": "agent", "answer": {"approved": True}}
-    assert plan.landing_lines("wldn", approved, one)[-1] == "  lands them: crew bolt submit y --label wldn"
+    assert plan.landing_lines("wldn", approved, one)[-1] == "  y: no land is posted for it yet: crew's next raise of the card posts it"
     none = {"status": "answered", "turn": "agent", "answer": {"choiceIds": []}}
     assert plan.landing_lines("wldn", none, one) == ["  no bolt ticked: nothing lands"]
     assert plan.landing_lines("wldn", {"status": "pending", "turn": "you"}, one) == []
@@ -1220,21 +1247,21 @@ def test_a_bolt_ticked_that_the_record_holds_taking_main_first_is_left_out_of_th
     assert plan.landing_lines("swancloud", got, heads, main_first={"z"}) == [
         "  to land, in the card's order: y",
         "  z takes main first until a fix taking main in moves its head, and the user's send stands for it",
-        "  lands them: crew bolt submit y --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
     assert plan.landing_lines("swancloud", got, heads, main_first={"y", "z"})[-1] == (
         "  z takes main first until a fix taking main in moves its head, and the user's send stands for it")
 
 
 def test_a_ticked_bolt_that_landed_or_left_the_plan_is_said_and_left_out_of_the_submit():
-    """main-level "Ops lands a bolt on a send that still stands", "Read again after part of the send landed": z landed
-    on the send, w left the plan, y takes main in, so the submit lands y alone."""
+    """rail-cards "The landings card's read prints the lands crew posted", read again after part of the send landed:
+    z landed on the send and w left the plan, so the read names y's land alone."""
     heads = plan.card_heads("y@abc1234 z@abc1234 w@abc1234")
     got = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:y", "land:z", "land:w"]}}
     assert plan.landing_lines("swancloud", got, heads, gone={"z": "landed", "w": "left the plan"}) == [
         "  to land, in the card's order: y",
         "  z landed since the card was posted, so it is no bolt to land",
         "  w left the plan since the card was posted, so it is no bolt to land",
-        "  lands them: crew bolt submit y --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
     assert plan.landing_lines("swancloud", got, heads, gone={"y": "landed", "z": "landed", "w": "landed"})[-1] == (
         "  w landed since the card was posted, so it is no bolt to land")
 
@@ -1321,7 +1348,7 @@ def test_reading_a_sent_landings_card_raises_it_first_and_leaves_a_bolt_taking_m
     assert out.splitlines()[-3:] == [
         "  to land, in the card's order: y",
         "  z takes main first until a fix taking main in moves its head, and the user's send stands for it",
-        "  lands them: crew bolt submit y --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
 
 
 def test_a_ticked_bolt_whose_take_main_fix_moved_it_since_its_conflict_lands_on_the_send(monkeypatch, capsys):
@@ -1330,34 +1357,35 @@ def test_a_ticked_bolt_whose_take_main_fix_moved_it_since_its_conflict_lands_on_
     read = ReadSent(monkeypatch, TICKED, told=[Z_HELD], now={"z": "def5678" + "0" * 33})
     read.run()
     assert read.worked == [{"z": ("abc1234", None)}]
-    assert capsys.readouterr().out.splitlines()[-2:] == [
-        "  to land, in the card's order: y and z", "  lands them: crew bolt submit y z --label swancloud"]
+    assert capsys.readouterr().out.splitlines()[-3:] == [
+        "  to land, in the card's order: y and z", "  y: no land is posted for it yet: crew's next raise of the card posts it",
+        "  z: no land is posted for it yet: crew's next raise of the card posts it"]
     again = ReadSent(monkeypatch, TICKED, told=[Z_HELD, dict(Z_HELD, Heads="bolt/z@def5678 main@9999999")],
                      now={"z": "def5678" + "0" * 33})
     again.run()
-    assert capsys.readouterr().out.splitlines()[-1] == "  lands them: crew bolt submit y --label swancloud"
+    assert capsys.readouterr().out.splitlines()[-1] == "  y: no land is posted for it yet: crew's next raise of the card posts it"
 
 
 def test_a_conflict_a_wait_recorded_on_the_branch_leaves_the_bolt_out_too(monkeypatch, capsys):
     read = ReadSent(monkeypatch, TICKED, branch=[dict(Z_HELD, Reached="wait", Id="e-1")])
     read.run()
-    assert capsys.readouterr().out.splitlines()[-1] == "  lands them: crew bolt submit y --label swancloud"
+    assert capsys.readouterr().out.splitlines()[-1] == "  y: no land is posted for it yet: crew's next raise of the card posts it"
 
 
 def test_a_ticked_bolt_with_no_conflict_lands_as_any_and_the_json_answer_is_left_clean(monkeypatch, capsys):
     """rail-cards "Ticked and clean"."""
     read = ReadSent(monkeypatch, TICKED)
     read.run()
-    assert capsys.readouterr().out.splitlines()[-1] == "  lands them: crew bolt submit y z --label swancloud"
+    assert capsys.readouterr().out.splitlines()[-1] == "  z: no land is posted for it yet: crew's next raise of the card posts it"
     read.run(json=True)
     out, err = capsys.readouterr()
     assert json.loads(out) == TICKED and "is left as it is" in err
 
 
 def test_a_send_read_again_after_part_of_it_landed_gives_the_rest_alone_to_land(monkeypatch, capsys):
-    """main-level "Read again after part of the send landed": crew bolt submit y z landed y, closed and gone from the
-    plan, and sluice refused z for a conflict with main, launching its take-main fix, the answered card still open; the
-    read prints the submit of z alone, naming y as landed, and none naming a bolt that landed."""
+    """rail-cards "The landings card's read prints the lands crew posted", read again after part of the send landed: y
+    landed, closed and gone from the plan, the answered card still open; the read names z alone to land, crew's next
+    raise posting its land, and y as landed, naming no land of a bolt that landed."""
     landed = [dict(Act="bolt.submit", On=["bolt/y"], Outcome="landed", At="2026-10-12T10:05:00Z", Id="e-2"),
               dict(Act="bolt.land", On=["bolt/y"], At="2026-10-12T10:05:30Z", Id="e-3")]
     read = ReadSent(monkeypatch, TICKED, branch=landed, held="%rec: Bolt\n\nBolt: z\nRepo: crew\n\n%rec: Unit\n\n")
@@ -1365,13 +1393,13 @@ def test_a_send_read_again_after_part_of_it_landed_gives_the_rest_alone_to_land(
     assert capsys.readouterr().out.splitlines()[-3:] == [
         "  to land, in the card's order: z",
         "  y landed since the card was posted, so it is no bolt to land",
-        "  lands them: crew bolt submit z --label swancloud"]
+        "  z: no land is posted for it yet: crew's next raise of the card posts it"]
 
 
 def test_a_bolt_sluice_landed_that_is_not_closed_yet_is_no_bolt_to_land_either(monkeypatch, capsys):
     read = ReadSent(monkeypatch, TICKED, told=[dict(Act="bolt.submit", On=["bolt/y"], Outcome="landed", At="2026-10-12T10:05:00Z")])
     read.run()
-    assert capsys.readouterr().out.splitlines()[-1] == "  lands them: crew bolt submit z --label swancloud"
+    assert capsys.readouterr().out.splitlines()[-1] == "  z: no land is posted for it yet: crew's next raise of the card posts it"
 
 
 def test_a_plan_that_cant_be_read_refuses_the_read_of_what_the_send_lands(monkeypatch, capsys):
@@ -1502,11 +1530,11 @@ class TestCardPreview:
     @pytest.fixture(autouse=True)
     def held(self, monkeypatch):
         """The plan's bolts and where their work runs; each plan write applied to requests.rec as the acts hold it, at a
-        tip holding them; each card change's note kept; and sluice never reached."""
+        tip holding them; and each card change's note kept. crew holds no call of sluice's to reach
+        (test_no_tool_for_a_bolt.py)."""
         monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, plan.Rec("Bolt", [("Bolt", bolt), ("Repo", "crew")]), PAT))
         monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: PAT)
-        monkeypatch.setattr(plan, "sluice_read", lambda *a, **k: pytest.fail("crew card preview runs no sluice command"))
         self.writes, self.notes = [], []
         monkeypatch.setattr(plan, "preview_changed", lambda fleet, label, key, note: self.notes.append((key, note)))
         monkeypatch.setattr(plan, "write", self.write)

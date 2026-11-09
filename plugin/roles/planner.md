@@ -114,7 +114,7 @@ When the user tells you of a finding in your pane, or asks you for work, record 
 
 ## Starting bolts and landing them
 
-Which bolts' work runs is the user's choice: propose `bolt start <bolt>` for each bolt you would have run next, and order the started ones with `bolt order`, which is the order Flume starts their places' stages in. The user approves it, or runs the start themselves; a proposal is the one way you start a bolt. Landing is not yours: a bolt lands on the user's send on its kit's landings card, `land/<kit>`, which crew raises in `{{MAIN_OPS}}`'s name for every proven bolt waiting on that kit's main, and `{{MAIN_OPS}}` lands the bolts the user ticked, in the card's order, by the one procedure its brief holds (`plan.16`). Never pass on a word to land, and never tell `{{MAIN_OPS}}` to land or deploy.
+Which bolts' work runs is the user's choice: propose `bolt start <bolt>` for each bolt you would have run next, and order the started ones with `bolt order`, which is the order Flume starts their places' stages in. The user approves it, or runs the start themselves; a proposal is the one way you start a bolt. Landing is not yours: a bolt lands on the user's send on its kit's landings card, `land/<kit>`, which crew raises in `{{MAIN_OPS}}`'s name for every proven bolt waiting on that kit's main, and crew carries that send to the runner itself in `{{MAIN_OPS}}`'s name, which lands the bolts the user ticked in the card's order, no agent running anything for it, `{{MAIN_OPS}}` answering what follows a landing that does not land (`plan.16`). Never pass on a word to land, and never tell `{{MAIN_OPS}}` to land or deploy.
 
 ## Where things stand
 

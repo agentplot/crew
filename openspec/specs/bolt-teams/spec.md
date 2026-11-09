@@ -5,31 +5,20 @@ A bolt team builds one bolt at a time and holds at most one more that waits to l
 
 ## Requirements
 
-### Requirement: crew removes only its own worktrees
-crew SHALL remove only the landing worktrees it cut, `<kit>/places/land-<bolt>` on a `bolt/` branch, and only bolt branches it marked as its own. It SHALL never remove the main checkout, a place of Flume's, a worktree elsewhere, one on another branch or on none, or a locked one, which it names as kept. It SHALL remove nothing when it cannot read every plan the kit's work goes in.
-
-#### Scenario: A worktree made by hand
-- **WHEN** a kit checkout has a worktree beside `main` that the user made, on a branch of their own
-- **THEN** crew leaves it as it is
-
-#### Scenario: A place of Flume's
-- **WHEN** a kit checkout has `places/change--x` on `change/x`, a place Flume made
-- **THEN** crew leaves it as it is
-
-#### Scenario: A merge partway through its rebase
-- **WHEN** a place is on no branch because a rebase stopped partway
-- **THEN** crew leaves it as it is
-
-#### Scenario: A plan that can't be read
-- **WHEN** crew lands a bolt while the plan of a partition whose work is in the kit cannot be fetched
-- **THEN** no worktree is removed, and crew says why
-
 ### Requirement: A landing records the commit main holds
-`crew bolt land` SHALL record, in its `bolt.land` entry of the run record, the kit the bolt landed on and the commit that kit's main holds on its kit's host once the bolt has landed, and SHALL be refused when it can't read that commit.
+The act that reads a started bolt's base place landed ("A landing is recorded by the first act that reads it in the runner's report") SHALL close the bolt in main-level ops's name by one `bolt.land` entry. The entry SHALL name the kit the bolt landed on and, as its `Head`, the commit Flume's status names the base place landed at, as the runner carries it. Its `Age` and `Split` SHALL be those the bolt's time gives from the run record, none read from sluice (`plan.20`). The close SHALL take the bolt and its work out of the plan and close its kit's landings card naming that commit and the fleet's timer. It SHALL delete no branch and remove no worktree. `crew bolt land` on a started bolt SHALL close it the same way, or at the landing its kit's main holds ("A bolt whose landing main holds closes whatever the runner carried of its places"). It SHALL be refused, recording nothing, while its base place does not read landed with its commit and its kit's main holds no landing of it, naming its landing as the runner's report has it.
 
 #### Scenario: The landing's commit
-- **WHEN** sluice has landed a bolt of switchboard-kit on its main and main-level ops runs `crew bolt land`
-- **THEN** the landing's entry names switchboard-kit and the commit its main holds, and crew says the bolt has landed at that commit
+- **WHEN** the runner carries the base place of switchboard-kit's bolt `y` over, landed at `9c1e4b7`, and the raise of switchboard-kit's landings card reads `y`
+- **THEN** the run record holds a `bolt.land` on `bolt/y` in ops's name naming switchboard-kit and `9c1e4b7` as its head, `y` and its work are gone from the plan, and no branch is deleted and no worktree removed
+
+#### Scenario: Its time from the run record
+- **WHEN** `y`'s close is recorded
+- **THEN** its `Age` and `Split` are those its row shows from the run record, and no sluice history is read
+
+#### Scenario: Closed by hand before it landed
+- **WHEN** `crew bolt land y` runs while the runner carries `y`'s base place with its submission `#412` under test, and switchboard-kit's main holds no landing of `y`
+- **THEN** it is refused, saying `y`'s landing is `#412` under test, and nothing is recorded
 
 ### Requirement: A bolt's proof is its verification
 A bolt SHALL be proven by its verification alone: its head is the landing of its work, as the runner reports it (merge-gate "A bolt's verification is its work's landing at its head, as the runner reports it"). Nobody SHALL deploy the bolt or work a list from its changes to prove it. Ops SHALL prove and deploy nothing. crew SHALL offer the bolt for landing, as its row on its kit's landings card, once every unit and chore of it has merged and its verification is green.
@@ -41,37 +30,6 @@ A bolt SHALL be proven by its verification alone: its head is the landing of its
 #### Scenario: Not yet green
 - **WHEN** every unit of a bolt has merged and its head is no landing of its work that the runner reports
 - **THEN** the bolt is not offered for landing, and `crew bolts` says what its verification is
-
-### Requirement: A landing is read from GitHub's main
-`crew bolt submit` SHALL judge whether a bolt landed by main now, never by sluice's exit alone. For a kit with an origin remote, main now is GitHub's `origin/main` after a fetch. For a kit with no origin, it is the kit's own `main`. Before it submits, crew SHALL read main now on the kit's host, and SHALL refuse, submitting nothing, when it cannot. After sluice's outcome it SHALL read main now again, after a fresh fetch, together with whether it holds the bolt's tip that was submitted. The bolt has landed when main now moved and holds that tip, whatever sluice exited. crew SHALL then say where main holds it, mark the bolt's branch landed, and send ops on to `crew bolt land`. When sluice's exit was not 0, crew SHALL also name the exit and sluice's last words as what came after its push, sluice's to report apart from the landing. crew SHALL say that main is where it was only when main now did not move. When main now moved but does not hold the bolt, crew SHALL say the bolt did not land and name where main now is. When main now cannot be read after the submission, crew SHALL say it cannot tell whether the bolt landed, naming why and sluice's exit, and SHALL mark nothing and say nothing of where main is.
-
-#### Scenario: sluice fails after its push
-- **WHEN** main-level ops runs `crew bolt submit <bolt>`, and sluice pushes the bolt's merge to GitHub's main, then fails releasing a place and exits 3, leaving the host's own `main` where it was
-- **THEN** the command succeeds, saying the bolt landed on the kit's main at the commit GitHub's main holds, naming sluice's exit 3 and its last words as what came after the push, sluice's to report apart, and saying "now crew bolt land <bolt>"; and the bolt's branch is marked landed
-
-#### Scenario: sluice lands it and exits 0
-- **WHEN** sluice lands the bolt and exits 0, and GitHub's main holds the bolt's merge after a fetch
-- **THEN** crew says the bolt landed at that commit and "now crew bolt land <bolt>", naming no exit, and marks the branch landed
-
-#### Scenario: GitHub's main did not move
-- **WHEN** sluice exits 1 or 2, or any other exit, and GitHub's main after a fetch is at the commit it held before the submission
-- **THEN** the command fails, saying the bolt did not land and main is where it was, and the branch is not marked
-
-#### Scenario: Main moved, but not with the bolt
-- **WHEN** sluice exits non-zero and GitHub's main after a fetch has moved but does not hold the bolt's submitted tip
-- **THEN** the command fails, saying the bolt did not land and naming the commit main is now at; it does not say main is where it was, and the branch is not marked
-
-#### Scenario: GitHub can't be read after the submission
-- **WHEN** the fetch after sluice's outcome fails
-- **THEN** the command fails, saying crew cannot tell whether the bolt landed, with the fetch's words and sluice's exit; it says neither that the bolt landed nor that main is where it was, and the branch is not marked
-
-#### Scenario: GitHub can't be read before the submission
-- **WHEN** `crew bolt submit` runs and the fetch of the kit's origin on the kit's host fails
-- **THEN** it is refused with the fetch's words, nothing is submitted, and no landing worktree is made
-
-#### Scenario: A kit with no origin
-- **WHEN** a kit with no origin remote is landed and sluice moves its own `main` to a merge holding the bolt
-- **THEN** crew reads the kit's own `main` before and after, and says the bolt landed
 
 ### Requirement: A crew change's tasks each name their check
 crew's `openspec/config.yaml` SHALL hand crew's construct, as rules for `tasks`, that each task is one sentence naming the check in crew's tiers that proves it, with a pointer to its reasoning; that no task is a deploy, a step on a live host or the user's, or work done after the landing; and that the tasks end with the tests the change affects, not the whole suite, which the merge gate runs. Its apply guidance SHALL tell crew's coder to tick a task only once the check it names passes.
@@ -99,94 +57,26 @@ crew's `openspec/config.yaml` SHALL hand crew's construct, as rules for `design`
 - **WHEN** a crew change has no step that only a person or a live host can do
 - **THEN** its design's *After deploy* says none and why, and it has no *Proof in dev* or *Proof on real work* section
 
-### Requirement: The next landing on the user's word readies the pull request
-`crew bolt submit` SHALL mark the bolt's draft pull request into main ready for review before it submits, so sluice takes it at the head the bolt then has, and SHALL refuse, submitting nothing, when it cannot.
-
-#### Scenario: The next landing readies the pull request
-- **WHEN** the user's word to land a bolt whose pull request into main is a draft reaches main-level ops and it runs `crew bolt submit`
-- **THEN** the pull request is marked ready for review before the submission, and the landing goes on as any landing does
-
-#### Scenario: A pull request crew can't ready submits nothing
-- **WHEN** `crew bolt submit` runs and `gh` cannot mark the bolt's draft pull request ready for review
-- **THEN** nothing is submitted, and crew names the pull request with `gh`'s words
-
-### Requirement: A kit that takes no pull requests is asked nothing of GitHub
-crew SHALL read or mark no pull request on GitHub for a kit whose sluice policy at main has no pull requests table for main.
-
-#### Scenario: A kit that takes no pull requests is asked nothing
-- **WHEN** a landing runs in a kit whose sluice policy at main has no pull requests table for main
-- **THEN** crew runs no `gh` command, and the landing goes on as before
-
-### Requirement: A landing submits the bolt where it lives
-Before it cuts the landing's worktree, `crew bolt submit` SHALL fetch the bolt's branch from the kit's origin on the kit's host. A bolt on GitHub, whose GitHub copy's policy names a remote for it, SHALL be submitted at GitHub's head, never the host's copy. When the host's copy is behind GitHub's head or missing, crew SHALL first set it to GitHub's head, guarded by the value it read, and say so. The worktree SHALL then hold GitHub's head, and its push SHALL move nothing on GitHub.
-
-#### Scenario: The host's copy lags GitHub's
-- **WHEN** `crew bolt submit b` runs while GitHub's `bolt/b`, after a fetch, holds two merges the host's `bolt/b` lacks, and the host's copy holds nothing GitHub's lacks
-- **THEN** crew sets the host's `bolt/b` to GitHub's head, which sluice's guard lets through, says it levelled the copy naming both commits, cuts the landing's worktree at GitHub's head, and submits that head, so main holds both merges once it lands
-
-#### Scenario: The host's copy is level with GitHub's
-- **WHEN** `crew bolt submit b` runs and the host's `bolt/b` is GitHub's head
-- **THEN** crew writes no ref, says nothing of levelling, and submits that head as before
-
-#### Scenario: The host has no copy
-- **WHEN** `crew bolt submit b` runs on a host that has no `bolt/b` of its own while GitHub's `bolt/b` names `origin` for it
-- **THEN** crew makes the host's `bolt/b` at GitHub's head and submits that head
-
-#### Scenario: GitHub moved after crew read it
-- **WHEN** crew levels the host's copy to the head it fetched, and sluice's guard refuses the write because GitHub's branch moved since
-- **THEN** nothing is submitted, no landing worktree is made, and the command says the bolt did not land in the guard's words, so ops runs the landing again
-
-#### Scenario: A legacy bolt's host tip is ahead of GitHub's copy
-- **WHEN** `crew bolt submit b` runs on a split bolt whose host tip holds a merge GitHub's `bolt/b` lacks, while GitHub's copy holds nothing the host's lacks
-- **THEN** crew writes no ref and submits the host's tip, as the split's refusal names the landing as the way on, and its push moves GitHub's branch forward to that tip
-
-#### Scenario: The two copies have diverged
-- **WHEN** `crew bolt submit b` runs while GitHub's `bolt/b` holds a merge the host's copy lacks and the host's copy holds one GitHub's lacks
-- **THEN** nothing is submitted and no ref is written, and the command says `b` did not land, naming both commits and the merges each lacks, since either submission would drop merges, and that the way on is a fix on the bolt that ops starts, `crew fix b <name> "<words>"`, taking the host's merges in
-
-#### Scenario: A bolt that lives on its host
-- **WHEN** `crew bolt submit b` runs on a bolt made on its host before gives went through sluice, whose GitHub copy is absent or names no remote for it, or in a kit with no origin
-- **THEN** crew writes no ref and submits the host's `bolt/b` as before
-
-#### Scenario: GitHub's copy cannot be read
-- **WHEN** `crew bolt submit b` runs and the read or fetch of `origin`'s `bolt/b` fails
-- **THEN** nothing is submitted, no landing worktree is made, and the command says `b` did not land, naming git's words
-
-#### Scenario: A landing worktree that stands from before
-- **WHEN** `<kit>/places/land-b` stands on `bolt/b` from an earlier attempt and crew levels the host's copy to GitHub's head
-- **THEN** the worktree's files are brought to GitHub's head without writing a ref, and it is submitted clean at that head; when git cannot bring them, nothing is submitted, in git's words
-
 ### Requirement: A landing that did not land is the bolt's only for its own content
-When `crew bolt submit` ends with a bolt not on main, crew SHALL judge it the bolt's only when sluice's record of the landing's own submission has it in conflict, or blamed for a check that ran and failed or that its time limit cut off; never by sluice's exit or words alone. The bolt's SHALL be recorded refused at the head submitted, and crew's words to ops SHALL say what comes next and name no team or conductor: a conflict with what main has landed is taken in by the fix crew launches on the bolt, ops starting nothing; a conflict with a submission queued on main ahead of it is waited out; and a check that failed is a fix on the bolt that ops starts with sluice's words.
+When the runner's report has a started bolt's landing refused by Flume's verdict, crew SHALL judge it the bolt's by the verdict alone, never by its words: a verdict `failed`, whatever check its words name or none, and a verdict `conflict`, with the files and main's revision Flume's words name. Flume's failed verdict carries sluice's words alone, with no mark of a check that never ran, so every failed verdict is the bolt's (record 0056; this departs from `plan.18`'s reading of 2026-10-24). The bolt's SHALL be recorded refused at its head. crew's words on the bolt's head line SHALL say what comes next and name no team or conductor: a conflict is taken in by the take-main fix crew launches on the bolt, ops starting nothing, and a failed check is a fix on the bolt that ops starts with Flume's words. Any other end with the bolt not on main SHALL be a stop ("A landing stopped by nothing of the bolt's is recorded stopped, and its send is spent").
 
 #### Scenario: A conflict is the bolt's
-- **WHEN** `crew bolt submit z` waits on its submission and sluice's record has it in conflict on `README.md`
-- **THEN** the command fails, saying `z` did not land, that the conflict is the bolt's and that crew launches the fix that takes main into it, naming no team or conductor, and the run record's `bolt.submit` for `z` carries `Refused` and the head submitted
+- **WHEN** the runner carries `z`'s base place with the verdict conflict on `README.md`
+- **THEN** the run record's `bolt.submit` for `z` carries `Refused` and its head, and `crew bolts` says the conflict is the bolt's and that crew launches the fix that takes main into it, naming no team or conductor
 
 #### Scenario: A check that ran and failed
-- **WHEN** sluice's record has the submission failed with `tests:logic` holding a failing result
-- **THEN** the landing is the bolt's and recorded refused, as for a conflict, and crew's words tell ops to start a fix on the bolt with sluice's words, `crew fix z <name> "<sluice's words>"`
+- **WHEN** the runner carries `z`'s base place with the verdict failed, Flume's words naming `tests:logic` as failing
+- **THEN** the landing is the bolt's and recorded refused, as for a conflict, and crew's words tell ops to start a fix on the bolt with Flume's words, `crew fix z <name> "<Flume's words>"`
 
-### Requirement: A landing stopped by sluice or its host is recorded stopped
-Any end of `crew bolt submit` with the bolt not on main that is not the bolt's SHALL be recorded as stopped at the head submitted, with what stopped it and no refusal, and crew's words SHALL say nothing of the bolt's stopped it and tell ops to submit it again once that is cleared, with no new word of the user's.
-
-#### Scenario: Checks the host could not run
-- **WHEN** sluice's record has the submission failed, every failed check left without a result and none cut off by a time limit
-- **THEN** the command fails, saying `z` did not land, that nothing of the bolt's stopped it, which checks could not run, and that ops submits it again once the host can run them, with no new word; and the `bolt.submit` for `z` carries no `Refused`, its `Outcome` stopped, its `Why` those words and its `Head`
-
-#### Scenario: sluice itself fails
-- **WHEN** sluice exits 3, main does not hold the bolt, and crew's waits again end with sluice's record of the submission still standing, or no record of it
-- **THEN** the landing is recorded stopped at the head submitted, in sluice's last words, and crew says ops submits it again once sluice is cleared
-
-#### Scenario: A refusal at once with no record of a conflict
-- **WHEN** sluice answers the submission at once with exit 2 and records no submission of the head in conflict
-- **THEN** the landing is recorded stopped, in sluice's words, and holds nothing
+#### Scenario: A failed verdict that names no check that ran
+- **WHEN** the runner carries `z`'s base place with the verdict failed, Flume's words naming a check the host could not run
+- **THEN** the landing is the bolt's and recorded refused, not stopped
 
 ### Requirement: A submission's number is on its bolt's row from the submit
-crew SHALL show each piece's sluice submission and the bolt's landing on the bolt's row in `crew bolts`, text and JSON. It SHALL show them from the first read after the submit, whoever made it:
+crew SHALL show each piece's sluice submission and the bolt's landing on the bolt's row in `crew bolts`, text and JSON. It SHALL show them from the first read after the submit or the land, whoever made it:
 
 - **A piece's submission.** While a unit's, chore's or fix's submission stands, its line SHALL show the submission's number, `submitted #<n>`, from Flume's status of the piece's place as the runner carried it (`runner.stage_of`).
-- **The bolt's landing.** The bolt's head line SHALL show its landing as the run record holds it: queued as #n, landing again, or rejected (`plan.landing_phase`).
+- **The bolt's landing.** The bolt's head line SHALL show its landing as the runner's report and the run record give it (`runner.landing_of`, `plan.landing_phase`): `landing asked, request <n>` while its land is unanswered, `landing #<n>` with the entry's state while Flume's submission of it waits or is under test, `landed at <commit>`, or refused or stopped in its words.
 
 crew SHALL read neither from sluice's queue. It SHALL run no `sluice overview` for a bolt's row. Its JSON SHALL give no line a `submission`, and no bolt a `landing` or a `submissions_error`, read from sluice.
 
@@ -194,9 +84,13 @@ crew SHALL read neither from sluice's queue. It SHALL run no `sluice overview` f
 - **WHEN** the runner carries the place of unit `a` with its submission `#41` under test on `bolt/y`
 - **THEN** the next `crew bolts` shows `a`'s line with `submitted #41`, its JSON gives `a`'s stage as `submitted` with submission `41`, and no sluice command is run
 
+#### Scenario: A bolt's landing asked
+- **WHEN** the user's send has posted request 57, a land of `y`'s launch, and the runner has not answered it
+- **THEN** `crew bolts` shows `y`'s head line saying `landing asked, request 57`
+
 #### Scenario: A bolt's landing queued on main
-- **WHEN** main-level ops's `crew bolt submit y` has been answered `#355`, and the run record holds the landing queued with no outcome
-- **THEN** `crew bolts` shows `y`'s head line saying `landing queued as #355`
+- **WHEN** the runner carries `y`'s base place with its submission `#412` under test on main
+- **THEN** `crew bolts` shows `y`'s head line saying `landing #412 under test`, and no sluice command is run
 
 #### Scenario: Read again after the session that submitted it ended
 - **WHEN** the session in unit `a`'s place has ended, and the runner still carries `a`'s submission `#41` waiting on `bolt/y`
@@ -214,39 +108,6 @@ crew SHALL read neither from sluice's queue. It SHALL run no `sluice overview` f
 - **WHEN** the branch of the runner that took `a`'s launch can't be read
 - **THEN** `crew bolts` names that runner as one that can't be read, the stages of its work unknown, no line shows a number, and no sluice command is run
 
-### Requirement: A landing standing in sluice is waited on again, not submitted again
-When `crew bolt submit <bolt>` finds the bolt's landing standing in sluice on its kit's main at the bolt's head, it SHALL submit nothing and SHALL wait on that submission again, as it waits on one it made, saying it waits on the number it found; the landing's end SHALL be read and recorded as for any landing. A landing standing at another head SHALL be said, naming its number and head, and the bolt SHALL be submitted as before.
-
-#### Scenario: Ops restarted while its landing stood
-- **WHEN** swancloud-ops's session ended while `crew bolt submit y` waited on `#355`, still queued on main at `y`'s head, and the restarted ops runs `crew bolt submit y`
-- **THEN** nothing is submitted, the command says it waits on `#355` again, and once sluice lands it `y` is said landed and recorded as any landing is
-
-#### Scenario: A standing landing at an older head
-- **WHEN** `#350` stands on main for `y` at `abc1234`, and `y`'s head is now `def5678`
-- **THEN** `crew bolt submit y` says `#350` stands at `abc1234`, and submits `y` at `def5678` as before
-
-### Requirement: A landing's submission is recorded when sluice queues it
-When sluice queues a landing's submission, crew SHALL record it in the run record at once, before any wait on it: a `bolt.submit` entry on the bolt with `Outcome` queued, the submission's number as `Submission`, the head submitted as `Head`, and the kit's main before the submission as `Base`. A landing on the user's words in ops's pane SHALL carry, on that entry, the transcript record the words were read from and their length, never the words. Those words SHALL be kept, at that moment, on the host where they were given.
-
-#### Scenario: The number is recorded before the wait
-- **WHEN** main-level ops runs `crew bolt submit z` and sluice queues it as submission 412
-- **THEN** the run record holds a `bolt.submit` entry on `bolt/z` with `Outcome: queued`, `Submission: 412`, the head submitted and main before, written before crew waits on 412
-
-#### Scenario: Queued on the user's words in ops's pane
-- **WHEN** ops runs `crew bolt submit z --excerpt "<the user's words>"` and sluice queues it
-- **THEN** the queued entry names the transcript record the words were read from and their length, and the words are kept on ops's host
-
-### Requirement: A landing's waiter waits from the background a call at a time
-Once sluice has queued a landing's submission, crew SHALL leave a waiter running on the kit's host, outside any agent's session. The waiter SHALL wait on the submission's number as `teams.5` has an agent wait: `sluice wait <n> --timeout 9m --json`, called again while it exits 5. It SHALL stop calling on any other exit. While the run record has the landing queued with no outcome, no work SHALL join the bolt, as `plan.8` has it and "A landing queued holds its bolt's work" says. When it stops, it SHALL run crew's read of the landing on that host.
-
-#### Scenario: The waiter calls again while sluice is undecided
-- **WHEN** a landing's submission is queued and sluice's first two waits on it exit 5, and its third exits 0
-- **THEN** the waiter has called `sluice wait <n> --timeout 9m --json` three times, then crew's read of the landing has run, and the landing is recorded landed
-
-#### Scenario: Nothing starts on the bolt while the waiter waits
-- **WHEN** a landing's waiter is still calling `sluice wait` on `z`'s submission #412, and the user runs `crew unit add b "Build b." --bolt z`
-- **THEN** it is refused, saying `z` has its landing queued on main as #412, the plan is unchanged, and nothing is launched
-
 ### Requirement: A close crew refuses is said on the bolt's row and in the run record until it is lifted
 When a landed bolt's close is refused, crew SHALL record a `bolt.land` entry on the bolt carrying the refusal in crew's words, and SHALL say the same words on standard error. While the plan still holds the bolt, each later read SHALL try the close again. A read SHALL record a new refused entry only when the words differ from the bolt's last refused `bolt.land` since its landing. The bolt's head line SHALL say it landed on main and was not closed, with the words of its last refused close, until a close succeeds.
 
@@ -263,15 +124,19 @@ When a landed bolt's close is refused, crew SHALL record a `bolt.land` entry on 
 - **THEN** the read closes `z`, the run record holds its `bolt.land`, and no head line for `z` remains
 
 ### Requirement: A started bolt's work is launched whole
-`crew bolt start <bolt>` SHALL check the kit's policy and have sluice make `bolt/<bolt>` from the kit's main, in the checkout the partition's main-level host keeps of the kit, and SHALL be refused while that host keeps none or is held, or no runner answers for the partition. Its one plan write SHALL set `Path: flume` on the bolt, and no `Team`, and append a launch for each of its units and chores in the file's order, cut from `bolt/<bolt>`, in the kit's repository and naming no host or stream, for a runner whose configuration names the repository to take. It SHALL start, restart and greet no agent.
+`crew bolt start <bolt>` SHALL make one plan write, `bolt.start`, refused for a bolt started already, but as "A start run again launches a bolt whose launch the runner refused" has it, and while no runner answers for the partition. It SHALL read no host, make no branch, and read neither the kit's policy nor any host's sluice. Its write SHALL set `Path: flume` on the bolt, and no `Team`, and append the bolt's own launch ("A start launches the bolt's base place before its pieces"), then a launch for each of its units and chores in the file's order, cut from `bolt/<bolt>`, in the kit's repository and naming no host or stream, for a runner whose configuration names the repository to take. It SHALL start, restart and greet no agent.
 
 #### Scenario: A bolt of three
 - **WHEN** `crew bolt start x` runs, `x` holding units `a` and `b`, `b` after `a`, and chore `c`, and a runner answers for madswan
-- **THEN** the plan marks `x` `Path: flume` with no `Team`, `requests.rec` holds three launches of `change`, `change` and `chore` on `bolt/x`, each in crew's repository and naming no host or stream, and no agent starts
+- **THEN** the plan marks `x` `Path: flume` with no `Team`, `requests.rec` holds a launch of `crew/bolt` for `bolt/x` and after it three launches of `change`, `change` and `chore` on `bolt/x`, each in crew's repository and naming no host or stream, and no agent starts
 
 #### Scenario: No runner on the host
 - **WHEN** `crew bolt start x` runs and madswan's state repository holds no runner's branch
-- **THEN** the start is refused naming that no runner answers for madswan, and no branch is made
+- **THEN** the start is refused naming that no runner answers for madswan, and the plan and `requests.rec` are unchanged
+
+#### Scenario: A host that keeps no checkout of the kit
+- **WHEN** `crew bolt start x` runs while madswan's main-level host keeps no checkout of `x`'s kit, and a runner answers for madswan
+- **THEN** `x` is started as any bolt is, and nothing is read or run on that host
 
 ### Requirement: A launch carries its repository, priority, intent and recipient
 Each launch of a started bolt's work SHALL name the kit's repository as the plan names it and no host or stream, a runner whose configuration names the repository taking it, in the stream its host's Flume configuration maps the repository to, the intent `<label>/<bolt>`, the recipient `<label>/planner`, a priority from its bolt's place in the plan, the highest first, and its brief, the work's own words as crew's prompts give them. A write that starts or reorders bolts SHALL append a priority for each launched place whose priority the plan's order changed.
@@ -348,64 +213,26 @@ A move out of a started bolt, a split, or a change of `After` on work whose laun
 - **THEN** `requests.rec` gains a launch of `fix` named `x--rail-word` on `bolt/x`, and `x`'s landing row says it lands once that fix has merged or been dropped
 
 ### Requirement: A landing that conflicts with main takes main in by a fix place
-When sluice refuses a started bolt at its landing for a conflict with main, the act that reads the refusal SHALL append a launch of a fix on the bolt named `take-main-<main's revision, seven>`, in its kit's repository and naming no host or stream, its brief saying to take `origin/main` into the bolt with sluice's words of the conflict, unless a fix of that name already stands; the bolt's row SHALL say it takes main first.
+When the runner's report has a started bolt's landing refused by Flume's verdict conflict, and its base place names no landing fix, the first act of crew's that reads it SHALL append a launch of a fix on the bolt named `take-main-<main's revision, seven>`, in its kit's repository and naming no host or stream, its brief saying to take `origin/main` into the bolt with Flume's words of the conflict, unless a fix of that name already stands. Where the base place names a landing fix, Flume's landing fix SHALL take main in and crew SHALL append nothing. The bolt's row SHALL say it takes main first.
 
 #### Scenario: A landing refused for a conflict
-- **WHEN** main-level ops's `crew bolt submit x` reads sluice refusing `x` for a conflict with main at `4d3d9be`
-- **THEN** `requests.rec` gains one launch of `fix` named `x--take-main-4d3d9be` with sluice's conflict words, and `x`'s row says it takes main first
+- **WHEN** a raise of the kit's landings card reads the runner carrying `x`'s base place, naming no landing fix, with the verdict conflict against main at `4d3d9be`
+- **THEN** `requests.rec` gains one launch of `fix` named `x--take-main-4d3d9be` with Flume's words of the conflict, and `x`'s row says it takes main first
 
 #### Scenario: Read twice
-- **WHEN** a later read of the same refusal finds `x--take-main-4d3d9be` standing
+- **WHEN** a later read of the same verdict finds `x--take-main-4d3d9be` standing
 - **THEN** no second launch is appended
 
-### Requirement: A bolt is a branch, and crew's one worktree is a landing's
-A bolt SHALL be the branch `bolt/<bolt>` on GitHub, with no worktree, moved only through sluice. A unit's, chore's and fix's places and branches SHALL be Flume's; crew SHALL make, ready and remove none of them. crew's one worktree SHALL be a landing's, `<kit>/places/land-<bolt>` on the bolt's branch, for the minutes its submission takes; a main-level agent SHALL start in the kit's main checkout, the detached anchor at `origin/main`, and read a bolt by ref.
-
-#### Scenario: A landing's worktree
-- **WHEN** main-level ops runs `crew bolt submit b`
-- **THEN** crew cuts `places/land-b` on `bolt/b` on the kit's host, submits from it, and removes it once the submission's outcome is in
-
-#### Scenario: No place of a unit's is crew's
-- **WHEN** crew reads a kit whose `places/` holds a unit's place Flume made
-- **THEN** crew neither removes it nor makes it ready
-
-### Requirement: Main-level ops lands bolts on the user's word
-Bolts whose verification is green SHALL be landed by main-level ops on the user's word, by `crew bolt submit <bolt>...`: each bolt's branch submitted to its kit's main through sluice in the order given, from a short-lived worktree `<kit>/places/land-<bolt>` on its kit's host, removed once its outcome is in, each that lands closed as `crew bolt land` closes it. It deploys and pushes nothing. A bolt that does not land moves nothing, the rest go on, and the command exits non-zero naming each.
-
-#### Scenario: The bolt lands
-- **WHEN** the user sends a bolt ticked on its kit's landings card and main-level ops runs `crew bolt submit <bolt>`
-- **THEN** sluice lands the bolt on GitHub's main as a merge commit, the landing's worktree is gone, the bolt is closed as `crew bolt land` closes it, and the bolt's records are gone from the plan
-
-#### Scenario: Three bolts queued as one chain
-- **WHEN** main-level ops runs `crew bolt submit y z w`, three bolts of one kit
-- **THEN** `y` is submitted first, `z` once sluice has queued `y`, and `w` once it has queued `z`, none waiting for the one before to land, so sluice tests them as one chain and lands them in that order
-
-#### Scenario: One refused, the rest go on
-- **WHEN** `crew bolt submit y z w` runs and sluice refuses `z` for a conflict with main
-- **THEN** `y` and `w` land and are closed, `z` and main are where they were for `z`, the command says `z` did not land in sluice's words, and it exits non-zero
-
-#### Scenario: Bolts of two kits
-- **WHEN** `crew bolt submit y w` names a bolt of crew and a bolt of swancloud
-- **THEN** it is refused before anything is submitted, saying it lands one kit's bolts at a time
-
-#### Scenario: The landing's rebase conflicts
-- **WHEN** the bolt and main changed the same lines and `crew bolt submit` runs
-- **THEN** the command says the bolt did not land with sluice's words, main and the bolt's branch are where they were, and the landing's worktree is gone
-
-#### Scenario: Main is behind GitHub's
-- **WHEN** `crew bolt submit` runs while the kit's main on the kit's host lacks a commit GitHub's main has
-- **THEN** nothing is refused for it, since sluice forms each landing on GitHub's main and pushes it with a lease
-
-#### Scenario: A landed bolt crew could not close
-- **WHEN** sluice lands bolt `y` and its close then refuses, its plan unreadable
-- **THEN** the command says `y` landed and was not closed, naming why and that crew's next read of the bolt closes it once that is mended, the run record holds a refused `bolt.land` on `bolt/y` with those words, and the command goes on to the next bolt
+#### Scenario: Refused with Flume's landing fix
+- **WHEN** a raise reads `x`'s base place with the verdict conflict against main at `4d3d9be` and its landing fix `x-1` live
+- **THEN** `requests.rec` gains no launch, and `x`'s row says it takes main first, naming `x-1`
 
 ### Requirement: A bolt whose work is on main lands by its close alone
-`crew bolt land` SHALL land a bolt with no merge to make, on the user's word, once its kit's main holds each of its units' changes, open or archived, and each of its chores, read in the checkout the partition's main-level host keeps of its kit, since no runner took any of its work, recording the landing as any landing; it SHALL be refused for such a bolt with no units or chores, whose kit that host keeps no checkout of, or while any unit's change is not on main.
+`crew bolt land` SHALL land a bolt never started, with no base place and no launch of its work, on the user's word, once its kit's main holds each of its units' changes, open or archived, and each of its chores. It SHALL read them in the checkout the partition's main-level host keeps of its kit, since no runner took any of its work. It SHALL record in its `bolt.land` entry the kit and the commit that main holds. It SHALL merge, submit and post nothing for it, and run no sluice. It SHALL be refused for such a bolt with no units or chores, whose kit that host keeps no checkout of, or while any unit's change is not on main.
 
 #### Scenario: A bolt built outside its branch
-- **WHEN** the plan holds the bolt `deploys-go-through-crew`, nothing has merged into its branch, and each of its units' changes is archived on crew's main
-- **THEN** `crew bolt land deploys-go-through-crew` removes it and its units from the plan, and the landing's entry names crew and the commit its main holds
+- **WHEN** the plan holds the bolt `deploys-go-through-crew`, never started, and each of its units' changes is archived on crew's main
+- **THEN** `crew bolt land deploys-go-through-crew` removes it and its units from the plan, the landing's entry names crew and the commit its main holds, and nothing is asked of the runner
 
 #### Scenario: A unit not yet on main
 - **WHEN** one unit of such a bolt has no change on its kit's main
@@ -426,71 +253,6 @@ Every agent crew starts SHALL have `SLUICE_AGENT` in its environment, the same a
 - **WHEN** herdr resumes `swancloud-planner`'s session on a host the teams file does not name for swancloud's main level
 - **THEN** its commands see neither `CREW_AGENT` nor `SLUICE_AGENT`
 
-### Requirement: A landed bolt's branch goes only once main holds its work
-Once sluice has landed a bolt's submission to main, crew SHALL mark the bolt's branch landed on its kit's host and, once no plan has the bolt and no worktree is on it, judge it against main as crew reads it now, by patch as `git cherry` compares. A branch holding nothing main lacks SHALL go; one holding a commit main lacks, or one git cannot compare, SHALL be kept, named with its commit and count, recorded once, and the user's. `crew bolt land` SHALL print what it removed and kept.
-
-#### Scenario: Everything the bolt left is on main
-- **WHEN** a bolt's submission to main has landed and `crew bolt land` runs
-- **THEN** the landing's worktree and the bolt's branch are removed, and the command says the bolt's branch went because main holds every commit of it
-
-#### Scenario: The bolt's branch holds a commit main lacks
-- **WHEN** a bolt's submission to main has landed, and its branch then holds a commit main does not, and `crew bolt land` runs
-- **THEN** the bolt's branch is kept, the command naming it, the commit it is at and that it holds 1 commit whose patch main lacks, a run-record entry names the branch, and no later read removes it
-
-#### Scenario: Commits main holds under the same hashes
-- **WHEN** sluice landed the bolt as a merge commit whose second parent is the bolt's head, and crew compares the bolt's branch with main
-- **THEN** `git cherry` finds nothing of its own on it, and it goes
-
-### Requirement: A landing that does not land leaves its pull request a draft
-In a kit whose sluice policy at main takes pull requests into main, crew SHALL mark the pull request a bolt's landing opened from `bolt/<bolt>` into main a draft, which sluice never takes into main's queue, when `crew bolt submit` ends with the bolt not on main, before it answers, naming its link and saying the next `crew bolt submit` on the user's word makes it live again.
-
-#### Scenario: A refused landing leaves its pull request a draft
-- **WHEN** `crew bolt submit` runs on a bolt whose kit takes pull requests into main and sluice refuses it as conflicting with main
-- **THEN** nothing lands, the bolt's pull request into main is a draft, and the command's words name its link, say it is a draft, and say the next `crew bolt submit` on the user's word makes it live again
-
-#### Scenario: A failed landing leaves its pull request a draft
-- **WHEN** `crew bolt submit` runs and main's checks fail on the bolt
-- **THEN** nothing lands and the bolt's pull request into main is a draft
-
-#### Scenario: A landing that lands marks nothing
-- **WHEN** `crew bolt submit` runs and the bolt lands on main
-- **THEN** no pull request is marked a draft, and the command's words are those of a landing
-
-### Requirement: A landing is recorded by the first act that reads the bolt after it
-The first crew act on any host to read a bolt once sluice's record has its landing's submission out SHALL record the outcome: the landing's waiter as it stops, `crew bolt submit`'s end, the rail's sweep on the kit's host, or `crew bolt land`. It SHALL take the number from the bolt's last queued `bolt.submit`, read sluice's record on the kit's host one read at a time, record nothing while the submission stands, and close a landed bolt with no word asked (`plan.21`). A read SHALL never wait on itself: the kit's read that a read's close of a landed bolt runs on the kit's host, which the close waits on while the read holds the bolt's turn, SHALL read no bolt's landing, and the kit's next read or the rail's next sweep SHALL read the landings of its other bolts.
-
-#### Scenario: The submitter is gone before sluice decides
-- **WHEN** `crew bolt submit z` queues submission 412 and its process is killed, and sluice then lands 412 on main
-- **THEN** the waiter's read records `z` landed at the commit main holds and closes it, and no one runs `crew bolt land`
-
-#### Scenario: The rail's sweep records it
-- **WHEN** the waiter on the kit's host was stopped before sluice decided 412, and sluice's record later has 412 landed
-- **THEN** the rail's next sweep on that host records `z` landed and closes it
-
-#### Scenario: Two reads at once
-- **WHEN** the waiter's read and `crew bolt submit`'s own end read `z`'s landing at the same moment
-- **THEN** the run record holds one `bolt.submit` outcome for 412 and one `bolt.land`, and each says the bolt landed
-
-#### Scenario: A close's kit read reads the plan from before the close
-- **WHEN** the waiter's read of `z` finds 412 landed and closes `z`, and the kit's read the close runs on the kit's host reads the plan as it stood before the close, its `bolt.land` entry not yet on the branch, so the plan still holds `z` with every unit landed
-- **THEN** the kit's read reads no landing, the read ends, and the run record holds one `bolt.submit` outcome for 412 and one `bolt.land`
-
-#### Scenario: Still standing
-- **WHEN** a read finds sluice's record of 412 still under test
-- **THEN** nothing is recorded, and the bolt's last `bolt.submit` stays queued
-
-#### Scenario: A conflict recorded by a later read
-- **WHEN** the submitter is gone and sluice's record has 412 in conflict
-- **THEN** the next read records `z`'s landing refused at the head submitted, in sluice's verdict, drafts its pull request, and raises its kit's landings card with `z` held on its row
-
-#### Scenario: The user's words are kept on another host
-- **WHEN** ops on mac-studio runs `crew bolt submit z` on the user's words in its pane, `z`'s kit is kept on deneb, and the waiter's read on deneb finds 412 landed
-- **THEN** the read closes `z` and its landing card naming ops's pane and the time the word was given, none of the words, says the words are kept on mac-studio, and reaches no other host for them
-
-#### Scenario: sluice's record can't be read
-- **WHEN** `sluice status 412 --json` on the kit's host fails
-- **THEN** the read records nothing, and says it cannot read sluice's record of 412 on that host, with sluice's words
-
 ### Requirement: No brief names a proof list
 No brief crew gives an agent SHALL name a proof list, a task's shape or a design's sections, and the results section every brief carries SHALL name no proof list.
 
@@ -499,54 +261,35 @@ No brief crew gives an agent SHALL name a proof list, a task's shape or a design
 - **THEN** it names no *Proof in dev* list, no *Task notes* section and no shape for a task
 
 ### Requirement: A landing queued holds its bolt's work
-crew SHALL read a bolt's landing from the run record as one of four states, each its own. **Queued** runs from the `bolt.submit` that records sluice's submission queued until an entry records that submission's outcome. **Rejected** holds once sluice refused the bolt's newest submission for the bolt's own content, a conflict or a failed check, recorded refused with the head submitted, until the bolt is submitted again. **Landing again** is queued once more after a rejection. **None** is a bolt never submitted, landed, or stopped by sluice or its host, nothing of the bolt's.
+crew SHALL read a bolt's landing from the run record as one of four states, each its own. **Queued** runs from the `bolt.submit` that records a land of the bolt asked until an entry records that land's outcome. **Rejected** holds once the newest land's outcome is recorded refused, for the bolt's own content, a failed check or a conflict, with its head, until a land is asked again. **Landing again** is queued once more after a rejection. **None** is a bolt never asked to land, landed, or stopped by nothing of the bolt's.
 
-While a bolt's landing is queued or landing again, these SHALL be refused, naming the landing and its number, with nothing written or launched: `crew unit add` and `crew chore add` into the bolt, `crew unit move` and `crew chore move` into it, and `crew fix <bolt> <name>`. That holds whether they run directly or as a proposal's commands, at the proposal's check and at its approval. Each SHALL read the state from the run record at the tip its write is applied to. Once the bolt's landing is rejected, or with none, they SHALL go on as for any started bolt. `crew fix <bolt> <name> --drop`, the take-main fix crew launches on reading a conflict, and a proposal's card as it is drawn SHALL read no state.
+While a bolt's landing is queued or landing again, these SHALL be refused, naming the landing with its request or, once Flume names one, its merge queue entry, with nothing written or launched: `crew unit add` and `crew chore add` into the bolt, `crew unit move` and `crew chore move` into it, and `crew fix <bolt> <name>`. That holds whether they run directly or as a proposal's commands, at the proposal's check and at its approval. Each SHALL read the state from the run record at the tip its write is applied to. Once the bolt's landing is rejected, or with none, they SHALL go on as for any started bolt. `crew fix <bolt> <name> --drop`, the take-main fix crew launches on reading a conflict, and a proposal's card as it is drawn SHALL read no state.
 
-`crew bolts`, text and JSON, the rail's line under land and the board's head line SHALL each say the state in words of their own. A landing queued is said with its number. A landing again is said with its number and the submission sluice rejected before it. A rejection is said, while the bolt's head is the one rejected, as the landing rejected and the bolt open for work, with sluice's words. The rail SHALL leave a bolt whose landing is queued or landing again out of the bolts that can land.
+`crew bolts`, text and JSON, the rail's line under land and the board's head line SHALL each say the state in words of their own. A landing queued is said with its request, or with its merge queue entry and its state once Flume names one. A landing again is said so, with the entry Flume's verdict refused before it. A rejection is said, while the bolt's head is the one refused, as the landing refused and the bolt open for work, in Flume's words. The rail SHALL leave a bolt whose landing is queued or landing again out of the bolts that can land.
 
 #### Scenario: A unit added while the landing is queued
-- **WHEN** main-level ops's `crew bolt submit z` has `z`'s landing queued on main as #412, and the user approves the planner's proposal adding unit `b` to `z`
-- **THEN** the approval is refused, saying `z` has its landing queued on main as #412, so unit `b` does not join it until sluice decides, and to put it on another bolt; `requests.rec` gains nothing
+- **WHEN** the user's send has posted request 57, a land of `z`'s launch, the runner has not decided it, and the user approves the planner's proposal adding unit `b` to `z`
+- **THEN** the approval is refused, saying `z`'s landing is asked of the runner as request 57, so unit `b` does not join it until the landing is decided, and to put it on another bolt; `requests.rec` gains nothing
 
 #### Scenario: A fix while the landing is queued
-- **WHEN** main-level ops runs `crew fix z logic "Fix tests:logic."` while #412 is queued
-- **THEN** it is refused naming #412, and no fix is launched
+- **WHEN** the runner carries `z`'s base place with its submission `#412` under test, and main-level ops runs `crew fix z logic "Fix tests:logic."`
+- **THEN** it is refused naming `#412`, and no fix is launched
 
 #### Scenario: A rejection opens the bolt for work
-- **WHEN** sluice rejects #412, blaming `tests:logic`, which ran and failed
-- **THEN** `crew bolts`, the rail and the board say `z`'s landing #412 was rejected at its head and the bolt is open for work, in sluice's words, and ops's `crew fix z logic "<sluice's words>"` is launched
+- **WHEN** the runner's report has `#412`'s verdict failed, Flume's words naming `tests:logic`, and the read records it
+- **THEN** `crew bolts`, the rail and the board say `z`'s landing `#412` was refused at its head and the bolt is open for work, in Flume's words, and ops's `crew fix z logic "<Flume's words>"` is launched
 
 #### Scenario: Landing again
-- **WHEN** the fix has merged into `z` and ops's `crew bolt submit z` has it queued again as #415
-- **THEN** `crew bolts`, the rail and the board say `z` is landing again as #415, after #412 was rejected; a unit added to `z` is refused naming both; and the rail's tell leaves `z` out
+- **WHEN** the fix has merged into `z`, the user's send has posted a land of `z` again, and the runner carries it as `#415` under test
+- **THEN** `crew bolts`, the rail and the board say `z` is landing again as `#415`, after `#412` was refused; a unit added to `z` is refused naming both; and the rail leaves `z` out of the bolts that can land
 
 #### Scenario: A wait sluice itself failed on
-- **WHEN** `crew bolt submit z`'s wait recorded `z`'s landing stopped with no submission named, sluice itself failing each time it waited on #412
-- **THEN** `z`'s landing still reads queued as #412, and its work is held until a read records #412's outcome
+- **WHEN** Flume's wait on sluice's record of `z`'s submission `#412` fails, and the runner carries the base place with Flume's words that it could not read the submission
+- **THEN** `z`'s landing still reads queued as `#412`, and its work is held until a read records `#412`'s outcome
 
 #### Scenario: Another bolt's landing
 - **WHEN** `y`'s landing is queued and the user adds a unit to `z`
 - **THEN** the unit is added to `z` and launched
-
-### Requirement: A bolt carrying another bolt's work does not land
-Another bolt's work is a commit on that bolt's first-parent line beyond main, read from branches as GitHub holds them. `crew bolt submit` SHALL submit nothing of a bolt whose head, read after a fetch that prunes nothing, holds such a commit that main lacks and that is off its own first-parent line, naming each bolt and its landings. The bolt whose work was carried SHALL NOT be held for it. A head crew can't read SHALL be refused, naming why.
-
-#### Scenario: A bolt built on another bolt's landing is refused at its submit
-- **WHEN** bolt `popover`'s branch on GitHub holds bolt `deleting`'s landing `f5e67f35`, which main lacks, and ops runs `crew bolt submit popover`
-- **THEN** nothing of `popover` is submitted and sluice is asked for nothing, and the refusal names bolt `deleting` and its landing `f5e67f3`, recorded with no head
-
-#### Scenario: The bolt whose work was carried lands
-- **WHEN** `popover` carries `deleting`'s landing, and ops runs `crew bolt submit deleting`
-- **THEN** `deleting` is not refused for it, since it holds nothing on `popover`'s first-parent line
-
-#### Scenario: Main holds the carried work
-- **WHEN** `deleting` has landed on main, GitHub has deleted its branch, and ops runs `crew bolt submit popover`
-- **THEN** `popover` carries nothing main lacks, and is submitted as any bolt; the host's tracking ref of `deleting` is not pruned by the read
-
-#### Scenario: What a head carries can't be read
-- **WHEN** the fetch `crew bolt submit` makes to read what the head carries fails
-- **THEN** nothing is submitted, and the refusal says git's words
 
 ### Requirement: crew bolts says a bolt carries another bolt's work
 `crew bolts` SHALL say under a bolt whose kit's read says it carries another bolt's work that main lacks that its landing is held, naming that bolt and its landings, and SHALL give it in its JSON as `carries`, or why it can't be read as `carries_error`. A kit's read SHALL leave out a bolt's ref another command removed while it read, and SHALL name a line git can't list.
@@ -559,40 +302,364 @@ Another bolt's work is a commit on that bolt's first-parent line beyond main, re
 - **WHEN** a fetch removes `origin/bolt/gone` while a kit's read lists the bolts' lines
 - **THEN** `gone` is left out of the lines, and no bolt is read as unreadable for it
 
-### Requirement: A landing sluice sent back is the bolt's fix
-A landing sluice sent back for the bolt's own content SHALL be the bolt's fix until a fix moves its head. crew SHALL name what failed from sluice's record, never a check's words, and give the way on: the take-main fix crew launches for a conflict with main, or the `crew fix` ops starts for a failed check. crew SHALL NOT submit it again at that head, but for a conflict only with a submission queued ahead, and a submit there that submitted nothing SHALL leave it the bolt's fix.
+### Requirement: A bolt is a base place of crew's kind
+A started bolt SHALL be a Flume base place of crew's kind `crew/bolt@1`, which lands with no stages, its package in crew's kinds folder (flume-source; record 0056). Its branch `bolt/<bolt>` SHALL be made from main by sluice at the launch, landed by Flume on the runner's land, and ended by sluice once the place has landed or been dropped. crew SHALL make, move, submit and delete no bolt branch, and SHALL make no worktree on one.
+
+#### Scenario: A bolt's launch names crew's kind
+- **WHEN** `crew bolt start x` runs and a runner answers for madswan
+- **THEN** its launch of `bolt/x` names `Kind: crew/bolt`, and crew makes no `bolt/x` branch and no worktree
+
+#### Scenario: A landed bolt's branch is Flume's and sluice's
+- **WHEN** the runner carries `x`'s base place landed, and crew's next read closes `x`
+- **THEN** crew deletes no branch and removes no worktree for `x`
+
+### Requirement: A start launches the bolt's base place before its pieces
+`crew bolt start`'s write SHALL append the bolt's own launch first, on `Base: main`, with the `Priority` of its place in the plan, `Intent: <label>/<bolt>` and `Recipient: <label>/ops`, naming no host or stream, with no `Brief`, since a base place runs no agent, and no `After`. Each unit's and chore's launch SHALL follow it in the file, on `Base: bolt/<bolt>`, naming no `After` on the bolt's launch, since a base place lands only after every place on its branch.
+
+#### Scenario: The bolt's own launch
+- **WHEN** `crew bolt start x` runs in madswan and a runner answers for madswan
+- **THEN** the first request the write appends is a launch of `bolt/x` with `Kind: crew/bolt`, `Name: x`, `Base: main`, `Intent: madswan/x`, `Recipient: madswan/ops` and `x`'s priority, naming no host or stream and carrying no `Brief` or `After`
+
+#### Scenario: Its pieces after it
+- **WHEN** `crew bolt start x` runs, `x` holding unit `a`, and unit `b` after `a`
+- **THEN** `a`'s and `b`'s launches follow `x`'s in `requests.rec` on `Base: bolt/x`, `b`'s `After` names `a`'s launch, and neither names `x`'s
+
+### Requirement: A bolt's launch, its pieces' and its land are checked before they are appended
+crew SHALL refuse, naming the field, a launch of `bolt/<bolt>` that names a kind but `crew/bolt`, a base but `main`, a `Brief` or an `After`. It SHALL refuse a launch of other work that names `Kind: crew/bolt`. It SHALL refuse a `land` whose `Of` names no launch of a bolt or a fix of main, or whose `Work` is not that launch's.
+
+#### Scenario: A fix on a bolt started before bolts were base places
+- **WHEN** a fix's launch on `Base: bolt/y` is to be appended and `requests.rec` holds no launch of `bolt/y`
+- **THEN** it is appended
+
+#### Scenario: A bolt's launch with a brief
+- **WHEN** a launch of `bolt/y` names a `Brief`
+- **THEN** it is refused, naming `Brief`, and nothing is appended
+
+#### Scenario: A land of a unit's launch
+- **WHEN** a land whose `Of` names a unit's launch is to be appended
+- **THEN** it is refused, naming the launch, and nothing is appended
+
+#### Scenario: The requests file holds a bolt's launch and its land
+- **WHEN** `requests.rec` holds a launch of `Kind: crew/bolt` and a land of it
+- **THEN** `recfix --check` passes on it
+
+### Requirement: A start run again launches a bolt whose launch the runner refused
+A started bolt whose own launch the runner answered refused, as Flume refuses it while its host has not locked `crew/bolt@1`, SHALL stay started with nothing made for it, and `crew bolts` SHALL show it unlaunched in the runner's words (`read.1`). No read SHALL launch it again. `crew bolt start` run again on it SHALL drop each of its pieces' launches not yet launched, then launch the bolt anew and those pieces after it, in one write. Any other started bolt's start SHALL be refused.
+
+#### Scenario: A kind its host has not locked
+- **WHEN** `x` is started and the runner answers `x`'s launch refused, in Flume's words naming the lock `crew/bolt@1` lacks on its host
+- **THEN** `x` stays started, `crew bolts` shows `x` unlaunched in those words, and no read of `x` appends a request
+
+#### Scenario: Started again
+- **WHEN** `crew bolt start x` runs on that `x`, its unit `a`'s launch not yet launched
+- **THEN** one write appends a drop of `a`'s launch, then a launch of `bolt/x` and a launch of `a` after it
+
+#### Scenario: A bolt whose launch is launched
+- **WHEN** `x`'s base place is launched and `crew bolt start x` runs
+- **THEN** it is refused, saying `x` is started already, and the plan and `requests.rec` are unchanged
+
+### Requirement: A landing's outcome is read from the runner's report
+crew SHALL read a started bolt's landing from its launch, the lands of it in `requests.rec`, and Flume's status of its base place as the runner that took the launch carries it, and from nothing else, as one outcome: unlaunched, none, asked, submitted, landed, refused for a failed check or a conflict, stopped, dropped, or unknown, naming why (`runner.landing_of`, `code.7`). Each fact SHALL be guarded, so a field the status lacks becomes no text (`read.2`).
+
+#### Scenario: Unlaunched
+- **WHEN** the runner has not answered `z`'s launch, or answered it held or refused
+- **THEN** `z`'s landing reads unlaunched, in the runner's words where it gave any
+
+#### Scenario: None
+- **WHEN** `z`'s base place is launched and no land of it stands
+- **THEN** `z`'s landing reads none
+
+#### Scenario: Asked
+- **WHEN** a land of `z`'s launch is posted as request 57 and the runner has not answered it
+- **THEN** `z`'s landing reads asked, with request 57
+
+#### Scenario: Under test
+- **WHEN** the runner carries Flume 0.17.0's status of `z`'s base place with its submission `#412` under test
+- **THEN** `z`'s landing reads submitted, with entry 412 under test
+
+#### Scenario: Landed
+- **WHEN** the runner carries `z`'s base place over, landed at `5d1a9e0`
+- **THEN** `z`'s landing reads landed, with `5d1a9e0`
+
+#### Scenario: A failed check
+- **WHEN** the runner carries `z`'s base place waiting on its caller with the verdict failed and Flume's words
+- **THEN** `z`'s landing reads refused, the bolt's, in those words
+
+#### Scenario: A conflict
+- **WHEN** the runner carries `z`'s base place with the verdict conflict on `README.md` against main at `4d3d9be`
+- **THEN** `z`'s landing reads refused for a conflict, naming `README.md` and `4d3d9be`
+
+#### Scenario: Withdrawn
+- **WHEN** the runner carries `z`'s base place waiting on its caller with the verdict withdrawn
+- **THEN** `z`'s landing reads stopped, in Flume's words
+
+#### Scenario: A land the runner refused
+- **WHEN** the runner answers `z`'s land refused, Flume's words saying a place on `bolt/z` is live
+- **THEN** `z`'s landing reads stopped, in those words
+
+#### Scenario: Dropped
+- **WHEN** the runner carries `z`'s base place over, dropped
+- **THEN** `z`'s landing reads dropped
+
+#### Scenario: Flume could not read the submission
+- **WHEN** the runner carries `z`'s base place with Flume's words that it could not read the submission
+- **THEN** `z`'s landing reads unknown, in those words, and is read as no other outcome
+
+#### Scenario: A runner that can't be read
+- **WHEN** the branch of the runner that took `z`'s launch can't be read
+- **THEN** `z`'s landing reads unknown, naming that runner, and is read as no other outcome
+
+### Requirement: A landing is recorded by the first act that reads it in the runner's report
+The first act on any host to read a bolt whose landing is decided SHALL record it: its kit's card's raise, the follower's sweep, a kit's read, or `crew bolt land` (`plan.21`); `crew bolts`, a view, SHALL write nothing (`state.4`). It SHALL write one `bolt.submit`, decided at its write's tip, with the outcome, the head, Flume's entry as `Submission` where it names one, and a refusal's or stop's words; nothing while it is asked, submitted or unknown.
+
+#### Scenario: Nobody runs anything
+- **WHEN** a land of `z` is posted, no agent of the partition runs a command, and the runner's branch then carries `z`'s base place landed at `5d1a9e0`
+- **THEN** the next raise of `z`'s kit's landings card records `z`'s `bolt.submit` landed and its `bolt.land` at `5d1a9e0`, and closes `z`
+
+#### Scenario: Two reads at once
+- **WHEN** two reads of `z` find its base place landed, and the second's write is applied to a tip that holds the first's
+- **THEN** the run record holds one `bolt.submit` outcome and one `bolt.land` for `z`, the second read writing nothing and recording no refused close
+
+#### Scenario: crew bolts reads it
+- **WHEN** `crew bolts` runs while the runner's report has `z`'s base place landed and no read has recorded it
+- **THEN** `crew bolts` says `z` landed at Flume's commit and writes nothing, and the next raise of its kit's card or the follower's sweep records it
+
+#### Scenario: Still under test
+- **WHEN** a read finds `z`'s base place with its submission `#412` under test
+- **THEN** nothing is recorded, and `z`'s last `bolt.submit` stays asked
+
+#### Scenario: A conflict recorded by a later read
+- **WHEN** the runner's report has `z`'s submission `#412` with the verdict conflict
+- **THEN** the next read records `z`'s landing refused at its head in Flume's words, appends its take-main fix, and raises its kit's landings card with `z`'s row saying it takes main first
+
+#### Scenario: A runner that can't be read
+- **WHEN** the branch of the runner that took `z`'s launch can't be read
+- **THEN** the read records nothing for `z`, and names that runner as one it could not read
+
+### Requirement: A landing's record rests on the state repository alone
+A read of a bolt's landing SHALL take its outcome from the runners' branches in the partition's state repository and reach no host over ssh for it (`read.5`). It SHALL rest nothing on Flume's notice of the end to `<label>/ops`, and SHALL record the outcome whether ops runs or not (`roles.6`).
+
+#### Scenario: Read away from the kit's host
+- **WHEN** `z`'s kit is kept by deneb's runner, and a read of `z` on mac-studio finds its base place landed on deneb's runner's branch
+- **THEN** the read records `z` landed and closes it, and runs no ssh to deneb
+
+#### Scenario: Ops is not running
+- **WHEN** `z`'s base place reads landed while no session of `<label>/ops` runs
+- **THEN** the next raise of `z`'s kit's landings card records `z` landed and closes it
+
+### Requirement: A landing stopped by nothing of the bolt's is recorded stopped, and its send is spent
+When the runner answers a bolt's land refused, or Flume's verdict on its submission is withdrawn or refused, crew SHALL record the landing stopped at the bolt's head, in the runner's or Flume's words, with no refusal, and SHALL hold nothing of the bolt for it. The send that ticked the bolt SHALL be spent: a land of it SHALL be posted again only on a new send of the user's. Its row keeps its box, as rail-cards has it.
+
+#### Scenario: A place on the branch is live
+- **WHEN** the runner answers `z`'s land refused, Flume's words saying a place on `bolt/z` is live
+- **THEN** the run record's `bolt.submit` for `z` carries no `Refused`, its `Outcome` stopped, its `Why` those words and its `Head`, and `crew bolts` says `z`'s landing stopped in those words
+
+#### Scenario: No land again on the same send
+- **WHEN** `z`'s landing is recorded stopped and its kit's landings card is raised again on the send that ticked it
+- **THEN** no land of `z` is posted, and once the user sends the card again with `z` ticked, one land of `z` is posted
+
+### Requirement: A bolt lands on the user's send alone, carried to the runner as a land
+A started bolt whose verification is green SHALL land only by a `land` of its launch that crew posts on the user's send of its row on its kit's landings card (rail-cards). The runner SHALL carry it out with Flume, which submits the base place's branch through sluice onto GitHub's main as a merge commit (record 0056; `plan.8`, `plan.16`). No agent SHALL run anything to land a bolt. Each bolt's land SHALL be its own, one refused or stopped holding no other. A landing SHALL deploy nothing.
+
+#### Scenario: The bolt lands
+- **WHEN** bolt `x` reads proven and the user sends its kit's landings card with `x` ticked
+- **THEN** `requests.rec` gains one land of `x`'s launch; once the runner's branch carries `x`'s base place landed at a commit, the next raise of the card records `x` landed at that commit and closes it, with no agent's command run between
+
+#### Scenario: Three bolts on one send
+- **WHEN** the user's send ticks `y`, `z` and `w` in that order, and the runner's report then carries `z`'s verdict conflict
+- **THEN** lands of `y`, `z` and `w` are posted in that order, `y` and `w` land and are closed, and `z` reads refused for its conflict, its take-main fix launched
+
+### Requirement: crew bolt submit lands nothing
+`crew bolt submit`, run with any arguments but `-h` or `--help`, SHALL refuse at once, before it reads anything, saying it lands nothing and that a bolt lands on the user's send of its row on its kit's landings card, which crew carries to the runner as a land. It SHALL append and record nothing. With `-h` or `--help` among its arguments it SHALL print its usage and exit 0 (`code.11`).
+
+#### Scenario: Ops runs it
+- **WHEN** main-level ops runs `crew bolt submit y`
+- **THEN** it is refused at once, before it reads the plan or any host, saying it lands nothing and that `y` lands on the user's send of its row on its kit's landings card, which crew carries to the runner as a land; nothing is appended or recorded
+
+#### Scenario: Its help
+- **WHEN** anyone runs `crew bolt submit --help`
+- **THEN** it prints its usage and exits 0
+
+### Requirement: A bolt's drop drops its base place last
+A drop of a started bolt SHALL append, in the drop's commit, a drop of each of its pieces' launches still standing, then a drop of the bolt's own launch, the last. crew SHALL delete no branch for a drop. A dropped bolt's branch that holds work main lacks is kept by sluice and named in Flume's answer, which the runner carries; it SHALL be the user's to keep or delete (record 0003), and crew SHALL ask nothing for it.
+
+#### Scenario: A drop's requests in order
+- **WHEN** the user approves dropping started `x`, whose units `a` and `b` are launched
+- **THEN** the drop's commit appends drops of `a`'s and `b`'s launches, then a drop of `x`'s launch, and no branch is deleted
+
+#### Scenario: A dropped bolt's branch holds work main lacks
+- **WHEN** the runner carries `x`'s base place dropped, Flume's answer naming `bolt/x` kept for work main lacks
+- **THEN** crew appends no request for it and deletes nothing
+
+### Requirement: A base place's drop the runner refused is asked again once nothing on its branch is live
+Where the runner answered a bolt's drop refused, as Flume refuses it while a place on the bolt's branch is live, the next plan write that finds the bolt gone from the plan, its launch standing, no piece of it live and no landing fix of its base place live SHALL ask the drop again, once for each refusal (`runner.base_drop_due`).
+
+#### Scenario: A refused drop asked again
+- **WHEN** the runner answered `x`'s drop refused while `a`'s place was live, and a later plan write finds `x` gone from the plan, its launch standing and no place of its pieces live
+- **THEN** that write appends one drop of `x`'s launch, and a write after it, while that drop is unanswered, appends none
+
+#### Scenario: Not while a piece is live
+- **WHEN** the runner answered `x`'s drop refused and `a`'s place is still live
+- **THEN** no plan write asks the drop again
+
+#### Scenario: Not while a landing fix is live
+- **WHEN** the runner answered `x`'s drop refused and `x`'s base place lists its landing fix `x-1` live
+- **THEN** no plan write asks the drop again, and the first write after `x-1` has ended appends one
+
+### Requirement: A bolt started before bolts were base places lands under the crew that started it
+crew SHALL read a started bolt with no launch of `bolt/<bolt>` in `requests.rec` as one whose branch sluice made before bolts were base places: `crew bolts` SHALL say it lands under the crew that started it, and its row SHALL have no box (rail-cards). No land SHALL be posted for it. A drop of it SHALL drop its pieces' launches still standing and ask nothing for its branch, which SHALL stay, named in the drop's words, the user's.
+
+#### Scenario: crew bolts says so
+- **WHEN** started bolt `y` has its units' launches in `requests.rec` and no launch of `bolt/y`
+- **THEN** `crew bolts` says `y` was started before bolts were base places and lands under the crew that started it
+
+#### Scenario: No land is posted
+- **WHEN** the raise of `y`'s kit's landings card reads a send that ticked `y`
+- **THEN** no land is posted for `y`
+
+#### Scenario: A drop of it
+- **WHEN** the user approves dropping `y`, its unit `a`'s launch standing
+- **THEN** the drop's commit appends a drop of `a`'s launch and no request for `bolt/y`, and the drop says `bolt/y` stays, the user's to keep or delete
+
+### Requirement: No crew command runs sluice, wt or gh for a bolt, or moves a checkout
+No crew command SHALL run a `sluice`, `wt` or `gh` command for a bolt's start, branch, landing, close or drop, or for the tidy of its kit (record 0056; `state.5`). crew's only sluice commands SHALL be a card's preview's: `sluice preview`, `sluice previews` and `sluice release` of a preview. No crew command SHALL write a checkout's `HEAD`, index or refs, but the remote-tracking refs a fetch writes: crew levels no checkout and moves no anchor (`plan.18`).
+
+#### Scenario: crew's code names no such command
+- **WHEN** `plugin/lib/plan.py`, `gather.py`, `kit.py`, `board.py`, `runner.py` and `plugin/bin/crew` are read as text
+- **THEN** none holds a `sluice` command, `wt submit`, `wt merge`, `wt remove`, a `gh` command or `read-tree` outside the functions that bring up, list or release a card's preview and the scripts only they run
+
+#### Scenario: A bolt from its start to its close
+- **WHEN** a bolt runs from `crew bolt start` to its close on the stubs
+- **THEN** the stubs' log holds no `sluice`, `wt` or `gh` call, and each kit's `HEAD`, index and refs are as they were before the start, but its remote-tracking refs
+
+### Requirement: crew removes no worktree, and names a landing's left from before
+crew SHALL remove no worktree and delete no branch of a kit. Its tidy SHALL run no sluice and no `wt`, and SHALL name each `<kit>/places/land-<bolt>` and `<kit>/bolts/<bolt>` it finds, with the commands that remove it, `sluice release --worktree <path>` then `wt remove`, as the user's to run (record 0056). It SHALL leave every other worktree as it is: the main checkout, a place of Flume's, one the user made, one on no branch.
+
+#### Scenario: A landing's worktree from before
+- **WHEN** a kit checkout holds `places/land-y` on `bolt/y`, left by a landing an older crew made
+- **THEN** the tidy leaves it, names it with `sluice release --worktree <path>` then `wt remove` as the user's to run, and runs neither
+
+#### Scenario: A bolt's worktree from before record 0026
+- **WHEN** a kit checkout holds `bolts/z`
+- **THEN** the tidy leaves it and names it with the same commands, the user's to run
+
+#### Scenario: A worktree made by hand
+- **WHEN** a kit checkout has a worktree beside `main` that the user made, on a branch of their own
+- **THEN** crew leaves it as it is
+
+#### Scenario: A place of Flume's
+- **WHEN** a kit checkout has `places/change--x` on `change/x`, a place Flume made
+- **THEN** crew neither removes it nor makes it ready
+
+#### Scenario: A merge partway through its rebase
+- **WHEN** a place is on no branch because a rebase stopped partway
+- **THEN** crew leaves it as it is
+
+### Requirement: A bolt carrying another bolt's work is asked no land
+Another bolt's work is a commit on that bolt's first-parent line beyond main, as the kit's read holds the branches. crew SHALL post no land for a bolt whose head holds such a commit that main lacks, off its own first-parent line, whatever the user's send ticked, its row held naming each bolt and its landings (rail-cards). The bolt whose work was carried SHALL NOT be held for it. No land SHALL be posted for a bolt whose carried work can't be read, its row saying why.
+
+#### Scenario: A bolt built on another bolt's landing posts no land
+- **WHEN** bolt `popover`'s branch holds bolt `deleting`'s landing `f5e67f35`, which main lacks, and a raise of its kit's landings card reads a send that ticked `popover`
+- **THEN** no land of `popover` is posted, and its row is held naming bolt `deleting` and its landing `f5e67f3`
+
+#### Scenario: The bolt whose work was carried lands
+- **WHEN** `popover` carries `deleting`'s landing, and the send ticked `deleting`
+- **THEN** a land of `deleting` is posted, since it holds nothing on `popover`'s first-parent line
+
+#### Scenario: Main holds the carried work
+- **WHEN** `deleting` has landed on main and its branch is gone, and the send ticked `popover`
+- **THEN** `popover` carries nothing main lacks, and its land is posted as any bolt's is
+
+#### Scenario: What a head carries can't be read
+- **WHEN** the kit's read could not list a bolt's own commits beyond main, and the send ticked `popover`
+- **THEN** no land of `popover` is posted, and its row says why
+
+### Requirement: A landing Flume's verdict sent back is the bolt's fix
+A landing whose verdict Flume gives as failed or conflict SHALL be the bolt's fix until a fix moves its head. crew SHALL name what failed in Flume's words and give the way on. Where the base place names a landing fix within its bound, the way on is Flume's landing fix. Where it names none, it is the take-main fix crew launches for a conflict, or the `crew fix` ops starts for a failed check. Past the bound, it is the fix ops starts. No land SHALL be posted at the head sent back. Once a fix has moved the head and the bolt reads proven, a land SHALL be posted again only as rail-cards has the send stand. No word SHALL name a team or a conductor.
 
 #### Scenario: A check fails
-- **WHEN** `crew bolt submit z` waits on `#7` and sluice's record has it failed with `tests:logic`, which ran and failed, tested on main at `db8bc25`
-- **THEN** the command fails, saying `z` did not land, that a failed check is the bolt's, `#7 failed tests:logic, tested on main at db8bc25`, and that ops starts `crew fix z landing-7 "Mend what sluice sent bolt/z's landing back for: #7 failed tests:logic, tested on main at db8bc25"`, after which the bolt's row asks the user again
+- **WHEN** the runner carries `z`'s base place, as Flume 0.17.0 gives it, with `#7`'s verdict failed, Flume's words naming `tests:logic`, tested on main at `db8bc25`
+- **THEN** `crew bolts` says `z` did not land, that a failed check is the bolt's, in Flume's words, and that ops starts `crew fix z <name> "<Flume's words>"`, naming no team or conductor
 
-#### Scenario: Submitted again at the head sluice sent back
-- **WHEN** ops runs `crew bolt submit z` again while `z`'s head is still the one sluice sent back as `#7`
-- **THEN** crew reads sluice's record of `#7` on the kit's host and submits nothing, runs no `wt submit` and leaves the pull request a draft, refusing in words that name what failed and the way on, saying it is the bolt's fix, not a stop, and `z` stays held on its row
+#### Scenario: A check fails with Flume's landing fix
+- **WHEN** the runner carries `z`'s base place with `#7`'s verdict failed and its landing fix `z-1` for `#7` live
+- **THEN** `crew bolts` says `z` did not land, in Flume's words, and that Flume's landing fix `z-1` makes the failed checks pass, naming no command for ops
 
-#### Scenario: A conflict sent back, submitted again at the same head
-- **WHEN** sluice sent `z`'s landing back in conflict with main on `README.md`, crew launched its take-main fix, and ops runs `crew bolt submit z` again before that fix has merged
-- **THEN** crew submits nothing, saying the conflict is the bolt's and the fix crew launches on reading the refusal takes main into it, so ops starts nothing, and that once that fix has merged, `crew bolt submit z` submits the landing again at its new head
+#### Scenario: Read again at the head sent back
+- **WHEN** the send that ticked `z` is read again while `z`'s head is still the one `#7` sent back
+- **THEN** no land of `z` is posted, and `z` stays held on its row for its fix
 
-#### Scenario: A conflict only with a submission queued ahead
-- **WHEN** sluice sent `z`'s landing back in conflict only with `#12`, queued on main ahead of it, and ops runs `crew bolt submit z` again at the same head
-- **THEN** crew submits it as any landing, the bolt having waited that submission out
+#### Scenario: A conflict read again before its fix merged
+- **WHEN** `z`'s landing was sent back for a conflict with main on `README.md`, its take-main fix was launched, crew's or Flume's, and the kit's landings card is raised again before that fix has merged
+- **THEN** no land of `z` is posted and no second take-main fix is launched, its row saying it takes main first
 
-#### Scenario: A submit that submitted nothing
-- **WHEN** `z`'s landing was refused at `977138a` and a later `crew bolt submit z` at `977138a` ends with sluice's driver submitting nothing, recorded stopped with no submission
-- **THEN** `z` reads as held for its fix at `977138a`, on its kit's landings card, the rail and `crew bolts`, its landing rejected and open for work, and no reader says it was stopped or that ops submits it again as it is
+#### Scenario: The take-main fix moves the head
+- **WHEN** `z`'s take-main fix, crew's or Flume's, has merged and `z` reads proven at its new head
+- **THEN** the next raise of its kit's landings card posts one land of `z` on the send that ticked it, asking the user nothing
 
-#### Scenario: The fix moves the head
-- **WHEN** a fix on `z` has merged and `z`'s head is no longer the one sluice sent back
-- **THEN** `crew bolt submit z` submits it at its new head as any landing, asking sluice's record of `#7` nothing
+### Requirement: A bolt's landing fix is read from its base place's status
+crew SHALL read a started bolt's landing fix from Flume's status of its base place as the runner carries it, and from nothing else: the fix kind, the bound, and each fix Flume launched, with its cause and how it ended. Each fact SHALL be guarded, and a fix crew can't read whole SHALL be named, never guessed (`read.1`, `read.2`). A status that names no fix kind SHALL read as a base place whose landing fix Flume does not launch (`runner.landing_fix`, `code.7`).
 
-#### Scenario: sluice's record can't be read
-- **WHEN** `crew bolt submit z` finds `z`'s landing refused at its head and `sluice status 7 --json` fails
-- **THEN** it submits nothing, saying the words the refusal was recorded with and why the record can't be read, and gives the way on with no fix's words of crew's
+#### Scenario: A host whose Flume names no fix kind
+- **WHEN** the runner carries `y`'s base place as Flume 0.17.0 gives it, verdict failed
+- **THEN** `y`'s landing reads refused for a failed check, its way on crew's
 
-#### Scenario: No team is named
-- **WHEN** any of the words above are said, on this line where crew runs no team
-- **THEN** none names a team or a conductor
+#### Scenario: A landing fix live
+- **WHEN** the runner carries `y`'s base place with verdict conflict on `#412`, fix kind `flume/fix@1`, bound 3, and fix `y-1` for `#412` live
+- **THEN** `y`'s landing reads refused for a conflict, its way on Flume's, with `y-1` live
+
+#### Scenario: A landing fix due
+- **WHEN** the runner carries `y`'s base place with verdict failed on `#412`, fix kind `flume/fix@1`, bound 3, and no fix
+- **THEN** `y`'s landing reads refused, its way on Flume's, its landing fix due
+
+#### Scenario: The bound spent
+- **WHEN** the runner carries `y`'s base place with verdict failed on `#415`, bound 3, and three fixes, none for `#415`
+- **THEN** `y`'s landing reads refused, its way on its caller's, naming three landing fixes run
+
+#### Scenario: A fix dropped
+- **WHEN** the runner carries `y`'s base place with verdict conflict on `#412` and fix `y-1` for `#412` dropped
+- **THEN** `y`'s landing reads refused, its way on its caller's, naming `y-1` dropped
+
+#### Scenario: A fix crew can't read
+- **WHEN** a fix in `y`'s base place's status gives an end crew does not read
+- **THEN** that fix is named as unread and counted toward no outcome
+
+### Requirement: crew launches no fix and asks for none where Flume launches the landing fix
+Where a refused landing's way on is Flume's, its landing fix live, landed or due within its bound, the first act of crew's that reads it SHALL record the refusal as before, and SHALL launch no take-main fix and ask main-level ops nothing.
+
+#### Scenario: Flume's fix takes main in
+- **WHEN** a raise of `land/crew` reads `y`'s landing refused for a conflict with `y-1` live
+- **THEN** the run record gains `y`'s `bolt.submit` refused, `requests.rec` gains no launch, and ops is asked nothing
+
+#### Scenario: Flume's fix due
+- **WHEN** a raise reads `y`'s landing refused for a failed check, its landing fix due
+- **THEN** no launch is appended and ops is asked nothing
+
+### Requirement: A landing past its landing fixes is ops's
+Where a refused landing's way on is its caller's, Flume's bound of landing fixes spent or its fix for the refusal dropped or not launched, the first act of crew's that reads it SHALL ask main-level ops once, keyed by the land's request, in Flume's words, naming how many landing fixes ran or how the fix ended, and SHALL launch no take-main fix.
+
+#### Scenario: Past the bound
+- **WHEN** a raise reads `y`'s landing refused with its three landing fixes run
+- **THEN** ops is asked once, its words naming three landing fixes and Flume's words, and no launch is appended
+
+#### Scenario: Read twice past the bound
+- **WHEN** a later read finds the same refusal past the bound
+- **THEN** ops is not asked again
+
+### Requirement: A live landing fix holds its bolt
+A live landing fix of a bolt's base place SHALL be a fix in flight on the bolt: its row SHALL have no box, no land of the bolt SHALL be posted while it is live, and a drop of the bolt the runner refused SHALL not be asked again until it has ended. Its note SHALL take main in for a forecast or a conflict, so the row takes main first and the send that ticked it stands through it, and SHALL name the failed checks for a failed submission.
+
+#### Scenario: No land while it runs
+- **WHEN** the user's send stands for `y` and `y-1` is live
+- **THEN** no land of `y` is posted
+
+#### Scenario: Taken main in
+- **WHEN** `y-1`, which took main in, has landed and `y` reads proven at its new head with its own work unchanged
+- **THEN** the next raise posts one land of `y` on the send that ticked it, asking the user nothing
+
+#### Scenario: A drop while it runs
+- **WHEN** the runner answered `y`'s drop refused and `y-1` is live
+- **THEN** no plan write asks the drop again until `y-1` has ended
 
 ### Requirement: A landed bolt closes on its pieces' ends as the runner reports them
 `crew bolt land`, and the landing's read that closes a landed bolt, SHALL close a started bolt once each of its units and chores reads merged, as the runner reports its place's end, at a commit its kit's main holds, its branch standing or not. No landing commit SHALL be read for it. A bolt with a piece that does not read so SHALL be refused, naming that piece and its stage, and nothing is removed.
