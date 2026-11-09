@@ -369,9 +369,9 @@ class TestRows:
         assert held["sends"] == {k: {"y": "1111111"}}
 
     def test_the_record_reading_keeps_what_says_which_bolts_the_user_left(self):
-        left = [dict(Act="landing.left", On=["kit/k"], Key="land/k", Heads="b@d185a87"), dict(Act="bolt.leave", On=["bolt/b"], Head="a" * 40),
-                dict(Act="bolt.submit", On=["bolt/b"], Head="a" * 40)]
-        assert plan.record_reading("wldn", left + [dict(Act="tell", On=["agent/x"])], the_plan(), NOW)["held"]["left"] == left
+        left = [dict(Act="landing.left", On=["kit/k"], Key="land/k", Heads="b@d185a87"), dict(Act="bolt.leave", On=["bolt/b"], Head="a" * 40)]
+        submit = dict(Act="bolt.submit", On=["bolt/b"], Head="a" * 40)  # no word in a pane lands a bolt, so it lifts no mark
+        assert plan.record_reading("wldn", left + [submit, dict(Act="tell", On=["agent/x"])], the_plan(), NOW)["held"]["left"] == left
 
     def test_the_record_reading_keeps_the_forecasts_the_land_row_reads(self):
         e = dict(Act="forecast", On=["bolt/b"], Heads="bolt/b@d185a87 main@e4f5a6b", Paths="README.md")

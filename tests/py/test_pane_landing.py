@@ -51,7 +51,7 @@ def leave(monkeypatch):
     monkeypatch.setattr(plan.CardActs, "heard", lambda self, words: (got["verdict"], "s-1"))
     monkeypatch.setattr(plan.record, "emit", lambda label, act, on, **f: got["emitted"].append(dict(f, Act=act, On=on)) or "eid")
     monkeypatch.setattr(plan.record, "who", lambda: "swancloud-ops")
-    monkeypatch.setattr(plan, "land_hand", lambda fleet, label, kit, note=None, pane=None: got["raised"].append((label, kit, note)))
+    monkeypatch.setattr(plan, "land_hand", lambda fleet, label, kit, note=None: got["raised"].append((label, kit, note)))
 
     def run(excerpt=STOP, bolts=("y",)):
         plan.bolt_leave({"partitions": {}}, argparse.Namespace(bolt=list(bolts), label=None, excerpt=excerpt))
@@ -105,7 +105,9 @@ class TestTheStop:
             leave["run"](bolts=("y", "z"))
         assert leave["emitted"] == [] and leave["raised"] == []
 
-    def test_a_stop_is_ended_by_a_landing_on_the_users_words_after_it(self):
+    def test_a_stop_stands_through_an_older_crews_landing_on_the_users_words(self):
+        """No word in a pane lands a bolt (record 0056 point 5): an older crew's bolt.submit on the user's words lifts no
+        stop, which only the user's tick on the card lifts (left_now)."""
         stop = dict(Act="bolt.leave", On=["bolt/y"], Head=NEW, From=["session/s-1/u-7"], Chars=len(STOP))
         assert plan.left_of([stop], "land/crew", {"y": NEW}) == {"y": NEW[:7]}
-        assert plan.left_of([stop, submitted(frm="session/s-1/u-9")], "land/crew", {"y": NEW}) == {}
+        assert plan.left_of([stop, submitted(frm="session/s-1/u-9")], "land/crew", {"y": NEW}) == {"y": NEW[:7]}

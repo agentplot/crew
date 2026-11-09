@@ -696,8 +696,8 @@ def test_a_landing_whose_entry_is_still_in_flight_is_read_as_still_landing_and_i
     assert plan.decision_at([(a, None, [before])], {}) == a and plan.decision_at([], {}) is None
 
 
-STANDS = ("your send stands for it: it lands once a fix on it has only taken main in and sluice has proven it, with "
-          "nothing asked.")
+STANDS = ("your send stands for it: it lands once a fix on it has only taken main in and it reads proven at its new head, "
+          "with nothing asked.")
 REFUSED = "landing rejected at abc1234, open for work: it waits for a fix on the bolt: x"
 
 
@@ -792,16 +792,15 @@ def test_a_ticked_bolt_held_for_any_other_fix_is_held_and_the_card_closed_keepin
     """Only a bolt taking main in leaves the card; one held for another fix closes it, its send kept on the close."""
     step = plan.landings_step([hold("y")], answered("y@abc1234"), ["y"], {"y"})
     assert step == ("close", "Held: y, held for a fix: one zone is missing (fix/y/gap); your send stands for it: it lands "
-                             "once a fix on it has only taken main in and sluice has proven it, with nothing asked.", None,
+                             "once a fix on it has only taken main in and it reads proven at its new head, with nothing asked.", None,
                     [("y", "abc1234")])
 
 
-def test_a_landing_on_the_users_word_in_ops_pane_closes_a_waiting_card_no_row_of_which_can_land_as_answered_there():
-    """main-level "A landing said in ops's pane closes its card naming the user's words": the word answers the card."""
-    assert plan.landings_step([], waiting("y@abc1234"), None, set(), here=True) == ("answered", "no bolt waits to land on its main")
-    assert plan.landings_step([hold("z")], waiting("y@abc1234", "z@abc1234"), None, {"z"}, here=True)[0] == "answered"
-    step = plan.landings_step([box("z")], waiting("y@abc1234", "z@abc1234"), None, {"z"}, note="Landed on the user's word", here=True)
-    assert step[:2] == ("change", "Landed on the user's word; y no longer waits to land")
+def test_a_waiting_card_no_row_of_which_can_land_is_withdrawn_whatever_note_the_event_carries():
+    """No word in a pane lands a bolt (record 0056 point 5): a waiting card no row of which can land is withdrawn, never
+    closed as answered in a pane."""
+    assert plan.landings_step([], waiting("y@abc1234"), None, set(), note="Landed on the user's word") == (
+        "withdraw", "no bolt waits to land on its main")
 
 
 def test_a_bolt_proven_after_the_answer_is_no_row_of_it_and_a_new_card_follows_it_with_the_rest():
@@ -1157,12 +1156,10 @@ class TestWhichBoltsAreLeft:
         assert plan.left_of([left_set("z@abc1234"), left_set("")], "land/crew", NOW) == {}
         assert plan.left_of([left_set("z@abc1234"), dict(left_set(""), Refused="no")], "land/crew", NOW) == {"z": "abc1234"}
 
-    def test_a_landing_on_the_users_words_in_ops_pane_ends_a_stop_and_one_before_it_ends_none(self):
-        assert plan.left_of([stop("z"), pane_landed("z")], "land/crew", NOW) == {}
-        assert plan.left_of([left_set("z@abc1234"), pane_landed("z")], "land/crew", NOW) == {}
-        assert plan.left_of([pane_landed("z"), stop("z")], "land/crew", NOW) == {"z": "abc1234"}
-        refused = dict(pane_landed("z"), Refused="sluice refused it", From=[])
-        assert plan.left_of([stop("z"), refused], "land/crew", NOW) == {"z": "abc1234"}
+    def test_an_older_crews_landing_on_the_users_words_in_ops_pane_ends_no_stop(self):
+        """No word in a pane lands a bolt (record 0056 point 5): only the user's tick lifts a stop or a left mark."""
+        assert plan.left_of([stop("z"), pane_landed("z")], "land/crew", NOW) == {"z": "abc1234"}
+        assert plan.left_of([left_set("z@abc1234"), pane_landed("z")], "land/crew", NOW) == {"z": "abc1234"}
 
 
 # ------------------------------------------------------------- the raise on the main machine, from each row's host
@@ -1895,36 +1892,7 @@ def test_a_wait_whose_reading_crew_ended_says_it_ended_with_its_row_or_crew_card
         "land/y: crew ended its reading, as its row was held or left its kit's landings card, or crew card end was run")
 
 
-# ------------------------------------------------------------------- a landing in ops's pane, a card left elsewhere
-
-PANE = "Landed on the user's word in swancloud-ops's pane; landed on GitHub's main at 1111111"
-SAID = 'Landed on the user\'s word in swancloud-ops\'s pane, "Land crw-1\'s bolt"; landed on GitHub\'s main at 1111111'
-WAITING = {"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)}
-
-
-def test_a_pane_landing_closes_the_waiting_kits_card_no_row_of_which_can_land_as_answered_with_the_users_words(monkeypatch):
-    """main-level "The card closes with the user's words": Pending You is sent the words, the run record keeps none."""
-    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234")]
-    acts = LandActs({}, held, answers=WAITING)
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PLAN))
-    assert plan.raise_landings(FLEET, "swancloud", "crew", acts, note=SAID, pane=PANE) == "req_k1"
-    tool, args = acts.calls[-1]
-    assert (tool, args["answeredHere"], args["reason"]) == ("cancel_request", True, f"{SAID}; no bolt waits to land on its main")
-    close = acts.emitted[-1]
-    assert (close["Act"], close["State"], close["Outcome"]) == ("card.close", "closed", f"{PANE}; no bolt waits to land on its main")
-    assert "Land crw-1's bolt" not in repr(acts.emitted)
-
-
-def test_a_pane_landing_changes_the_kits_card_naming_the_users_words_while_another_row_can_land(monkeypatch):
-    """main-level "Another row still waits"."""
-    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234 v@abc1234")]
-    acts = LandActs({"z": row("z"), "v": row("v")}, held, answers=WAITING)
-    three = PLAN.replace("%rec: Unit", "Bolt: v\nRepo: crew\nPath: flume\n\n%rec: Unit")
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(three))
-    assert plan.raise_landings(FLEET, "swancloud", "crew", acts, note=SAID, pane=PANE) == "req_k1"
-    change = next(a for t, a in acts.calls if t == "update_request")
-    assert change["changeNote"].startswith(SAID) and not [t for t, _ in acts.calls if t == "cancel_request"]
-
+# ------------------------------------------------------------------------------------------- a card left elsewhere
 
 def test_the_sweeps_raise_of_a_kits_card_handed_an_older_copy_posts_it_saying_that_copy_is_dead(monkeypatch):
     """rail-cards "A landings card left on the host the main level left"."""
