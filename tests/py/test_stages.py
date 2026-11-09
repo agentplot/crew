@@ -217,6 +217,27 @@ class TestEndsHeldForTheRunner:
         assert st.verification(st.plan.bolt("x"), head)[0] == "none"
         assert st.bolt_state(st.plan.bolt("x")) == "active"
 
+    GONE = {"exists": False, "head": None, "head_at": None, "verdict": None}  # x's facts once GitHub deleted bolt/x
+
+    def test_a_landed_bolt_whose_places_are_held_for_the_runner_closes(self):
+        """bolt-teams "A landed bolt whose branch and places are gone": x landed on main, GitHub deleted bolt/x, Flume
+        tidied each of x's places and the runner carries the record Flume holds for it of each, landed on bolt/x at a
+        commit main holds; each piece reads merged at its record's commit, and x's close is refused for none of them."""
+        from facts import ran
+        st = self.stages(ran({n: "flume-0.20.0/landed-held" for n in (1, 2, 3)}), bolt=self.GONE)
+        assert [(st.of(n)["stage"], st.of(n)["flume"]["commit"]) for n in "abc"] == [("merged", HELD_AT)] * 3
+        assert plan.land_refusal("x", ["a", "b", "c"], st.of, [], "madswan", {HELD_AT: 0}, "crew") is None
+
+    def test_a_piece_whose_end_the_runner_never_carried_keeps_the_bolt_open(self):
+        """bolt-teams "A piece whose end the runner never carried": main holds x's landing, the runner last carried b's
+        place at submitted, Flume having tidied it holding no record for the runner, and a landing commit on bolt/x names
+        change/b; x's close is refused naming b."""
+        from facts import ran
+        named = dict(self.GONE, landings={"change/b": {"commit": "2" * 40, "at": "2026-11-07T19:20:00Z"}})
+        st = self.stages(ran({1: "flume-0.20.0/landed-held", 2: "submitted", 3: "flume-0.20.0/landed-held"}), bolt=named)
+        assert plan.land_refusal("x", ["a", "b", "c"], st.of, [], "madswan", {HELD_AT: 0, "2" * 40: 0}, "crew") == (
+            "unit b has not merged into bolt/x: it is submitted")
+
 
 class TestABoltWhoseLaunchesWereAllRefused:
     """bolt-plan "A launch refused for a change the bolt holds" and drive-state "A bolt whose every launch was
