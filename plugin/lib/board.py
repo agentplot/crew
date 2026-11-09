@@ -1060,10 +1060,13 @@ def follower_here():
 
 
 def labels_here(fleet, host):
-    """The drives with an operator session on the host, which its follower refreshes: each label that names a session
-    there, as crew.operator_session reads it, in the teams file's order."""
-    sessions = fleet["hosts"].get(host, {}).get("sessions", {})
-    return [l for l in fleet["drives"] if sessions.get(l)]
+    """The drives with an operator session on the host, which its follower refreshes: those the teams file's `consoles`
+    names, for the host the file is written on alone, as crew.operator_session reads it, in the teams file's order, and
+    none on another host (record 0064)."""
+    consoles = fleet.get("consoles") or {}
+    if not consoles or host != crew.this_host():
+        return []
+    return [l for l in fleet["drives"] if l in consoles]
 
 
 def rail_path(label):

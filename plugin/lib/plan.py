@@ -10189,7 +10189,9 @@ def console_tabs(asked, recorded, follower):
 
 def console_cmd(fleet, a):
     """crew console up|down <label> [flow] [rail] [board]: the drive's console on this host, in the `console`
-    workspace of this host's `<label>` session, starting no agent (record 0035): a shell tab with the crew the host has
+    workspace of this host's `<label>` session, its tabs in the folder this host's teams file's `consoles` gives the
+    drive and refused, with nothing opened, where it names none (crew.operator_session; record 0064), starting no agent
+    (record 0035): a shell tab with the crew the host has
     installed on its path (crew.crew_command), the crew every tab runs, and the tabs named after the label: flow,
     following the run record; rail, the rail the host's follower writes above and a shell below; and board, drawn from
     the same read. The rail tab opens of itself too while no host job

@@ -390,17 +390,16 @@ class TestFollower:
     def test_who_follows_is_read_from_the_lock_and_an_unreadable_holder_is_unknown(self, line, free, who):
         assert board.follower_of(line, free) == who
 
-    def test_it_follows_each_drive_whose_label_names_a_session_on_the_host(self):
-        """A session named for a drive's label is the drive's, as swancloud names and checks each drive's sessions: the
-        hosts file's `partition` of a session, swancloud's, is read by nothing, so madswan's session in another and
-        agentplot's in none are followed as wldn's and swancloud's are, and wldn-5, no drive's label, is not."""
-        fleet = {"drives": {"wldn": {}, "swancloud": {}, "madswan": {}, "agentplot": {}, "atlas": {}},
-                 "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "wldn-5": {"partition": "clients/willdan"},
-                                                       "swancloud": {"partition": "personal"}, "madswan": {"partition": "personal"},
-                                                       "agentplot": {"partition": None}}},
-                           BOX: {"sessions": {"wldn": {"partition": "clients/willdan"}}}}}
-        assert board.labels_here(fleet, "mac-studio") == ["wldn", "swancloud", "madswan", "agentplot"]
-        assert board.labels_here(fleet, BOX) == ["wldn"] and board.labels_here(fleet, "macbook-pro") == []
+    def test_it_follows_the_drives_its_teams_files_consoles_name(self, monkeypatch):
+        """operator-agent, The drives a host follows: deneb's `consoles` names afterthought, agentplot, madswan and wldn,
+        and its teams file lists swancloud too, which it does not follow; the file names this host's consoles alone, so
+        another host follows none of them, and a file that names none follows none (record 0064)."""
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        fleet = {"drives": {"afterthought": {}, "agentplot": {}, "swancloud": {}, "madswan": {}, "wldn": {}},
+                 "consoles": {"wldn": "/w", "madswan": "/a", "agentplot": "/p", "afterthought": "/a"}}
+        assert board.labels_here(fleet, "deneb") == ["afterthought", "agentplot", "madswan", "wldn"]
+        assert board.labels_here(fleet, "mac-studio") == [] and board.labels_here(fleet, BOX) == []
+        assert board.labels_here(dict(fleet, consoles={}), "deneb") == []
 
     @pytest.mark.parametrize("m, kept, crew_read, how", [
         ({"crew": True, "read": True, "any": True}, False, True, "read"), ({"crew": True, "read": True, "any": True}, True, True, "update"),
@@ -537,7 +536,7 @@ class TestRefresh:
                                      "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}},
                             "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["o/bp"],
                                           "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}},
-             "hosts": {"mac-studio": {"sessions": {"wldn": {"partition": "clients/willdan"}, "swancloud": {"partition": "personal"}}}}}
+             "hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}, "consoles": {"wldn": "/w", "swancloud": "/s"}}
 
     @pytest.fixture
     def follower(self, tmp_path, monkeypatch):

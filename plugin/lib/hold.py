@@ -309,7 +309,9 @@ def hold_wait(fleet, a):
 def go(fleet, a):
     """crew _go: this host's hold lifted and recorded; every standing agent whose pane is empty brought back with its
     conversation and greeted (plan.revive_cmd); every one that stayed up told the hold is lifted; each console's tabs
-    run again; and every agent an update made due handed its restart."""
+    run again, of each drive this host's teams file's `consoles` names (board.labels_here); and every agent an update
+    made due handed its restart."""
+    import board  # board imports plan, which this module imports
     host = crew.this_host()
     if not crew.held():
         print(f"{host} is not held")
@@ -320,12 +322,11 @@ def go(fleet, a):
     print(f"{host} is no longer held")
     plan.revive_cmd(fleet, argparse.Namespace())
     tell_each(fleet, up, GO_NOTICE.format(host=host))
-    for label in sorted(fleet["drives"]):
-        if label in fleet["hosts"].get(host, {}).get("sessions", {}):
-            try:
-                plan.console_cmd(fleet, argparse.Namespace(act="up", label=label, tabs=[]))
-            except Refusal as e:
-                print(e, file=sys.stderr)
+    for label in board.labels_here(fleet, host):
+        try:
+            plan.console_cmd(fleet, argparse.Namespace(act="up", label=label, tabs=[]))
+        except Refusal as e:
+            print(e, file=sys.stderr)
     update_here(fleet, argparse.Namespace(label=None))
 
 

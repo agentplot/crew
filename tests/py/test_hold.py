@@ -514,3 +514,29 @@ class TestBands:
         v = board.agent_views(dict(data(), here=dict(self.HERE, held=h)))["views"]
         line = [("deneb is held", "bold"), (" by fleet-releases since 2026-10-21T03:00Z: herdr 0.9.6. Start nothing new; crew go deneb lifts it", None)]
         assert all(lines[0] == line for lines in v.values())
+
+
+class TestGoOpensTheConsoles:
+    """operator-agent, Consoles after a hold: crew go lifts the host's hold and opens again the consoles of the drives
+    its teams file's `consoles` names, and no other drive's (hold.go, board.labels_here; record 0064)."""
+
+    def test_go_opens_the_consoles_consoles_names_and_no_other(self, monkeypatch, tmp_path, capsys):
+        import argparse
+        import plan
+        import record
+        fleet = dict(FLEET, drives=dict(FLEET["drives"], agentplot={"label": "agentplot", "machine": "deneb"},
+                                        madswan={"label": "madswan", "machine": "deneb"}),
+                     consoles={"agentplot": "/p", "wldn": "/w"})
+        opened = []
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        monkeypatch.setattr(crew, "held", lambda: {"by": "chuck"})
+        monkeypatch.setattr(crew, "HOLD", tmp_path / "hold.json")
+        monkeypatch.setattr(crew, "agents_here", lambda fleet, label=None: [])
+        monkeypatch.setattr(record, "emit", lambda *a, **k: None)
+        monkeypatch.setattr(plan, "revive_cmd", lambda fleet, a: None)
+        monkeypatch.setattr(hold, "tell_each", lambda fleet, names, text: None)
+        monkeypatch.setattr(hold, "update_here", lambda fleet, a: None)
+        monkeypatch.setattr(plan, "console_cmd", lambda fleet, a: opened.append((a.act, a.label)))
+        hold.go(fleet, argparse.Namespace())
+        assert opened == [("up", "wldn"), ("up", "agentplot")]
+        assert "deneb is no longer held" in capsys.readouterr().out
