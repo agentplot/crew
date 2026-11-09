@@ -124,37 +124,37 @@ let
           readOnly = true;
           description = "The drive's label, its name under services.crew.settings.drives, which names its main level and its state branch `<label>/main`; no host sets it.";
         };
-      blueprints = mkOption {
-        type = types.nonEmptyListOf repository;
-        description = "The drive's blueprints repositories, each `owner/name`, the first the one its main level works in.";
-      };
-      state = mkOption {
-        type = types.unique {
-          message = "A drive's state repository is written once: where another module gives it, the host's configuration writes it nowhere else in services.crew.settings, and each place that writes it is named below.";
-        } repository;
-        description = "The drive's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record; written once, by the host's settings or by another module that gives it by the drive's label.";
-      };
-      machine = mkOption {
-        type = types.unique {
-          message = "A drive's machine is written once: where another module gives it, the host's configuration writes it nowhere else in services.crew.settings, and each place that writes it is named below.";
-        } crewName;
-        description = "The host its main level runs on, as `hostname -s` names it; written once, by the host's settings or by another module that gives it by the drive's label.";
-      };
-      session = mkOption {
-        type = types.nonEmptyStr;
-        description = "The herdr session its main level runs in.";
-      };
-      review = mkOption {
-        type = review;
-        description = "The drive's batch setting: a batch is due every `every` changes or every `hours` hours.";
-      };
-      flume = mkOption {
-        type = flume;
-        description = "The Flume setting of each of its main-level roles.";
-      };
-      roles = unset (types.submodule {
-        options = lib.genAttrs mainRoles (main: unset role "The ${main}'s model, effort or session.");
-      }) "Each main-level role's model, effort or session, over its definition's; none where unset.";
+        blueprints = mkOption {
+          type = types.nonEmptyListOf repository;
+          description = "The drive's blueprints repositories, each `owner/name`, the first the one its main level works in.";
+        };
+        state = mkOption {
+          type = types.unique {
+            message = "A drive's state repository is written once: where another module gives it, the host's configuration writes it nowhere else in services.crew.settings, and each place that writes it is named below.";
+          } repository;
+          description = "The drive's state repository, `owner/name`, whose branch `<label>/main` holds its plan and run record; written once, by the host's settings or by another module that gives it by the drive's label.";
+        };
+        machine = mkOption {
+          type = types.unique {
+            message = "A drive's machine is written once: where another module gives it, the host's configuration writes it nowhere else in services.crew.settings, and each place that writes it is named below.";
+          } crewName;
+          description = "The host its main level runs on, as `hostname -s` names it; written once, by the host's settings or by another module that gives it by the drive's label.";
+        };
+        session = mkOption {
+          type = types.nonEmptyStr;
+          description = "The herdr session its main level runs in.";
+        };
+        review = mkOption {
+          type = review;
+          description = "The drive's batch setting: a batch is due every `every` changes or every `hours` hours.";
+        };
+        flume = mkOption {
+          type = flume;
+          description = "The Flume setting of each of its main-level roles.";
+        };
+        roles = unset (types.submodule {
+          options = lib.genAttrs mainRoles (main: unset role "The ${main}'s model, effort or session.");
+        }) "Each main-level role's model, effort or session, over its definition's; none where unset.";
       };
     }
   );

@@ -173,13 +173,13 @@ in
       ) "deneb's drives from two modules fail: ${toString (failuresBeside split own)}"
     );
 
-  "A machine written twice" = t.expect (
-    !rendersBeside machineTwice deneb
-  ) "another module and the host's settings both give agentplot the machine deneb, and evaluation holds";
+  "A machine written twice" =
+    t.expect (!rendersBeside machineTwice deneb)
+      "another module and the host's settings both give agentplot the machine deneb, and evaluation holds";
 
-  "A state repository written twice" = t.expect (
-    !rendersBeside stateTwice deneb
-  ) "another module and the host's settings both give agentplot the state afterthought/crew-state, and evaluation holds";
+  "A state repository written twice" =
+    t.expect (!rendersBeside stateTwice deneb)
+      "another module and the host's settings both give agentplot the state afterthought/crew-state, and evaluation holds";
 
   "A drive given and not configured" = t.expect (
     !rendersBeside extra deneb
@@ -248,7 +248,9 @@ in
   ) "services.crew.settings.drives is a list of deneb's drives, and evaluation holds";
 
   "No drive" =
-    t.expect (failures none != [ ]) "services.crew.settings.drives names no drive, and no assertion fails"
+    t.expect (
+      failures none != [ ]
+    ) "services.crew.settings.drives names no drive, and no assertion fails"
     ++
       lib.concatMap
         (words: t.expect (says none words) "the failure names no ${words}: ${toString (failures none)}")

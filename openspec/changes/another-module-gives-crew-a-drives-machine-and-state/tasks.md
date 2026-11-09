@@ -6,7 +6,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>` runs o
 
 - [x] 1.1 `services.crew.settings.drives` is an attribute set keyed by each drive's label, its `label` read-only and taken from its name, written as the file's list in label order so deneb's drives still render `nix/tests/files/deneb.json` and the runner's `runner.json` byte for byte; and drives with no machine, a label the host sets, a name crew does not accept, drives as a list, and no drive each fail evaluation, the label-twice assertion gone (design, Decision 1; Task notes 1.1). Verify `tests/suite nix:test nix:typecheck` ends with "0 failed".
 - [x] 1.2 A drive's `machine` and `state` are unique options, so another module gives them by the drive's label beside the host's own keys for it and deneb's drives from the two render `nix/tests/files/deneb.json`, while a machine or state written twice, and a drive given and not configured, each fail evaluation (design, Decisions 2 and 3; Task notes 1.2). Verify `tests/suite nix:test` ends with "0 failed".
-- [ ] 1.3 Every nix file tasks 1.1 and 1.2 touched is as nixfmt writes it, and statix and deadnix find nothing in it (design, Decision 1; Task notes 1.3). Verify `tests/suite nix:format nix:lint` ends with "0 failed".
+- [x] 1.3 Every nix file tasks 1.1 and 1.2 touched is as nixfmt writes it, and statix and deadnix find nothing in it (design, Decision 1; Task notes 1.3). Verify `tests/suite nix:format nix:lint` ends with "0 failed".
 
 ## 2. The words
 
