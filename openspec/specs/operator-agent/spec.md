@@ -74,7 +74,7 @@ On request, the operator agent SHALL make the drive's lineage page with `crew pa
 - **THEN** it runs `crew page wldn`, opens the file beside its pane, and says as of when it is
 
 ### Requirement: The operator is a main-level role
-The drive's operator, `<label>-operator`, SHALL be a role of its main level: while it stands, `crew main up <label>` SHALL start it in an `operator` tab of the `<label>` workspace, beside the design agent, the planner and ops, and greet it once it is up as it greets them; `crew main down <label>` SHALL end it; `crew revive` SHALL bring it back as it brings them back. While its drive runs it as its kind, it SHALL run as a role's run does, on an ask, and none of these SHALL start it. Every brief SHALL name it as the drive's operator, and crew SHALL start no other operator agent for the drive.
+The drive's operator, `<label>-operator`, SHALL be a role of its main level: while it stands, `crew main up <label>` SHALL start it in an `operator` tab of the `<label>` workspace, beside the design agent, the planner and ops, and greet it once it is up as it greets them; `crew main down <label>` SHALL end it; `crew revive` SHALL bring it back as it brings them back. While its drive's `runs` names it `on-demand`, so that it runs as its kind, it SHALL run as a role's run does, on an ask, and none of these SHALL start it. Every brief SHALL name it as the drive's operator, and crew SHALL start no other operator agent for the drive.
 
 #### Scenario: The main level comes up with its operator
 - **WHEN** `crew main up wldn` runs
@@ -85,7 +85,7 @@ The drive's operator, `<label>-operator`, SHALL be a role of its main level: whi
 - **THEN** its brief has it tell `wldn-operator`, the drive's one operator
 
 #### Scenario: The operator runs as its kind
-- **WHEN** madswan's `flume` names a stream for its operator and `crew main up madswan` runs
+- **WHEN** madswan's `runs` names its operator `on-demand` and `crew main up madswan` runs
 - **THEN** no `operator` tab is opened and no operator is started, and a tell to `madswan-operator` is an ask of its role
 
 ### Requirement: The console follows the run record
@@ -254,7 +254,7 @@ A host's operator sessions SHALL be the drives its teams file's `consoles` names
 - **THEN** crew opens agentplot's and wldn's consoles on deneb again, and no other drive's
 
 ### Requirement: The operator's brief says who changes the drives on its host
-The operator's brief SHALL say that where its host's `~/.config/crew/teams.json` is a file and not a link into the Nix store, as Boomdrive's setup leaves a person's Mac, a drive is added or changed through Boomdrive's setup on the user's word, which gives crew the drive's entry with `crew drive set`, and that the operator edits no teams file by hand; it SHALL name no drive's removal there. Its steps through swancloud's `lib/crew-teams.nix` SHALL be said for a teams file that is such a link.
+The operator's brief SHALL say that where its host's `~/.config/crew/teams.json` is a file and not a link into the Nix store, as Boomdrive's setup leaves a person's Mac, a drive is added or changed through Boomdrive's setup on the user's word, which gives crew the drive's entry with `crew drive set`, and that the operator edits no teams file by hand; it SHALL name no drive's removal there. Its steps through swancloud's `lib/crew-teams.nix` SHALL be said for a teams file that is such a link. Among what a drive's entry says, the brief SHALL name how each of its roles runs, `runs`, `standing` or `on-demand`, and its batch setting, `review`, by `after_changes` and `after_hours`, and SHALL name no `flume` as a key of the teams file.
 
 #### Scenario: The operator's brief
 - **WHEN** a drive's operator brief is built
@@ -263,3 +263,7 @@ The operator's brief SHALL say that where its host's `~/.config/crew/teams.json`
 #### Scenario: No removal through setup
 - **WHEN** a drive's operator brief is built
 - **THEN** its *Changing the drives* names no drive removed through Boomdrive's setup
+
+#### Scenario: What a drive's entry says
+- **WHEN** a drive's operator brief is built
+- **THEN** its *Changing the drives* names `runs`, `standing`, `on-demand`, `after_changes` and `after_hours`, and no `` `flume` ``
