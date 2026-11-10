@@ -17,6 +17,10 @@ in
 {
   typecheck = lines (import ./typecheck.nix t);
   test = lines (
-    import ./file.nix t // import ./package.nix t // import ./darwin.nix t // import ./nixos.nix t
+    import ./file.nix t
+    // import ./version.nix t
+    // import ./package.nix t
+    // import ./darwin.nix t
+    // import ./nixos.nix t
   );
 }

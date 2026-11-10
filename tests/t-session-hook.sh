@@ -23,9 +23,11 @@ hooks=$(jq -r '.hooks.SessionStart[0].hooks[0].command' "$CREW/plugin/hooks/hook
 has "$hooks" '${CLAUDE_PLUGIN_ROOT}/hooks/session-start'
 ok "the plugin's hooks.json runs the session-start hook"
 
-commit=$(git -C "$CREW" rev-parse HEAD)
-described=$(git -C "$CREW" describe --tags --long --match 'v[0-9]*' --abbrev=40 HEAD)
-version=${described%-*-g*}; past=${described%-g*}; past=${past##*-}; [[ $past == 0 ]] || version+="+$past"
+# The commit and version a start records of crew's checkout are those crew _release prints for it, which the contract
+# tier proves against git (tests/contract/test_release.py); the version empty where no release tag is before HEAD.
+released=$(crew _release)
+commit=$(jq -r .commit <<<"$released"); version=$(jq -r '.version // ""' <<<"$released")
+eq "$commit" "$(git -C "$CREW" rev-parse HEAD)"
 echo '{"session_id":"sid-1","source":"startup","cwd":"/work/blueprints"}' | CREW_AGENT=wldn-planner CREW_LABEL=wldn CREW_ROLE=planner CREW_LAUNCH=d1 SLUICE_BRANCH=bolt/b HERDR_SESSION=s HERDR_PANE_ID=w1:p2 hook
 eq "$(cat "$record")" "CREW_AGENT=wldn-planner
 CREW_LABEL=wldn
@@ -38,9 +40,8 @@ CREW_VERSION=$version
 CREW_LAUNCH=d1"
 ok "a crew agent's start records its session, the definition its brief comes from, the folder it began in, the herdr session and pane it started in, and the crew and launch it loaded, and no branch for sluice"
 
-eq "$(crew _release | jq -c '[.root, .commit, .version, .from, .unread]')" \
-  "$(jq -nc --arg r "$CREW" --arg c "$commit" --arg v "$version" '[$r, $c, $v, "checkout", null]')"
-ok "crew _release from a checkout prints its root, commit and version, read from git"
+eq "$(jq -c '[.root, .from, .unread]' <<<"$released")" "$(jq -nc --arg r "$CREW" '[$r, "checkout", null]')"
+ok "crew _release from a checkout prints its root and HEAD's commit, read from git"
 
 # A build: crew's plugin folder, what its commands and hooks run of it, copied with no git, as crew's package holds it, its release file written as the
 # package writes one where its flake knows its commit (nix/packages/crew.nix).

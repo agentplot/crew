@@ -20,16 +20,17 @@ tasks:
     tags: [check-full]
     options: {runFromWorkspaceRoot: true}
   # Every package of every system evaluates, and each module in a system of its platform. crew.py is among its inputs
-  # since the module reads its version from it; the package's other files move its path but no case's outcome.
+  # since the module reads its version from it, and plugin/release.json since the package's version is the one it gives;
+  # the package's other files move its path but no case's outcome.
   typecheck:
     command: 'sh nix/check.sh typecheck'
-    inputs: ['/flake.nix', '/flake.lock', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/plugin/lib/crew.py']
+    inputs: ['/flake.nix', '/flake.lock', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/plugin/lib/crew.py', '/plugin/release.json']
     tags: [check-full]
     options: {runFromWorkspaceRoot: true}
-  # The cases of the crew-flake spec under nix/tests: the file pinned byte for byte, each module's activation and
-  # assertions, and the activation script's own cases.
+  # The cases of the crew-flake spec under nix/tests: the file pinned byte for byte, the package's version from
+  # plugin/release.json and its release, each module's activation and assertions, and the activation script's own cases.
   test:
     command: 'sh nix/check.sh test'
-    inputs: ['/flake.nix', '/flake.lock', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/plugin/lib/crew.py']
+    inputs: ['/flake.nix', '/flake.lock', '/nix/**/*', '/devenv.nix', '/devenv.yaml', '/devenv.lock', '/plugin/lib/crew.py', '/plugin/release.json']
     tags: [check-full]
     options: {runFromWorkspaceRoot: true}

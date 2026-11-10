@@ -28,10 +28,14 @@
         "aarch64-linux"
         "x86_64-linux"
       ];
-      # nixpkgs' form for an untagged commit: crew keeps its version in no
-      # file (code.10), and reports its own from git.
-      date = self.lastModifiedDate or "19700101";
-      version = "0-unstable-${builtins.substring 0 4 date}-${builtins.substring 4 2 date}-${builtins.substring 6 2 date}";
+      # The package's version is the one crew's release file in this tree
+      # gives (nix/version.nix): a release's x.y.z at its tag, which the
+      # release commit writes, and main's 0.0.0 as nixpkgs' form for an
+      # untagged commit, of the tree's last change. Nothing else sets it.
+      version = import ./nix/version.nix { inherit lib; } {
+        release = lib.importJSON ./plugin/release.json;
+        date = self.lastModifiedDate or "19700101";
+      };
 
       packages = lib.genAttrs systems (
         system:

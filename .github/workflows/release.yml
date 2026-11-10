@@ -1,8 +1,10 @@
 # crew on GitHub: each push to main that git-cliff finds a new version in is released, tagged v<x.y.z> with its notes
-# (cliff.toml, code.10). crew's own gate is sluice (.config/sluice.toml), which runs its suite on the host before
-# anything reaches main, so nothing here builds or tests. git-cliff and convco come from the nixpkgs crew's
-# devenv.lock pins under devenv's own (its nixpkgs-src), the builds crew's shell runs. One run at a time: a push
-# waits for the release before it, so it never reckons the version from a tag that is still being made.
+# (cliff.toml, code.10). The tag names a release commit cut from the pushed commit, which writes the release's version
+# into every file that carries crew's (set-version.sh), so any build of the tag reports it; main keeps 0.0.0
+# (crew-release). crew's own gate is sluice (.config/sluice.toml), which runs its suite on the host before anything
+# reaches main, so nothing here builds or tests. git-cliff and convco come from the nixpkgs crew's devenv.lock pins
+# under devenv's own (its nixpkgs-src), the builds crew's shell runs. One run at a time: a push waits for the release
+# before it, so it never reckons the version from a tag that is still being made.
 name: release
 
 on:
@@ -18,8 +20,10 @@ concurrency:
 
 jobs:
   # The commits since the last release are conventional (.versionrc, code.6): a commit can skip the commit-msg hook,
-  # and git-cliff releases from them. Before the first release, the commits this push brought, since older history
-  # holds commits of a type crew no longer writes. Merge commits are not checked.
+  # and git-cliff releases from them. The last release is the newest v* tag by version, since a release's tag names a
+  # release commit off main's history, which git describe never reaches; its parent is the commit it was cut from, so
+  # the range from the tag is the commits main took since. Before the first release, the commits this push brought,
+  # since older history holds commits of a type crew no longer writes. Merge commits are not checked.
   conventional:
     runs-on: ubuntu-latest
     steps:
@@ -28,13 +32,14 @@ jobs:
           fetch-depth: 0
       - uses: cachix/install-nix-action@v31
       - run: |
-          last="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "$BEFORE")"
+          last="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
           nixpkgs="github:NixOS/nixpkgs/$(jq -r '.nodes."nixpkgs-src".locked.rev' devenv.lock)"
-          nix shell "$nixpkgs#convco" -c convco check -c .versionrc "$last..HEAD"
+          nix shell "$nixpkgs#convco" -c convco check -c .versionrc "${last:-$BEFORE}..HEAD"
         env:
           BEFORE: ${{ github.event.before }}
 
-  # The next version from the commits since the last v* tag; empty when it is already tagged.
+  # The next version from the commits since the newest v* tag, which --unreleased starts at though it is off main's
+  # history; empty when it is already tagged.
   version:
     runs-on: ubuntu-latest
     outputs:
@@ -47,17 +52,20 @@ jobs:
       - id: next
         run: |
           nixpkgs="github:NixOS/nixpkgs/$(jq -r '.nodes."nixpkgs-src".locked.rev' devenv.lock)"
-          tag="$(nix shell "$nixpkgs#git-cliff" -c git-cliff --bumped-version)"
+          tag="$(nix shell "$nixpkgs#git-cliff" -c git-cliff --unreleased --bumped-version)"
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             echo "$tag is already released"
           else
             echo "tag=$tag" >> "$GITHUB_OUTPUT"
           fi
 
-  # Tags the pushed commit and publishes a release with git-cliff's notes for the range. Nothing is committed back to
-  # main, and no tag is moved. GitHub takes a release body of at most 125,000 characters: notes longer than that (the
-  # first release's, over all of crew's history) are cut at the last whole line under 120,000 bytes, end with a line
-  # saying how many more lines there are, and go whole as notes.md attached to the release.
+  # Makes the release commit, cut from the pushed commit: set-version.sh writes the release's version into the release
+  # file and crew's manifest, committed by path as chore(release): <tag> (code.6), which git-cliff's notes leave out.
+  # The tag names that commit and is pushed alone, with no branch and no force (state.5), and the release is published
+  # at it with git-cliff's notes for the range. Nothing is committed back to main, and no tag is moved. GitHub takes a
+  # release body of at most 125,000 characters: notes longer than that (the first release's, over all of crew's
+  # history) are cut at the last whole line under 120,000 bytes, end with a line saying how many more lines there
+  # are, and go whole as notes.md attached to the release.
   release:
     if: needs.version.outputs.tag != ''
     needs: [version, conventional]
@@ -81,7 +89,12 @@ jobs:
             printf '\n…and %s more lines: the whole notes are notes.md, attached to this release.\n' "$more" >> body.md
             attach=(notes.md)
           fi
-          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file body.md "${attach[@]}"
+          sh set-version.sh "${TAG#v}"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "chore(release): $TAG" -- plugin/release.json plugin/.claude-plugin/plugin.json
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file body.md "${attach[@]}"
         env:
           TAG: ${{ needs.version.outputs.tag }}
           GH_TOKEN: ${{ github.token }}

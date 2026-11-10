@@ -360,10 +360,11 @@
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
 #                                      notice, pendingyou watch -- crew _answered, which makes each change on a card in a
 #                                      role's run's name an ask of the role, reading nothing of the card
-#   crew _release                      what this crew is, as one line of JSON: its root, commit and version and where
-#                                      they were read from, "checkout" from git, "release" from a build's
-#                                      plugin/release.json, or null, with why where nothing was read; reading nothing
-#                                      else and starting nothing, so one crew reads another it cannot import by it
+#   crew _release                      what this crew is, as one line of JSON: its root, commit and version, the
+#                                      commit null where a release names none, and where they were read from,
+#                                      "checkout" from git, "release" from a build's plugin/release.json, or null, with
+#                                      why where nothing was read; reading nothing else and starting nothing, so one
+#                                      crew reads another it cannot import by it
 #   crew tell     <agent> "<text>"     prompt an agent crew started, a main level's, wherever it runs, marked with who sent it;
 #                                      refused, with nothing typed, while the agent waits on a question in its pane.
 #                                      To a role that runs as its kind with no standing agent of it up, crew's own

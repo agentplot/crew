@@ -1,6 +1,7 @@
 # git-cliff: the next version and the release notes, from the conventional commits since the last v* tag (code.10).
 # CI releases with it on each push to main; `devenv shell -- release-preview` shows what would be released. The
-# version lives only in the tag.
+# version lives in the tag's release commit, which set-version.sh writes and these notes leave out as a chore; main
+# gives 0.0.0 (crew-release).
 
 [changelog]
 header = ""
