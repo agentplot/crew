@@ -125,6 +125,12 @@ class TestThePrompt:
     def test_it_names_who_the_run_is(self):
         assert all(part in TURN for part in ("{{kind}}", "{{name}}", "{{place}}"))
 
+    def test_it_says_the_role_is_on_demand_in_the_teams_files_own_word(self):
+        """role-runs, The role's way of running: the word the drive's `runs` names the role by, never that it runs as
+        its kind."""
+        assert "a run of one of crew's main-level roles, one its drive's `runs` names `on-demand`." in TURN
+        assert "as its kind" not in TURN
+
     def test_the_turn_starts_with_crew_role_start_and_ends_with_crew_role_end_writing_its_report(self):
         start, end = TURN.index("`crew role start`"), TURN.index('`crew role end --report {{report}} "<what was done>"`')
         assert start < end

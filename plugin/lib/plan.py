@@ -8094,12 +8094,13 @@ def kinds_up(fleet, label, ms):
 
 
 def kind_said(stream, waiting, run, now):
-    """What crew main status says of a role its drive runs as its kind (main-level "A role that runs as its kind is
-    not started by crew-role"), from facts: the stream it runs in, its drive's own, named by its label (Decision 2 of
-    a-roles-way-of-running-says-what-it-means), the asks of it that wait, oldest
-    first (asks.pending), its latest run as the runner's records show it (runner.role_run) and the time now. That it runs
-    as its kind in that stream; whether a run of it stands, naming its place, with the runner's words where it could
-    launch none, or that crew can't tell, naming why (read.1); and how many asks wait, with the oldest's age."""
+    """What crew main status says of a role its drive's `runs` names on demand (main-level "A role that runs as its
+    kind is not started by crew-role"), from facts: the stream it runs in, its drive's own, named by its label
+    (Decision 2 of a-roles-way-of-running-says-what-it-means), the asks of it that wait, oldest first (asks.pending),
+    its latest run as the runner's records show it (runner.role_run) and the time now. That it is on-demand, the
+    file's own word (crew.RUNS_ON_DEMAND; Decision 4 of a-roles-way-of-running-is-said-in-the-files-words), in that
+    stream; whether a run of it stands, naming its place, with the runner's words where it could launch none, or that
+    crew can't tell, naming why (read.1); and how many asks wait, with the oldest's age."""
     if run["why"]:
         ran = f"crew can't tell whether a run stands: {run['why']}"
     elif run["live"]:
@@ -8109,7 +8110,7 @@ def kind_said(stream, waiting, run, now):
     n = len(waiting)
     waits = (f"{n} ask{'' if n == 1 else 's'} wait{'s' if n == 1 else ''}, the oldest asked {age(utc(waiting[0]['At']), now)} ago"
              if waiting else "no ask waits")
-    return f"runs as its kind in stream {stream}; {ran}; {waits}"
+    return f"{crew.RUNS_ON_DEMAND} in stream {stream}; {ran}; {waits}"
 
 
 def kinds_said(fleet, label):
@@ -8170,9 +8171,12 @@ def main_cmd(fleet, a):
             m.record("main.down", f"main({label}): down", m.ended)
         print(f"{label}'s main level is down; its panes are still there.")
     else:
+        # Each role's line says the word its drive's `runs` names it by (main-level "Main status says a standing role
+        # is standing"): a standing role's before its agent's status, an on-demand role's from kind_said.
         for m in ms:
             for role in m.standing:
-                print("%-34s %-8s %-14s %s" % (m.agent_of(role), m.pane(role), m.session, m.status(role) or "not up"))
+                print("%-34s %-8s %-14s %s; %s" % (m.agent_of(role), m.pane(role), m.session, crew.RUNS_STANDING,
+                                                   m.status(role) or "not up"))
         for role, said in kinds_said(fleet, label).items():
             print("%-34s %-8s %-14s %s" % (f"{label}-{role}", "-", "-", said))
 

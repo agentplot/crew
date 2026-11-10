@@ -1,7 +1,7 @@
 # A drive's main level and its console through the crew command on the stubs (tests.11, record 0022), in the
 # journeys' world (tests/journeys.sh): crew main up starts the main level, its operator among it, and nothing else,
 # no dispatcher on any host, each greeted once, its roles declared in crew's Flume roles file on its host (teams.25), one waiting on a question holding back no other; main status lists
-# them; a tell records its length and never its text; crew send reaches the drive named by its label's operator,
+# them, each standing; a tell records its length and never its text; crew send reaches the drive named by its label's operator,
 # marked with whom it was for, and records its length, and a team's name from before teams left is refused; a word from the board, piped to crew tell --board as the board's
 # listener pipes it, reaches the agent its item's kind goes to marked as the user's from the board and naming the item,
 # and records its length, and one for an agent its kind does not go to types nothing; the console opens its shell tab
@@ -11,7 +11,7 @@
 # with no conversation to pick up, fresh, leaving down what was taken down; crew revive and crew main up open again a
 # pane herdr brought back dead; a role its drive names a session for comes up there (record 0035); and a role its
 # drive runs as its kind is started by none of them, its role record written and a standing agent of it left from
-# before ended, and main status says whether a run of it stands and what waits.
+# before ended, and main status says it is on-demand, whether a run of it stands and what waits.
 # What each agent is greeted with, where it runs and whether a pane is dead are logic cases (tests/py/test_teams.py).
 # Reads: plugin/hooks/ plugin/lib/board.py plugin/roles/ tests/journeys.sh
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
@@ -49,7 +49,8 @@ eq "$(count $box main.up)" "1"
 ok "crew main up starts the main level, its operator among it, on its host and no dispatcher on any host, its roles in crew's Flume roles file there, greeting each once, one waiting on a question once it is answered and holding back no other; a second starts and records nothing"
 
 expect_ok crew main status wldn
-for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "idle"; done
+for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "standing; idle"; done
+lacks "$out" "as its kind"
 lacks "$out" "dispatch"
 crew tell wldn-planner "Secret words ZQXR" >/dev/null
 eq "$(field mac-studio tell Chars)" "17"
@@ -245,7 +246,7 @@ ok "a role its drive names a session for comes up there, up refusing while it st
 
 # wldn's planner and reviewer run as their kinds: main up opens no tab for either and starts and greets neither,
 # writes their role records to the drive's branch, and ends the standing planner left from before, idle; a second
-# up does nothing of them; crew revive brings neither back; main status says each runs as its kind, in which stream,
+# up does nothing of them; crew revive brings neither back; main status says each is on-demand, in which stream,
 # and how many asks wait (design Decision 14).
 role_runs wldn planner on-demand; role_runs wldn reviewer on-demand
 : > "$CREW_TEST_CLAUDE_LOG"
@@ -260,8 +261,8 @@ HOST=$box expect_ok crew revive
 lacks "$out" "wldn-planner"
 [[ $(launches) == *wldn-planner* ]] && fail "a planner that runs as its kind was started"
 HOST=$box expect_ok crew main status wldn
-has "$(grep "^wldn-planner " <<<"$out")" "runs as its kind in stream wldn; crew can't tell whether a run stands: no runner answers on $box: wldn/runner/$box does not exist; no ask waits"
-has "$(grep "^wldn-reviewer " <<<"$out")" "runs as its kind in stream wldn; crew can't tell whether a run stands"
+has "$(grep "^wldn-planner " <<<"$out")" "on-demand in stream wldn; crew can't tell whether a run stands: no runner answers on $box: wldn/runner/$box does not exist; no ask waits"
+has "$(grep "^wldn-reviewer " <<<"$out")" "on-demand in stream wldn; crew can't tell whether a run stands"
 # Once the box's runner answers with no run of the planner, and the design agent's tell is an ask of it, main status
 # says no run stands and the ask waits.
 runner_rec=$(printf '%%rec: Runner\n%%key: Host\n%%type: Since date\n%%mandatory: Host Version Since\n%%allowed: Host Version Since\n\nHost: %s\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n' "$box")
@@ -270,6 +271,7 @@ git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$box" "$(git --git-dir "$
 CREW_AGENT=wldn-design expect_ok crew tell wldn-planner "Record 0012 is accepted"
 has "$out" "asked wldn-planner"
 HOST=$box expect_ok crew main status wldn
-has "$(grep "^wldn-planner " <<<"$out")" "runs as its kind in stream wldn; no run stands; 1 ask waits, the oldest asked"
-has "$(grep "^wldn-reviewer " <<<"$out")" "runs as its kind in stream wldn; no run stands; no ask waits"
-ok "main up starts no role that runs as its kind, writes their role records and ends a standing agent of one left idle; revive passes them over and main status says how each runs, whether a run stands and what waits"
+has "$(grep "^wldn-planner " <<<"$out")" "on-demand in stream wldn; no run stands; 1 ask waits, the oldest asked"
+has "$(grep "^wldn-reviewer " <<<"$out")" "on-demand in stream wldn; no run stands; no ask waits"
+lacks "$out" "as its kind"
+ok "main up starts no role that runs as its kind, writes their role records and ends a standing agent of one left idle; revive passes them over and main status says each is on-demand, whether a run stands and what waits"

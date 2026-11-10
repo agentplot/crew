@@ -69,7 +69,7 @@ brief=$(home_of mac-studio)/.local/state/crew/madswan/turns/planner.md
 has "$out" "Read $brief whole first: it is your brief as madswan-planner, filled for madswan."
 has "$out" "ask 1: tell from madswan-design"$'\n'"  Record 0053 is accepted ZQXR"$'\n'"ask 3: tell from madswan-design"$'\n'"  Batch 4 is due"
 has "$out" "card card/req_stub-90/2: Which zone?"$'\n'"  words: eu-west-1"
-has "$(cat "$brief")" "You run as your kind"; lacks "$(cat "$brief")" "{{"
+has "$(cat "$brief")" "Your drive's \`runs\` names you \`on-demand\`"; lacks "$(cat "$brief")" "as your kind"; lacks "$(cat "$brief")" "{{"
 grep -q '^mac-studio pendingyou list_pending {"name": "madswan-planner"}$' "$CREW_TEST_LOG" || fail "the start did not read its cards as madswan-planner"
 eq "$(at asks.rec | recsel -t Turn -p Turn,Run,Place,Took | tr '\n' ' ')" "Turn: 1 Run: madswan-planner Place: crew-planner--madswan Took: ask/1 Took: ask/3 "
 eq "$(acts_since "$t0" madswan/main "$ms")" "1"
