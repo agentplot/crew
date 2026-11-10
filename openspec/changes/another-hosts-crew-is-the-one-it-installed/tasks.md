@@ -5,7 +5,7 @@ Build the tasks in order. Each check runs from the worktree's root, as written. 
 ## 1. crew's Python runs the crew another host installed
 
 - [x] 1.1 `crew_there` builds the one line that runs `crew` by its name on another host as the one asking, `crew_argv`, `reach` and `read_agent` all run it, and `crew_at`, `crew_on`, `crew_repository`, `repository_named`, `GITHUB` and `MANIFEST` are gone (design Decisions 1, 2 and 5; Task notes 1.1). Verify `devenv shell -- uv run --project tests --locked python -m pytest -q -p no:cacheprovider tests/py/test_crew_on.py` exits 0.
-- [ ] 1.2 The guard in that line fails on a host whose path finds no `crew`, naming the host and exiting 127, and otherwise execs the crew it finds (design Decision 3; Task notes 1.2). Verify `devenv shell -- uv run --project tests --locked python -m pytest -q -p no:cacheprovider tests/contract/test_no_crew.py` exits 0.
+- [x] 1.2 The guard in that line fails on a host whose path finds no `crew`, naming the host and exiting 127, and otherwise execs the crew it finds (design Decision 3; Task notes 1.2). Verify `devenv shell -- uv run --project tests --locked python -m pytest -q -p no:cacheprovider tests/contract/test_no_crew.py` exits 0.
 
 ## 2. The command and the tests' hosts
 
