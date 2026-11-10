@@ -235,7 +235,7 @@ for role in design planner reviewer main-ops operator; do
   has "$out" "You stand in your pane, an agent crew started and keeps up: your work reaches you there, as tells marked"
   lacks "$out" "You run as your kind"
 done
-for r in design planner reviewer ops operator; do role_stream wldn $r wldn-main; done
+for r in design planner reviewer ops operator; do role_runs wldn $r on-demand; done
 for role in design planner reviewer main-ops operator; do
   expect_ok crewpy brief wldn $role
   [[ $out =~ \{\{[A-Z_]+\}\} ]] && fail "roles/$role.md left ${BASH_REMATCH[0]} unfilled for a drive running all five as their kinds"
@@ -249,7 +249,7 @@ done
 expect_ok crewpy brief wldn reviewer; has "$out" "run \`$CREW/plugin/bin/crew review delivered\`, which records it"
 expect_ok crewpy brief wldn main-ops; has "$out" "You run nothing for a landing: crew carries the user's send to the runner, and how each landing ends reaches your next run as an ask when it does not land"
 expect_ok crewpy brief wldn planner; has "$out" "its delivery reaches you as an ask, with the line that adopts its card"
-for r in design planner reviewer ops operator; do role_stream wldn $r false; done
+for r in design planner reviewer ops operator; do role_runs wldn $r standing; done
 ok "each main-level brief says how its work reaches it: in its pane while it stands, and as a turn that waits on nothing once it runs as its kind, every brief filled for a drive running all five so"
 
 expect_ok crewpy brief wldn operator
@@ -284,16 +284,19 @@ ok "the operator carries what is sent to it in the sender's words, and sends a t
 # On a host Boomdrive's setup set up, whose teams file is a file and no link into the Nix store, a drive is added or
 # changed through setup, which writes crew's entry with crew drive set, never by a hand edit, and no removal through
 # setup is named, since neither setup nor crew drive set provides one (record 0065); the swancloud steps are for a
-# link (operator-agent "The operator's brief says who changes the drives on its host"; tests.6).
+# link; and what a drive's entry says names how each role runs, `runs`, and the batch setting by its keys, and no
+# `flume` (operator-agent "The operator's brief says who changes the drives on its host"; record 0064 as amended
+# 2026-11-09; tests.6).
 expect_ok crewpy brief wldn operator
 for want in "\`test -L ~/.config/crew/teams.json\` says whether it is a link" \
+  "how each of its roles runs, \`runs\`, \`standing\` or \`on-demand\`" "\`after_changes\` and \`after_hours\`" \
   "Where it is a file and not a link into the Nix store, as Boomdrive's setup leaves a person's Mac, a drive is added or changed through Boomdrive's setup on the user's word, which gives crew the drive's entry with \`crew drive set\` and the runner the same repositories" \
   "never edit the teams file by hand" \
   "Where it is a link into the Nix store, the steps below are yours: the drives are \`lib/crew-teams.nix\` in swancloud's checkout on a Mac"; do
   has "$out" "$want"
 done
-lacks "$out" "removed through Boomdrive's setup"
-ok "the operator's brief says a drive on a teams file that is no link into the Nix store is added or changed through Boomdrive's setup with crew drive set, never by hand, names no removal through setup, and the swancloud steps are for a link"
+lacks "$out" "removed through Boomdrive's setup"; lacks "$out" "its \`flume\`"
+ok "the operator's brief says a drive on a teams file that is no link into the Nix store is added or changed through Boomdrive's setup with crew drive set, never by hand, names no removal through setup, the swancloud steps are for a link, and a drive's entry says how each role runs and its batch setting by runs, after_changes and after_hours, and no flume"
 
 # Every brief says who is speaking in the agent's pane; the four that record findings say how, with the excerpt, and
 # where crew writes the signal.

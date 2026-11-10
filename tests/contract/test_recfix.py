@@ -57,8 +57,8 @@ def test_the_plan_takes_a_chore_among_its_units_and_refuses_any_other_kind():
 
 
 MADSWAN = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
-                                      "flume": {"design": False, "planner": "madswan-main", "reviewer": False, "ops": "madswan-main",
-                                                "operator": False}}}}
+                                      "runs": {"design": "standing", "planner": "on-demand", "reviewer": "standing", "ops": "on-demand",
+                                               "operator": "standing"}}}}
 
 
 def an_asks_write():
@@ -72,7 +72,8 @@ def an_asks_write():
 def test_the_asks_turns_and_role_records_crew_writes_pass_recfix():
     """plan.ask_rec and plan.roles_lines, checked as land() checks every file a commit holds (plan.checked; plan.1,
     state.1): asks.rec with its two record sets, an ask with words over two lines and one keyed naming a card, a turn
-    that took both and ended and one superseded, and roles.rec with the planner's and ops's records."""
+    that took both and ended and one superseded, and roles.rec with the planner's and ops's records, written from the
+    drive's `runs`, each naming the drive's label as its stream (Decision 2 of a-roles-way-of-running-says-what-it-means)."""
     w = an_asks_write()
     plan.ask_rec(w, MADSWAN, "madswan", "planner", "tell", "madswan-design", words="record 0053 is accepted\nand its rule amended")
     plan.ask_rec(w, MADSWAN, "madswan", "planner", "card", "crew", names="proposal/12", key="card/req_1/2026-10-31T10:04:00Z")
@@ -82,7 +83,7 @@ def test_the_asks_turns_and_role_records_crew_writes_pass_recfix():
         pl.insert(plan.Rec("Turn", [("Turn", str(n)), ("Role", "planner"), ("Run", "madswan-planner"), ("Place", "crew-planner--madswan"),
                                     ("Host", "deneb"), ("Took", "ask/1"), ("Took", "place/7@1793440000"), ("Began", "2026-10-31T10:10:00Z")] + end))
     plan.checked({"asks.rec": pl.text(), "roles.rec": w.files["roles.rec"]})
-    assert [r.get("Role") for r in plan.Plan(w.files["roles.rec"]).recs("Role")] == ["planner", "ops"]
+    assert [(r.get("Role"), r.get("Stream")) for r in plan.Plan(w.files["roles.rec"]).recs("Role")] == [("planner", "madswan"), ("ops", "madswan")]
 
 
 @pytest.mark.parametrize("path, drop, field, value", [
@@ -154,7 +155,7 @@ def test_requests_of_every_act_a_preview_and_its_done_among_them_pass_and_the_de
     kind or a hold the enums do not hold, a done that is no flag, a number that is no number and a date that is none are
     refused."""
     other = lambda n, act, **g: plan.Rec("Request", runner.request_fields(n, act, "unit/a", g, "2026-10-31T12:00:00Z", "madswan-planner"))
-    (_, work, given), _ = runner.role_launch([], {"afterthought/crew"}, "madswan", "design", "deneb", "madswan-main", "afterthought/crew",
+    (_, work, given), _ = runner.role_launch([], {"afterthought/crew"}, "madswan", "design", "deneb", "madswan", "afterthought/crew",
                                              "record-0053", "Write docs/adr/0053.md whole:\n# 53. Roles run as kinds")
     role_land = plan.Rec("Request", runner.request_fields(7, "launch", work, given, "2026-10-31T12:00:00Z", "madswan-design"))
     preview = lambda n, done: plan.Rec("Request", runner.request_fields(
@@ -240,7 +241,7 @@ def test_a_runners_branch_files_pass_by_their_descriptors_and_an_outcome_they_do
              "answers.rec": runner.ANSWERS + "\nRequest: 1\nOutcome: launched\nPlace: /kit/places/change--a\nAt: 2026-10-31T12:01:00Z\n"
                             "\nRequest: 2\nOutcome: held\nAt: 2026-10-31T12:01:00Z\n",
              "places.rec": runner.PLACES + f"\nRequest: 1\nPlace: /kit/places/change--a\nAt: 2026-10-31T12:02:00Z\nStatus: {status}\n"
-                           "\n" + runner.RUNS + "\nAddress: madswan/design\nAt: 2026-10-31T12:03:00Z\nWords: no stream madswan-main\n"
+                           "\n" + runner.RUNS + "\nAddress: madswan/design\nAt: 2026-10-31T12:03:00Z\nWords: no stream madswan\n"
                            f"\nAddress: madswan/planner\nPlace: /flume/places/crew-planner--madswan\nAt: 2026-10-31T12:03:00Z\nStatus: {status}\n"}
     plan.checked(files)
     assert json.loads(plan.Plan(files["places.rec"]).recs("Place")[0].get("Status")) == json.loads(status)

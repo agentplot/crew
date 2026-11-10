@@ -538,9 +538,9 @@ class TestRefresh:
     the views and the stamps, so what is asked is what the case shows."""
 
     FLEET = {"drives": {"wldn": {"label": "wldn", "state": "o/state", "blueprints": ["o/bp"],
-                                     "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}},
+                                     "machine": "mac-studio", "runs": {r: "standing" for r in crew.KIND_ROLES}},
                             "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["o/bp"],
-                                          "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}},
+                                          "machine": "mac-studio", "runs": {r: "standing" for r in crew.KIND_ROLES}}},
              "hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}, "consoles": {"wldn": "/w", "swancloud": "/s"}}
 
     @pytest.fixture
@@ -602,7 +602,7 @@ class TestRefresh:
 
     def test_the_follower_runs_pending_yous_notice_while_a_role_here_runs_as_its_kind(self, tmp_path, monkeypatch):
         """role-runs "The follower hears Pending You's notice while a role here runs as its kind": started at a tick
-        while a drive whose main level is here names a stream for a role, once, started again when it ended, and
+        while a drive whose main level is here names a role on demand in its `runs`, once, started again when it ended, and
         ended once none does (design Decision 5 of roles-run-as-flume-kinds)."""
         started = []
 
@@ -622,8 +622,8 @@ class TestRefresh:
         monkeypatch.setattr(board.subprocess, "Popen", Proc)
         monkeypatch.setattr(board, "HEARD", tmp_path / "heard.log")
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
-        stands = {r: False for r in crew.KIND_ROLES}
-        runs = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": dict(stands, planner="madswan-main")}}}
+        stands = {r: "standing" for r in crew.KIND_ROLES}
+        runs = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "runs": dict(stands, planner="on-demand")}}}
         f = board.Follower(None)
         f.hear(runs)
         f.hear(runs)
@@ -631,7 +631,7 @@ class TestRefresh:
         started[0].code = 1
         f.hear(runs)
         assert len(started) == 2, "a notice that ended was not started again"
-        f.hear({"drives": {"madswan": dict(runs["drives"]["madswan"], flume=stands)}})
+        f.hear({"drives": {"madswan": dict(runs["drives"]["madswan"], runs=stands)}})
         assert started[1].ended and f.notice is None
         f.hear({"drives": {"madswan": dict(runs["drives"]["madswan"], machine="mac-studio")}})
         assert len(started) == 2, "a notice was run for a role whose main level is on another host"
@@ -1640,7 +1640,7 @@ class TestViews:
         lines += [l for lines in standing.values() for l in lines]
         assert any("submitted #413" in t for l in standing["wldn-planner"] for t, _ in l)
         # a role's run's view, under its run's name, its lines of the same form (Decision 15 of roles-run-as-flume-kinds)
-        ran = json.loads(json.dumps(board.agent_views(data(roles=roles({"planner": "wldn-main", "reviewer": "wldn-main"},
+        ran = json.loads(json.dumps(board.agent_views(data(roles=roles({"planner": "wldn", "reviewer": "wldn"},
                                                                        [an_ask(1, 9), an_ask(2, 4)], [a_turn(1, ["ask/1"])])))))["views"]
         assert ran["wldn-planner"][0][0] == ["wldn-planner run", "bold"] and ran["wldn-reviewer"]
         lines += [l for lines in ran.values() for l in lines]
@@ -2003,7 +2003,7 @@ def roles(kinds, asks_=(), turns=(), runs=None, reading=None):
             "reading": reading if reading is not None else runner_reading(runs or {})}
 
 
-PLANNER = {"planner": "wldn-main"}
+PLANNER = {"planner": "wldn"}
 # What the fixture's board names for attention with no role's run in it: board-done, every unit of it landed.
 ATTENDED = ["! bolt board-done: every unit has landed on main, and the bolt is still in the plan"]
 
@@ -2016,14 +2016,14 @@ def runs_named(r):
 class TestRuns:
     """crew-board "A role that runs as its kind has its view" and "The attention line names a role's run that waits"
     (Decision 15 of roles-run-as-flume-kinds, code.8): wldn's planner, and in some cases its design agent and reviewer,
-    run as their kinds in stream wldn-main, their runs on mac-studio, wldn's main level's host."""
+    run as their kinds in stream wldn, their runs on mac-studio, wldn's main level's host."""
 
     def test_a_run_with_an_ask_waiting(self):
         """A run with an ask waiting: the planner's run took two asks, and a third has waited four minutes."""
         r = roles(PLANNER, [an_ask(1, 9), an_ask(2, 7, what="landed", frm="crew", names="bolt/apex-zones"), an_ask(3, 4)],
                   [a_turn(1, ["ask/1", "ask/2"])], {"planner": run_status("planner")})
         mine = view("wldn-planner", roles=r)
-        assert mine[:3] == ["wldn-planner run  in stream wldn-main  turn 1 took 2  1 ask waits, for 4m",
+        assert mine[:3] == ["wldn-planner run  in stream wldn  turn 1 took 2  1 ask waits, for 4m",
                             "  ask 1  tell from wldn-design", "  ask 2  landed from crew  on bolt/apex-zones"]
         # the planner's own view of the board follows its run's lines
         assert mine[3:] == view("wldn-planner")
@@ -2033,18 +2033,18 @@ class TestRuns:
     def test_nothing_waiting(self):
         """Nothing waiting: the planner's run took one ask and nothing else waits."""
         r = roles(PLANNER, [an_ask(1, 9)], [a_turn(1, ["ask/1"])])
-        assert view("wldn-planner", roles=r)[:2] == ["wldn-planner run  in stream wldn-main  turn 1 took 1  nothing waits",
+        assert view("wldn-planner", roles=r)[:2] == ["wldn-planner run  in stream wldn  turn 1 took 1  nothing waits",
                                                       "  ask 1  tell from wldn-design"]
 
     def test_asks_that_wait_count_from_the_oldest_and_an_ended_turn_took_its_own(self):
         r = roles(PLANNER, [an_ask(1, 30), an_ask(2, 125), an_ask(3, 12)], [a_turn(1, ["ask/1"], ended=True)])
-        assert view("wldn-planner", roles=r)[0] == "wldn-planner run  in stream wldn-main  turn 1 took 1, ended  2 asks wait, the oldest for 2h 05m"
+        assert view("wldn-planner", roles=r)[0] == "wldn-planner run  in stream wldn  turn 1 took 1, ended  2 asks wait, the oldest for 2h 05m"
 
     def test_a_run_with_no_turn_yet_and_the_reviewer_whose_run_has_no_other_view(self):
-        r = roles({"planner": "wldn-main", "reviewer": "wldn-main"}, [an_ask(1, 3, role="reviewer", what="batch", frm="crew", names="batch/4")])
+        r = roles({"planner": "wldn", "reviewer": "wldn"}, [an_ask(1, 3, role="reviewer", what="batch", frm="crew", names="batch/4")])
         v = {a: ["".join(t for t, _ in l) for l in ls] for a, ls in board.agent_views(data(roles=r))["views"].items()}
-        assert v["wldn-reviewer"] == ["wldn-reviewer run  in stream wldn-main  no turn taken  1 ask waits, for 3m"]
-        assert v["wldn-planner"][0] == "wldn-planner run  in stream wldn-main  no turn taken  nothing waits"
+        assert v["wldn-reviewer"] == ["wldn-reviewer run  in stream wldn  no turn taken  1 ask waits, for 3m"]
+        assert v["wldn-planner"][0] == "wldn-planner run  in stream wldn  no turn taken  nothing waits"
         # a role that stands keeps its view as it was, and no run's lines
         assert v["wldn-design"] == view("wldn-design") and v["wldn-ops"] == view("wldn-ops")
 
@@ -2054,22 +2054,22 @@ class TestRuns:
         ends = [f"end/{n}/change--u{n}/0a1b2c3d/stage/{s}/1/delivered" for n in (12, 14, 15) for s in ("construct", "code", "verify")]
         r = roles(PLANNER, [an_ask(1, 9)], [a_turn(1, ["ask/1"] + ends)])
         mine = view("wldn-planner", roles=r)
-        assert mine[:2] == ["wldn-planner run  in stream wldn-main  turn 1 took 1 and 9 ends  nothing waits", "  ask 1  tell from wldn-design"]
+        assert mine[:2] == ["wldn-planner run  in stream wldn  turn 1 took 1 and 9 ends  nothing waits", "  ask 1  tell from wldn-design"]
         assert mine[2:] == view("wldn-planner") and not any("end/" in l or "stage/" in l for l in mine)
         one = roles(PLANNER, [an_ask(1, 9)], [a_turn(1, ["ask/1", ends[0]], ended=True)])
-        assert view("wldn-planner", roles=one)[0] == "wldn-planner run  in stream wldn-main  turn 1 took 1 and 1 end, ended  nothing waits"
+        assert view("wldn-planner", roles=one)[0] == "wldn-planner run  in stream wldn  turn 1 took 1 and 1 end, ended  nothing waits"
 
     def test_a_superseded_turn_is_not_the_runs_and_its_asks_wait_again_until_the_next_takes_them(self):
         lost = roles(PLANNER, [an_ask(1, 20)], [a_turn(1, ["ask/1"], superseded=2)])
-        assert view("wldn-planner", roles=lost)[0] == "wldn-planner run  in stream wldn-main  no turn taken  1 ask waits, for 20m"
+        assert view("wldn-planner", roles=lost)[0] == "wldn-planner run  in stream wldn  no turn taken  1 ask waits, for 20m"
         again = roles(PLANNER, [an_ask(1, 20)], [a_turn(1, ["ask/1"], superseded=2), a_turn(2, ["ask/1"])])
-        assert view("wldn-planner", roles=again)[0] == "wldn-planner run  in stream wldn-main  turn 2 took 1  nothing waits"
+        assert view("wldn-planner", roles=again)[0] == "wldn-planner run  in stream wldn  turn 2 took 1  nothing waits"
 
     def test_a_lost_run(self):
         """A lost run: the runner's records show wldn's design run lost; the attention line names it, its place and its
         host, and prints no command."""
         lost = {"act": "retry", "stage": "turn", "why": "lost", "since": 1793440000, "words": None}
-        r = roles({"design": "wldn-main"}, runs={"design": run_status("design", lost)})
+        r = roles({"design": "wldn"}, runs={"design": run_status("design", lost)})
         said = f"wldn's design run: lost, its place {RUN.format(role='design')} on mac-studio"
         assert lane(board.board_text(data()), "attention") == ATTENDED
         assert lane(board.board_text(data(roles=r)), "attention") == ATTENDED + [f"! {said}"]
@@ -2088,36 +2088,36 @@ class TestRuns:
 
     def test_a_run_that_waits_on_nothing_or_stands_live_is_not_named(self):
         held = {"act": "retry", "stage": "turn", "why": "on_hold", "since": 1793440000, "words": "held for the user"}
-        r = roles({"planner": "wldn-main", "design": "wldn-main"}, runs={"planner": run_status("planner"), "design": run_status("design", held)})
+        r = roles({"planner": "wldn", "design": "wldn"}, runs={"planner": run_status("planner"), "design": run_status("design", held)})
         assert runs_named(r) == []
 
     def test_a_runner_crew_cant_read_names_the_runs_it_cant_tell(self):
         import runner
-        r = roles({"design": "wldn-main", "planner": "wldn-main", "operator": "wldn-main"}, reading=runner.of_host({}, "wldn", "mac-studio"))
+        r = roles({"design": "wldn", "planner": "wldn", "operator": "wldn"}, reading=runner.of_host({}, "wldn", "mac-studio"))
         assert lane(board.board_text(data(roles=r)), "attention") == ATTENDED + [
             "! wldn's design, planner and operator runs: crew can't tell how they stand: no runner answers on mac-studio: wldn/runner/mac-studio "
             "does not exist"]
         bad = runner_reading({"design": "{not json", "planner": run_status("planner")})
-        assert lane(board.board_text(data(roles=roles({"design": "wldn-main", "planner": "wldn-main"}, reading=bad))), "attention")[-1].startswith(
+        assert lane(board.board_text(data(roles=roles({"design": "wldn", "planner": "wldn"}, reading=bad))), "attention")[-1].startswith(
             "! wldn's design run: crew can't tell how it stands: wldn/runner/mac-studio at 5e1f0c2: places.rec's status of the run of wldn/design is no JSON (")
         # the runs still have their views from asks.rec
-        assert view("wldn-design", roles=r)[0] == "wldn-design run  in stream wldn-main  no turn taken  nothing waits"
+        assert view("wldn-design", roles=r)[0] == "wldn-design run  in stream wldn  no turn taken  nothing waits"
 
     def test_the_board_reads_the_roles_beside_the_plan_and_a_drive_running_none_reads_nothing_more(self, monkeypatch):
         shown, ran = [], []
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: shown.append((repo, tip, path)) or "%rec: Ask\n")
         monkeypatch.setattr(plan, "runners", lambda repo, label: ran.append((repo, label)) or {})
-        fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], flume=dict(crew_standing(), planner="wldn-main")),
-                                        "madswan": dict(FLEET["drives"]["wldn"], label="madswan", flume=crew_standing())})
+        fleet = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], runs=dict(crew_standing(), planner="on-demand")),
+                                        "madswan": dict(FLEET["drives"]["wldn"], label="madswan", runs=crew_standing())})
         got = board.roles_read(fleet, [("wldn", "WilldanGroup/crew-state", "tip0", None), ("madswan", "WilldanGroup/crew-state", "tip1", None)])
-        assert list(got) == ["wldn"] and got["wldn"]["kinds"] == {"planner": "wldn-main"} and got["wldn"]["asks"] == "%rec: Ask\n"
+        assert list(got) == ["wldn"] and got["wldn"]["kinds"] == {"planner": "wldn"} and got["wldn"]["asks"] == "%rec: Ask\n"
         assert got["wldn"]["reading"]["why"] == "no runner answers on mac-studio: wldn/runner/mac-studio does not exist"
         assert (shown, ran) == ([("WilldanGroup/crew-state", "tip0", "asks.rec")], [("WilldanGroup/crew-state", "wldn")])
         assert board.roles_read(fleet, [("wldn", "WilldanGroup/crew-state", None, None)])["wldn"]["asks"] is None
 
 
 def crew_standing():
-    return {r: False for r in crew.KIND_ROLES}
+    return {r: "standing" for r in crew.KIND_ROLES}
 
 
 class TestLandingsUnderAnotherName:

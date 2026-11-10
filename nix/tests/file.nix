@@ -15,10 +15,10 @@ let
   pkgs = t.inputs.nixpkgs.legacyPackages.x86_64-linux;
 
   # options.nix enabled with `given` as its settings, beside the further
-  # `modules`.
-  evaluated =
+  # `modules`: its evaluation, and the config it gives.
+  evaluation =
     modules: given:
-    (lib.evalModules {
+    lib.evalModules {
       modules = modules ++ [
         (import ../modules/options.nix { inherit (t.outputs) packages; })
         {
@@ -36,7 +36,8 @@ let
           };
         }
       ];
-    }).config;
+    };
+  evaluated = modules: given: (evaluation modules given).config;
 
   textBeside = modules: given: render (evaluated modules given).services.crew.settings;
   text = textBeside [ ];
@@ -128,8 +129,48 @@ let
     };
   };
   noConsoles = removeAttrs deneb [ "consoles" ];
-  dispatcher = first (p: lib.recursiveUpdate p { flume.dispatcher = false; });
-  planner = first (p: lib.recursiveUpdate p { flume.planner = true; });
+  dispatcher = first (p: lib.recursiveUpdate p { runs.dispatcher = "standing"; });
+  planner = runsPlanner: first (p: lib.recursiveUpdate p { runs.planner = runsPlanner; });
+  # afterthought's batch setting by its former names, and out of range.
+  formerReview = first (
+    p:
+    p
+    // {
+      review = {
+        every = 5;
+        hours = 4;
+      };
+    }
+  );
+  noChanges = first (p: lib.recursiveUpdate p { review.after_changes = 0; });
+  noHours = first (p: lib.recursiveUpdate p { review.after_hours = 0; });
+
+  # A drive's options, and those of its `runs` and its `review`, as the
+  # module declares them for deneb's settings.
+  driveOptions =
+    ((evaluation [ ] deneb).options.services.crew.settings.type.getSubOptions [ ])
+    .drives.type.nestedTypes.elemType.getSubOptions
+      [ ];
+  runsOptions = driveOptions.runs.type.getSubOptions [ ];
+  reviewOptions = driveOptions.review.type.getSubOptions [ ];
+  # Each description the module gives `runs`, `runs.planner`, `review` and
+  # its keys, by the option's name.
+  descriptions = {
+    runs = driveOptions.runs.description;
+    "runs.planner" = runsOptions.planner.description;
+    review = driveOptions.review.description;
+    "review.after_changes" = reviewOptions.after_changes.description;
+    "review.after_hours" = reviewOptions.after_hours.description;
+  };
+  # Whether the description of `option` holds each of `words`.
+  describes =
+    option: words:
+    lib.concatMap (
+      word:
+      t.expect (lib.hasInfix word
+        descriptions.${option}
+      ) "the description of ${option} has no ${word}: ${descriptions.${option}}"
+    ) words;
   # madswan's drive with the label the host sets.
   labelled = deneb // {
     drives = deneb.drives // {
@@ -192,9 +233,21 @@ in
       ++ t.expect (
         rendered ? hosts && rendered ? consoles && !(rendered ? repositories)
       ) "deneb's file renders without its hosts or consoles, or with repositories"
-      ++ t.expect (lib.all (d: d ? folder && d ? repos && d ? accounts && !(d ? partition))
-        rendered.drives
-      ) "a drive of deneb's file renders without its folder, repos or accounts, or with a partition"
+      ++
+        t.expect
+          (lib.all (
+            d:
+            d ? folder
+            && d ? repos
+            && d ? accounts
+            && d ? runs
+            && d ? review
+            && !(d ? partition)
+            && !(d ? flume)
+            && !(d.review ? every)
+            && !(d.review ? hours)
+          ) rendered.drives)
+          "a drive of deneb's file renders without its folder, repos, accounts, runs or review, or with a partition, a flume, an every or an hours"
       ++ t.expect (
         map (d: d.label) rendered.drives == [
           "afterthought"
@@ -369,8 +422,55 @@ in
   ) "services.crew.settings lists its drives under partitions with no drives, and evaluation holds";
 
   "A role crew has no kind for" =
-    t.expect (!renders dispatcher) "a drive's flume names dispatcher, and evaluation holds"
-    ++ t.expect (!renders planner) "a drive's flume gives planner true, and evaluation holds";
+    t.expect (!renders dispatcher) "a drive's runs names dispatcher, and evaluation holds"
+    ++ t.expect (!renders (planner false)) "a drive's runs gives planner false, and evaluation holds"
+    ++ t.expect (!renders (planner true)) "a drive's runs gives planner true, and evaluation holds"
+    ++ t.expect (
+      !renders (planner "always")
+    ) "a drive's runs gives planner \"always\", and evaluation holds";
+
+  "A batch setting by its former names" = t.expect (
+    !renders formerReview
+  ) "a drive's review gives every = 5 and hours = 4, and evaluation holds";
+
+  "A batch setting out of range" =
+    t.expect (!renders noChanges) "a drive's review gives after_changes = 0, and evaluation holds"
+    ++ t.expect (!renders noHours) "a drive's review gives after_hours = 0, and evaluation holds";
+
+  "The descriptions" =
+    describes "runs" [
+      ''"standing"''
+      ''"on-demand"''
+    ]
+    ++ describes "runs.planner" [
+      ''"standing"''
+      ''"on-demand"''
+    ]
+    ++ describes "review.after_changes" [
+      "changes"
+      "at least 1"
+    ]
+    ++ describes "review.after_hours" [
+      "hours"
+      "above 0"
+    ]
+    ++ lib.concatLists (
+      lib.mapAttrsToList (
+        option: description:
+        lib.concatMap
+          (
+            former:
+            t.expect (
+              !lib.hasInfix former description
+            ) "the description of ${option} names ${former}: ${description}"
+          )
+          [
+            "`flume`"
+            "every ="
+            "hours ="
+          ]
+      ) descriptions
+    );
 
   "Teams" =
     t.expect (failures teams != [ ]) "services.crew.settings gives teams, and no assertion fails"

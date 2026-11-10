@@ -110,24 +110,24 @@ teams_json() {
   "consoles": {$consoles},
   "drives": [
     { "label": "wldn", "blueprints": ["WilldanGroup/willdan-blueprints"],
-      "state": "WilldanGroup/crew-state", "review": {"every": 5, "hours": 4},
+      "state": "WilldanGroup/crew-state", "review": {"after_changes": 5, "after_hours": 4},
       "machine": "$box", "session": "wldn-3", "folder": "$(space $box willdan)",
       "repos": ["agentplot/crew", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit",
                 "WilldanGroup/willdan-blueprints"],
       "accounts": {"design": "credits", "planner": "credits", "reviewer": "credits", "ops": "credits", "operator": "credits"},
-      "flume": {"design": false, "planner": false, "reviewer": false, "ops": false, "operator": false} },
+      "runs": {"design": "standing", "planner": "standing", "reviewer": "standing", "ops": "standing", "operator": "standing"} },
     { "label": "madswan", "blueprints": ["afterthought/blueprints", "agentplot/blueprints"],
-      "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+      "state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4},
       "machine": "mac-studio", "session": "madswan-1", "folder": "$(space mac-studio madswan)",
       "repos": ["afterthought/blueprints", "agentplot/crew", "afterthought/swancloud"],
       "accounts": {"design": "madswan", "planner": "madswan", "reviewer": "madswan", "ops": "madswan", "operator": "madswan"},
-      "flume": {"design": false, "planner": false, "reviewer": false, "ops": false, "operator": false} },
+      "runs": {"design": "standing", "planner": "standing", "reviewer": "standing", "ops": "standing", "operator": "standing"} },
     { "label": "swancloud", "blueprints": ["afterthought/blueprints"],
-      "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+      "state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4},
       "machine": "mac-studio", "session": "swancloud-1", "folder": "$(space mac-studio madswan)",
       "repos": ["afterthought/blueprints", "agentplot/crew", "afterthought/swancloud"],
       "accounts": {"design": "madswan", "planner": "madswan", "reviewer": "madswan", "ops": "madswan", "operator": "madswan"},
-      "flume": {"design": false, "planner": false, "reviewer": false, "ops": false, "operator": false} } ] }
+      "runs": {"design": "standing", "planner": "standing", "reviewer": "standing", "ops": "standing", "operator": "standing"} } ] }
 EOF
 }
 
@@ -284,9 +284,13 @@ json.dump(d, open(f, "w"), indent=1)' "$f" "$2"
   done
 }
 part() { echo "[p for p in d['drives'] if p['label'] == '$1'][0]"; }
-# role_stream <label> <role> <stream|false>: on every host, the drive's main-level role set to run as its kind in
-# that Flume stream, or to stand (record 0047 move 6)
-role_stream() { local s="'$3'"; [[ $3 == false ]] && s=False; edit teams "$(part "$1")['flume']['$2'] = $s"; }
+# role_runs <label> <role> standing|on-demand: on every host, the drive's `runs` set to name its main-level role
+# standing, or on demand, to run as its kind in the drive's own stream, named by its label (record 0064 as amended
+# 2026-11-09)
+role_runs() {
+  [[ $3 == standing || $3 == on-demand ]] || fail "role_runs: $3 is standing or on-demand"
+  edit teams "$(part "$1")['runs']['$2'] = '$3'"
+}
 
 # The Flume world: every bolt's work runs in Flume places, taken by a runner whose configuration names its
 # repository (the user's ruling of 2026-11-01; Decision 1 of the-team-machinery-leaves).

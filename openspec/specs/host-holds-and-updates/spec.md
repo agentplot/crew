@@ -100,10 +100,10 @@ Each standing agent's band SHALL show the crew version it started on, and once i
 - **THEN** its band's first line ends with "crew v0.44.1 → v0.44.2 at its next stop"
 
 ### Requirement: A standing agent of a role that now runs as its kind is ended at its next stop
-A standing agent whose drive now runs its role as its kind SHALL be ended at its next stop, once herdr reads it idle with no question open and no background work of its own but crew's waits, told that its role now runs as its kind, and started again by nothing: no restart, no `crew revive`, no `crew update`. Nothing SHALL be ended on a held host.
+A standing agent whose drive's `runs` now names its role `on-demand`, so that it runs as its kind, SHALL be ended at its next stop, once herdr reads it idle with no question open and no background work of its own but crew's waits, told that its role now runs as its kind, and started again by nothing: no restart, no `crew revive`, no `crew update`. Nothing SHALL be ended on a held host.
 
 #### Scenario: The planner moves
-- **WHEN** madswan's teams entry comes to name a stream for its planner while `madswan-planner` stands, and it ends its turn
+- **WHEN** madswan's teams entry's `runs` comes to name its planner `on-demand` while `madswan-planner` stands, and it ends its turn
 - **THEN** `madswan-planner` is ended, its pane is left with no agent started in it, and its log says its role now runs as its kind
 
 #### Scenario: An update after the move

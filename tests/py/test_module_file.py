@@ -26,7 +26,8 @@ def loaded(tmp_path, monkeypatch, pinned):
 
 def test_crew_reads_the_file_the_module_writes(tmp_path, monkeypatch):
     """crew-flake, crew reads the file the module writes: four drives, wldn's planner and reviewer in wldn-1 on account
-    ia and its other roles on willdan-alex, every role of every drive standing, and the four consoles on deneb."""
+    ia and its other roles on willdan-alex, every role of every drive standing by its `runs`, each drive's batch setting
+    `after_changes` 5 and `after_hours` 4, and the four consoles on deneb."""
     fleet = loaded(tmp_path, monkeypatch, PINNED)
     assert fleet["repositories"] == {}
     assert fleet["hosts"] == {DENEB: {"ssh": DENEB, "kind": "darwin"}, BOX: {"ssh": BOX, "kind": "nixos"}}
@@ -38,7 +39,8 @@ def test_crew_reads_the_file_the_module_writes(tmp_path, monkeypatch):
                                 "operator": "willdan-alex"}
     assert (wldn["folder"], wldn["checkout"]) == ("/workspace", "/workspace/willdan-blueprints/main")
     for label, p in parts.items():
-        assert all(p["flume"][role] is False for role in crew.KIND_ROLES), f"{label}'s roles do not all stand: {p['flume']}"
+        assert all(p["runs"][role] == "standing" for role in crew.KIND_ROLES), f"{label}'s roles do not all stand: {p['runs']}"
+        assert p["review"] == {"after_changes": 5, "after_hours": 4}, f"{label}'s batch setting is {p['review']}"
     assert parts["madswan"]["checkout"] == f"{AFTERTHOUGHT}/blueprints/main"
     assert len(parts["agentplot"]["repos"]) == 24
     assert fleet["consoles"] == {"afterthought": AFTERTHOUGHT, "agentplot": AGENTPLOT, "madswan": AFTERTHOUGHT,

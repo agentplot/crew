@@ -202,11 +202,11 @@ def deneb(tmp_path, monkeypatch):
     """crew.load over a teams file of one standing drive, swancloud, on deneb, written in tmp_path."""
     teams = {"version": 6, "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}},
              "drives": [{"label": "swancloud", "blueprints": ["afterthought/blueprints"],
-                         "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+                         "state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4},
                          "machine": "deneb", "session": "swancloud-1", "folder": f"{tmp_path}/deneb/madswan",
                          "repos": ["afterthought/blueprints", "afterthought/crew"],
                          "accounts": {r: "madswan" for r in crew.KIND_ROLES},
-                         "flume": {r: False for r in crew.KIND_ROLES}}]}
+                         "runs": {r: "standing" for r in crew.KIND_ROLES}}]}
     (tmp_path / "teams.json").write_text(json.dumps(teams))
     monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
     monkeypatch.setattr(crew, "this_host", lambda: "deneb")

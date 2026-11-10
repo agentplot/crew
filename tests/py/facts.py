@@ -82,11 +82,11 @@ def kept_by(fleet, label, at, *repos):
 # The hosts crew reaches, as the teams file's `hosts` gives them: each by its name, its ssh name the same.
 HOSTS = {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}, "deneb": {"ssh": "deneb", "kind": "darwin"},
          "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}}
-# Every role of a drive stands, its flume false throughout.
-STANDING = {r: False for r in ("design", "planner", "reviewer", "ops", "operator")}
+# Every role of a drive stands, its `runs` naming each standing.
+STANDING = {r: "standing" for r in ("design", "planner", "reviewer", "ops", "operator")}
 # The teams file at version 6 as crew.load reads it: wldn's main level runs on mac-studio, its folder /w keeping its
 # kits, every role on account madswan.
-FLEET = {"drives": {"wldn": dict({"label": "wldn", "machine": "mac-studio", "review": {"every": 5, "hours": 4}, "flume": STANDING,
+FLEET = {"drives": {"wldn": dict({"label": "wldn", "machine": "mac-studio", "review": {"after_changes": 5, "after_hours": 4}, "runs": STANDING,
                                   "accounts": {r: "madswan" for r in STANDING}},
                                  **keeping("/w", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit"))},
          "hosts": {"mac-studio": HOSTS["mac-studio"]}, "consoles": {}}
