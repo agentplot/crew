@@ -2410,17 +2410,26 @@ def head_here(root=None):
     return (r.stdout.strip() or None) if r.returncode == 0 else None
 
 
-# A build's release file, beside the code that reads it in the plugin folder a session loads: the commit crew's flake was
-# built from and the package's version (crew-flake), written by the build alone and never kept in the tree (code.10).
+# crew's release file, beside the code that reads it in the plugin folder a session loads (crew-release): in the tree,
+# the version alone, main's 0.0.0 on main and the release's at its tag, written by set-version.sh in the release commit
+# the tag names; in a build of crew's flake that knows its commit, that commit beside the package's version (crew-flake).
 RELEASE = "plugin/release.json"
 COMMIT = re.compile(r"[0-9a-f]{40}")
-# A package version that is a release's, as crew's tags name one without their v.
+# A package version that is a release's, as crew's tags name one without their v; main's 0.0.0 is none (MAIN_VERSION).
 RELEASED = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+# The version main's tree names, a release's form that no release has.
+MAIN_VERSION = "0.0.0"
+
+
+def a_release(version):
+    """Whether a version, without its v, is a release's: x.y.z, and not main's 0.0.0."""
+    return isinstance(version, str) and bool(RELEASED.fullmatch(version)) and version != MAIN_VERSION
 
 
 def release_read(text):
-    """A build's release file checked field by field (read.2): ({"commit", "version"}, None), or (None, why) when it is
-    not a JSON object naming a full commit and a version."""
+    """crew's release file checked field by field (read.2): ({"commit", "version"}, None), or (None, why) when it is
+    not a JSON object naming a full commit and a version. A file naming a release's version and no commit, as a copy of
+    a release tag's plugin/ holds, reads with the commit None; any other file with no commit names none."""
     try:
         got = json.loads(text)
     except ValueError:
@@ -2428,6 +2437,8 @@ def release_read(text):
     if not isinstance(got, dict):
         return None, "the release file is not a JSON object"
     commit, version = got.get("commit"), got.get("version")
+    if commit is None and a_release(version):
+        return {"commit": None, "version": version}, None
     if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
         return None, "the release file names no commit"
     if not isinstance(version, str) or not version:
@@ -2436,28 +2447,77 @@ def release_read(text):
 
 
 def release_version(version, commit):
-    """The version crew shows for a build, as git describe gives a checkout's: v<x.y.z> where the package's version is a
-    release's, and otherwise the version with the commit's first seven characters, so two builds of a day read apart."""
-    return f"v{version}" if RELEASED.fullmatch(version) else f"{version}+{commit[:7]}"
+    """The version crew shows for a build, as a checkout's is shown: v<x.y.z> where the package's version is a
+    release's, and otherwise, main's 0.0.0 among them, the version with the commit's first seven characters, so two
+    builds of a day read apart."""
+    return f"v{version}" if a_release(version) else f"{version}+{commit[:7]}"
+
+
+def tag_source(tag, commit, parents, subject):
+    """The commit a release tag was cut from (code.7): where the commit it names is a release commit, its subject
+    `chore(release): <tag>`, that commit's first parent, the commit the release job set the version on; otherwise the
+    commit itself, as a tag made before crew's release commits names main's own."""
+    return parents[0] if subject == f"chore(release): {tag}" and parents else commit
+
+
+def checkout_version(tag, past):
+    """A checkout's version from the release tag it reads and the commits past that tag's source: the tag, or
+    tag+<past>."""
+    return tag if not past else f"{tag}+{past}"
+
+
+# A release tag, as crew's CI names one (crew-release).
+RELEASE_TAG = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+")
 
 
 def git_version(root):
-    """A checkout's (commit, version) as git reads them, the version being the release tag at or before the commit,
-    with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when git
-    can't read the checkout."""
-    r = subprocess.run(["git", "-C", root, "describe", "--tags", "--long", "--match", "v[0-9]*", "--abbrev=40", "HEAD"],
-                       capture_output=True, text=True)
-    m = re.fullmatch(r"(v[0-9]\S*)-([0-9]+)-g([0-9a-f]{40})", r.stdout.strip()) if r.returncode == 0 else None
-    if m:
-        return m.group(3), m.group(1) + ("" if m.group(2) == "0" else f"+{m.group(2)}")
-    r = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True, text=True)
-    return (r.stdout.strip() or None, None) if r.returncode == 0 else (None, None)
+    """A checkout's (commit, version) as git reads them: HEAD's commit, and the newest release tag, by version, whose
+    source (tag_source) is HEAD or before it, with `+<n>` for the commits from that source to HEAD (checkout_version),
+    the tag alone where HEAD is the tag's own commit. A release tag names a release commit off main's history, which git
+    describe never reaches from main, so each tag is read at the commit it was cut from. The version None when no
+    release tag's source is HEAD or before it, or git can't read the tags; both None when git can't read the checkout."""
+    def git(*args):
+        r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
+        return r.stdout if r.returncode == 0 else None
+
+    head = (git("rev-parse", "HEAD") or "").strip()
+    if not head:
+        return None, None
+    listed = git("for-each-ref", "--sort=-v:refname",
+                 "--format=%(refname:lstrip=2)%09%(objecttype)%09%(objectname)%09%(*objecttype)%09%(*objectname)",
+                 "refs/tags/v*")
+    tags = []
+    for line in (listed or "").splitlines():
+        name, kind, sha, peeled_kind, peeled = (line.split("\t") + [""] * 5)[:5]
+        commit = peeled if peeled_kind == "commit" else sha if kind == "commit" else None
+        if RELEASE_TAG.fullmatch(name) and commit:
+            tags.append((name, commit))
+    if not tags:
+        return head, None
+    logged = git("log", "--no-walk=unsorted", "--format=%H%x09%P%x09%s", *dict.fromkeys(c for _, c in tags))
+    if logged is None:
+        return head, None
+    facts = {}
+    for line in logged.splitlines():
+        sha, parents, subject = (line.split("\t", 2) + ["", ""])[:3]
+        facts[sha] = (parents.split(), subject)
+    for name, commit in tags:
+        if commit == head:
+            return head, name
+        parents, subject = facts.get(commit, ([], ""))
+        source = tag_source(name, commit, parents, subject)
+        r = subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", source, head], capture_output=True, text=True)
+        if r.returncode == 0:
+            past = (git("rev-list", "--count", f"{source}..{head}") or "").strip()
+            return (head, checkout_version(name, int(past))) if past.isdigit() else (head, None)
+    return head, None
 
 
 def crew_read(root=None):
     """What a crew root is, as facts: {root, commit, version, from, unread}. A checkout, where root/.git is there, a
-    folder or a linked worktree's file, read by git, from "checkout"; else a build whose release file is there, read
-    from it, from "release"; else nothing, from None. Whether root is a checkout is read from root/.git alone, never
+    folder or a linked worktree's file, read by git, from "checkout"; else a build or a copy of a release tag's plugin/
+    whose release file is there, read from it, from "release", the commit None where a release names none; else
+    nothing, from None. Whether root is a checkout is read from root/.git alone, never
     from git's search upward, so a build kept under some repository is never read as it. unread says why nothing was
     read, None when a commit was (read.1)."""
     root = pathlib.Path(root or HOME)
@@ -2545,7 +2605,8 @@ NONE_INSTALLED = "no folder of crew's path outside the Nix store has a crew"
 
 def release_said(text):
     """Another crew's `crew _release` line checked field by field (read.2): (its facts in crew_read's shape, None), or
-    (None, why) when it is not a JSON object naming a root, a full commit, a version or null, and where they came from."""
+    (None, why) when it is not a JSON object naming a root, a full commit, a version or null, and where they came from.
+    A null commit is no lack where the answer is from a release naming a release's version, v<x.y.z> (release_read)."""
     try:
         got = json.loads(text)
     except ValueError:
@@ -2556,7 +2617,10 @@ def release_said(text):
         return None, f"it reads nothing of itself: {got['unread']}"
     if not isinstance(got.get("root"), str) or not got["root"]:
         return None, "its answer names no root"
-    if not isinstance(got.get("commit"), str) or not COMMIT.fullmatch(got["commit"]):
+    version = got.get("version")
+    named = "commit" in got and got["commit"] is None and got.get("from") == "release" and isinstance(version, str) \
+        and version.startswith("v") and a_release(version[1:])
+    if not named and (not isinstance(got.get("commit"), str) or not COMMIT.fullmatch(got["commit"])):
         return None, "its answer names no commit"
     if "version" not in got or not (got["version"] is None or isinstance(got["version"], str) and got["version"]):
         return None, "its answer names no version"
@@ -3165,9 +3229,10 @@ def release_cmd(argv):
     for -h or --help (code.11)."""
     import argparse
     ap = argparse.ArgumentParser(prog="crew _release", description=(
-        "What this crew is, as one line of JSON: its root, commit and version, where they were read from, \"checkout\" "
-        "from git, \"release\" from a build's plugin/release.json, or null, and why nothing was read where nothing "
-        "was. It reads nothing else and starts nothing, so one crew reads another it cannot import by it."))
+        "What this crew is, as one line of JSON: its root, commit and version, the commit null where a release names "
+        "none, where they were read from, \"checkout\" from git, \"release\" from a build's plugin/release.json, or "
+        "null, and why nothing was read where nothing was. It reads nothing else and starts nothing, so one crew reads "
+        "another it cannot import by it."))
     answer_usage(ap, argv)
     ap.parse_args(argv)
     print(json.dumps(crew_read()))

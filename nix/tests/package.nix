@@ -1,8 +1,10 @@
 # The crew-flake spec's package carrying its release (flake.1): the flake's
 # outputs called with `self` given a commit, each system's crew.release
-# that commit and the package's version, its install writing them to
+# that commit and the package's version, its install writing them over
 # plugin/release.json; with the tests' own `self`, which has no commit, as
-# a tree with uncommitted changes has none, no release and no file.
+# a tree with uncommitted changes has none, no release and no file
+# written, so the package holds the tree's release file as it is. On
+# main's tree, whose file gives 0.0.0, the version is 0-unstable-<date>.
 t:
 let
   inherit (t) lib systems;
@@ -17,7 +19,8 @@ let
   );
 
   # A system's failures where its package carries `commit`'s release, or
-  # none where `commit` is null.
+  # none where `commit` is null, its install then writing nothing over the
+  # tree's release file.
   carries =
     outputs: commit: system:
     let
@@ -40,8 +43,18 @@ let
         "packages.${system}.crew.release is ${builtins.toJSON crew.release}, not ${commit} at ${crew.version}"
       ++ t.expect writes "packages.${system}.crew's install writes no plugin/release.json"
       ++ t.expect (lib.hasInfix (builtins.toJSON crew.release) crew.installPhase) "packages.${system}.crew's install writes another release than its own";
+
+  # A system's failures where its package's version on main's tree,
+  # whose release file gives 0.0.0, is not nixpkgs' untagged form.
+  unstable =
+    system:
+    let
+      inherit (t.outputs.packages.${system}.crew) version;
+    in
+    t.expect (lib.hasPrefix "0-unstable-" version) "packages.${system}.crew.version is ${version}, not 0-unstable-<date>";
 in
 {
+  "The flake's own package on main's tree" = lib.concatMap unstable systems;
   "A build from a commit" = lib.concatMap (carries committed rev) systems;
   "A build from a tree with no commit" = lib.concatMap (carries t.outputs null) systems;
 }
