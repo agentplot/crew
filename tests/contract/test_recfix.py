@@ -5,7 +5,7 @@ allow is refused (the route a unit add --signal writes); a hand edit that duplic
 (read.1, crew bolts naming the commit); a started bolt is marked Path: flume, the one Path the plan takes, and a new
 branch allows no Team or Agreed while an old branch's records still pass; requests.rec and a runner's branch files are refused for what their descriptors do not allow;
 and a repository's rename (plan.op_kit_rename) is one commit whose plan, requests and run-record files pass, its entry
-the commit after, while a plan it would leave naming a record's Repo twice is refused before any commit."""
+in that commit, while a plan it would leave naming a record's Repo twice is refused before any commit."""
 import json
 import pathlib
 import re
@@ -260,10 +260,11 @@ def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_
     """plan.write commits requests.rec with the plan, one commit and one Crew-Entry (state.1, plan.2); a request crew's
     rules refuse, one recfix refuses and a write that changes a request the branch holds each refuse the whole write,
     and the branch is as it was (Decision 4 of teams-cross-to-flume-as-their-bolts-land). Every write names its act
-    (plan.2): the start's entry is the one its commit names, held here rather than written to this host's record."""
+    (plan.2): the start's entry is the one its commit names, carried in that commit's day file of its host, naming no
+    commit (an-act-carries-its-entry-in-its-own-commit), which passes a real recfix --check."""
+    import datetime
+    import crew
     import record
-    entries = []
-    monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, **f: entries.append((act, list(commit), eid)))
     monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
     ref = f"{state.LABEL}/main"
     before = state.git("rev-parse", ref)
@@ -276,9 +277,12 @@ def test_a_request_is_written_in_the_commit_of_the_plan_write_that_occasions_it_
         return []
     sha = plan.write(state.fleet, state.LABEL, start, "plan(b): start the bolt", act="bolt.start", on=["bolt/b"])
     assert state.git("rev-parse", ref) == sha and state.git("rev-list", "--count", f"{before}..{sha}") == "1"
-    assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == ["plan.rec", "requests.rec"]
+    day = f"runs/{crew.this_host()}/{datetime.datetime.now(datetime.timezone.utc).date().isoformat()}.rec"
+    assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == ["plan.rec", "requests.rec", day]
     eid, = state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).split()
-    assert entries == [("bolt.start", [f"{state.REPO}@{sha}"], eid)]
+    runs = state.git("show", f"{sha}:{day}") + "\n"
+    assert [(e["Act"], e["Commit"], e["Id"]) for e in record.parse(runs)] == [("bolt.start", [], eid)]
+    plan.recfix(runs, day)
     held = state.git("show", f"{sha}:requests.rec")
     assert held.startswith(runner.REQUESTS.split("\n")[0]) and "Request: 1\nAct: launch\nWork: bolt/b\n" in held
     assert "Request: 2\nAct: launch\nWork: unit/a\n" in held
@@ -369,8 +373,9 @@ def test_a_rename_is_one_commit_whose_files_pass_recfix_and_its_entry_names_both
     user's crew kit rename tailrace timber, once tailrace's work is finished and no host keeps it, is one commit of
     plan.rec, requests.rec and the run-record file naming tailrace, under its Crew-Entry, each passing a real recfix
     --check with tailrace renamed timber: the unit's Source, the fix of main's Repo and Work, and the landing's Repo;
-    its parent holds each as it was; and its kit.rename entry, the commit after on the branch (read.5), names
-    kit/timber and kit/tailrace with Repo timber and Count 3, and the day file holding it passes a real recfix --check,
+    its parent holds each as it was; and its kit.rename entry, in the same commit (read.5;
+    an-act-carries-its-entry-in-its-own-commit), names kit/timber and kit/tailrace with Repo timber and Count 3 and no
+    commit, and the day file holding it passes a real recfix --check,
     so a branch holding the entry still takes every write (run-record "The entry of a rename"; plan.1)."""
     import datetime
     import record
@@ -378,10 +383,9 @@ def test_a_rename_is_one_commit_whose_files_pass_recfix_and_its_entry_names_both
     ref = f"{state.LABEL}/main"
     before = state.git("rev-parse", ref)
     plan.COMMANDS[("kit", "rename")](fleet, a)
-    commits = state.git("rev-list", "--reverse", f"{before}..{ref}").split()
-    assert len(commits) == 2
-    sha, entry = commits
-    assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == ["plan.rec", "requests.rec", RUNS]
+    sha, = state.git("rev-list", "--reverse", f"{before}..{ref}").split()
+    today = f"runs/deneb/{datetime.datetime.now(datetime.timezone.utc).date().isoformat()}.rec"
+    assert state.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).split() == sorted(["plan.rec", "requests.rec", RUNS, today])
     assert state.git("log", "-1", "--format=%s", sha) == f"plan(kit): rename tailrace timber ({plan.agent()})"
     eid = state.git("log", "-1", "--format=%(trailers:key=Crew-Entry,valueonly)", sha).strip()
     files = {name: state.git("show", f"{sha}:{name}") + "\n" for name in ("plan.rec", "requests.rec", RUNS)}
@@ -394,12 +398,11 @@ def test_a_rename_is_one_commit_whose_files_pass_recfix_and_its_entry_names_both
     assert [(e["Repo"], e["On"]) for e in record.parse(files[RUNS])] == [("timber", ["bolt/trc-1"])]
     assert (state.git("show", f"{sha}^:plan.rec") + "\n", state.git("show", f"{sha}^:requests.rec") + "\n",
             state.git("show", f"{sha}^:{RUNS}") + "\n") == (madswan_plan(), REQUESTS, record.DESCRIPTOR + LANDED)
-    day = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    runs = state.git("show", f"{entry}:runs/deneb/{day}.rec")
+    runs = state.git("show", f"{sha}:{today}") + "\n"
     e, = [e for e in record.parse(runs) if e["Id"] == eid]
-    assert (e["Act"], e["On"], e["From"], e["Repo"], e["Count"], e.get("Refused")) == (
-        "kit.rename", ["kit/timber"], ["kit/tailrace"], "timber", "3", None)
-    plan.recfix(runs, f"runs/deneb/{day}.rec")
+    assert (e["Act"], e["On"], e["From"], e["Repo"], e["Count"], e.get("Refused"), e["Commit"]) == (
+        "kit.rename", ["kit/timber"], ["kit/tailrace"], "timber", "3", None, [])
+    plan.recfix(runs, today)
 
 
 def test_a_rename_whose_plan_breaks_unique_repo_goal_is_refused_before_any_commit(state, monkeypatch):
