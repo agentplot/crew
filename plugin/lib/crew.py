@@ -432,8 +432,10 @@ def fleet_of(data, here):
 
 # ---------------------------------------------------------------------------------------------- crew drive set
 # The decisions of crew drive set <label>, which names a drive in this host's teams file from its flags and makes its
-# state, at setup's asking on a host Nix does not configure (Boomdrive record 0009's amendment; record 0064; code.5):
-# each a function of plain facts (code.7), the reads and acts thin around them in plan.py's drive_set.
+# state, at setup's asking on a host Nix does not configure (Boomdrive record 0009's amendment; record 0064; code.5),
+# each key a flag named as the file names it, how each role runs by --runs <role> standing|on-demand and the batch
+# setting by --review <after_changes> <after_hours> (record 0064 as amended 2026-11-09): each a function of plain facts
+# (code.7), the reads and acts thin around them in plan.py's drive_set.
 
 
 def aside_of(teams):
@@ -507,10 +509,8 @@ def drive_given(a, here):
         NAME.match(v) or no("--accounts", f"gives the {role} {json.dumps(v)}, which is no Claude account's name crew accepts")
         return v
 
-    def stream(role, v):
-        if v == "false":
-            return False
-        v != "true" and NAME.match(v) or no("--flume", f"gives the {role} {json.dumps(v)}, which is false or the name of a Flume stream")
+    def runs(role, v):
+        v in RUNS or no("--runs", f"gives the {role} {json.dumps(v)}, and a role runs " + " or ".join(RUNS))
         return v
 
     state = address("--state", once("--state", "the drive's state repository, <owner>/<name>"))
@@ -524,13 +524,17 @@ def drive_given(a, here):
     repos = distinct("--repos", [address("--repos", r) for r in some(
         "--repos", "the repositories its folder keeps on its machine, each <owner>/<name>")])
     accounts = per_role("--accounts", "the Claude account each role runs under", account)
-    flume = per_role("--flume", "false while the role stands, or the Flume stream its runs run in", stream)
-    every, hours = once("--review", "how many changes make a batch, and how many hours make one due")
-    re.fullmatch(r"[0-9]+", every) and int(every) >= 1 or no(
-        "--review", f"gives {json.dumps(every)} changes a batch, and that is a whole number of at least 1")
+    runs_ = per_role("--runs", "how each role runs, " + " or ".join(RUNS), runs)
+    changes, hours = once("--review", "after_changes, how many of the drive's constructed changes waiting for the user's "
+                                      "read make a batch due, and after_hours, how many hours since its last batch make one due")
+    re.fullmatch(r"[0-9]+", changes) and int(changes) >= 1 or no(
+        "--review", f"gives after_changes {json.dumps(changes)}, how many of the drive's constructed changes waiting for the "
+                    "user's read make a batch due, and that is a whole number of at least 1")
     re.fullmatch(r"[0-9]+(\.[0-9]+)?", hours) and float(hours) > 0 or no(
-        "--review", f"gives {json.dumps(hours)} hours a batch, and that is a number above 0")
-    review = {"every": int(every), "hours": int(float(hours)) if float(hours).is_integer() else float(hours)}
+        "--review", f"gives after_hours {json.dumps(hours)}, how many hours since the drive's last batch make one due, and "
+                    "that is a number above 0")
+    review = {"after_changes": int(changes),
+              "after_hours": int(float(hours)) if float(hours).is_integer() else float(hours)}
     hosts = {}
     for host, ssh, kind in some("--hosts", "each host the drive needs, by its name, with its ssh name and its kind"):
         NAME.match(host) or no("--hosts", f"names {json.dumps(host)}, which is no host's name crew accepts")
@@ -561,7 +565,7 @@ def drive_given(a, here):
     not repositories or machine == here or no(
         "--repositories", f"names the kept repositories of the host crew drive set runs on, {here}, and the drive's machine is {machine}")
     drive = {"label": label, "blueprints": blueprints, "state": state, "machine": machine, "session": session, "folder": folder,
-             "repos": repos, "accounts": accounts, "flume": flume, "review": review}
+             "repos": repos, "accounts": accounts, "runs": runs_, "review": review}
     if roles:
         drive["roles"] = roles
     return {"drive": drive, "hosts": hosts, "console": console, "repositories": repositories}

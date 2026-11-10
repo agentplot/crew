@@ -1326,7 +1326,8 @@ def state_init_cmd(fleet, a):
 
 def drive_set(a):
     """crew drive set <label> (drive-setup; design of crew-makes-a-new-drives-state, Decision 6): the drive its flags
-    give (crew.drive_given) named in this host's teams file and its state made, run on the host it is invoked on and
+    give (crew.drive_given), how each of its roles runs by --runs and its batch setting by --review, named in this
+    host's teams file and its state made, run on the host it is invoked on and
     never forwarded (Decision 11), before any teams file is loaded. The flags are checked first; then <label>/main of
     the state repository is fetched, refused naming the repository where crew cannot fetch from it, nothing written
     (read.1); then, under a lock on the file's folder, the file is read, decided on (crew.teams_step) and written by a
@@ -14292,7 +14293,9 @@ def parser(cls=argparse.ArgumentParser, only=None):
     i.add_argument("label")
     # crew drive set: every key crew's module writes for a drive, and for the hosts, console and kept repositories it
     # needs, a flag named as the file names it, with no default and none required here, so drive_given refuses a flag
-    # left out or given past its count in crew's own words (code.2, code.5); a flag of several words takes them apart.
+    # left out or given past its count in crew's own words (code.2, code.5); a flag of several words takes them apart:
+    # --runs <role> standing|on-demand for each role's `runs`, --review <after_changes> <after_hours> for `review`. A
+    # flag crew does not take, --flume among them, is refused by the parser before anything is read.
     d = sub.add_parser("drive").add_subparsers(dest="sub", required=True)
     i = d.add_parser("set", prog="crew drive set")
     i.add_argument("label")
@@ -14303,8 +14306,8 @@ def parser(cls=argparse.ArgumentParser, only=None):
     i.add_argument("--folder", action="append", metavar="PATH")
     i.add_argument("--repos", action="append", metavar="OWNER/NAME")
     i.add_argument("--accounts", action="append", nargs=2, metavar=("ROLE", "ACCOUNT"))
-    i.add_argument("--flume", action="append", nargs=2, metavar=("ROLE", "FALSE_OR_STREAM"))
-    i.add_argument("--review", action="append", nargs=2, metavar=("EVERY", "HOURS"))
+    i.add_argument("--runs", action="append", nargs=2, metavar=("ROLE", "STANDING_OR_ON_DEMAND"))
+    i.add_argument("--review", action="append", nargs=2, metavar=("AFTER_CHANGES", "AFTER_HOURS"))
     i.add_argument("--hosts", action="append", nargs=3, metavar=("HOST", "SSH", "KIND"))
     i.add_argument("--roles", action="append", nargs=3, metavar=("ROLE", "KEY", "VALUE"))
     i.add_argument("--console", action="append", metavar="PATH")
