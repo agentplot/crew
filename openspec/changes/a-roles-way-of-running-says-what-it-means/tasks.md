@@ -15,7 +15,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>...` run
 
 ## 3. The end-to-end tests
 
-- [ ] 3.1 `tests/lib.sh`'s fixture names `runs` and the new `review` keys, its `role_runs` sets a role `standing` or `on-demand`, and the tests that read a role's stream read the drive's label (design, Decision 2; Task notes 3.1). Verify `tests/suite t-roles t-journey-roles t-journey-main` ends with "0 failed".
+- [x] 3.1 `tests/lib.sh`'s fixture names `runs` and the new `review` keys, its `role_runs` sets a role `standing` or `on-demand`, and the tests that read a role's stream read the drive's label (design, Decision 2; Task notes 3.1). Verify `tests/suite t-roles t-journey-roles t-journey-main` ends with "0 failed".
 - [ ] 3.2 The other end-to-end tests that set a role's way of running call `role_runs`, and the review journey reads the batch's new words (design, Decision 3; Task notes 3.2). Verify `tests/suite t-briefs t-hold t-journey-review t-journey-signals t-cards t-help` ends with "0 failed".
 - [ ] 3.3 `t-drive-set` names a person's drive with `--runs` for each role (design, Decision 6; Task notes 3.3). Verify `tests/suite t-drive-set` ends with "0 failed".
 
