@@ -25,4 +25,4 @@ Each check is a moon task run through `tests/suite`: `logic` is `tests:logic`, `
 
 ## 5. The docs
 
-- [ ] 5.1 README says crew's tree holds `plugin/release.json` at `0.0.0` on main and at the release's version at its tag. It says a release's tag names a release commit `set-version.sh` writes, a build adds the commit it knows, a copy of a tag's `plugin/` reads as its version with no commit, and the flake's package takes its version from the file (Task notes 5.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 5.1 README says crew's tree holds `plugin/release.json` at `0.0.0` on main and at the release's version at its tag. It says a release's tag names a release commit `set-version.sh` writes, a build adds the commit it knows, a copy of a tag's `plugin/` reads as its version with no commit, and the flake's package takes its version from the file (Task notes 5.1). Verify `tests/suite t-docs` ends with "0 failed".
