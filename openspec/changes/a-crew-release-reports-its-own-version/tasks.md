@@ -4,7 +4,7 @@ Each check is a moon task run through `tests/suite`: `logic` is `tests:logic`, `
 
 ## 1. The tree's version and its writer
 
-- [ ] 1.1 Main's tree holds `plugin/release.json` as `{"version": "0.0.0"}` alone and crew's manifest at `0.0.0`. `set-version.sh <x.y.z> [<root>]` writes the version into both, changing no other line, and refuses a version that is not `x.y.z` or a file with no version, naming it. `tests/t-release.sh` proves it, with its task in `tests/moon.yml` (design, Decisions 1 and 2; Task notes 1.1). Verify `tests/suite t-release` ends with "0 failed".
+- [x] 1.1 Main's tree holds `plugin/release.json` as `{"version": "0.0.0"}` alone and crew's manifest at `0.0.0`. `set-version.sh <x.y.z> [<root>]` writes the version into both, changing no other line, and refuses a version that is not `x.y.z` or a file with no version, naming it. `tests/t-release.sh` proves it, with its task in `tests/moon.yml` (design, Decisions 1 and 2; Task notes 1.1). Verify `tests/suite t-release` ends with "0 failed".
 
 ## 2. crew's reads of itself
 
