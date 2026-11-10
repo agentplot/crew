@@ -17,7 +17,7 @@ Each check is a moon task run through `tests/suite`: `logic` is `tests:logic`, `
 ## 3. The flake
 
 - [x] 3.1 `nix/version.nix` reckons the package's version from the release file: a release's `x.y.z` as it is, `0.0.0` as `0-unstable-<date>`, and any other version failing evaluation, naming the file. `flake.nix` takes it from the tree's `plugin/release.json`, and the nix project's type check and test take that file as an input (design, Decision 3; Task notes 3.1). Verify `tests/suite nix:format nix:lint nix:test` ends with "0 failed".
-- [ ] 3.2 A build that knows no commit writes no release file over the tree's, and its `release` is null. `nix/packages/crew.nix` says the package holds the tree's release file and writes the commit and version over it where the flake knows the commit (design, Decision 3; Task notes 3.2). Verify `tests/suite nix:test` ends with "0 failed".
+- [x] 3.2 A build that knows no commit writes no release file over the tree's, and its `release` is null. `nix/packages/crew.nix` says the package holds the tree's release file and writes the commit and version over it where the flake knows the commit (design, Decision 3; Task notes 3.2). Verify `tests/suite nix:test` ends with "0 failed".
 
 ## 4. The release on GitHub
 

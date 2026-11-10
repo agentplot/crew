@@ -1,8 +1,10 @@
 # The crew-flake spec's package carrying its release (flake.1): the flake's
 # outputs called with `self` given a commit, each system's crew.release
-# that commit and the package's version, its install writing them to
+# that commit and the package's version, its install writing them over
 # plugin/release.json; with the tests' own `self`, which has no commit, as
-# a tree with uncommitted changes has none, no release and no file.
+# a tree with uncommitted changes has none, no release and no file
+# written, so the package holds the tree's release file as it is. On
+# main's tree, whose file gives 0.0.0, the version is 0-unstable-<date>.
 t:
 let
   inherit (t) lib systems;
@@ -17,7 +19,8 @@ let
   );
 
   # A system's failures where its package carries `commit`'s release, or
-  # none where `commit` is null.
+  # none where `commit` is null, its install then writing nothing over the
+  # tree's release file.
   carries =
     outputs: commit: system:
     let
