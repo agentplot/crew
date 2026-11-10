@@ -2038,14 +2038,14 @@ RESULTS = ("## Test, check and proof results\n\n"
 
 
 # How a main-level role's work reaches it, the brief's {{TURN}} (design Decision 9, role-runs "A run's brief says how a
-# turn goes"): for a role its drive runs as its kind, how a turn goes, with what is the role's own in a turn
-# (TURN_OWN); for one that stands, that its work reaches it in its pane.
+# turn goes"), opening with the word its drive's `runs` names it by: for an on-demand role, how a turn goes, with what is
+# the role's own in a turn (TURN_OWN); for a standing one, that its work reaches it in its pane.
 KIND_TURN = (
-    "You run as your kind: no agent of you stands, and each run of you is one turn, a place the host's runner launches "
-    "while anything waits for you, one at a time. Your turn starts with `{{TEAM_CMD}} role start`, which takes everything "
-    "asked of you since your last turn and prints this brief's path, each ask, each place that waits on you and the "
-    "cards the user answered in your name; act on what it took, as this brief says, and end the turn with "
-    "`{{TEAM_CMD}} role end`, as your turn's prompt says. Wait "
+    "Your drive's `runs` names you `on-demand`: no agent of you stands, and each run of you is one turn, a place the "
+    "host's runner launches while anything waits for you, one at a time. Your turn starts with `{{TEAM_CMD}} role "
+    "start`, which takes everything asked of you since your last turn and prints this brief's path, each ask, each "
+    "place that waits on you and the cards the user answered in your name; act on what it took, as this brief says, "
+    "and end the turn with `{{TEAM_CMD}} role end`, as your turn's prompt says. Wait "
     "in your session on nothing: where this brief says to wait for an answer, a submission, a review or a tell, end your "
     "turn instead, and the thing reaches your next run as an ask. What is asked after your start waits for your next "
     "turn. Ask the user only on a card in your own name, {{SELF}}, never by stopping short.")
@@ -2056,16 +2056,18 @@ TURN_OWN = {
     "main-ops": " You run nothing for a landing: crew carries the user's send to the runner, and how each landing ends "
                 "reaches your next run as an ask when it does not land, and the planner's and the design agent's when it "
                 "does.",
-    "planner": " `{{TEAM_CMD}} review {{LABEL}}` asks the reviewer a batch where it runs as its kind, and its delivery "
-               "reaches you as an ask, with the line that adopts its card.",
+    "planner": " `{{TEAM_CMD}} review {{LABEL}}` asks the reviewer a batch where your drive's `runs` names it "
+               "`on-demand`, and its delivery reaches you as an ask, with the line that adopts its card.",
 }
-STANDING_TURN = ("You stand in your pane, an agent crew started and keeps up: your work reaches you there, as tells marked "
-                 "`[crew tell from <sender>]` or `[crew]`, and as the answers to the cards you adopted.")
+STANDING_TURN = ("Your drive's `runs` names you `standing`: you stand in your pane, an agent crew started and keeps up, "
+                 "and your work reaches you there, as tells marked `[crew tell from <sender>]` or `[crew]`, and as the "
+                 "answers to the cards you adopted.")
 
 
 def turn_said(p, defn):
-    """The brief's {{TURN}} for a drive's main-level role, by its definition: how a turn goes for a role its
-    drive's `runs` names on demand (on_demand; KIND_TURN, TURN_OWN), else how a standing role's work reaches it."""
+    """The brief's {{TURN}} for a drive's main-level role, by its definition, saying the word its drive's `runs` names
+    it by: how a turn goes for an on-demand role (on_demand; KIND_TURN, TURN_OWN), else how a standing role's work
+    reaches it (STANDING_TURN)."""
     role = "ops" if defn == "main-ops" else defn
     if on_demand(p, role):
         return KIND_TURN + TURN_OWN.get(defn, "")

@@ -152,8 +152,12 @@ for doc in usage readme skill; do lacks "${!doc}" "bolt teams"; done
 has "$(head -1 <<<"$usage")" "crew: each drive's plan of bolts, its main level of agents in herdr, and its bolts' work in Flume."
 ok "the README, the skill and the usage keep no team section, roles row or old run-record act as current, and the usage opens on the plan and the main level"
 
+for doc in usage readme; do has "${!doc}" "runs as its kind"; done
+lacks "$skill" "as its kind"; has "$skill" "A main-level role may instead be **on-demand**"
+has "$skill" "\`crew main status\` says it is \`on-demand\`, in its drive's stream"; has "$skill" "as it says \`standing\` of a standing role"
+has "$usage" "role in its drive's runs' own word: standing, with its agent's status, or"
 for doc in usage readme skill; do
-  for want in "runs as its kind" "every role stands" "asks.rec" "roles.rec" "crew-<role>--<label>" "end --report <path>" \
+  for want in "every role stands" "asks.rec" "roles.rec" "crew-<role>--<label>" "end --report <path>" \
     "open <role>" "land <repo> <name> --brief-file <file>" "delivered [--label L]" "pendingyou watch -- crew _answered" \
     "ended at its next stop" "never restarted"; do has "${!doc}" "$want"; done
 done
@@ -162,7 +166,7 @@ for doc in readme skill; do
   for want in "the ends Flume holds for" "asks the runners to confirm each end"; do has "${!doc}" "$want"; done
 done
 has "$readme" "and a confirm, which a role's run's end appends for each launch whose place's ends its turn took"
-ok "the README, the skill and the usage say a drive's runs, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
+ok "the README, the skill and the usage say a drive's runs, a role that runs on demand, the skill and main status's usage in the file's own words, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
 
 # A drive's runs and its batch setting by their names (record 0064 as amended 2026-11-09; Decision 8 of
 # a-roles-way-of-running-says-what-it-means): the skill's table escapes its bars, read here as bars.
