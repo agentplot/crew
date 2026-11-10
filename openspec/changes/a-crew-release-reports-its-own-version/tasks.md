@@ -12,7 +12,7 @@ Each check is a moon task run through `tests/suite`: `logic` is `tests:logic`, `
 - [x] 2.2 Another crew's `crew _release` answer from a release, naming a release's version and a null commit, reads as that version with no commit. An answer from a checkout with no commit stays unread, and `_release`'s usage says the commit is null where a release names none (design, Decision 5; Task notes 2.2). Passes `tests/py/test_release.py` (`tests/suite logic`).
 - [x] 2.3 `tag_source` gives a release commit's parent, or else the commit the tag names. `checkout_version` gives the tag with `+<n>` for the commits past its source (design, Decision 4; Task notes 2.3). Passes `tests/py/test_release.py` (`tests/suite logic`).
 - [x] 2.4 `git_version` reads a checkout's version as the newest release tag, by version, whose source is HEAD or before it. Against real git, it reads a release commit cut off main and tagged, a checkout of the tag, and an older tag on main's own history (design, Decision 4; Task notes 2.4). Passes `tests/contract/test_release.py` (`tests/suite contract`).
-- [ ] 2.5 A start's record is checked against the commit and version `crew _release` prints for the same checkout, with no `git describe` of the test's own (design, Decision 4; Task notes 2.5). Verify `tests/suite t-session-hook` ends with "0 failed".
+- [x] 2.5 A start's record is checked against the commit and version `crew _release` prints for the same checkout, with no `git describe` of the test's own (design, Decision 4; Task notes 2.5). Verify `tests/suite t-session-hook` ends with "0 failed".
 
 ## 3. The flake
 
