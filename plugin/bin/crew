@@ -357,7 +357,9 @@
 #                                      report and starting no sluice; due restarts handed out once crew's checkout, the
 #                                      crew the host has installed or the teams file moved, the rail's frame, the
 #                                      board's and the agents' views written, a frame stale after three minutes; one
-#                                      follower to a host, holding its lock, a second waiting for it. While a drive
+#                                      follower to a host, holding its lock, a second waiting for it, and following
+#                                      only on the crew the host has installed, starting again as it before it reads
+#                                      while it runs another. While a drive
 #                                      whose main level is on the host runs a role as its kind, it runs Pending You's
 #                                      notice, pendingyou watch -- crew _answered, which makes each change on a card in a
 #                                      role's run's name an ask of the role, reading nothing of the card
