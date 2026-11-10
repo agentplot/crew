@@ -61,6 +61,27 @@ class TestReleaseFile:
         assert crew.release_read(json.dumps([COMMIT, "0.44.1"])) == (None, "the release file is not a JSON object")
 
 
+class TestCheckoutVersion:
+    RELEASE_COMMIT, PARENT = "1" * 40, "2" * 40
+
+    def test_a_release_commits_source_is_its_parent(self):
+        assert crew.tag_source("v0.56.0", self.RELEASE_COMMIT, [self.PARENT], "chore(release): v0.56.0") == self.PARENT
+
+    def test_a_tag_on_mains_own_commit_is_its_own_source(self):
+        assert crew.tag_source("v0.55.0", COMMIT, [self.PARENT], "feat(release): a release") == COMMIT
+
+    def test_a_release_commit_naming_another_tag_is_its_own_source(self):
+        assert crew.tag_source("v0.56.1", self.RELEASE_COMMIT, [self.PARENT], "chore(release): v0.56.0") == \
+            self.RELEASE_COMMIT
+
+    def test_a_release_commit_with_no_parent_is_its_own_source(self):
+        assert crew.tag_source("v0.56.0", self.RELEASE_COMMIT, [], "chore(release): v0.56.0") == self.RELEASE_COMMIT
+
+    def test_the_version_is_the_tag_and_the_commits_past_its_source(self):
+        assert crew.checkout_version("v0.56.0", 0) == "v0.56.0"
+        assert crew.checkout_version("v0.56.0", 2) == "v0.56.0+2"
+
+
 class TestCrewRead:
     def test_a_build_with_a_release_file_and_no_git_reads_it(self, tmp_path):
         root = release(tmp_path, {"commit": COMMIT, "version": "0-unstable-2026-11-08"})

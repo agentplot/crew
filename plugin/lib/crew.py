@@ -2451,6 +2451,19 @@ def release_version(version, commit):
     return f"v{version}" if a_release(version) else f"{version}+{commit[:7]}"
 
 
+def tag_source(tag, commit, parents, subject):
+    """The commit a release tag was cut from (code.7): where the commit it names is a release commit, its subject
+    `chore(release): <tag>`, that commit's first parent, the commit the release job set the version on; otherwise the
+    commit itself, as a tag made before crew's release commits names main's own."""
+    return parents[0] if subject == f"chore(release): {tag}" and parents else commit
+
+
+def checkout_version(tag, past):
+    """A checkout's version from the release tag it reads and the commits past that tag's source: the tag, or
+    tag+<past>."""
+    return tag if not past else f"{tag}+{past}"
+
+
 def git_version(root):
     """A checkout's (commit, version) as git reads them, the version being the release tag at or before the commit,
     with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when git
