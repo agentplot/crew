@@ -6,7 +6,7 @@ crew.dead_said for a pane herdr lists with no terminal behind it and crew.opens_
 crew.last_conversation for where a role resumes,
 crew.brief_due and crew.brief_role for the brief a session herdr resumed is given back at a compaction,
 crew.main_named and crew.identity_withheld for whether a main level's agent herdr resumed gets its identity back on this host,
-and plan.kind_said for what crew main status says of a role that runs as its kind. Starting, greeting, reviving and
+and plan.kind_said for what crew main status says of an on-demand role. Starting, greeting, reviving and
 taking them down through the command are the main level's journey's (t-journey-main)."""
 import builtins
 import json
@@ -609,11 +609,12 @@ class TestRoleSessions:
          "a run stands, the place /flume/places/crew-planner--madswan"),
         ({"live": None, "place": None, "words": None, "why": "no runner answers on mac-studio: madswan/runner/mac-studio does not exist"},
          "crew can't tell whether a run stands: no runner answers on mac-studio: madswan/runner/mac-studio does not exist")])
-    def test_main_status_says_a_role_runs_as_its_kind_whether_a_run_stands_and_how_many_asks_wait(self, run, said):
-        """main-level, Main status: the planner runs as its kind, its run as the runner's records show it, and two asks
-        wait, with the oldest's age (design Decision 14; plan.kind_said)."""
-        assert plan.kind_said("madswan", self.WAITING, run, self.NOW) == \
-            f"runs as its kind in stream madswan; {said}; 2 asks wait, the oldest asked 14m ago"
+    def test_main_status_says_a_role_is_on_demand_whether_a_run_stands_and_how_many_asks_wait(self, run, said):
+        """main-level, Main status: the planner is on-demand, the teams file's own word and never that it runs as its
+        kind, its run as the runner's records show it, and two asks wait, with the oldest's age (plan.kind_said)."""
+        words = plan.kind_said("madswan", self.WAITING, run, self.NOW)
+        assert words == f"on-demand in stream madswan; {said}; 2 asks wait, the oldest asked 14m ago"
+        assert "as its kind" not in words
         assert plan.kind_said("madswan", self.WAITING[1:], run, self.NOW).endswith("; 1 ask waits, the oldest asked 1m ago")
         assert plan.kind_said("madswan", [], run, self.NOW).endswith("; no ask waits")
 
