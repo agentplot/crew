@@ -32,38 +32,31 @@ Every crew command SHALL answer `-h` or `--help` among its own arguments by prin
 - **WHEN** the design agent runs `crew tell wldn-planner "--help with which table holds tenants"`, where the planner runs as its kind
 - **THEN** the words are asked of the planner, as any tell to a role that runs as its kind is
 
-### Requirement: crew reads the repository it is from its own manifest
-crew SHALL read the repository it is from the `repository` of its own manifest, `plugin/.claude-plugin/plugin.json`, a GitHub address, and never from a name written in its code. Where the manifest cannot be read or names no GitHub repository, a command that runs crew on another host SHALL be refused naming the file, and nothing SHALL be run there. A command run for this host SHALL read no manifest.
+### Requirement: crew reaches another host by its ssh name and runs the crew that host has installed
+When a crew command runs crew on another host, as a tell, a send, an ops act or a command forwarded to a main level's host does, it SHALL reach the host by the `ssh` name the teams file's `hosts` gives it, and SHALL run `crew` there by its name, the crew the host's login path finds, as the one asking. It SHALL look for no checkout of crew there and SHALL read no address of its own to find one.
 
-#### Scenario: crew's manifest names its current address
-- **WHEN** crew's manifest is read
-- **THEN** its `repository`, `https://github.com/agentplot/crew`, gives `agentplot/crew`
+#### Scenario: A command forwarded to a main level's host
+- **WHEN** the user runs `crew main status wldn` on deneb, the teams file giving wldn the machine chuck-herdr-alpha and giving chuck-herdr-alpha the `ssh` name `box`, and no drive's `repos` lists crew's repository
+- **THEN** crew runs `crew main status wldn` by the name `crew` over `ssh box`, with the asker's `CREW_AGENT`, `CREW_LABEL` and `CREW_SESSION`, and the crew installed on chuck-herdr-alpha answers it
 
-#### Scenario: A manifest that names no repository
-- **WHEN** crew's manifest has no `repository`, or names one that is no GitHub address, and a command runs crew on another host
-- **THEN** it is refused naming the manifest, and nothing is run on the other host
+#### Scenario: A send reaches another host's drive whatever the teams file keeps of crew there
+- **WHEN** the user runs `crew send wldn "<text>"` on deneb, where wldn runs on chuck-herdr-alpha and no drive's `repos` lists crew's repository
+- **THEN** wldn-operator receives the text, as it does where a drive's `repos` lists crew
+
+#### Scenario: A tell finds an agent herdr names in no pane through the crew installed there
+- **WHEN** a tell from deneb is for wldn-planner on chuck-herdr-alpha, whose name herdr dropped in the pane crew keeps for it
+- **THEN** crew asks the crew installed on chuck-herdr-alpha, by its name, `crew _found wldn-planner`, which finds the agent there and gives its name back, and the tell reaches it
 
 #### Scenario: crew's code names no address of its own
 - **WHEN** the modules under `plugin/lib/` and the commands under `plugin/bin/` are read
 - **THEN** none names the repository crew's manifest names
 
-### Requirement: crew reaches another host by its ssh name and runs the checkout that host keeps of crew
-When a crew command runs crew on another host, as a tell, a send, an ops act or a command forwarded to a main level's host does, it SHALL reach the host by the `ssh` name the teams file's `hosts` gives it, and SHALL run the crew in the checkout that host keeps of the repository crew is, found where the teams file keeps it there: in the folder of a drive whose machine is that host and whose `repos` lists the repository.
+### Requirement: crew is run on no host that has no ssh name or no crew on its login path
+Where the teams file's `hosts` does not name a host, a command that runs crew there SHALL be refused naming the host and `hosts`, and no ssh SHALL be run. Where the host's login path finds no `crew`, the command SHALL fail saying so of that host, and nothing else SHALL be run there. No other crew, a checkout among them, SHALL be tried in its place.
 
-#### Scenario: A send reaches another host's drive
-- **WHEN** crew is `agentplot/crew`, the teams file gives wldn the machine chuck-herdr-alpha, the folder `/workspace` and `repos` listing `agentplot/crew`, gives chuck-herdr-alpha the `ssh` name `box`, and the user runs `crew send wldn "<text>"` on deneb
-- **THEN** crew runs `/workspace/crew/main/plugin/bin/crew` on chuck-herdr-alpha over `ssh box`, and wldn-operator receives the text
-
-### Requirement: crew is run on no host that keeps no checkout of it or has no ssh name
-Where the teams file keeps no checkout of the repository crew is on a host, or gives the host no `ssh` name, a command that runs crew there SHALL be refused, naming the host and what crew looked for, and nothing SHALL be run there. No former address of crew's SHALL be followed.
-
-#### Scenario: A host that keeps no checkout of crew
-- **WHEN** no drive whose machine is chuck-herdr-alpha lists `agentplot/crew` in its `repos`, and a command on deneb runs crew there
-- **THEN** it is refused saying chuck-herdr-alpha keeps no checkout of agentplot/crew, the repository crew is, as the teams file gives it, so crew can't run there, and nothing is run on chuck-herdr-alpha
-
-#### Scenario: A checkout kept under crew's former address
-- **WHEN** wldn's `repos` lists `afterthought/crew` and nothing by `agentplot/crew`, and a command on deneb runs crew on chuck-herdr-alpha
-- **THEN** it is refused the same way, naming `agentplot/crew`
+#### Scenario: A host that has installed no crew
+- **WHEN** chuck-herdr-alpha's login path finds no `crew`, a drive there lists crew's repository in its `repos`, and the user runs `crew main status wldn` on deneb
+- **THEN** it fails saying chuck-herdr-alpha has no crew on its login path, so crew can't run there, and no crew runs on chuck-herdr-alpha, the drive's checkout of crew among them
 
 #### Scenario: A host the file gives no ssh name
 - **WHEN** a command on deneb runs crew on a host the teams file's `hosts` does not name

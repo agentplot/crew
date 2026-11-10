@@ -93,6 +93,7 @@ _batch-card wldn 1
 _land-row wldn tenant-environments
 _land-card wldn switchboard-kit
 _release
+_found wldn-planner
 main up wldn
 main fix switchboard-kit red "main is red"
 main fix switchboard-kit red --send

@@ -297,8 +297,12 @@ class TestBriefs:
         assert str(crew.HOME) not in text and "plugin/bin/crew" not in text
 
     def test_a_command_forwarded_to_this_host_runs_the_installed_crew(self, monkeypatch):
+        import record
         monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
-        assert crew.crew_on({}, "deneb", "deneb", None) == INSTALLED
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        monkeypatch.setenv("CREW_AGENT", "swancloud-planner")
+        monkeypatch.setattr(record, "_session", None)
+        assert crew.crew_argv({}, "deneb", "bolts")[-3:] == ["bash", INSTALLED, "bolts"]
 
 
 class TestDigest:
