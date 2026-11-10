@@ -321,8 +321,8 @@ class TestLand:
 
 class TestCaptureAsk:
     """A capture landed through crew asks a design agent that runs as its kind, one ask per signal keyed by its id, in
-    the capture's commit (role-runs "An ask is written with the act that makes it" and "A capture and a landing are
-    asks"; design Decision 5); a design agent that stands is asked nothing."""
+    the capture's commit (role-runs "An ask is written with the act that makes it" and "A capture and a bolt's landing
+    are asks"; design Decision 5); a design agent that stands is asked nothing."""
 
     def fleet(self, design):
         return {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},

@@ -339,7 +339,7 @@ BOX = re.compile(r"^(?:land|add):([a-z0-9][a-z0-9-]*)$")  # a box crew minted, n
 
 def answer_said(got, offered=()):
     """What the user answered on a card, in crew's own words made from names alone, as a card's close keeps it for the
-    card that follows (rail-cards "The close of an answered card records the answer"; record.3): from get_request's
+    card that follows (rail-cards "An answered card's close records what the user answered from names alone"; record.3): from get_request's
     reply, read as answer_lines reads it, off the user's turn: approved or declined; the boxes they ticked, each of
     crew's named by the bolt or unit it names (land:<bolt>, add:<unit>), and those of offered, the ids the card
     offered, they left; a lone unit's unticked as left it out, and any other option picked as it is; done, a failed
@@ -436,7 +436,7 @@ def block(head, name, says):
 
 def renamed_drawn(a, before, kits, repo, where, renamed):
     """A repository's rename as a proposal's card draws it (Decision 7 of a-repository-is-renamed-by-one-explicit-command;
-    plan-proposals "A proposal's card draws a kit's rename"): its RENAME KIT block, the old name and the new, saying the
+    plan-proposals "A kit's rename is drawn on a proposal's card as a block of its own"): its RENAME KIT block, the old name and the new, saying the
     repository's work is finished and its launches, landings and decision-record sources are renamed. A rename stands
     with no bolt or unit of the repository (plan.22), so it names none and returns no section, the picture drawing
     nothing for it; it makes nothing new, so it asks no question of its own. Called as drawn calls every command, with
@@ -805,7 +805,7 @@ def landing_card(f):
     moved = f.get("moved") or 0
     said.append(f"main has moved {plural(moved, 'landing')} since the bolt was cut." if moved else
                 "main has not moved since the bolt was cut.")
-    if "forecast" in f:  # a row of its kit's landings card (rail-cards "The landings card forecasts each row's conflicts")
+    if "forecast" in f:  # a row of its kit's landings card (rail-cards "Each landings row carries its forecast conflicts, or why none could be made")
         said.append(forecast_said(f["forecast"], f.get("forecast_why"), f.get("would_main")))
     offers = list(f.get("offers") or [])
     then = ("After you approve: crew asks the runner to land it, Flume submits it through the merge queue, and every host "
@@ -869,12 +869,12 @@ def fix_card(f):
 
 
 def forecast_said(forecast, why=None, would=None):
-    """What a row of a kit's landings card says of its forecast (rail-cards "The landings card forecasts each row's
-    conflicts"): forecast, [(with, paths)] as plan.row_forecasts gives it, "main" or a bolt above it, paths None for one
+    """What a row of a kit's landings card says of its forecast (rail-cards "Each landings row carries its forecast
+    conflicts, or why none could be made"): forecast, [(with, paths)] as plan.row_forecasts gives it, "main" or a bolt above it, paths None for one
     not made, with why. No conflict forecast; the files and the bolt or main each is with; or that its forecast could
     not be made and why, which holds nothing. With would, (main's short sha, [paths]) for a row the user left that a
     conflict with main would hold once ticked (plan.landing_rows' would_main), that first, and nothing more of main
-    (rail-cards "A row the user left says whether it would take main first")."""
+    (rail-cards "A row the user left keeps its box and says whether it would take main first")."""
     if would:
         forecast = [(w, p) for w, p in forecast if w != "main"]
     hits = [(w, p) for w, p in forecast if p]
@@ -890,7 +890,7 @@ def forecast_said(forecast, why=None, would=None):
     return " ".join(said)
 
 
-# What a tick on a row taking main first does (rail-cards "A send stands for a ticked bolt taking main in"): the send
+# What a tick on a row taking main first does (rail-cards "A ticked bolt taking main in lands on its send once it reads proven at a new head"): the send
 # stands through its take-main fix, and crew asks the runner to land it once it reads proven at its new head.
 TAKING_TICKED = ("Ticked, it lands once a fix on it has taken main in and it reads proven at its new head, your send standing "
                  "through it.")
@@ -1394,7 +1394,7 @@ def proposal_form(argvs):
 
 def proposal_since(old_argvs, old_case, new_argvs, new_case):
     """What a proposal's rewrite changed, read against the proposal it replaces, as the card that follows the one the
-    user answered says it (rail-cards "A card that follows one the user answered says so first"), from both
+    user answered says it (rail-cards "A follow-on card says what changed in the words its event gives"), from both
     proposals' commands, parsed, and cases: each unit or chore it makes new that the old did not, and each the old made
     new that it no longer does (new_units); each whose intent it words otherwise; each it newly drops, or no longer
     drops; how many of its other commands changed; and that its case is rewritten. Sentences, [] when its commands and
@@ -1543,8 +1543,8 @@ def follows_of(kind, thing, entries, by):
     user declined it, else nothing, never a landing's card, whose landings its face names (briefs.13); a step follows
     the step card raised after its environment's last deploy card, else that card. A proposal, a batch and a record
     follow nothing. A card lost to its owner is followed by none. A kit's landings card follows the kit's last one in
-    by's name only once the user answered it and it closed with rows left that can land (rail-cards "The landings card
-    closes when nothing waits"), else nothing. thing: a bolt's landing's {bolt}, a kit's landings card's {kit}, a
+    by's name only once the user answered it and it closed with rows left that can land (rail-cards "An answered landings
+    card closes once each bolt it ticked has landed, been held or stopped"), else nothing. thing: a bolt's landing's {bolt}, a kit's landings card's {kit}, a
     deploy's {env, head}, a step's {env, key}."""
     cards = [c for c in posted_cards(entries) if c["state"] != "lost" and c["by"] == by]
     if kind == "land" and "kit" in thing:
@@ -1590,8 +1590,8 @@ def standing(entries, key, owner):
 
 
 def answered_before(entries, follows, key, owner):
-    """The card the user answered that a post under a row's key comes after (rail-cards "A card that follows one the
-    user answered says so first"), from the run record's entries, oldest first: the card the post follows (follows)
+    """The card the user answered that a post under a row's key comes after (rail-cards "A follow-on card gives the answer
+    crew recorded at the earlier card's close"), from the run record's entries, oldest first: the card the post follows (follows)
     when its close shows it closed or declined, else the card whose answer stands under the key (standing). As {card,
     posted, answered, answer}: when its last post and its close were recorded, as the run record writes them, and what
     the user answered as its close recorded it (answer_said), None when it recorded none; None when the post follows
@@ -1625,8 +1625,8 @@ def sentences(said):
 
 
 def answered_opening(earlier, since):
-    """The paragraph a card opens with when it follows one the user answered (rail-cards "A card that follows one the
-    user answered says so first"): that they answered the card before it, when that card was posted and by when crew
+    """The paragraph a card opens with when it follows one the user answered (rail-cards "A follow-on card opens with one
+    paragraph on the user's answer and what changed"): that they answered the card before it, when that card was posted and by when crew
     recorded their answer, what they answered, and what changed since, the event's sentences (since); None when the
     event gives nothing changed, so the card is not posted. earlier as answered_before gives it."""
     said = [s for s in since or [] if s and s.strip()]

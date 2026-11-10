@@ -50,7 +50,7 @@ class TestTheStops:
         assert plan.stops([refused, stopped]) == {"b": (TIP, self.STOP["Why"])} and plan.refusals([refused, stopped]) == {}
 
     def test_a_stop_that_submitted_nothing_leaves_a_sent_back_landing_the_bolts_fix(self):
-        """bolt-teams "A landing Flume's verdict sent back is the bolt's fix": a stop an older crew recorded at the head
+        """bolt-teams "No land is posted again until a fix moves the head sent back": a stop an older crew recorded at the head
         sent back, of a submit that submitted nothing (the Willdan box's 22:28Z stop of 2026-11-06), leaves the refusal
         standing and says no stop; a refusal naming no head leaves it too; a stop at another head, or anything queued,
         lifts it. The landing's state reads rejected through it (landing_phase)."""
@@ -182,7 +182,7 @@ class TestTheLandingsPoint:
         assert plan.pull_of("swb-1-unit-2 (unit/a)", "o/k") is None and plan.pull_of("", "o/k") is None
 
     def test_a_landing_reading_is_its_cover_each_units_change_in_the_plans_order_then_the_diff(self):
-        """card-sessions "A landing's session opens what the bolt brings to main, as one review": two units and a chore,
+        """card-sessions "A landing's session opens its page, its units' changes and its diff, each file whole": two units and a chore,
         each unit's Markdown named for it in a change's reading order, the diff numbered after the last unit."""
         a = [("tasks.md", "a's tasks"), ("specs/x/spec.md", "a's spec"), ("proposal.md", "a's proposal"), ("design.md", "a's design")]
         b = [("proposal.md", "b's proposal")]
@@ -404,8 +404,8 @@ def ran(code, out="", err=""):
 class TestTheLandingsAsks:
     """A bolt's landing, as crew's read of the runner's report records it, asks the planner and the design agent that
     run as their kinds in the landing's commit, and one that did not land asks main-level ops with Flume's or the
-    runner's words, keyed by the land's request (design Decisions 5 and 12; role-runs "A capture and a landing are
-    asks" and "Main-level ops's run lands nothing"); a role that stands is asked nothing."""
+    runner's words, keyed by the land's request (design Decisions 5 and 12; role-runs "A landing refused or stopped is
+    an ask of ops" and "Main-level ops's run lands nothing"); a role that stands is asked nothing."""
 
     def fleet(self, **flume):
         import crew
@@ -710,7 +710,7 @@ class TestTheFirstReadActs:
 
 
 class TestALandingIsRecordedInTheRunRecordAsAsked:
-    """bolt-teams "A landing queued holds its bolt's work" (Decision 7): while a land crew posted stands undecided in
+    """bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record" (Decision 7): while a land crew posted stands undecided in
     the run record, the bolt's landing reads asked with its request, and no unit, chore or fix joins it."""
 
     def test_asked_until_its_outcome_is_recorded(self):
@@ -725,8 +725,8 @@ class TestALandingIsRecordedInTheRunRecordAsAsked:
 
 
 class TestCrewBoltLandOfAStartedBolt:
-    """bolt-plan "A landed bolt leaves the plan with its units" (Decision 7) and bolt-teams "A landing records the commit
-    main holds": crew bolt land closes a started bolt once its landing reads landed from the runner's report alone, at
+    """bolt-plan "A landed bolt leaves the plan with its units" (Decision 7) and bolt-teams "crew bolt land closes a
+    started bolt only once its base place reads landed": crew bolt land closes a started bolt once its landing reads landed from the runner's report alone, at
     Flume's commit, the record Flume holds for the runner after it tidies the base place among them, with its age and
     split from the run record, deleting no branch; refused, recording nothing, naming its outcome otherwise, no landing
     commit on its kit's main read for it; and a bolt started before bolts were base places is refused, closed only by

@@ -105,7 +105,7 @@ class TestWhereItRuns:
         assert of(d, "madswan")["unread"] == {"the plan of madswan": "fetch failed: timed out"} and of(d, "wldn")["unread"] == {}
         b = dict(BOARD, drives=[part("wldn", {"chuck-herdr-alpha": True}, plan=None)], unread={})
         assert of(fleet(b), "wldn")["commit"] == "wldn/main not started"
-        # Each drive is named by its label alone (main-level "Drives are declared in the teams file"): no grouping of a
+        # Each drive is named by its label alone (main-level "Each drive's entry names its label, its repositories and where its main level runs"): no grouping of a
         # session's is carried, and the page's block draws the label, its plan's commit and its cards.
         assert all("partition" not in p for p in d["drives"]) and of(d, "madswan")["label"] == "madswan"
         script = page.FLEET.read_text()

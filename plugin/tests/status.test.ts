@@ -148,7 +148,7 @@ test("a ledger's standing merge and landing are drawn with their numbers", async
   expect(lines.findIndex((l) => /a-queued-unit-can-take-a-signal {2}verify 3\/3 {2}#41 under test$/.test(l))).toBeGreaterThanOrEqual(0)
 })
 
-// crew-board "A held bolt's head line shows its age and who held its time": the head line ends with the bolt's age,
+// crew-board "A held bolt's head line shows its age and each holder's minutes of it": the head line ends with the bolt's age,
 // its minutes by holder and who holds it now, as board.py's bolt_row draws it, and the band shows it as it is (plan.20).
 test("a ledger's head line is drawn with the bolt's age and who holds it", async ($, on) => {
   const ledger = [

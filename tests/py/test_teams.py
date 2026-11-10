@@ -50,7 +50,7 @@ def loaded(tmp_path, monkeypatch, data, hosts_file=None):
 
 class TestLoad:
     """The teams file at version 6 holds drives alone, under `drives`, each named by its label, and every fact crew
-    reads of a host's drives and of the hosts that serve them (main-level "Drives are declared in the teams file";
+    reads of a host's drives and of the hosts that serve them (main-level "The teams file is the one file crew reads of a host's drives and hosts";
     Boomdrive record 0028; record 0064): no hosts file is read; the files' refusals by field are t-teams'."""
 
     def data(self, version=6, key="drives", **more):

@@ -243,7 +243,7 @@ def submitted(*states):
 
 
 class TestALandingQueuedHoldsTheBoltsWork:
-    """bolt-teams "A landing queued holds its bolt's work" (plan.8): while the run record has x's landing queued, or
+    """bolt-teams "Work into a bolt whose landing is queued is refused" (plan.8): while the run record has x's landing queued, or
     landing again, with no outcome, a unit or chore added to x or moved into it is refused naming the landing, at the tip
     the write is applied to, and nothing is launched; once sluice has rejected it, the bolt is open for work again."""
 

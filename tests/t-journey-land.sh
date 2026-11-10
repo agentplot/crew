@@ -17,7 +17,7 @@
 # posts a second land of it on the standing send; Flume lands it on main, GitHub deletes its branch and Flume tidies its
 # places, holding each one's record for the runner, which carries it as the place's status, and ops's crew bolt land
 # closes it at Flume's commit as the runner reports it, its chore read landed from its own record and no landing commit
-# on its kit's main read for it (bolt-teams "A landing records the commit main holds", "A landed bolt closes on its
+# on its kit's main read for it (bolt-teams "crew bolt land closes a started bolt only once its base place reads landed", "A landed bolt closes on its
 # pieces' ends as the runner reports them"; crew record 0056 point 4). Through it all, no sluice, wt or gh call is
 # made, and the kit's checkout on the box keeps its HEAD, index and refs but its remotes' (Decision 1). Every decision
 # on the way is a logic case (tests/py/test_runner.py, test_landings.py, test_landing.py).

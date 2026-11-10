@@ -636,7 +636,7 @@ def landing_of(entries, bolt):
     """What the run record holds of a held bolt's landing for its head line, its ledger's record (plan.21, Decision 5),
     from the drive's entries the rail read, oldest first, each state its own: {state: unclosed, words} once its last
     bolt.submit landed and its last bolt.land since is refused, in that refusal's words; else its landing queued, landing
-    again or rejected as plan.landing_phase reads it (bolt-teams "A landing queued holds its bolt's work"); else None. A
+    again or rejected as plan.landing_phase reads it (bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record"); else None. A
     decision of facts alone (code.7)."""
     last, refused = None, None
     for e in entries:
