@@ -4,10 +4,10 @@ record.unpushed writes that day to the branch under the descriptor that allows t
 (record.emit, record.unpushed, the card hook's entries); and a chain of entries plan.land pushes to a bare repository
 standing for GitHub lands as one commit per entry, each changing its day's file alone, made again on top of another
 clone's push that moved the branch between its fetch and its push, and on a branch moved before each of three pushes,
-after a growing wait before each fresh fetch (plan.land, record.reach, state.1); and a first-parent
-log's parents, Crew-Entry trailers and subjects, root commit and all, read a branch below a plan write whose entry is
-still in flight though another host's entry landed after it, naming that write and its agent, and at its tip once the
-entry arrives (plan.read_point, plan.fetch, read.5); and a plan write's commit is the tip it leaves once it returns,
+after a growing wait before each fresh fetch (plan.land, record.reach, state.1); and an older crew's write in two
+steps, its commit and then its entry's, is read at the tip, another host's entry landing between them, its entry
+absent from the run record there until its own commit lands (plan.tip_of, record.at, read.5); and a plan write's
+commit is the tip it leaves once it returns,
 holding its entry in its host's day file, naming no commit, while one given no act moves nothing, and a write refused
 because another command of the same host pushed an entry to that day's file lands on top with both entries whole
 (plan.write, plan.carried, plan.2, state.1; an-act-carries-its-entry-in-its-own-commit)."""
@@ -195,30 +195,33 @@ def test_a_branch_busy_for_three_pushes_is_outwaited_each_wait_longer_and_made_b
     assert git(github, "show", f"wldn/main:runs/mac-studio/{DAY}.rec").count("Id: ") == 2
 
 
-def test_a_branch_is_read_below_a_write_whose_entry_is_in_flight_and_at_its_tip_once_it_arrives(github, tmp_path):
+def test_an_older_crews_two_step_write_is_read_at_the_tip_its_entry_absent_until_its_own_commit_lands(github, tmp_path):
+    """drive-state "A decision reads the drive's branch at its tip" (an-act-carries-its-entry-in-its-own-commit,
+    Decision 7): an older crew's write, its commit naming an entry and the entry its next commit, with another host's
+    entry landing between the two; tip_of reads the tip, and the run record at the tip (record.at) lacks the write's
+    entry until its own commit lands, then holds it."""
     other = tmp_path / "other"
     git(tmp_path, "clone", "-q", "--branch", "wldn/main", str(github), str(other))
-    seed = git(other, "rev-parse", "HEAD")
     land, theirs = "20261030T140103Z-263678-deneb-74395-2", "20261030T140104Z-101010-mac-studio-512-1"
 
     def entry(eid, host):
         f = other / "runs" / host / "2026-10-30.rec"
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text((f.read_text() if f.exists() else record.DESCRIPTOR) + f"\nId: {eid}\nAct: bolt.land\n")
+        f.write_text((f.read_text() if f.exists() else record.DESCRIPTOR) + f"\nId: {eid}\nAt: 2026-10-30T14:01:0{eid[14]}Z\nAct: bolt.land\n")
         git(other, "add", "runs")
         git(other, "commit", "-q", "-m", f"runs({host}): bolt.land\n\nCrew-Entry: {eid}")
         git(other, "push", "-q", "origin", "wldn/main")
     (other / "plan.rec").write_text(plan.HEADER + "\n")
     git(other, "commit", "-q", "-am", f"plan(y): land the bolt (wldn-ops)\n\nCrew-Entry: {land}")
-    written = git(other, "rev-parse", "HEAD")
     git(other, "push", "-q", "origin", "wldn/main")
     entry(theirs, "mac-studio")  # another host's entry lands between the write and its own
-    assert plan.fetch("WilldanGroup/crew-state", "wldn/main", fresh=True) == seed
-    assert plan.READ.below() == [dict(ref="wldn/main", tip=git(github, "rev-parse", "wldn/main"), at=seed, write=written,
-                                      subject="plan(y): land the bolt (wldn-ops)")]
+    tip = plan.tip_of("WilldanGroup/crew-state", "wldn/main", fresh=True)
+    assert tip == git(github, "rev-parse", "wldn/main") and plan.show("WilldanGroup/crew-state", tip, "plan.rec") == plan.HEADER + "\n"
+    assert [e["Id"] for e in record.at("WilldanGroup/crew-state", tip, "2026-10-30")] == [theirs]
     entry(land, "deneb")
-    assert plan.fetch("WilldanGroup/crew-state", "wldn/main", fresh=True) == git(github, "rev-parse", "wldn/main")
-    assert plan.READ.below() == []
+    tip = plan.tip_of("WilldanGroup/crew-state", "wldn/main", fresh=True)
+    assert tip == git(github, "rev-parse", "wldn/main")
+    assert sorted(e["Id"] for e in record.at("WilldanGroup/crew-state", tip, "2026-10-30")) == sorted([land, theirs])
 
 
 def write_bolt(fleet, monkeypatch, change=None):
