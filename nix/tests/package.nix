@@ -40,8 +40,18 @@ let
         "packages.${system}.crew.release is ${builtins.toJSON crew.release}, not ${commit} at ${crew.version}"
       ++ t.expect writes "packages.${system}.crew's install writes no plugin/release.json"
       ++ t.expect (lib.hasInfix (builtins.toJSON crew.release) crew.installPhase) "packages.${system}.crew's install writes another release than its own";
+
+  # A system's failures where its package's version on main's tree,
+  # whose release file gives 0.0.0, is not nixpkgs' untagged form.
+  unstable =
+    system:
+    let
+      inherit (t.outputs.packages.${system}.crew) version;
+    in
+    t.expect (lib.hasPrefix "0-unstable-" version) "packages.${system}.crew.version is ${version}, not 0-unstable-<date>";
 in
 {
+  "The flake's own package on main's tree" = lib.concatMap unstable systems;
   "A build from a commit" = lib.concatMap (carries committed rev) systems;
   "A build from a tree with no commit" = lib.concatMap (carries t.outputs null) systems;
 }
