@@ -211,6 +211,24 @@ def test_a_refused_write_leaves_the_hosts_file_as_it_was(monkeypatch, tmp_path):
     assert len(b.made) == 2 and not b.here.exists() and b.reached == []
 
 
+def test_a_state_init_steps_commit_carries_its_state_init_entry(monkeypatch, tmp_path):
+    """Decision 3: crew state init's first step, on a branch not there yet, and a later one, each commit carrying its
+    state.init entry naming no commit, the host's file holding it once pushed and its kept entries pushed after."""
+    b = Branch(monkeypatch, tmp_path, {"plan.rec": plan.HEADER})
+    b.order = [None]
+    sha = plan.init_step(STATE, "madswan/main", "madswan", "state(madswan): start the drive's plan",
+                         lambda tip, files: files.update({"plan.rec": plan.HEADER}))
+    files, day, (e,), eids = b.committed()
+    assert sha == "c" * 40 and sorted(files) == ["plan.rec", day] and day.startswith("runs/deneb/")
+    assert (e["Act"], e["On"], e["Why"], e["Commit"], [e["Id"]]) == ("state.init", ["plan/madswan"], "state(madswan): start the drive's plan", [], eids)
+    assert b.made[-1][1].startswith("state(madswan): start the drive's plan (madswan-planner)\n\nCrew-Entry: ")
+    assert record.parse((b.here / pathlib.PurePath(day).name).read_text()) == [e] and b.reached == [("madswan", None, True)]
+    b.order, b.tips["t0"][day] = ["t0"], files[day]  # the next step, on the tip the first left
+    plan.init_step(STATE, "madswan/main", "madswan", "state(madswan): moves.rec", lambda tip, files: files.update({"moves.rec": plan.MOVES}))
+    files, _, entries, eids = b.committed()
+    assert [x["Id"] for x in entries] == sorted([e["Id"], eids[0]]) and sorted(files) == sorted([day, "moves.rec"])
+
+
 # ------------------------------------------------------------------------------------- a read below the tip says so
 
 def test_the_write_a_read_waits_on_is_the_oldest_in_flight_and_the_read_is_unchanged():

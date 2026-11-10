@@ -1453,15 +1453,26 @@ def moves_file(recs):
 
 def init_step(repo, ref, label, subject, make_files):
     """One step of crew state init: make_files(tip, files) fills the commit's files at the tip (None when the branch
-    is not there yet), pushed without force and replayed on a moved tip. The step's entry names its commit."""
+    is not there yet), pushed without force and replayed on a moved tip. The step's commit carries its state.init
+    entry, naming no commit, as a plan write carries its act's (write, carried): added to this host's day file at the
+    tip, made again on each replay, appended to the host's own file once the push is accepted, and the host's kept
+    entries pushed after it. An adoption of another branch's history, which pushes commits crew did not make, records
+    its entry as a commit of its own instead (state_init)."""
     eid = record.new_id()
+    seen = {}
 
     def make(tip):
         files = {}
         make_files(tip, files)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        lines = record.entry_text(record.fields_of(eid, now, "state.init", [f"plan/{label}"], why=subject))
+        path = f"runs/{crew.this_host()}/{now.date().isoformat()}.rec"
+        files[path] = record.with_entries(files[path] if path in files else show(repo, tip, path) if tip else None, {eid: lines})
+        seen.update(day=now.date().isoformat(), lines=lines)
         return files, message(f"{subject} ({agent()})", "", eid)
     sha = land(repo, ref, None, make)
-    record.emit(label, "state.init", [f"plan/{label}"], commit=[f"{repo}@{sha}"], why=subject, eid=eid)
+    record.append(label, seen["day"], seen["lines"])
+    record.reach(label, said=True)
     return sha
 
 
