@@ -5436,7 +5436,7 @@ def capture_asks(w, fleet, label, ids):
     runs as its kind (design Decision 5, role-runs "A capture and a landing are asks"): one `capture` ask per signal, ids,
     from whoever recorded it, naming the signal and keyed by its id, in the capture's commit, the write w. A design
     agent that stands is asked nothing: its curation runs at its start and on the user's word, as today (signals.7)."""
-    if crew.role_stream(fleet, label, "design") is False:
+    if crew.role_runs(fleet, label, "design") == crew.RUNS_STANDING:
         return
     for sig in ids:
         ask_lines(w, fleet, label, "design", "capture", agent(), names=f"signals/{sig}", key=f"signal/{sig}")
@@ -5448,7 +5448,7 @@ def landed_asks(w, fleet, label, bolt, words):
     are asks"): a `landed` ask from crew naming the bolt, keyed landed/<bolt>, the landing in words, in the landing's
     own commit, the write w. A role that stands is asked nothing."""
     for role in ("planner", "design"):
-        if crew.role_stream(fleet, label, role) is not False:
+        if crew.role_runs(fleet, label, role) == crew.RUNS_ON_DEMAND:
             ask_lines(w, fleet, label, role, "landed", "crew", names=f"bolt/{bolt}", key=f"landed/{bolt}", words=words)
 
 
@@ -5459,7 +5459,7 @@ def unlanded_ask(fleet, label, bolt, kit_name, n, words):
     naming the bolt with Flume's or the runner's words, keyed by the land's request, request/<kit>/<n>, so its outcome
     read twice asks once; one with no request crew can name is keyed by nothing. An ask crew could not write is said,
     the read going on (read.1)."""
-    if crew.role_stream(fleet, label, "ops") is False:
+    if crew.role_runs(fleet, label, "ops") == crew.RUNS_STANDING:
         return
     try:
         ask_write(fleet, label, "ops", "landed", "crew", names=f"bolt/{bolt}", key=f"request/{kit_name}/{n}" if n else None, words=words)
@@ -5530,10 +5530,10 @@ def asked(label, commit, made, held):
 def roles_lines(w, fleet, label, only=None):
     """roles.rec in the write w brought to match the teams file (asks.roles_due; role-runs "Role records follow the teams
     file"), for the roles in only, or for every one: each record missing or differing written, and each of a role the
-    drive no longer runs as its kind removed. A branch with no roles.rec and nothing due is left with none. Returns
-    whether anything changed."""
+    drive's `runs` no longer names on demand removed. A branch with no roles.rec and nothing due is left with none.
+    Returns whether anything changed."""
     p = crew.drive_of(fleet, label)
-    metas = {r: crew.definition(asks.definition_of(r))[0] for r, s in p["flume"].items() if s is not False}
+    metas = {r: crew.definition(asks.definition_of(r))[0] for r in crew.KIND_ROLES if crew.on_demand(p, r)}
     pl = rec_file(w, "roles.rec", ROLES)
     due, gone = asks.roles_due(asks.parse_roles(pl.text()), p, metas)
     due, gone = [d for d in due if only is None or d["Role"] in only], [g for g in gone if only is None or g in only]
@@ -5754,7 +5754,7 @@ def role_open(fleet, a):
     does for a role the drive runs as a standing agent."""
     label = default_label(fleet, a) or fail(f"which drive's {a.role}? add --label " + "|".join(fleet["drives"]))
     run, host, place = f"{label}-{a.role}", crew.drive_of(fleet, label)["machine"], f"crew-{a.role}--{label}"
-    if crew.role_stream(fleet, label, a.role) is False:
+    if crew.role_runs(fleet, label, a.role) == crew.RUNS_STANDING:
         fail(f"{label} runs its {a.role} as a standing agent, {run}, in its tab of crew main up {label}: crew role open opens "
              "only a role its drive runs as its kind; nothing is written")
     _, reads = runner_facts(fleet, label)
@@ -5785,8 +5785,8 @@ def land_named(fleet, label, kits):
 def role_land(fleet, a):
     """crew role land <repo> <name> --brief-file <file>, a role's run's work that lands (design Decision 10; role-runs "A
     role's work that lands is a place it launches"; roles.7 part 3): in a commit of its own, a launch of Flume's chore
-    kind named <name> in the repository on its default branch, on the main level's host in the role's stream, the
-    file's text whole its brief and the run's address its recipient, for the runner there to launch (runner.role_launch),
+    kind named <name> in the repository on its default branch, on the main level's host in the drive's own stream, named
+    by its label (Decision 2 of a-roles-way-of-running-says-what-it-means), the file's text whole its brief and the run's address its recipient, for the runner there to launch (runner.role_launch),
     read again at the tip it is applied to (plan.1). Recorded as role.land on role/<role>/<name> and the run, done or
     refused; none of the brief's words (record.3). The run commits on no branch, submits nothing and leaves no worktree:
     Flume builds the chore, submits it through sluice and tidies its place, and its landing, or a wait on its caller,
@@ -5794,7 +5794,7 @@ def role_land(fleet, a):
     name (Decision 16 of teams-cross-to-flume-as-their-bolts-land, may_request)."""
     label, role, run = run_named(fleet, "crew role land")
     on, seen = [f"role/{role}/{a.name}", f"agent/{run}"], {}
-    host, stream = crew.drive_of(fleet, label)["machine"], crew.role_stream(fleet, label, role)
+    host, stream = crew.drive_of(fleet, label)["machine"], label
     try:
         crew.NAME.match(a.name) or fail(f"work that lands is named with lowercase words and dashes, not {a.name}")
         path = pathlib.Path(a.brief_file).expanduser()
@@ -8039,17 +8039,18 @@ def greeted(greetings):
 def moved_role(fleet, label, ms):
     """What refuses a main level's up while one of its roles' agents still runs in a session the role no longer stands
     in, its pane recorded there, so up would start it a second time in its own: None when none does."""
-    flume = crew.drive_of(fleet, label)["flume"]
+    p = crew.drive_of(fleet, label)
     for m in ms:
         for role, *_ in m.lines("panes"):
-            if role in crew.MAIN_STANDING and flume[role] is False and role not in m.standing and m.status(role):
+            if role in crew.MAIN_STANDING and not crew.on_demand(p, role) and role not in m.standing and m.status(role):
                 return (f"{label}-{role} still runs in session {m.session} ({m.pane(role)}), and its drive names it another session "
                         f"now: crew main down {label} ends it, then crew main up {label} starts it there")
     return None
 
 
 def kinds_up(fleet, label, ms):
-    """What crew main up does for the roles its drive runs as its kind, none of which it starts or greets (design
+    """What crew main up does for the roles its drive's `runs` names on demand (crew.on_demand), which run as their
+    kind and none of which it starts or greets (design
     Decision 14, main-level "The main level is one herdr workspace"): roles.rec on the drive's branch written to
     match the teams file where anything is due (asks.roles_due), in a commit of its own, the record of a role that
     stands again removed though none runs as its kind now (role-runs "The planner stands again"); and a standing agent
@@ -8057,7 +8058,7 @@ def kinds_up(fleet, label, ms):
     kind, a branch not there yet holds no record, and one crew can't read keeps what it holds, said, and up goes on
     (read.1), as it did before any role ran as its kind (roles.8)."""
     p = crew.drive_of(fleet, label)
-    kinds = [r for r in crew.MAIN_STANDING + ("reviewer",) if p["flume"][r] is not False]
+    kinds = [r for r in crew.MAIN_STANDING + ("reviewer",) if crew.on_demand(p, r)]
     repo, ref = state_of(fleet, label)
     if kinds:
         tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
@@ -8094,7 +8095,8 @@ def kinds_up(fleet, label, ms):
 
 def kind_said(stream, waiting, run, now):
     """What crew main status says of a role its drive runs as its kind (main-level "A role that runs as its kind is
-    not started by crew-role"), from facts: the stream its drive names for it, the asks of it that wait, oldest
+    not started by crew-role"), from facts: the stream it runs in, its drive's own, named by its label (Decision 2 of
+    a-roles-way-of-running-says-what-it-means), the asks of it that wait, oldest
     first (asks.pending), its latest run as the runner's records show it (runner.role_run) and the time now. That it runs
     as its kind in that stream; whether a run of it stands, naming its place, with the runner's words where it could
     launch none, or that crew can't tell, naming why (read.1); and how many asks wait, with the oldest's age."""
@@ -8111,12 +8113,13 @@ def kind_said(stream, waiting, run, now):
 
 
 def kinds_said(fleet, label):
-    """What crew main status says of each role the drive runs as its kind, {role: words} (kind_said): read from
+    """What crew main status says of each role the drive's `runs` names on demand, {role: words} (kind_said), its stream
+    the drive's label: read from
     asks.rec on the drive's branch (asks.pending) and the runner's records on the main level's host
     (runner_facts, runner.role_run), a host whose runner can't be read named for each role and the rest still said
     (read.3)."""
     p = crew.drive_of(fleet, label)
-    kinds = [r for r in crew.KIND_ROLES if p["flume"][r] is not False]
+    kinds = [r for r in crew.KIND_ROLES if crew.on_demand(p, r)]
     if not kinds:
         return {}
     repo, ref = state_of(fleet, label)
@@ -8124,7 +8127,7 @@ def kinds_said(fleet, label):
     held, turns = asks.parse(show(repo, tip, "asks.rec") if tip else None)
     reading = runner.of_host(runner_facts(fleet, label)[1], label, p["machine"])
     now = datetime.datetime.now(datetime.timezone.utc)
-    return {role: kind_said(p["flume"][role], asks.pending(held, [], turns, role)[0],
+    return {role: kind_said(label, asks.pending(held, [], turns, role)[0],
                             runner.role_run(reading, f"{label}/{role}"), now) for role in kinds}
 
 
@@ -8189,7 +8192,7 @@ def review_cmd(fleet, a):
     with one (teams.2); and --wait on a reviewer that took no batch refuses, naming crew review (reviewer_up_said)."""
     p = crew.drive_of(fleet, a.label)
     arrived(fleet, p["machine"])
-    if crew.role_stream(fleet, p["label"], "reviewer") is not False:
+    if crew.role_runs(fleet, p["label"], "reviewer") == crew.RUNS_ON_DEMAND:
         return review_asked(fleet, p["label"], a)
     m = crew.main_holding(fleet, a.label, "reviewer")
     m.ensure()
@@ -9094,8 +9097,9 @@ def told_since_last_batch(entries):
 
 
 def batch_due(due, entries, setting, now, bolts):
-    """Why a batch of the due changes is due now (briefs.12): at the drive's setting, `every` changes due or `hours`
-    since the last batch, or since the first due change was constructed when there has been none, or at once for a bolt
+    """Why a batch of the due changes is due now (briefs.12): at the drive's setting, `review`, once `after_changes`
+    changes are due or `after_hours` hours have passed since the last batch, or since the first due change was
+    constructed when there has been none (record 0064 as amended 2026-11-09), or at once for a bolt
     with every unit merged whose units' latest changes are due. bolts are the team's held bolts as (name, every unit
     merged, its units due). [] when none is, or when the planner was told of a batch since the last one was delivered."""
     if not due or told_since_last_batch(entries):
@@ -9104,10 +9108,10 @@ def batch_due(due, entries, setting, now, bolts):
     last = max(done) if done else None
     clock = utc(last) if last else min(utc(at) for *_, at in due)
     why = []
-    if len(due) >= setting["every"]:
-        why.append(f"{len(due)} changes are due, and a batch is every {setting['every']}")
-    if now - clock >= datetime.timedelta(hours=setting["hours"]):
-        why.append(f"{setting['hours']} hours have passed since " + ("the last batch" if last else "the first of them was constructed"))
+    if len(due) >= setting["after_changes"]:
+        why.append(f"{len(due)} changes are due, and a batch is due after {setting['after_changes']}")
+    if now - clock >= datetime.timedelta(hours=setting["after_hours"]):
+        why.append(f"{setting['after_hours']} hours have passed since " + ("the last batch" if last else "the first of them was constructed"))
     for name, merged, waiting in bolts:
         if merged and waiting:
             why.append(f"bolt {name} has every unit merged, and lands only once {either(waiting)} "
@@ -9155,8 +9159,8 @@ def batch_told(told, found, tick):
 
 def batch_check(fleet, label, read=None):
     """On the rail's sweep on the drive's main level's host (reckon_batches): the changes due across the drive,
-    counted from the run record, make a batch due at the drive's setting, `every` of them or `hours` since its last
-    batch with at least one due, or at once when a started bolt has every unit merged and some unit's latest change has
+    counted from the run record, make a batch due at the drive's setting, `review`, `after_changes` of them or
+    `after_hours` hours since its last batch with at least one due, or at once when a started bolt has every unit merged and some unit's latest change has
     been in no batch. crew then tells the drive's planner once, `batch.due` in the run record, until the next batch
     is delivered (briefs.12). With read, a rail read, the plan, the run record and the stages are its, read nothing
     again (the host's follower's, every refresh, Decision 8 of a-rail-refresh-after-no-change-reads-nothing). Returns
@@ -9355,7 +9359,7 @@ def review_delivered(fleet, a):
         f"{label}-reviewer has no open turn: crew role start takes the batches asked of it first")
     taken = batches_taken(turn, held) or fail(f"{label}-reviewer's turn {turn['Turn']} took no batch, so it has none to hand back")
     planner = f"{label}-planner"
-    kind = crew.role_stream(fleet, label, "planner") is not False
+    kind = crew.role_runs(fleet, label, "planner") == crew.RUNS_ON_DEMAND
     entries, unwritten = local_entries(label, BATCH_DAYS), []
     for n in taken:
         start = next((e for e in reversed(entries) if e.get("Act") == "review.start" and not e.get("Refused") and e.get("Batch") == str(n)), None)

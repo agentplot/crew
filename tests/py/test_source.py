@@ -14,7 +14,7 @@ import crew
 import source
 
 DENEB, BOX = "deneb", "chuck-herdr-alpha"
-STANDING = {r: False for r in crew.KIND_ROLES}
+STANDING = {r: "standing" for r in crew.KIND_ROLES}
 
 
 # deneb and the box, as the teams file's `hosts` names them (record 0064).
@@ -22,16 +22,16 @@ HOSTS = {DENEB: {"ssh": DENEB, "kind": "darwin"}, BOX: {"ssh": BOX, "kind": "nix
 AFTERTHOUGHT = ["afterthought/blueprints", "afterthought/crew"]
 
 
-def teams(flume=None):
+def teams(runs=None):
     """deneb's teams file as read 2026-11-07 16:30Z: agentplot, madswan and swancloud on deneb in sessions of their
     labels' names, wldn on the box in wldn-2 with its planner in wldn-1, every role standing, each drive's folder,
-    repos and accounts as deneb's hosts file gave its sessions; flume gives a drive's setting in its place."""
-    flume = flume or {}
+    repos and accounts as deneb's hosts file gave its sessions; runs gives a drive's `runs` in its place."""
+    runs = runs or {}
     def part(label, blueprints, machine, session, folder, repos, accounts, **more):
         return dict({"label": label, "blueprints": [blueprints], "machine": machine,
-                     "session": session, "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
+                     "session": session, "state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4},
                      "folder": folder, "repos": repos, "accounts": {r: accounts.get(r, accounts["*"]) for r in crew.KIND_ROLES},
-                     "flume": flume.get(label, STANDING)}, **more)
+                     "runs": runs.get(label, STANDING)}, **more)
     return {"version": 6, "hosts": HOSTS, "drives": [
         part("agentplot", "agentplot/blueprints", DENEB, "agentplot", "/d/agentplot", ["agentplot/blueprints"], {"*": "madswan"}),
         part("madswan", "afterthought/blueprints", DENEB, "madswan", "/d/madswan", AFTERTHOUGHT, {"*": "madswan"}),
@@ -42,9 +42,9 @@ def teams(flume=None):
 
 @pytest.fixture
 def fleet(tmp_path, monkeypatch):
-    """crew.load over deneb's teams file, or one whose drives' `flume` the case gives, and no other file."""
-    def loaded(flume=None):
-        (tmp_path / "teams.json").write_text(json.dumps(teams(flume)))
+    """crew.load over deneb's teams file, or one whose drives' `runs` the case gives, and no other file."""
+    def loaded(runs=None):
+        (tmp_path / "teams.json").write_text(json.dumps(teams(runs)))
         monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
         crew.load.cache_clear()
         try:
@@ -133,7 +133,7 @@ class TestNoEntryForADriveOnAnotherHostOrARoleThatRunsAsItsKind:
         assert not [a for a in declared(fleet(), DENEB) if a.startswith("wldn/")]
 
     def test_a_planner_that_runs_as_its_kind(self, fleet):
-        roles = declared(fleet({"madswan": dict(STANDING, planner="madswan")}), DENEB)
+        roles = declared(fleet({"madswan": dict(STANDING, planner="on-demand")}), DENEB)
         assert [a for a in roles if a.startswith("madswan/")] == ["madswan/design", "madswan/reviewer", "madswan/ops", "madswan/operator"]
 
     def test_a_host_that_is_no_drives_machine_declares_nothing(self, fleet):

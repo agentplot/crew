@@ -146,14 +146,14 @@ def flow_read(fleet, labels, sweep=False):
 def roles_read(fleet, found):
     """What the board reads of each drive's roles that run as their kinds, for their runs' views and the attention
     line (kind_runs; Decision 15 of roles-run-as-flume-kinds), beside its plan in the same read (plan.12): {label:
-    {"kinds": {role: the stream its drive names}, "asks": asks.rec's text at the tip the read found, None where it
-    holds none, "host": the main level's host, "reading": that host's runner as read beside the branch (plan.runners,
-    runner.of_host)}}, for each drive read whose teams-file entry names a stream for a role; one that runs none as
-    its kind reads nothing more."""
+    {"kinds": {role: the stream it runs in, the drive's own, named by its label}, "asks": asks.rec's text at the tip
+    the read found, None where it holds none, "host": the main level's host, "reading": that host's runner as read
+    beside the branch (plan.runners, runner.of_host)}}, for each drive read whose teams-file `runs` names a role
+    on demand (crew.on_demand); one that runs none as its kind reads nothing more."""
     out = {}
     for l, repo, tip, _ in found:
         p = crew.drive_of(fleet, l)
-        kinds = {r: s for r, s in p["flume"].items() if s is not False}
+        kinds = {r: l for r in crew.KIND_ROLES if crew.on_demand(p, r)}
         if kinds:
             out[l] = {"kinds": kinds, "asks": plan.show(repo, tip, "asks.rec") if tip else None, "host": p["machine"],
                       "reading": runner.of_host(plan.runners(repo, l), l, p["machine"])}
@@ -326,7 +326,7 @@ def kind_runs(label, roles):
     """Each role the drive runs as its kind, for its run's view (crew-board "A role that runs as its kind has its
     view"), and what the attention line names of their runs ("The attention line names a role's run that waits"), a
     decision on the board's read of them (roles_read) alone (code.7): (runs, attention). Each run {role, run, stream,
-    turn, waiting, since}: its name, <label>-<role>; the stream its drive names; its turn as asks.run_view gives it,
+    turn, waiting, since}: its name, <label>-<role>; the stream it runs in, the drive's own, named by its label; its turn as asks.run_view gives it,
     None while it has none; how many asks wait for its next run, and when the oldest was asked. The attention names a
     run Flume's status shows stopped short, with its words, or lost, with its place and host, and prints no command
     (crew-board "The board answers nothing"); and each run whose standing crew can't read, those of one why together
@@ -607,7 +607,7 @@ def pip(u):
     every task ticked."""
     st = u["stage"]
     if st in ("needs", "waits", "stalled") and (u.get("flume") or {}).get("of"):
-        st = u["flume"]["of"]
+        st = u["flume"].get("of")
     return PIP.get("verify" if st == "submitted" else st, "?")
 
 
@@ -1386,9 +1386,9 @@ HEARD = FRAMES.parent / "heard.log"
 def answers_watched(fleet, host):
     """Whether the host's follower runs Pending You's notice (design Decision 5 of roles-run-as-flume-kinds, role-runs
     "The follower hears Pending You's notice while a role here runs as its kind"): while a drive whose main level
-    runs on the host names a stream for a role, and only then, since the notice marks each change it hands in the
-    host's Pending You state, which a session's pickup at its start reads."""
-    return any(p["machine"] == host and any(s is not False for s in p["flume"].values()) for p in fleet["drives"].values())
+    runs on the host names a role on demand in its `runs` (crew.on_demand), and only then, since the notice marks each
+    change it hands in the host's Pending You state, which a session's pickup at its start reads."""
+    return any(p["machine"] == host and any(crew.on_demand(p, r) for r in crew.KIND_ROLES) for p in fleet["drives"].values())
 
 
 def notice_argv():

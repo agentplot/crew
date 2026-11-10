@@ -71,8 +71,8 @@ def test_a_proposal_holding_a_rename_is_the_planners_to_make_and_the_users_to_ap
 
 
 # wldn running its planner, design agent and ops as their kinds, and its reviewer and operator standing.
-RUNS = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], flume=dict(
-    dict.fromkeys(crew.KIND_ROLES, False), planner="wldn-main", design="wldn-main", ops="wldn-main"))})
+RUNS = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], runs=dict(
+    dict.fromkeys(crew.KIND_ROLES, "standing"), planner="on-demand", design="on-demand", ops="on-demand"))})
 PLACES = "/Users/chuck/.local/state/flume/places/Users%chuck%Code%github_afterthought%blueprints"
 
 

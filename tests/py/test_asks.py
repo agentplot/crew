@@ -168,20 +168,21 @@ class TestKeyed:
 
 PLANNER = {"model": "claude-opus-5-5[1m]", "effort": "xhigh"}
 OPS = {"model": "claude-opus-5-5[1m]", "effort": "high"}
-FALSE = dict.fromkeys(("design", "planner", "reviewer", "ops", "operator"), False)
+STANDING = dict.fromkeys(("design", "planner", "reviewer", "ops", "operator"), "standing")
 
 
-def madswan(**flume):
+def madswan(**runs):
+    """madswan's drive, each role standing but those runs names, each "on-demand"."""
     return {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints", "afterthought/boomdrive-web"], "roles": {},
-            "flume": dict(FALSE, **flume)}
+            "runs": dict(STANDING, **runs)}
 
 
 class TestRoleRecords:
     def test_the_planners_record_names_its_run(self):
         """role-runs, The planner's record."""
-        assert asks.role_record(madswan(planner="madswan-main"), "planner", PLANNER) == {
+        assert asks.role_record(madswan(planner="on-demand"), "planner", PLANNER) == {
             "Role": "planner", "Address": "madswan/planner", "Run": "madswan-planner", "Host": "deneb", "Repository": "afterthought/blueprints",
-            "Kinds": "crew", "Kind": "crew-planner", "Name": "madswan", "Stream": "madswan-main", "Priority": "0", "Intent": "madswan-planner",
+            "Kinds": "crew", "Kind": "crew-planner", "Name": "madswan", "Stream": "madswan", "Priority": "0", "Intent": "madswan-planner",
             "Model": "claude-opus-5-5[1m]", "Effort": "xhigh"}
 
     def test_a_role_that_stands_has_no_record(self):
@@ -189,26 +190,26 @@ class TestRoleRecords:
 
     def test_a_runs_model_is_its_definitions_after_the_teams_files_override(self):
         """role-runs, An override: wldn sets roles.planner.model; main-ops's override is read for ops."""
-        wldn = dict(madswan(planner="wldn-main", ops="wldn-main"), label="wldn", machine="chuck-herdr-alpha",
+        wldn = dict(madswan(planner="on-demand", ops="on-demand"), label="wldn", machine="chuck-herdr-alpha",
                     roles={"planner": {"model": "claude-opus-5-5"}, "main-ops": {"effort": "max"}})
         assert (asks.role_record(wldn, "planner", PLANNER)["Model"], asks.role_record(wldn, "planner", PLANNER)["Effort"]) == ("claude-opus-5-5", "xhigh")
         assert (asks.role_record(wldn, "ops", OPS)["Model"], asks.role_record(wldn, "ops", OPS)["Effort"]) == ("claude-opus-5-5[1m]", "max")
-        assert asks.role_record(madswan(planner="m"), "planner", PLANNER)["Model"] == "claude-opus-5-5[1m]"
+        assert asks.role_record(madswan(planner="on-demand"), "planner", PLANNER)["Model"] == "claude-opus-5-5[1m]"
         assert asks.definition_of("ops") == "main-ops" and asks.definition_of("design") == "design"
 
     def test_the_records_due_are_those_missing_or_differing_and_a_role_that_stands_again_goes(self):
         """role-runs, The planner moves, An ask before main up and The planner stands again."""
-        p = madswan(planner="madswan-main", ops="madswan-main")
+        p = madswan(planner="on-demand", ops="on-demand")
         metas = {"planner": PLANNER, "ops": OPS}
         planner, ops = asks.role_record(p, "planner", PLANNER), asks.role_record(p, "ops", OPS)
         assert asks.roles_due([], p, metas) == ([planner, ops], [])
         assert asks.roles_due([planner, ops], p, metas) == ([], [])
         assert asks.roles_due([dict(planner, Stream="old"), ops], p, metas) == ([planner], [])
-        assert asks.roles_due([planner, ops], madswan(ops="madswan-main"), {"ops": OPS}) == ([], ["planner"])
+        assert asks.roles_due([planner, ops], madswan(ops="on-demand"), {"ops": OPS}) == ([], ["planner"])
 
     def test_role_records_are_read_from_their_file(self):
-        text = "%rec: Role\n%key: Role\n\nRole: planner\nStream: madswan-main\n\nStream: none\n"
-        assert asks.parse_roles(text) == [{"Role": "planner", "Stream": "madswan-main"}]
+        text = "%rec: Role\n%key: Role\n\nRole: planner\nStream: madswan\n\nStream: none\n"
+        assert asks.parse_roles(text) == [{"Role": "planner", "Stream": "madswan"}]
 
 
 def status(**place):
@@ -450,7 +451,7 @@ class TestEndsSaid:
         assert waiting == [] and asks.run_view([], [turn(1, ["ask/1"])], "planner")[0]["ends"] == 0
 
 
-MADSWAN = {"drives": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+MADSWAN = {"drives": {"madswan": madswan(planner="on-demand")}, "hosts": {}}
 
 
 @pytest.fixture
@@ -507,11 +508,11 @@ class TestWrite:
         w = written()
         assert plan.roles_lines(w, MADSWAN, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["planner"]
         assert not plan.roles_lines(w, MADSWAN, "madswan")
-        moved = {"drives": {"madswan": madswan(planner="madswan-main", ops="madswan-ops")}}
+        moved = {"drives": {"madswan": madswan(planner="on-demand", ops="on-demand")}}
         assert not plan.roles_lines(w, moved, "madswan", ["planner"])
         assert plan.roles_lines(w, moved, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["planner", "ops"]
         assert asks.parse_roles(w.files["roles.rec"])[1]["Model"] == "claude-opus-5-5[1m]"
-        stood = {"drives": {"madswan": madswan(ops="madswan-ops")}}
+        stood = {"drives": {"madswan": madswan(ops="on-demand")}}
         assert plan.roles_lines(w, stood, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["ops"]
         none = written()
         assert not plan.roles_lines(none, {"drives": {"madswan": madswan()}}, "madswan") and "roles.rec" not in none.files
@@ -641,7 +642,7 @@ def in_run(monkeypatch, tmp_path):
     import crew
     import plan
     import record
-    fleet = {"drives": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+    fleet = {"drives": {"madswan": madswan(planner="on-demand")}, "hosts": {}}
     monkeypatch.setenv("FLUME_PLACE", "/home/u/.local/state/flume/places/crew-planner--madswan")
     b = on_branch(monkeypatch, fleet, {"asks.rec": TAKEN})
     monkeypatch.setattr(crew, "brief", lambda fleet, scope, role, self_name="": f"the {role} brief of {scope} for {self_name}")
@@ -678,13 +679,13 @@ class TestMainUp:
     """plan.kinds_up, crew main up's part for roles.rec with no standing agent up (design Decision 14; role-runs "Role
     records follow the teams file"): the file brought to match the teams file in a commit of its own."""
 
-    @pytest.mark.parametrize("now, left", [({}, []), ({"ops": "madswan-ops"}, ["ops"])])
+    @pytest.mark.parametrize("now, left", [({}, []), ({"ops": "on-demand"}, ["ops"])])
     def test_a_role_that_stands_again_leaves_roles_rec_though_it_was_the_last_to_run_as_its_kind(self, monkeypatch, now, left):
         """role-runs, The planner stands again: madswan's planner moved back, the last role running as its kind, or ops
         still running so."""
         import plan
         stood = fleet_of(madswan(**now))
-        b = on_branch(monkeypatch, stood, {"roles.rec": roles_held(madswan(planner="madswan-main", **now))})
+        b = on_branch(monkeypatch, stood, {"roles.rec": roles_held(madswan(planner="on-demand", **now))})
         monkeypatch.setattr(plan, "fetch", lambda repo, ref: "t" * 40)
         plan.kinds_up(stood, "madswan", [])
         assert [r["Role"] for r in asks.parse_roles(b.files["roles.rec"])] == left
@@ -698,7 +699,7 @@ class TestMainUp:
         for tip in ("t" * 40, None):
             monkeypatch.setattr(plan, "fetch", lambda repo, ref, tip=tip: tip)
             plan.kinds_up(stood, "madswan", [])
-        b.files["roles.rec"] = roles_held(madswan(planner="madswan-main"))
+        b.files["roles.rec"] = roles_held(madswan(planner="on-demand"))
 
         def unread(repo, ref):
             raise plan.Refusal("could not fetch madswan/main of afterthought/madswan-state over https: no route")
@@ -1053,8 +1054,8 @@ class TestRoleRun:
         assert (live["live"], live["place"], making["live"]) == (True, RUN_PLACE, True)
         gone = runner_on(ran(phase=tidied, raw=status(place=f"{RUN_PLACE}@1793474400", phase=tidied)))["deneb"]
         assert runner.role_run(gone, "madswan/design") == {"live": False, "place": RUN_PLACE, "words": None, "why": None}
-        refused = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan-main"))["deneb"]
-        assert runner.role_run(refused, "madswan/design") == {"live": False, "place": None, "words": "flume refused the launch: no stream madswan-main", "why": None}
+        refused = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan"))["deneb"]
+        assert runner.role_run(refused, "madswan/design") == {"live": False, "place": None, "words": "flume refused the launch: no stream madswan", "why": None}
         assert runner.role_run(runner_on(ran())["deneb"], "madswan/planner")["live"] is False
 
     def test_a_runner_or_a_status_crew_cant_read_cant_tell(self):
@@ -1071,7 +1072,7 @@ def opening(monkeypatch):
     standing: madswan's branch in memory and deneb's runner as a case sets it (reads)."""
     import getpass
     import plan
-    fleet = {"drives": {"madswan": madswan(design="madswan-main", planner="madswan-main")}, "hosts": {}}
+    fleet = {"drives": {"madswan": madswan(design="on-demand", planner="on-demand")}, "hosts": {}}
     b = on_branch(monkeypatch, fleet, {})
     monkeypatch.delenv("CREW_LABEL", raising=False)
     monkeypatch.setattr(getpass, "getuser", lambda: "chuck")
@@ -1110,10 +1111,10 @@ class TestOpen:
                                            "crew-design--madswan in herdr; nothing is written\n")
 
     def test_a_run_over_is_asked_again_and_a_launch_the_runner_could_not_make_is_said(self, opening, capsys):
-        opening.reads = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan-main"))
+        opening.reads = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan"))
         open_role(opening)
         assert [a["What"] for a in asks.parse(opening.files["asks.rec"])[0]] == ["open"]
-        assert capsys.readouterr().out.endswith("the runner on deneb could not launch madswan-design's last run: flume refused the launch: no stream madswan-main\n")
+        assert capsys.readouterr().out.endswith("the runner on deneb could not launch madswan-design's last run: flume refused the launch: no stream madswan\n")
 
     @pytest.mark.parametrize("reads, why", [
         ({}, "no runner answers on deneb: madswan/runner/deneb does not exist"),
@@ -1149,7 +1150,7 @@ def landing(monkeypatch, tmp_path):
     madswan's branch in memory, and a brief over two lines in a file."""
     import plan
     swancloud = dict(madswan(), label="swancloud", blueprints=["afterthought/blueprints"])
-    fleet = {"drives": {"madswan": dict(madswan(design="madswan-main"), folder="/w", repos=[CREW_KIT["repo"]]), "swancloud": swancloud},
+    fleet = {"drives": {"madswan": dict(madswan(design="on-demand"), folder="/w", repos=[CREW_KIT["repo"]]), "swancloud": swancloud},
              "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
     monkeypatch.setenv("FLUME_PLACE", RUN_PLACE)
     b = on_branch(monkeypatch, fleet, {})
@@ -1182,7 +1183,7 @@ class TestLand:
         assert {f: r[f] for f in ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent",
                                   "Recipient", "By")} == {
             "Request": "1", "Act": "launch", "Host": "deneb", "Work": "role/design/record-0053", "Repo": "afterthought/crew", "Kind": "chore",
-            "Name": "record-0053", "Base": "main", "Stream": "madswan-main", "Priority": "0", "Intent": "madswan-design",
+            "Name": "record-0053", "Base": "main", "Stream": "madswan", "Priority": "0", "Intent": "madswan-design",
             "Recipient": "madswan/design", "By": "madswan-design"}
         assert r["Brief"] == landing.brief.read_text().rstrip("\n") and "Hold" not in r and "After" not in r
         assert [m.split("\n")[0] for m in landing.writes] == ["land(madswan-design): record-0053 in afterthought/crew (madswan-design)"]
@@ -1190,7 +1191,7 @@ class TestLand:
                                     "land(madswan-design): record-0053 in afterthought/crew", {"Repo": "afterthought/crew"})]
         assert "Write docs" not in str(landing.entries)
         assert capsys.readouterr().out.endswith(
-            "the runner on deneb launches chore record-0053 in afterthought/crew on main (request 1) in stream madswan-main, your brief its "
+            "the runner on deneb launches chore record-0053 in afterthought/crew on main (request 1) in stream madswan, your brief its "
             "brief whole and madswan/design its recipient: Flume builds it and submits it through sluice, and its landing, or a wait on "
             "you, reaches madswan-design's next run\n")
 

@@ -419,7 +419,7 @@ class TestRefused:
 def fleet(*repos):
     """madswan's fleet, its main level on deneb, its folder keeping repos (owner/name) there, as the teams file gives
     them (record 0064)."""
-    return {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "flume": STANDING}, **keeping("/d/agentplot", *repos))},
+    return {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "runs": STANDING}, **keeping("/d/agentplot", *repos))},
             "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
 
 
@@ -529,7 +529,7 @@ class TestADriveIsNeverRenamed:
     and another added, and crew kit rename renames a repository within one drive alone."""
 
     AFTERTHOUGHT = {"drives": {"afterthought": {"label": "afterthought", "machine": "deneb", "state": "afterthought/crew-state",
-                                                    "flume": STANDING}}, "hosts": {}}
+                                                    "runs": STANDING}}, "hosts": {}}
 
     def test_a_former_label_is_no_drive_and_the_new_label_its_own_branch(self):
         with pytest.raises(plan.Refusal, match="^no drive 'swancloud'. drives: afterthought$"):

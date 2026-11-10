@@ -88,7 +88,7 @@ class TestDue:
         assert crew.update_due(None, checkout(C1), "abc", True) == (False, None)
 
     def test_due_of_compares_what_a_session_loads_only_in_an_installed_checkout_in_its_own_root(self, monkeypatch):
-        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}}}
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "runs": {r: "standing" for r in crew.KIND_ROLES}}}}
         compared = []
         monkeypatch.setattr(crew, "launch_now", lambda fleet, label, role: "abc")
         monkeypatch.setattr(crew, "loaded_changed", lambda was, now, root=None: compared.append((was, now, root)) or True)
@@ -153,7 +153,7 @@ class TestKindEnd:
     (hold.kind_end). That the Stop hook hands it over and crew _renew ends it through herdr is the hold journey's
     (t-hold)."""
     FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "mac-studio",
-                                                     "flume": dict({r: False for r in crew.KIND_ROLES}, planner="madswan-main", reviewer="madswan-main")}}}
+                                                     "runs": dict({r: "standing" for r in crew.KIND_ROLES}, planner="on-demand", reviewer="on-demand")}}}
 
     def test_a_main_level_agent_whose_role_runs_as_its_kind_is_due_an_end_and_one_that_stands_is_not(self):
         assert crew.end_due(self.FLEET, "madswan-planner") == crew.KIND_SAID
@@ -484,7 +484,7 @@ class TestBands:
 
     def test_a_due_agents_band_shows_the_release_the_host_has_installed(self, monkeypatch):
         # The planner started on a build whose release names 0.44.1; the host has since installed one naming 0.44.2.
-        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}}}
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "runs": {r: "standing" for r in crew.KIND_ROLES}}}}
         start = dict(STARTED, version="v0.44.1")
         monkeypatch.setattr(crew, "installed", lambda: build(C2, "v0.44.2"))
         monkeypatch.setattr(crew, "starts", lambda: {"wldn-planner": start})

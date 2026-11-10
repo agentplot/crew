@@ -8,9 +8,9 @@ import pytest
 import crew
 import record
 
-FALSE = dict.fromkeys(crew.KIND_ROLES, False)
-FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "roles": {}, "flume": dict(FALSE, planner="madswan-main", operator="madswan-main")},
-                        "wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "roles": {}, "flume": FALSE}}, "hosts": {}}
+STANDING = dict.fromkeys(crew.KIND_ROLES, "standing")
+FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "roles": {}, "runs": dict(STANDING, planner="on-demand", operator="on-demand")},
+                        "wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "roles": {}, "runs": STANDING}}, "hosts": {}}
 
 
 class TestAsksInstead:

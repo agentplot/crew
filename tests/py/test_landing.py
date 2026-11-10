@@ -407,10 +407,10 @@ class TestTheLandingsAsks:
     runner's words, keyed by the land's request (design Decisions 5 and 12; role-runs "A capture and a landing are
     asks" and "Main-level ops's run lands nothing"); a role that stands is asked nothing."""
 
-    def fleet(self, **flume):
+    def fleet(self, **runs):
         import crew
         return {"drives": {"swancloud": {"label": "swancloud", "machine": "deneb", "blueprints": ["afterthought/blueprints"], "roles": {},
-                                             "flume": dict(dict.fromkeys(crew.KIND_ROLES, False), **flume)}}, "hosts": {}}
+                                             "runs": dict(dict.fromkeys(crew.KIND_ROLES, "standing"), **runs)}}, "hosts": {}}
 
     @pytest.fixture
     def w(self, monkeypatch):
@@ -423,7 +423,7 @@ class TestTheLandingsAsks:
     def test_a_landing_asks_the_planner_and_the_design_agent_each_naming_the_bolt(self, w):
         """role-runs, A landing: the landing's write holds an ask of the planner and one of the design agent."""
         import asks
-        plan.landed_asks(w, self.fleet(planner="s", design="s"), "swancloud", "b", "bolt b landed on k's main at bbbbbbb")
+        plan.landed_asks(w, self.fleet(planner="on-demand", design="on-demand"), "swancloud", "b", "bolt b landed on k's main at bbbbbbb")
         got, _ = asks.parse(w.files["asks.rec"])
         assert [(a["Role"], a["From"], a["What"], a["Names"], a["Key"], a["Words"]) for a in got] == [
             ("planner", "crew", "landed", "bolt/b", "landed/b", "bolt b landed on k's main at bbbbbbb"),
@@ -432,7 +432,7 @@ class TestTheLandingsAsks:
 
     def test_a_landing_asks_only_the_roles_that_run_as_their_kinds(self, w):
         import asks
-        plan.landed_asks(w, self.fleet(design="s"), "swancloud", "b", "landed")
+        plan.landed_asks(w, self.fleet(design="on-demand"), "swancloud", "b", "landed")
         assert [a["Role"] for a in asks.parse(w.files["asks.rec"])[0]] == ["design"]
         from facts import FactsWrite
         none = FactsWrite("", None)
@@ -449,20 +449,20 @@ class TestTheLandingsAsks:
 
     def test_a_landing_that_did_not_land_asks_ops_with_flumes_words_keyed_by_the_lands_request(self, asked):
         """role-runs, A landing that conflicts: crew's read writes an ask of ops with Flume's words, keyed by the land."""
-        plan.unlanded_ask(self.fleet(ops="s"), "swancloud", "y", "k", "412", "bolt/y did not land: #412 conflict: README.md")
+        plan.unlanded_ask(self.fleet(ops="on-demand"), "swancloud", "y", "k", "412", "bolt/y did not land: #412 conflict: README.md")
         assert asked == [("swancloud", "ops", "landed", "crew", "bolt/y", "request/k/412", "bolt/y did not land: #412 conflict: README.md")]
 
     def test_one_stopped_with_no_submission_is_keyed_by_nothing(self, asked):
-        plan.unlanded_ask(self.fleet(ops="s"), "swancloud", "y", "k", None, "stopped")
+        plan.unlanded_ask(self.fleet(ops="on-demand"), "swancloud", "y", "k", None, "stopped")
         assert asked[0][5] is None
 
     def test_ops_that_stands_is_asked_nothing(self, asked):
-        plan.unlanded_ask(self.fleet(planner="s"), "swancloud", "y", "k", "412", "words")
+        plan.unlanded_ask(self.fleet(planner="on-demand"), "swancloud", "y", "k", "412", "words")
         assert asked == []
 
     def test_an_ask_crew_could_not_write_is_said_and_the_read_goes_on(self, monkeypatch, capsys):
         monkeypatch.setattr(plan, "ask_write", lambda *a, **k: plan.fail("could not fetch swancloud/main"))
-        plan.unlanded_ask(self.fleet(ops="s"), "swancloud", "y", "k", "412", "words")
+        plan.unlanded_ask(self.fleet(ops="on-demand"), "swancloud", "y", "k", "412", "words")
         assert capsys.readouterr().err == "could not ask swancloud-ops that bolt/y did not land: could not fetch swancloud/main\n"
 
 
