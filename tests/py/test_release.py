@@ -198,6 +198,29 @@ class TestInstalled:
         crew.installed()
         assert len(ran.asked) == 2
 
+    def test_an_installed_release_that_names_no_commit_reads_as_its_version(self, host, tmp_path, monkeypatch):
+        build, profile = host
+        (profile / "crew").symlink_to(crew_in(tmp_path / "store/xyz-crew/bin") / "crew")
+        said = {"root": str(tmp_path / "store/xyz-crew"), "commit": None, "version": "v0.56.0", "from": "release",
+                "unread": None}
+        monkeypatch.setattr(subprocess, "run", Ran(json.dumps(said) + "\n"))
+        assert crew.installed() == said
+
+    @pytest.mark.parametrize("said", [
+        {"root": "/r", "commit": None, "version": "v0.56.0", "from": "checkout", "unread": None},
+        {"root": "/r", "commit": None, "version": "v0.0.0", "from": "release", "unread": None},
+        {"root": "/r", "commit": None, "version": "0.56.0", "from": "release", "unread": None},
+        {"root": "/r", "commit": None, "version": "0-unstable-2026-11-08+fcedc22", "from": "release", "unread": None},
+        {"root": "/r", "commit": None, "version": None, "from": "release", "unread": None},
+    ])
+    def test_a_null_commit_from_a_checkout_or_with_no_releases_version_is_unread(self, host, tmp_path, monkeypatch, said):
+        build, profile = host
+        (profile / "crew").symlink_to(crew_in(tmp_path / "store/xyz-crew/bin") / "crew")
+        monkeypatch.setattr(subprocess, "run", Ran(json.dumps(said)))
+        got = crew.installed()
+        assert (got["commit"], got["version"], got["from"]) == (None, None, None)
+        assert "its answer names no commit" in got["unread"]
+
     @pytest.mark.parametrize("ran,why", [
         (Ran(json.dumps({"root": "/r", "version": "v0.44.2", "from": "release"})), "its answer names no commit"),
         (Ran("crew 0.44.2"), "its answer is not JSON"),

@@ -2556,7 +2556,8 @@ NONE_INSTALLED = "no folder of crew's path outside the Nix store has a crew"
 
 def release_said(text):
     """Another crew's `crew _release` line checked field by field (read.2): (its facts in crew_read's shape, None), or
-    (None, why) when it is not a JSON object naming a root, a full commit, a version or null, and where they came from."""
+    (None, why) when it is not a JSON object naming a root, a full commit, a version or null, and where they came from.
+    A null commit is no lack where the answer is from a release naming a release's version, v<x.y.z> (release_read)."""
     try:
         got = json.loads(text)
     except ValueError:
@@ -2567,7 +2568,10 @@ def release_said(text):
         return None, f"it reads nothing of itself: {got['unread']}"
     if not isinstance(got.get("root"), str) or not got["root"]:
         return None, "its answer names no root"
-    if not isinstance(got.get("commit"), str) or not COMMIT.fullmatch(got["commit"]):
+    version = got.get("version")
+    named = "commit" in got and got["commit"] is None and got.get("from") == "release" and isinstance(version, str) \
+        and version.startswith("v") and a_release(version[1:])
+    if not named and (not isinstance(got.get("commit"), str) or not COMMIT.fullmatch(got["commit"])):
         return None, "its answer names no commit"
     if "version" not in got or not (got["version"] is None or isinstance(got["version"], str) and got["version"]):
         return None, "its answer names no version"
@@ -3176,9 +3180,10 @@ def release_cmd(argv):
     for -h or --help (code.11)."""
     import argparse
     ap = argparse.ArgumentParser(prog="crew _release", description=(
-        "What this crew is, as one line of JSON: its root, commit and version, where they were read from, \"checkout\" "
-        "from git, \"release\" from a build's plugin/release.json, or null, and why nothing was read where nothing "
-        "was. It reads nothing else and starts nothing, so one crew reads another it cannot import by it."))
+        "What this crew is, as one line of JSON: its root, commit and version, the commit null where a release names "
+        "none, where they were read from, \"checkout\" from git, \"release\" from a build's plugin/release.json, or "
+        "null, and why nothing was read where nothing was. It reads nothing else and starts nothing, so one crew reads "
+        "another it cannot import by it."))
     answer_usage(ap, argv)
     ap.parse_args(argv)
     print(json.dumps(crew_read()))
