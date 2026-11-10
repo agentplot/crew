@@ -119,7 +119,7 @@ has "$out" "card proposal/1: req_stub-1 withdrawn"
 eq "$(acts_since "$before")" "1"
 eq "$(plan -t Unit -e "Bolt = 'deploy-checks'" -P Unit)" $'a-plan-only-deploy-is-checked\nqueued-one'
 eq "$(field $box unit.add From unit/zone-first)" "proposal/2"
-has "$(field $box unit.add Commit unit/zone-first)" "WilldanGroup/crew-state@"
+eq "$(field $box unit.add Commit unit/zone-first)" ""  # the approval's commit carries it, so it names none of its own
 trace=$(crew trace unit/zone-first)
 eq "$(awk '{print $3}' <<<"$trace" | head -5 | tr '\n' ' ')" "plan.propose card.post plan.approve unit.add card.close "
 ok "the user's approval tells the planner what was applied and closes its card; each step is recorded, and a unit's trace shows the proposal and the approval, each with its card's act"
@@ -137,31 +137,29 @@ has "$out" "card proposal/4: req_stub-3 changed, now version 2"
 eq "$(props -t Proposal -e "Proposal = 4" -P State,Reason)" $'dropped\nreplaced by proposal 5'
 ok "a proposal is dropped with a reason, the planner told and its card withdrawn, or replaced by another, its card changed in place"
 
-# A write on the branch whose run-record entry is not there yet, as wldn/main's 16f19a887 of 2026-11-07 was: a proposal
-# written after it is not read until that entry arrives, and the refusal says where the branch was read, the write it
-# waits on and that write's agent, its own words still its last line (plan.2, read.5).
+# An older crew's write in two steps, its commit naming an entry and the entry its next commit, the second not there
+# yet: a proposal written after it is read at the tip, and nothing says the branch was read below it; once the entry's
+# own commit lands, crew events prints it (drive-state "A decision reads the drive's branch at its tip").
 w=$T/flight; git clone -q -b wldn/main "$ws" "$w"
-read_at=$(git -C "$w" rev-parse --short=7 HEAD)
 eid=$(date -u +%Y%m%dT%H%M%SZ)-000000-$box-1-1
 git -C "$w" commit -q --allow-empty -m "plan(clears): by hand (swb-1-conductor)"$'\n\n'"Crew-Entry: $eid"
 push_state "$w"
-held=$(git -C "$w" rev-parse --short=7 HEAD)
 crew plan propose "$(proposal 'Case: The cleared units go last.' 'Do: unit order a-drop --last')" >/dev/null 2>&1
 n=$(last)
-expect_fail "no proposal $n in wldn/main" crew plan proposed "$n"
-has "$out" "wldn/main was read at $read_at, below its tip $(git --git-dir "$ws" rev-parse --short=7 wldn/main): the write $held by swb-1-conductor is on the branch without its run-record entry yet, so nothing from $held on was read (read.5)"
-eq "$(tail -1 <<<"$out")" "no proposal $n in wldn/main"
-# The entry arrives, and the proposal is read.
+expect_ok crew plan proposed "$n"
+has "$out" "# Proposal $n — open, by wldn-planner"
+lacks "$out" "below its tip"; lacks "$out" "read at"
+eq "$(crew events --json --since today | jq -r --arg id "$eid" '[.entries[] | select(.Id == $id)] | length')" "0"
+# The entry arrives as its own commit, as the older crew pushes it.
 git -C "$w" pull -q --rebase origin wldn/main
 f=$w/runs/$box/$(date -u +%F).rec
 [[ -e $f ]] || python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import record; print(record.DESCRIPTOR, end="")' "$CREW/plugin/lib" > "$f"
 printf '\nId: %s\nAt: %s\nHost: %s\nBy: swb-1-conductor\nAct: unit.order\nOn: unit/a-drop\n' "$eid" "$(date -u +%FT%TZ)" "$box" >> "$f"
 git -C "$w" add runs; git -C "$w" commit -qm "runs($box): unit.order unit/a-drop (swb-1-conductor)"$'\n\n'"Crew-Entry: $eid"; push_state "$w"
-expect_ok crew plan proposed "$n"
-has "$out" "# Proposal $n — open, by wldn-planner"
-lacks "$out" "below its tip"
-CREW_AGENT= crew plan drop "$n" "read below the tip" >/dev/null 2>&1
-ok "a write whose entry has not arrived holds every read below it, and a refusal read there names the commit read at, the write it waits on and its agent"
+expect_ok crew events --json --since today
+eq "$(jq -r --arg id "$eid" '.entries[] | select(.Id == $id) | [.Act, .By, (.On | join(" "))] | join(" ")' <<<"$out")" "unit.order swb-1-conductor unit/a-drop"
+CREW_AGENT= crew plan drop "$n" "read at the tip" >/dev/null 2>&1
+ok "an older crew's write in two steps is read at the tip, a proposal written after it read with nothing said of a read below the tip, and its entry printed once its own commit lands"
 
 # A refused proposal is recorded naming its command, never the words typed in it. Each day's file is read on its own,
 # as crew reads them: every one declares Entry, which one recsel over two days' files refuses as a duplicated set.
@@ -224,7 +222,18 @@ expect_ok crew plan approve "$n"
 eq "$(git --git-dir "$ws" diff --name-only "$before" wldn/main | grep -v '^runs/')" $'moves.rec\nplan.rec\nproposals.rec'
 git --git-dir "$ws" show wldn/main:moves.rec > "$T/moves.rec"
 eq "$(recsel -t Move -e "Signal = '$sig'" -P Move,Target "$T/moves.rec")" $'route\nunit/plans-are-checked'
-ok "a unit from a signal is added with its route move, in the approval's commit"
+# The approval's one commit carries the entries of the acts it holds, each named in its trailers, and no entry's own
+# commit follows it for them (an-act-carries-its-entry-in-its-own-commit, Decision 3).
+act=$(act_tip); day=runs/mac-studio/$(date -u +%F).rec
+added=$(git --git-dir "$ws" diff "$act^" "$act" -- "$day")
+eq "$(sed -n 's/^+Act: //p' <<<"$added" | sort | paste -sd ' ' -)" "plan.approve signal.move unit.add"
+named=$(git --git-dir "$ws" log -1 --format='%(trailers:key=Crew-Entry,valueonly)' "$act" | grep .)
+eq "$(sed -n 's/^+Id: //p' <<<"$added" | sort)" "$(sort <<<"$named")"
+lacks "$(git --git-dir "$ws" log --format=%B --grep='^runs(' "$act..wldn/main")" "$(head -1 <<<"$named")"
+for id in $named; do
+  [[ -z $(git --git-dir "$ws" log --format=%B --grep='^runs(' "$act..wldn/main" | grep -F "Crew-Entry: $id") ]] || fail "entry $id has a commit of its own after the approval's"
+done
+ok "a unit from a signal is added with its route move, in the approval's commit, which carries and names the approval's, the add's and the move's entries"
 
 # A move of launched work out of its bolt is refused at the proposal, naming its place and the drop and add that would
 # do it: nothing is written and no card raised.
@@ -340,6 +349,6 @@ chmod +x "$as/hooks/post-receive"; : > "$T/pushes"
 race afterthought/crew-state chuck-herdr-alpha swancloud-design signal move "$greeting" drop --reason "a greeting" --label swancloud
 expect_ok crew bolt new drive-loop "The loop runs." --repo flywheel-next --label madswan
 [[ ! -f $T/race ]] || fail "swancloud's write never ran"
-eq "$(sort "$T/pushes" | uniq -c | awk '{print $1, $2}')" $'2 refs/heads/madswan/main\n2 refs/heads/swancloud/main'
+eq "$(sort "$T/pushes" | uniq -c | awk '{print $1, $2}')" $'1 refs/heads/madswan/main\n1 refs/heads/swancloud/main'
 eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/afterthought/crew-state.git" for-each-ref --format='%(refname)' refs/crew/)" "refs/crew/madswan/main"
-ok "two drives in one repository write at the same moment, each pushing its write and then its entry, neither replayed for the other nor fetching its branch"
+ok "two drives in one repository write at the same moment, each pushing its write with its entry in one commit, neither replayed for the other nor fetching its branch"

@@ -94,21 +94,6 @@ A host whose runner branch recfix refuses, or crew can't read, SHALL hide only t
 - **WHEN** deneb's runner answers `a`'s launch on `bolt/x` held with its claim, or launched at its place, and carries no status of the place, and reports no repositories
 - **THEN** `crew bolts` names `x` at deneb and the board's ledger says on deneb, neither saying where it runs can't be told, and nothing of `x`'s kit is read or landed
 
-### Requirement: A decision reads an act whole and says when it read below the tip
-A decision SHALL read a drive's branch at its tip, or, while one of its newest twenty first-parent commits names a run-record entry the tip lacks, at the parent of the oldest such commit. A command that read the branch below its tip SHALL say so, naming the commit it read at, the tip, the write it waits on and that write's agent, on the line before its refusal and on standard error after its answer.
-
-#### Scenario: A write whose entry has not arrived
-- **WHEN** `wldn/main` holds a write by `swb-1-conductor` whose entry the branch lacks, and the planner's proposal 6 was written after it
-- **THEN** `crew plan proposed 6` refuses, its line before the refusal saying `wldn/main was read at <the write's parent>, below its tip <the tip>: the write <the write> by swb-1-conductor is on the branch without its run-record entry yet, so nothing from <the write> on was read (read.5)`, and its last line `no proposal 6 in wldn/main`
-
-#### Scenario: An answer read below the tip
-- **WHEN** a command that read the branch below its tip answers without refusing
-- **THEN** it says on standard error where it read the branch and the write it waits on, and nothing of it on standard output
-
-#### Scenario: The entry arrives
-- **WHEN** the write's entry reaches the branch
-- **THEN** `crew plan proposed 6` reads the tip, prints proposal 6, and says nothing of a read below the tip
-
 ### Requirement: A drive is never renamed
 A drive's label SHALL be fixed once it is made, and no crew command SHALL rename one; `crew kit rename` renames a repository within the one drive it runs as. A label that changes in the teams file SHALL be read as one drive removed and another added: the new label's state is its own branch, `<new label>/main`, nothing of the old label's branch is read as the new drive's, and a command naming the old label is refused as naming no drive.
 
@@ -158,22 +143,30 @@ crew SHALL read a preview request's answer from the runner on the host it names 
 - **THEN** it is refused by crew's rules, saying request 1 is no launch
 
 ### Requirement: Each commit on a drive's branch names the run-record entry it describes or adds
-Each commit crew makes on a drive's branch SHALL carry, in its message, the id of a run-record entry as a `Crew-Entry:` trailer. A commit that is an act's, such as a plan write, SHALL name the entry that describes it, and that entry SHALL name the commit. A commit that adds an entry to the run record SHALL name the entry it adds, and SHALL change nothing but that entry's day file.
+Each commit crew makes on a drive's branch SHALL name, in a `Crew-Entry:` trailer, each run-record entry it adds to `runs/<host>/<day>.rec`. An act's commit, such as a plan write, SHALL add the entry of that act and of each act it holds, and no other entry. A commit holding an entry alone, for an act that wrote no commit on the branch, SHALL add that entry and change no other file.
 
 #### Scenario: From a commit to its entry
 - **WHEN** a plan write's commit on `wldn/main` is read
-- **THEN** its `Crew-Entry` id is the `Id` of one run-record entry, whose `Commit` is that commit
+- **THEN** each of its `Crew-Entry` ids is the `Id` of an entry that commit adds to its host's `runs/<host>/<day>.rec`, the write's own entry among them, and none of those entries names a commit of `wldn/main`
+
+#### Scenario: An approval's one commit
+- **WHEN** `crew plan approve` applies a proposal that adds a unit to the queue
+- **THEN** its one commit adds the `plan.approve` entry and the `unit.add` entry, and names both in its `Crew-Entry` trailers
 
 #### Scenario: An entry's own commit
-- **WHEN** the commit that follows a plan write on `wldn/main` is read
+- **WHEN** the commit that adds a tell's entry on `wldn/main` is read
 - **THEN** its `Crew-Entry` id is the `Id` of the entry it adds to `runs/<host>/<day>.rec`, its subject ends with ` (<agent>)`, and it changes no other file
 
 ### Requirement: Every plan write is an act whose entry is pushed before it returns
-Every plan write SHALL be an act: the write SHALL record the entry its commit names and push that entry's commit before it returns, and crew SHALL refuse a write that names no act, before it reads or pushes anything, since its commit would name an entry nothing writes.
+Every plan write SHALL be an act. Its entry SHALL be in the write's own commit, added to its host's `runs/<host>/<day>.rec` beside the plan's change and made again on each replay. Once its push is accepted, the write SHALL append the entry to the host's own file. crew SHALL refuse a write that names no act before it reads or pushes anything, since its commit would name an entry nothing writes.
 
 #### Scenario: Once a write returns
 - **WHEN** a plan write on `wldn/main` returns, its push accepted
-- **THEN** the branch's tip is the commit adding the write's entry, whose parent is the write's commit, and a decision then reads the branch at that tip
+- **THEN** the branch's tip is the write's commit, which holds the plan's change and the write's entry in `runs/<host>/<day>.rec`, and the host's own file holds the same entry
+
+#### Scenario: A write applied again
+- **WHEN** a write's push is refused because another command on the same host has pushed an entry to that day's file
+- **THEN** the write is applied again on the new tip, and its commit's file holds the other command's entry as it was, with the write's beside it
 
 #### Scenario: A write that names no act
 - **WHEN** crew is asked to write the plan with no act
@@ -413,3 +406,14 @@ A bolt's start SHALL be none of what comes before a runner takes a kit's work: i
 #### Scenario: A start where the main-level host keeps no checkout of the kit
 - **WHEN** `crew bolt start x` runs, deneb's teams file names no crew in `repositories`, and no drive whose machine is deneb lists crew in its `repos`
 - **THEN** the start is not refused for it, and `x`'s launches are appended as for any start
+
+### Requirement: A decision reads the drive's branch at its tip
+A decision SHALL read a drive's branch at its tip, whatever entries the commits there name, and no command SHALL say it read the branch below its tip. An older crew wrote a commit in two steps: the act's commit names an entry, and the next commit adds it. Such a commit SHALL be read at the tip like any other. Its entry SHALL join the run record when it reaches the branch.
+
+#### Scenario: A write whose entry has not arrived
+- **WHEN** `wldn/main` holds a write by `swb-1-conductor`, made by an older crew, whose entry the branch lacks, and the planner's proposal 6 was written after it
+- **THEN** `crew plan proposed 6` prints proposal 6, and nothing it prints says the branch was read below its tip
+
+#### Scenario: The entry arrives later
+- **WHEN** that write's entry reaches the branch as its own commit
+- **THEN** `crew events --label wldn` prints it in time order with the rest

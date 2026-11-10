@@ -125,7 +125,7 @@ def signals(fleet, label, tip):
         return [], {f"{ref} of {repo}": str(e)}
     srepo = crew.drive_of(fleet, label)["blueprints"][0]
     try:
-        btip = plan.fetch(srepo, "main")
+        btip = plan.tip_of(srepo, "main")
         out += signals_at(srepo, btip, "blueprints", moved) if btip else []
     except Refusal as e:
         return out, {f"main of {srepo}": str(e)}

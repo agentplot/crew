@@ -2,7 +2,7 @@
 day and asking for its push, record.reach saying a push that is refused, record.unpushed giving the entries the branch
 lacks with each day's file as the union by Id and record.entry_message each one's commit, record.parse and line reading
 and printing entries, the events crew events shows, read from the branch alone, the history crew trace walks, and
-the act and objects each plan command's entry names. That a write's entry follows its commit, that a refused push goes
+the act and objects each plan command's entry names. That a write's commit carries its entry, that a refused push goes
 with the host's next, that crew events and crew trace read the branch and ask no host, and that --follow follows the
 branch are the state journey's (t-journey-state). A file written is no process, so these are logic cases."""
 import json
@@ -292,6 +292,35 @@ class TestUnpushed:
         self.write(here, "2026-10-12", "20261012T100000Z-mac-studio-2-1")
         (_, _, _, text), = record.unpushed("wldn", lambda path: branch)[0]
         assert len(record.parse(text)) == 4
+
+    def test_an_entrys_text_is_emits(self, here, monkeypatch):
+        """an-act-carries-its-entry-in-its-own-commit, Decision 2: a write's commit and emit make one shape of entry."""
+        import datetime
+        monkeypatch.setenv("CREW_AGENT", "wldn-planner")
+        eid = record.emit("wldn", "unit.add", ["unit/a", "queue/switchboard-kit"], frm=["signals/x/01-y"], why="plan(queue): add a",
+                          Chars="5")
+        e, = record.parse(next(here.glob("*.rec")).read_text())
+        now = datetime.datetime.strptime(e["At"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+        lines = record.entry_text(record.fields_of(eid, now, "unit.add", ["unit/a", "queue/switchboard-kit"], ["signals/x/01-y"],
+                                                   why="plan(queue): add a", Chars="5"))
+        assert next(here.glob("*.rec")).read_text() == record.DESCRIPTOR + lines + "\n"
+        assert lines == (f"Id: {eid}\nAt: {e['At']}\nHost: mac-studio\nBy: wldn-planner\nAct: unit.add\nOn: unit/a\n"
+                         "On: queue/switchboard-kit\nFrom: signals/x/01-y\nWhy: plan(queue): add a\nChars: 5\n")
+        assert record.entry_text([("Why", "two\n  lines")]) == "Why: two lines\n"
+
+    def test_a_file_with_an_entry_added_keeps_every_entry_it_held_as_it_was_in_id_order(self):
+        held = record.DESCRIPTOR + f"Id: {self.C}\nAt: 2026-10-12T10:00:00Z\nAct: x\nNote: as it was\n\nId: {self.A}\nAt: 2026-10-12T10:00:00Z\nAct: x\n"
+        text = record.with_entries(held, {self.B: f"Id: {self.B}\nAt: 2026-10-12T10:00:00Z\nAct: y\n"})
+        assert text.startswith(record.DESCRIPTOR) and [e["Id"] for e in record.parse(text)] == [self.A, self.B, self.C]
+        assert f"Id: {self.C}\nAt: 2026-10-12T10:00:00Z\nAct: x\nNote: as it was\n" in text
+
+    def test_adding_an_entry_the_file_holds_changes_nothing(self):
+        held = record.with_entries(None, {self.A: f"Id: {self.A}\nAt: 2026-10-12T10:00:00Z\nAct: x\n"})
+        assert record.with_entries(held, {self.A: f"Id: {self.A}\nAt: 2026-10-12T10:00:00Z\nAct: other\n"}) == held
+
+    def test_a_file_not_there_becomes_the_descriptor_and_the_entry(self):
+        lines = f"Id: {self.A}\nAt: 2026-10-12T10:00:00Z\nAct: x\n"
+        assert record.with_entries(None, {self.A: lines}) == record.DESCRIPTOR + lines
 
     def test_an_entrys_own_commit_names_it_its_act_and_what_it_acted_on(self):
         text = f"Id: {self.A}\nAt: 2026-10-12T10:00:00Z\nHost: mac-studio\nBy: wldn-planner\nAct: tell\nOn: agent/wldn-planner\nOn: unit/a\nChars: 5\n"
