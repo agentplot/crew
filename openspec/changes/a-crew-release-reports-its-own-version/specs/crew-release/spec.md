@@ -1,3 +1,6 @@
+## Purpose
+How crew is released, so a copy of a release tag's tree knows its own version, as Flume's releases do (agentplot/blueprints `design/principles.md` 14, `code.10`): main's tree names `0.0.0`; `set-version.sh` writes a release's version into every file that carries crew's version; a release's tag names a release commit cut from the pushed commit, and nothing reaches main; and CI reckons the next release from the newest tag by version.
+
 ## ADDED Requirements
 
 ### Requirement: Main's tree names no release
