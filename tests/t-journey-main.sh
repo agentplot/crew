@@ -2,7 +2,10 @@
 # journeys' world (tests/journeys.sh): crew main up starts the main level, its operator among it, and nothing else,
 # no dispatcher on any host, each greeted once, its roles declared in crew's Flume roles file on its host (teams.25), one waiting on a question holding back no other; main status lists
 # them, each standing; a tell records its length and never its text; crew send reaches the drive named by its label's operator,
-# marked with whom it was for, and records its length, and a team's name from before teams left is refused; a word from the board, piped to crew tell --board as the board's
+# marked with whom it was for, and records its length, and a team's name from before teams left is refused; a command
+# forwarded to the box and a send reach the crew the box installed, `crew` by its name on its login path, with crew's
+# repository in no drive's repos, and a box whose login path finds no crew fails naming it, nothing run there and its
+# checkout of crew not tried; a word from the board, piped to crew tell --board as the board's
 # listener pipes it, reaches the agent its item's kind goes to marked as the user's from the board and naming the item,
 # and records its length, and one for an agent its kind does not go to types nothing; the console opens its shell tab
 # alone while the host's job follows, a tab named beside it and the rail tab of itself while no follower runs, keeps
@@ -68,6 +71,32 @@ eq "$(count mac-studio send) $(field mac-studio tell Chars)" "2 17"
 expect_fail "crew send sends to a drive by its label, not 'swb-2': drives madswan swancloud wldn" crew send swb-2 "x"
 expect_fail "crew send sends to a drive by its label, not 'nosuch'" crew send nosuch "x"
 eq "$(count mac-studio send)" "2"
+# crew on the box is the crew the box installed, `crew` by its name on its login path: a command forwarded there and a
+# send reach it with crew's repository in no drive's repos of mac-studio's teams file, and a box whose login path finds
+# no crew fails naming it, nothing run there and its checkout of crew not tried. The test's own PATH holds the host's
+# real crew, so that case runs without it, as the box's login path then finds none.
+teams=$(home_of mac-studio)/.config/crew/teams.json
+cp "$teams" "$teams.kept"
+jq '.drives |= map(.repos -= ["agentplot/crew"])' "$teams" > "$teams.new" && mv "$teams.new" "$teams"
+eq "$(jq '[.drives[].repos[] | select(. == "agentplot/crew")] | length' "$teams")" "0"
+: > "$CREW_TEST_LOG"
+expect_ok crew main status wldn
+for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "standing; idle"; done
+forwarded=$(grep "^mac-studio ssh $box .* crew main status wldn" "$CREW_TEST_LOG") || fail "crew main status was not forwarded to the box's crew"
+lacks "$forwarded" "plugin/bin/crew"
+CREW_AGENT=swancloud-planner expect_ok crew send wldn "Words NOCK for the drive"
+grep -q "^$box wldn-3 agent prompt wldn-operator '\[crew tell from swancloud-planner\] (sent to wldn) Words NOCK for the drive'" "$CREW_TEST_LOG" ||
+  fail "crew send did not reach wldn-operator with crew in no drive's repos"
+mv "$teams.kept" "$teams"
+mv "$T/hosts/$box/bin/crew" "$T/hosts/$box/crew.aside"
+nocrew=$(path_without crew)
+: > "$CREW_TEST_LOG"
+PATH=$nocrew expect_fail "chuck-herdr-alpha has no crew on its login path, so crew can't run there" crew main status wldn
+[[ -L $(space $box willdan)/crew/main ]] || fail "the box's checkout of crew is gone"
+grep -q "^mac-studio ssh $box " "$CREW_TEST_LOG" || fail "mac-studio did not ssh to the box"
+grep "^$box " "$CREW_TEST_LOG" && fail "something ran on the box, which has no crew on its login path"
+mv "$T/hosts/$box/crew.aside" "$T/hosts/$box/bin/crew"
+ok "a command forwarded to the box and a send reach the crew the box installed with crew in no drive's repos, and a box whose login path finds no crew fails naming it, nothing run there and its checkout not tried"
 # A word from a proposal's dock, as the board's listener pipes it: the planner is told it as the user's from the board,
 # naming the item (record 0038 §3); one for another agent than the kind's types nothing.
 board_word() { printf '%s' "$1" | crew tell --board; }
