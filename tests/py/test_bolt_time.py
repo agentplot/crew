@@ -1,5 +1,5 @@
-"""A started bolt's age and who held its time (plan.20, record 0044; crew-board "Each minute of a bolt's life goes to
-one holder" and "A held bolt's head line shows its age and who held its time"): the split, plan.bolt_time, a decision
+"""A started bolt's age and who held its time (plan.20, record 0044; crew-board "A bolt's minute goes first to the team
+while a stage runs, then to the kit while a submission is under test" and "A held bolt's head line shows its age and each holder's minutes of it"): the split, plan.bolt_time, a decision
 of facts alone, each case a scenario of the crew-board delta; what it is split from, plan.bolt_facts, read from the run
 record alone, from its entry that made the bolt's branch (Decision 11 of the-team-machinery-leaves); and a landing's
 Age and Split, plan.landing_spent, from the same (crew-lands-each-bolt-through-flumes-base-place, Decision 7)."""

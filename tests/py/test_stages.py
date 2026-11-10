@@ -1,6 +1,6 @@
 """A drop refused for work whose stage crew cannot tell (read.1); and a started bolt's work, its stage read from the
-runner's records and never from a place in the kit (bolt-plan "A unit's stage is read from the runner, or from the plan
-before its bolt starts"): plan.Stages."""
+runner's records and never from a place in the kit (bolt-plan "A started bolt's unit reads its stage from the runner, and nothing
+is kept by hand"): plan.Stages."""
 import pytest
 
 from facts import FactsWrite, apply, crew_read, flume_plan, known, madswan_fleet, plan_text
@@ -160,7 +160,7 @@ HELD_AT = "f564d22041933732ee004aa33d1b629a97272cd9"
 
 
 class TestEndsHeldForTheRunner:
-    """bolt-plan "A launched place's stage is where Flume's status has it" (record 0062's stopgap retired; crew record 0056
+    """bolt-plan "A tidied place reads as the record Flume holds of it for the runner" (record 0062's stopgap retired; crew record 0056
     point 4; roles.5, roles.9): a piece's end is the runner's report alone, the record Flume holds for the runner after
     it tidies the place among them (tests/py/flume-0.20.0/), and no landing commit on its bolt or on main is read for it.
     x, a, b and c as TestCrossed has them."""
@@ -296,8 +296,8 @@ class TestABoltWhoseLaunchesWereAllRefused:
 
 
 class TestTheBoltsOwnRow:
-    """bolt-teams "A start run again launches a bolt whose launch the runner refused" and "A bolt started before bolts
-    were base places lands under the crew that started it" (crew-lands-each-bolt-through-flumes-base-place, Decisions 3
+    """bolt-teams "A start run again launches a bolt whose launch the runner refused" and "A bolt with no launch
+    of its own lands under the crew that started it" (crew-lands-each-bolt-through-flumes-base-place, Decisions 3
     and 9): a started bolt's row reads its base place's launch as the runner answers it (plan.Stages.base,
     runner.stage_of of bolt/<bolt>), unlaunched in the runner's words while it is not launched, live once Flume holds
     it, and a started bolt with no launch of its own reads as started before bolts were base places."""

@@ -10,8 +10,8 @@ import pytest
 
 
 def test_merge_tree_names_the_conflicting_paths_and_writes_no_ref(repo):
-    """plan.forecast_rows, the landings card's forecast of its rows (rail-cards "The landings card forecasts each row's
-    conflicts"): git merge-tree --write-tree --name-only exits 1 on a conflict and lists the conflicting paths after
+    """plan.forecast_rows, the landings card's forecast of its rows (rail-cards "Each landings row carries its forecast
+    conflicts, or why none could be made"): git merge-tree --write-tree --name-only exits 1 on a conflict and lists the conflicting paths after
     the tree, and moves no ref."""
     repo.commit("main", {"a": "1\n"})
     repo.git("checkout", "-q", "-b", "one")

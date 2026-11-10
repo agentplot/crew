@@ -745,7 +745,7 @@ def test_a_close_cuts_its_outcome_and_its_reason_to_pending_yous_two_hundred_cha
 
 
 def test_the_close_of_a_card_the_user_answered_records_what_they_answered_in_crews_words_and_a_withdrawal_none():
-    """rail-cards "The close of an answered card records the answer": the landings card sent with land:y ticked,
+    """rail-cards "An answered card's close records what the user answered from names alone": the landings card sent with land:y ticked,
     land:z cleared and a note; a deploy declined with "not tonight"; a card still waiting, withdrawn, records none."""
     sent = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"], "note": "z after its fix"}}
     held = [post("land/crew", "swancloud-ops", "req_k1")]
@@ -846,7 +846,7 @@ def test_a_followed_card_pending_you_picked_up_records_the_answer_its_reply_stil
 
 
 # A record's card the user answered with a note, and the design agent's revision of the record after it (rail-cards
-# "A card that follows one the user answered says so first", "A follow-on with nothing changed is not posted").
+# "A follow-on card opens with one paragraph on the user's answer and what changed", "A follow-on with nothing changed is not posted").
 DESIGN, RKEY = "swancloud-design", "record/crew/0019"
 RECORD = dict(kit="crew", number=19, title="One card per thing", opening="A card asked again says what changed.", quoted=[],
               text="# 19. One card per thing\n\nBody.", alternatives=None)
@@ -1339,7 +1339,7 @@ Z_HELD = dict(Act="forecast", On=["bolt/z"], Heads="bolt/z@abc1234 main@e4f5a6b"
 
 
 def test_reading_a_sent_landings_card_raises_it_first_and_leaves_a_bolt_taking_main_first_out_of_the_submit(monkeypatch, capsys):
-    """rail-cards "A row forecast to conflict with main takes main first until a fix takes main in": the raise records z held, on this host, and
+    """rail-cards "A row taking main first is offered to land again once proven with no conflict": the raise records z held, on this host, and
     the read gives y alone to land."""
     read = ReadSent(monkeypatch, TICKED, told=[Z_HELD])
     read.run()
@@ -1352,7 +1352,7 @@ def test_reading_a_sent_landings_card_raises_it_first_and_leaves_a_bolt_taking_m
 
 
 def test_a_ticked_bolt_whose_take_main_fix_moved_it_since_its_conflict_lands_on_the_send(monkeypatch, capsys):
-    """rail-cards "A send stands for a ticked bolt taking main in": z's conflict is recorded at the head the card
+    """rail-cards "A ticked bolt taking main in lands on its send once it reads proven at a new head": z's conflict is recorded at the head the card
     showed, abc1234, and its take-main fix has moved it to def5678, with no conflict recorded there."""
     read = ReadSent(monkeypatch, TICKED, told=[Z_HELD], now={"z": "def5678" + "0" * 33})
     read.run()
@@ -1444,8 +1444,8 @@ def test_reading_an_answered_proposal_card_records_its_answer(monkeypatch, tmp_p
 
 
 # ------------------------------------------------------------ crew card preview, on the user's words (record 0043)
-# rail-cards "The user asks for a preview by writing on the card", "A preview asked for from a card is asked of the
-# runner and listed while it is up" and "A preview is released on the user's done and when its card or row ends": the
+# rail-cards "The user asks for a preview by writing on the card", "crew card preview asks the runner by one request, running nothing
+# of sluice's" and "A preview is put away on the user's done and when its row leaves the landings card": the
 # owner's command on the main machine writes one request for the runner on the host where the thing's work runs, and
 # runs nothing there (Decision 6 of a-cards-preview-is-asked-of-the-runner).
 

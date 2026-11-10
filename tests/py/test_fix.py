@@ -81,7 +81,7 @@ class TestAFixOfAStartedBolt:
     REJECTED = QUEUED + [dict(Act="bolt.submit", On=["bolt/x"], Refused="#412 failed: tests:logic", Submission="412", Head="a" * 40)]
 
     def test_a_fix_while_the_bolts_landing_is_queued_is_refused_naming_it(self):
-        """bolt-teams "A landing queued holds its bolt's work": nothing is launched."""
+        """bolt-teams "Work into a bolt whose landing is queued is refused": nothing is launched."""
         w = self.bolt()
         w.logged = self.QUEUED
         with pytest.raises(plan.Refusal, match=r"^bolt x has its landing queued on main as #412, so fix x--logic does not join it until "

@@ -1,5 +1,5 @@
 """What the run record holds of a bolt's conflict with main (rail-cards "A row forecast to conflict with main takes main
-first until a fix takes main in"): plan.main_conflict for the conflict with main the record holds at the bolt's head,
+first, recorded once and telling no one"): plan.main_conflict for the conflict with main the record holds at the bolt's head,
 and plan.said_heads for what the landings card's raise has said, a forecast found while the bolt was left counting only
 while it still is."""
 import plan
