@@ -10,19 +10,22 @@
 # 0060 lays out, which nix/tests/files/runner.json holds byte for byte;
 # and deneb's drives split in two: `given`, each drive's `machine` and
 # `state` alone, as another module gives them, and `own`, each drive's
-# other keys, crew's own, which the host's settings keep.
+# other keys, crew's own, which the host's settings keep. Each drive
+# carries `runs` and `review` as record 0064's amendment of 2026-11-09
+# names them: every role `standing`, and a batch due after 5 changes or
+# 4 hours.
 let
   # Every role stands on deneb.
   standing = {
-    design = false;
-    planner = false;
-    reviewer = false;
-    ops = false;
-    operator = false;
+    design = "standing";
+    planner = "standing";
+    reviewer = "standing";
+    ops = "standing";
+    operator = "standing";
   };
   review = {
-    every = 5;
-    hours = 4;
+    after_changes = 5;
+    after_hours = 4;
   };
 
   # Every role on one Claude account.
@@ -91,7 +94,7 @@ rec {
         repos = afterthoughts;
         accounts = every "madswan";
         inherit review;
-        flume = standing;
+        runs = standing;
       };
       agentplot = {
         blueprints = [ "agentplot/blueprints" ];
@@ -127,7 +130,7 @@ rec {
         ];
         accounts = every "madswan";
         inherit review;
-        flume = standing;
+        runs = standing;
       };
       madswan = {
         blueprints = [
@@ -141,7 +144,7 @@ rec {
         repos = afterthoughts;
         accounts = every "madswan";
         inherit review;
-        flume = standing;
+        runs = standing;
       };
       wldn = {
         blueprints = [ "WilldanGroup/willdan-blueprints" ];
@@ -164,7 +167,7 @@ rec {
         };
         inherit review;
         roles.planner.session = "wldn-1";
-        flume = standing;
+        runs = standing;
       };
     };
   };

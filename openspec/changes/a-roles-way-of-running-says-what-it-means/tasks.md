@@ -4,7 +4,7 @@ Each check runs from the worktree's root as written. `tests/suite <name>...` run
 
 ## 1. The module
 
-- [ ] 1.1 crew's module declares a drive's `runs`, each of the five roles `"standing"` or `"on-demand"`, and `review`'s `after_changes` and `after_hours`, each description saying what it holds, its unit and its range; deneb's settings and the pinned files `nix/tests/files/deneb.json` and `runner.json` carry the new keys; evaluation fails for a `runs` value it does not take, for `review`'s `every` and `hours`, and for a setting out of range (design, Decision 5; Task notes 1.1). Verify `devenv shell -- moon run nix:format nix:lint nix:test` exits 0.
+- [x] 1.1 crew's module declares a drive's `runs`, each of the five roles `"standing"` or `"on-demand"`, and `review`'s `after_changes` and `after_hours`, each description saying what it holds, its unit and its range; deneb's settings and the pinned files `nix/tests/files/deneb.json` and `runner.json` carry the new keys; evaluation fails for a `runs` value it does not take, for `review`'s `every` and `hours`, and for a setting out of range (design, Decision 5; Task notes 1.1). Verify `devenv shell -- moon run nix:format nix:lint nix:test` exits 0.
 
 ## 2. crew reads the file by its names
 
