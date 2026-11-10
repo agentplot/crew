@@ -137,31 +137,29 @@ has "$out" "card proposal/4: req_stub-3 changed, now version 2"
 eq "$(props -t Proposal -e "Proposal = 4" -P State,Reason)" $'dropped\nreplaced by proposal 5'
 ok "a proposal is dropped with a reason, the planner told and its card withdrawn, or replaced by another, its card changed in place"
 
-# A write on the branch whose run-record entry is not there yet, as wldn/main's 16f19a887 of 2026-11-07 was: a proposal
-# written after it is not read until that entry arrives, and the refusal says where the branch was read, the write it
-# waits on and that write's agent, its own words still its last line (plan.2, read.5).
+# An older crew's write in two steps, its commit naming an entry and the entry its next commit, the second not there
+# yet: a proposal written after it is read at the tip, and nothing says the branch was read below it; once the entry's
+# own commit lands, crew events prints it (drive-state "A decision reads the drive's branch at its tip").
 w=$T/flight; git clone -q -b wldn/main "$ws" "$w"
-read_at=$(git -C "$w" rev-parse --short=7 HEAD)
 eid=$(date -u +%Y%m%dT%H%M%SZ)-000000-$box-1-1
 git -C "$w" commit -q --allow-empty -m "plan(clears): by hand (swb-1-conductor)"$'\n\n'"Crew-Entry: $eid"
 push_state "$w"
-held=$(git -C "$w" rev-parse --short=7 HEAD)
 crew plan propose "$(proposal 'Case: The cleared units go last.' 'Do: unit order a-drop --last')" >/dev/null 2>&1
 n=$(last)
-expect_fail "no proposal $n in wldn/main" crew plan proposed "$n"
-has "$out" "wldn/main was read at $read_at, below its tip $(git --git-dir "$ws" rev-parse --short=7 wldn/main): the write $held by swb-1-conductor is on the branch without its run-record entry yet, so nothing from $held on was read (read.5)"
-eq "$(tail -1 <<<"$out")" "no proposal $n in wldn/main"
-# The entry arrives, and the proposal is read.
+expect_ok crew plan proposed "$n"
+has "$out" "# Proposal $n — open, by wldn-planner"
+lacks "$out" "below its tip"; lacks "$out" "read at"
+eq "$(crew events --json --since today | jq -r --arg id "$eid" '[.entries[] | select(.Id == $id)] | length')" "0"
+# The entry arrives as its own commit, as the older crew pushes it.
 git -C "$w" pull -q --rebase origin wldn/main
 f=$w/runs/$box/$(date -u +%F).rec
 [[ -e $f ]] || python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import record; print(record.DESCRIPTOR, end="")' "$CREW/plugin/lib" > "$f"
 printf '\nId: %s\nAt: %s\nHost: %s\nBy: swb-1-conductor\nAct: unit.order\nOn: unit/a-drop\n' "$eid" "$(date -u +%FT%TZ)" "$box" >> "$f"
 git -C "$w" add runs; git -C "$w" commit -qm "runs($box): unit.order unit/a-drop (swb-1-conductor)"$'\n\n'"Crew-Entry: $eid"; push_state "$w"
-expect_ok crew plan proposed "$n"
-has "$out" "# Proposal $n — open, by wldn-planner"
-lacks "$out" "below its tip"
-CREW_AGENT= crew plan drop "$n" "read below the tip" >/dev/null 2>&1
-ok "a write whose entry has not arrived holds every read below it, and a refusal read there names the commit read at, the write it waits on and its agent"
+expect_ok crew events --json --since today
+eq "$(jq -r --arg id "$eid" '.entries[] | select(.Id == $id) | [.Act, .By, (.On | join(" "))] | join(" ")' <<<"$out")" "unit.order swb-1-conductor unit/a-drop"
+CREW_AGENT= crew plan drop "$n" "read at the tip" >/dev/null 2>&1
+ok "an older crew's write in two steps is read at the tip, a proposal written after it read with nothing said of a read below the tip, and its entry printed once its own commit lands"
 
 # A refused proposal is recorded naming its command, never the words typed in it. Each day's file is read on its own,
 # as crew reads them: every one declares Entry, which one recsel over two days' files refuses as a duplicated set.

@@ -18,7 +18,7 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 
 - [x] 3.1 Every read of a drive's branch is `tip_of`, with the read below a write whose entry has not arrived gone from `plan.py` and `record.py` and every logic test that stood in `plan.fetch` standing in `plan.tip_of` (design Decision 6; Task notes 3.1). Verify `tests/suite logic` ends with "0 failed".
 - [x] 3.2 An older crew's two-step write is read at the tip, its entry absent from the record until its own commit lands (design Decision 7; Task notes 3.2). Passes `tests/contract/test_record.py` (`tests/suite contract`).
-- [ ] 3.3 `crew plan proposed` prints a proposal written after an older crew's two-step write whose entry has not arrived, saying nothing of a read below the tip, and `crew events` prints the entry once it lands (design Decision 7; Task notes 3.3). Verify `tests/suite t-journey-plan` ends with "0 failed".
+- [x] 3.3 `crew plan proposed` prints a proposal written after an older crew's two-step write whose entry has not arrived, saying nothing of a read below the tip, and `crew events` prints the entry once it lands (design Decision 7; Task notes 3.3). Verify `tests/suite t-journey-plan` ends with "0 failed".
 
 ## 4. The docs and the tests the change affects
 
