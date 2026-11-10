@@ -17,15 +17,16 @@ The answer, on stdout, is JSON keyed by each kit's main checkout: the changes ma
 chores its history holds (each `Chore:` trailer's name), and for each local bolt/* branch, and each bolt asked for,
 read where the bolt lives (bolt_read, at: GitHub's origin/bolt/<bolt> for a bolt on GitHub, else the host's bolt/<bolt>),
 whether it exists, the changes and chores it holds, those it holds archived, its worktree, its head and the head's
-time, and the commits it holds that are another bolt's own, on that bolt's first-parent line beyond main, every bolt
+time, where the head is a landing on the bolt's own line beyond main the submission and verdict its commit's sluice
+trailers name (head_landing), and the commits it holds that are another bolt's own, on that bolt's first-parent line beyond main, every bolt
 GitHub holds among them (carries, carried_bolts, bolt_lines), or why that can't be read (carries_error); each place
 under <dir>/places with its branch, its head and the head's time, its change's tasks and whether its planning is
 complete, read from the change archived there once its merge has archived it; each chore's place,
 <dir>/places/chore-<name> on chore/<name>, with its bolt,
 head, head's time and how many commits of its own it holds beyond the bolt; the kit's
-policy, its main's .config/sluice.toml as text. It runs no sluice and reads nothing of sluice's queue, records or
-landing commits: a bolt's verification and each piece's submission and end are read from the runner's report (crew
-record 0056 points 1 and 4). With sites, each worktree's devurl names and the host's
+policy, its main's .config/sluice.toml as text. It runs no sluice and reads nothing of sluice's queue or records, and
+of its landing commits only the trailers of a bolt's head, record 0062's stopgap as amended 2026-11-10: each piece's
+submission and end are read from the runner's report (crew record 0056 points 1 and 4). With sites, each worktree's devurl names and the host's
 portless routes; with board, each
 folder under openspec/explorations/ on main with the first line of its first .md file. It reads with git, the file
 system, devurl and portless and, for a change whose workflow it does not read itself, openspec, and changes
@@ -216,6 +217,31 @@ def bolt_lines(main, now, refs):
             return None, f"git could not list bolt/{b}'s own commits beyond main at {short(ref)}"
         lines[b] = out.split()
     return lines, None
+
+
+# The trailers sluice writes on a landing commit (sluice clause 23) that a bolt's verification reads at its head: the
+# submission it landed and the verdict it landed on, each value folded onto one line, values apart by \x1f.
+TRAILERS = ("%(trailers:key=Sluice-Submission,valueonly,unfold,separator=%x1f)%x1e"
+            "%(trailers:key=Sluice-Result,valueonly,unfold,separator=%x1f)")
+
+
+def head_landing(main, head, line, why=None):
+    """What a bolt's head says of sluice's landing at it (crew record 0062 as amended 2026-11-10): where the head is the
+    newest commit of the bolt's own first-parent line beyond main (line, as bolt_lines lists it, newest first), the
+    Sluice-Submission and Sluice-Result values its commit carries, as git parses trailers, {"submissions": [...],
+    "results": [...]}, each [] for none; None for a head on no such line, a bolt standing where main holds it among
+    them; {"error": why} when the line (why) or the commit can't be read (read.1). It reads the commit and nothing of
+    sluice's records, and runs no sluice."""
+    if why:
+        return {"error": why}
+    if not head or not line or line[0] != head:
+        return None
+    out = run(["git", "show", "-s", f"--format={TRAILERS}", head, "--"], main)
+    if out is None or "\x1e" not in out:
+        return {"error": f"git could not read the trailers of {head[:7]}"}
+    subs, results = out.strip("\n").split("\x1e", 1)
+    return {"submissions": [v.strip() for v in subs.split("\x1f") if v.strip()],
+            "results": [v.strip() for v in results.strip("\n").split("\x1f") if v.strip()]}
 
 
 def short(ref):
@@ -632,6 +658,10 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
             out["bolts"][b]["carries_error"] = lwhy or f"git could not list what bolt/{b} holds beyond main at {short(ref)}"
         else:
             out["bolts"][b]["carries"] = carried_bolts(holds.split(), lines, b)
+        # Whether the head is a landing sluice made on the bolt itself, with the verdict it landed on (head_landing).
+        out["bolts"][b]["head_landing"] = head_landing(
+            main, out["bolts"][b]["head"], (lines or {}).get(b), lwhy or (None if lines is not None and b in lines else
+                                                                          f"git could not list bolt/{b}'s own commits beyond main"))
     places = os.path.join(kdir, "places")
     for path, branch in at.items():
         if os.path.dirname(path) != places or not branch:

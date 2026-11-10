@@ -1669,10 +1669,12 @@ class Stages:
                 for u in self.plan.work_of(bolt.name())]
         return work + [(w, s) for w, _, s in self.fixes(bolt)]
 
-    def verification(self, bolt, head):
+    def verification(self, bolt, head, landing=None):
         """A started bolt's verification at head, as read where it lives: whether that head is the landing of its work,
-        as the runner reports it (runner.verification over pieces; crew record 0056 points 1 and 4), as (state, words)."""
-        return runner.verification(head, self.pieces(bolt))
+        as the runner reports it, or a landing sluice made on the bolt that passed, as its commit's trailers name it
+        (landing, gather.head_landing of that head) (runner.verification over pieces; crew record 0056 points 1 and 4;
+        record 0062 as amended 2026-11-10), as (state, words)."""
+        return runner.verification(head, self.pieces(bolt), landing)
 
     def unread(self, bolt):
         """Why the runners a started bolt is read from can't be read, as (what, why), or None: its drive's requests,
@@ -1760,7 +1762,7 @@ class Stages:
         facts = k["bolts"].get(b.name(), {})
         if facts.get("error"):
             return "unknown"
-        if units and all(x in ("merged", "landed") for x in stages) and self.verification(b, facts.get("head"))[0] == "green":
+        if units and all(x in ("merged", "landed") for x in stages) and self.verification(b, facts.get("head"), facts.get("head_landing"))[0] == "green":
             return "waits"
         return "active"
 
@@ -3310,7 +3312,7 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     # a bolt started before bolts were base places lands under the crew that started it, and has no box (Decision 9)
     legacy = runner.legacy_said(bolt) if run and runner.launch_of(run[0], f"bolt/{bolt}") is None else None
     fixes = sorted(flume)
-    why = landing_unready(work, st.verification(b, facts.get("head")), fixes if fixes_hold else [])
+    why = landing_unready(work, st.verification(b, facts.get("head"), facts.get("head_landing")), fixes if fixes_hold else [])
     if why:
         return None, why
     entries = drive_entries(fleet, label)
@@ -8513,7 +8515,7 @@ def bolts_data(fleet, labels, found, sv, errors, bolt=None, runs=None, logs=None
                 if silent:
                     data["runners_unread"][silent[0]] = silent[1]
                 bk = (k or {}).get("bolts", {}).get(b.name()) or {}
-                verified = dict(zip(("state", "said"), st.verification(b, bk.get("head")))) if k and bk.get("exists") else None
+                verified = dict(zip(("state", "said"), st.verification(b, bk.get("head"), bk.get("head_landing")))) if k and bk.get("exists") else None
                 bolts.append(dict(bolt=b.name(), repo=b.get("Repo"), goal=b.get("Goal"), sources=b.all("Source"),
                                   host=st.host(b) if crossed else None, state=st.bolt_state(b), base=st.base(b), landing=st.landing(b), verification=verified, units=units, fixes=fixes,
                                   given=b.get("Path"), stream=t["stream"] if t else None,
@@ -9807,7 +9809,7 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             outside = [u.name() for u in units if due is not None and u.name() in due]
             unread = sorted({waits[u.name()] for u in units if u.name() in waits})
             bk = k["bolts"].get(b.name(), {})
-            state, verdict = st.verification(b, head)
+            state, verdict = st.verification(b, head, bk.get("head_landing"))
             if state != "green":  # a bolt's proof is its verification (record 0025, tests.5)
                 lands = [f"lands once its verification is green; now {verdict}"]
             elif due is None and l in held:

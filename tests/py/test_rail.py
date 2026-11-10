@@ -404,6 +404,26 @@ class TestRows:
         land, = [r for r in plan.rail_rows(FLEET, found, sv, [], {}, None, runs_) if r["group"] == "land"]
         assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land on your send of land/{KIT}" and land["bolts"][0]["can"] is True
 
+    def test_a_bolt_whose_head_is_a_passed_landing_no_piece_names_can_land(self):
+        """merge-gate "A passed landing at the head that no piece names" (record 0062 as amended 2026-11-10; signal
+        2026-11-09-agentplot-design-9b1ec2dd/01): zone-one merged at f564d22, the record Flume holds for the runner
+        after its tidy, and then a record's fix landed straight onto apex-zones as sluice's #70 at its head, its verdict
+        passed: the bolt is green naming sluice's landing, and a row of its kit's landings card that can land; with no
+        verdict at its head it is no row that can land."""
+        sv = survey()
+        runs_ = runs(at={"zone-one": "flume-0.20.0/landed-held"})
+        found = [("wldn", "WilldanGroup/crew-state", "tip", the_plan())]
+        bolt = sv[BOX]["kits"]["/kit/main"]["bolts"]["apex-zones"]
+        bolt["head_landing"] = {"submissions": [], "results": []}
+        land, = [r for r in plan.rail_rows(FLEET, found, sv, [], {}, None, runs_) if r["group"] == "land"]
+        assert land["what"][1].endswith("is no landing of its work that the runner reports")
+        bolt["head_landing"] = {"submissions": ["70"], "results": ["passed (3 run, 0 replayed)"]}
+        st = plan.Stages(FLEET, the_plan(), sv, runs_, "wldn")
+        assert st.verification(the_plan().bolt("apex-zones"), BOLT_HEAD, bolt["head_landing"]) == (
+            "green", "its head d185a87 is sluice's landing #70 on the bolt, which passed")
+        land, = [r for r in plan.rail_rows(FLEET, found, sv, [], {}, None, runs_) if r["group"] == "land"]
+        assert land["what"][1] == f"apex-zones, on {BOX}, in Flume stream wldn: can land on your send of land/{KIT}" and land["bolts"][0]["can"] is True
+
     def test_a_bolt_lands_only_once_every_units_latest_change_has_been_in_a_batch(self):
         held = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": {"zone-one"}}}
         land, = [r for r in rows(held=held) if r["group"] == "land"]
