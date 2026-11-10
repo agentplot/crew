@@ -13,7 +13,7 @@ crew's plugin SHALL carry a Flume declaration, `plugin/flume/kinds.toml`, of fiv
 - **THEN** it holds the five kinds, each with `lands` false, one stage named `turn` with `report:{{state}}/turn.md` as its one deliverable and `turn.md` as its prompt, and no `model`, `instructions` or `env` in any table
 
 ### Requirement: A turn's prompt starts and ends the turn
-`plugin/flume/turn.md` SHALL have the run start with `crew role start` and end with `crew role end`, writing its report at `{{report}}`, and SHALL say that the end asks the runners to confirm to Flume each end the turn took, so none is taken again. It SHALL place `{{needs}}` in a sentence saying the run asks the user only on a card and stops short only when `crew role start` refuses. It SHALL ask for no `{{brief}}`.
+`plugin/flume/turn.md` SHALL say the run is of a role its drive's `runs` names `on-demand`, never that it runs as its kind. It SHALL have the run start with `crew role start` and end with `crew role end`, writing its report at `{{report}}`, saying the end asks the runners to confirm to Flume each end the turn took. It SHALL place `{{needs}}` in a sentence saying the run asks the user only on a card and stops short only when `crew role start` refuses. It SHALL ask for no `{{brief}}`.
 
 #### Scenario: The prompt's parts
 - **WHEN** `plugin/flume/turn.md` is read
@@ -22,6 +22,10 @@ crew's plugin SHALL carry a Flume declaration, `plugin/flume/kinds.toml`, of fiv
 #### Scenario: The end confirms
 - **WHEN** `plugin/flume/turn.md` is read
 - **THEN** its step that runs `crew role end` says the end asks the runners to confirm each end the turn took
+
+#### Scenario: The role's way of running
+- **WHEN** `plugin/flume/turn.md` is read
+- **THEN** it says the run is of a role its drive's `runs` names `on-demand`, and says nowhere that the role runs as its kind
 
 ### Requirement: An ask is a record naming a role
 An ask SHALL be a record of `asks.rec` on the drive's branch, written through crew as every write there is: its number, the role it asks, who or what asks, what kind of ask it is, the record it names where it names one, its key where it must be written once, the words it carries where it carries any, and when it was written.
@@ -191,11 +195,15 @@ A run SHALL be named `<label>-<role>`, `<label>-ops` for main-level ops, read fr
 - **THEN** it names no role as its caller
 
 ### Requirement: A run's brief says how a turn goes
-A role's brief SHALL say, for a role that runs as its kind, that its turn starts with `crew role start`, acts on what that took, and ends with `crew role end`; that it waits in its session on nothing, and that what it would have waited for, an answer, a submission, a review or a tell, reaches its next run as an ask; and that it asks the user only on a card in its own name. For a standing role it SHALL say that its work reaches it as tells and cards in its pane.
+A role's brief SHALL say the word its drive's `runs` names it by, `standing` or `on-demand`, never that it runs as its kind. An on-demand role's SHALL say its turn starts with `crew role start`, acts on what that took, and ends with `crew role end`; that it waits in its session on nothing, what it would have waited for reaching its next run as an ask; and that it asks the user only on a card in its own name. A standing role's SHALL say its work reaches it as tells and cards in its pane.
 
 #### Scenario: Every brief filled
-- **WHEN** each of the five briefs prints for a drive that runs all five as their kinds
-- **THEN** each holds the turn's words, and no token is left unfilled
+- **WHEN** each of the five briefs prints for a drive whose `runs` names all five `on-demand`
+- **THEN** each says its drive's `runs` names it `on-demand`, holds the turn's words, says nowhere that it runs as its kind, and leaves no token unfilled
+
+#### Scenario: Every brief of a standing role
+- **WHEN** each of the five briefs prints for a drive whose `runs` names all five `standing`
+- **THEN** each says its drive's `runs` names it `standing` and that its work reaches it in its pane, and none holds the turn's words
 
 ### Requirement: A role's work that lands is a place it launches
 `crew role land <repo> <name> --brief-file <file>`, run in a role's run, SHALL launch through the runner a place of Flume's own chore kind in that repository, on its default branch, its brief the file's text whole, the run's address its recipient and the drive's own stream, named by its label, its stream. A repository neither the teams file nor the plan names SHALL be refused, and so SHALL a run outside a role's run. No role's run SHALL submit to sluice.
