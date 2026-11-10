@@ -2,8 +2,8 @@
 runs from", "A build's version is shown as a checkout's is", "crew names its command by the crew its host has
 installed", "crew reads the crew its host has installed", "The launch digest reads crew's command as one word"): a
 build's release file read field by field, its version shown, a root read as a checkout, a build or neither. That a
-checkout reads itself through git, and that a start from a build records its release, is the session-start journey's
-(t-session-hook)."""
+checkout reads its version through git is the contract tier's (tests/contract/test_release.py), and that a start
+records the crew it loaded, the session-start journey's (t-session-hook)."""
 import json
 import pathlib
 import subprocess

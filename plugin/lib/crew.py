@@ -2464,17 +2464,51 @@ def checkout_version(tag, past):
     return tag if not past else f"{tag}+{past}"
 
 
+# A release tag, as crew's CI names one (crew-release).
+RELEASE_TAG = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+")
+
+
 def git_version(root):
-    """A checkout's (commit, version) as git reads them, the version being the release tag at or before the commit,
-    with `+<n>` for the commits past it; the version None when no release tag is reachable, and both None when git
-    can't read the checkout."""
-    r = subprocess.run(["git", "-C", root, "describe", "--tags", "--long", "--match", "v[0-9]*", "--abbrev=40", "HEAD"],
-                       capture_output=True, text=True)
-    m = re.fullmatch(r"(v[0-9]\S*)-([0-9]+)-g([0-9a-f]{40})", r.stdout.strip()) if r.returncode == 0 else None
-    if m:
-        return m.group(3), m.group(1) + ("" if m.group(2) == "0" else f"+{m.group(2)}")
-    r = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True, text=True)
-    return (r.stdout.strip() or None, None) if r.returncode == 0 else (None, None)
+    """A checkout's (commit, version) as git reads them: HEAD's commit, and the newest release tag, by version, whose
+    source (tag_source) is HEAD or before it, with `+<n>` for the commits from that source to HEAD (checkout_version),
+    the tag alone where HEAD is the tag's own commit. A release tag names a release commit off main's history, which git
+    describe never reaches from main, so each tag is read at the commit it was cut from. The version None when no
+    release tag's source is HEAD or before it, or git can't read the tags; both None when git can't read the checkout."""
+    def git(*args):
+        r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
+        return r.stdout if r.returncode == 0 else None
+
+    head = (git("rev-parse", "HEAD") or "").strip()
+    if not head:
+        return None, None
+    listed = git("for-each-ref", "--sort=-v:refname",
+                 "--format=%(refname:lstrip=2)%09%(objecttype)%09%(objectname)%09%(*objecttype)%09%(*objectname)",
+                 "refs/tags/v*")
+    tags = []
+    for line in (listed or "").splitlines():
+        name, kind, sha, peeled_kind, peeled = (line.split("\t") + [""] * 5)[:5]
+        commit = peeled if peeled_kind == "commit" else sha if kind == "commit" else None
+        if RELEASE_TAG.fullmatch(name) and commit:
+            tags.append((name, commit))
+    if not tags:
+        return head, None
+    logged = git("log", "--no-walk=unsorted", "--format=%H%x09%P%x09%s", *dict.fromkeys(c for _, c in tags))
+    if logged is None:
+        return head, None
+    facts = {}
+    for line in logged.splitlines():
+        sha, parents, subject = (line.split("\t", 2) + ["", ""])[:3]
+        facts[sha] = (parents.split(), subject)
+    for name, commit in tags:
+        if commit == head:
+            return head, name
+        parents, subject = facts.get(commit, ([], ""))
+        source = tag_source(name, commit, parents, subject)
+        r = subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", source, head], capture_output=True, text=True)
+        if r.returncode == 0:
+            past = (git("rev-list", "--count", f"{source}..{head}") or "").strip()
+            return (head, checkout_version(name, int(past))) if past.isdigit() else (head, None)
+    return head, None
 
 
 def crew_read(root=None):
