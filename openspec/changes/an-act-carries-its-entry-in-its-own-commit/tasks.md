@@ -12,7 +12,7 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 - [x] 2.2 A state init step's commit carries its `state.init` entry, while an adoption's entry stays a commit of its own naming the tip it adopted (design Decision 3; Task notes 2.2). Passes `tests/py/test_a_write_carries_its_entry.py` (`tests/suite logic`).
 - [x] 2.3 An approval's one commit carries and names the entry of each command it applies, a unit add's route move among them (design Decision 3; Task notes 2.3). Verify `tests/suite t-journey-plan` ends with "0 failed".
 - [x] 2.4 Against a bare repository standing for GitHub, a plan write's commit is the tip holding its entry, and a write refused because another command of the same host pushed an entry to that day's file lands on top with both entries whole (design Decision 1; Task notes 2.4). Passes `tests/contract/test_record.py` (`tests/suite contract`).
-- [ ] 2.5 Through the `crew` command, a plan write's one commit changes the plan and the host's day file with an entry naming no commit, a tell's kept entry follows the next write as its own commit, and an entry cut short in the host's file stops no write (design Decisions 1 and 5; Task notes 2.5). Verify `tests/suite t-journey-state` ends with "0 failed".
+- [x] 2.5 Through the `crew` command, a plan write's one commit changes the plan and the host's day file with an entry naming no commit, a tell's kept entry follows the next write as its own commit, and an entry cut short in the host's file stops no write (design Decisions 1 and 5; Task notes 2.5). Verify `tests/suite t-journey-state` ends with "0 failed".
 
 ## 3. Every decision reads the tip
 
