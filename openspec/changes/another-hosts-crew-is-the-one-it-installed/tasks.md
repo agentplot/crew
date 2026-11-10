@@ -15,4 +15,4 @@ Build the tasks in order. Each check runs from the worktree's root, as written. 
 
 ## 3. What the README says
 
-- [ ] 3.1 README says a command crew runs on another host runs that host's installed crew by its name on its login path, failing where it finds none, and names `crew _found` (Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.1 README says a command crew runs on another host runs that host's installed crew by its name on its login path, failing where it finds none, and names `crew _found` (Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
