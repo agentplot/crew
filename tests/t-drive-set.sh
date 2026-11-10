@@ -24,8 +24,8 @@ set_pat() {
   local state=$1; shift
   crew drive set pat --state "$state" --blueprints pat/blueprints --machine mac-studio --session pat --folder "$folder" \
     --repos pat/blueprints --accounts design pat --accounts planner pat --accounts reviewer pat --accounts ops pat \
-    --accounts operator pat --flume design false --flume planner false --flume reviewer false --flume ops false \
-    --flume operator false --review 5 4 --hosts mac-studio mac-studio darwin --console "$folder" "$@"
+    --accounts operator pat --runs design standing --runs planner standing --runs reviewer standing --runs ops standing \
+    --runs operator standing --review 5 4 --hosts mac-studio mac-studio darwin --console "$folder" "$@"
 }
 
 : > "$CREW_TEST_LOG"

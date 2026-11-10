@@ -211,6 +211,13 @@ The operator's brief SHALL say that where its host's `~/.config/crew/teams.json`
 - **WHEN** a drive's operator brief is built
 - **THEN** its *Changing the drives* names no drive removed through Boomdrive's setup
 
+### Requirement: The operator's brief names a drive's runs and review by their keys
+Among what a drive's entry says, the operator's brief SHALL name how each of its roles runs, `runs`, `standing` or `on-demand`, and its batch setting, `review`, by `after_changes` and `after_hours`, and SHALL name no `flume` as a key of the teams file.
+
+#### Scenario: What a drive's entry says
+- **WHEN** a drive's operator brief is built
+- **THEN** its *Changing the drives* names `runs`, `standing`, `on-demand`, `after_changes` and `after_hours`, and no `` `flume` ``
+
 ### Requirement: A standing operator comes up and goes down with its main level
 The drive's operator, `<label>-operator`, SHALL be a role of its main level: while it stands, `crew main up <label>` SHALL start it in an `operator` tab of the `<label>` workspace, beside the design agent, the planner and ops, and greet it once it is up as it greets them; `crew main down <label>` SHALL end it; `crew revive` SHALL bring it back as it brings them back.
 
@@ -219,10 +226,10 @@ The drive's operator, `<label>-operator`, SHALL be a role of its main level: whi
 - **THEN** `wldn-operator` starts in the `wldn` workspace's `operator` tab and is greeted once, beside `wldn-design`, `wldn-planner` and `wldn-ops`
 
 ### Requirement: An operator its drive runs as its kind runs on an ask
-While its drive runs the operator as its kind, the operator SHALL run as a role's run does, on an ask, and none of `crew main up <label>`, `crew main down <label>` and `crew revive` SHALL start it.
+While its drive's `runs` names the operator `on-demand`, so that it runs as its kind, the operator SHALL run as a role's run does, on an ask, and none of `crew main up <label>`, `crew main down <label>` and `crew revive` SHALL start it.
 
 #### Scenario: The operator runs as its kind
-- **WHEN** madswan's `flume` names a stream for its operator and `crew main up madswan` runs
+- **WHEN** madswan's `runs` names its operator `on-demand` and `crew main up madswan` runs
 - **THEN** no `operator` tab is opened and no operator is started, and a tell to `madswan-operator` is an ask of its role
 
 ### Requirement: Every brief names the drive's one operator

@@ -1,5 +1,5 @@
 """The main level and its agents (teams.2, teams.6, teams.7, teams.11, code.5): crew.load for the teams file at version
-6, its drives alone, and each drive's Flume setting, crew.role_stream and
+6, its drives alone, and each drive's `runs` and `review`, crew.role_runs, crew.on_demand and
 crew.kind_role_of for which of a drive's main-level roles run as their kinds, crew.greet_waits for one look of
 a greeting's wait, crew.standing_greeting for what a main level's agent is greeted with, crew.operator_session for where an operator runs, crew.tab_holds for what an operator's tab holds,
 crew.dead_said for a pane herdr lists with no terminal behind it and crew.opens_at for where a pane opens again,
@@ -22,7 +22,7 @@ import plan
 BOX = "chuck-herdr-alpha"
 FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX, "session": "wldn-3"}},
          "hosts": {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}, "consoles": {"wldn": "/w/willdan"}}
-STANDING = {r: False for r in crew.KIND_ROLES}
+STANDING = {r: "standing" for r in crew.KIND_ROLES}
 HOSTS = {BOX: {"ssh": BOX, "kind": "nixos"}, "mac-studio": {"ssh": "mac-studio", "kind": "darwin"}}
 
 
@@ -54,7 +54,7 @@ class TestLoad:
     Boomdrive record 0028; record 0064): no hosts file is read; the files' refusals by field are t-teams'."""
 
     def data(self, version=6, key="drives", **more):
-        part = {"state": "afterthought/crew-state", "review": {"every": 5, "hours": 4}, "flume": STANDING}
+        part = {"state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4}, "runs": STANDING}
         return dict({"version": version, "hosts": HOSTS,
                      key: [dict(part, label="wldn", blueprints=["WilldanGroup/willdan-blueprints"], machine=BOX, session="wldn-3",
                                 folder="/box/willdan", repos=["WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"],
@@ -81,7 +81,7 @@ class TestLoad:
         assert "teams" not in p and "dir" not in p
         assert p["checkout"] == "/box/willdan/willdan-blueprints/main" and p["accounts"] == every("ia")
         assert p["repos"] == ["WilldanGroup/switchboard-kit", "WilldanGroup/willdan-blueprints"]
-        assert p["flume"] == STANDING and p["sessions"]["planner"] == "wldn-3"
+        assert p["runs"] == STANDING and p["review"] == {"after_changes": 5, "after_hours": 4} and p["sessions"]["planner"] == "wldn-3"
 
     def test_clients_willdan_starts_in_its_folders_blueprints(self, tmp_path, monkeypatch):
         """main-level, clients/willdan: wldn on chuck-herdr-alpha in wldn-2, its folder /workspace and its repos naming
@@ -139,8 +139,8 @@ class TestLoad:
                                                    "services.crew, crew drive set, or the machine's configuration that writes it; crew has done nothing."):
                 loaded(tmp_path, monkeypatch, data)
 
-    @pytest.mark.parametrize("refused", ["version", "teams", "drives", "state", "review", "flume", "repositories", "hosts",
-                                         "folder", "repos", "accounts", "consoles"])
+    @pytest.mark.parametrize("refused", ["version", "teams", "drives", "state", "review", "runs", "flume", "every",
+                                         "repositories", "hosts", "folder", "repos", "accounts", "consoles"])
     def test_every_refusal_of_the_file_names_crews_own_module_and_no_other_repositorys(self, tmp_path, monkeypatch, refused):
         """main-level, Every refusal of the file names crew's own fix: crew is the family's tool, not the fleet's, so the
         fix of a refused teams file is crew's own module, services.crew, crew drive set, or the machine's configuration that writes it,
@@ -158,6 +158,10 @@ class TestLoad:
             del data["hosts"]
         elif refused == "consoles":
             data["consoles"] = {"wldn": "w"}
+        elif refused == "flume":
+            data["drives"][0]["flume"] = {r: False for r in crew.KIND_ROLES}
+        elif refused == "every":
+            data["drives"][0]["review"] = {"every": 5, "hours": 4}
         else:
             del data["drives"][0][refused]
         with pytest.raises(crew.Refusal) as said:
@@ -458,44 +462,91 @@ class TestKeptRepositories:
 DENEB = {"deneb": {"ssh": "deneb", "kind": "darwin"}}
 
 
-class TestRoleSettings:
-    """A drive's Flume setting for each of its main-level roles (record 0047 move 6, the change
-    roles-run-as-flume-kinds' Decision 3): `flume` on every drive, each of the five roles false while it stands or
-    the stream its runs run in, and nothing else."""
+class TestRuns:
+    """How a drive runs each of its main-level roles, and its batch setting (record 0064 as amended 2026-11-09; Decisions
+    1, 3 and 4 of a-roles-way-of-running-says-what-it-means): `runs` on every drive, each of the five roles standing or
+    on-demand, and `review`, `after_changes` and `after_hours`; a drive naming `flume`, or a `review` naming `every` or
+    `hours`, refused naming the key, and nothing else."""
 
-    NONE = object()  # a drive that names no `flume`
+    NONE = object()  # a drive that names no `runs`
 
-    def load(self, tmp_path, monkeypatch, flume):
-        part = {"blueprints": ["afterthought/blueprints"], "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
-                "machine": "deneb", "folder": "/deneb/madswan", "repos": ["afterthought/blueprints", "afterthought/crew"],
-                "accounts": every("madswan")}
-        madswan = dict(part, label="madswan", session="madswan-1", **({} if flume is self.NONE else {"flume": flume}))
-        swancloud = dict(part, label="swancloud", session="swancloud-1", flume=STANDING)
+    def load(self, tmp_path, monkeypatch, runs, **more):
+        part = {"blueprints": ["afterthought/blueprints"], "state": "afterthought/crew-state",
+                "review": {"after_changes": 5, "after_hours": 4}, "machine": "deneb", "folder": "/deneb/madswan",
+                "repos": ["afterthought/blueprints", "afterthought/crew"], "accounts": every("madswan")}
+        madswan = dict(part, label="madswan", session="madswan-1", **({} if runs is self.NONE else {"runs": runs}), **more)
+        swancloud = dict(part, label="swancloud", session="swancloud-1", runs=STANDING)
         return loaded(tmp_path, monkeypatch, {"version": 6, "hosts": DENEB, "drives": [madswan, swancloud]})
 
-    TWO = {"design": False, "planner": "madswan-roles", "reviewer": "madswan-roles", "ops": False, "operator": False}
+    TWO = {"design": "standing", "planner": "on-demand", "reviewer": "on-demand", "ops": "standing", "operator": "standing"}
 
-    def test_each_drive_names_each_roles_stream_or_that_it_stands(self, tmp_path, monkeypatch):
-        fleet = self.load(tmp_path, monkeypatch, self.TWO)
-        assert crew.drive_of(fleet, "madswan")["flume"] == self.TWO
-        assert crew.role_stream(fleet, "madswan", "planner") == "madswan-roles"
-        assert crew.role_stream(fleet, "madswan", "ops") is False
-        assert crew.role_stream(fleet, "swancloud", "planner") is False
-
-    @pytest.mark.parametrize("flume, said", [
-        (NONE, "drive madswan in .*teams.json has no 'flume', which names each of its roles, design, planner, reviewer, ops, operator"),
-        ([], "drive madswan in .*teams.json: 'flume' names each of its roles, not \\[\\]"),
-        (dict(TWO, dispatcher=False), "drive madswan in .*teams.json: 'flume' names dispatcher, which crew has no kind for"),
-        ({r: False for r in ("design", "planner", "reviewer", "ops")}, "drive madswan in .*teams.json: 'flume' leaves out operator"),
-        (dict(TWO, planner=True), "drive madswan in .*teams.json: flume.planner is false, or the name of a Flume stream its host declares, not true"),
-        (dict(TWO, ops=None), "flume.ops is false, or the name of a Flume stream its host declares, not null"),
-        (dict(TWO, design=""), "flume.design is false, or the name of a Flume stream its host declares, not \"\""),
-        (dict(TWO, operator="Roles"), "flume.operator is false, or the name of a Flume stream its host declares, not \"Roles\""),
-        (dict(TWO, reviewer=0), "flume.reviewer is false, or the name of a Flume stream its host declares, not 0")])
-    def test_a_drive_without_a_good_setting_is_refused_naming_it_the_role_and_the_fix(self, tmp_path, monkeypatch, flume, said):
+    def refused(self, tmp_path, monkeypatch, said, runs=TWO, **more):
+        """The file refused, saying said, naming madswan and the teams file's writer as the fix."""
         with pytest.raises(crew.Refusal, match=said) as refused:
-            self.load(tmp_path, monkeypatch, flume)
-        assert crew.WRITER in str(refused.value)
+            self.load(tmp_path, monkeypatch, runs, **more)
+        assert "drive madswan" in str(refused.value) and crew.WRITER in str(refused.value)
+
+    def test_each_role_standing_or_on_demand(self, tmp_path, monkeypatch):
+        """main-level, Each role standing or on demand: madswan's planner and reviewer run on demand, and its design
+        agent, ops and operator stand."""
+        fleet = self.load(tmp_path, monkeypatch, self.TWO)
+        madswan = crew.drive_of(fleet, "madswan")
+        assert madswan["runs"] == self.TWO and madswan["review"] == {"after_changes": 5, "after_hours": 4}
+        for role, runs in self.TWO.items():
+            assert crew.role_runs(fleet, "madswan", role) == runs
+            assert crew.on_demand(madswan, role) is (runs == "on-demand")
+            assert crew.role_runs(fleet, "swancloud", role) == "standing"
+            assert crew.on_demand(crew.drive_of(fleet, "swancloud"), role) is False
+        assert crew.on_demand(madswan, "main-ops") is False and crew.on_demand(madswan, "dispatcher") is False
+
+    @pytest.mark.parametrize("runs, said", [
+        (NONE, "drive madswan in .*teams.json has no 'runs', which names how each of its roles runs, design, planner, "
+               "reviewer, ops, operator, each standing or on-demand"),
+        ([], "drive madswan in .*teams.json: 'runs' names how each of its roles runs, not \\[\\]"),
+        (dict(TWO, dispatcher="standing"), "drive madswan in .*teams.json: 'runs' names dispatcher, which crew has no kind for"),
+        ({r: "standing" for r in ("design", "planner", "reviewer", "ops")}, "drive madswan in .*teams.json: 'runs' leaves out operator"),
+        (dict(TWO, planner=False), "drive madswan in .*teams.json: runs.planner is standing or on-demand, not false"),
+        (dict(TWO, planner=True), "runs.planner is standing or on-demand, not true"),
+        (dict(TWO, planner=None), "runs.planner is standing or on-demand, not null"),
+        (dict(TWO, planner=""), "runs.planner is standing or on-demand, not \"\""),
+        (dict(TWO, planner="madswan"), "runs.planner is standing or on-demand, not \"madswan\""),
+        (dict(TWO, planner="Standing"), "runs.planner is standing or on-demand, not \"Standing\"")])
+    def test_a_role_crew_has_no_kind_for_is_refused_naming_the_drive_the_role_and_the_fix(self, tmp_path, monkeypatch, runs, said):
+        """main-level, A drive with no runs and A role crew has no kind for."""
+        self.refused(tmp_path, monkeypatch, said, runs)
+
+    @pytest.mark.parametrize("runs", [TWO, NONE])
+    def test_a_drive_that_names_flume_is_refused_naming_the_key_beside_a_runs_or_with_none(self, tmp_path, monkeypatch, runs):
+        """main-level, A drive that names flume: refused naming madswan and `flume`, saying the file names how each
+        role runs under `runs`, whatever else the entry gives (Decision 4)."""
+        self.refused(tmp_path, monkeypatch, "drive madswan in .*teams.json names 'flume', which crew does not read: the "
+                     "file names how each of its roles runs under 'runs', each standing or on-demand", runs,
+                     flume={r: False for r in crew.KIND_ROLES})
+
+    @pytest.mark.parametrize("review, said", [
+        ({"every": 5, "hours": 4}, "names 'review.every', which crew does not read: the batch setting is "
+                                   "'review.after_changes' and 'review.after_hours'"),
+        ({"after_changes": 5, "after_hours": 4, "hours": 4}, "names 'review.hours', which crew does not read"),
+        ({"after_changes": 5}, "'review' has no 'after_hours'"),
+        ({"after_changes": 5, "after_hours": 4, "after_days": 1}, "'review' names 'after_days', and the batch setting is "
+                                                                 "'review.after_changes' and 'review.after_hours' alone"),
+        ({"after_changes": 0, "after_hours": 4}, "'review.after_changes' is how many of the drive's constructed changes, "
+                                                 "waiting for the user's read, make a batch due, a whole number of at least 1, not 0"),
+        ({"after_changes": True, "after_hours": 4}, "'review.after_changes' .* a whole number of at least 1, not true"),
+        ({"after_changes": 1.5, "after_hours": 4}, "'review.after_changes' .* a whole number of at least 1, not 1.5"),
+        ({"after_changes": 5, "after_hours": 0}, "'review.after_hours' is how many hours since the drive's last batch make "
+                                                 "one due while at least one change waits, a number above 0, not 0"),
+        ({"after_changes": 5, "after_hours": -1}, "'review.after_hours' .* a number above 0, not -1"),
+        ({"after_changes": 5, "after_hours": True}, "'review.after_hours' .* a number above 0, not true"),
+        ([5, 4], "has no batch setting \\('review', with 'after_changes' and 'after_hours'\\)")])
+    def test_a_batch_setting_by_its_former_names_or_out_of_range_is_refused_naming_the_key(self, tmp_path, monkeypatch, review, said):
+        """main-level, A batch setting by its former names and A batch setting out of range: each refusal names the
+        drive and the key, with its unit and range (Decisions 3 and 4)."""
+        self.refused(tmp_path, monkeypatch, said, review=review)
+
+    def test_a_batch_setting_in_hours_may_be_a_fraction(self, tmp_path, monkeypatch):
+        fleet = self.load(tmp_path, monkeypatch, self.TWO, review={"after_changes": 1, "after_hours": 1.5})
+        assert crew.drive_of(fleet, "madswan")["review"] == {"after_changes": 1, "after_hours": 1.5}
 
     def test_an_agent_name_is_its_drive_and_role_only_where_the_role_runs_as_its_kind(self, tmp_path, monkeypatch):
         fleet = self.load(tmp_path, monkeypatch, self.TWO)
@@ -508,9 +559,9 @@ class TestRoleSettings:
     def test_a_role_with_no_kind_is_refused(self, tmp_path, monkeypatch):
         fleet = self.load(tmp_path, monkeypatch, self.TWO)
         with pytest.raises(crew.Refusal, match="dispatcher is no main-level role that runs as a kind. roles: design planner reviewer ops operator"):
-            crew.role_stream(fleet, "madswan", "dispatcher")
+            crew.role_runs(fleet, "madswan", "dispatcher")
         with pytest.raises(crew.Refusal, match="no drive 'wldn'"):
-            crew.role_stream(fleet, "wldn", "planner")
+            crew.role_runs(fleet, "wldn", "planner")
 
 
 class TestRoleSessions:
@@ -520,8 +571,8 @@ class TestRoleSessions:
     def load(self, tmp_path, monkeypatch, roles, accounts=None):
         teams = {"version": 6, "hosts": DENEB, "drives": [{
             "label": "swancloud", "blueprints": ["afterthought/blueprints"], "state": "afterthought/crew-state",
-            "review": {"every": 5, "hours": 4}, "machine": "deneb", "session": "swancloud-1", "folder": "/deneb/madswan",
-            "repos": ["afterthought/blueprints", "afterthought/crew"], "roles": roles, "flume": STANDING,
+            "review": {"after_changes": 5, "after_hours": 4}, "machine": "deneb", "session": "swancloud-1", "folder": "/deneb/madswan",
+            "repos": ["afterthought/blueprints", "afterthought/crew"], "roles": roles, "runs": STANDING,
             "accounts": accounts or (dict(every("madswan"), planner="madswan-2", reviewer="madswan-2")
                                      if (roles.get("planner") or {}).get("session") else every("madswan"))}]}
         return loaded(tmp_path, monkeypatch, teams)
@@ -544,7 +595,7 @@ class TestRoleSessions:
         stays one of the main level's, so a standing agent of it left there is ended (design Decision 14)."""
         fleet = self.load(tmp_path, monkeypatch, {"planner": {"session": "swancloud-2"}})
         p = dict(crew.drive_of(fleet, "swancloud"))
-        p["flume"] = dict(p["flume"], planner="swancloud-main", ops="swancloud-main")
+        p["runs"] = dict(p["runs"], planner="on-demand", ops="on-demand")
         assert crew.main_sessions(p) == [("swancloud-1", ("design", "operator")), ("swancloud-2", ())]
 
     NOW = plan.utc("2026-10-31T12:30:00Z")
@@ -552,8 +603,8 @@ class TestRoleSessions:
 
     @pytest.mark.parametrize("run, said", [
         ({"live": False, "place": None, "words": None, "why": None}, "no run stands"),
-        ({"live": False, "place": "/flume/places/crew-planner--madswan", "words": "flume refused: no stream madswan-main", "why": None},
-         "no run stands (the runner could not launch its last: flume refused: no stream madswan-main)"),
+        ({"live": False, "place": "/flume/places/crew-planner--madswan", "words": "flume refused: no stream madswan", "why": None},
+         "no run stands (the runner could not launch its last: flume refused: no stream madswan)"),
         ({"live": True, "place": "/flume/places/crew-planner--madswan", "words": None, "why": None},
          "a run stands, the place /flume/places/crew-planner--madswan"),
         ({"live": None, "place": None, "words": None, "why": "no runner answers on mac-studio: madswan/runner/mac-studio does not exist"},
@@ -561,10 +612,10 @@ class TestRoleSessions:
     def test_main_status_says_a_role_runs_as_its_kind_whether_a_run_stands_and_how_many_asks_wait(self, run, said):
         """main-level, Main status: the planner runs as its kind, its run as the runner's records show it, and two asks
         wait, with the oldest's age (design Decision 14; plan.kind_said)."""
-        assert plan.kind_said("madswan-main", self.WAITING, run, self.NOW) == \
-            f"runs as its kind in stream madswan-main; {said}; 2 asks wait, the oldest asked 14m ago"
-        assert plan.kind_said("madswan-main", self.WAITING[1:], run, self.NOW).endswith("; 1 ask waits, the oldest asked 1m ago")
-        assert plan.kind_said("madswan-main", [], run, self.NOW).endswith("; no ask waits")
+        assert plan.kind_said("madswan", self.WAITING, run, self.NOW) == \
+            f"runs as its kind in stream madswan; {said}; 2 asks wait, the oldest asked 14m ago"
+        assert plan.kind_said("madswan", self.WAITING[1:], run, self.NOW).endswith("; 1 ask waits, the oldest asked 1m ago")
+        assert plan.kind_said("madswan", [], run, self.NOW).endswith("; no ask waits")
 
     @pytest.mark.parametrize("roles, said", [
         ({"planner": {"session": ""}}, "roles.planner.session must name a session of the main level's machine"),
@@ -599,7 +650,7 @@ class TestRoleSessions:
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         r, v = "/Users/chuck/.local/share/flywheel/repositories", "/Users/chuck/Code/boomdrive"
         named = {a: {"dir": f"{r}/{a}", "checkout": f"{v}/{a}"} for a in ("afterthought/blueprints", "afterthought/crew", "afterthought/swancloud")}
-        part = {"state": "afterthought/crew-state", "review": {"every": 5, "hours": 4}, "flume": STANDING}
+        part = {"state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4}, "runs": STANDING}
         teams = {"version": 6, "repositories": named, "hosts": dict(DENEB, **{BOX: HOSTS[BOX]}), "drives": [
             dict(part, label="swancloud", blueprints=["afterthought/blueprints"], machine="deneb", session="swancloud-1",
                  folder="/deneb/madswan", repos=["afterthought/blueprints", "afterthought/crew", "agentplot/weir"],

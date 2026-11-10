@@ -2,7 +2,7 @@
 """asks.py: what waits on a drive's main-level roles that run as their kinds (record 0047 move 6), decided from
 plain facts (code.7).
 
-A role its drive's `flume` names a stream for runs as its kind: no agent of it stands, and each of its runs is a
+A role its drive's `runs` names on demand runs as its kind, in the drive's own stream, named by its label: no agent of it stands, and each of its runs is a
 place the host's runner launches while anything is pending for the role, one at a time. What is pending is each ask
 of the role on the drive's branch, asks.rec's Ask records, and each place the runner's records show
 waiting on the role, that no ended turn took. A turn, asks.rec's Turn records, is a run's taking of everything pending
@@ -11,8 +11,8 @@ lost run's, superseded by the new turn, which takes its asks again, and answers 
 the runner launches each role's run from, written to match the teams file.
 
 Every function here decides on what it is given, the files' text and the runner's records as plan.py read them: it
-starts no process and reads nothing, and imports only the standard library, and crew's fail where it refuses (code.1,
-code.2). plan.py writes what these decide through land() (state.1)."""
+starts no process and reads nothing, and imports only the standard library, crew's fail where it refuses and crew's
+on_demand for how a role runs (code.1, code.2). plan.py writes what these decide through land() (state.1)."""
 import json
 import re
 
@@ -178,17 +178,18 @@ def definition_of(role):
 
 
 def role_record(drive, role, meta):
-    """The role record of a role its drive runs as its kind (design Decision 6, role-runs "A role record names its
-    run"), from the drive's entry in the teams file as crew reads it and the role's definition's frontmatter, meta:
-    its address and run, the main level's host, the drive's first blueprints repo, crew's kinds and the role's, the
-    place's name, the stream its `flume` names, priority 0, its intent, and the definition's model and effort after
+    """The role record of a role its drive's `runs` names on demand (crew.on_demand; design Decision 6, role-runs "A
+    role record names its run"), from the drive's entry in the teams file as crew reads it and the role's definition's
+    frontmatter, meta: its address and run, the main level's host, the drive's first blueprints repo, crew's kinds and
+    the role's, the place's name, the stream, the drive's own, named by its label (Decision 2 of
+    a-roles-way-of-running-says-what-it-means), priority 0, its intent, and the definition's model and effort after
     the teams file's override (Decision 16). None for a role that stands."""
-    stream = drive["flume"][role]
-    if stream is False:
+    from crew import on_demand
+    if not on_demand(drive, role):
         return None
     label, o = drive["label"], (drive.get("roles") or {}).get(definition_of(role), {})
     return {"Role": role, "Address": f"{label}/{role}", "Run": f"{label}-{role}", "Host": drive["machine"],
-            "Repository": drive["blueprints"][0], "Kinds": "crew", "Kind": f"crew-{role}", "Name": label, "Stream": stream,
+            "Repository": drive["blueprints"][0], "Kinds": "crew", "Kind": f"crew-{role}", "Name": label, "Stream": label,
             "Priority": "0", "Intent": f"{label}-{role}", "Model": o.get("model", meta["model"]), "Effort": o.get("effort", meta["effort"])}
 
 
@@ -196,9 +197,10 @@ def roles_due(records, drive, metas):
     """What the drive's roles.rec is due to match the teams file (role-runs "Role records follow the teams file"):
     (each role record to write, missing from records or differing from what is there, in the order the drive names
     its roles; each role whose record is to go, its drive no longer running it as its kind). records, the Role
-    records on the branch (parse_roles); metas, {role: its definition's frontmatter} for each role the drive runs as
-    its kind."""
-    want = {r: role_record(drive, r, metas[r]) for r, s in drive["flume"].items() if s is not False}
+    records on the branch (parse_roles); metas, {role: its definition's frontmatter} for each role the drive's `runs`
+    names on demand (crew.on_demand)."""
+    from crew import KIND_ROLES, on_demand
+    want = {r: role_record(drive, r, metas[r]) for r in KIND_ROLES if on_demand(drive, r)}
     have = {x["Role"]: x for x in records}
     return [rec for r, rec in want.items() if have.get(r) != rec], [r for r in have if r not in want]
 

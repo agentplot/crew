@@ -76,9 +76,9 @@ crew bolt start b1 >/dev/null; crew bolt start d1 >/dev/null
 base_made $box b1; base_made $box d1 "$bk"  # the box's runner launches each base place, which has sluice make its branch
 mkdir -p "$(space mac-studio willdan)/willdan-blueprints/main"
 crew main up wldn >/dev/null 2>&1
-# A batch every two changes. The runner's records carry each place at 12:01Z on 2026-10-31, so the drive's clock is
+# A batch due after two changes. The runner's records carry each place at 12:01Z on 2026-10-31, so the drive's clock is
 # set past any day this test runs on, and the count alone makes the batch due.
-edit teams "$(part wldn)['review'] = {'every': 2, 'hours': 100000}"
+edit teams "$(part wldn)['review'] = {'after_changes': 2, 'after_hours': 100000}"
 planner_told() { grep -c "^$box wldn-3 agent prompt wldn-planner '\[crew\] A batch of wldn" "$CREW_TEST_LOG" || true; }
 : > "$CREW_TEST_LOG"
 # y1's place lands on d1, cut from it in breadboard-kit's checkout on the box; the box's rail read reckons the batch,
@@ -93,7 +93,7 @@ flume_lands $box unit x1 b1
 HOST=$box expect_ok crew rail --label wldn
 HOST=$box expect_ok crew rail --label wldn
 eq "$(planner_told)" "1"
-has "$(grep "agent prompt wldn-planner" "$CREW_TEST_LOG")" "s changes is due: x1 (b1), y1 (d1); 2 changes are due, and a batch is every 2. Start its reviewer with crew review wldn"
+has "$(grep "agent prompt wldn-planner" "$CREW_TEST_LOG")" "s changes is due: x1 (b1), y1 (d1); 2 changes are due, and a batch is due after 2. Start its reviewer with crew review wldn"
 eq "$(entries $box batch.due | jq -r '[.Count, (.On | join(" "))] | join(" ")')" "2 agent/wldn-planner unit/x1 unit/y1"
 ok "changes two teams' places landed on their bolts make a batch due at the drive's setting, told to its planner once, on the rail's read, while a host of the drive holding none of them does not answer"
 
@@ -323,7 +323,7 @@ ok "a bolt added tells no agent; crew tell marks its sender, types nothing to an
 # wldn's reviewer and planner run as their kinds: crew review asks the reviewer the batch, opening no tab; the
 # reviewer's run takes it with crew role start and hands it back with crew review delivered once its summary is
 # written, which records the batch, raises its card in the planner's name and asks the planner, typing into no pane.
-role_stream wldn reviewer wldn-main; role_stream wldn planner wldn-main
+role_runs wldn reviewer on-demand; role_runs wldn planner on-demand
 flume_lands $box unit v1 b1
 : > "$CREW_TEST_LOG"; : > "$CREW_TEST_CLAUDE_LOG"
 CREW_AGENT=wldn-planner expect_ok crew review wldn

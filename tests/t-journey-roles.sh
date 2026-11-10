@@ -1,5 +1,5 @@
 # A drive's main-level roles that run as their kinds, through the crew command on the stubs (tests.11, record
-# 0022; record 0047 move 6): with madswan's planner and operator named a stream, a tell to the planner with no
+# 0022; record 0047 move 6): with madswan's planner and operator named on demand in its runs, a tell to the planner with no
 # standing agent of it up is an ask of the role from its sender on madswan's branch, its role record written in
 # the same commit, nothing typed into any pane and one ask entry holding the words' length and never their text, which
 # crew trace of the run lists; a send to madswan is an ask of its operator carrying whom it was for; and a tell to wldn's
@@ -25,7 +25,7 @@
 world
 blueprints afterthought/blueprints >/dev/null; blueprints agentplot/blueprints >/dev/null
 crew state init madswan >/dev/null
-role_stream madswan planner madswan-main; role_stream madswan operator madswan-main
+role_runs madswan planner on-demand; role_runs madswan operator on-demand
 ms=$(remote afterthought/crew-state)
 at() { git --git-dir "$ms" show "madswan/main:$1"; }
 asks() { at asks.rec | recsel -t Ask "$@"; }
@@ -36,7 +36,7 @@ t0=$(act_tip madswan/main "$ms")
 CREW_AGENT=madswan-design expect_ok crew tell madswan-planner "Record 0053 is accepted ZQXR"
 has "$out" "asked madswan-planner"
 eq "$(asks -p Role,From,What,Words | tr '\n' ' ')" "Role: planner From: madswan-design What: tell Words: Record 0053 is accepted ZQXR "
-eq "$(at roles.rec | recsel -t Role -P Address,Stream,Kind,Name,Intent | tr '\n' ' ')" "madswan/planner madswan-main crew-planner madswan madswan-planner "
+eq "$(at roles.rec | recsel -t Role -P Address,Stream,Kind,Name,Intent | tr '\n' ' ')" "madswan/planner madswan crew-planner madswan madswan-planner "
 eq "$(acts_since "$t0" madswan/main "$ms")" "1"
 grep -q "agent prompt" "$CREW_TEST_LOG" && fail "a tell to a role that runs as its kind typed into a pane"
 expect_ok crew trace agent/madswan-planner --label madswan
@@ -99,7 +99,7 @@ ok "a start and an end outside a role's run are refused and write nothing"
 
 # The user opens madswan's design agent, which runs as its kind, while mac-studio's runner shows no run of it: an open
 # ask from the user, naming the place its run opens as. The runner's branch is its own, written here as a runner would.
-role_stream madswan design madswan-main
+role_runs madswan design on-demand
 runner_commit() {  # runner_commit <message> [<places.rec>]: mac-studio's runner's branch on madswan's state, with the files given
   local tree runner_rec
   runner_rec=$(printf '%%rec: Runner\n%%key: Host\n%%type: Since date\n%%mandatory: Host Version Since\n%%allowed: Host Version Since\n\nHost: mac-studio\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n')
@@ -134,10 +134,10 @@ printf 'Write docs/adr/0053-roles-run-as-kinds.md with this text whole:\n# 53. R
 design() { FLUME_PLACE=$T/flume/places/crew-design--madswan "$@"; }
 t0=$(act_tip madswan/main "$ms")
 design expect_ok crew role land afterthought/blueprints record-0053 --brief-file "$T/record-0053.md"
-has "$out" "the runner on mac-studio launches chore record-0053 in afterthought/blueprints on main (request 1) in stream madswan-main"
+has "$out" "the runner on mac-studio launches chore record-0053 in afterthought/blueprints on main (request 1) in stream madswan"
 landed() { at requests.rec | recsel -t Request -e "Work = 'role/design/record-0053'" "$@"; }
 eq "$(landed -P Act,Host,Repo,Kind,Name,Base,Stream,Priority,Intent,Recipient,By | tr '\n' ' ')" \
-   "launch mac-studio afterthought/blueprints chore record-0053 main madswan-main 0 madswan-design madswan/design madswan-design "
+   "launch mac-studio afterthought/blueprints chore record-0053 main madswan 0 madswan-design madswan/design madswan-design "
 eq "$(landed -P Brief)" "$(cat "$T/record-0053.md")"
 eq "$(acts_since "$t0" madswan/main "$ms")" "1"
 expect_ok crew trace role/design/record-0053 --label madswan
@@ -160,7 +160,7 @@ ok "a land in a repository crew does not name, or outside a role's run, is refus
 # place and host, and no command.
 expect_ok crew board --label madswan --json
 eq "$(jq -c '.drives[0].runs | map([.run, .stream, (.turn.turn // "none"), .waiting])' <<<"$out")" \
-   '[["madswan-design","madswan-main","none",1],["madswan-planner","madswan-main","1",1],["madswan-operator","madswan-main","none",1]]'
+   '[["madswan-design","madswan","none",1],["madswan-planner","madswan","1",1],["madswan-operator","madswan","none",1]]'
 eq "$(jq -c '[.drives[0].attention[] | select(.what == "run")]' <<<"$out")" "[]"
 lost='{"status":{"places":[{"place":"/flume/places/crew-design--madswan","phase":"live","current":"turn","waiting_on":{"act":"retry","stage":"turn","why":"lost","since":1793440000,"words":null},"stalled":false}],"host":{}}}'
 runner_commit "runner: madswan/design's run lost" "$(printf '%%rec: Place\n%%key: Request\n%%type: Request int\n%%type: At date\n%%mandatory: Request Place At Status\n%%allowed: Request Place At Status\n\n%%rec: Run\n%%key: Address\n%%type: At date\n%%mandatory: Address At\n%%allowed: Address Place At Status Words\n\nAddress: madswan/design\nPlace: /flume/places/crew-design--madswan\nAt: 2026-10-31T12:20:00Z\nStatus: %s\n' "$lost")"

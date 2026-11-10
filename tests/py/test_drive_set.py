@@ -24,7 +24,7 @@ def flags(label="pat", leave=(), **more):
     a list of words, or a list of lists for a flag given several times."""
     given = {"--state": ["pat/crew-state"], "--blueprints": ["pat/blueprints"], "--machine": [MAC], "--session": ["pat"],
              "--folder": [FOLDER], "--repos": ["pat/blueprints"],
-             "--accounts": [[r, "pat"] for r in crew.KIND_ROLES], "--flume": [[r, "false"] for r in crew.KIND_ROLES],
+             "--accounts": [[r, "pat"] for r in crew.KIND_ROLES], "--runs": [[r, "standing"] for r in crew.KIND_ROLES],
              "--review": ["5", "4"], "--hosts": [MAC, MAC, "darwin"], "--console": [FOLDER],
              "--repositories": ["pat/blueprints", *KEPT]}
     given.update({f"--{k}": v for k, v in more.items()})
@@ -47,7 +47,8 @@ def given(here=MAC, **kw):
 
 class TestDriveGiven:
     """drive-setup, "Every key is a flag, with no default", "A flag crew does not accept is refused before anything is
-    read" and "The flags agree before anything is read" (design, Decision 2)."""
+    read", "The batch setting is given in its units, and the former flag is refused" and "The flags agree before
+    anything is read" (design, Decision 2)."""
 
     def refused(self, said, here=MAC, **kw):
         with pytest.raises(crew.Refusal) as e:
@@ -62,7 +63,7 @@ class TestDriveGiven:
         assert g["drive"] == {
             "label": "pat", "blueprints": ["pat/blueprints"], "state": "pat/crew-state", "machine": MAC, "session": "pat",
             "folder": FOLDER, "repos": ["pat/blueprints"], "accounts": {r: "pat" for r in crew.KIND_ROLES},
-            "flume": {r: False for r in crew.KIND_ROLES}, "review": {"every": 5, "hours": 4}}
+            "runs": {r: "standing" for r in crew.KIND_ROLES}, "review": {"after_changes": 5, "after_hours": 4}}
         assert g["hosts"] == {MAC: {"ssh": MAC, "kind": "darwin"}} and g["console"] == FOLDER
         assert g["repositories"] == {"pat/blueprints": {"dir": KEPT[0], "checkout": KEPT[1]}}
 
@@ -70,24 +71,24 @@ class TestDriveGiven:
         g = given(leave=("--console", "--repositories", "--roles"))
         assert g["console"] is None and g["repositories"] == {} and "roles" not in g["drive"]
 
-    def test_several_blueprints_repos_hosts_and_streams_and_a_roles_override(self):
+    def test_several_blueprints_repos_hosts_a_role_on_demand_and_a_roles_override(self):
         g = given(blueprints=[["pat/blueprints"], ["pat/notes"]], repos=[["pat/app"], ["pat/blueprints"], ["pat/notes"]],
                   hosts=[[MAC, MAC, "darwin"], ["box-1", "box-1.tail", "nixos"]],
-                  flume=[[r, "pat-work" if r == "planner" else "false"] for r in crew.KIND_ROLES],
+                  runs=[[r, "on-demand" if r == "planner" else "standing"] for r in crew.KIND_ROLES],
                   roles=[["planner", "effort", "max"], ["planner", "session", "pat-2"], ["main-ops", "model", "claude-opus-5-5"]],
                   review=["3", "1.5"])
         d = g["drive"]
         assert d["blueprints"] == ["pat/blueprints", "pat/notes"] and d["repos"] == ["pat/app", "pat/blueprints", "pat/notes"]
-        assert d["flume"]["planner"] == "pat-work" and d["flume"]["ops"] is False
+        assert d["runs"]["planner"] == "on-demand" and d["runs"]["ops"] == "standing"
         assert d["roles"] == {"planner": {"effort": "max", "session": "pat-2"}, "main-ops": {"model": "claude-opus-5-5"}}
-        assert d["review"] == {"every": 3, "hours": 1.5} and set(g["hosts"]) == {MAC, "box-1"}
+        assert d["review"] == {"after_changes": 3, "after_hours": 1.5} and set(g["hosts"]) == {MAC, "box-1"}
 
     def test_hours_given_as_a_whole_number_with_a_point_is_whole(self):
-        assert given(review=["5", "4.0"])["drive"]["review"] == {"every": 5, "hours": 4}
-        assert type(given(review=["5", "4.0"])["drive"]["review"]["hours"]) is int
+        assert given(review=["5", "4.0"])["drive"]["review"] == {"after_changes": 5, "after_hours": 4}
+        assert type(given(review=["5", "4.0"])["drive"]["review"]["after_hours"]) is int
 
     @pytest.mark.parametrize("flag", ["--state", "--blueprints", "--machine", "--session", "--folder", "--repos", "--accounts",
-                                      "--flume", "--review", "--hosts"])
+                                      "--runs", "--review", "--hosts"])
     def test_each_required_flag_left_out_is_refused_naming_it(self, flag):
         """drive-setup, A flag left out: every flag of a key crew requires, and --hosts, is required."""
         self.refused(f"crew drive set pat: {flag} is required", leave=(flag,))
@@ -98,10 +99,10 @@ class TestDriveGiven:
     def test_a_flag_given_past_its_count_is_refused_naming_it(self, flag, words):
         self.refused(f"--{flag} is given 2 times, and it is given once", **{flag: words})
 
-    @pytest.mark.parametrize("flag", ["accounts", "flume"])
+    @pytest.mark.parametrize("flag", ["accounts", "runs"])
     def test_a_role_left_out_named_twice_or_unknown_is_refused_naming_the_flag_and_the_role(self, flag):
         """drive-setup, An account left out: refused naming --accounts and the reviewer."""
-        value = "pat" if flag == "accounts" else "false"
+        value = "pat" if flag == "accounts" else "standing"
         others = [[r, value] for r in crew.KIND_ROLES if r != "reviewer"]
         self.refused(f"--{flag} leaves out the reviewer: it is given once for each role", **{flag: others})
         self.refused(f"--{flag} names the planner twice", **{flag: others + [["reviewer", value], ["planner", value]]})
@@ -112,18 +113,32 @@ class TestDriveGiven:
         self.refused("--accounts gives the ops \"Pat Smith\", which is no Claude account's name crew accepts",
                      accounts=[[r, "Pat Smith" if r == "ops" else "pat"] for r in crew.KIND_ROLES])
 
-    @pytest.mark.parametrize("value", ["true", "False", "Pat Work", ""])
-    def test_a_flume_setting_that_is_no_streams_name_is_refused(self, value):
-        self.refused(f"--flume gives the planner {json.dumps(value)}, which is false or the name of a Flume stream",
-                     flume=[[r, value if r == "planner" else "false"] for r in crew.KIND_ROLES])
+    @pytest.mark.parametrize("value", ["false", "pat-work", "true", "Standing", "on_demand", ""])
+    def test_a_way_of_running_crew_does_not_take_is_refused(self, value):
+        """drive-setup, A way of running crew does not take: refused naming --runs, the planner and both words."""
+        self.refused(f"--runs gives the planner {json.dumps(value)}, and a role runs standing or on-demand",
+                     runs=[[r, value if r == "planner" else "standing"] for r in crew.KIND_ROLES])
 
-    @pytest.mark.parametrize("review, said", [(["0", "4"], "--review gives \"0\" changes a batch"),
-                                              (["five", "4"], "--review gives \"five\" changes a batch"),
-                                              (["2.5", "4"], "--review gives \"2.5\" changes a batch"),
-                                              (["5", "0"], "--review gives \"0\" hours a batch, and that is a number above 0"),
-                                              (["5", "-1"], "--review gives \"-1\" hours"), (["5", "inf"], "--review gives \"inf\" hours")])
-    def test_a_review_crew_does_not_read_is_refused(self, review, said):
+    @pytest.mark.parametrize("review, said", [
+        (["0", "4"], "--review gives after_changes \"0\", how many of the drive's constructed changes waiting for the user's "
+                     "read make a batch due, and that is a whole number of at least 1"),
+        (["five", "4"], "--review gives after_changes \"five\""), (["2.5", "4"], "--review gives after_changes \"2.5\""),
+        (["5", "0"], "--review gives after_hours \"0\", how many hours since the drive's last batch make one due, and that "
+                     "is a number above 0"),
+        (["5", "-1"], "--review gives after_hours \"-1\""), (["5", "inf"], "--review gives after_hours \"inf\"")])
+    def test_a_batch_setting_out_of_range_is_refused_naming_the_key_and_its_range(self, review, said):
+        """drive-setup, A batch setting out of range."""
         self.refused(said, review=review)
+
+    def test_the_former_flag_is_refused_by_the_parser_before_anything_is_read(self, capsys):
+        """drive-setup, The former flag: --flume beside every flag crew drive set takes is refused by the command's own
+        parser as an argument crew does not take, naming it, before drive_given or any read; with --flume in place of
+        --runs, the same."""
+        for argv in (flags() + ["--flume", "design", "false"], flags(leave=("--runs",)) + ["--flume", "design", "false"]):
+            with pytest.raises(SystemExit) as e:
+                parsed(argv)
+            assert e.value.code == 2
+            assert "crew: error: unrecognized arguments: --flume design false" in capsys.readouterr().err
 
     def test_a_host_named_wrongly_is_refused(self):
         self.refused("--hosts gives pats-mac the kind \"macos\", which is darwin or nixos", hosts=[MAC, MAC, "macos"])

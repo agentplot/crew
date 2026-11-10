@@ -42,14 +42,14 @@ A unit of a started bolt SHALL become due for review when the runner's records r
 - **THEN** batch 21 is delivered, and batch 22 is refused, naming its file
 
 ### Requirement: A batch spans the drive's bolts
-A batch SHALL hold the changes due across every bolt of a drive. A drive SHALL have a batch setting, a count N and a number of hours T, read from its entry in the teams file. A batch SHALL be due, at the rail's sweep on the drive's main-level host, when N changes are due across its bolts, or when T hours have passed since the drive's last batch and at least one change is due, whichever comes first.
+A batch SHALL hold the changes due across every bolt of a drive. A batch SHALL be due, at the rail's sweep on the drive's main-level host, once the drive's `after_changes` changes are due across its bolts, or once its `after_hours` hours have passed since the drive's last batch and at least one change is due, whichever comes first.
 
 #### Scenario: Changes from several bolts
-- **WHEN** a drive's setting is 5 and 4 hours, and two units of bolt `x` and three of bolt `y` have been constructed since its last batch
+- **WHEN** a drive's `review` gives `after_changes` 5 and `after_hours` 4, and two units of bolt `x` and three of bolt `y` have been constructed since its last batch
 - **THEN** a batch is due at the rail's next sweep on the main level's host, holding those five changes
 
 #### Scenario: The time is reached
-- **WHEN** two changes have been constructed across the drive's bolts since its last batch, four hours ago
+- **WHEN** the drive's `after_hours` is 4, and two changes have been constructed across the drive's bolts since its last batch, four hours ago
 - **THEN** a batch is due, holding those two
 
 #### Scenario: Nothing due
@@ -59,6 +59,17 @@ A batch SHALL hold the changes due across every bolt of a drive. A drive SHALL h
 #### Scenario: Swept on another host
 - **WHEN** the rail's sweep runs on a host that is not wldn's main-level host
 - **THEN** it reckons no batch for wldn
+
+### Requirement: A drive's batch setting is read in changes and hours, and said in them
+A drive SHALL have a batch setting, read from its entry in the teams file as `review`: `after_changes`, a count of changes, a whole number of at least 1, and `after_hours`, a number of hours above 0. What crew says of a batch made due SHALL name the setting it reached in those units.
+
+#### Scenario: Due by its count
+- **WHEN** a drive's `review` gives `after_changes` 5, and five changes have been constructed across its bolts since its last batch
+- **THEN** crew says five changes are due and a batch is due after 5
+
+#### Scenario: Due by its hours
+- **WHEN** the drive's `after_hours` is 4, and a change has been constructed since its last batch, four hours ago
+- **THEN** crew says 4 hours have passed since the last batch
 
 ### Requirement: A batch is reckoned from the drive's branch, never a host
 Whether a batch is due, what a review holds, and whether every unit's latest change of a bolt has been in a batch, SHALL be read from the run record on the drive's branch alone, asking no host for it. A host that does not answer SHALL hold none of them. When the branch cannot be read, each SHALL be refused naming the branch, as crew can't tell then which changes have been in a batch.

@@ -153,7 +153,7 @@ ok "a program's capture lands from the host that banked its raw record, in one c
 
 # Once wldn's design agent runs as its kind, a capture asks it, in the capture's own commit; none did while it stood.
 at asks.rec >/dev/null 2>&1 && fail "a capture asked a design agent that stands"
-role_stream wldn design wldn-main
+role_runs wldn design on-demand
 t0=$(tip)
 expect_ok crew signal tags-on-stacks "Every stack carries its owner's tags."
 sig=$(id_of "$out")

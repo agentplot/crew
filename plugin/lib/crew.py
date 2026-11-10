@@ -43,7 +43,7 @@ HOME = LIB.parent.parent
 MANIFEST = LIB.parent / ".claude-plugin/plugin.json"
 TEAMS = pathlib.Path.home() / ".config/crew/teams.json"
 # The version of the teams file crew reads (code.5; Boomdrive record 0028): 6, its drives alone, each named by its label
-# and naming the Flume setting of each of its main-level roles (record 0047 move 6), as version 5 did under its former key.
+# and naming how each of its main-level roles runs, `runs`, standing or on demand (record 0064 as amended 2026-11-09).
 VERSION = 6
 # What writes the teams file, named as the fix of every refusal of it (code.5): crew's own module, crew's own command,
 # `crew drive set`, at setup's asking where Nix does not link the file, or the machine's configuration that writes it,
@@ -57,8 +57,13 @@ MAIN_ROLES = ("design", "planner", "main-ops", "operator", "reviewer")
 # planner, ops and the operator, the drive's one door. The reviewer opens beside the planner unless named apart.
 MAIN_STANDING = ("design", "planner", "ops", "operator")
 # A main level's roles that may run as Flume kinds crew's release carries (record 0047 move 6), each by the name its
-# agent takes, <label>-<role>: a drive's `flume` names every one, false while it stands.
+# agent takes, <label>-<role>: a drive's `runs` names every one, RUNS_STANDING or RUNS_ON_DEMAND.
 KIND_ROLES = ("design", "planner", "reviewer", "ops", "operator")
+# How a drive's `runs` says each role runs (record 0064 as amended 2026-11-09): standing, crew keeping the role's agent
+# running in its pane on the drive's machine, or on demand, the host's runner having Flume run it in the drive's own
+# stream, named by its label, while something is pending for it, each run ending when its work is done.
+RUNS_STANDING, RUNS_ON_DEMAND = "standing", "on-demand"
+RUNS = (RUNS_STANDING, RUNS_ON_DEMAND)
 # What tells whether an agent waits on a question crew's own hook saw it open: piped to the agent's host, whose crew may be older.
 QUESTIONS = (LIB / "questions.py").read_text()
 # What reads whether an agent's session received a prompt crew sent: piped to the agent's host the same way.
@@ -144,24 +149,62 @@ def roles_of(entry, what):
     return roles
 
 
-def role_settings(entry, what):
-    """A drive's `flume`, the Flume setting of each of its main-level roles (record 0047 move 6): every role of
-    KIND_ROLES named, and no other, each False while it stands or the name of the Flume stream its runs run in on the
-    main level's host."""
+def runs_of(entry, what):
+    """A drive's `runs`, how each of its main-level roles runs (record 0064 as amended 2026-11-09): every role of
+    KIND_ROLES named, and no other, each RUNS_STANDING or RUNS_ON_DEMAND. An entry naming `flume`, the former key, is
+    refused first, whatever else it gives, its value never read (Decision 4 of a-roles-way-of-running-says-what-it-means)."""
     fix = f"regenerate {TEAMS} from {WRITER}"
-    "flume" in entry or fail(f"{what} in {TEAMS} has no 'flume', which names each of its roles, " + ", ".join(KIND_ROLES)
-                             + f", false or the name of a Flume stream its host declares: {fix}")
-    flume = entry["flume"]
-    isinstance(flume, dict) or fail(f"{what} in {TEAMS}: 'flume' names each of its roles, not {json.dumps(flume)}: {fix}")
-    for role in flume:
-        role in KIND_ROLES or fail(f"{what} in {TEAMS}: 'flume' names {role}, which crew has no kind for. roles: "
+    words = " or ".join(RUNS)
+    "flume" not in entry or fail(
+        f"{what} in {TEAMS} names 'flume', which crew does not read: the file names how each of its roles runs under "
+        f"'runs', each {words}: {fix}")
+    "runs" in entry or fail(f"{what} in {TEAMS} has no 'runs', which names how each of its roles runs, "
+                            + ", ".join(KIND_ROLES) + f", each {words}: {fix}")
+    runs = entry["runs"]
+    isinstance(runs, dict) or fail(f"{what} in {TEAMS}: 'runs' names how each of its roles runs, not {json.dumps(runs)}: {fix}")
+    for role in runs:
+        role in KIND_ROLES or fail(f"{what} in {TEAMS}: 'runs' names {role}, which crew has no kind for. roles: "
                                    + " ".join(KIND_ROLES) + f": {fix}")
     for role in KIND_ROLES:
-        role in flume or fail(f"{what} in {TEAMS}: 'flume' leaves out {role}: {fix}")
-        s = flume[role]
-        s is False or isinstance(s, str) and NAME.match(s) or fail(
-            f"{what} in {TEAMS}: flume.{role} is false, or the name of a Flume stream its host declares, not {json.dumps(s)}: {fix}")
-    return dict(flume)
+        role in runs or fail(f"{what} in {TEAMS}: 'runs' leaves out {role}: {fix}")
+        runs[role] in RUNS or fail(f"{what} in {TEAMS}: runs.{role} is {words}, not {json.dumps(runs[role])}: {fix}")
+    return {role: runs[role] for role in KIND_ROLES}
+
+
+def review_of(entry, what):
+    """A drive's `review`, its batch setting (record 0064 as amended 2026-11-09): exactly `after_changes`, how many of
+    its constructed changes waiting for the user's read make a batch due, a whole number of at least 1, and
+    `after_hours`, how many hours since its last batch make one due while one waits, a number above 0. A `review`
+    naming `every` or `hours`, the former keys, is refused first, its values never read (Decision 4 of
+    a-roles-way-of-running-says-what-it-means). Never a default: the machine's configuration writes it for every drive."""
+    fix = f"regenerate {TEAMS} from {WRITER}"
+    said = "the batch setting is 'review.after_changes' and 'review.after_hours'"
+    r = entry.get("review")
+    isinstance(r, dict) or fail(
+        f"{what} in {TEAMS} has no batch setting ('review', with 'after_changes' and 'after_hours'): {fix}, which gives "
+        f"every drive one")
+    for former in ("every", "hours"):
+        former not in r or fail(f"{what} in {TEAMS} names 'review.{former}', which crew does not read: {said}: {fix}")
+    for key in ("after_changes", "after_hours"):
+        key in r or fail(f"{what} in {TEAMS}: 'review' has no '{key}': {said}: {fix}")
+    for key in r:
+        key in ("after_changes", "after_hours") or fail(
+            f"{what} in {TEAMS}: 'review' names '{key}', and {said} alone: {fix}")
+    n, h = r["after_changes"], r["after_hours"]
+    isinstance(n, int) and not isinstance(n, bool) and n >= 1 or fail(
+        f"{what} in {TEAMS}: 'review.after_changes' is how many of the drive's constructed changes, waiting for the "
+        f"user's read, make a batch due, a whole number of at least 1, not {json.dumps(n)}: {fix}")
+    isinstance(h, (int, float)) and not isinstance(h, bool) and h > 0 or fail(
+        f"{what} in {TEAMS}: 'review.after_hours' is how many hours since the drive's last batch make one due while at "
+        f"least one change waits, a number above 0, not {json.dumps(h)}: {fix}")
+    return {"after_changes": n, "after_hours": h}
+
+
+def on_demand(drive, role):
+    """Whether a drive runs a main-level role on demand, as its kind, its runs in the drive's own stream, named by its
+    label, as the drive's `runs` names it (record 0064 as amended 2026-11-09); False for a role that stands and for a
+    role that is no main-level role of KIND_ROLES."""
+    return role in KIND_ROLES and drive["runs"][role] == RUNS_ON_DEMAND
 
 
 # A repository's forge address, <owner>/<name>, as the teams file names blueprints, state and kept repositories.
@@ -305,9 +348,9 @@ def fleet_of(data, here):
     data and here, this host's name, or a function that reads it, called only where the file names kept repositories,
     which the fleet keeps with this host. The file at version 6 (Boomdrive record 0028) gives its drives under
     `drives`, each named by its label, with its main level, its herdr session's `folder` on its machine, the `repos`
-    that folder keeps, the Claude account each of its main-level roles runs under (`accounts`), and its `flume`, the
-    Flume setting of each of those roles (record 0047 move 6), False while the role stands or the stream its runs run
-    in on the main level's host; `hosts`, each host crew reaches or reads, with its ssh name and kind (hosts_of); and,
+    that folder keeps, the Claude account each of its main-level roles runs under (`accounts`), how each of those
+    roles runs (`runs`, runs_of), standing or on demand in the drive's own stream, and its batch setting (`review`,
+    review_of), `after_changes` and `after_hours`; `hosts`, each host crew reaches or reads, with its ssh name and kind (hosts_of); and,
     for the host it is written on, its kept repositories (repositories_of, record 0061), which the fleet keeps with
     that host as `repositories`, {"host", "named"}, or {} for none, and the consoles it opens (consoles_of), {<label>:
     <folder>}. Data that is no object, or a file at any other version, one that still lists teams among them, is
@@ -339,16 +382,10 @@ def fleet_of(data, here):
             f"drive one")
         isinstance(p["state"], str) and re.match(r"^[^/\s]+/[^/\s]+$", p["state"]) or fail(
             f"{what}: 'state' is its state repository as GitHub owner/name, not {json.dumps(p['state'])}")
-        # The drive's batch setting: a batch of its constructed changes is due every `every` of them or every
-        # `hours` hours (briefs.12). Never a default: the machine's configuration writes it for every drive.
-        r = p.get("review")
-        isinstance(r, dict) and "every" in r and "hours" in r or fail(
-            f"{what} in {TEAMS} has no batch setting ('review', with 'every' and 'hours'): regenerate {TEAMS} from "
-            f"{WRITER}, which gives every drive one")
-        isinstance(r["every"], int) and not isinstance(r["every"], bool) and r["every"] > 0 or fail(
-            f"{what}: 'review.every' is how many changes make a batch, a whole number of at least 1, not {json.dumps(r['every'])}")
-        isinstance(r["hours"], (int, float)) and not isinstance(r["hours"], bool) and r["hours"] > 0 or fail(
-            f"{what}: 'review.hours' is how many hours make a batch due, a number above 0, not {json.dumps(r['hours'])}")
+        # The drive's batch setting: a batch of its constructed changes is due once `after_changes` of them wait for
+        # the user's read, or once `after_hours` hours have passed since its last batch with one waiting (briefs.12).
+        # Never a default: the machine's configuration writes it for every drive.
+        review = review_of(p, what)
         # Its machine, a host the file names (hosts_of), and its herdr session's folder there, which keeps its repos.
         machine in hosts or fail(f"{what} runs on {machine}, which {TEAMS}'s 'hosts' does not name. hosts: "
                                  + (" ".join(hosts) or "none") + f": {fix}")
@@ -372,7 +409,7 @@ def fleet_of(data, here):
             f"{what}: {machine} keeps no {b0}, its first blueprints repo: {TEAMS} lists it neither in the drive's 'repos' "
             f"nor in 'repositories' for {machine}: {fix}")
         drive = dict(p, label=label, ssh=hosts[machine]["ssh"], folder=folder, repos=list(dict.fromkeys(repos)),
-                     accounts=accounts, roles=roles_of(p, what))
+                     accounts=accounts, review=review, roles=roles_of(p, what))
         # A herdr session runs under one account: two of the drive's roles in one session name one.
         by = {}
         for role in MAIN_STANDING + ("reviewer",):
@@ -386,7 +423,7 @@ def fleet_of(data, here):
         # teams file's checkout where the file names it for this host (Decision 6 of
         # a-kept-repositorys-folder-is-the-runners-container), else its folder's (kept_at).
         drive["checkout"] = kept_at({"repositories": repositories}, machine, drive, b0)["main"]
-        drive["flume"] = role_settings(p, what)
+        drive["runs"] = runs_of(p, what)
         drive["sessions"] = {r: role_session(drive, r) for r in MAIN_STANDING + ("reviewer",)}
         parts[label] = drive
     return {"hosts": hosts, "drives": parts, "repositories": repositories, "consoles": consoles_of(data, list(parts))}
@@ -395,8 +432,10 @@ def fleet_of(data, here):
 
 # ---------------------------------------------------------------------------------------------- crew drive set
 # The decisions of crew drive set <label>, which names a drive in this host's teams file from its flags and makes its
-# state, at setup's asking on a host Nix does not configure (Boomdrive record 0009's amendment; record 0064; code.5):
-# each a function of plain facts (code.7), the reads and acts thin around them in plan.py's drive_set.
+# state, at setup's asking on a host Nix does not configure (Boomdrive record 0009's amendment; record 0064; code.5),
+# each key a flag named as the file names it, how each role runs by --runs <role> standing|on-demand and the batch
+# setting by --review <after_changes> <after_hours> (record 0064 as amended 2026-11-09): each a function of plain facts
+# (code.7), the reads and acts thin around them in plan.py's drive_set.
 
 
 def aside_of(teams):
@@ -470,10 +509,8 @@ def drive_given(a, here):
         NAME.match(v) or no("--accounts", f"gives the {role} {json.dumps(v)}, which is no Claude account's name crew accepts")
         return v
 
-    def stream(role, v):
-        if v == "false":
-            return False
-        v != "true" and NAME.match(v) or no("--flume", f"gives the {role} {json.dumps(v)}, which is false or the name of a Flume stream")
+    def runs(role, v):
+        v in RUNS or no("--runs", f"gives the {role} {json.dumps(v)}, and a role runs " + " or ".join(RUNS))
         return v
 
     state = address("--state", once("--state", "the drive's state repository, <owner>/<name>"))
@@ -487,13 +524,17 @@ def drive_given(a, here):
     repos = distinct("--repos", [address("--repos", r) for r in some(
         "--repos", "the repositories its folder keeps on its machine, each <owner>/<name>")])
     accounts = per_role("--accounts", "the Claude account each role runs under", account)
-    flume = per_role("--flume", "false while the role stands, or the Flume stream its runs run in", stream)
-    every, hours = once("--review", "how many changes make a batch, and how many hours make one due")
-    re.fullmatch(r"[0-9]+", every) and int(every) >= 1 or no(
-        "--review", f"gives {json.dumps(every)} changes a batch, and that is a whole number of at least 1")
+    runs_ = per_role("--runs", "how each role runs, " + " or ".join(RUNS), runs)
+    changes, hours = once("--review", "after_changes, how many of the drive's constructed changes waiting for the user's "
+                                      "read make a batch due, and after_hours, how many hours since its last batch make one due")
+    re.fullmatch(r"[0-9]+", changes) and int(changes) >= 1 or no(
+        "--review", f"gives after_changes {json.dumps(changes)}, how many of the drive's constructed changes waiting for the "
+                    "user's read make a batch due, and that is a whole number of at least 1")
     re.fullmatch(r"[0-9]+(\.[0-9]+)?", hours) and float(hours) > 0 or no(
-        "--review", f"gives {json.dumps(hours)} hours a batch, and that is a number above 0")
-    review = {"every": int(every), "hours": int(float(hours)) if float(hours).is_integer() else float(hours)}
+        "--review", f"gives after_hours {json.dumps(hours)}, how many hours since the drive's last batch make one due, and "
+                    "that is a number above 0")
+    review = {"after_changes": int(changes),
+              "after_hours": int(float(hours)) if float(hours).is_integer() else float(hours)}
     hosts = {}
     for host, ssh, kind in some("--hosts", "each host the drive needs, by its name, with its ssh name and its kind"):
         NAME.match(host) or no("--hosts", f"names {json.dumps(host)}, which is no host's name crew accepts")
@@ -524,7 +565,7 @@ def drive_given(a, here):
     not repositories or machine == here or no(
         "--repositories", f"names the kept repositories of the host crew drive set runs on, {here}, and the drive's machine is {machine}")
     drive = {"label": label, "blueprints": blueprints, "state": state, "machine": machine, "session": session, "folder": folder,
-             "repos": repos, "accounts": accounts, "flume": flume, "review": review}
+             "repos": repos, "accounts": accounts, "runs": runs_, "review": review}
     if roles:
         drive["roles"] = roles
     return {"drive": drive, "hosts": hosts, "console": console, "repositories": repositories}
@@ -728,19 +769,19 @@ def drive_of(fleet, label):
     return fleet["drives"].get(label) or fail(f"no drive '{label}'. drives: " + " ".join(fleet["drives"]))
 
 
-def role_stream(fleet, label, role):
-    """The Flume stream a drive's main-level role runs in as its kind (record 0047 move 6), or False while it
-    stands, as the drive's `flume` names it."""
+def role_runs(fleet, label, role):
+    """How a drive's main-level role runs, RUNS_STANDING or RUNS_ON_DEMAND, as the drive's `runs` names it (record 0064
+    as amended 2026-11-09); refused for a role of no KIND_ROLES and a drive the teams file does not name."""
     role in KIND_ROLES or fail(f"{role} is no main-level role that runs as a kind. roles: " + " ".join(KIND_ROLES))
-    return drive_of(fleet, label)["flume"][role]
+    return drive_of(fleet, label)["runs"][role]
 
 
 def kind_role_of(fleet, name):
-    """The drive and role an agent name is, (label, role), where the name is <label>-<role> and its drive
-    runs that role as its kind; None for any other name, a role that stands among them."""
+    """The drive and role an agent name is, (label, role), where the name is <label>-<role> and its drive's `runs`
+    names that role on demand (on_demand); None for any other name, a role that stands among them."""
     for label, p in fleet["drives"].items():
         for role in KIND_ROLES:
-            if name == f"{label}-{role}" and p["flume"][role] is not False:
+            if name == f"{label}-{role}" and on_demand(p, role):
                 return label, role
     return None
 
@@ -751,12 +792,12 @@ RUN_PLACE = re.compile(r"crew-([a-z]+)--([a-z0-9][a-z0-9-]*)")
 
 def run_of(fleet, place):
     """The role's run a Flume place is (record 0047 move 6), (label, role), from its path alone: its folder is
-    crew-<role>--<label>, the place the role record names, and its drive runs that role as its kind. None for any
-    other place, a change's or a fix's among them, and for one so named whose role stands."""
+    crew-<role>--<label>, the place the role record names, and its drive's `runs` names that role on demand
+    (on_demand). None for any other place, a change's or a fix's among them, and for one so named whose role stands."""
     m = RUN_PLACE.fullmatch(pathlib.PurePath(place or "").name)
     if not m or m[2] not in fleet["drives"] or m[1] not in KIND_ROLES:
         return None
-    return (m[2], m[1]) if fleet["drives"][m[2]]["flume"][m[1]] is not False else None
+    return (m[2], m[1]) if on_demand(fleet["drives"][m[2]], m[1]) else None
 
 
 def run_here(fleet=None):
@@ -2024,9 +2065,9 @@ STANDING_TURN = ("You stand in your pane, an agent crew started and keeps up: yo
 
 def turn_said(p, defn):
     """The brief's {{TURN}} for a drive's main-level role, by its definition: how a turn goes for a role its
-    drive runs as its kind (KIND_TURN, TURN_OWN), else how a standing role's work reaches it."""
+    drive's `runs` names on demand (on_demand; KIND_TURN, TURN_OWN), else how a standing role's work reaches it."""
     role = "ops" if defn == "main-ops" else defn
-    if role in KIND_ROLES and p["flume"][role] is not False:
+    if on_demand(p, role):
         return KIND_TURN + TURN_OWN.get(defn, "")
     return STANDING_TURN
 
@@ -2722,11 +2763,11 @@ def launch_shell(fleet, scope, role, extra):
     (what the start is made of besides crew's plugin, launch_digest) and the claude arguments in `args`. A resume with
     no conversation to pick up starts the role fresh.
     A main level's role, fresh or resumed, is refused on any host but its main level's (main_elsewhere_said), and on
-    every host when its drive runs it as its kind (kind_said). Its kit folders are the drive's kits as its
+    every host when its drive's `runs` names it on demand (on_demand; kind_said). Its kit folders are the drive's kits as its
     branch stands on GitHub, fetched once for the start (kits_on), which its brief then reads with no fetch of its own."""
     if role in MAIN_STANDING + ("reviewer",):
         p, here = drive_of(fleet, scope), this_host()
-        p["flume"][role] is False or fail(kind_said(p["label"], role))
+        not on_demand(p, role) or fail(kind_said(p["label"], role))
         p["machine"] == here or fail(main_elsewhere_said(f"{p['label']}-{role}", p["label"], p["machine"], here))
     l, session = resolve(fleet, scope, role, extra, fetch=True)
     args = ["--model", l["model"], "--effort", l["effort"], "--permission-mode", "bypassPermissions"]
@@ -3077,11 +3118,11 @@ class Agents:
 
 def main_sessions(p):
     """A main level's sessions, the main level's own first, each with its standing roles in MAIN_STANDING's order. A
-    role its drive runs as its kind stands in none (design Decision 14), but the session it stood in is still one,
-    so a standing agent of it left there is ended."""
+    role its drive's `runs` names on demand (on_demand) stands in none (design Decision 14), but the session it stood in
+    is still one, so a standing agent of it left there is ended."""
     by = {}
     for role in MAIN_STANDING:
-        by.setdefault(role_session(p, role), []).extend([role] if p["flume"][role] is False else [])
+        by.setdefault(role_session(p, role), []).extend([] if on_demand(p, role) else [role])
     return [(s, tuple(by[s])) for s in sorted(by, key=lambda s: (s != p["session"], s))]
 
 

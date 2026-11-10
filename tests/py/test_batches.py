@@ -17,7 +17,7 @@ import plan
 PLAN = plan.Plan(plan_text(bolts=[("b1", "switchboard-kit", True), ("b2", "breadboard-kit", True), ("queued", "switchboard-kit", None)],
                            units=[("x1", "switchboard-kit", "b1", []), ("x2", "switchboard-kit", "b1", []), ("y1", "breadboard-kit", "b2", []),
                                   ("z1", "switchboard-kit", "queued", []), ("w1", "switchboard-kit", None, [])]))
-EVERY_5 = {"every": 5, "hours": 4}
+EVERY_5 = {"after_changes": 5, "after_hours": 4}
 HOUR = datetime.timedelta(hours=1)
 
 
@@ -271,11 +271,11 @@ class TestBatchDue:
         assert plan.batch_due(due(4), [], EVERY_5, START, []) == []
 
     def test_the_fifth_change_makes_a_batch_due_with_the_count(self):
-        assert plan.batch_due(due(5), [], EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
+        assert plan.batch_due(due(5), [], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_the_planner_is_told_once_until_a_batch_is_delivered(self):
         assert plan.batch_due(due(5), [told(1)], EVERY_5, START, []) == []
-        assert plan.batch_due(due(5), [told(1), reviewed(1, [], 2)], EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
+        assert plan.batch_due(due(5), [told(1), reviewed(1, [], 2)], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_the_hours_run_from_the_last_batch(self):
         entries = [reviewed(1, [], 0)]
@@ -305,7 +305,7 @@ class TestTheBranchAlone:
         entries = plan.drive_entries(self.FLEET, "wldn")
         assert entries == self.ENTRIES
         five = plan_of(bolts={"b1": "swb-1"}, units={u: "b1" for u in ("x1", "x2", "y1", "z1", "w1")})
-        assert plan.batch_due(plan.due_changes(five, entries), entries, EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
+        assert plan.batch_due(plan.due_changes(five, entries), entries, EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_a_branch_that_cannot_be_read_refuses_naming_it(self, monkeypatch):
         """review-batches, "The branch cannot be read"."""

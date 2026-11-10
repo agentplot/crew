@@ -3,7 +3,7 @@ read as Flume reads a launch's own declaration, `flume launch --kinds <file>`, a
 fills a stage's prompt. Flume's format as read on 2026-10-31 at agentplot/flume 3a126d4: its guides/kinds.mdx and
 reference/prompt-parts.md, crates/flume-core/src/prompt.rs `render`, and the kind fields weir-kinds names at the
 revision Flume pins (0b6eb5a, crates/weir-kinds/src/kinds.rs and quiet.rs). One kind for each role a drive's
-`flume` can name, each one stage, `turn`, that lands nothing and ends at its report in the place's own folder; and
+`runs` can name on demand, each one stage, `turn`, that lands nothing and ends at its report in the place's own folder; and
 nothing in the file a launch or an account gives instead: a model, instructions or an environment."""
 import pathlib
 import re

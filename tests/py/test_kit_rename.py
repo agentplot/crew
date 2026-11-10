@@ -31,7 +31,7 @@ def madswan(extra_units=()):
 def fleet(*repos):
     """madswan's fleet, its main level on deneb, its folder keeping repos (owner/name) there, as the teams file gives
     them (record 0064)."""
-    return {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "flume": STANDING}, **keeping("/d/agentplot", *repos))},
+    return {"drives": {"madswan": dict({"label": "madswan", "machine": "deneb", "runs": STANDING}, **keeping("/d/agentplot", *repos))},
             "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
 
 

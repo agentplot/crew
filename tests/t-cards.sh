@@ -715,7 +715,7 @@ ok "a step waiting on the user has its card raised by crew ops step, and one who
 # ask of the planner keyed by the card's request and version, from the notice's ids and asker alone, calling no Pending
 # You tool; the same change handed again asks nothing more, and a later change on the card is asked again; a card of
 # wldn-ops, which stands, asks nothing.
-role_stream wldn planner wldn-main
+role_runs wldn planner on-demand
 # notice <asker> <request> <version>: crew _answered on the box as Pending You's watch runs it, the card on its input
 notice() {
   jq -cn --arg n "$1" --arg r "$2" --argjson v "$3" '{requestId: $r, sessionLabel: $n, status: "answered", version: $v, title: "Approve 12?"}' |

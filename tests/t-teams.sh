@@ -44,24 +44,26 @@ ok "a drive without a state repository, or with one not named owner/name, is ref
 
 edit teams "del $(part wldn)['review']"
 expect_fail "drive wldn in" crewpy labels
-has "$out" "has no batch setting ('review', with 'every' and 'hours')"; has "$out" "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it"
+has "$out" "has no batch setting ('review', with 'after_changes' and 'after_hours')"; has "$out" "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it"
 fixtures
-edit teams "del $(part madswan)['review']['hours']"
-expect_fail "drive madswan in" crewpy labels; has "$out" "has no batch setting ('review', with 'every' and 'hours')"
+edit teams "del $(part madswan)['review']['after_hours']"
+expect_fail "drive madswan in" crewpy labels; has "$out" "'review' has no 'after_hours'"
 fixtures
-edit teams "$(part madswan)['review']['every'] = 0"
-expect_fail "drive madswan: 'review.every' is how many changes make a batch, a whole number of at least 1, not 0" crewpy labels
+edit teams "$(part madswan)['review']['after_changes'] = 0"
+expect_fail "drive madswan in" crewpy labels
+has "$out" "'review.after_changes' is how many of the drive's constructed changes, waiting for the user's read, make a batch due, a whole number of at least 1, not 0"
 fixtures
-edit teams "$(part swancloud)['review']['hours'] = '4'"
-expect_fail "drive swancloud: 'review.hours' is how many hours make a batch due, a number above 0, not \"4\"" crewpy labels
+edit teams "$(part swancloud)['review']['after_hours'] = '4'"
+expect_fail "drive swancloud in" crewpy labels
+has "$out" "'review.after_hours' is how many hours since the drive's last batch make one due while at least one change waits, a number above 0, not \"4\""
 fixtures
 expect_ok crewpy labels
 ok "a drive without its batch setting, or with one crew can't read, is refused, naming the field and the fix"
 
-edit teams "del $(part swancloud)['flume']"
-expect_fail "drive swancloud in" crewpy labels; has "$out" "has no 'flume'"; has "$out" "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it"
+edit teams "del $(part swancloud)['runs']"
+expect_fail "drive swancloud in" crewpy labels; has "$out" "has no 'runs'"; has "$out" "crew's own module, services.crew, crew drive set, or the machine's configuration that writes it"
 fixtures
-ok "a drive without its flume is refused, naming the field and the fix"
+ok "a drive without its runs is refused, naming the field and the fix"
 
 expect_ok crewpy brief wldn planner; brief=$out
 for h in mac-studio chuck-herdr-alpha; do

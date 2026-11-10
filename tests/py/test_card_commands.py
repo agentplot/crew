@@ -1652,9 +1652,9 @@ class TestCardPreview:
 # reading nothing else of the card; and board.answers_watched, whether the host's follower runs that notice at all.
 import board  # noqa: E402
 
-STANDS = {r: False for r in crew.KIND_ROLES}
-KFLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "flume": dict(STANDS, planner="madswan-main", ops="madswan-main")},
-                         "wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "flume": STANDS}}}
+STANDS = {r: "standing" for r in crew.KIND_ROLES}
+KFLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb", "runs": dict(STANDS, planner="on-demand", ops="on-demand")},
+                         "wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "runs": STANDS}}}
 
 
 def test_a_change_on_a_runs_card_asks_its_role_by_the_cards_request_and_version():
@@ -1689,7 +1689,7 @@ def test_the_follower_hears_the_notice_only_where_a_role_whose_main_level_is_her
     assert board.answers_watched(KFLEET, "deneb")
     assert not board.answers_watched(KFLEET, "chuck-herdr-alpha")
     assert not board.answers_watched(KFLEET, "mac-studio")
-    assert not board.answers_watched({"drives": {"madswan": dict(KFLEET["drives"]["madswan"], flume=STANDS)}}, "deneb")
+    assert not board.answers_watched({"drives": {"madswan": dict(KFLEET["drives"]["madswan"], runs=STANDS)}}, "deneb")
 
 
 def test_the_notice_runs_crew_answered_through_pending_yous_watch():

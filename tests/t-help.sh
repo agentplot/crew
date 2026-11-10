@@ -9,7 +9,7 @@
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 . "$TESTS/journeys.sh"
 flume_world
-role_stream wldn planner wldn-main
+role_runs wldn planner on-demand
 record_of() { as "$1" bash -c 'cat "$HOME"/.local/state/crew/wldn/runs/*/*.rec 2>/dev/null'; }
 
 # nothing_done <what>: since the last `before`, no tool was called, no agent started, no entry written on either host

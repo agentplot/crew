@@ -185,7 +185,7 @@ A gate's step SHALL be recorded done when the deployer's run shows the gate pass
 - **THEN** crew refuses, naming the flag that is missing, and records nothing
 
 ### Requirement: A role that runs as its kind is not started by crew-role
-`crew-role <label> <role>`, fresh or with `resume`, SHALL refuse a role its drive runs as its kind, naming `crew role open <role> --label <label>`, and start no Claude. `crew main status <label>` SHALL say of each such role that it runs as its kind, whether the runner's records show a run of it standing, and how many asks wait for it since when.
+`crew-role <label> <role>`, fresh or with `resume`, SHALL refuse a role its drive runs as its kind, naming `crew role open <role> --label <label>`, and start no Claude. `crew main status <label>` SHALL say of each such role that it runs as its kind, whether the runner's records show a run of it standing, and how many asks wait for it since when, naming as its stream the drive's label.
 
 #### Scenario: The planner started by hand
 - **WHEN** madswan's planner runs as its kind and `crew-role madswan planner` runs
@@ -193,7 +193,7 @@ A gate's step SHALL be recorded done when the deployer's run shows the gate pass
 
 #### Scenario: Main status
 - **WHEN** madswan's planner runs as its kind, two asks of it wait and no run of it stands, and `crew main status madswan` runs
-- **THEN** it says the planner runs as its kind, that no run stands, and that two asks wait, with the oldest's age
+- **THEN** it says the planner runs as its kind in stream `madswan`, that no run stands, and that two asks wait, with the oldest's age
 
 ### Requirement: A greeting to a main-level agent is taken or sent again
 A greeting crew sends to any agent it starts SHALL be sent only once the agent is ready for input, and crew SHALL then read the agent's transcript to see that Claude received it within a short time. When it does not, and the agent sits idle or done, crew SHALL clear what was left typed in the agent's input and send the greeting once more. Exactly one greeting SHALL reach the agent per start.
@@ -355,21 +355,35 @@ Each drive's entry SHALL give:
 ### Requirement: Each drive's entry names the account and the running of each main-level role
 Each drive's entry SHALL also give:
 - `accounts`, naming each of its five main-level roles, `design`, `planner`, `reviewer`, `ops` and `operator`, with the Claude account it runs under, a name crew accepts;
-- `flume`, naming each of the same five roles as `false` while it stands or as the Flume stream its runs run in on the main level's host.
+- `runs`, naming each of the same five roles with how it runs, `standing` or `on-demand`.
 
 #### Scenario: An account left out
 - **WHEN** wldn's `accounts` names `design`, `planner`, `ops` and `operator`, and no `reviewer`
 - **THEN** crew refuses to load the teams file, naming wldn and the reviewer
 
 #### Scenario: A role crew has no kind for
-- **WHEN** madswan's `flume` names `dispatcher`, leaves out `operator`, or gives `planner` the value `true`
+- **WHEN** madswan's `runs` names `dispatcher`, leaves out `operator`, or gives `planner` the value `false`, `true` or `madswan`
 - **THEN** crew refuses to load the teams file, naming the drive and the role
+
+### Requirement: A role runs standing or on demand, as its drive's runs names it
+A role its drive's `runs` names `standing` SHALL be kept running by crew, its agent in its pane on the drive's machine. A role it names `on-demand` SHALL be run by the host's runner, which has Flume run the role in the drive's own stream, the one its label names, while something is pending for it, each run ending when its work is done.
+
+#### Scenario: Each role standing or on demand
+- **WHEN** madswan's `runs` names its planner and its reviewer `on-demand` and its design agent, ops and operator `standing`
+- **THEN** crew loads the teams file, madswan's planner and reviewer run on demand in the stream `madswan`, and its design agent, ops and operator stand
+
+### Requirement: Each drive's entry gives its batch setting
+Each drive's entry SHALL also give `review`, its batch setting, `after_changes` and `after_hours` (review-batches, "A batch spans the drive's bolts"). A `review` that lacks `after_changes` or `after_hours` or names another key, an `after_changes` that is no whole number of at least 1, and an `after_hours` that is no number above 0 SHALL each be an error naming the drive, the key and the teams file's writer as the fix, never a default.
+
+#### Scenario: A batch setting out of range
+- **WHEN** wldn's `review` gives `after_changes` 0, or `after_hours` 0
+- **THEN** crew refuses to load the teams file, naming wldn and the key, with its unit and range
 
 ### Requirement: Every refusal of the teams file names its writer as the fix
 Every refusal of the file SHALL name as its fix the teams file's writer: crew's own module, `services.crew`, `crew drive set`, or the machine's configuration that writes the file. A host with no teams file SHALL be refused naming the same writers, and a file that is no JSON naming the file and why, each with nothing done. No refusal of the file SHALL name a module of another repository's as its fix.
 
 #### Scenario: Every refusal of the file names crew's own fix
-- **WHEN** crew refuses `teams.json` for being missing, for its version, for a `teams` key, for listing no drives, for a drive's `state`, `review`, `flume`, `folder`, `repos` or `accounts`, for its `hosts`, for a kept repository named wrongly, or for its `consoles`
+- **WHEN** crew refuses `teams.json` for being missing, for its version, for a `teams` key, for listing no drives, for a drive's `state`, `review`, `runs`, `flume`, `folder`, `repos` or `accounts`, for its `hosts`, for a kept repository named wrongly, or for its `consoles`
 - **THEN** the refusal names crew's own module, `services.crew`, `crew drive set`, or the machine's configuration that writes the file as the fix, and no module of swancloud's or of any other repository's
 
 #### Scenario: No teams file
@@ -388,7 +402,7 @@ A drive's first blueprints repo SHALL be kept on its machine: among its `repos`,
 - **THEN** crew refuses to load the teams file, naming wldn, chuck-herdr-alpha and the repository
 
 ### Requirement: A drive's entry that lacks a field crew requires is an error, never a default
-A drive whose entry lacks `state`, `folder`, `repos`, `accounts` or `flume` SHALL be an error naming the drive, the field and the teams file's writer as the fix, never a default.
+A drive whose entry lacks `state`, `folder`, `repos`, `accounts`, `review` or `runs` SHALL be an error naming the drive, the field and the teams file's writer as the fix, never a default.
 
 #### Scenario: A drive with no state repository
 - **WHEN** a drive's entry has no `state`
@@ -399,11 +413,15 @@ A drive whose entry lacks `state`, `folder`, `repos`, `accounts` or `flume` SHAL
 - **THEN** crew refuses to load the teams file, naming the drive, the missing field and the teams file's writer, and does nothing
 
 #### Scenario: A drive with no flume
-- **WHEN** a drive's entry has no `flume`
+- **WHEN** a drive's entry has no `flume` and gives `runs`, naming each of its five roles `standing` or `on-demand`
+- **THEN** crew loads the teams file
+
+#### Scenario: A drive with no runs
+- **WHEN** a drive's entry has no `runs`
 - **THEN** crew refuses to load the teams file, naming the drive, the field and the teams file's writer
 
 ### Requirement: A drive's entry with a field crew does not accept is an error
-Each of these SHALL be an error naming the drive, the field and the teams file's writer as the fix, never a default: a `folder` that is not absolute, a `repos` entry that is no `<owner>/<name>`, an `accounts` or a `flume` that leaves a role out or names another key, an account that is no name crew accepts, a `flume` role given anything but `false` or a stream's name, and two roles that run in one session and name two accounts, since a herdr session runs under one.
+Each of these SHALL be an error naming the drive, the field and the teams file's writer as the fix, never a default: a `folder` that is not absolute, a `repos` entry that is no `<owner>/<name>`, an `accounts` or a `runs` that leaves a role out or names another key, an account that is no name crew accepts, a `runs` role given anything but `standing` or `on-demand`, and two roles that run in one session and name two accounts, since a herdr session runs under one.
 
 #### Scenario: A relative folder
 - **WHEN** a drive's `folder` is `work/willdan`
@@ -412,6 +430,17 @@ Each of these SHALL be an error naming the drive, the field and the teams file's
 #### Scenario: Two accounts in one session
 - **WHEN** wldn's design agent and ops run in `wldn-2`, and its `accounts` gives the design agent `willdan-alex` and ops `credits`
 - **THEN** crew refuses to load the teams file, naming wldn, `wldn-2` and both accounts
+
+### Requirement: A drive's entry that names a former key is refused
+A drive's entry that names `flume`, or a `review` that names `every` or `hours`, SHALL be refused naming the drive and the key, saying the file names how each role runs under `runs` and the batch setting by `after_changes` and `after_hours`, with the teams file's writer as the fix, whatever else the entry gives. crew SHALL read no `flume`, `every` or `hours`, and SHALL name no stream for a role: a role that runs on demand runs in the stream its drive's label names.
+
+#### Scenario: A drive that names flume
+- **WHEN** the file is at version 6 and madswan's entry names `flume`, beside a `runs` or with none
+- **THEN** crew refuses to load it, naming madswan and `flume`, saying the file names how each role runs under `runs`, and naming the teams file's writer, and does nothing
+
+#### Scenario: A batch setting by its former names
+- **WHEN** the file is at version 6 and wldn's `review` gives `every` 5 and `hours` 4
+- **THEN** crew refuses to load it, naming wldn and `review.every`, saying the batch setting is `after_changes` and `after_hours`, and naming the teams file's writer, and does nothing
 
 ### Requirement: The teams file names each host crew reaches by its ssh name and kind
 The file's `hosts` SHALL name each host crew reaches or reads, by the name `hostname -s` gives it, each giving exactly its `ssh` name and its `kind`, `darwin` or `nixos`. A file with no `hosts`, a drive whose `machine` it does not name, a host name crew does not accept, and an entry that lacks either key, gives another, or gives a `kind` that is neither SHALL be refused, naming the file, the host and the fix, with nothing done.
@@ -510,18 +539,18 @@ The file's `consoles` MAY name, for the host it is written on, each drive whose 
 `crew main up <label>` SHALL open a herdr workspace named `<label>` in the main level's session. It SHALL hold a `design` tab with the design agent, a `planner` tab with the planner, an `ops` tab with the main-level ops and an `operator` tab with the drive's operator, each only while it stands, and start each, and nothing else.
 
 #### Scenario: The main level comes up
-- **WHEN** `crew main up wldn` runs and wldn's `flume` names every role `false`
+- **WHEN** `crew main up wldn` runs and wldn's `runs` names every role `standing`
 - **THEN** `wldn-design`, `wldn-planner`, `wldn-ops` and `wldn-operator` start in the `wldn` workspace, each is greeted once it is up, and no dispatcher starts on any host
 
 ### Requirement: A role that runs as its kind gets no tab, no start and no revive
-A role that runs as its kind SHALL get no tab and no start: `crew main up` SHALL instead write its role record to match the teams file, and SHALL end a standing agent of it still running once that agent is not working, leaving one working and saying so. `crew revive` SHALL bring back no role its drive runs as its kind.
+A role its drive's `runs` names `on-demand`, which runs as its kind, SHALL get no tab and no start: `crew main up` SHALL instead write its role record to match the teams file, and SHALL end a standing agent of it still running once that agent is not working, leaving one working and saying so. `crew revive` SHALL bring back no role its drive runs as its kind.
 
 #### Scenario: Two roles run as their kinds
-- **WHEN** madswan's `flume` names a stream for its reviewer and its planner, and `crew main up madswan` runs
+- **WHEN** madswan's `runs` names its reviewer and its planner `on-demand`, and `crew main up madswan` runs
 - **THEN** the `madswan` workspace has no `planner` tab and no planner is started or greeted, `roles.rec` on `madswan/main` holds the planner's and the reviewer's records, and the design agent, ops and the operator start as today
 
 #### Scenario: A standing planner from before
-- **WHEN** madswan's `flume` has just come to name a stream for its planner, `madswan-planner` still stands idle in its tab, and `crew main up madswan` runs
+- **WHEN** madswan's `runs` has just come to name its planner `on-demand`, `madswan-planner` still stands idle in its tab, and `crew main up madswan` runs
 - **THEN** `madswan-planner`'s standing agent is ended and the command says so; had it been working, it would be left and named
 
 ### Requirement: Every agent crew starts is greeted once per start

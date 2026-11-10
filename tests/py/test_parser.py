@@ -11,7 +11,7 @@ RUNS = [
     ["card", "sweep", "--label", "wldn"],
     ["state", "init", "wldn"],
     ["drive", "set", "pat", "--state", "pat/crew-state", "--blueprints", "pat/blueprints", "--machine", "pats-mac", "--session", "pat",
-     "--folder", "/p", "--repos", "pat/blueprints", "--accounts", "design", "pat", "--flume", "planner", "false", "--review", "5", "4",
+     "--folder", "/p", "--repos", "pat/blueprints", "--accounts", "design", "pat", "--runs", "planner", "standing", "--review", "5", "4",
      "--hosts", "pats-mac", "pats-mac", "darwin", "--roles", "planner", "effort", "max", "--console", "/p",
      "--repositories", "pat/blueprints", "/r", "/v", "--json"],
     ["_sweep", "wldn", "switchboard-kit", "--dir", "/kit", "--landed", "b", "--outcome", "Landed.", "--units", "a", "c"],

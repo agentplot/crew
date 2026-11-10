@@ -7,8 +7,9 @@
 # (code.5), so a key the module does not declare passes to the file and
 # crew judges it (RFC 42); `drives`, keyed by each drive's label, which
 # json.nix writes as the file's list in label order, each with its herdr
-# session's `folder`, the `repos` it keeps and the Claude account each of
-# its roles runs under (`accounts`); `hosts`, each host crew reaches or
+# session's `folder`, the `repos` it keeps, the Claude account each of
+# its roles runs under (`accounts`), how each of its roles runs (`runs`,
+# standing or on demand) and its batch setting (`review`); `hosts`, each host crew reaches or
 # reads, exactly its `ssh` name and its `kind` (record 0064); `consoles`,
 # the drives whose console this host opens, each with its folder;
 # `repositories`, the host's kept repositories (record 0061), each exactly
@@ -89,30 +90,42 @@ let
       inherit description;
     };
 
+  # What `"standing"` and `"on-demand"` each do, said in the descriptions
+  # of `runs` and of each role under it (record 0064 as amended
+  # 2026-11-09).
+  standingSays = "`\"standing\"`, crew keeping the role's agent running in its pane on the drive's machine";
+  onDemandSays = "`\"on-demand\"`, the host's runner having Flume run the role in the drive's own stream, named by its label, while something is pending for it, each run ending when its work is done";
+
+  # The drive's batch setting, exactly `after_changes` and `after_hours`
+  # with no default, and no other key, since the submodule declares no
+  # free-form type.
   review = types.submodule {
     options = {
-      every = mkOption {
+      after_changes = mkOption {
         type = types.ints.positive;
-        description = "How many of the drive's constructed changes make a batch.";
+        description = "How many of the drive's constructed changes, waiting for the user's read, make a batch due: a whole number of at least 1.";
       };
-      hours = mkOption {
+      after_hours = mkOption {
         type = types.addCheck types.number (n: n > 0) // {
           name = "positiveNumber";
           description = "positive number";
         };
-        description = "How many hours make a batch due.";
+        description = "How many hours since the drive's last batch make one due while at least one change waits: a number above 0, such as 4 or 1.5.";
       };
     };
   };
 
-  # Every role of KIND_ROLES, and no other: false while it stands, or the
-  # name of the Flume stream its runs run in on the main level's host.
-  flume = types.submodule {
+  # Every role of KIND_ROLES, and no other, each standing or on demand,
+  # with no default.
+  runs = types.submodule {
     options = lib.genAttrs kindRoles (
       role:
       mkOption {
-        type = types.either (types.enum [ false ]) crewName;
-        description = "The ${role}'s Flume setting: false while it stands, or the name of the Flume stream its runs run in.";
+        type = types.enum [
+          "standing"
+          "on-demand"
+        ];
+        description = "How the ${role} runs: ${standingSays}, or ${onDemandSays}.";
       }
     );
   };
@@ -204,11 +217,11 @@ let
         };
         review = mkOption {
           type = review;
-          description = "The drive's batch setting: a batch is due every `every` changes or every `hours` hours.";
+          description = "The drive's batch setting: a batch of its constructed changes is due for the user's read once `after_changes` of them wait, or once `after_hours` hours have passed since its last batch with at least one waiting, whichever comes first.";
         };
-        flume = mkOption {
-          type = flume;
-          description = "The Flume setting of each of its main-level roles.";
+        runs = mkOption {
+          type = runs;
+          description = "How each of the drive's main-level roles runs: ${standingSays}, or ${onDemandSays}. Every role is named.";
         };
         roles = unset (types.submodule {
           options = lib.genAttrs mainRoles (main: unset role "The ${main}'s model, effort or session.");

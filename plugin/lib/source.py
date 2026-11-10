@@ -2,8 +2,8 @@
 teams file, one standing entry at `<label>/<role>` for each role that stands of each drive whose main level runs on
 the host, and the kinds folder the host's `sources/crew.toml` names beside it, holding crew's one kind package, its bolt
 kind `crew/bolt@1` (record 0056). The entries and their text are decided here on plain facts (code.7), from the fleet
-crew.load gives, and keep is the one act that writes them and the package; this module imports nothing of crew's
-(code.1)."""
+crew.load gives, and keep is the one act that writes them and the package; this module imports nothing of crew's but
+crew.on_demand, how a drive runs a role, imported where it is asked since crew imports this module (code.1)."""
 import json, os
 from pathlib import Path
 
@@ -23,16 +23,17 @@ ROLES = ("design", "planner", "reviewer", "ops", "operator")
 
 def entries(fleet, host, asks):
     """The roles file's entries on host, as (address, entry) in the teams file's drive order and ROLES' order: for
-    each drive whose machine is host, each role its `flume` names False, a standing agent's entry, `agent` the name
-    crew gives it, `<label>-<role>`, `session` the session crew opens it in, `answers` its words in asks where it has
-    any, and the operator its stream's answerer. None for another host's drive, nor for a role that runs as its
+    each drive whose machine is host, each role its `runs` names standing (not crew.on_demand), a standing agent's
+    entry, `agent` the name crew gives it, `<label>-<role>`, `session` the session crew opens it in, `answers` its
+    words in asks where it has any, and the operator its stream's answerer. None for another host's drive, nor for a role that runs as its
     kind, whose run's entry comes with its crossing (Decision 3)."""
+    from crew import on_demand  # crew imports this module
     found = []
     for label, p in fleet["drives"].items():
         if p["machine"] != host:
             continue
         for role in ROLES:
-            if p["flume"][role] is not False:
+            if on_demand(p, role):
                 continue
             entry = {"agent": f"{label}-{role}", "session": p["sessions"][role]}
             if role in asks:
