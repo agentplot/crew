@@ -1037,7 +1037,8 @@ class TestTheDeployCardOfAStepItWaitsOn:
         f = self.facts([SRV_OFFER])
         f["waited"] = [dict(n=str(i), text=f"step {i}", why=None, to=None, key=None, state=None) for i in range(1, 6)]
         c = cards.deploy_card(f)["card"]
-        assert "kind" not in c and "rationale" not in c and c["highStakes"] is True
+        assert "kind" not in c and "rationale" not in c and "highStakes" not in c
+        assert [q["highStakes"] for q in c["questions"]] == [True, True]
         assert [[o["id"] for o in q["options"]] for q in c["questions"]] == [["before:1", "before:2", "before:3"],
                                                                             ["before:4", "before:5", "deploy"]]
         assert [q["title"] for q in c["questions"]] == ["Before the deploy, part 1 of 2", "Before the deploy, part 2 of 2"]
