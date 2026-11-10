@@ -16,7 +16,7 @@
                                       [crew tell from <sender>] (sent to <label>)
   crew.py found <agent>               an agent of this host as herdr lists it, one JSON object, its name given back in
                                       the pane crew keeps for it when herdr dropped it there from the session crew
-                                      started (read_agent from another host)
+                                      started (crew _found, read_agent from another host)
   crew.py _release                    what this crew is, crew_read of its own root, as one line of JSON, read before the
                                       teams file and reading nothing else (crew _release)
   crew.py run-name                    the name and drive of the role's run FLUME_PLACE is, as shell assignments of
@@ -37,10 +37,6 @@ import source
 
 LIB = pathlib.Path(__file__).resolve().parent
 HOME = LIB.parent.parent
-# crew's own manifest, Claude Code's plugin.json, whose `repository` names the repository crew is: carried in every
-# install, a checkout's and the release the fleet copies whole, and read for crew's own address wherever crew needs it,
-# never a name written in crew's code (plan.22: no reader maps a former name).
-MANIFEST = LIB.parent / ".claude-plugin/plugin.json"
 TEAMS = pathlib.Path.home() / ".config/crew/teams.json"
 # The version of the teams file crew reads (code.5; Boomdrive record 0028): 6, its drives alone, each named by its label
 # and naming how each of its main-level roles runs, `runs`, standing or on demand (record 0064 as amended 2026-11-09).
@@ -1083,8 +1079,8 @@ def read_agent(fleet, name, fresh=True):
     """An agent crew starts, as herdr answers wherever it runs: (the agent, None), (None, None) when it is not up, or
     (None, what could not be read) when its host does not answer or herdr's answer can't be read. One herdr lists by no
     name is looked for in the pane crew keeps for it there and given its name back (found_again), the host's own crew
-    looking when it is another host (crew.py found). On this host, with fresh False, it is answered from its session's
-    listing as this command read it (Herdr)."""
+    looking when it is another host (`crew _found`, asked of the crew that host installed, crew_argv). On this host,
+    with fresh False, it is answered from its session's listing as this command read it (Herdr)."""
     host, session = place_of_agent(fleet, name)
     if host == this_host():
         try:
@@ -1092,20 +1088,17 @@ def read_agent(fleet, name, fresh=True):
             return (a, None) if a else found_again(fleet, name, fresh)
         except Refusal as e:
             return None, str(e)
-    try:
-        found = shlex.join(["python3", f"{crew_at(fleet, host).rsplit('/bin/', 1)[0]}/lib/crew.py", "found", name])
-    except Refusal as e:
-        return None, str(e)
+    found = shlex.join(crew_argv(fleet, host, "_found", name))
     r = on_machine(fleet, host, ["sh", "-c", f"{shlex.join(['herdr', '--session', session, 'agent', 'get', name])} || exec {found}"])
     return found_answer(host, r)
 
 
 def found_answer(host, r):
     """read_agent's reading of an agent on another host, from what ran there, as subprocess.run gives it: herdr's agent
-    get, or that host's crew.py found when herdr lists no agent by its name, each answering herdr's
-    {"result": {"agent": ...}}, which found answers too, its agent null when it is not up, or found's {"unread": why}.
-    A host that does not answer, a found that fails, as one on a host whose crew is older, and an answer crew can't read
-    are each a read it names (read.1)."""
+    get, or that host's `crew _found` when herdr lists no agent by its name, each answering herdr's
+    {"result": {"agent": ...}}, which `crew _found` answers too, its agent null when it is not up, or its {"unread": why}.
+    A host that does not answer, a `crew _found` that fails, as one on a host whose crew is older or that has no crew
+    on its login path (NO_CREW), and an answer crew can't read are each a read it names (read.1)."""
     if r.returncode:
         return None, unanswered(host, r) or (f"crew on {host} could not look for it in the pane it keeps for it: "
                                              + ((r.stderr or "").strip().splitlines() or [f"exit {r.returncode}"])[-1])
@@ -1164,8 +1157,8 @@ def found_again(fleet, name, fresh=True):
 
 
 def found_here(fleet, name):
-    """crew.py found: read_agent of an agent of this host, its dropped name given back (found_again), as one JSON
-    object found_answer reads: herdr's {"result": {"agent": ...}}, or {"unread": why}."""
+    """crew.py found, as `crew _found` runs it: read_agent of an agent of this host, its dropped name given back
+    (found_again), as one JSON object found_answer reads: herdr's {"result": {"agent": ...}}, or {"unread": why}."""
     host, _ = place_of_agent(fleet, name)
     if host != this_host():
         return {"unread": f"{name} runs on {host}, not on {this_host()}, where crew looked for it"}
@@ -1792,60 +1785,31 @@ def fetches_in(fleet, host, path):
     return runners_clone(fleet, host, path) is None
 
 
-# A GitHub repository's address as a manifest's `repository` gives it, its owner and name taken.
-GITHUB = re.compile(r"(?:https://github\.com/|git@github\.com:)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?")
+# The guard crew_there runs crew behind on another host, as `sh -c NO_CREW <host> <command...>`: the command run where the
+# host's login path finds a crew, else the host named, $0, on standard error and exit 127, the shell's own code for a
+# command not found, with nothing run there and no other crew tried (read.1).
+NO_CREW = ('command -v crew >/dev/null 2>&1 || { printf \'%s\\n\' "$0 has no crew on its login path, so crew can\'t run there" >&2; '
+           'exit 127; }; exec "$@"')
 
 
-def repository_named(manifest, where):
-    """The repository a manifest's text says crew is, owner/name, from its `repository`, a GitHub address. Refused,
-    naming the file, where the text is no JSON object or its `repository` names no GitHub repository, since crew can't
-    tell then where it is kept (read.1)."""
-    try:
-        data = json.loads(manifest)
-    except ValueError:
-        data = None
-    isinstance(data, dict) or fail(f"{where} is no JSON object, so crew can't tell which repository it is")
-    got = data.get("repository")
-    m = GITHUB.fullmatch(got) if isinstance(got, str) else None
-    m or fail(f"{where} names no GitHub repository as its 'repository' ({json.dumps(got)}), so crew can't tell which "
-              "repository it is")
-    return f"{m[1]}/{m[2]}"
-
-
-@functools.lru_cache(maxsize=None)
-def crew_repository():
-    """The repository crew is, owner/name, as its own manifest names it (repository_named). Read once a process."""
-    try:
-        text = MANIFEST.read_text()
-    except OSError as e:
-        fail(f"crew can't read {MANIFEST} ({e.strerror}), so it can't tell which repository it is")
-    return repository_named(text, MANIFEST)
-
-
-def crew_on(fleet, host, here, repo):
-    """The crew command on a host, crew being the repository repo (owner/name): the crew this host has installed where
-    host is here (crew_command), else the one in the checkout of repo the teams file keeps there, as kept_on finds it.
-    Refused where the file keeps no checkout of repo there, naming it, since crew can't run there (read.1)."""
-    if host == here:
-        return crew_command()
-    c = kept_on(fleet, host, repo) or fail(f"{host} keeps no checkout of {repo}, the repository crew is, as the teams file gives "
-                                           "it, so crew can't run there")
-    return f"{c}/plugin/bin/crew"
-
-
-def crew_at(fleet, host):
-    """The crew command on a host (crew_on): this crew here, else the checkout the teams file keeps there of the
-    repository crew's manifest names (crew_repository), read only for another host."""
-    here = this_host()
-    return crew_on(fleet, host, here, None if host == here else crew_repository())
+def crew_there(host, who, label, session, args):
+    """The argv that runs crew on another host as the one asking, given their name, drive and Claude session ("" for
+    none) (code.3): `crew` by its name, the crew the host's login path finds, the one that host installed, behind
+    NO_CREW, which names the host where its path finds none. No checkout there is looked for, and crew reads no address
+    of its own to find one (code.7: a decision on plain facts)."""
+    return ["sh", "-c", NO_CREW, host, "env", f"CREW_AGENT={who}", f"CREW_LABEL={label}", f"CREW_SESSION={session}",
+            "crew", *args]
 
 
 def crew_argv(fleet, host, *args):
     """crew on a host, run as the one asking here: their name, drive and Claude session go with it, so what it
-    records names them and not the host that did the work."""
+    records names them and not the host that did the work. On this host it is the crew this host installed
+    (crew_command); on another the crew that host installed, by its name on its login path (crew_there)."""
     import record as rec  # record imports this module
-    return ["env", f"CREW_AGENT={rec.who()}", f"CREW_LABEL={caller_label(fleet) or ''}",
-            f"CREW_SESSION={rec.session() or ''}", "bash", crew_at(fleet, host), *args]
+    who, label, session = rec.who(), caller_label(fleet) or "", rec.session() or ""
+    if host != this_host():
+        return crew_there(host, who, label, session, args)
+    return ["env", f"CREW_AGENT={who}", f"CREW_LABEL={label}", f"CREW_SESSION={session}", "bash", crew_command(), *args]
 
 
 def kits_on(fleet, label, host, fetch=False):
@@ -1916,18 +1880,12 @@ def operator_session(fleet, label, host):
 
 def reach(fleet, machine):
     """What bash crew needs to run a command again on the machine it acts on, given with the command's env so that
-    forwarding starts no Python of its own: on another host, the crew there (REMOTE_CREW, or REMOTE_CREW_REFUSED
-    saying why there is none) and the caller's Claude session (CALLER_SESSION, empty for the user); on this host,
-    nothing."""
+    forwarding starts no Python of its own: on another host, REMOTE_CREW, the line that runs the crew that host
+    installed as the one asking, crew_argv's with no arguments, quoted for the remote shell, bash adding the command's
+    own; on this host, nothing."""
     if machine == this_host():
         return {}
-    import record as rec  # record imports this module
-    out = {"CALLER_SESSION": rec.session() or ""}
-    try:
-        out["REMOTE_CREW"] = crew_at(fleet, machine)
-    except Refusal as e:
-        out["REMOTE_CREW_REFUSED"] = str(e)
-    return out
+    return {"REMOTE_CREW": shlex.join(crew_argv(fleet, machine))}
 
 
 # How an agent records a finding, the same in every brief that records one.
