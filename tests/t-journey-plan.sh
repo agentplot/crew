@@ -119,7 +119,7 @@ has "$out" "card proposal/1: req_stub-1 withdrawn"
 eq "$(acts_since "$before")" "1"
 eq "$(plan -t Unit -e "Bolt = 'deploy-checks'" -P Unit)" $'a-plan-only-deploy-is-checked\nqueued-one'
 eq "$(field $box unit.add From unit/zone-first)" "proposal/2"
-has "$(field $box unit.add Commit unit/zone-first)" "WilldanGroup/crew-state@"
+eq "$(field $box unit.add Commit unit/zone-first)" ""  # the approval's commit carries it, so it names none of its own
 trace=$(crew trace unit/zone-first)
 eq "$(awk '{print $3}' <<<"$trace" | head -5 | tr '\n' ' ')" "plan.propose card.post plan.approve unit.add card.close "
 ok "the user's approval tells the planner what was applied and closes its card; each step is recorded, and a unit's trace shows the proposal and the approval, each with its card's act"
@@ -224,7 +224,18 @@ expect_ok crew plan approve "$n"
 eq "$(git --git-dir "$ws" diff --name-only "$before" wldn/main | grep -v '^runs/')" $'moves.rec\nplan.rec\nproposals.rec'
 git --git-dir "$ws" show wldn/main:moves.rec > "$T/moves.rec"
 eq "$(recsel -t Move -e "Signal = '$sig'" -P Move,Target "$T/moves.rec")" $'route\nunit/plans-are-checked'
-ok "a unit from a signal is added with its route move, in the approval's commit"
+# The approval's one commit carries the entries of the acts it holds, each named in its trailers, and no entry's own
+# commit follows it for them (an-act-carries-its-entry-in-its-own-commit, Decision 3).
+act=$(act_tip); day=runs/mac-studio/$(date -u +%F).rec
+added=$(git --git-dir "$ws" diff "$act^" "$act" -- "$day")
+eq "$(sed -n 's/^+Act: //p' <<<"$added" | sort | paste -sd ' ' -)" "plan.approve signal.move unit.add"
+named=$(git --git-dir "$ws" log -1 --format='%(trailers:key=Crew-Entry,valueonly)' "$act" | grep .)
+eq "$(sed -n 's/^+Id: //p' <<<"$added" | sort)" "$(sort <<<"$named")"
+lacks "$(git --git-dir "$ws" log --format=%B --grep='^runs(' "$act..wldn/main")" "$(head -1 <<<"$named")"
+for id in $named; do
+  [[ -z $(git --git-dir "$ws" log --format=%B --grep='^runs(' "$act..wldn/main" | grep -F "Crew-Entry: $id") ]] || fail "entry $id has a commit of its own after the approval's"
+done
+ok "a unit from a signal is added with its route move, in the approval's commit, which carries and names the approval's, the add's and the move's entries"
 
 # A move of launched work out of its bolt is refused at the proposal, naming its place and the drop and add that would
 # do it: nothing is written and no card raised.
@@ -340,6 +351,6 @@ chmod +x "$as/hooks/post-receive"; : > "$T/pushes"
 race afterthought/crew-state chuck-herdr-alpha swancloud-design signal move "$greeting" drop --reason "a greeting" --label swancloud
 expect_ok crew bolt new drive-loop "The loop runs." --repo flywheel-next --label madswan
 [[ ! -f $T/race ]] || fail "swancloud's write never ran"
-eq "$(sort "$T/pushes" | uniq -c | awk '{print $1, $2}')" $'2 refs/heads/madswan/main\n2 refs/heads/swancloud/main'
+eq "$(sort "$T/pushes" | uniq -c | awk '{print $1, $2}')" $'1 refs/heads/madswan/main\n1 refs/heads/swancloud/main'
 eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/afterthought/crew-state.git" for-each-ref --format='%(refname)' refs/crew/)" "refs/crew/madswan/main"
-ok "two drives in one repository write at the same moment, each pushing its write and then its entry, neither replayed for the other nor fetching its branch"
+ok "two drives in one repository write at the same moment, each pushing its write with its entry in one commit, neither replayed for the other nor fetching its branch"

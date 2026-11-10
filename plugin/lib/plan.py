@@ -1037,7 +1037,8 @@ class Write:
         self.on, self.frm = [], []  # objects only the change can name, for the write's run-record entry
         self.asked, self.held = [], []  # the asks the change wrote in its commit (ask_lines), and the keys it found held
         # the act its entry is, where the change decides it at the tip it is applied to, and each further entry of its
-        # one commit, (id, act, on, fields), named in the commit beside the act's and written after it (lands_post)
+        # one commit, (id, act, on, fields), its fields with its "why" and "frm" where it has its own and its id None
+        # where the write makes it, carried in the commit and named there beside the act's (carried)
         self.act, self.also = None, []
         self.why, self.fields = None, {}  # the entry's Why and fields where only the tip the change is applied to says them
         self.renaming = []  # each rename this write makes, (old, new), through which appended reads requests.rec
@@ -1173,7 +1174,8 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
 def carried(w, label, eid, own, by=None):
     """The entries a write's commit carries (plan.2, read.5), composed at the tip it is applied to (state.1): its act's,
     by eid, from own (record.fields_of's act, on, frm, why and fields), then each ask's the change wrote (ask_lines) and
-    each further act's (Write.also), each further act's Why its own or else the act's; each by this host, at this
+    each further act's (Write.also), each further act's Why its own or else the act's, and its id the one the change
+    made or else one made here; each by this host, at this
     moment, naming no commit. They are added to this host's day file of that moment in the write's own files, as the
     change left it (Write.text), by record.with_entries. Returns the day and [(id, lines)], the act's first."""
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -1182,6 +1184,7 @@ def carried(w, label, eid, own, by=None):
         entries.append((e, record.fields_of(e, now, **record.ask_entry(f"{label}-{rec.get('Role')}", rec.get("What"), rec.get("Names"),
                                                                         rec.get("Words")))))
     for e, act, on, more in w.also:
+        e = e or record.new_id()  # an id the change left to the write, made in the order of its acts
         rest = {k: v for k, v in more.items() if k not in ("why", "frm")}
         entries.append((e, record.fields_of(e, now, act, on, more.get("frm") or [], why=more.get("why") or own["why"], by=by, **rest)))
     lines = [(e, record.entry_text(f)) for e, f in entries]
@@ -4763,6 +4766,7 @@ class Op:
         self.prepare, self.after = prepare, after
         self.added_on, self.added_frm = [], []
         self.fields = fields if fields is not None else {}  # its entry's own fields, which its change may fill at the tip it is applied to
+        self.also_at = None  # inside an approval, where its entry goes among the write's further acts (apply_all)
 
 
 class Reads:
@@ -5050,8 +5054,10 @@ def op_unit_add(ctx, a):
             w.bolt(a.bolt)
             why = landing_hold(ctx.landing(w, a.bolt), a.bolt, f"{k} {a.unit}")
             not why or fail(why)
-        if a.signal:  # its one move, route, in the same commit, checked again on each replay
+        if a.signal:  # its one move, route, in the same commit, checked again on each replay, its entry carried there
             move(ctx.fleet, label, w, a.signal, route_move(a.signal, f"{k}/{a.unit}"))
+            w.also.append((None, "signal.move", [f"signals/{a.signal}", f"{k}/{a.unit}"],
+                           {"why": f"signals({a.signal}): route to {k}/{a.unit}"}))
         repo = w.bolt(a.bolt).get("Repo") if a.bolt else a.repo
         r = Rec("Unit", [("Unit", a.unit), ("Repo", repo)] + ([("Bolt", a.bolt)] if a.bolt else []) + ([("Kind", "chore")] if k == "chore" else [])
                 + [("Intent", a.intent)] + [("After", x) for x in a.after] + [("Source", x) for x in sources])
@@ -5071,8 +5077,6 @@ def op_unit_add(ctx, a):
     def after(repo, sha):
         if a.signal:
             print(f"signal {a.signal} routed to {k}/{a.unit}, in the same commit")
-            record.emit(label, "signal.move", [f"signals/{a.signal}", f"{k}/{a.unit}"], commit=[f"{repo}@{sha}"],
-                        why=f"signals({a.signal}): route to {k}/{a.unit}")
     return Op(label, change, f"plan({a.bolt or 'queue'}): add {called(a)}", f"{k}.add",
               on=[f"{k}/{a.unit}", f"bolt/{a.bolt}" if a.bolt else f"queue/{kit}"], frm=[f"signals/{a.signal}"] if a.signal else [], after=after)
 
@@ -5992,12 +5996,13 @@ def flat(lists):
 
 def apply_all(fleet, label, w, argvs, n):
     """Proposal n's commands built and applied in order to the write's plan, each checked against the plan as the ones
-    before it left it. Returns the ops, each with the objects its change added, and the bolts whose conductors hear
-    the write."""
+    before it left it. Returns the ops, each with the objects its change added and where its entry goes among the
+    write's further acts (Op.also_at), and the bolts whose conductors hear the write."""
     ctx, ops, told = Proposed(fleet, label, w, n), [], []
     for a in argvs:
         try:
             op = OPS[(a.cmd, a.sub)](ctx, a)
+            op.also_at = len(w.also)  # its entry goes ahead of those its change adds (Write.also)
             n_on, n_frm = len(w.on), len(w.frm)
             told += op.change(w) or []
         except Refusal as e:
@@ -6285,7 +6290,8 @@ def close(p, state, today, reason=None, cleared=()):
 
 def plan_approve(fleet, a):
     """crew plan approve <n> [--clear <unit>...]: the proposal's commands applied in order to the plan at the tip, and
-    the proposal closed as approved, in one commit; refused, with nothing changed, when a command no longer applies: it
+    the proposal closed as approved, in one commit, which carries and names the plan.approve entry and each applied
+    command's, from proposal/<n> (Write.also, carried); refused, with nothing changed, when a command no longer applies: it
     waits on the user alone. A rebase it prepares is undone if the approval is refused. With
     --clear, the commands that concern only the units the user left out are not applied, a command left in that names
     one refuses the whole, and the proposal records each as Cleared (plan.3). Then crew closes the proposal's card with
@@ -6313,6 +6319,9 @@ def plan_approve(fleet, a):
             p = proposal(pl, a.n, label)
             opened(p)
             ops, told = apply_all(fleet, label, w, applied, a.n)
+            for op in reversed(ops):  # each applied command's entry, carried and named in the approval's one commit
+                w.also.insert(op.also_at, (None, op.act, op.on + op.added_on, dict(op.fields, why=record.subject(op.subject),
+                                                                                    frm=op.frm + op.added_frm + [f"proposal/{a.n}"])))
             if cleared:  # a branch's proposals.rec keeps the descriptor it was made with, from before Cleared
                 in_step(pl, PROPOSALS)
             close(p, "approved", datetime.date.today().isoformat(), cleared=cleared)
@@ -6328,8 +6337,6 @@ def plan_approve(fleet, a):
             undo()
         raise
     for op in seen["ops"]:
-        record.emit(label, op.act, op.on + op.added_on, op.frm + op.added_frm + [f"proposal/{a.n}"], [f"{repo}@{sha}"],
-                    record.subject(op.subject), **op.fields)
         if op.after:
             op.after(repo, sha)
     print(f"proposal {a.n} is approved and applied" + (f", without {joined(cleared)}" if cleared else ""))
