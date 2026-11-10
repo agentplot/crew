@@ -47,7 +47,8 @@ def given(here=MAC, **kw):
 
 class TestDriveGiven:
     """drive-setup, "Every key is a flag, with no default", "A flag crew does not accept is refused before anything is
-    read" and "The flags agree before anything is read" (design, Decision 2)."""
+    read", "The batch setting is given in its units, and the former flag is refused" and "The flags agree before
+    anything is read" (design, Decision 2)."""
 
     def refused(self, said, here=MAC, **kw):
         with pytest.raises(crew.Refusal) as e:
@@ -339,8 +340,8 @@ class TestTeamsSet:
 class TestTeamsStep:
     """drive-setup, "The file it would write is checked before it is written", "Run again with the same answers, it
     changes nothing", "Where Nix links the teams file, nothing is written there", "A teams file crew cannot read at all
-    is moved aside once" and "A teams file at crew's own version is written where the set mends it" (design, Decisions
-    5, 7 and 8; a-drive-set-loses-no-drive-and-no-record, Decision 2; a-drive-set-mends-what-it-replaces, Decisions 1 to
+    is moved aside once", "A set mends a teams file at crew's own version", "A set refuses a teams file it cannot mend"
+    and "A set's refusal says what it leaves as it is" (design, Decisions 5, 7 and 8; a-drive-set-loses-no-drive-and-no-record, Decision 2; a-drive-set-mends-what-it-replaces, Decisions 1 to
     3): the step from plain facts, nothing read or written by it."""
 
     KEPT = ("crew drive set sets only drive pat's entry and the hosts, console and kept repositories its flags give, and moves "

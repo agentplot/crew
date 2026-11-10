@@ -8,7 +8,7 @@ crew keeps each drive's plan of bolts, runs its main level of Claude agents in h
 
 ## Specs
 
-**Specs.** `openspec/specs/` changes only through an OpenSpec change: a proposal, a delta spec, and tasks, validated with `openspec validate --strict` and archived with `openspec archive`, so the spec reconciles. This holds for a fix or a chore too. Where the work changes a requirement, it carries that change in the same branch. Never edit a spec file directly.
+**Specs.** `openspec/specs/` changes only through an OpenSpec change: a proposal, a delta spec, and tasks, validated with `openspec validate --strict` and archived with `openspec archive`, so the spec reconciles. This holds for a fix or a chore too. Where the work changes a requirement, it carries that change in the same branch. A requirement's text above its first scenario is at most 500 characters, which a change's own validation counts for an added requirement but not a modified one; the suite's `t-specs` holds every spec under `openspec/specs/` to `openspec validate --specs --strict`, so a longer one fails the merge that archives it. Never edit a spec file directly.
 
 ## Rules
 

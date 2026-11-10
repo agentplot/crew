@@ -323,7 +323,7 @@ class TestWhatStands:
 
 
 class TestWhatAHostKeeps:
-    """bolt-plan "A rename waits until no host keeps the old name"; Decision 3: a host's keeping is its runner's report
+    """bolt-plan "A host's keeping is its runner's repositories, and otherwise the teams file's"; Decision 3: a host's keeping is its runner's report
     where it gives one, else what the teams file keeps there (record 0064)."""
 
     def test_a_runner_reporting_it(self):

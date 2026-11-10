@@ -263,7 +263,7 @@ def runner_branch(label, host):
 # roles-run-as-flume-kinds), with Flume's status of its place, or the runner's words where no run could be launched
 # (boomdrive's the-runner-carries-crews-work-into-flume, Decision 14); and repositories.rec each repository its
 # configuration keeps on the host, by its forge address with the folder of its clone, where Flume cuts its places
-# (roles.9; the drive-state spec, "A kit's work is taken by a runner whose configuration names its repository"), a
+# (roles.9; the drive-state spec, "A bolt's kit folder is read from its runner's repositories, and its stream from its newest place"), a
 # branch with none reporting no repositories; and previews.rec what it answered of each preview request, by its
 # number: held, done or refused, sluice's answer (Text) and listing (Status) of the preview as the runner carried
 # them, each JSON on one line, whether sluice's last listing held it, the runner's words and when, under the
@@ -1530,8 +1530,8 @@ def landing_said(l, bolt=None, head=None):
     """A landing (landing_of) in the words of its head line and its row (Decision 10): asked with its request;
     under test or waiting with the merge queue's entry; landed at its commit; refused in Flume's words; stopped in the
     runner's or Flume's; unknown with why; "" for none, unlaunched (base_said) and dropped. Given the bolt and the head
-    its land was posted at, the words a view shows say that head and what comes next (bolt-teams "A landing that did not
-    land is the bolt's only for its own content"): a failed check, that the bolt is open for work and ops starts a fix
+    its land was posted at, the words a view shows say that head and what comes next (bolt-teams "A landing that is the
+    bolt's says what comes next on its head line"): a failed check, that the bolt is open for work and ops starts a fix
     on it with Flume's words, crew fix <bolt> <name> "<words>"; a conflict, that it takes main first, by the fix crew
     launches to take main into it, ops starting nothing; a stop, at that head. Without them, the words the run record
     keeps of a refusal (landing_entry). Where the base place names a landing fix, a refusal's words end with what
@@ -1670,8 +1670,8 @@ def sent_of(requests, reads, launch):
 
 
 def main_fixes_waiting(requests, reads):
-    """Each fix of main a kit's landings row carries (Decision 11; crew-rail "A fix of main waits to land on its kit's
-    row"): those whose launch stands and whose code has delivered with its submission waiting held, their stage read
+    """Each fix of main a kit's landings row carries (Decision 11; crew-rail "A delivered fix of main is a line of its
+    kit's landings row, sent as a bolt's is"): those whose launch stands and whose code has delivered with its submission waiting held, their stage read
     from the runner that took them (reads, by host; taken, piece_stage), in requests.rec's order, each {kit, name, host,
     brief, since, carried, head, launch, sent}: kit, the kit its launch's Repo names; since, when Flume read it waiting,
     in seconds, or None; carried, when the runner carried that status; head, the head Flume's status names its place
@@ -1862,7 +1862,7 @@ def asked_at(request):
 
 def previews_put_away(asks, carried, works, now=None, grace=0):
     """The asks whose done crew writes (Decision 7 of a-cards-preview-is-asked-of-the-runner; rail-cards "A preview is
-    released on the user's done and when its card or row ends"), from facts alone: asks, the standing asks a caller
+    put away when its batch's card closes or its card or row is gone"), from facts alone: asks, the standing asks a caller
     weighs, as previews_standing gives them; carried, the (host, repo, revision) of each row or line that still carries
     its preview; works, the work whose card still stands, each kept whole; now and grace, an ask written under grace
     seconds before now kept, as it may be a card's not yet raised. Returns each bring-up whose done is to be written,

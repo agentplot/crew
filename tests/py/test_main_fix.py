@@ -85,7 +85,7 @@ class TestDrop:
 
 
 class TestSend:
-    """main-level "A fix of main lands on the user's send" (crew-lands-each-bolt-through-flumes-base-place, Decision 5):
+    """main-level "A fix of main's land is carried to the runner on the user's send of its row" (crew-lands-each-bolt-through-flumes-base-place, Decision 5):
     crew main fix --send, with or without --excerpt, refuses at once, before it reads anything, and appends nothing; once
     the runner's record shows the fix's code delivered and its submission held (tests/py/flume-0.3.6/held.json), the
     user's send of its row on its kit's landings card makes one land of its launch due (runner.lands_due), and the land

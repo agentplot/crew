@@ -1,5 +1,5 @@
-"""crew send (briefs.10, record 0035, the operator-agent spec "Anything sent to another drive reaches its operator",
-the run-record spec "A send is one entry in the receiving drive's record"): crew.send_door for where a
+"""crew send (briefs.10, record 0035, the operator-agent spec "A send reaches the operator of the drive it names, marked as a tell",
+the run-record spec "A send that reaches its operator appends one entry naming the sender and the operator"): crew.send_door for where a
 send goes, from the teams file alone, and crew.send for what it types and records. That the command reaches the
 operator's pane on its host is the main level's journey's (t-journey-main)."""
 import pytest

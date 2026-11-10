@@ -565,7 +565,7 @@ class TestSessions:
         assert (r["lines"], r["close"], r["record"], r["end"]) == (["batch/13: approved"], "Read; no notes", True, True)
 
     def test_a_batch_whose_session_was_sent_is_recorded_read_by_crew_whenever_no_card_of_it_closed(self):
-        """review-batches, "A batch whose reading session is sent is read, with or without its card": a card closed is
+        """review-batches, "A read batch whose card is not closed is closed by crew in the planner's name": a card closed is
         the record; none held, or one lost or whose close was refused, which row_card_close gives as None, is not."""
         assert plan.batch_read_close("req_b13") is False
         assert plan.batch_read_close(None) is True
@@ -845,7 +845,7 @@ BOLT = plan.Rec("Bolt", [("Bolt", "b1"), ("Repo", "switchboard-kit")])
 
 
 class TestLandingSession:
-    """crew card session land/<bolt> (card-sessions "A landing's session follows the bolt's head", "A later try of a
+    """crew card session land/<bolt> (card-sessions "The session command puts a landing's link on its card while the card waits", "A later try of a
     reading is recorded"): its link printed, and the kit's landings card raised on the main machine with the new link's
     note when the session was started anew or the kit's card stands without a row's reading; the try recorded as
     card.reading in main-level ops's name when it started or refused; refused for a bolt that is no row that can land,
@@ -1094,7 +1094,7 @@ class TestLandingPreview:
 
 class TestLandingReading:
     """A row's read opens its reading itself, and tries once more when it refuses, as crew card session would
-    (card-sessions "A landing's raise tries its reading again before raising without it"): the kit's main fetched on
+    (card-sessions "A landing's row tries its reading once more on the bolt's host"): the kit's main fetched on
     the team's host, the landing read afresh and its reading opened again with those facts."""
     AT = dict(WHERE["swb-1"], machine="mac-studio")
     LINK = "http://mac-studio.ts.swancloud.net:19432"
@@ -1498,8 +1498,8 @@ def landings(n, **more):
 
 
 class TestLandings:
-    """A kit's landings card (rail-cards "The landing card is posted once the bolt's verification is green", "A row that
-    can land is a box, ticked as crew proposes", "Landing is approved only by holding the button"): land/<kit>, its
+    """A kit's landings card (rail-cards "Each kit has one landings card in main-level ops's name, its rows in plan order", "A row that
+    can land is a box, ticked as crew proposes", "A landings card of one row is approved only by holding the button"): land/<kit>, its
     rows in the plan's order, its form by how many can land."""
 
     def test_one_row_is_todays_approve_of_risk_high_titled_as_today_with_no_high_stakes(self):
@@ -1763,7 +1763,7 @@ class TestFollows:
         assert [built.follows_of(k, {}, self.E, self.OPS) for k in ("proposal", "batch", "record")] == [None, None, None]
 
     def test_a_kits_landings_card_follows_its_last_only_once_answered_and_closed_with_rows_left(self):
-        """rail-cards "The landings card closes when nothing waits": a card the user answered, closed with a row left,
+        """rail-cards "An answered landings card closes once each bolt it ticked has landed, been held or stopped": a card the user answered, closed with a row left,
         is followed by the next; one closed with nothing left, or withdrawn, is followed by none."""
         post = dict(Act="card.post", Key="land/crew", By=self.OPS, Card="req_k1")
         left = [post, dict(Act="card.close", Card="req_k1", State="closed", Rows="1")]
@@ -1793,7 +1793,7 @@ def replied(answer, turn="agent", status="answered"):
 
 
 class TestAnswerSaid:
-    """rail-cards "The close of an answered card records the answer": what the user answered, in crew's words made from
+    """rail-cards "An answered card's close records what the user answered from names alone": what the user answered, in crew's words made from
     names alone (cards.answer_said), which the close of the card keeps as Answer for the card that follows it, and none
     of the words they typed (record.3)."""
 
@@ -1827,7 +1827,7 @@ class TestAnswerSaid:
 
 
 class TestAnsweredBefore:
-    """rail-cards "A card that follows one the user answered says so first": the card the user answered that a post
+    """rail-cards "A follow-on card gives the answer crew recorded at the earlier card's close": the card the user answered that a post
     comes after (cards.answered_before), from the run record alone, and the paragraph the post opens with
     (cards.answered_opening), or none when nothing changed, so the post is withheld."""
     DESIGN, KEY = "swancloud-design", "record/crew/0019"

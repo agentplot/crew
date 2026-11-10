@@ -532,8 +532,8 @@ class TestInstalledCrew:
 
 
 class TestRefresh:
-    """The host's follower's refresh (the crew-board spec, The rail and the board come from one read, A refresh after
-    nothing moved reads nothing, A refresh after a change reads only what moved): one read for every drive with an
+    """The host's follower's refresh (the crew-board spec, One refresh writes every drive's rail and board frames from one read, With nothing moved,
+    the follower starts nothing and writes its frames again from its last read, A moved runner's branch, readings folder or card answer reads only what rests on it): one read for every drive with an
     operator session on the host, kept, and the frames written from it; each step around it stands in here, the read,
     the views and the stamps, so what is asked is what the case shows."""
 
@@ -960,7 +960,7 @@ def test_the_session_sweep_after_nothing_moved_asks_the_host_the_last_could_not_
 
 
 def test_the_check_asks_each_host_once_for_its_kits_and_its_readings(monkeypatch):
-    """The crew-board spec, A refresh after nothing moved reads nothing: a host's kits and its card readings folders are
+    """The crew-board spec, A host is asked for its stamps only when something there could have moved: a host's kits and its card readings folders are
     stamped in one request to it, a host with no kit asked for its readings alone, and one that does not answer has
     every stamp of its None, which counts as moved (read.1)."""
     asked = []
@@ -980,7 +980,7 @@ def test_the_check_asks_each_host_once_for_its_kits_and_its_readings(monkeypatch
 
 
 class TestMoved:
-    """The follower's check before it reads (the crew-board spec, A refresh after nothing moved reads nothing): what moved
+    """The follower's check before it reads (the crew-board spec, The follower checks whether anything it acts on has moved before it reads): what moved
     between the stamps its last read was made at and the stamps now."""
 
     KEPT = {"crew": ("c" * 40, b"{teams}"), "state": {"wldn": "a" * 40, "swancloud": ""}, "blueprints": {"wldn": "b" * 40, "swancloud": "b" * 40},
@@ -1104,8 +1104,8 @@ def test_no_card_to_ask_after_starts_no_bridge_and_the_cards_asked_are_asked_in_
 
 
 class TestAsking:
-    """What the follower asks of another host, of Pending You and herdr, and of GitHub (the crew-board spec, A refresh
-    after nothing moved reads nothing, The follower fetches on a one-minute clock, The follower asks Pending You about
+    """What the follower asks of another host, of Pending You and herdr, and of GitHub (the crew-board spec, A host
+    is asked for its stamps only when something there could have moved, The follower fetches each repository once a minute and never because an entry arrived, The follower asks Pending You about
     cards when they could have moved): only what something it reads with no process says could have moved, and each
     repository once a tick (Decisions 1 to 3 of a-followers-tick-reads-nothing-while-nothing-moved)."""
 
@@ -1162,7 +1162,7 @@ class TestAsking:
 
 class TestKept:
     """What the host's follower keeps between its refreshes and serves while it has not moved (the crew-board spec, A
-    refresh after a change reads only what moved; plan.12's reading of 2026-10-28)."""
+    moved state tip, blueprints tip or kit is read again, and the rest is kept from the last read; plan.12's reading of 2026-10-28)."""
 
     REQ = {"main": "/kit/main", "dir": "/kit", "bolts": []}
     ANSWER = {"ok": True, "main": [], "stamp": "s1"}
@@ -1240,8 +1240,8 @@ class TestKept:
 
 
 class TestRailFrame:
-    """The rail tab draws the rail frame the host's follower writes (the crew-board spec, The rail and the board come
-    from one read)."""
+    """The rail tab draws the rail frame the host's follower writes (the crew-board spec, A tab says how old its
+    frame is, or that none was written)."""
 
     RAIL = {"read_at": board.iso(NOW), "from": "mac-studio", "text": "What waits on you (wldn), as of 10:00:00\n\nproposals\n  none", "updated": None}
 
@@ -1669,7 +1669,7 @@ def queued(subs=(), error=None):
 
 
 class TestSubmissions:
-    """crew-board "Construction shows each bolt in flight as a ledger, with no server for a started bolt's work": each
+    """crew-board "A ledger shows each unit and fix with its stage and its submission's number": each
     piece's submission on its line as the runner carries Flume's status of its place, and the bolt's landing on its
     head line as the run record holds it, in the lane and in the bands, nothing of sluice's queue read (crew record
     0056 points 1 and 4; code.8)."""
@@ -1709,7 +1709,7 @@ class TestSubmissions:
 
 
 class TestTime:
-    """crew-board "A held bolt's head line shows its age and who held its time" (plan.20): each holder now as the lane,
+    """crew-board "A held bolt's head line shows its age and each holder's minutes of it" (plan.20): each holder now as the lane,
     the JSON and the bands draw tenant-environments' head line, started 200 minutes before the board was read; its age
     runs from the run record's entry that made its branch (Decision 11 of the-team-machinery-leaves)."""
 
@@ -2145,7 +2145,7 @@ class TestLandingsUnderAnotherName:
 
 
 class TestALandingFromTheRunnersReport:
-    """crew-board "Construction shows each bolt in flight as a ledger, with no server for a started bolt's work"
+    """crew-board "A ledger says its landing is asked, in the merge queue, or can't be told"
     (crew-lands-each-bolt-through-flumes-base-place, Decision 10): a bolt's head line, the rail and ops's band say its
     landing as the runner reports it beside what the run record holds (plan.landing_line, board.head_said,
     board.record_landing), under the ledger's key landing, which the mod's view reads with the rest (code.8)."""

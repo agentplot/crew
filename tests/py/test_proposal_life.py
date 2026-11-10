@@ -186,7 +186,7 @@ class TestAmendment:
 
 
 class TestAnswers:
-    """The card's questions are the approval and the new units (plan-proposals): what `crew plan answer` gathers of the
+    """What else a proposal changes applies with its new units (plan-proposals): what `crew plan answer` gathers of the
     card crew builds, and the change Send applies with its boxes as they stand (plan.card_asks, card_answer,
     with_answer, answered, kept, approved_words)."""
     BOLT = "y"

@@ -1,4 +1,4 @@
-"""A bolt's landing as the run record holds it (bolt-teams "A landing queued holds its bolt's work", plan.8): queued while
+"""A bolt's landing as the run record holds it (bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record", plan.8): queued while
 sluice's submission has no outcome recorded, rejected once sluice refused it for the bolt's own content, landing again
 once it is submitted after a rejection, each a state of its own (plan.landing_phase); what a line says of each
 (plan.phase_said); and what work joining the bolt is refused for (plan.landing_hold). That crew bolts, the rail and the
