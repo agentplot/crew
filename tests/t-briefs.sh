@@ -235,7 +235,7 @@ for role in design planner reviewer main-ops operator; do
   has "$out" "You stand in your pane, an agent crew started and keeps up: your work reaches you there, as tells marked"
   lacks "$out" "You run as your kind"
 done
-for r in design planner reviewer ops operator; do role_stream wldn $r wldn-main; done
+for r in design planner reviewer ops operator; do role_runs wldn $r on-demand; done
 for role in design planner reviewer main-ops operator; do
   expect_ok crewpy brief wldn $role
   [[ $out =~ \{\{[A-Z_]+\}\} ]] && fail "roles/$role.md left ${BASH_REMATCH[0]} unfilled for a drive running all five as their kinds"
@@ -249,7 +249,7 @@ done
 expect_ok crewpy brief wldn reviewer; has "$out" "run \`$CREW/plugin/bin/crew review delivered\`, which records it"
 expect_ok crewpy brief wldn main-ops; has "$out" "You run nothing for a landing: crew carries the user's send to the runner, and how each landing ends reaches your next run as an ask when it does not land"
 expect_ok crewpy brief wldn planner; has "$out" "its delivery reaches you as an ask, with the line that adopts its card"
-for r in design planner reviewer ops operator; do role_stream wldn $r false; done
+for r in design planner reviewer ops operator; do role_runs wldn $r standing; done
 ok "each main-level brief says how its work reaches it: in its pane while it stands, and as a turn that waits on nothing once it runs as its kind, every brief filled for a drive running all five so"
 
 expect_ok crewpy brief wldn operator

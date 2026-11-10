@@ -137,7 +137,7 @@ ok "crew hold --all --now holds every host crew runs agents on and ends every ag
 # started in it and its log saying why; nothing starts it again.
 HOST=$box expect_ok crew main up wldn
 planner=$(rec wldn-planner)
-role_stream wldn planner wldn-main
+role_runs wldn planner on-demand
 : > "$CREW_TEST_LOG"; : > "$CREW_TEST_CLAUDE_LOG"
 rm -f "$(home_of $box)/.local/state/crew/renew/wldn-planner.log"  # its restart's above
 expect_ok crew update $box
