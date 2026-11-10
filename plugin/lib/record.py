@@ -444,7 +444,7 @@ def on_branch(fleet, label, since_day, tips=None):
     commit they were read at, {label: sha}, None for a branch not started."""
     import plan  # plan.py imports this module; its git layer is only needed here
     repo, ref = plan.state_of(fleet, label)
-    tip = plan.fetch(repo, ref)
+    tip = plan.tip_of(repo, ref)
     if tips is not None:
         tips[label] = tip
     return at(repo, tip, since_day) if tip else []
@@ -791,15 +791,8 @@ def main(argv):
     (events if a.cmd == "events" else trace)(fleet, a)
 
 
-def below(said=None):
-    """A read of the record below its branch's tip said as plan.py says it (plan.below_read): only once plan.py, which
-    reads the branch, was loaded by the command."""
-    return sys.modules["plan"].below_read(said) if "plan" in sys.modules else ("" if said is None else said)
-
-
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(below(str(e)))
-    below()
+        sys.exit(str(e))

@@ -398,7 +398,7 @@ class OnTheTip:
         def fetch(repo, ref, fresh=False):
             self.fetched.append(fresh)
             return "now" if fresh else "read"
-        monkeypatch.setattr(plan, "fetch", fetch)
+        monkeypatch.setattr(plan, "tip_of", fetch)
         monkeypatch.setattr(plan, "recfix", lambda text, what: None)
         monkeypatch.setattr(plan, "read", lambda repo, ref, tip: fresh().plan)
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: (self.now if tip == "now" else read).text()

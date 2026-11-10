@@ -512,19 +512,6 @@ class Reading:
     def keep_tip(self, repo, ref, sha):
         self.keep(self.tip_name(repo, ref), sha)
 
-    def keep_below(self, repo, ref, tip, at, waits):
-        """This command's latest read of a repo's branch: below its tip at at while waits, (the write it waits on, its
-        subject), is in flight, kept for its answer (below_read); or at its tip, waits None, which takes back what an
-        earlier read of the branch kept, since the command's later steps read past it."""
-        below = self.memory.setdefault("below", {})
-        below.pop((repo, ref), None)
-        if waits and at and tip and at != tip:
-            below[(repo, ref)] = dict(ref=ref, tip=tip, at=at, write=waits[0], subject=waits[1])
-
-    def below(self):
-        """Each branch this command last read below its tip, in the order read: below_said's facts."""
-        return list((self.held("below") or {}).values())
-
     def kits(self, host):
         return {} if self.bypass else self.held(f"kits-{host}.json") or {}
 
@@ -681,114 +668,12 @@ def paths_at(repo, tip, prefix):
     return git(repo, "ls-tree", "-r", "--name-only", tip, "--", prefix).splitlines()
 
 
-def fetch(repo, ref, fresh=False):
-    """A branch of the repo as a decision reads it (tip_of, fresh as there): at its tip, or, while any of its newest
-    commits names a run-record entry it does not hold yet, below the oldest such commit (read_point), so no decision
-    reads an act whose write has reached the branch and whose entry has not (read.5, plan.2); None when the repo has
-    no such branch. A read below the tip is kept for the command's answer (Reading.keep_below, below_read), and a later
-    read of the branch at its tip takes it back."""
-    tip = tip_of(repo, ref, fresh)
-    at = read_point(repo, tip)
-    READ.keep_below(repo, ref, tip, at, READ.held(f"waits-{repo}-{tip}") if at != tip else None)
-    return at
-
-
-# How many of a branch's newest commits a decision's read looks through for one whose entry is still in flight.
-ARRIVAL = 20
-# An entry's id (record.entry_id): its UTC day, then, past the microsecond older ids lack, the host that wrote it.
-ENTRY_ID = re.compile(r"^(\d{4})(\d{2})(\d{2})T\d{6}Z-(?:\d{6}-)?([a-z0-9][a-z0-9-]*)-\d+-\d+$")
-
-
-def entry_paths(eid):
-    """The run-record files an entry's id says it is in, its host's file of the id's day and of the next, since a
-    write makes the id before its act and records it after (record.new_id); none for an id of no form crew reads."""
-    m = ENTRY_ID.match(eid)
-    if not m:
-        return []
-    day = datetime.date(*map(int, m.group(1, 2, 3)))
-    return [f"runs/{m.group(4)}/{d.isoformat()}.rec" for d in (day, day + datetime.timedelta(days=1))]
-
-
-def entry_held(eid, texts):
-    """Whether the run-record files at a tip (texts, {path: text}, None for one the tip lacks) hold the entry eid, in
-    either file its id names (entry_paths)."""
-    return any(re.search(rf"^Id: {re.escape(eid)}$", texts.get(p) or "", re.M) for p in entry_paths(eid))
-
-
-def in_flight(commits, texts):
-    """The commits of a branch whose entry the tip lacks, newest first, as decision_at takes them: each one's write is
-    on the branch and its entry not yet (read.5)."""
-    return [c for c in commits if not all(entry_held(e, texts) for e in c[2])]
-
-
-def decision_at(commits, texts):
-    """The commit a decision reads a drive's branch at (read.5, plan.2), from facts alone (code.7): commits, the
-    branch's newest first, each (sha, its first parent, the entries its Crew-Entry trailer names); texts, {path: text}
-    of the run-record files at the tip those entries' ids name (entry_paths), None for one the tip lacks. A commit
-    whose entry the tip lacks is in flight, its write on the branch and its entry not yet; the branch is read at the
-    parent of the oldest commit in flight, so an act is read whole or not at all, whatever commits of other writers
-    landed between its write and its entry. The tip, the first given, when none is in flight; a branch whose first
-    commit is in flight has nothing below it and is read at the tip; None when none is given. An entry kept by a
-    refused push (record.2) holds the read below its write until the host's next entry carries it, or the write
-    passes out of the commits given."""
-    if not commits:
-        return None
-    flight = in_flight(commits, texts)
-    return (flight[-1][1] if flight else None) or commits[0][0]
-
-
-def waited_on(commits, texts):
-    """The write a decision's read of the branch waits on, from the same facts as decision_at (code.7): the oldest
-    commit in flight, whose parent the branch is read at; None when the branch is read at its tip."""
-    flight = in_flight(commits, texts)
-    return flight[-1][0] if flight and flight[-1][1] else None
-
-
-def writer_of(subject):
-    """The agent a commit's subject names, its trailing ` (<agent>)` (plan.2); None for a subject that names none."""
-    m = re.search(r"\(([^()]+)\)\s*$", subject or "")
-    return m.group(1) if m else None
-
-
-def below_said(ref, tip, at, write, subject):
-    """What a command says of a decision that read a branch below its tip (plan.2, read.5), from facts alone: the
-    commit it read at, the tip, the write it waits on and that write's agent, from its subject (writer_of), so that
-    what it answered or refused is read as holding at that commit, never as the branch holding nothing newer."""
-    who = writer_of(subject)
-    by = f" by {who}" if who else ", whose subject names no agent,"
-    return (f"{ref} was read at {at[:7]}, below its tip {tip[:7]}: the write {write[:7]}{by} is on the branch without its "
-            f"run-record entry yet, so nothing from {write[:7]} on was read (read.5)")
-
-
-def read_point(repo, tip):
-    """The commit of the branch at tip a decision reads (decision_at), from its newest ARRIVAL commits, with their
-    trailers in one git log and the run-record files their entries name at the tip in one cat-file (the follower's
-    kept blobs when it reads); kept for the command by tip, which fixes it."""
-    if not tip:
-        return tip
-    name = f"read-point-{repo}-{tip}"
-    if READ.held(name):
-        return READ.held(name)
-    log = git(repo, "log", "--first-parent", f"-n{ARRIVAL}",
-              "--format=%H%x09%P%x09%(trailers:key=Crew-Entry,valueonly,separator=%x20)%x09%s", tip)
-    rows = [(l.split("\t", 3) + ["", "", ""])[:4] for l in log.splitlines() if l.strip()]  # git's output comes stripped
-    commits = [(sha, (parents.split() or [None])[0], eids.split()) for sha, parents, eids, _ in rows]
-    paths = sorted({p for _, _, eids in commits for e in eids for p in entry_paths(e)})
-    texts = dict(zip(paths, [show(repo, tip, p) for p in paths] if kept_listing(repo, tip) is not None else
-                     cat_file(repo, [f"{tip}:{p}" for p in paths])))
-    at = decision_at(commits, texts) or tip
-    write = waited_on(commits, texts)
-    if write and at != tip:  # the write the read waits on, and its subject, for the command's answer (below_said)
-        READ.keep(f"waits-{repo}-{tip}", (write, next(r[3] for r in rows if r[0] == write)))
-    READ.keep(name, at)
-    return at
-
-
 def tip_of(repo, ref, fresh=False):
     """The tip of a branch of the repo: the one this command already holds, else fetched now over https and kept; or
     None when the repo has no such branch, which is not kept, so a later step looks again, unless the follower handed
     in its cache's word that there is none (""). fresh fetches even when a tip is held: after a refused push, and
-    after any push that is not a write's own. A write lands on it (land); a decision reads the branch by fetch."""
+    after any push that is not a write's own. A write lands on it (land), and a decision reads the branch at it, every
+    act there with its entries, which its commit carries (read.5)."""
     held = None if fresh else READ.tip(repo, ref)
     if held is not None:
         return held or None
@@ -962,7 +847,7 @@ def land(repo, ref, path, make):
     (replay_wait), the branch is fetched afresh and make runs again on the new tip, the whole chain made again, up to
     REPLAYS times, so a busy branch is outwaited (plan.1, state.1); a write still refused is refused, and an entry so
     refused is kept for the host's next push (record.reach, record.2). The command then holds the commit it pushed, so
-    its later steps read its own write once its entry is on the branch (fetch)."""
+    its later steps read its own write (tip_of)."""
     tip, waited = tip_of(repo, ref), 0.0
     for n in range(1 + REPLAYS):
         made = make(tip)
@@ -1118,8 +1003,7 @@ def message(subject, body, eid):
 
 def unacted(act, subject):
     """Why a plan write is refused before it reads or pushes anything, or None (plan.2, read.5): it names no act, so
-    its commit would name a run-record entry that nothing writes, and every decision after it would read the branch
-    below it (decision_at) until it passed out of the commits a read looks through."""
+    its commit would name a run-record entry that nothing writes."""
     if act:
         return None
     return (f"crew does not write \"{subject}\": a write names its act, whose run-record entry its commit names and the "
@@ -1286,7 +1170,7 @@ def state_init(fleet, a):
     # What the drive had, read whole before anything is pushed.
     old = []
     for bp in p["blueprints"]:
-        t = fetch(bp, f"plan/{label}")
+        t = tip_of(bp, f"plan/{label}")
         if t:
             old.append((bp, t, read(bp, f"plan/{label}", t)))
     shared = shared_name(label, [(bp, plan) for bp, _, plan in old])
@@ -1294,14 +1178,14 @@ def state_init(fleet, a):
     first = old[0] if old and old[0][0] == p["blueprints"][0] else None
     joins = [o for o in old if o is not first]
     did = []
-    tip = fetch(repo, ref)
+    tip = tip_of(repo, ref)
     absent = tip is None
     if tip is None:
         if first:
             bp, t, _ = first
             r = git(bp, "push", "--quiet", url(repo), f"{t}:refs/heads/{ref}", check=False)
             r.returncode == 0 or fail(f"could not push plan/{label} of {bp} to {repo} as {ref}: {r.stderr.strip()}")
-            tip = fetch(repo, ref, fresh=True)
+            tip = tip_of(repo, ref, fresh=True)
             did.append(f"adopted plan/{label} of {bp} at {t[:7]}, with its history")
             record.emit(label, "state.init", [f"plan/{label}"], commit=[f"{repo}@{tip}"], why=f"state({label}): adopt plan/{label} of {bp}")
         else:
@@ -1328,7 +1212,7 @@ def state_init(fleet, a):
         did.append("brought the plan's record descriptors in step with crew's")
     if show(repo, tip, "moves.rec") is None:
         src = p["blueprints"][0]
-        st = fetch(src, "main")
+        st = tip_of(src, "main")
         moves = show(src, st, "signals/moves.rec") if st else None
         recs = Plan(moves).recs("Move") if moves else []
         at = f" at {st[:7]}" if moves else ""
@@ -1835,7 +1719,7 @@ def plans(fleet, labels, errors=None):
         repo = None
         try:
             repo, ref = state_of(fleet, l)
-            tip = fetch(repo, ref)
+            tip = tip_of(repo, ref)
             out.append((l, repo, tip, read(repo, ref, tip) if tip else None))
         except Refusal as e:
             if errors is None:
@@ -2407,10 +2291,10 @@ def reprioritise(w):
 
 def runner_facts(fleet, label):
     """What a crossed piece's stage is read from in a drive (runner.piece_stage; Decision 8 of teams-cross-to-flume-
-    as-their-bolts-land): requests.rec's records at the tip of its branch this command reads (fetch), as written, none
+    as-their-bolts-land): requests.rec's records at the tip of its branch this command reads (tip_of), as written, none
     where the branch is not started, and each host's runner read beside it (runners)."""
     repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref)
+    tip = tip_of(repo, ref)
     requests = Plan(show(repo, tip, "requests.rec") or runner.REQUESTS).recs("Request") if tip else []
     return requests, runners(repo, label)
 
@@ -2423,7 +2307,7 @@ def launch_label(fleet, work, label):
     for l in labels:
         try:
             repo, ref = state_of(fleet, l)
-            tip = fetch(repo, ref)
+            tip = tip_of(repo, ref)
         except Refusal as e:
             errors[l] = str(e)
             continue
@@ -2551,7 +2435,7 @@ def kits_read(fleet, label, fresh=True):
     can't be read (read.1)."""
     repo, ref = state_of(fleet, label)
     if fresh:
-        tip = fetch(repo, ref)
+        tip = tip_of(repo, ref)
     else:
         tip = tip_here(repo, ref)
         tip is not None or fail(f"crew's cache of {repo} can't be read for {ref}")
@@ -6066,7 +5950,7 @@ def proposal_label(fleet, a, n=None):
     hits = []
     for l in fleet["drives"]:
         repo, ref = state_of(fleet, l)
-        tip = fetch(repo, ref)
+        tip = tip_of(repo, ref)
         text = show(repo, tip, "proposals.rec") if tip else None
         if text and any(p.get("Proposal") == str(n) for p in Plan(text).recs("Proposal")):
             hits.append(l)
@@ -6078,7 +5962,7 @@ def proposal_label(fleet, a, n=None):
 def at_tip(fleet, label, n):
     """The drive's branch at its tip, with proposal n: (repo, tip, plan, proposals, the proposal, its commands)."""
     repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
+    tip = tip_of(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
     w = Write(repo, label, tip, read(repo, ref, tip))
     pl = proposals(w)
     p = proposal(pl, n, label)
@@ -6165,7 +6049,7 @@ def proposal_records(fleet, label, scratch, argvs):
     for repo in dict.fromkeys(i[3] for i in items):
         numbers = sorted({i[4] for i in items if i[3] == repo})
         try:
-            tip = fetch(repo, "main")
+            tip = tip_of(repo, "main")
             listed = git(repo, "ls-tree", "--name-only", tip, "docs/adr/").splitlines() if tip else []
         except Refusal as e:
             held.update({(repo, n): {"why": str(e)} for n in numbers})
@@ -6541,7 +6425,7 @@ def open_proposals(fleet, labels, found=None):
     for l in labels:
         repo, ref = state_of(fleet, l)
         if found is None:
-            tip, plan = fetch(repo, ref), None
+            tip, plan = tip_of(repo, ref), None
         else:
             tip, plan = next(((t, p) for x, _, t, p in found if x == l), (None, None))
         text = show(repo, tip, "proposals.rec") if tip else None
@@ -6859,7 +6743,7 @@ def tip_write(fleet, label, fresh=False):
     """The drive's branch at its tip, as a write; with fresh, the tip fetched anew, the plan as it stands and not
     as this command first read it (fetch). None when the branch has no tip."""
     repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref, fresh)
+    tip = tip_of(repo, ref, fresh)
     return Write(repo, label, tip, read(repo, ref, tip)) if tip else None
 
 
@@ -6968,12 +6852,12 @@ def signal_at(fleet, label, sig, w=None):
         repo, ref, tip = w.repo, f"{label}/main", w.tip
     else:
         repo, ref = state_of(fleet, label)
-        tip = fetch(repo, ref)
+        tip = tip_of(repo, ref)
     hit = signal_in(repo, tip, sig, w) if tip or w is not None else None
     if hit:
         return ref, repo, tip, *hit
     srepo = crew.drive_of(fleet, label)["blueprints"][0]
-    tip = fetch(srepo, "main")
+    tip = tip_of(srepo, "main")
     hit = signal_in(srepo, tip, sig) if tip else None
     return ("main", srepo, tip, *hit) if hit else None
 
@@ -7147,7 +7031,7 @@ def signal(fleet, a):
     key, cap, date, who, position, kind = capture_named(name, v, sid, excerpt, now, a.kind, user, host, by)
     # An id is unique across both homes, so it is looked up in either without asking which.
     srepo = crew.drive_of(fleet, label)["blueprints"][0]
-    btip = fetch(srepo, "main")
+    btip = tip_of(srepo, "main")
     not (btip and git(srepo, "ls-tree", "--name-only", btip, f"signals/{cap}")) or fail(
         f"{srepo} has signals/{cap} already, so a capture can't take that name")
     raw = None
@@ -7400,7 +7284,7 @@ def signal_land(fleet, a):
     why = capture_refusal(cap, files, crew.this_host(), bool(raw) and pathlib.Path(raw[1]).expanduser().exists())
     not why or fail(why)
     srepo = crew.drive_of(fleet, label)["blueprints"][0]
-    btip = fetch(srepo, "main")
+    btip = tip_of(srepo, "main")
     not (btip and git(srepo, "ls-tree", "--name-only", btip, f"signals/{cap}")) or fail(
         f"{srepo} has signals/{cap} already, so a capture can't take that name (signals.1)")
     seen = {}
@@ -7447,7 +7331,7 @@ def signal_show(fleet, a):
     moves = []
     for l in readers:
         srepo, ref = state_of(fleet, l)
-        stip = fetch(srepo, ref)
+        stip = tip_of(srepo, ref)
         recs = show(srepo, stip, "moves.rec") if stip else None
         moves.append((l, next((m for m in Plan(recs).recs("Move") if m.get("Signal") == sig), None) if recs else None))
     print(shown_signal(sig, where, repo, text, show(repo, tip, capture_of(sig)), moves))
@@ -7667,7 +7551,7 @@ def plan_of(fleet, label):
     """The label's plan, or None when it can't be read, so a team's slots are still read from the kit."""
     try:
         repo, ref = state_of(fleet, label)
-        tip = fetch(repo, ref)
+        tip = tip_of(repo, ref)
         return read(repo, ref, tip) if tip else None
     except Refusal:
         return None
@@ -8101,10 +7985,10 @@ def kinds_up(fleet, label, ms):
     kinds = [r for r in crew.MAIN_STANDING + ("reviewer",) if crew.on_demand(p, r)]
     repo, ref = state_of(fleet, label)
     if kinds:
-        tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
+        tip = tip_of(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
     else:
         try:
-            tip = fetch(repo, ref)
+            tip = tip_of(repo, ref)
         except Refusal as e:
             print(f"{e}: crew can't tell whether {label}'s roles.rec holds a role that stands again, and removes nothing",
                   file=sys.stderr)
@@ -8164,7 +8048,7 @@ def kinds_said(fleet, label):
     if not kinds:
         return {}
     repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref)
+    tip = tip_of(repo, ref)
     held, turns = asks.parse(show(repo, tip, "asks.rec") if tip else None)
     reading = runner.of_host(runner_facts(fleet, label)[1], label, p["machine"])
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -9275,7 +9159,7 @@ def review_start(fleet, a):
     label = p["label"]
     CONTEXT["label"] = label
     repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
+    tip = tip_of(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
     plan = read(repo, ref, tip)
     entries = drive_entries(fleet, label)
     # A crossed unit's change is read on GitHub's bolt after a fetch, at the commit holding it archived (Decision 13).
@@ -9397,7 +9281,7 @@ def review_delivered(fleet, a):
     machine = crew.drive_of(fleet, label)["machine"]
     machine == crew.this_host() or fail(f"{label}'s batches are written on {machine}, where its main level runs, not {crew.this_host()}")
     repo, ref = state_of(fleet, label)
-    tip = fetch(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
+    tip = tip_of(repo, ref) or fail(f"{repo} has no {ref} yet: crew state init {label}")
     held, turns = asks.parse(show(repo, tip, "asks.rec"))
     turn = asks.open_turn(turns, f"{label}-reviewer") or fail(
         f"{label}-reviewer has no open turn: crew role start takes the batches asked of it first")
@@ -12704,7 +12588,7 @@ class CardActs:
         f.parent.mkdir(parents=True, exist_ok=True)
         with open(f, "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            fetch(*state_of(self.fleet, label), fresh=True)  # what a raise before this one wrote, which it waited on
+            tip_of(*state_of(self.fleet, label), fresh=True)  # what a raise before this one wrote, which it waited on
             yield
 
     def work(self, label, kit, moves):
@@ -14748,26 +14632,10 @@ def main(argv):
         raise
 
 
-def below_read(said=None):
-    """What a command answers or refuses, said with each decision of it that read a branch below its tip (plan.2,
-    read.5): a refusal's words (said) after a line for each such read (below_said), so its last line is still the
-    refusal; with no words, those lines alone, said on standard error once the command has answered, where no caller
-    parses them. "" or the refusal's words alone when every read was at its tip."""
-    lines = [below_said(**f) for f in READ.below()]
-    if said is not None:
-        return "\n".join(lines + [said])
-    if lines:
-        print("\n".join(lines), file=sys.stderr)
-    return ""
-
-
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(below_read(str(e)))
+        sys.exit(str(e))
     except Stopped as e:
-        if e.code:  # a stop at 0 is a command handed to its host (forwarded), which says its own reads there
-            below_read()
         sys.exit(e.code)
-    below_read()

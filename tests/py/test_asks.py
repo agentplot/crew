@@ -694,7 +694,7 @@ class TestMainUp:
         import plan
         stood = fleet_of(madswan(**now))
         b = on_branch(monkeypatch, stood, {"roles.rec": roles_held(madswan(planner="on-demand", **now))})
-        monkeypatch.setattr(plan, "fetch", lambda repo, ref: "t" * 40)
+        monkeypatch.setattr(plan, "tip_of", lambda repo, ref: "t" * 40)
         plan.kinds_up(stood, "madswan", [])
         assert [r["Role"] for r in asks.parse_roles(b.files["roles.rec"])] == left
         assert len(b.writes) == 1 and b.writes[0].startswith("roles(madswan): to match the teams file (")
@@ -705,13 +705,13 @@ class TestMainUp:
         stood = fleet_of(madswan())
         b = on_branch(monkeypatch, stood, {})
         for tip in ("t" * 40, None):
-            monkeypatch.setattr(plan, "fetch", lambda repo, ref, tip=tip: tip)
+            monkeypatch.setattr(plan, "tip_of", lambda repo, ref, tip=tip: tip)
             plan.kinds_up(stood, "madswan", [])
         b.files["roles.rec"] = roles_held(madswan(planner="on-demand"))
 
         def unread(repo, ref):
             raise plan.Refusal("could not fetch madswan/main of afterthought/madswan-state over https: no route")
-        monkeypatch.setattr(plan, "fetch", unread)
+        monkeypatch.setattr(plan, "tip_of", unread)
         plan.kinds_up(stood, "madswan", [])
         assert b.writes == [] and b.entries == [] and "Role: planner" in b.files["roles.rec"]
         assert ("no route: crew can't tell whether madswan's roles.rec holds a role that stands again, and removes nothing"

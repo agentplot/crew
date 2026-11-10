@@ -2,7 +2,7 @@
 day and asking for its push, record.reach saying a push that is refused, record.unpushed giving the entries the branch
 lacks with each day's file as the union by Id and record.entry_message each one's commit, record.parse and line reading
 and printing entries, the events crew events shows, read from the branch alone, the history crew trace walks, and
-the act and objects each plan command's entry names. That a write's entry follows its commit, that a refused push goes
+the act and objects each plan command's entry names. That a write's commit carries its entry, that a refused push goes
 with the host's next, that crew events and crew trace read the branch and ask no host, and that --follow follows the
 branch are the state journey's (t-journey-state). A file written is no process, so these are logic cases."""
 import json

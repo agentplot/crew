@@ -724,7 +724,7 @@ def places_working(fleet, label, env):
     import plan
     try:
         repo, ref = plan.state_of(fleet, label)
-        plan.fetch(repo, ref)
+        plan.tip_of(repo, ref)
         reading = runner.of_host(plan.runners(repo, label), label, env)
     except Refusal as e:
         return str(e)

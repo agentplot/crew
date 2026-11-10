@@ -423,7 +423,7 @@ class TestRaise:
 
     def swept(self, monkeypatch, pl, key):
         """The sweep's raise of the row keyed so, the branch's tip holding the plan and proposals.rec (pl)."""
-        monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "tip")
+        monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: "tip")
         monkeypatch.setattr(plan, "read", lambda repo, ref, tip: write().plan)
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: pl.text() if path == "proposals.rec" else None)
         return plan.raise_proposal(CARDED, {"label": "wldn", "key": key, "group": "proposals"}, self.Acts())
