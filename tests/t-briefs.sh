@@ -384,8 +384,8 @@ ok "the roles that report results carry one glyph-list section, the same in each
 
 # A landing that conflicts lands nothing and is answered by the take-main fix crew's read launches (plan.8), one whose
 # check failed by a fix ops starts with Flume's words, and one the runner or Flume stopped is a signal and a line to the
-# planner, the bolt landing again on the user's next send (main-level "Main-level ops answers a landing that does not
-# land"); crew carries the send to the runner and nothing but the merge queue moves a bolt's branch or main; the bolt's
+# planner, the bolt landing again on the user's next send (main-level "Main-level ops starts the fix a failed check
+# or a forecast conflict needs, and records a stop as a signal"); crew carries the send to the runner and nothing but the merge queue moves a bolt's branch or main; the bolt's
 # proof is its verification (record 0025), and ops proves and deploys nothing. The user's send stands for the bolt's
 # work, so a ticked bolt that only took main in lands on that send, read with crew card read with or without a card,
 # and the user's words in ops's pane are no word to land (main-level "The user's words in ops's pane are no word to
@@ -588,8 +588,8 @@ for want in "Every bolt is a base place of Flume's, and its units, chores and fi
 lacks "$out" "who decide which team builds it"; lacks "$out" "--team <team>"; lacks "$out" "main fix <kit> <name> --send"
 ok "a bolt's places' answers and fixes are the planner's, its landing carried to the runner on the user's send, and a red main is a Flume fix place landed on the same send"
 
-# Flume launches a bolt's landing fix where its base place names one (main-level "Main-level ops answers a landing that
-# does not land", its scenario "Flume's landing fix"; crews-bolt-kind-names-its-landing-fix, Decision 7): ops starts
+# Flume launches a bolt's landing fix where its base place names one (main-level "Main-level ops starts no fix that
+# Flume's landing fix covers", its scenario "Flume's landing fix"; crews-bolt-kind-names-its-landing-fix, Decision 7): ops starts
 # nothing where the row says Flume's landing fix covers it, starts the fix only where the row names none or says Flume
 # ran its landing fixes, and past the bound starts one by hand or tells the planner and the user; a landing fix that
 # asks is told to the user.

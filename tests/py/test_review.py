@@ -101,8 +101,8 @@ def test_an_agent_crew_starts_none_by_that_name_is_refused():
 
 
 class TestAReviewerUp:
-    """What crew review does with a standing reviewer herdr reads up (teams.2, teams.15; review-batches "The planner
-    starts the drive's reviewer"): plan.reviewer_up_said on herdr's status, a question open, whether its session
+    """What crew review does with a standing reviewer herdr reads up (teams.2, teams.15; review-batches "A review
+    ends an idle reviewer that took no batch and refuses one still reviewing"): plan.reviewer_up_said on herdr's status, a question open, whether its session
     received a batch and whether a summary was written since its last start. madswan's batch 28, 2026-10-26: a reviewer
     idle with an empty input box and crew review refusing it twice as still reviewing. That the command ends it, starts
     the batch's reviewer afresh and records the end, and that --wait refuses, is t-journey-review's."""
@@ -138,7 +138,7 @@ class TestAReviewerUp:
 
 class TestAReviewerThatRunsAsItsKind:
     """A drive that runs its reviewer as its kind is asked a batch by crew review and handed it back by crew review
-    delivered (design Decision 11; review-batches "The planner starts the drive's reviewer" and "A reviewer's run
+    delivered (design Decision 11; review-batches "A reviewer its drive runs as its kind gets its batch as an ask" and "A reviewer's run
     hands its batch back"): the batch ask's words, the --wait refusal, the batches a turn took, whether a summary is
     written, and what the delivery records, raises and asks. That the command does it on the stubs is
     t-journey-review's."""

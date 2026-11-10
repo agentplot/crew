@@ -234,7 +234,7 @@ class TestRestsOnAccepted:
 
 
 class TestStartProposed:
-    """A proposal may hold crew bolt start (bolt-plan "A bolt's work starts by crew bolt start"; Decision 14 of
+    """A proposal may hold crew bolt start (bolt-plan "Only a proposal or the user starts a bolt"; Decision 14 of
     the-team-machinery-leaves, roles.1): its Do parses by the command's grammar and touches the bolt; it is checked as
     the proposal's card is drawn, reading no kit (Drawn); and its approval, reading no host as a direct start reads none
     (crew-lands-each-bolt-through-flumes-base-place, Decision 3), marks the bolt Path: flume and launches its base place

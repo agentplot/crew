@@ -111,7 +111,7 @@ def pane_answer(n, by="swancloud-planner", at="2026-10-22T20:17:04Z", refused=No
 
 
 class TestPaneAnswer:
-    """A batch is answered by the user's own words in a main-level pane (review-batches; record 0031 as amended
+    """A pane answer is one entry that closes its batch's card keys for good (review-batches; record 0031 as amended
     2026-10-22): the answer closes every key of its batch for good, as a tap closes its card."""
 
     HELD = [constructed("x1", "bbb1"), reviewed(13, [("x1", "swb-1", "bbb1")], 10),
@@ -160,7 +160,7 @@ def dropped(units, minutes=0, bolt=None, refused=None):
 
 
 class TestSettled:
-    """A batch that waits on nothing is closed by crew (review-batches): each of its units has landed, was dropped since
+    """A batch waits on nothing once each unit has landed, been dropped or been held by a later batch (review-batches): each of its units has landed, was dropped since
     the batch was made, or is held by a later batch, read from the run record alone (signal
     2026-10-20-swancloud-planner-1703a4ae/02: 23 batch cards posted on wldn's box, most of them for bolts landed days
     before)."""
@@ -586,8 +586,8 @@ class TestCrossed:
 
 
 # ---------------------------------------------------------- a batch line's preview, asked of the runner (record 0043)
-# rail-cards "A preview asked for from a card is asked of the runner and listed while it is up" and "A preview is
-# released on the user's done and when its card or row ends" (Decision 7 of a-cards-preview-is-asked-of-the-runner): a
+# rail-cards "A preview brought up is listed on the card while sluice lists it" and "A preview is
+# put away when its batch's card closes or its card or row is gone" (Decision 7 of a-cards-preview-is-asked-of-the-runner): a
 # line carries the runner's report of crew's ask of it, and a batch card's close writes the done of each standing ask of
 # its units no other open batch card holds, nothing run on a unit's host.
 

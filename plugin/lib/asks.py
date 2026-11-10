@@ -356,7 +356,7 @@ def indented(words):
 
 
 def ask_said(ask):
-    """An ask as a run's start prints it (role-runs "A run's start gives its brief and what it took"): its number, what
+    """An ask as a run's start prints it (role-runs "A run's start prints its brief's path, then what it took in order"): its number, what
     it is, who asked and the record it names, then its words."""
     return [f"ask {ask['Id']}: {ask.get('What')} from {ask.get('From')}" + (f" on {ask['Names']}" if ask.get("Names") else "")] \
         + indented(ask.get("Words"))
@@ -372,7 +372,7 @@ def wait_said(wait):
 
 def ends_said(ends):
     """The ends a run's start took that Flume holds for its role (taken_ends), as the start prints them (design Decision
-    7, role-runs "A run's start gives its brief and what it took"): under a line saying Flume holds them for the role and
+    7, role-runs "A run's start prints a line for each launch whose ends it took"): under a line saying Flume holds them for the role and
     they are confirmed when the turn ends, one line for each launch, its work, its place and its request, then each end's
     key in the order taken, an expired one marked so; nothing for none."""
     by = {}

@@ -1026,8 +1026,8 @@ class TestSweepJudged:
         j = self.judged(rows=[row("deploy/dev", "operations")], cards_=[p4], entries=old)
         assert ([c for c, *_ in j["gone"]], j["none"]) == ([p4], [row("deploy/dev", "operations")])
 
-    # Whether a card stands without its reading, and was last tried ten minutes ago or more (card-sessions "The rail's
-    # read tries a reading its card stands without").
+    # Whether a card stands without its reading, and was last tried ten minutes ago or more (card-sessions "Each rail
+    # read tries the reading of a waiting card on this host that stands without it").
     UNREAD = "plannotator did not list batch/3's session within 10 seconds, so crew ended it"
 
     def test_a_card_posted_without_its_reading_stands_so_and_is_due_a_try_ten_minutes_on(self):
@@ -1540,7 +1540,7 @@ class TestSweep:
         out, _ = swept(rows_=[row("proposal/5")], raises={"proposal": raise_proposal})
         assert [(d["key"], d["did"], d["words"]) for d in out["done"]] == [("proposal/5", "left", "its raise refused: proposal 5's plan can't be read")]
 
-    # The rail's read tries a reading its card stands without (card-sessions).
+    # Each rail read tries the reading of a waiting card on this host that stands without it (card-sessions).
     UNREAD = "plannotator did not list batch/3's session within 10 seconds, so crew ended it"
     LINK = "http://mac-studio.ts.swancloud.net:19432"
     MINE = "This is wldn-planner's card; leave it."
@@ -1653,7 +1653,7 @@ class TestSweep:
         assert [(d["did"], d["words"]) for d in out["done"]] == [("lost", "posted again as req_b4")]
 
     def test_the_followers_answers_handed_in_are_acted_on_with_no_ask_of_its_own(self):
-        """The crew-board spec, The follower asks Pending You about cards on its clock: a sweep between ticks judges the
+        """The crew-board spec, Between asks the follower's sweeps judge the cards as the last ask answered: a sweep between ticks judges the
         cards as the tick last answered, asking nothing in crew's own name, and acts as it would on its own ask."""
         p4 = card("proposal/4", "req_p4", "wldn-planner")
         out, acts = swept(cards_=[p4], entries=[did("plan.approve", On=["proposal/4"])], handed=({"req_p4": ({"status": "pending", "version": 2}, None)}, None))
@@ -2116,7 +2116,7 @@ class TestBolts:
         assert plan.bolts_text(d).splitlines()[-1] == f"{BOX} did not answer (ssh: connect to host timed out): the stages of its bolts are unknown"
 
     def test_a_bolts_landing_is_said_from_the_run_record_each_state_its_own(self):
-        """bolt-teams "A landing queued holds its bolt's work": crew bolts reads queued, landing again and rejected from
+        """bolt-teams "The views say a queued landing and leave it out of the bolts that can land": crew bolts reads queued, landing again and rejected from
         the run record, each in its own words, and names a record it can't read."""
         queued = [dict(Act="bolt.submit", On=["bolt/tenant-environments"], Outcome="queued", Submission="412", Head="d" * 40)]
         d = plan.bolts_data(FLEET, ["wldn"], [("wldn", "WilldanGroup/crew-state", "abcdef1" + "0" * 33, the_plan())], survey(), {}, None,
@@ -2268,7 +2268,7 @@ class TestLandTime:
         assert rail.endswith(f"can land on your send of land/{KIT}; " + ledger["time"]["said"]) and ledger["time"]["shares"]["user"] == 120
 
     def test_a_kit_whose_queue_was_not_read_still_tells_its_time(self):
-        """The views read no submission (crew-board "Each holder is read from what crew already keeps"), so a kit's read
+        """The views read no submission (crew-board "No minute of a bolt's is placed by a submission"), so a kit's read
         with nothing of sluice's queue in it tells who held the bolt's time from the run record."""
         import board
         read = self.read()
@@ -2280,7 +2280,7 @@ class TestLandTime:
 
 
 class TestMainFix:
-    """crew-rail "A fix of main waits to land on its kit's row" (Decision 11 of teams-cross-to-flume-as-their-bolts-land):
+    """crew-rail "A delivered fix of main is a line of its kit's landings row, sent as a bolt's is" (Decision 11 of teams-cross-to-flume-as-their-bolts-land):
     a fix of switchboard-kit's main whose code has delivered and whose submission waits held, as the runner on the box
     carries Flume's status of it (tests/py/flume-0.3.6/held.json), is a line of the kit's landings row, ahead of the
     bolts, landing on the user's send of the kit's card and naming no command (crew-lands-each-bolt-through-flumes-base-

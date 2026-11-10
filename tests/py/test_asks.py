@@ -418,7 +418,7 @@ class TestTurnConfirms:
 
 class TestEndsSaid:
     """What a start, a report and a run's view say of the ends a turn took (design Decision 7; role-runs "A run's start
-    gives its brief and what it took" and "A turn's report counts its ends"; crew-board "A role that runs as its kind has
+    prints a line for each launch whose ends it took" and "A turn's report counts its ends"; crew-board "A role that runs as its kind has
     its view")."""
 
     ENDS = [owed(12, "stage/construct/1/delivered"), owed(12, "stage/code/1/delivered", expired=True), owed(14, "stage/code/1/delivered", "chore/b")]
@@ -710,8 +710,8 @@ class TestMainUp:
 
 
 class TestStart:
-    """crew role start (design Decision 7; role-runs "A run's start takes everything pending", "A run's start gives its
-    brief and what it took" and "A start takes again what a lost run took")."""
+    """crew role start (design Decision 7; role-runs "A run's start takes everything pending", "A run's start prints its
+    brief's path, then what it took in order" and "A start takes again what a lost run took")."""
 
     def test_two_asks_waiting_are_one_turn_and_it_prints_the_brief_then_each_ask_then_the_cards(self, in_run, tmp_path, capsys):
         """role-runs, Two asks waiting and What the planner's run reads."""

@@ -134,8 +134,8 @@ def test_a_landing_refused_at_the_bolts_present_head_holds_its_row():
 
 
 def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held_for_its_fix():
-    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "A landing Flume's verdict sent back
-    is the bolt's fix"): a stop an older crew recorded at the head sent back, of a submit that submitted nothing,
+    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "No land is posted again until
+    a fix moves the head sent back"): a stop an older crew recorded at the head sent back, of a submit that submitted nothing,
     leaves the row held for its fix, never given its box back as a stop of the runner's or Flume's."""
     head = "d" * 40
     entries = [dict(submitted("y", head, "#1474 failed: tests:logic on 41a7c09"), Submission="1474"),
@@ -486,7 +486,7 @@ def where_read(monkeypatch, policy):
 
 
 def test_a_bolt_on_github_is_forecast_where_it_lives(monkeypatch):
-    """bolt-plan "A bolt on GitHub is read where it lives": GitHub's copy, whose policy names origin for the bolt, not
+    """bolt-plan "crew reads a bolt at GitHub's copy where its policy names a remote, and else at the host's own": GitHub's copy, whose policy names origin for the bolt, not
     the host's lagging copy."""
     (got, why, at), trees = where_read(monkeypatch, '[branches."bolt/*"]\nremote = "origin"\n')
     assert why == {} and trees == ["1" * 40]
@@ -1097,8 +1097,8 @@ def test_with_no_card_open_a_sent_bolt_whose_head_crew_cant_read_is_named_and_le
 
 
 class TestLandReadingRead:
-    """crew card read land/<bolt>, main-level ops's on the host its bolt's work runs on (card-sessions "The session's decision
-    reaches the owner as the card's answer"): the reading's decision alone, its annotations as notes on the bolt's row,
+    """crew card read land/<bolt>, main-level ops's on the host its bolt's work runs on (card-sessions "A landing's read
+    gives its session's decision alone and leaves its card"): the reading's decision alone, its annotations as notes on the bolt's row,
     an approval as landing nothing, then set aside so crew card session starts it anew; the kit's card untouched."""
     S = {"pid": 42, "document": "/c/00-y.md", "url": "http://mac-studio:19432/y", "started": "2026-10-23T10:00:00Z"}
 
@@ -1438,8 +1438,8 @@ def test_a_rows_head_moved_changes_the_waiting_card_in_place_naming_it(monkeypat
 
 
 # ------------------------------------------------------------- a row's preview, from the runner's report alone
-# rail-cards "A landing row carries what brings its bolt's preview up", "A preview is released on the user's done and
-# when its card or row ends" and "A moved head releases the preview of the old one and asks for none" (Decisions 5 and 7
+# rail-cards "A landing row carries what brings its bolt's preview up", "A preview is put away on the user's done
+# and when its row leaves the landings card" and "A moved head releases the preview of the old one and asks for none" (Decisions 5 and 7
 # of a-cards-preview-is-asked-of-the-runner): the raise on the main machine reads each row's preview from the runner's
 # report and writes the done of each ask no row that can land carries, reading no kit's policy.
 
@@ -1838,7 +1838,7 @@ HELD = dict(Act="forecast", On=["bolt/z"], why="bolt(z): forecast to conflict wi
 
 
 def test_a_row_newly_taking_main_first_is_recorded_held_once_and_nobody_is_told(monkeypatch):
-    """rail-cards "A row forecast to conflict with main takes main first until a fix takes main in" (Task notes 2.2 of the-team-machinery-leaves):
+    """rail-cards "A row forecast to conflict with main takes main first, recorded once and telling no one" (Task notes 2.2 of the-team-machinery-leaves):
     the raise holds z's forecast on its row and starts nothing, and raised again at the same heads records nothing more,
     z still held by the record and the forecast."""
     acts = LandActs({"y": row("y"), "z": row("z")}, answers=POSTED, against_main={"z": [("main", ["README.md"])]})
@@ -1938,7 +1938,7 @@ def test_a_refused_bolt_whose_fix_committed_a_change_is_asked_again_on_a_card_na
 
 
 def test_a_card_following_the_users_send_says_what_changed_of_a_bolt_asked_again_once_in_its_opening(monkeypatch):
-    """rail-cards "A card that follows one the user answered says so first" and "A ticked bolt whose own work changed is
+    """rail-cards "A follow-on card says what changed in the words its event gives" and "A ticked bolt whose own work changed is
     asked again, saying what changed": the user ticked y and z, y is landing, and a fix committed to z: the card that
     follows opens with what they answered and what changed of z's work, said there once."""
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
