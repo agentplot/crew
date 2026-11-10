@@ -9,8 +9,8 @@ Build the tasks in order. Each check runs from the worktree's root, as written. 
 
 ## 2. The command and the tests' hosts
 
-- [ ] 2.1 `crew _found <agent>` is dispatched, in the usage header and the crew skill, and answers `-h` and `--help` with its usage (design Decision 5; Task notes 2.1). Verify `tests/suite t-help` ends with "0 failed".
-- [ ] 2.2 bash's forwarding runs the line `reach` gives, and each test host has crew installed on the login path the stub ssh puts first, so a forwarded command and a tell's look for an agent reach the box's installed crew (design Decisions 2 and 6; Task notes 2.2). Verify `tests/suite t-journey-main` ends with "0 failed".
+- [x] 2.1 `crew _found <agent>` is dispatched, in the usage header and the crew skill, and answers `-h` and `--help` with its usage (design Decision 5; Task notes 2.1). Verify `tests/suite t-help` ends with "0 failed".
+- [x] 2.2 bash's forwarding runs the line `reach` gives, and each test host has crew installed on the login path the stub ssh puts first, so a forwarded command and a tell's look for an agent reach the box's installed crew (design Decisions 2 and 6; Task notes 2.2). Verify `tests/suite t-journey-main` ends with "0 failed".
 - [ ] 2.3 A forwarded command and a send reach the box with crew in no drive's `repos`, and a box whose login path finds no crew fails naming it, with nothing run there and no checkout tried (design Decisions 1 and 3; Task notes 2.3). Verify `tests/suite t-journey-main` ends with "0 failed".
 
 ## 3. What the README says
