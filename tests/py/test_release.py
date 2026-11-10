@@ -32,8 +32,21 @@ class TestReleaseFile:
         assert crew.release_read(json.dumps({"commit": COMMIT, "version": "0.44.1"})) == (
             {"commit": COMMIT, "version": "0.44.1"}, None)
 
+    def test_mains_version_reads_with_the_commits_first_seven_characters_never_as_a_release(self):
+        assert crew.release_version("0.0.0", COMMIT) == "0.0.0+fcedc22"
+
+    def test_a_file_naming_a_release_version_and_no_commit_reads_as_the_version_alone(self):
+        assert crew.release_read(json.dumps({"commit": None, "version": "0.44.1"})) == (
+            {"commit": None, "version": "0.44.1"}, None)
+        assert crew.release_read(json.dumps({"version": "0.44.1"})) == ({"commit": None, "version": "0.44.1"}, None)
+
+    def test_a_file_naming_no_commit_and_a_version_no_release_has_reads_as_no_release(self):
+        for version in ("0.0.0", "0-unstable-2026-11-08", "v0.44.1", "0.44", "", None):
+            for body in ({"version": version}, {"commit": None, "version": version}):
+                assert crew.release_read(json.dumps(body)) == (None, "the release file names no commit")
+
     def test_a_file_whose_commit_is_not_forty_hexadecimal_characters_reads_as_no_release(self):
-        for commit in ("fcedc22", COMMIT.upper(), COMMIT + "0", 42, None):
+        for commit in ("fcedc22", COMMIT.upper(), COMMIT + "0", 42, ""):
             assert crew.release_read(json.dumps({"commit": commit, "version": "0.44.1"})) == (
                 None, "the release file names no commit")
 
@@ -54,6 +67,17 @@ class TestCrewRead:
         assert crew.crew_read(root) == {"root": str(root), "commit": COMMIT, "version": "0-unstable-2026-11-08+fcedc22",
                                         "from": "release", "unread": None}
         assert crew.crew_version(root) == (COMMIT, "0-unstable-2026-11-08+fcedc22")
+
+    def test_a_copy_of_a_release_tags_plugin_reads_as_its_version_with_no_commit(self, tmp_path):
+        root = release(tmp_path, {"version": "0.56.0"})
+        assert crew.crew_read(root) == {"root": str(root), "commit": None, "version": "v0.56.0", "from": "release",
+                                        "unread": None}
+
+    def test_a_copy_of_mains_plugin_reads_nothing_and_says_the_file_names_no_commit(self, tmp_path):
+        root = release(tmp_path, {"version": "0.0.0"})
+        got = crew.crew_read(root)
+        assert (got["commit"], got["version"], got["from"]) == (None, None, None)
+        assert got["unread"].startswith("the release file names no commit")
 
     def test_a_root_with_neither_git_nor_a_release_file_reads_nothing_and_says_so(self, tmp_path):
         got = crew.crew_read(tmp_path)

@@ -2408,17 +2408,26 @@ def head_here(root=None):
     return (r.stdout.strip() or None) if r.returncode == 0 else None
 
 
-# A build's release file, beside the code that reads it in the plugin folder a session loads: the commit crew's flake was
-# built from and the package's version (crew-flake), written by the build alone and never kept in the tree (code.10).
+# crew's release file, beside the code that reads it in the plugin folder a session loads (crew-release): in the tree,
+# the version alone, main's 0.0.0 on main and the release's at its tag, written by set-version.sh in the release commit
+# the tag names; in a build of crew's flake that knows its commit, that commit beside the package's version (crew-flake).
 RELEASE = "plugin/release.json"
 COMMIT = re.compile(r"[0-9a-f]{40}")
-# A package version that is a release's, as crew's tags name one without their v.
+# A package version that is a release's, as crew's tags name one without their v; main's 0.0.0 is none (MAIN_VERSION).
 RELEASED = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+# The version main's tree names, a release's form that no release has.
+MAIN_VERSION = "0.0.0"
+
+
+def a_release(version):
+    """Whether a version, without its v, is a release's: x.y.z, and not main's 0.0.0."""
+    return isinstance(version, str) and bool(RELEASED.fullmatch(version)) and version != MAIN_VERSION
 
 
 def release_read(text):
-    """A build's release file checked field by field (read.2): ({"commit", "version"}, None), or (None, why) when it is
-    not a JSON object naming a full commit and a version."""
+    """crew's release file checked field by field (read.2): ({"commit", "version"}, None), or (None, why) when it is
+    not a JSON object naming a full commit and a version. A file naming a release's version and no commit, as a copy of
+    a release tag's plugin/ holds, reads with the commit None; any other file with no commit names none."""
     try:
         got = json.loads(text)
     except ValueError:
@@ -2426,6 +2435,8 @@ def release_read(text):
     if not isinstance(got, dict):
         return None, "the release file is not a JSON object"
     commit, version = got.get("commit"), got.get("version")
+    if commit is None and a_release(version):
+        return {"commit": None, "version": version}, None
     if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
         return None, "the release file names no commit"
     if not isinstance(version, str) or not version:
@@ -2434,9 +2445,10 @@ def release_read(text):
 
 
 def release_version(version, commit):
-    """The version crew shows for a build, as git describe gives a checkout's: v<x.y.z> where the package's version is a
-    release's, and otherwise the version with the commit's first seven characters, so two builds of a day read apart."""
-    return f"v{version}" if RELEASED.fullmatch(version) else f"{version}+{commit[:7]}"
+    """The version crew shows for a build, as a checkout's is shown: v<x.y.z> where the package's version is a
+    release's, and otherwise, main's 0.0.0 among them, the version with the commit's first seven characters, so two
+    builds of a day read apart."""
+    return f"v{version}" if a_release(version) else f"{version}+{commit[:7]}"
 
 
 def git_version(root):
@@ -2454,8 +2466,9 @@ def git_version(root):
 
 def crew_read(root=None):
     """What a crew root is, as facts: {root, commit, version, from, unread}. A checkout, where root/.git is there, a
-    folder or a linked worktree's file, read by git, from "checkout"; else a build whose release file is there, read
-    from it, from "release"; else nothing, from None. Whether root is a checkout is read from root/.git alone, never
+    folder or a linked worktree's file, read by git, from "checkout"; else a build or a copy of a release tag's plugin/
+    whose release file is there, read from it, from "release", the commit None where a release names none; else
+    nothing, from None. Whether root is a checkout is read from root/.git alone, never
     from git's search upward, so a build kept under some repository is never read as it. unread says why nothing was
     read, None when a commit was (read.1)."""
     root = pathlib.Path(root or HOME)
