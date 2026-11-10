@@ -4,7 +4,7 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 
 ## 1. One composition of an entry and a day file
 
-- [ ] 1.1 An entry's text and a day file's text with entries added are composed by two functions of plain facts in `record.py`, which `emit` and `unpushed` compose through (design Decision 2; Task notes 1.1). Passes `tests/py/test_record.py` (`tests/suite logic`).
+- [x] 1.1 An entry's text and a day file's text with entries added are composed by two functions of plain facts in `record.py`, which `emit` and `unpushed` compose through (design Decision 2; Task notes 1.1). Passes `tests/py/test_record.py` (`tests/suite logic`).
 
 ## 2. A write carries its entries
 
