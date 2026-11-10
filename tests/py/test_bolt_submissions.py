@@ -1,4 +1,4 @@
-"""What crew bolts shows of a submission (bolt-teams "A submission's number is on its bolt's row from the submit",
+"""What crew bolts shows of a submission (bolt-teams "A piece's line shows its submission's number from the runner's report",
 teams.22): plan.bolts_data and plan.bolts_text show a piece's submission as the runner carries it and a bolt's landing
 as the run record holds it and the runner reports it, never from sluice's queue, which crew reads nothing of (crew
 record 0056 points 1 and 4; crew-lands-each-bolt-through-flumes-base-place, Decision 1), beside the rest of crew bolts

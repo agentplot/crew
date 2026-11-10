@@ -130,8 +130,8 @@ class TestRequests:
 
 class TestBoltRequests:
     """A bolt's own launch, its pieces' and its land are checked before they are appended (bolt-teams "A bolt's launch,
-    its pieces' and its land are checked before they are appended"; drive-state "A launch names everything the runner
-    passes to Flume"; crew-lands-each-bolt-through-flumes-base-place, Decisions 3, 4 and 9)."""
+    its pieces' and its land are checked before they are appended"; drive-state "A bolt's own launch is of
+    crew's bolt kind on main, and is appended first"; crew-lands-each-bolt-through-flumes-base-place, Decisions 3, 4 and 9)."""
 
     def bolt(self, n=1, **given):
         return rec(n, "launch", "bolt/b", **dict(BOLT, **given))
@@ -198,7 +198,7 @@ KEYS = ["change--a/3f9a61c2/stage/construct/1/delivered", "change--a/3f9a61c2/st
 
 class TestConfirmRequest:
     """A confirm asks the runner that holds a launch to confirm to Flume, as a role's address, each end of its place the
-    role's turn took (design Decision 4; drive-state "A launch names everything the runner passes to Flume")."""
+    role's turn took (design Decision 4; drive-state "A request that acts on a launch names that launch and no host")."""
 
     def test_a_confirm_of_a_launch_with_two_deliveries_is_written_in_the_files_order_and_passes(self):
         """drive-state, A confirm in a turn's end."""
@@ -485,8 +485,8 @@ UP = {"name": "crew-y", "branch": "bolt/y", "revision": "abc1234", "state": "up"
 
 class TestHostReadPreviews:
     """A runner's previews.rec is read by request number under the descriptor crew holds byte for byte; one crew can't
-    read hides that runner, and a preview's JSON crew can't read marks that preview alone (drive-state "crew reads
-    each host's runner from that runner's own branch"; Decision 3)."""
+    read hides that runner, and a preview's JSON crew can't read marks that preview alone (drive-state "A runner's
+    repositories or previews file that can't be read makes its runner unreadable"; Decision 3)."""
 
     def test_the_descriptor_is_boomdrives_byte_for_byte(self):
         assert runner.PREVIEWS == (
@@ -642,8 +642,8 @@ class TestPreviewReport:
 
 
 class TestPreviewsPutAway:
-    """The asks to put away are those no row, no work and no grace keeps (Decision 7; rail-cards "A preview is released
-    on the user's done and when its card or row ends", "A moved head releases the preview of the old one")."""
+    """The asks to put away are those no row, no work and no grace keeps (Decision 7; rail-cards "A preview is put
+    away when its batch's card closes or its card or row is gone", "A moved head releases the preview of the old one")."""
 
     def asks(self, *reqs):
         return runner.previews_standing(held(*reqs), deneb())

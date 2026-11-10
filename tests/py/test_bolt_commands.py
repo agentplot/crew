@@ -79,7 +79,7 @@ POLICY = '[branches."bolt/*"]\nrequired = ["#check-full"]\nremote = "origin"\n'
 
 
 class TestStart:
-    """bolt-plan "A bolt's work starts by crew bolt start" and bolt-teams "A start launches the bolt's base place before
+    """bolt-plan "crew bolt start requests a bolt's base place and then its pieces in one plan write" and bolt-teams "A start launches the bolt's base place before
     its pieces" (crew-lands-each-bolt-through-flumes-base-place, Decision 3): one plan write marks the bolt Path: flume
     and appends its base place's launch and then its pieces', reading no host and making no branch; refused, the plan
     unchanged and nothing requested, while no runner answers for the drive, and for a bolt started already, but one
@@ -89,8 +89,8 @@ class TestStart:
 
     @pytest.fixture(autouse=True)
     def no_host(self, monkeypatch):
-        """Every host read refused: a start reads none (drive-state "What comes before a runner takes a kit's work is
-        done on the main-level host")."""
+        """Every host read refused: a start reads none (drive-state "A bolt's start reads and runs nothing on any
+        host")."""
         import crew
 
         def refused(*a, **k):
@@ -221,7 +221,7 @@ class TestLand:
 
 
 class TestWhereABoltIsRead:
-    """bolt-plan "A bolt on GitHub is read where it lives" (plan.19, design Decision 1): GitHub's copy when the host holds
+    """bolt-plan "crew reads a bolt at GitHub's copy where its policy names a remote, and else at the host's own" (plan.19, design Decision 1): GitHub's copy when the host holds
     it and the policy in it names a remote for the bolt, else the host's own branch, the only copy the host then has."""
 
     def test_githubs_copy_naming_a_remote_is_where_the_bolt_is_read(self):

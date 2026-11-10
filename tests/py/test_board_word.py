@@ -1,5 +1,5 @@
 """A word from the board (record 0038 §3, the board-page spec "A word reaches its agent as the user's tell from the
-board, naming the item", "A word not of the board's form is refused" and "A word from the board answers nothing"):
+board, naming the item", "A word not of the board's form is refused" and "Words from the board are not the user's answer to a batch or a record"):
 crew.board_word for the check of what the board's listener pipes, crew.board_tell for the tell it makes, and the
 refusals of a landing, a batch's answer and a record settled on words that came from the board. That the command
 reaches the planner's pane on its host is the main level's journey's (t-journey-main)."""
@@ -105,7 +105,7 @@ class TestRefused:
 
 
 class TestAnswersNothing:
-    """board-page "A word from the board answers nothing": words verified as the user's only in a tell from the board
+    """board-page "Words from the board are not the user's answer to a batch or a record": words verified as the user's only in a tell from the board
     land no bolt, answer no batch and settle no record, each saying where the user answers instead; the same words
     typed in the pane, a verdict not from the board, still do."""
     FROM_BOARD = "the words came from the board, which answers nothing"
@@ -114,7 +114,7 @@ class TestAnswersNothing:
         return transcript.Verdict("verified", raw=b'{"type": "user"}', n=4, value={"uuid": "u-60"}, asserted_by="user", board=board)
 
     def test_a_stop_asked_from_the_board_records_nothing(self):
-        """board-page "A word from the board answers nothing" (crew-lands-each-bolt-through-flumes-base-place): no word
+        """board-page "No words, from the board or a pane, land a bolt" (crew-lands-each-bolt-through-flumes-base-place): no word
         in a pane lands a bolt, so the board's words are judged where a pane's still count, a stop of a landing."""
         assert plan.leave_word_refusal("y", self.heard(True)) == (
             f"crew records no stop of bolt y: {self.FROM_BOARD}; the user stops a landing on its kit's landings card or in "

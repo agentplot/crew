@@ -1,8 +1,8 @@
 # crew reads teams.json version 6 alone: drives under `drives`, each named by its label, with their main levels, role
 # overrides, and errors for anything missing or inconsistent; a file at another version, version 5 and its
 # `partitions` among them, or one listing teams, is refused naming crew's own module, services.crew, crew drive set,
-# or the machine's configuration that writes it, and no swancloud module (main-level "Drives are declared in the teams
-# file"), as a host with no teams file is refused naming the same writers. The
+# or the machine's configuration that writes it, and no swancloud module (main-level "Every refusal of the teams file
+# names its writer as the fix"), as a host with no teams file is refused naming the same writers. The
 # teams file is the one file crew reads of a host's drives (record 0064): swancloud's hosts file, present or not, is
 # read for nothing, and a drive with no folder, or whose machine keeps none of its first blueprints repo, is refused.
 # What a drive's entry resolves its main level to is the logic tier's (tests/py/test_teams.py).
