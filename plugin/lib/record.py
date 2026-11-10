@@ -204,6 +204,39 @@ def turn_end_entry(run, n):
     return dict(act="turn.end", on=[f"agent/{run}"], why=f"turn {n} of {run} ended")
 
 
+def fields_of(eid, now, act, on=(), frm=(), commit=(), why=None, refused=None, by=None, **extra):
+    """An entry's fields, [(key, value)], in the order every entry is written: its id, its time (now), this host, who
+    asked (by, else who), the caller's session, the act, what it acted on and came from, the commits it names, its Why,
+    its refusal and its own fields (EXTRA), each value given. emit and a write's own entries are made by it alike."""
+    fields = [("Id", eid), ("At", now.strftime("%Y-%m-%dT%H:%M:%SZ")), ("Host", crew.this_host()), ("By", by or who())]
+    if session():
+        fields.append(("Session", session()))
+    fields.append(("Act", act))
+    fields += [("On", o) for o in on if o] + [("From", f) for f in frm if f] + [("Commit", c) for c in commit if c]
+    if why:
+        fields.append(("Why", why))
+    if refused:
+        fields.append(("Refused", refused))
+    return fields + [(k, extra[k]) for k in EXTRA if extra.get(k) not in (None, "")]
+
+
+def entry_text(fields):
+    """An entry's lines from its fields, [(key, value)], one line each in the order given (fields_of's), each value on
+    one line: the text emit appends and a write's commit carries (code.7)."""
+    return "".join(f"{k}: {one_line(v)}\n" for k, v in fields)
+
+
+def with_entries(text, entries):
+    """A day file's text with entries ({Id: lines}) added (record.4; code.7): the union by Id of what text holds
+    (blocks) and the entries, in Id order, under crew's descriptor, an entry text already holds kept as it was; text
+    None, a file not there yet, becomes the descriptor and the entries. unpushed composes each step of its chain by it,
+    and a write its commit's day file."""
+    have = blocks(text or "")
+    for eid, lines in entries.items():
+        have.setdefault(eid, lines)
+    return DESCRIPTOR + "\n".join(have[k] for k in sorted(have))
+
+
 def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None, by=None, push=True, **extra):
     """Append one entry to the label's run record on this host, in one write; its id, or None when it could not be
     written, which is said on standard error and nothing more. eid is an id made ahead with new_id; by, the role an
@@ -213,20 +246,20 @@ def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None,
     if not label:
         return None
     now = datetime.datetime.now(datetime.timezone.utc)
-    host = crew.this_host()
     eid = eid or new_id()
-    fields = [("Id", eid), ("At", now.strftime("%Y-%m-%dT%H:%M:%SZ")), ("Host", host), ("By", by or who())]
-    if session():
-        fields.append(("Session", session()))
-    fields.append(("Act", act))
-    fields += [("On", o) for o in on if o] + [("From", f) for f in frm if f] + [("Commit", c) for c in commit if c]
-    if why:
-        fields.append(("Why", why))
-    if refused:
-        fields.append(("Refused", refused))
-    fields += [(k, extra[k]) for k in EXTRA if extra.get(k) not in (None, "")]
-    text = "".join(f"{k}: {one_line(v)}\n" for k, v in fields) + "\n"
-    path = path_for(label, host, now.date().isoformat())
+    if not append(label, now.date().isoformat(), entry_text(fields_of(eid, now, act, on, frm, commit, why, refused, by, **extra))):
+        return None
+    if push:
+        reach(label, eid)
+    return eid
+
+
+def append(label, day, lines):
+    """An entry's lines (entry_text) appended to this host's file of the label for that UTC day, in one write after
+    the descriptor (record.4): emit's, and a write's for each entry its commit carried, once its push is accepted.
+    Whether it was written; one that could not be is said on standard error and nothing more (record.2)."""
+    text = lines + "\n"
+    path = path_for(label, crew.this_host(), day)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
@@ -249,10 +282,8 @@ def emit(label, act, on=(), frm=(), commit=(), why=None, refused=None, eid=None,
             os.close(fd)
     except OSError as e:
         print(f"crew: the run record at {path} could not be written: {e.strerror or e}", file=sys.stderr)
-        return None
-    if push:
-        reach(label, eid)
-    return eid
+        return False
+    return True
 
 
 # ------------------------------------------------------------------------------------- pushed to the branch
@@ -299,10 +330,11 @@ def unpushed(label, at_branch):
             continue
         newest = max([newest or "", *mine])
         path = f"runs/{host}/{f.name}"
-        have = blocks(at_branch(path) or "")
-        for eid in sorted(set(mine) - set(have)):
-            have[eid] = mine[eid]
-            chain.append((eid, mine[eid], path, DESCRIPTOR + "\n".join(have[k] for k in sorted(have))))
+        base = at_branch(path)
+        added = {}
+        for eid in sorted(set(mine) - set(blocks(base or ""))):
+            added[eid] = mine[eid]
+            chain.append((eid, mine[eid], path, with_entries(base, added)))
     return sorted(chain, key=lambda c: c[0]), newest
 
 
@@ -412,7 +444,7 @@ def on_branch(fleet, label, since_day, tips=None):
     commit they were read at, {label: sha}, None for a branch not started."""
     import plan  # plan.py imports this module; its git layer is only needed here
     repo, ref = plan.state_of(fleet, label)
-    tip = plan.fetch(repo, ref)
+    tip = plan.tip_of(repo, ref)
     if tips is not None:
         tips[label] = tip
     return at(repo, tip, since_day) if tip else []
@@ -759,15 +791,8 @@ def main(argv):
     (events if a.cmd == "events" else trace)(fleet, a)
 
 
-def below(said=None):
-    """A read of the record below its branch's tip said as plan.py says it (plan.below_read): only once plan.py, which
-    reads the branch, was loaded by the command."""
-    return sys.modules["plan"].below_read(said) if "plan" in sys.modules else ("" if said is None else said)
-
-
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Refusal as e:
-        sys.exit(below(str(e)))
-    below()
+        sys.exit(str(e))

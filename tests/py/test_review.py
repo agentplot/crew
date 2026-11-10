@@ -204,7 +204,7 @@ class TestAReviewerThatRunsAsItsKind:
         monkeypatch.setenv("FLUME_PLACE", "/flume/places/crew-reviewer--wldn")
         monkeypatch.setattr(plan.crew, "this_host", lambda: BOX)
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", f"{label}/main"))
-        monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "tip")
+        monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: "tip")
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: self.ASKS if path == "asks.rec" else None)
         monkeypatch.setattr(plan, "local_entries", lambda label, days=30: [self.START, dict(self.START, Batch="22")])
         monkeypatch.setattr(plan, "batch_file", lambda label, n: tmp_path / f"batch-{label}-{n}.md")

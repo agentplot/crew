@@ -322,7 +322,7 @@ class TestNames:
         monkeypatch.setattr(cards, "posted", unread)
         assert cards.refusal(hooked("cancel_request", {"requestId": "req_q1", "reason": "x"})) == (
             "crew could not check this card: wldn's run record on mac-studio can't be read. Try it again later.")
-        monkeypatch.setattr(plan, "fetch", unread)
+        monkeypatch.setattr(plan, "tip_of", unread)
         monkeypatch.setattr(plan, "read", unread)
         assert cards.refusal(hooked("post_request", {"idempotencyKey": "ask/wldn-ops/hold-the-macs"})) is None
 

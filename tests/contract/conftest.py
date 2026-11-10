@@ -30,6 +30,11 @@ def isolated(tmp_path, monkeypatch):
                                      "[gc]\n\tauto = 0\n[maintenance]\n\tauto = false\n")
     for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
         monkeypatch.delenv(k, raising=False)
+    # The run record under this case's home, which record.py read from the home at import: a plan write appends the
+    # entries its commit carried to this host's file and pushes what that file holds and the branch lacks, so a case's
+    # entries never reach another case's branch.
+    import record
+    monkeypatch.setattr(record, "ROOT", home / ".local/state/crew")
 
 
 class Repo:

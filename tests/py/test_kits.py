@@ -286,7 +286,7 @@ class TestWhereABoltRuns:
         assert (at["machine"], at["kit"]["name"], at["kit"]["main"]) == ("deneb", "flywheel-cloud", "/w/flywheel-cloud")
         text = runner.REQUESTS + "".join(f"\n{f}: {v}" for f, v in launches[0].fields)
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", "refs/crew/madswan/main"))
-        monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "t1")
+        monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: "t1")
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: text if path == "requests.rec" else None)
         monkeypatch.setattr(plan, "runners", lambda repo, label: {})
         requests, _ = plan.runner_facts(FLEET, "madswan")
