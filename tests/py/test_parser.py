@@ -10,6 +10,10 @@ RUNS = [
     ["rail", "--label", "wldn"],
     ["card", "sweep", "--label", "wldn"],
     ["state", "init", "wldn"],
+    ["drive", "set", "pat", "--state", "pat/crew-state", "--blueprints", "pat/blueprints", "--machine", "pats-mac", "--session", "pat",
+     "--folder", "/p", "--repos", "pat/blueprints", "--accounts", "design", "pat", "--runs", "planner", "standing", "--review", "5", "4",
+     "--hosts", "pats-mac", "pats-mac", "darwin", "--roles", "planner", "effort", "max", "--console", "/p",
+     "--repositories", "pat/blueprints", "/r", "/v", "--json"],
     ["_sweep", "wldn", "switchboard-kit", "--dir", "/kit", "--landed", "b", "--outcome", "Landed.", "--units", "a", "c"],
     ["bolt", "submit", "b", "--label", "wldn"],
     ["bolt", "submit", "b", "--excerpt", "Land crw-5's bolt"],
@@ -37,7 +41,7 @@ def test_a_landing_takes_the_users_words_and_has_none_by_default():
 
 
 def test_a_stop_takes_the_users_words_and_none_is_refused(capsys):
-    """main-level "A landing stopped in ops's pane is recorded as the user's words": a stop is only ever on them."""
+    """main-level "A stop said in ops's pane is read as the user's words": a stop is only ever on them."""
     assert plan.parser().parse_args(["bolt", "leave", "b", "--excerpt", "Hold it"]).excerpt == "Hold it"
     with pytest.raises(SystemExit):
         plan.parser().parse_args(["bolt", "leave", "b"])

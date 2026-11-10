@@ -1,4 +1,4 @@
-// crew's mod: each crew agent's view of its partition's board, drawn in the band above its prompt. The views are
+// crew's mod: each crew agent's view of its drive's board, drawn in the band above its prompt. The views are
 // crew's (board.py agent_views): the host's follower, swancloud's job running crew _follow or else the console's rail
 // tab, writes them beside the board's frame each time it refreshes (board.py Follower), and this module finds its own
 // agent's and draws it, deciding nothing itself (code.7). It
@@ -14,13 +14,13 @@
 // stale_after_ms).
 const EVERY_MS = 5000
 
-// Who this session is, where its partition's views are, and what was last read from them.
+// Who this session is, where its drive's views are, and what was last read from them.
 const live = { agent: undefined, label: undefined, path: undefined, mtime: undefined, frame: undefined, stale: false }
 
 // The place a role's run is, its folder crew-<role>--<label>, as crew.py RUN_PLACE reads it.
 const RUN_PLACE = /^crew-([a-z]+)--([a-z0-9][a-z0-9-]*)$/
 
-// The session's agent and partition: CREW_AGENT and CREW_LABEL, as crew-role starts every role; for a role's run Flume
+// The session's agent and drive: CREW_AGENT and CREW_LABEL, as crew-role starts every role; for a role's run Flume
 // started, which carries no environment of crew's, its run's name, <label>-<role>, from FLUME_PLACE, the place the
 // role's record named (crew.py run_here; Decision 8 of roles-run-as-flume-kinds); or, for a session herdr resumed bare
 // without them, the record crew's SessionStart hook keeps of the session (hooks/session-start).

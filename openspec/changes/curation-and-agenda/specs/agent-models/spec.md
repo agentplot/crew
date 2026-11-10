@@ -25,4 +25,4 @@ Every definition SHALL set this model, each with its 1M-token context, and this 
 
 #### Scenario: A curator starts
 - **WHEN** `crew curate wldn` starts the curator
-- **THEN** it runs on Fable 5.1 at high effort, unless wldn's partition entry overrides `roles.curator`
+- **THEN** it runs on Fable 5.1 at high effort, unless wldn's drive entry overrides `roles.curator`

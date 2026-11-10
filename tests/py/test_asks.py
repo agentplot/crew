@@ -168,20 +168,21 @@ class TestKeyed:
 
 PLANNER = {"model": "claude-opus-5-5[1m]", "effort": "xhigh"}
 OPS = {"model": "claude-opus-5-5[1m]", "effort": "high"}
-FALSE = dict.fromkeys(("design", "planner", "reviewer", "ops", "operator"), False)
+STANDING = dict.fromkeys(("design", "planner", "reviewer", "ops", "operator"), "standing")
 
 
-def madswan(**flume):
+def madswan(**runs):
+    """madswan's drive, each role standing but those runs names, each "on-demand"."""
     return {"label": "madswan", "machine": "deneb", "blueprints": ["afterthought/blueprints", "afterthought/boomdrive-web"], "roles": {},
-            "flume": dict(FALSE, **flume)}
+            "runs": dict(STANDING, **runs)}
 
 
 class TestRoleRecords:
     def test_the_planners_record_names_its_run(self):
         """role-runs, The planner's record."""
-        assert asks.role_record(madswan(planner="madswan-main"), "planner", PLANNER) == {
+        assert asks.role_record(madswan(planner="on-demand"), "planner", PLANNER) == {
             "Role": "planner", "Address": "madswan/planner", "Run": "madswan-planner", "Host": "deneb", "Repository": "afterthought/blueprints",
-            "Kinds": "crew", "Kind": "crew-planner", "Name": "madswan", "Stream": "madswan-main", "Priority": "0", "Intent": "madswan-planner",
+            "Kinds": "crew", "Kind": "crew-planner", "Name": "madswan", "Stream": "madswan", "Priority": "0", "Intent": "madswan-planner",
             "Model": "claude-opus-5-5[1m]", "Effort": "xhigh"}
 
     def test_a_role_that_stands_has_no_record(self):
@@ -189,26 +190,26 @@ class TestRoleRecords:
 
     def test_a_runs_model_is_its_definitions_after_the_teams_files_override(self):
         """role-runs, An override: wldn sets roles.planner.model; main-ops's override is read for ops."""
-        wldn = dict(madswan(planner="wldn-main", ops="wldn-main"), label="wldn", machine="chuck-herdr-alpha",
+        wldn = dict(madswan(planner="on-demand", ops="on-demand"), label="wldn", machine="chuck-herdr-alpha",
                     roles={"planner": {"model": "claude-opus-5-5"}, "main-ops": {"effort": "max"}})
         assert (asks.role_record(wldn, "planner", PLANNER)["Model"], asks.role_record(wldn, "planner", PLANNER)["Effort"]) == ("claude-opus-5-5", "xhigh")
         assert (asks.role_record(wldn, "ops", OPS)["Model"], asks.role_record(wldn, "ops", OPS)["Effort"]) == ("claude-opus-5-5[1m]", "max")
-        assert asks.role_record(madswan(planner="m"), "planner", PLANNER)["Model"] == "claude-opus-5-5[1m]"
+        assert asks.role_record(madswan(planner="on-demand"), "planner", PLANNER)["Model"] == "claude-opus-5-5[1m]"
         assert asks.definition_of("ops") == "main-ops" and asks.definition_of("design") == "design"
 
     def test_the_records_due_are_those_missing_or_differing_and_a_role_that_stands_again_goes(self):
         """role-runs, The planner moves, An ask before main up and The planner stands again."""
-        p = madswan(planner="madswan-main", ops="madswan-main")
+        p = madswan(planner="on-demand", ops="on-demand")
         metas = {"planner": PLANNER, "ops": OPS}
         planner, ops = asks.role_record(p, "planner", PLANNER), asks.role_record(p, "ops", OPS)
         assert asks.roles_due([], p, metas) == ([planner, ops], [])
         assert asks.roles_due([planner, ops], p, metas) == ([], [])
         assert asks.roles_due([dict(planner, Stream="old"), ops], p, metas) == ([planner], [])
-        assert asks.roles_due([planner, ops], madswan(ops="madswan-main"), {"ops": OPS}) == ([], ["planner"])
+        assert asks.roles_due([planner, ops], madswan(ops="on-demand"), {"ops": OPS}) == ([], ["planner"])
 
     def test_role_records_are_read_from_their_file(self):
-        text = "%rec: Role\n%key: Role\n\nRole: planner\nStream: madswan-main\n\nStream: none\n"
-        assert asks.parse_roles(text) == [{"Role": "planner", "Stream": "madswan-main"}]
+        text = "%rec: Role\n%key: Role\n\nRole: planner\nStream: madswan\n\nStream: none\n"
+        assert asks.parse_roles(text) == [{"Role": "planner", "Stream": "madswan"}]
 
 
 def status(**place):
@@ -270,7 +271,187 @@ class TestWaitsOn:
         assert [w[1] for w in asks.waits_on("madswan/planner", reqs, places)] == ["3", "12"]
 
 
-MADSWAN = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+def delivered(name="flume-deliveries/owed"):
+    """A Flume status fixture's text (facts.flume_fixture), as the runner carries it in places.rec."""
+    from facts import flume_fixture
+    return flume_fixture(name).read_text()
+
+
+DELIVERY = "change--the-flake-configures-each-tool-by-its-own-module/3f9a61c2/"
+
+
+def an_end(key, owed, delivery=None, **more):
+    """An end of a place's status as Flume gives it by record 0061: its key, its delivery's key and whom it is owed to."""
+    return dict({"key": key, "delivery": DELIVERY + key if delivery is None else delivery, "owed": owed, "confirmed": []}, **more)
+
+
+class TestEndsOwed:
+    """The ends Flume owes a role's address, read from a place's carried status (design Decision 1; role-runs "A run's
+    start takes every end Flume holds for its role" and "An end crew cannot read is not taken"), on Flume's facts as
+    tests/py/flume-deliveries/ holds them."""
+
+    def test_the_ends_owed_to_the_address_are_given_with_their_keys_and_the_expired_one_marked(self):
+        """role-runs, A unit's ends taken: the fixture's construct's second start delivered, expired, and its code ended
+        short, both owed to agentplot/planner, of request 12's place."""
+        got = asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "12", "Place": "/kit/places/change--a", "Status": delivered()}])
+        assert got == [
+            (f"end/12/{DELIVERY}stage/construct/2/delivered", "12", "unit/a", "/kit/places/change--a", "stage/construct/2/delivered",
+             f"{DELIVERY}stage/construct/2/delivered", True),
+            (f"end/12/{DELIVERY}stage/code/1/ended-short", "12", "unit/a", "/kit/places/change--a", "stage/code/1/ended-short",
+             f"{DELIVERY}stage/code/1/ended-short", False)]
+
+    def test_an_end_the_address_confirmed_or_owed_to_another_alone_is_not_given(self):
+        """role-runs, An end owed to another role: the construct's lost start, confirmed by agentplot/planner and owed to
+        boomdrive alone."""
+        st = asks.status_of(delivered())
+        assert "stage/construct/1/lost" not in [k for k, _, _ in asks.owed_to(st, "agentplot/planner")]
+        assert [k for k, _, _ in asks.owed_to(st, "boomdrive")] == ["stage/construct/1/lost", "stage/construct/2/delivered", "stage/code/1/ended-short"]
+        assert asks.owed_to(st, "agentplot/operator") == []
+
+    def test_a_status_from_a_flume_before_record_0061_gives_none(self):
+        """role-runs, A status with no delivery keys: flume 0.17.0's own, its ends with no delivery and no owed."""
+        st = asks.status_of(delivered("flume-0.17.0/kept-open"))
+        assert len(st["ends"]) == 2 and asks.owed_to(st, "agentplot/planner") == []
+        assert asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "12", "Status": delivered("flume-0.17.0/kept-open")}]) == []
+
+    def test_each_field_is_guarded_so_a_missing_value_never_becomes_a_key(self):
+        me = {"recipient": "madswan/planner", "expired": False, "known": True}
+        good = an_end("stage/code/1/delivered", [me])
+        assert asks.owed_to({"ends": [good]}, "madswan/planner") == [("stage/code/1/delivered", DELIVERY + "stage/code/1/delivered", False)]
+        for bad in (dict(good, delivery=7), dict(good, delivery=None), dict(good, owed={"recipient": "madswan/planner"}),
+                    dict(good, owed=[me, {"expired": True}]), dict(good, owed=[{"recipient": None}]), dict(good, key=None), "stage/code/1"):
+            assert asks.owed_to({"ends": [bad]}, "madswan/planner") == []
+        assert asks.owed_to({"ends": [dict(good, owed=[dict(me, expired="yes")])]}, "madswan/planner")[0][2] is False
+        assert asks.owed_to({"ends": [dict(good, owed=[dict(me, expired=True)])]}, "madswan/planner")[0][2] is True
+        assert asks.owed_to({"ends": None}, "madswan/planner") == [] and asks.owed_to({}, "madswan/planner") == []
+
+    def test_a_status_that_cant_be_read_or_a_place_of_no_launch_gives_none(self):
+        for bad in ("not json", json.dumps({"status": {"places": []}}), None):
+            assert asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "12", "Status": bad}]) == []
+        assert asks.ends_owed("agentplot/planner", [launch(12, act="retry")], [{"Request": "12", "Status": delivered()}]) == []
+        assert asks.ends_owed("agentplot/planner", [launch(12)], [{"Request": "13", "Status": delivered()}]) == []
+
+    def test_ends_come_by_request_oldest_first_whatever_the_launch_names_as_its_recipient(self):
+        """design Decision 1: Flume's owed is the one truth of whom an end is owed to."""
+        places = [{"Request": n, "Place": f"/p{n}", "Status": delivered()} for n in ("12", "3")]
+        got = asks.ends_owed("agentplot/planner", [launch(12, recipient="agentplot/ops"), launch(3, "chore/b")], places)
+        assert [(e[1], e[2], e[4]) for e in got] == [("3", "chore/b", "stage/construct/2/delivered"), ("3", "chore/b", "stage/code/1/ended-short"),
+                                                     ("12", "unit/a", "stage/construct/2/delivered"), ("12", "unit/a", "stage/code/1/ended-short")]
+
+
+def owed(n, key, work="unit/a", expired=False):
+    """An end Flume owes madswan's planner of request n's place, as ends_owed gives it."""
+    return (f"end/{n}/{DELIVERY}{key}", str(n), work, f"/p{n}", key, DELIVERY + key, expired)
+
+
+def confirm(n, of, *keys, recipient="madswan/planner"):
+    """A confirm request of requests.rec as a dict, its Delivery lines a list."""
+    return {"Request": str(n), "Act": "confirm", "Work": "unit/a", "Of": str(of), "Recipient": recipient, "Delivery": [DELIVERY + k for k in keys]}
+
+
+class TestEndsTaken:
+    """What a start takes of the ends Flume owes its role (design Decisions 2, 5 and 6; role-runs "An end a confirm names
+    is not taken again", "An owed end makes no role wanted" and "A lost run confirms nothing")."""
+
+    ENDS = [owed(12, "stage/construct/1/delivered"), owed(12, "stage/code/1/delivered", expired=True)]
+
+    def test_an_end_a_confirm_names_is_not_taken_whatever_its_answer(self):
+        """role-runs, An end already asked confirmed and A refused confirm: crew reads no answer for it."""
+        reqs = [launch(12), confirm(13, 12, "stage/construct/1/delivered")]
+        assert asks.confirmed(reqs, "madswan/planner") == {self.ENDS[0][0]}
+        assert asks.taken_ends(self.ENDS, reqs, "madswan/planner") == [self.ENDS[1]]
+        assert asks.taken_ends(self.ENDS, reqs + [confirm(14, 12, "stage/code/1/delivered")], "madswan/planner") == []
+
+    def test_a_confirm_of_another_address_or_another_launch_holds_nothing(self):
+        reqs = [confirm(13, 12, "stage/construct/1/delivered", recipient="madswan/ops"), confirm(14, 9, "stage/code/1/delivered"),
+                dict(confirm(15, 12, "stage/code/1/delivered"), Act="retry")]
+        assert asks.taken_ends(self.ENDS, reqs, "madswan/planner") == self.ENDS
+
+    def test_a_confirm_whose_delivery_is_one_line_or_none_is_read_as_it_is(self):
+        one = dict(confirm(13, 12), Delivery=DELIVERY + "stage/code/1/delivered")
+        assert asks.taken_ends(self.ENDS, [one], "madswan/planner") == [self.ENDS[0]]
+        assert asks.confirmed([dict(confirm(13, 12), Delivery=None)], "madswan/planner") == set()
+
+    def test_the_ends_taken_follow_the_asks_and_waits_and_make_no_role_wanted(self):
+        """role-runs, Ends alone start no turn."""
+        wait = ("place/7@1793440000", "7", "unit/b", "/p7", "Which bolt?")
+        assert asks.took([ask(1)], [wait], self.ENDS) == ["ask/1", "place/7@1793440000", self.ENDS[0][0], self.ENDS[1][0]]
+        assert asks.took([ask(1)], [wait]) == ["ask/1", "place/7@1793440000"]
+        assert not asks.wanted([], [], [], "planner") and asks.pending([], [], [], "planner") == ([], [])
+
+    def test_a_superseded_turns_ends_are_taken_again_with_no_confirm_naming_them(self):
+        """role-runs, A lost run: its turn took the ends and was superseded before its end, which writes their confirm."""
+        lost = [turn(1, ["ask/1", self.ENDS[0][0], self.ENDS[1][0]], superseded=2)]
+        assert asks.pending([ask(1)], [], lost, "planner") == ([ask(1)], [])
+        assert asks.taken_ends(self.ENDS, [launch(12)], "madswan/planner") == self.ENDS
+
+
+class TestTurnConfirms:
+    """The confirms a turn's end asks for (design Decisions 4 and 6; role-runs "A run's end asks the runners to confirm
+    each end its turn took")."""
+
+    def test_two_launches_ends_are_one_confirm_each_oldest_first_their_keys_in_the_order_taken(self):
+        """role-runs, Two places' ends: two of request 12's place and one of request 14's."""
+        took = ["ask/1", "place/7@1793440000", f"end/14/{DELIVERY}stage/code/1/delivered", f"end/12/{DELIVERY}stage/code/1/delivered",
+                f"end/12/{DELIVERY}stage/construct/1/delivered"]
+        assert asks.turn_confirms(took, [launch(12), launch(14, "chore/b"), launch(7)]) == [
+            ("12", "unit/a", [f"{DELIVERY}stage/code/1/delivered", f"{DELIVERY}stage/construct/1/delivered"]),
+            ("14", "chore/b", [f"{DELIVERY}stage/code/1/delivered"])]
+
+    def test_a_turn_with_only_asks_and_waits_asks_none(self):
+        """role-runs, A turn with no ends."""
+        assert asks.turn_confirms(["ask/1", "place/7@1793440000", "landed/9"], [launch(7)]) == []
+        assert asks.turn_confirms([], []) == []
+
+    def test_a_flume_key_holding_slashes_is_kept_whole(self):
+        key = "fix--b/0a1b2c3d/submission/2/conflict"
+        assert asks.turn_confirms([f"end/3/{key}"], [launch(3, "fix/b/n")]) == [("3", "fix/b/n", [key])]
+
+    @pytest.mark.parametrize("line, why", [("end/12", "end/12, which is no end/<request>/<delivery key>"),
+                                           ("end/x/a/b", "end/x/a/b, which is no end/<request>/<delivery key>"),
+                                           ("end/12/", "end/12/, which is no end/<request>/<delivery key>"),
+                                           ("end/9/a/b", "end/9/a/b, whose request 9 is no launch in requests.rec")])
+    def test_a_malformed_line_or_one_of_no_launch_is_refused_by_name(self, line, why):
+        import crew
+        with pytest.raises(crew.Refusal, match=re.escape(f"the turn took {why}")):
+            asks.turn_confirms(["ask/1", line], [launch(12), launch(9, act="retry")])
+
+
+class TestEndsSaid:
+    """What a start, a report and a run's view say of the ends a turn took (design Decision 7; role-runs "A run's start
+    prints a line for each launch whose ends it took" and "A turn's report counts its ends"; crew-board "A role that runs as its kind has
+    its view")."""
+
+    ENDS = [owed(12, "stage/construct/1/delivered"), owed(12, "stage/code/1/delivered", expired=True), owed(14, "stage/code/1/delivered", "chore/b")]
+
+    def test_a_start_prints_one_line_for_each_launch_with_each_key_and_the_expired_marked(self):
+        """role-runs, The ends it took: unit a's construct's and code's ends of request 12, the code's expired."""
+        assert asks.ends_said(self.ENDS) == [
+            "Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):",
+            "unit/a (the place /p12, request 12): stage/construct/1/delivered, stage/code/1/delivered (expired)",
+            "chore/b (the place /p14, request 14): stage/code/1/delivered"]
+        assert asks.ends_said([]) == []
+        assert asks.ends_said([(self.ENDS[0][0], "12", None, None) + self.ENDS[0][4:]])[1] == (
+            "request 12 (the place Flume has not named, request 12): stage/construct/1/delivered")
+
+    def test_the_report_counts_the_ends_by_request_after_the_asks_and_waits(self):
+        """role-runs, Three ends of two places."""
+        took = ["ask/1", "place/7@1793440000"] + [e[0] for e in self.ENDS]
+        assert asks.took_said(took, [ask(1)]) == ["- ask/1: tell from crew", "- place/7@1793440000",
+                                                 "- 3 ends of requests 12 and 14, their confirmation asked of the runners"]
+        assert asks.took_said(["ask/1", self.ENDS[0][0]], [ask(1)])[-1] == "- 1 end of request 12, their confirmation asked of the runners"
+        assert asks.took_said(["ask/1"], [ask(1)]) == ["- ask/1: tell from crew"]
+        t = dict(turn(3, took), Run="madswan-planner")
+        assert "- 3 ends of requests 12 and 14, their confirmation asked of the runners\n" in asks.report(t, [ask(1)], "done", "2026-10-31T10:20:00Z")
+
+    def test_a_runs_view_counts_the_ends_its_turn_took_and_lists_none(self):
+        """crew-board, Ends counted."""
+        (v, waiting) = asks.run_view([ask(1)], [turn(3, ["ask/1"] + [e[0] for e in self.ENDS])], "planner")
+        assert v == {"turn": "3", "ended": False, "ends": 3, "took": [{"took": "ask/1", "what": "tell", "from": "crew", "names": None}]}
+        assert waiting == [] and asks.run_view([], [turn(1, ["ask/1"])], "planner")[0]["ends"] == 0
+
+
+MADSWAN = {"drives": {"madswan": madswan(planner="on-demand")}, "hosts": {}}
 
 
 @pytest.fixture
@@ -300,7 +481,7 @@ class TestWrite:
         assert w.files["asks.rec"].startswith(plan.ASKS.split("\n\n")[0]) and turns == []
         assert [(a["Id"], a["Role"], a["From"], a["What"], a["Words"]) for a in got] == [("1", "planner", "madswan-design", "tell", "record 0053\nis accepted")]
         assert rec.get("Id") == "1" and "Key" not in got[0] and "Names" not in got[0]
-        assert asks.parse_roles(w.files["roles.rec"]) == [asks.role_record(MADSWAN["partitions"]["madswan"], "planner", PLANNER)]
+        assert asks.parse_roles(w.files["roles.rec"]) == [asks.role_record(MADSWAN["drives"]["madswan"], "planner", PLANNER)]
         assert plan.ask_rec(w, MADSWAN, "madswan", "planner", "card", "crew", names="proposal/12", key="card/req_1/t").get("Id") == "2"
         assert [a["Id"] for a in asks.parse(w.files["asks.rec"])[0]] == ["1", "2"]
 
@@ -327,14 +508,14 @@ class TestWrite:
         w = written()
         assert plan.roles_lines(w, MADSWAN, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["planner"]
         assert not plan.roles_lines(w, MADSWAN, "madswan")
-        moved = {"partitions": {"madswan": madswan(planner="madswan-main", ops="madswan-ops")}}
+        moved = {"drives": {"madswan": madswan(planner="on-demand", ops="on-demand")}}
         assert not plan.roles_lines(w, moved, "madswan", ["planner"])
         assert plan.roles_lines(w, moved, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["planner", "ops"]
         assert asks.parse_roles(w.files["roles.rec"])[1]["Model"] == "claude-opus-5-5[1m]"
-        stood = {"partitions": {"madswan": madswan(ops="madswan-ops")}}
+        stood = {"drives": {"madswan": madswan(ops="on-demand")}}
         assert plan.roles_lines(w, stood, "madswan") and [r["Role"] for r in asks.parse_roles(w.files["roles.rec"])] == ["ops"]
         none = written()
-        assert not plan.roles_lines(none, {"partitions": {"madswan": madswan()}}, "madswan") and "roles.rec" not in none.files
+        assert not plan.roles_lines(none, {"drives": {"madswan": madswan()}}, "madswan") and "roles.rec" not in none.files
 
     def test_a_write_names_its_acts_entry_and_each_asks_and_emits_the_asks_after_the_act(self, monkeypatch, capsys):
         """plan.2: the commit's Crew-Entry trailers name the act's entry and the ask's, and each is emitted once pushed."""
@@ -420,7 +601,7 @@ Began: 2026-10-31T10:01:00Z
 
 
 class Branch:
-    """madswan's drive branch as a role command sees it: its files, each write applied to them, and the entries each
+    """madswan's branch as a role command sees it: its files, each write applied to them, and the entries each
     write emitted."""
 
     def __init__(self, files):
@@ -428,7 +609,7 @@ class Branch:
 
 
 def on_branch(monkeypatch, fleet, files):
-    """madswan's drive branch in memory holding files, each write of a command on deneb applied to it and each
+    """madswan's branch in memory holding files, each write of a command on deneb applied to it and each
     entry it emitted kept (Branch)."""
     import crew
     import plan
@@ -461,7 +642,7 @@ def in_run(monkeypatch, tmp_path):
     import crew
     import plan
     import record
-    fleet = {"partitions": {"madswan": madswan(planner="madswan-main")}, "hosts": {}}
+    fleet = {"drives": {"madswan": madswan(planner="on-demand")}, "hosts": {}}
     monkeypatch.setenv("FLUME_PLACE", "/home/u/.local/state/flume/places/crew-planner--madswan")
     b = on_branch(monkeypatch, fleet, {"asks.rec": TAKEN})
     monkeypatch.setattr(crew, "brief", lambda fleet, scope, role, self_name="": f"the {role} brief of {scope} for {self_name}")
@@ -483,11 +664,11 @@ def end(b, report, words):
 
 
 def fleet_of(p):
-    return {"partitions": {"madswan": p}, "hosts": {}}
+    return {"drives": {"madswan": p}, "hosts": {}}
 
 
 def roles_held(p):
-    """roles.rec as roles_lines writes it for a partition."""
+    """roles.rec as roles_lines writes it for a drive."""
     import plan
     w = written()
     plan.roles_lines(w, fleet_of(p), "madswan")
@@ -498,13 +679,13 @@ class TestMainUp:
     """plan.kinds_up, crew main up's part for roles.rec with no standing agent up (design Decision 14; role-runs "Role
     records follow the teams file"): the file brought to match the teams file in a commit of its own."""
 
-    @pytest.mark.parametrize("now, left", [({}, []), ({"ops": "madswan-ops"}, ["ops"])])
+    @pytest.mark.parametrize("now, left", [({}, []), ({"ops": "on-demand"}, ["ops"])])
     def test_a_role_that_stands_again_leaves_roles_rec_though_it_was_the_last_to_run_as_its_kind(self, monkeypatch, now, left):
         """role-runs, The planner stands again: madswan's planner moved back, the last role running as its kind, or ops
         still running so."""
         import plan
         stood = fleet_of(madswan(**now))
-        b = on_branch(monkeypatch, stood, {"roles.rec": roles_held(madswan(planner="madswan-main", **now))})
+        b = on_branch(monkeypatch, stood, {"roles.rec": roles_held(madswan(planner="on-demand", **now))})
         monkeypatch.setattr(plan, "fetch", lambda repo, ref: "t" * 40)
         plan.kinds_up(stood, "madswan", [])
         assert [r["Role"] for r in asks.parse_roles(b.files["roles.rec"])] == left
@@ -518,7 +699,7 @@ class TestMainUp:
         for tip in ("t" * 40, None):
             monkeypatch.setattr(plan, "fetch", lambda repo, ref, tip=tip: tip)
             plan.kinds_up(stood, "madswan", [])
-        b.files["roles.rec"] = roles_held(madswan(planner="madswan-main"))
+        b.files["roles.rec"] = roles_held(madswan(planner="on-demand"))
 
         def unread(repo, ref):
             raise plan.Refusal("could not fetch madswan/main of afterthought/madswan-state over https: no route")
@@ -530,8 +711,8 @@ class TestMainUp:
 
 
 class TestStart:
-    """crew role start (design Decision 7; role-runs "A run's start takes everything pending", "A run's start gives its
-    brief and what it took" and "A start takes again what a lost run took")."""
+    """crew role start (design Decision 7; role-runs "A run's start takes everything pending", "A run's start prints its
+    brief's path, then what it took in order" and "A start takes again what a lost run took")."""
 
     def test_two_asks_waiting_are_one_turn_and_it_prints_the_brief_then_each_ask_then_the_cards(self, in_run, tmp_path, capsys):
         """role-runs, Two asks waiting and What the planner's run reads."""
@@ -597,6 +778,83 @@ class TestStart:
         assert "unit/a waits on you: the place /kit/places/change--a, launched by request 7 (place/7@1793440000)\n  which bolt?\n" in out
         assert "mac-studio's runner can't be read: madswan/runner/mac-studio at abc1234: it holds no runner.rec: what waits on madswan-planner there is left for its next run" in out
 
+    def test_a_start_takes_the_ends_flume_holds_for_the_role_and_prints_them_after_the_waits(self, in_run, monkeypatch, capsys):
+        """role-runs, A unit's ends taken and The ends it took: the turn takes the asks, the waiting place and both ends
+        Flume owes madswan/planner of request 12's place, and prints the ends after the waits, before the cards."""
+        stopped = json.loads(status(waiting_on={"why": "answer", "stage": "construct", "since": 1793440000, "words": "which bolt?"}))
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12, (13, "launch", "unit/b", dict(LAUNCH_12[3], Name="b")))
+        runner_holds(monkeypatch, in_run.files, (13, "/kit/places/change--b", stopped), (12, "/kit/places/change--a", owed_status()))
+        start(in_run)
+        (t,) = asks.parse(in_run.files["asks.rec"])[1]
+        assert t["Took"] == ["ask/1", "ask/2", "place/13@1793440000"] + [f"end/12/{k}" for k in OWED]
+        out = capsys.readouterr().out.split("\n")
+        at = out.index("unit/b waits on you: the place /kit/places/change--b, launched by request 13 (place/13@1793440000)")
+        assert out[at + 1:at + 5] == [
+            "  which bolt?", "Flume holds these ends for you, each confirmed to it as you when your turn ends (crew role end):",
+            "unit/a (the place /kit/places/change--a, request 12): stage/construct/2/delivered (expired), stage/code/1/ended-short",
+            "cards read as madswan-planner"]
+
+    def test_ends_alone_take_no_turn(self, in_run, monkeypatch, capsys):
+        """role-runs, Ends alone start no turn: every ask taken by an ended turn, and request 12's ends still owed."""
+        in_run.files["asks.rec"] = LOST.replace("Began:", "Ended: 2026-10-31T10:20:00Z\nSaid: done\nBegan:").replace("Took: ask/1", "Took: ask/1\nTook: ask/2")
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        runner_holds(monkeypatch, in_run.files, (12, "/kit/places/change--a", owed_status()))
+        before = dict(in_run.files)
+        start(in_run)
+        assert in_run.files == before and in_run.writes == [] and in_run.entries == []
+        out = capsys.readouterr().out
+        assert "Nothing waits for madswan-planner: no turn is taken and nothing is recorded." in out and "stage/" not in out
+
+    def test_an_end_a_confirm_names_is_not_taken_again(self, in_run, monkeypatch):
+        """role-runs, An end already asked confirmed: a confirm of the construct's end at the tip the write is applied to,
+        written after the runners were read, holds it; the code's is taken."""
+        runner_holds(monkeypatch, {"requests.rec": requests_held(LAUNCH_12)}, (12, "/kit/places/change--a", owed_status()))
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12, (13, "confirm", "unit/a", dict(Of=12, Recipient="madswan/planner", Delivery=OWED[:1])))
+        start(in_run)
+        (t,) = asks.parse(in_run.files["asks.rec"])[1]
+        assert t["Took"] == ["ask/1", "ask/2", f"end/12/{OWED[1]}"]
+
+    def test_the_entry_counts_the_asks_and_waits_alone(self, in_run, monkeypatch):
+        """run-record: a turn.begin's Took is how many of what was pending it took; the ends are named in its subject."""
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        runner_holds(monkeypatch, in_run.files, (12, "/kit/places/change--a", owed_status()))
+        start(in_run)
+        assert len(asks.parse(in_run.files["asks.rec"])[1][0]["Took"]) == 4
+        assert in_run.entries == [("turn.begin", ["agent/madswan-planner"], "turn 1 of madswan-planner", {"Took": "2"})]
+        assert in_run.writes[0].startswith("turn(madswan-planner): 1 takes 2 and 2 ends (madswan-planner)\n")
+
+
+def owed_status():
+    """The flume-deliveries fixture's place as Flume would give it with its ends owed to madswan's planner: its
+    construct's second start delivered, expired, and its code ended short, and its construct's first start lost,
+    confirmed by the planner and owed to boomdrive alone; its stop-short answered, so it waits on nobody and its ends are
+    all that is the planner's of it."""
+    st = json.loads(delivered().replace("agentplot/planner", "madswan/planner"))
+    st["status"]["places"][0]["waiting_on"] = None
+    return st
+
+
+OWED = [f"{DELIVERY}stage/construct/2/delivered", f"{DELIVERY}stage/code/1/ended-short"]
+
+
+def requests_held(*recs):
+    """requests.rec as crew writes it, holding requests made as plan.request makes them: (n, act, work, {field: value})."""
+    import plan
+    import runner
+    return runner.REQUESTS + "".join("\n" + "\n".join(plan.Rec("Request", runner.request_fields(n, act, work, g, "2026-11-08T10:00:00Z", "madswan-dispatch")).lines()) + "\n"
+                                     for n, act, work, g in recs)
+
+
+LAUNCH_12 = (12, "launch", "unit/a", dict(Repo="afterthought/crew", Kind="change", Name="a", Base="bolt/b", Priority=2, Intent="madswan/b",
+                                          Recipient="madswan/planner", Brief="Build a."))
+
+
+def runner_holds(monkeypatch, files, *places):
+    """madswan's runner on deneb carrying each place (request, path, status), requests.rec as files holds it read by
+    runner_facts beside it."""
+    import plan
+    reads = {"deneb": {"why": None, "places": {int(n): {"place": where, "at": "t", "status": st, "why": None} for n, where, st in places}}}
+    monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (plan.Plan(files.get("requests.rec") or "").recs("Request"), reads))
 
 class TestEnd:
     """crew role end (design Decision 7; role-runs "A run's end answers what it took")."""
@@ -616,6 +874,48 @@ class TestEnd:
         assert text.startswith("# Turn 1 of madswan-planner\n")
         assert "- ask/1: tell from madswan-design\n- ask/2: card from crew on card/req_a1\n" in text and "proposed the fix bolt" in text
         assert f"turn 1 of madswan-planner is ended, and its report is {report}." in capsys.readouterr().out
+
+    def test_a_turns_end_asks_the_runners_to_confirm_its_ends_in_the_same_commit(self, in_run, monkeypatch, tmp_path, capsys):
+        """role-runs, Two places' ends and Three ends of two places; drive-state, A confirm in a turn's end: the turn took
+        two ends of request 12's place and one of request 14's, and its end asks a confirm of each launch, oldest first."""
+        one = owed_status()
+        one["status"]["places"][0]["ends"][1]["owed"] = [{"recipient": "boomdrive", "expired": True, "known": True}]
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12, (14, "launch", "chore/b", dict(LAUNCH_12[3], Name="b", Base="main")))
+        runner_holds(monkeypatch, in_run.files, (14, "/kit/places/chore--b", one), (12, "/kit/places/change--a", owed_status()))
+        start(in_run)
+        before = in_run.files["requests.rec"]
+        report = tmp_path / "turn.md"
+        end(in_run, report, "acted on the stop-short")
+        assert len(in_run.writes) == 2 and in_run.writes[1].startswith(
+            "turn(madswan-planner): 1 ends, asking 2 confirms of 3 ends (madswan-planner)\n")
+        assert asks.parse(in_run.files["asks.rec"])[1][0]["Ended"]
+        import plan
+        rs = plan.Plan(in_run.files["requests.rec"]).recs("Request")
+        assert in_run.files["requests.rec"].startswith(before)
+        assert [(r.get("Request"), r.get("Act"), r.get("Work"), r.get("Of"), r.get("Recipient"), r.all("Delivery")) for r in rs[2:]] == [
+            ("15", "confirm", "unit/a", "12", "madswan/planner", OWED), ("16", "confirm", "chore/b", "14", "madswan/planner", OWED[1:])]
+        assert "- 3 ends of requests 12 and 14, their confirmation asked of the runners\n" in report.read_text()
+        assert "The 3 ends it took are confirmed to Flume as madswan/planner once the runners carry requests 15 and 16." in capsys.readouterr().out
+
+    def test_a_turn_with_no_ends_appends_no_request(self, in_run, tmp_path, capsys):
+        """role-runs, A turn with no ends."""
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        start(in_run)
+        end(in_run, tmp_path / "turn.md", "done")
+        assert in_run.files["requests.rec"] == requests_held(LAUNCH_12)
+        assert in_run.writes[1].startswith("turn(madswan-planner): 1 ends (madswan-planner)\n") and "confirm" not in capsys.readouterr().out
+
+    def test_a_run_with_no_turn_asks_no_confirm(self, in_run, tmp_path):
+        """role-runs, A lost run: turn 1 took two ends and was superseded before its end, so nothing names them confirmed
+        and the next start takes them again; a run ending with no turn open asks nothing."""
+        lost = f"Took: ask/1\nTook: end/12/{OWED[0]}\nTook: end/12/{OWED[1]}\nSuperseded: 2"
+        in_run.files["asks.rec"] = LOST.replace("Took: ask/1", lost)
+        in_run.files["requests.rec"] = requests_held(LAUNCH_12)
+        before = dict(in_run.files)
+        end(in_run, tmp_path / "turn.md", "nothing waited")
+        assert in_run.files == before and in_run.writes == []
+        again = [owed(12, "stage/construct/2/delivered"), owed(12, "stage/code/1/ended-short")]
+        assert asks.taken_ends(again, [launch(12)], "madswan/planner") == again
 
     def test_an_ask_written_after_the_start_waits_for_the_next_run(self, in_run, tmp_path):
         """role-runs, An ask during a run."""
@@ -754,8 +1054,8 @@ class TestRoleRun:
         assert (live["live"], live["place"], making["live"]) == (True, RUN_PLACE, True)
         gone = runner_on(ran(phase=tidied, raw=status(place=f"{RUN_PLACE}@1793474400", phase=tidied)))["deneb"]
         assert runner.role_run(gone, "madswan/design") == {"live": False, "place": RUN_PLACE, "words": None, "why": None}
-        refused = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan-main"))["deneb"]
-        assert runner.role_run(refused, "madswan/design") == {"live": False, "place": None, "words": "flume refused the launch: no stream madswan-main", "why": None}
+        refused = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan"))["deneb"]
+        assert runner.role_run(refused, "madswan/design") == {"live": False, "place": None, "words": "flume refused the launch: no stream madswan", "why": None}
         assert runner.role_run(runner_on(ran())["deneb"], "madswan/planner")["live"] is False
 
     def test_a_runner_or_a_status_crew_cant_read_cant_tell(self):
@@ -772,7 +1072,7 @@ def opening(monkeypatch):
     standing: madswan's branch in memory and deneb's runner as a case sets it (reads)."""
     import getpass
     import plan
-    fleet = {"partitions": {"madswan": madswan(design="madswan-main", planner="madswan-main")}, "hosts": {}}
+    fleet = {"drives": {"madswan": madswan(design="on-demand", planner="on-demand")}, "hosts": {}}
     b = on_branch(monkeypatch, fleet, {})
     monkeypatch.delenv("CREW_LABEL", raising=False)
     monkeypatch.setattr(getpass, "getuser", lambda: "chuck")
@@ -811,10 +1111,10 @@ class TestOpen:
                                            "crew-design--madswan in herdr; nothing is written\n")
 
     def test_a_run_over_is_asked_again_and_a_launch_the_runner_could_not_make_is_said(self, opening, capsys):
-        opening.reads = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan-main"))
+        opening.reads = runner_on(ran(phase=None, words="flume refused the launch: no stream madswan"))
         open_role(opening)
         assert [a["What"] for a in asks.parse(opening.files["asks.rec"])[0]] == ["open"]
-        assert capsys.readouterr().out.endswith("the runner on deneb could not launch madswan-design's last run: flume refused the launch: no stream madswan-main\n")
+        assert capsys.readouterr().out.endswith("the runner on deneb could not launch madswan-design's last run: flume refused the launch: no stream madswan\n")
 
     @pytest.mark.parametrize("reads, why", [
         ({}, "no runner answers on deneb: madswan/runner/deneb does not exist"),
@@ -829,12 +1129,12 @@ class TestOpen:
         assert str(e.value).startswith(f"crew can't tell whether a run of madswan-design is live: {why}") and str(e.value).endswith("; nothing is written")
         assert opening.files == {} and opening.writes == []
 
-    def test_a_role_that_stands_or_no_partition_named_is_refused(self, opening):
+    def test_a_role_that_stands_or_no_drive_named_is_refused(self, opening):
         import crew
         with pytest.raises(crew.Refusal, match="^madswan runs its ops as a standing agent, madswan-ops, in its tab of crew main up madswan: "
-                                               "crew role open opens only a role its partition runs as its kind; nothing is written$"):
+                                               "crew role open opens only a role its drive runs as its kind; nothing is written$"):
             open_role(opening, role="ops")
-        with pytest.raises(crew.Refusal, match="^which partition's design\\? add --label madswan$"):
+        with pytest.raises(crew.Refusal, match="^which drive's design\\? add --label madswan$"):
             open_role(opening, label=None)
         assert opening.files == {}
 
@@ -846,12 +1146,12 @@ CREW_KIT = {"name": "crew", "repo": "afterthought/crew", "dir": "/w/crew", "main
 def landing(monkeypatch, tmp_path):
     """A command run in madswan's design agent's run on deneb (FLUME_PLACE crew-design--madswan), the design agent
     running as its kind, madswan's plan naming crew by its name alone as a bolt's kit, which deneb, the main level's
-    host, keeps as afterthought/crew, and swancloud's blueprints those of another partition; its writes applied to
+    host, keeps as afterthought/crew, and swancloud's blueprints those of another drive; its writes applied to
     madswan's branch in memory, and a brief over two lines in a file."""
     import plan
     swancloud = dict(madswan(), label="swancloud", blueprints=["afterthought/blueprints"])
-    fleet = {"partitions": {"madswan": madswan(design="madswan-main"), "swancloud": swancloud},
-             "hosts": {"deneb": {"sessions": {"madswan": {"dir": "/w", "repos": [CREW_KIT["repo"]]}}}}}
+    fleet = {"drives": {"madswan": dict(madswan(design="on-demand"), folder="/w", repos=[CREW_KIT["repo"]]), "swancloud": swancloud},
+             "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}}
     monkeypatch.setenv("FLUME_PLACE", RUN_PLACE)
     b = on_branch(monkeypatch, fleet, {})
     monkeypatch.setattr(plan, "read", lambda repo, ref, tip: plan.Plan(
@@ -883,7 +1183,7 @@ class TestLand:
         assert {f: r[f] for f in ("Request", "Act", "Host", "Work", "Repo", "Kind", "Name", "Base", "Stream", "Priority", "Intent",
                                   "Recipient", "By")} == {
             "Request": "1", "Act": "launch", "Host": "deneb", "Work": "role/design/record-0053", "Repo": "afterthought/crew", "Kind": "chore",
-            "Name": "record-0053", "Base": "main", "Stream": "madswan-main", "Priority": "0", "Intent": "madswan-design",
+            "Name": "record-0053", "Base": "main", "Stream": "madswan", "Priority": "0", "Intent": "madswan-design",
             "Recipient": "madswan/design", "By": "madswan-design"}
         assert r["Brief"] == landing.brief.read_text().rstrip("\n") and "Hold" not in r and "After" not in r
         assert [m.split("\n")[0] for m in landing.writes] == ["land(madswan-design): record-0053 in afterthought/crew (madswan-design)"]
@@ -891,7 +1191,7 @@ class TestLand:
                                     "land(madswan-design): record-0053 in afterthought/crew", {"Repo": "afterthought/crew"})]
         assert "Write docs" not in str(landing.entries)
         assert capsys.readouterr().out.endswith(
-            "the runner on deneb launches chore record-0053 in afterthought/crew on main (request 1) in stream madswan-main, your brief its "
+            "the runner on deneb launches chore record-0053 in afterthought/crew on main (request 1) in stream madswan, your brief its "
             "brief whole and madswan/design its recipient: Flume builds it and submits it through sluice, and its landing, or a wait on "
             "you, reaches madswan-design's next run\n")
 
@@ -906,7 +1206,7 @@ class TestLand:
 
     @pytest.mark.parametrize("repo, why", [
         ("afterthought/crew-state", "^crew names no repository afterthought/crew-state: a role's work lands in a blueprints repository "
-                                    "the teams file names or a kit the partition's plan or landings name, and it names "
+                                    "the teams file names or a kit the drive's plan or landings name, and it names "
                                     "afterthought/blueprints, afterthought/boomdrive-web, afterthought/crew$"),
         ("crew", "^a repository is named by its forge address, <owner>/<name>, which the runner resolves to its clone, not crew$")])
     def test_a_repository_crew_does_not_name_is_refused_writing_nothing_and_the_refusal_is_recorded(self, landing, repo, why):

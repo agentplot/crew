@@ -1,17 +1,20 @@
-# A partition's main level and its console through the crew command on the stubs (tests.11, record 0022), in the
+# A drive's main level and its console through the crew command on the stubs (tests.11, record 0022), in the
 # journeys' world (tests/journeys.sh): crew main up starts the main level, its operator among it, and nothing else,
 # no dispatcher on any host, each greeted once, its roles declared in crew's Flume roles file on its host (teams.25), one waiting on a question holding back no other; main status lists
-# them; a tell records its length and never its text; crew send reaches the partition named by its label's operator,
-# marked with whom it was for, and records its length, and a team's name from before teams left is refused; a word from the board, piped to crew tell --board as the board's
+# them, each standing; a tell records its length and never its text; crew send reaches the drive named by its label's operator,
+# marked with whom it was for, and records its length, and a team's name from before teams left is refused; a command
+# forwarded to the box and a send reach the crew the box installed, `crew` by its name on its login path, with crew's
+# repository in no drive's repos, and a box whose login path finds no crew fails naming it, nothing run there and its
+# checkout of crew not tried; a word from the board, piped to crew tell --board as the board's
 # listener pipes it, reaches the agent its item's kind goes to marked as the user's from the board and naming the item,
 # and records its length, and one for an agent its kind does not go to types nothing; the console opens its shell tab
 # alone while the host's job follows, a tab named beside it and the rail tab of itself while no follower runs, keeps
 # what is open, and starts no agent; a tell reaches an agent whose pane herdr names no session for, refused while the
 # session crew recorded in its pane has a question open; crew revive brings back what a restart left empty, resumed or,
 # with no conversation to pick up, fresh, leaving down what was taken down; crew revive and crew main up open again a
-# pane herdr brought back dead; a role its partition names a session for comes up there (record 0035); and a role its
-# partition runs as its kind is started by none of them, its role record written and a standing agent of it left from
-# before ended, and main status says whether a run of it stands and what waits.
+# pane herdr brought back dead; a role its drive names a session for comes up there (record 0035); and a role its
+# drive runs as its kind is started by none of them, its role record written and a standing agent of it left from
+# before ended, and main status says it is on-demand, whether a run of it stands and what waits.
 # What each agent is greeted with, where it runs and whether a pane is dead are logic cases (tests/py/test_teams.py).
 # Reads: plugin/hooks/ plugin/lib/board.py plugin/roles/ tests/journeys.sh
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
@@ -49,24 +52,51 @@ eq "$(count $box main.up)" "1"
 ok "crew main up starts the main level, its operator among it, on its host and no dispatcher on any host, its roles in crew's Flume roles file there, greeting each once, one waiting on a question once it is answered and holding back no other; a second starts and records nothing"
 
 expect_ok crew main status wldn
-for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "idle"; done
+for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "standing; idle"; done
+lacks "$out" "as its kind"
 lacks "$out" "dispatch"
 crew tell wldn-planner "Secret words ZQXR" >/dev/null
 eq "$(field mac-studio tell Chars)" "17"
 [[ $(as mac-studio bash -c 'cat "$HOME"/.local/state/crew/wldn/runs/*/*.rec') != *ZQXR* ]] || fail "a tell's text is in the run record"
-# crew send: another partition's agent and the user reach the partition's operator, the door, wherever it runs.
-CREW_AGENT=swancloud-planner expect_ok crew send wldn "Words QVXJ for the partition"
-grep -q "^$box wldn-3 agent prompt wldn-operator '\[crew tell from swancloud-planner\] (sent to wldn) Words QVXJ for the partition'" "$CREW_TEST_LOG" ||
+# crew send: another drive's agent and the user reach the drive's operator, the door, wherever it runs.
+CREW_AGENT=swancloud-planner expect_ok crew send wldn "Words QVXJ for the drive"
+grep -q "^$box wldn-3 agent prompt wldn-operator '\[crew tell from swancloud-planner\] (sent to wldn) Words QVXJ for the drive'" "$CREW_TEST_LOG" ||
   fail "crew send did not reach wldn-operator marked with its sender and whom it was for"
-eq "$(field mac-studio send On agent/wldn-operator) $(field mac-studio send Chars agent/wldn-operator) $(field mac-studio send Why agent/wldn-operator)" "agent/wldn-operator 28 send wldn"
+eq "$(field mac-studio send On agent/wldn-operator) $(field mac-studio send Chars agent/wldn-operator) $(field mac-studio send Why agent/wldn-operator)" "agent/wldn-operator 24 send wldn"
 [[ $(as mac-studio bash -c 'cat "$HOME"/.local/state/crew/wldn/runs/*/*.rec') != *QVXJ* ]] || fail "a send's text is in the run record"
-expect_ok crew send wldn "For the partition"
-grep -q "^$box wldn-3 agent prompt wldn-operator '\[crew tell from [^]]*@mac-studio\] (sent to wldn) For the partition'" "$CREW_TEST_LOG" ||
+expect_ok crew send wldn "For the drive"
+grep -q "^$box wldn-3 agent prompt wldn-operator '\[crew tell from [^]]*@mac-studio\] (sent to wldn) For the drive'" "$CREW_TEST_LOG" ||
   fail "crew send from the user's shell did not reach wldn-operator"
 eq "$(count mac-studio send) $(field mac-studio tell Chars)" "2 17"
-expect_fail "crew send sends to a partition by its label, not 'swb-2': partitions madswan swancloud wldn" crew send swb-2 "x"
-expect_fail "crew send sends to a partition by its label, not 'nosuch'" crew send nosuch "x"
+expect_fail "crew send sends to a drive by its label, not 'swb-2': drives madswan swancloud wldn" crew send swb-2 "x"
+expect_fail "crew send sends to a drive by its label, not 'nosuch'" crew send nosuch "x"
 eq "$(count mac-studio send)" "2"
+# crew on the box is the crew the box installed, `crew` by its name on its login path: a command forwarded there and a
+# send reach it with crew's repository in no drive's repos of mac-studio's teams file, and a box whose login path finds
+# no crew fails naming it, nothing run there and its checkout of crew not tried. The test's own PATH holds the host's
+# real crew, so that case runs without it, as the box's login path then finds none.
+teams=$(home_of mac-studio)/.config/crew/teams.json
+cp "$teams" "$teams.kept"
+jq '.drives |= map(.repos -= ["agentplot/crew"])' "$teams" > "$teams.new" && mv "$teams.new" "$teams"
+eq "$(jq '[.drives[].repos[] | select(. == "agentplot/crew")] | length' "$teams")" "0"
+: > "$CREW_TEST_LOG"
+expect_ok crew main status wldn
+for a in wldn-design wldn-planner wldn-ops wldn-operator; do has "$(grep "^$a " <<<"$out")" "standing; idle"; done
+forwarded=$(grep "^mac-studio ssh $box .* crew main status wldn" "$CREW_TEST_LOG") || fail "crew main status was not forwarded to the box's crew"
+lacks "$forwarded" "plugin/bin/crew"
+CREW_AGENT=swancloud-planner expect_ok crew send wldn "Words NOCK for the drive"
+grep -q "^$box wldn-3 agent prompt wldn-operator '\[crew tell from swancloud-planner\] (sent to wldn) Words NOCK for the drive'" "$CREW_TEST_LOG" ||
+  fail "crew send did not reach wldn-operator with crew in no drive's repos"
+mv "$teams.kept" "$teams"
+mv "$T/hosts/$box/bin/crew" "$T/hosts/$box/crew.aside"
+nocrew=$(path_without crew)
+: > "$CREW_TEST_LOG"
+PATH=$nocrew expect_fail "chuck-herdr-alpha has no crew on its login path, so crew can't run there" crew main status wldn
+[[ -L $(space $box willdan)/crew/main ]] || fail "the box's checkout of crew is gone"
+grep -q "^mac-studio ssh $box " "$CREW_TEST_LOG" || fail "mac-studio did not ssh to the box"
+grep "^$box " "$CREW_TEST_LOG" && fail "something ran on the box, which has no crew on its login path"
+mv "$T/hosts/$box/crew.aside" "$T/hosts/$box/bin/crew"
+ok "a command forwarded to the box and a send reach the crew the box installed with crew in no drive's repos, and a box whose login path finds no crew fails naming it, nothing run there and its checkout not tried"
 # A word from a proposal's dock, as the board's listener pipes it: the planner is told it as the user's from the board,
 # naming the item (record 0038 §3); one for another agent than the kind's types nothing.
 board_word() { printf '%s' "$1" | crew tell --board; }
@@ -138,7 +168,7 @@ expect_ok crew console down wldn
 expect_ok crew console up wldn
 eq "$(tabs)" "console shell,rail"
 grep -q "^mac-studio wldn pane run .*/crew _rail wldn'" "$CREW_TEST_LOG" || fail "the rail tab opened while no one follows does not run wldn's rail"
-ok "main status reaches every host, a tell and a send record their length and never their text, a send reaching the partition's operator, a word from the board its item's agent; the console comes up with no agent, its shell tab alone while the host's job follows, the rail tab beside it when named and kept by the next up, a word that is no tab refused, and the rail tab of itself while no one follows, crew operator up opening it too"
+ok "main status reaches every host, a tell and a send record their length and never their text, a send reaching the drive's operator, a word from the board its item's agent; the console comes up with no agent, its shell tab alone while the host's job follows, the rail tab beside it when named and kept by the next up, a word that is no tab refused, and the rail tab of itself while no one follows, crew operator up opening it too"
 
 # herdr names no session for the planner's pane, as after its own restore: crew reads the session it recorded there.
 as $box herdr --session wldn-3 stub nosession wldn-planner on
@@ -228,7 +258,7 @@ eq "$(herdr_state $box wldn-3 '[.tabs[] | select(.workspace == "w1") | .label] |
 eq "$(herdr_state $box wldn-3 "[.panes | keys[] | select(. == \"$d\")] | length")" "0"
 ok "crew revive closes the main level's panes herdr brought back dead, opens each again in its layout and picks up its agent there, and crew main up does the same and starts it, each saying so"
 
-# A role its partition names a session for comes up there, in a <label> workspace of its own; up refuses while the
+# A role its drive names a session for comes up there, in a <label> workspace of its own; up refuses while the
 # role's agent still runs where it stood, and down ends it there (record 0035).
 edit teams "$(part wldn)['roles'] = {'planner': {'session': 'wldn-1'}}"
 HOST=$box expect_fail "wldn-planner still runs in session wldn-3" crew main up wldn
@@ -241,27 +271,27 @@ eq "$(herdr_state $box wldn-1 '[.agents[].name] | map(select(startswith("wldn-")
 eq "$(herdr_state $box wldn-1 '[.workspaces[].label] | map(select(. == "wldn")) | length')" "1"
 HOST=$box expect_ok crew main status wldn
 has "$(grep "^wldn-planner " <<<"$out")" "wldn-1"
-ok "a role its partition names a session for comes up there, up refusing while it still runs where it stood and down ending it there"
+ok "a role its drive names a session for comes up there, up refusing while it still runs where it stood and down ending it there"
 
 # wldn's planner and reviewer run as their kinds: main up opens no tab for either and starts and greets neither,
 # writes their role records to the drive's branch, and ends the standing planner left from before, idle; a second
-# up does nothing of them; crew revive brings neither back; main status says each runs as its kind, in which stream,
+# up does nothing of them; crew revive brings neither back; main status says each is on-demand, in which stream,
 # and how many asks wait (design Decision 14).
-role_stream wldn planner wldn-main; role_stream wldn reviewer wldn-main
+role_runs wldn planner on-demand; role_runs wldn reviewer on-demand
 : > "$CREW_TEST_CLAUDE_LOG"
 HOST=$box expect_ok crew main up wldn
 has "$out" "wldn-planner's standing agent is ended: wldn's planner runs as its kind"
 lacks "$out" "wldn-planner started"; lacks "$out" "wldn-planner greeted"
 eq "$(herdr_state $box wldn-1 '[.agents[].name] | map(select(. == "wldn-planner")) | length')" "0"
-eq "$(git --git-dir "$ws" show wldn/main:roles.rec | recsel -t Role -P Address,Stream,Kind | tr -s '\n' ' ')" "wldn/planner wldn-main crew-planner wldn/reviewer wldn-main crew-reviewer "
+eq "$(git --git-dir "$ws" show wldn/main:roles.rec | recsel -t Role -P Address,Stream,Kind | tr -s '\n' ' ')" "wldn/planner wldn crew-planner wldn/reviewer wldn crew-reviewer "
 HOST=$box expect_ok crew main up wldn
 lacks "$out" "wldn-planner"
 HOST=$box expect_ok crew revive
 lacks "$out" "wldn-planner"
 [[ $(launches) == *wldn-planner* ]] && fail "a planner that runs as its kind was started"
 HOST=$box expect_ok crew main status wldn
-has "$(grep "^wldn-planner " <<<"$out")" "runs as its kind in stream wldn-main; crew can't tell whether a run stands: no runner answers on $box: wldn/runner/$box does not exist; no ask waits"
-has "$(grep "^wldn-reviewer " <<<"$out")" "runs as its kind in stream wldn-main; crew can't tell whether a run stands"
+has "$(grep "^wldn-planner " <<<"$out")" "on-demand in stream wldn; crew can't tell whether a run stands: no runner answers on $box: wldn/runner/$box does not exist; no ask waits"
+has "$(grep "^wldn-reviewer " <<<"$out")" "on-demand in stream wldn; crew can't tell whether a run stands"
 # Once the box's runner answers with no run of the planner, and the design agent's tell is an ask of it, main status
 # says no run stands and the ask waits.
 runner_rec=$(printf '%%rec: Runner\n%%key: Host\n%%type: Since date\n%%mandatory: Host Version Since\n%%allowed: Host Version Since\n\nHost: %s\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n' "$box")
@@ -270,6 +300,7 @@ git --git-dir "$ws" update-ref "refs/heads/wldn/runner/$box" "$(git --git-dir "$
 CREW_AGENT=wldn-design expect_ok crew tell wldn-planner "Record 0012 is accepted"
 has "$out" "asked wldn-planner"
 HOST=$box expect_ok crew main status wldn
-has "$(grep "^wldn-planner " <<<"$out")" "runs as its kind in stream wldn-main; no run stands; 1 ask waits, the oldest asked"
-has "$(grep "^wldn-reviewer " <<<"$out")" "runs as its kind in stream wldn-main; no run stands; no ask waits"
-ok "main up starts no role that runs as its kind, writes their role records and ends a standing agent of one left idle; revive passes them over and main status says how each runs, whether a run stands and what waits"
+has "$(grep "^wldn-planner " <<<"$out")" "on-demand in stream wldn; no run stands; 1 ask waits, the oldest asked"
+has "$(grep "^wldn-reviewer " <<<"$out")" "on-demand in stream wldn; no run stands; no ask waits"
+lacks "$out" "as its kind"
+ok "main up starts no role that runs as its kind, writes their role records and ends a standing agent of one left idle; revive passes them over and main status says each is on-demand, whether a run stands and what waits"

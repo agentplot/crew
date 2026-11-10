@@ -5,12 +5,13 @@
 # the hosts' minor (code.1), and recutils (state.1) first on its PATH and
 # runs the plugin's own bin/crew. A wrapper, never a link: plugin/bin/crew
 # finds its root from its own path unresolved. git, herdr, wt and openspec
-# stay the host's. Where the flake knows the commit it is built from, the
-# package also carries plugin/release.json, that commit and the package's
-# version, which crew reads where it runs from a build (crew_read); a file
-# of the build alone, never of the tree (code.10). A caller names `commit`
-# itself, the flake as self.rev or null, since nixpkgs has a package of
-# that name callPackage would otherwise pass.
+# stay the host's. The package holds the tree's plugin/release.json, the
+# version alone, 0.0.0 on main and the release's at its tag (crew-release),
+# which crew reads where it runs from a build (crew_read); where the flake
+# knows the commit it is built from, the install writes that commit and the
+# package's version over it. A caller names `commit` itself, the flake as
+# self.rev or null, since nixpkgs has a package of that name callPackage
+# would otherwise pass.
 {
   lib,
   stdenvNoCC,
@@ -23,8 +24,9 @@
   commit ? null,
 }:
 let
-  # What the build carries of its release: null where the flake knows no
-  # commit, as for a tree with uncommitted changes, so it reads as none.
+  # What the install writes over the tree's release file: null where the
+  # flake knows no commit, as for a tree with uncommitted changes, which
+  # then holds the tree's file as the tree gives it.
   release = if commit == null then null else { inherit commit version; };
 in
 stdenvNoCC.mkDerivation {
@@ -60,7 +62,7 @@ stdenvNoCC.mkDerivation {
   dontFixup = true;
   passthru = { inherit release; };
   meta = {
-    description = "crew: each partition's plan of bolts, its main level of Claude agents, and its bolts' work as Flume runs it";
+    description = "crew: each drive's plan of bolts, its main level of Claude agents, and its bolts' work as Flume runs it";
     homepage = "https://github.com/agentplot/crew";
     mainProgram = "crew";
     inherit platforms;

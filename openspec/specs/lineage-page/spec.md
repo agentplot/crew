@@ -49,7 +49,7 @@ Selecting an object SHALL list its entries in time order: the time, the act, who
 The page SHALL state the time it was made and the commit of the drive's branch it read, its run record read from that commit alone. It SHALL NOT change after it is written; running the command again writes it anew. When the drive's branch cannot be read, the command SHALL write no page and SHALL say which branch it could not read.
 
 #### Scenario: A host was asleep
-- **WHEN** the page is made while a Mac that wrote entries of the partition does not answer
+- **WHEN** the page is made while a Mac that wrote entries of the drive does not answer
 - **THEN** the page holds every entry the branch holds, the Mac's among them, and names no host for its run record
 
 #### Scenario: The branch cannot be read

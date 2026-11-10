@@ -42,9 +42,9 @@ def test_the_planner_writes_through_a_proposal(monkeypatch, key):
     ("wldn-operator", ("unit", "drop"), None, "wldn-operator does not write the plan with crew unit drop: tell wldn-planner, who proposes it"),
     ("wldn-ops", ("bolt", "new"), None, "wldn-ops does not write the plan with crew bolt new: tell wldn-planner, who proposes it"),
     ("wldn-ops", ("bolt", "start"), None, "wldn-ops does not start a bolt: the user starts it, or approves wldn-planner\'s proposal holding crew bolt start; tell wldn-planner, who proposes it"),
-    ("stranger", ("unit", "order"), None, "stranger does not write the plan with crew unit order: tell the partition's planner, who proposes it"),
+    ("stranger", ("unit", "order"), None, "stranger does not write the plan with crew unit order: tell the drive's planner, who proposes it"),
     ("stranger", ("bolt", "start"), None,
-     "stranger does not start a bolt: the user starts it, or approves the partition's planner\'s proposal holding crew bolt start; tell the partition's planner, who proposes it")])
+     "stranger does not start a bolt: the user starts it, or approves the drive's planner\'s proposal holding crew bolt start; tell the drive's planner, who proposes it")])
 def test_any_other_write_is_refused_naming_the_planner(monkeypatch, agent, key, bolt, said):
     assert may(monkeypatch, agent, key, bolt) == said
 
@@ -71,8 +71,8 @@ def test_a_proposal_holding_a_rename_is_the_planners_to_make_and_the_users_to_ap
 
 
 # wldn running its planner, design agent and ops as their kinds, and its reviewer and operator standing.
-RUNS = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], flume=dict(
-    dict.fromkeys(crew.KIND_ROLES, False), planner="wldn-main", design="wldn-main", ops="wldn-main"))})
+RUNS = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], runs=dict(
+    dict.fromkeys(crew.KIND_ROLES, "standing"), planner="on-demand", design="on-demand", ops="on-demand"))})
 PLACES = "/Users/chuck/.local/state/flume/places/Users%chuck%Code%github_afterthought%blueprints"
 
 
@@ -125,7 +125,7 @@ class TestARunIsItsRole:
         monkeypatch.setenv("CREW_LABEL", "wldn")
         assert (plan.agent(), crew.caller_label()) == ("wldn-design", "wldn")
 
-    def test_a_command_forwarded_from_a_run_carries_its_name_and_partition(self, monkeypatch):
+    def test_a_command_forwarded_from_a_run_carries_its_name_and_drive(self, monkeypatch):
         """code.3: plugin/bin/crew sets them from crew.py run-name before it forwards, and crew_argv carries them."""
         in_place(monkeypatch, f"{PLACES}/crew-planner--wldn")
         monkeypatch.setattr(record, "_session", None)
@@ -146,7 +146,7 @@ def test_the_planner_design_and_ops_answer_a_crossed_place_and_ops_fixes_main(mo
 @pytest.mark.parametrize("agent, key, said", [
     ("wldn-operator", ("answer", None), "wldn-operator does not run crew answer: the planner, the design agent, main-level ops and the user do; tell wldn-planner"),
     ("wldn-planner", ("main", "fix"), "wldn-planner does not run crew main fix: main-level ops and the user do; tell wldn-ops"),
-    ("stranger", ("answer", None), "stranger does not run crew answer: the planner, the design agent, main-level ops and the user do; tell the partition's planner")])
+    ("stranger", ("answer", None), "stranger does not run crew answer: the planner, the design agent, main-level ops and the user do; tell the drive's planner")])
 def test_any_other_caller_of_a_request_is_refused_naming_who_runs_it(monkeypatch, agent, key, said):
     assert may(monkeypatch, agent, key) == said
 
@@ -154,7 +154,7 @@ def test_any_other_caller_of_a_request_is_refused_naming_who_runs_it(monkeypatch
 @pytest.mark.parametrize("agent, said", [
     ("wldn-planner", None), ("wldn-ops", None), ("chuck@mac-studio", None),
     ("wldn-design", "wldn-design does not run crew fix: the planner, main-level ops and the user do; tell wldn-planner"),
-    ("stranger", "stranger does not run crew fix: the planner, main-level ops and the user do; tell the partition's planner")])
+    ("stranger", "stranger does not run crew fix: the planner, main-level ops and the user do; tell the drive's planner")])
 def test_a_fix_on_a_crossed_teams_bolt_is_the_planners_ops_or_the_users(monkeypatch, agent, said):
     """crew fix of a bolt given through Flume is checked once its bolt is found (plan.flume_fix)."""
     monkeypatch.setenv("CREW_AGENT", agent)

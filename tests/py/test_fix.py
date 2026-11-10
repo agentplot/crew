@@ -1,8 +1,9 @@
 """A fix of a started bolt (bolt-teams "A fix is a fix place on its bolt", Decision 15 of the-team-machinery-leaves,
 teams.3): crew fix <bolt> <name> "<words>" a launch of Flume's fix kind on the bolt's branch (plan.fix_flume,
 runner.fix_launch), dropped by --drop (runner.fix_drop_refusal), merged and waited on by Flume alone, holding the
-bolt's landing while it is in flight (runner.fixes_in_flight). That the command writes the launch and starts no
-agent is the crossed path's journey's (t-journey-cross)."""
+bolt's landing while it is in flight (runner.fixes_in_flight), and merged once the runner reports its place landed, a
+record Flume holds for the runner among them (bolt-plan "A fix the runner reports merged holds nothing"). That the command writes the launch and starts no agent is the crossed path's journey's
+(t-journey-cross)."""
 import pytest
 
 from facts import FactsWrite, flume_plan, madswan_fleet, ran
@@ -56,18 +57,31 @@ class TestAFixOfAStartedBolt:
 
     @pytest.mark.parametrize("at, said", [
         ("landed", "^fix/x/rail-word has merged into bolt/x, so it is not dropped: what it changed is the bolt's, and a new fix undoes it$"),
-        (None, "^can't tell whether fix/x/rail-word's place has merged into bolt/x, so it is not dropped: no runner answers for the partition")])
+        (None, "^can't tell whether fix/x/rail-word's place has merged into bolt/x, so it is not dropped: no runner answers for the drive")])
     def test_a_merged_fix_or_one_crew_cant_read_is_not_dropped(self, at, said):
         w = self.bolt(runners=ran({2: at}) if at else None)
         self.fix(w, "start", "rail-word", "Say land.")
         with pytest.raises(plan.Refusal, match=said):
             self.fix(w, "drop", "rail-word")
 
+    def test_a_fix_held_for_the_runner_landed_is_not_dropped(self):
+        """bolt-plan "A landed fix is not dropped": the runner carries rail-word's place landed on x, the record Flume
+        holds for it after its tidy (tests/py/flume-0.20.0/landed-held.json), so its drop is refused and nothing is
+        appended; last carried at submitted, the drop goes."""
+        w = self.bolt(runners=ran({2: "flume-0.20.0/landed-held"}))
+        self.fix(w, "start", "rail-word", "Say land.")
+        with pytest.raises(plan.Refusal, match="^fix/x/rail-word has merged into bolt/x, so it is not dropped"):
+            self.fix(w, "drop", "rail-word")
+        assert len(self.launches(w)) == 2
+        w = self.bolt(runners=ran({2: "submitted"}))
+        self.fix(w, "start", "rail-word", "Say land.")
+        assert self.fix(w, "drop", "rail-word") == dict(n=3, host="deneb", repo="crew")
+
     QUEUED = [dict(Act="bolt.submit", On=["bolt/x"], Outcome="queued", Submission="412", Head="a" * 40)]
     REJECTED = QUEUED + [dict(Act="bolt.submit", On=["bolt/x"], Refused="#412 failed: tests:logic", Submission="412", Head="a" * 40)]
 
     def test_a_fix_while_the_bolts_landing_is_queued_is_refused_naming_it(self):
-        """bolt-teams "A landing queued holds its bolt's work": nothing is launched."""
+        """bolt-teams "Work into a bolt whose landing is queued is refused": nothing is launched."""
         w = self.bolt()
         w.logged = self.QUEUED
         with pytest.raises(plan.Refusal, match=r"^bolt x has its landing queued on main as #412, so fix x--logic does not join it until "
@@ -109,9 +123,60 @@ class TestAFixOfAStartedBolt:
             self.fix(w, "start", name, f"Fix {name}.")
         self.fix(w, "drop", "gone")
         requests = plan.Plan(w.files["requests.rec"]).recs("Request")
-        assert runner.fixes_in_flight(requests, ran({2: "code", 3: "landed"}), "x") == {"fix/x/rail-word": "Fix rail-word."}
-        assert runner.fixes_in_flight(requests, {}, "x") == {"fix/x/rail-word": "Fix rail-word.", "fix/x/tidy": "Fix tidy."}
+
+        def fixes(reads):
+            return [(l.get("Work"), l, s) for l, s in runner.fixes_on(requests, reads, "bolt/x")]
+        assert runner.fixes_in_flight(fixes(ran({2: "code", 3: "landed"})), "x") == {"fix/x/rail-word": "Fix rail-word."}
+        assert runner.fixes_in_flight(fixes({}), "x") == {"fix/x/rail-word": "Fix rail-word.", "fix/x/tidy": "Fix tidy."}
         green = ("green", f"its head {'h' * 7} is change/a's landing, as the runner reports it")
         assert plan.landing_unready([("a", "unit", "merged")], green, ["fix/x/rail-word"]) == "fix/x/rail-word is in flight on it"
         row = plan.landing_rows(["x"], {"x": {"head": "h" * 40, "fixes": {"fix/x/rail-word": "Fix rail-word."}}}, {})[0]
         assert (row["box"], row["why"]) == (False, "held for a fix: Fix rail-word. (fix/x/rail-word)")
+
+
+class TestAFixTheRunnerReportsMerged:
+    """bolt-plan "A fix the runner reports merged holds nothing" (record 0062's stopgap retired; read.1, read.2): a fix on
+    a bolt is read from the runner's records alone, as any piece is (runner.fixes_on, runner.stage_of), merged once the
+    runner reports its place landed, the record Flume holds for the runner after it tidies the place among them
+    (tests/py/flume-0.20.0/), and no landing on the bolt is matched to it by its place's branch."""
+
+    @pytest.fixture(autouse=True)
+    def planner(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "madswan-planner")
+        self.FLEET = madswan_fleet()
+
+    bolt = TestAFixOfAStartedBolt.bolt
+    fix = TestAFixOfAStartedBolt.fix
+    GREEN = ("green", f"its head {'h' * 7} is change/a's landing, as the runner reports it")
+
+    def tidy(self, carried):
+        """x started, its fix tidy launched as request 2, its place carried as given (facts.ran): (its launch, its stage
+        as the runner's records give it)."""
+        reads = ran({2: carried})
+        w = self.bolt(runners=reads)
+        self.fix(w, "start", "tidy", "Fix tidy.")
+        requests = plan.Plan(w.files["requests.rec"]).recs("Request")
+        [(launch, s)] = runner.fixes_on(requests, reads, "bolt/x")
+        return launch, s
+
+    def test_a_fix_on_a_bolt_names_its_places_branch_and_a_fix_of_main_none(self):
+        assert runner.place_branch("fix/x/tidy") == "fix/x--tidy"
+        assert [runner.place_branch(w) for w in ("fix/main/crew/red", "role/planner/read")] == [None, None]
+
+    def test_a_landed_fix_holds_its_bolts_landing_no_longer(self):
+        """bolt-plan "A landed fix holds its bolt's landing no longer": every unit of x merged and its head a's landing as
+        the runner reports it, and the runner carries the record Flume holds for it of tidy's place, tidied and landed on
+        bolt/x; tidy reads merged, no fix is in flight on x, and x reads proven."""
+        launch, s = self.tidy("flume-0.20.0/landed-held")
+        assert (s["stage"], s["commit"]) == ("merged", "f564d22041933732ee004aa33d1b629a97272cd9")
+        assert runner.fixes_in_flight([("fix/x/tidy", launch, s)], "x") == {}
+        assert plan.landing_unready([("a", "unit", "merged")], self.GREEN, []) is None
+
+    def test_a_fix_the_runner_last_carried_at_submitted_is_in_flight(self):
+        """bolt-plan "A fix the runner last carried at submitted": tidy reads submitted and is in flight on x, holding
+        its landing, whatever x's landing commits name."""
+        launch, s = self.tidy("submitted")
+        assert s["stage"] == "submitted" and s["place"]
+        held = runner.fixes_in_flight([("fix/x/tidy", launch, s)], "x")
+        assert held == {"fix/x/tidy": "Fix tidy."}
+        assert plan.landing_unready([("a", "unit", "merged")], self.GREEN, sorted(held)) == "fix/x/tidy is in flight on it"

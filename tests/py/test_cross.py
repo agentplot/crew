@@ -61,8 +61,9 @@ def given(*bolts, work=(), files=None, runners=None):
 
 
 def start(w, bolt):
-    """What a start's change function does once sluice made the branch (plan.op_bolt_start): Path: flume set, no Team,
-    and the bolt's work launched in its repository (plan.reach_places)."""
+    """What a start's change function does for the bolt's pieces after its base place's launch (plan.op_bolt_start;
+    runner.bolt_launch, test_runner.py's TestBoltLaunch): Path: flume set, no Team, and the bolt's work launched in its
+    repository (plan.reach_places)."""
     w.plan.bolt(bolt).set("Path", "flume")
     return plan.reach_places(FLEET, w, bolt)
 
@@ -101,11 +102,11 @@ class TestStart:
         assert start(w, "z") == [(4, "unit/c")]
         assert [r["Act"] for r in requests(w)] == ["launch", "launch", "priority", "launch", "priority", "priority"]
 
-    def test_a_start_with_no_runner_for_the_partition_is_refused_naming_it(self):
+    def test_a_start_with_no_runner_for_the_drive_is_refused_naming_it(self):
         """The state repository holds no madswan/runner/<host> at all: nothing would take the bolt's work."""
         assert runner.runnerless("madswan", {}) == (
             "no runner answers for madswan: its state repository holds no madswan/runner/<host>, so nothing would take the bolt's "
-            "work; a start waits for a runner (Boomdrive) to serve the partition")
+            "work; a start waits for a runner (Boomdrive) to serve the drive")
         assert runner.runnerless("madswan", {"alpha": "a" * 40}) is None
 
     def test_what_the_start_says_names_each_launch_and_that_no_agent_starts(self):
@@ -115,7 +116,7 @@ class TestStart:
 
 
 def ops(w, *dos, stages=None, n=None):
-    """Plan commands applied to the write as a proposal holds them, in madswan's partition (facts.apply)."""
+    """Plan commands applied to the write as a proposal holds them, in madswan's drive (facts.apply)."""
     from facts import apply, known
     return apply(w, *dos, ctx=known(w, stages=stages, n=n, fleet=FLEET))
 
@@ -193,19 +194,36 @@ class TestReach:
         assert [(r["Act"], r.get("Of")) for r in requests(w)[1:]] == [("drop", "1")]
         assert w.plan.item("a").get("Bolt") is None and w.plan.bolt("x") is None
 
-    def test_a_drop_no_runner_has_taken_work_of_is_swept_in_the_main_level_hosts_checkout(self, monkeypatch):
-        """bolt-plan "The drop's host does not answer", for a started bolt whose work no runner has reported taking: its
-        branch was made on the main-level host's checkout, so the drop asks sluice there; with no checkout there, why."""
-        b = launched("x", work=[unit("a")]).plan.bolt("x")
-        monkeypatch.setattr(plan, "known_at", lambda *a, **k: None)
-        kept = {"name": CREW, "repo": "afterthought/crew", "dir": "/w/crew", "main": "/w/crew/main"}
-        monkeypatch.setattr(plan.crew, "kit_kept", lambda fleet, host, kit: kept)
-        assert plan.drop_at(FLEET, "madswan", b) == ({"label": "madswan", "machine": "deneb", "stream": None, "kit": kept}, None)
-        monkeypatch.setattr(plan.crew, "kit_kept", lambda fleet, host, kit: None)
-        assert plan.drop_at(FLEET, "madswan", b) == (None, "madswan's main level runs on deneb, and no space there keeps crew, so "
-                                                           "crew can't ask sluice to delete bolt/x there; if it was renamed on its host, crew kit rename crew <new> names it so in the plan")
-        w = given(("y", None, None), work=[unit("q", bolt="y")])
-        assert plan.drop_at(FLEET, "madswan", w.plan.bolt("y")) == (None, None)
+    def test_a_requeue_drops_the_units_launch_and_then_the_base_place(self):
+        """bolt-plan "Requeuing a unit that has a place": started x with its base place, unit a launched; the requeue's
+        commit drops a's launch and then bolt/x's, a queued with no bolt, so it is launched afresh once a bolt it is
+        placed in is started."""
+        w = launched("x", work=[unit("a")])
+        act, work, given = runner.bolt_launch(w.plan, "x", "madswan")
+        plan.request(w, act, work, **given)
+        ops(w, 'bolt drop x "Later." --requeue')
+        assert [(r["Act"], r["Work"], r.get("Of")) for r in requests(w)] == [
+            ("launch", "unit/a", None), ("launch", "bolt/x", None), ("drop", "unit/a", "1"), ("drop", "bolt/x", "2")]
+        assert w.plan.bolt("x") is None and w.plan.item("a").get("Bolt") is None and w.plan.item("a").get("After") is None
+
+    def test_a_drop_asks_no_host_and_a_bolt_with_no_base_place_keeps_its_branch_the_users(self, monkeypatch, capsys):
+        """bolt-plan "The drop's host does not answer" and bolt-teams "A drop of it": started x, its unit a's launch
+        standing and no launch of bolt/x, since x was started before bolts were base places, while every host is
+        refused: the drop's commit drops a's launch and asks nothing for bolt/x, and the drop says bolt/x stays, the
+        user's (crew-lands-each-bolt-through-flumes-base-place, Decisions 8 and 9)."""
+        from facts import known
+        import crew
+        monkeypatch.setattr(crew, "on_machine", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        monkeypatch.setattr(plan, "host_run", lambda *a, **k: pytest.fail(f"the drop reached a host: {a[1:]}"))
+        w = launched("x", work=[unit("a")])
+        op = plan.op_bolt_drop(known(w, fleet=FLEET), plan.do_args("madswan", 'bolt drop x "Not needed."'))
+        op.change(w)
+        assert [(r["Act"], r["Work"], r.get("Of")) for r in requests(w)[1:]] == [("drop", "unit/a", "1")]
+        assert w.plan.bolt("x") is None and w.plan.item("a") is None
+        op.after("afterthought/madswan-state", "a" * 40)
+        assert capsys.readouterr().out.strip() == (
+            "bolt/x stays: x was started before bolts were base places, so it has no base place and crew asks nothing for "
+            "its branch, which is the user's to keep or delete")
 
     def test_a_bolt_not_started_is_refused(self):
         w = given(("x", None, None), work=[unit("a")])
@@ -225,7 +243,7 @@ def submitted(*states):
 
 
 class TestALandingQueuedHoldsTheBoltsWork:
-    """bolt-teams "A landing queued holds its bolt's work" (plan.8): while the run record has x's landing queued, or
+    """bolt-teams "Work into a bolt whose landing is queued is refused" (plan.8): while the run record has x's landing queued, or
     landing again, with no outcome, a unit or chore added to x or moved into it is refused naming the landing, at the tip
     the write is applied to, and nothing is launched; once sluice has rejected it, the bolt is open for work again."""
 
@@ -305,16 +323,44 @@ class TestAnswer:
         w, _ = self.answered(at)
         assert (requests(w)[1]["Stage"], requests(w)[1]["Words"]) == ("code", "madswan's")
 
-    def test_nothing_to_answer_is_refused_naming_its_stage(self):
-        """a's place is in code with no question, and crew answer a "yes" runs."""
-        with pytest.raises(plan.Refusal, match=rf"^unit/a's place {path_at('code')} is at code, with no question and nothing it "
-                                               r"waits on its caller for, so there is nothing to answer: crew bolts shows its stage$"):
-            self.answered("code", words="yes")
+    def test_a_place_past_its_bound_is_retried_at_the_stage_it_waits_to_retry(self):
+        """bolt-teams "A place past its bound": the runner carries flume 0.17.0's status of a's place waiting on its
+        caller to retry code past its bound, its verify delivered (tests/py/flume-0.17.0/past-bound.json), and the
+        planner runs crew answer a: the retry of code with the answer's words is appended."""
+        w, got = self.answered("flume-0.17.0/past-bound", words="Take the bolt in and resolve the conflict.")
+        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "unit/a", "Of": "1", "Stage": "code",
+                                  "Words": "Take the bolt in and resolve the conflict."}
+        assert got == dict(n=2, work="unit/a", host="deneb", place=path_at("flume-0.17.0/past-bound"), what="code")
 
-    @pytest.mark.parametrize("at, said", [("submitted", "submitted to sluice (413)"), ("landed", "merged"), ("queued", "queued for room at construct")])
+    def test_a_place_waiting_on_a_retry_of_its_submission_is_submitted_again(self):
+        """bolt-teams "A submission that waits on its retry": the runner carries flume 0.17.0's status of a's place
+        waiting on its caller to retry its submission, which the merge queue refused (tests/py/flume-0.17.0/
+        submission-refused.json), and the planner runs crew answer a: a retry of its submission, naming no stage."""
+        w, got = self.answered("flume-0.17.0/submission-refused", words="Submit it again.")
+        assert requests(w)[1] == {"Request": "2", "Act": "retry", "Work": "unit/a", "Of": "1", "Submission": "yes", "Words": "Submit it again."}
+        assert got["what"] == "submission"
+
+    def test_nothing_to_answer_is_refused_as_of_the_runners_carry(self):
+        """bolt-teams "Nothing to answer": deneb's runner last carried a's place in code with no question at 12:02Z, Flume
+        may since have told the planner it waits on its caller, and crew answer a "yes" runs: it is refused naming the
+        stage as that runner carried it, its host and when, never that there is nothing to answer, and nothing is
+        appended (Decision 2 of a-place-waiting-on-its-caller-reads-waiting; read.1)."""
+        with pytest.raises(plan.Refusal, match=rf"^unit/a's place {re.escape(path_at('code'))} was at code when deneb's runner carried "
+                                               r"it, at 2026-10-31T12:02:00Z, with no question and nothing it waited on its caller "
+                                               r"for: a wait Flume has told of since reaches crew with that runner's next carry, so "
+                                               r"answer again once crew bolts shows the place waiting$") as e:
+            self.answered("code", words="yes")
+        assert "nothing to answer" not in str(e.value)
+
+    @pytest.mark.parametrize("at, said", [("submitted", "submitted to sluice (413)"), ("queued", "queued for room at construct")])
     def test_a_place_further_on_is_refused_naming_where_it_is(self, at, said):
-        with pytest.raises(plan.Refusal, match=rf"^unit/a's place .* is {re.escape(said)}, with no question"):
+        with pytest.raises(plan.Refusal, match=rf"^unit/a's place .* was {re.escape(said)} when deneb's runner carried it, at "
+                                               r"2026-10-31T12:02:00Z, with no question and nothing it waited on its caller for: ") as e:
             self.answered(at)
+        assert "nothing to answer" not in str(e.value)
+        with pytest.raises(plan.Refusal, match=r"^unit/a's place .* is merged, with no question and nothing it waits on its caller "
+                                               r"for, so there is nothing to answer: crew bolts shows its stage$"):
+            self.answered("landed")
 
     def test_a_fix_is_answered_by_its_places_name(self):
         from facts import ran
@@ -330,10 +376,10 @@ class TestAnswer:
         with pytest.raises(plan.Refusal, match=r"^no launch of b stands in requests.rec, so no Flume place of it waits on an answer"):
             plan.answer_place(w, "b", "yes")
 
-    def test_a_partition_no_runner_answers_for_refuses_naming_why(self):
+    def test_a_drive_no_runner_answers_for_refuses_naming_why(self):
         w = launched("x", work=[unit("a")])
         with pytest.raises(plan.Refusal, match=r"^can't tell whether unit/a's place waits on an answer: no runner answers for the "
-                                               r"partition: no <label>/runner/<host> branch exists, so nothing takes request 1$"):
+                                               r"drive: no <label>/runner/<host> branch exists, so nothing takes request 1$"):
             plan.answer_place(w, "a", "yes")
 
     def test_a_place_held_for_its_after_work_has_nothing_to_answer(self):

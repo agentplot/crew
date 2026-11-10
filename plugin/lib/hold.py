@@ -49,11 +49,11 @@ GO_NOTICE = "{host} is no longer held: crew starts agents there again. Carry on 
 # ------------------------------------------------------------------------------------------- what crew decides
 
 def hosts_named(fleet, which):
-    """The hosts a command acts on: every host crew runs agents on, each partition's main level's, for --all; else the
-    one named, which must be a host of the hosts file."""
+    """The hosts a command acts on: every host crew runs agents on, each drive's main level's, for --all; else the
+    one named, which must be a host the teams file's `hosts` names (record 0064)."""
     if which in (None, "--all"):
-        return sorted({p["machine"] for p in fleet["partitions"].values()})
-    which in fleet["hosts"] or fail(f"{which} is no host of the fleet's hosts file. hosts: " + " ".join(sorted(fleet["hosts"])))
+        return sorted({p["machine"] for p in fleet["drives"].values()})
+    which in fleet["hosts"] or fail(f"{which} is no host the teams file's hosts name. hosts: " + " ".join(sorted(fleet["hosts"])))
     return [which]
 
 
@@ -158,7 +158,7 @@ def own_work(info):
 
 
 def labels_here(fleet):
-    """The partitions crew runs anything for on this host."""
+    """The drives crew runs anything for on this host."""
     return crew.here(fleet)
 
 
@@ -309,7 +309,9 @@ def hold_wait(fleet, a):
 def go(fleet, a):
     """crew _go: this host's hold lifted and recorded; every standing agent whose pane is empty brought back with its
     conversation and greeted (plan.revive_cmd); every one that stayed up told the hold is lifted; each console's tabs
-    run again; and every agent an update made due handed its restart."""
+    run again, of each drive this host's teams file's `consoles` names (board.labels_here); and every agent an update
+    made due handed its restart."""
+    import board  # board imports plan, which this module imports
     host = crew.this_host()
     if not crew.held():
         print(f"{host} is not held")
@@ -320,17 +322,16 @@ def go(fleet, a):
     print(f"{host} is no longer held")
     plan.revive_cmd(fleet, argparse.Namespace())
     tell_each(fleet, up, GO_NOTICE.format(host=host))
-    for label in sorted(fleet["partitions"]):
-        if label in fleet["hosts"].get(host, {}).get("sessions", {}):
-            try:
-                plan.console_cmd(fleet, argparse.Namespace(act="up", label=label, tabs=[]))
-            except Refusal as e:
-                print(e, file=sys.stderr)
+    for label in board.labels_here(fleet, host):
+        try:
+            plan.console_cmd(fleet, argparse.Namespace(act="up", label=label, tabs=[]))
+        except Refusal as e:
+            print(e, file=sys.stderr)
     update_here(fleet, argparse.Namespace(label=None))
 
 
 def update_here(fleet, a):
-    """crew _update: every standing agent of this host, or of one partition here, that an update has made due handed to
+    """crew _update: every standing agent of this host, or of one drive here, that an update has made due handed to
     crew _renew, which restarts it once it is idle; none while the host is held, whose go does it."""
     host, h = crew.this_host(), crew.held()
     if h:
@@ -450,7 +451,7 @@ def renew(fleet, a):
 
 
 def kind_end(fleet, main, role):
-    """A main level's standing agent ended once idle and never started again, its partition now running its role as its
+    """A main level's standing agent ended once idle and never started again, its drive now running its role as its
     kind (design Decision 14 of roles-run-as-flume-kinds; host-holds-and-updates "A standing agent of a role that now
     runs as its kind is ended at its next stop"): its exit typed as a restart's is, watched for when slow, its pane left
     with nothing started in it, and recorded (agent.end). Nothing starts it again: it stands in no session of the main
@@ -481,7 +482,7 @@ def fan(fleet, hosts, *argv):
     procs = []
     for host in hosts:
         argv_ = crew.crew_argv(fleet, host, *argv)
-        cmd = argv_ if host == crew.this_host() else ["ssh", "-o", "BatchMode=yes", fleet["hosts"][host]["ssh"], shlex.join(argv_)]
+        cmd = argv_ if host == crew.this_host() else ["ssh", "-o", "BatchMode=yes", crew.ssh_of(fleet, host), shlex.join(argv_)]
         procs.append((host, subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)))
 
     def relay(host, proc):

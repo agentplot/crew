@@ -1,6 +1,6 @@
 # The plan changed through proposals, and the writes that race on its branch, through the crew command on the stubs
-# (tests.11, record 0022), every team's work running in Flume places (Decision 1 of the-team-machinery-leaves): a give
-# fetches the bolt's branch sluice made and launches its units; the planner proposes and crew raises its card, one
+# (tests.11, record 0022), every team's work running in Flume places (Decision 1 of the-team-machinery-leaves): a start
+# asks the runner for the bolt's base place and launches its units; the planner proposes and crew raises its card, one
 # touching a started bolt waiting on the user alone, the user approves, leaves units out on the card and answers
 # it, each closing the card, a proposal is dropped and replaced, its card withdrawn or changed in place, one resting on
 # a record its kit's main does not hold accepted is refused, a unit from a signal is routed, a move of launched work is
@@ -57,19 +57,20 @@ for u, b, intent in (("the-deploy-names-its-host-tenant", "tenant-environments",
 open(f, "w").write(p.text())
 PY
 commit_all "$w" "plan: by hand"; push_state "$w"
-# sluice makes the bolt's branch on GitHub pushing as its app, which moves no tracking ref; the give fetches it.
-touch "$T/sluice-leaves-copy"
+# The start asks the runner for the bolt's base place and launches its units, making no branch; the runner's launch of
+# the base place has sluice make it on GitHub (crew-lands-each-bolt-through-flumes-base-place, Decision 3).
 expect_ok crew bolt start tenant-environments
-rm "$T/sluice-leaves-copy"
-made=$(git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse bolt/tenant-environments)
-eq "$(git -C "$k" rev-parse refs/remotes/origin/bolt/tenant-environments)" "$made"
-has "$out" "no agent starts: unit/the-deploy-names-its-host-tenant (request 1), unit/the-deploy-is-logged (request 2), unit/in-verify (request 3) is launched in switchboard-kit"
+git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse -q --verify bolt/tenant-environments >/dev/null && fail "the start made bolt/tenant-environments"
+has "$out" "tenant-environments's base place, bolt/tenant-environments, is asked of the runner (request 1)"
+has "$out" "no agent starts: unit/the-deploy-names-its-host-tenant (request 2), unit/the-deploy-is-logged (request 3), unit/in-verify (request 4) is launched in switchboard-kit"
 eq "$(plan -t Bolt -e "Bolt = 'tenant-environments'" -P Team,Path | row)" "flume"
-ok "a give fetches the bolt's branch sluice made on GitHub, marks the bolt Path: flume and launches each of its units"
+base_made $box tenant-environments
+eq "$(git -C "$k" rev-parse refs/remotes/origin/bolt/tenant-environments)" "$(git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse bolt/tenant-environments)"
+ok "a start asks the runner for the bolt's base place, marks the bolt Path: flume and launches each of its units, making no branch"
 # The runner on the box launched two of them: Flume's status of their places, carried on its branch, has one in code
 # and the other in verify.
 p1=/flume/places/change--the-deploy-names-its-host-tenant p3=/flume/places/change--in-verify
-runner_writes $box 1 "$p1" "$(live "$p1" code)" 3 "$p3" "$(live "$p3" verify)"
+runner_writes $box 2 "$p1" "$(live "$p1" code)" 4 "$p3" "$(live "$p3" verify)"
 p=$(as $box herdr --session wldn-3 workspace create --cwd / --label wldn | jq -r .result.root_pane.pane_id)
 as $box herdr --session wldn-3 stub agent "$p" wldn-planner
 
@@ -228,7 +229,7 @@ ok "a unit from a signal is added with its route move, in the approval's commit"
 # A move of launched work out of its bolt is refused at the proposal, naming its place and the drop and add that would
 # do it: nothing is written and no card raised.
 before=$(tip); : > "$CREW_TEST_LOG"
-expect_fail "unit zone-first is launched as Flume place zone-first on bolt/tenant-environments (request 4), whose base and order are fixed at its launch, so it is not moved to console-pages: drop it (crew unit drop zone-first) and add it again as it should be (crew unit add)" \
+expect_fail "unit zone-first is launched as Flume place zone-first on bolt/tenant-environments (request 5), whose base and order are fixed at its launch, so it is not moved to console-pages: drop it (crew unit drop zone-first) and add it again as it should be (crew unit add)" \
   crew plan propose "$(proposal 'Case: It belongs with the console.' 'Do: unit move zone-first console-pages')"
 eq "$(tip)" "$before"
 lacks "$(calls)" "pendingyou post_request"
@@ -247,7 +248,7 @@ before=$(tip)
 expect_ok crew plan approve "$n"
 eq "$(acts_since "$before")" "1"
 eq "$(git --git-dir "$ws" diff --name-only "$before" wldn/main | grep -v '^runs/')" $'plan.rec\nproposals.rec\nrequests.rec'
-eq "$(requests -e "Act = 'retry'" -P Work,Of,Stage | row)" "unit/the-deploy-names-its-host-tenant 1 construct unit/in-verify 3 construct"
+eq "$(requests -e "Act = 'retry'" -P Work,Of,Stage | row)" "unit/the-deploy-names-its-host-tenant 2 construct unit/in-verify 4 construct"
 eq "$(requests -e "Act = 'retry' && Work = 'unit/in-verify'" -P Words)" \
   "in-verify reads its intent from the plan This unit's intent was amended by proposal $n; revise the existing change to it. The planner's case, as the user approved it: The deploy should fail on a warning as well."
 eq "$(plan -t Unit -e "Unit = 'in-verify'" -P Intent)" "in-verify reads its intent from the plan"
@@ -261,7 +262,7 @@ expect_ok crew unit amend in-verify "in-verify reads its intent from the plan, o
 eq "$(acts_since "$before")" "1"
 eq "$(plan -t Unit -e "Unit = 'in-verify'" -P Intent)" "in-verify reads its intent from the plan, once."
 eq "$(requests -e "Act = 'retry' && Work = 'unit/in-verify'" -P Of,Stage,Words | tail -3 | row)" \
-  "3 construct in-verify reads its intent from the plan, once. This unit's intent was amended by the user; revise the existing change to it."
+  "4 construct in-verify reads its intent from the plan, once. This unit's intent was amended by the user; revise the existing change to it."
 ok "the user's own amendment of a launched unit retries its construct with the user's words"
 
 # Two writes race on the branch: the user on mac-studio moves a unit while the user on the box splits another.
@@ -279,7 +280,8 @@ eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/WilldanGroup/crew-state.git"
 ok "two racing writes both land, one after the other, never merged; a write whose unit was dropped meanwhile is refused, naming that commit"
 
 # Two repositories renamed on their forge once their work is finished (record 0060's order): atlas-kit's bolt landed and
-# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every host's spaces; the user
+# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every drive's repos in every
+# host's teams file; the user
 # renames the first at a shell, the planner's own run is refused, and the planner proposes the second, which the user
 # approves.
 a=$(kit $box willdan atlas-kit)
@@ -294,9 +296,8 @@ expect_ok crew bolt new boards "Boards are listed." --repo breadboard-kit
 expect_ok crew main fix breadboard-kit red-tests "The tests are red."
 expect_ok crew main fix breadboard-kit red-tests --drop
 expect_ok crew bolt drop boards "breadboard-kit is renamed first"
-edit hosts "for h in d['hosts'].values():
-    for s in h['sessions'].values():
-        s['repos'] = [r for r in s['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
+edit teams "for p in d['drives']:
+    p['repos'] = [r for r in p['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
 day=$(date -u +%F)
 before=$(tip)
 expect_ok crew kit rename atlas-kit atlas

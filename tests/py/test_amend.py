@@ -129,7 +129,7 @@ class TestCrossed:
 
     def test_a_runner_crew_cannot_read_refuses_the_amendment(self):
         with pytest.raises(plan.Refusal, match="^can't tell how far unit/a's place has got, so the amendment can't reach it: "
-                                               "no runner answers for the partition: no <label>/runner/<host> branch exists, so "
+                                               "no runner answers for the drive: no <label>/runner/<host> branch exists, so "
                                                "nothing takes request 1$"):
             self.amend({})
         with pytest.raises(plan.Refusal, match="the amendment can't reach it: no runner crew read has taken request 1, and deneb's runner "

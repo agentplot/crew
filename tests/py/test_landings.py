@@ -16,7 +16,7 @@ import crew
 import plan
 
 KITS = ("crew", "swancloud")
-FLEET = {"partitions": {"swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
+FLEET = {"drives": {"swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 # Where each kit's work runs, as the runner that took it reported (plan.bolt_at, plan.kit_at): swancloud's on deneb,
 # crew's on mac-studio, each in stream swancloud.
 WHERE = {"swancloud": {"machine": "deneb", "stream": "swancloud",
@@ -68,7 +68,7 @@ def test_a_kits_card_is_on_the_kit_and_a_bolts_on_the_bolt_in_the_run_record():
     assert cards.row_object("land/crew") == "bolt/crew"  # no kit named: as before, a bolt's
 
 
-def test_a_bolt_named_as_a_kit_of_its_partition_is_refused():
+def test_a_bolt_named_as_a_kit_of_its_drive_is_refused():
     assert plan.kit_named("crew", KITS, "swancloud") == (
         "a bolt of swancloud may not be named crew: that is the name of a kit swancloud's plan or landings name, whose landings "
         "card is land/crew")
@@ -113,20 +113,30 @@ def test_a_fix_in_flight_holds_its_row_in_its_words_with_no_box():
         ("z", False, "held for fix/z/old until it merges or is dropped")]
 
 
+def test_a_bolt_started_before_bolts_were_base_places_has_no_box_beside_one_that_can_land():
+    """rail-cards "A bolt started before bolts were base places has no box", beside a bolt that can land (Decision 9):
+    its row is held with no box in the words that say it lands under the crew that started it, and the card shows the
+    other alone."""
+    import runner
+    rows = plan.landing_rows(["y", "z"], {"y": facts("y", legacy=runner.legacy_said("y")), "z": facts("z")}, {})
+    assert [(r["bolt"], r["box"], r.get("why")) for r in rows] == [
+        ("y", False, "y was started before bolts were base places and lands under the crew that started it"), ("z", True, None)]
+    assert [r["bolt"] for r in plan.card_rows(rows)] == ["z"]
+
+
 def test_a_landing_refused_at_the_bolts_present_head_holds_its_row():
     head = "d" * 40
     held = plan.refusals([submitted("y", "c" * 40), submitted("y", head, "bolt/y did not land: sluice found a conflict")])
     row, = plan.landing_rows(["y"], {"y": facts("y", head)}, held)
     assert (row["box"], row["why"]) == (False, "landing rejected at ddddddd, open for work: it waits for a fix on the "
                                                "bolt: bolt/y did not land: sluice found a conflict")
-    assert plan.refused_at([submitted("y", head, "no")], "y", head) == "no"
+    assert plan.held_at(plan.refusals([submitted("y", head, "no")]), "y", head) == "no"
 
 
 def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held_for_its_fix():
-    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "A landing sluice sent back is the
-    bolt's fix"): a later crew bolt submit at the head sluice sent back, which sluice's driver refused with nothing
-    submitted and crew recorded stopped, leaves the row held for its fix, never given its box back as a stop of
-    sluice's."""
+    """The Willdan box's case (signal 2026-11-06-wldn-ops-ea539623/01; bolt-teams "No land is posted again until
+    a fix moves the head sent back"): a stop an older crew recorded at the head sent back, of a submit that submitted nothing,
+    leaves the row held for its fix, never given its box back as a stop of the runner's or Flume's."""
     head = "d" * 40
     entries = [dict(submitted("y", head, "#1474 failed: tests:logic on 41a7c09"), Submission="1474"),
                dict(submitted("y", head), Outcome="stopped", Why="sluice itself failed (it said nothing), and sluice records no submission")]
@@ -135,50 +145,19 @@ def test_a_submit_that_submitted_nothing_at_the_refused_head_leaves_the_row_held
                                                "failed: tests:logic on 41a7c09")
 
 
-def test_a_holds_reason_is_sluices_verdict_with_the_conflicts_paths_never_a_place_it_could_not_release():
-    """The chore a-holds-reason-is-sluices-verdict-not-a-side-warning: sluice's wait on the landing's submission prints
-    its record in conflict and says on standard error only that its round could not release another place (sluice
-    0.36.4 exec.rs tell_abandoned); the hold carries the record's verdict, its paths, so the conductor reads a
-    conflict, the team's to take main in for, and not the release, which is said to ops beside it."""
-    head, old = "d" * 40, "a" * 40
-    record = {"schema": "sluice/submission@1", "id": 7, "branch": "main", "head": head, "state": "conflict",
-              "conflict": {"paths": ["plugin/lib/plan.py"], "with": []}}
-    tidying = "could not release /c/places/old-unit, whose worktree no longer exists: its release command failed"
-    verdict = plan.verdict_printed(json.dumps(record), 7)
-    landed = (f"ORIGIN=yes\nFETCHED=ok\nGITHUB={old}\nOWN={old}\nHELD_GITHUB=no\nHELD_OWN=no\nRC=2 TIP={head} OLD={old} KEPT='' "
-              f"WHY='' LEVEL='' SAID={base64.b64encode(verdict.encode()).decode()}\n")  # LANDED's report, handed the verdict
-    _, refused = plan.landing_said("y", "crew", "h", landed, old, recorded=True)
-    row, = plan.landing_rows(["y"], {"y": facts("y", head)}, plan.refusals([submitted("y", head, refused)]))
-    assert row["why"] == ("landing rejected at ddddddd, open for work: it waits for a fix on the bolt: #7 conflict: "
-                          "plugin/lib/plan.py")
-    told = plan.landing_said("y", "crew", "h", landed, old, beside=plan.beside_of(f"{tidying}\n", verdict))[1]
-    assert "release" not in refused and f"sluice said: {tidying}." in told
-
-
 def test_a_refusal_at_an_older_head_holds_nothing_once_the_fix_moved_it():
     held = plan.refusals([submitted("y", "c" * 40, "bolt/y did not land")])
     row, = plan.landing_rows(["y"], {"y": facts("y", "d" * 40)}, held)
     assert row["box"]
-    assert plan.refused_at([submitted("y", "c" * 40, "no")], "y", "d" * 40) is None
+    assert plan.held_at(plan.refusals([submitted("y", "c" * 40, "no")]), "y", "d" * 40) is None
 
 
 def test_a_landing_after_a_refusal_holds_nothing():
     assert plan.refusals([submitted("y", "c" * 40, "no"), submitted("y", "c" * 40)]) == {}
 
 
-def test_a_landing_left_standing_in_sluice_holds_its_row_for_no_fix():
-    """A landing whose submission sluice answered with nothing crew can wait on, a pull request crew found no
-    submission of, is recorded with its words and no refusal (plan.left_standing), since what sluice queued stands: its
-    row keeps its box, never held for a fix the bolt does not need."""
-    head = "d" * 40
-    f = dict(RC="0", ID="", PULL="113", ANSWER="")
-    standing = dict(submitted("y", head), Why=plan.left_standing("y", "crew", "/c/places/land-y", f, "sluice records none"))
-    row, = plan.landing_rows(["y"], {"y": facts("y", head)}, plan.refusals([submitted("y", head, "no"), standing]))
-    assert row["box"] and plan.refused_at([standing], "y", head) is None
-
-
 def test_a_landing_stopped_at_the_bolts_present_head_keeps_its_box_saying_what_stopped_it():
-    """rail-cards "A landing sluice or its host stopped keeps its box": recorded stopped, its row a box whose facts
+    """rail-cards "A landing the runner or Flume stopped keeps its box": recorded stopped, its row a box whose facts
     carry the head it was stopped at and what stopped it; once its head moves, its row says nothing of it."""
     head = "d" * 40
     stop = dict(submitted("y", head), Why="check:dagger could not run: the Dagger engine did not answer", Outcome="stopped")
@@ -275,6 +254,79 @@ def test_a_take_main_fix_in_flight_holds_its_row_as_taking_main_first_in_its_wor
     assert z["why"] == f'held for a fix: A zone is missing. (fix/z/gap); takes main first: take-main-e4f5a6b taking main in: "{words}"'
 
 
+class TestALiveLandingFixHoldsItsRow:
+    """bolt-teams "A live landing fix holds its bolt" and rail-cards "A row held by Flume's landing fix says so"
+    (crews-bolt-kind-names-its-landing-fix, Decision 5): a live landing fix of a bolt's base place is a fix in flight on
+    it (runner.fixes_in_flight), so its row has no box, takes main first or is held in its words, and no land is posted
+    while it runs; once a fix that took main in has landed, the standing send lands the bolt."""
+
+    def in_flight(self, fixture, status=None):
+        import runner
+        from facts import ran
+        reads = ran({1: f"flume-0.19.0/{fixture}"}, label="swancloud")
+        if status is not None:
+            reads["deneb"]["places"][1]["status"] = status
+        return runner.fixes_in_flight([], "y", TestLandsDue().requests(), reads)
+
+    def test_a_conflicts_live_landing_fix_takes_main_first_beside_a_row_that_can_land(self):
+        x, y = plan.landing_rows(["x", "y"], {"x": facts("x"), "y": facts("y", fixes=self.in_flight("bolt-conflict-fixing"))}, {})
+        assert (x["box"], y["box"], y["takes_main"]) == (True, False, True)
+        assert y["why"] == ('takes main first: y-1 taking main in: "Take main into the bolt: Flume\'s landing fix y-1 merges main '
+                            'at 9f1c2ab"')
+        assert [(r["bolt"], r["box"]) for r in plan.card_rows([x, y])] == [("x", True), ("y", False)]
+
+    def test_a_forecasts_live_landing_fix_takes_main_first_and_the_raise_appends_no_request(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        (y,) = plan.landing_rows(["y"], {"y": facts("y", H1, fixes=self.in_flight("bolt-forecast-fixing"))}, {})
+        assert (y["box"], y["takes_main"]) == (False, True) and "Flume's landing fix y-1 merges main at 9f1c2ab" in y["why"]
+        w = TestTheRaisePostsTheLands().write()
+        before = w.files["requests.rec"]
+        from facts import ran
+        with pytest.raises(plan.Unposted):
+            plan.lands_change(w, "crew", [y], {"bolt/y": ("req_1", H1[:7])}, ran({1: "flume-0.19.0/bolt-forecast-fixing"}, label="swancloud"))
+        assert w.files["requests.rec"] == before
+
+    def test_a_failed_checks_live_landing_fix_holds_its_row_in_its_words(self):
+        from facts import flume_fixture
+        status = json.loads(flume_fixture("flume-0.19.0/bolt-failed-fix-due").read_text())
+        status["status"]["places"][0]["fixes"] = [{"number": 1, "name": "y-1", "place": "fix--y-1", "launched": 1794176400,
+                                                   "cause": {"failed": {"submission": "412"}}, "ended": "live"}]
+        fixes = self.in_flight("bolt-failed-fix-due", status)
+        (y,) = plan.landing_rows(["y"], {"y": facts("y", fixes=fixes)}, {})
+        assert (y["box"], y.get("takes_main")) == (False, None)
+        assert y["why"] == ("held for a fix: Flume's landing fix y-1 makes the failed checks pass: check-full failed: tests:logic "
+                            "3 failed (tests/py/test_landing.py) (y-1)")
+
+    def test_a_row_held_by_its_refusal_says_flume_launches_its_landing_fix(self):
+        """rail-cards "Due": y's landing was refused for a failed check at its head and its landing fix is due; the run
+        record's Refused, written by landing_said, holds the row saying Flume launches its landing fix."""
+        import runner
+        from facts import ran
+        from test_runner import rec
+        requests = TestLandsDue().requests(rec(5, "land", "bolt/y", Of=1))
+        launch = requests[0]
+        l = runner.landing_of(launch, runner.lands_of(requests, launch), ran({1: "flume-0.19.0/bolt-failed-fix-due"}, label="swancloud",
+                                                                            unplaced={5: "-"}))
+        (y,) = plan.landing_rows(["y"], {"y": facts("y", H1)}, {"y": (H1, runner.landing_said(l))})
+        assert y["box"] is False and y["why"].endswith("; Flume launches its landing fix")
+        assert y["why"].startswith("landing rejected at abc1234, open for work: it waits for a fix on the bolt: landing refused, a check failed")
+
+    def test_no_land_is_posted_while_it_runs_and_one_once_the_fix_that_took_main_in_has_landed(self):
+        from facts import ran
+        from test_runner import rec
+        requests = TestLandsDue().requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        sent = {"bolt/y": ("req_1", H1[:7])}
+        import runner
+        for fixture in ("bolt-conflict-fixing", "bolt-forecast-fixing"):
+            reads = ran({1: f"flume-0.19.0/{fixture}"}, label="swancloud", unplaced={5: "-"})
+            (y,) = plan.landing_rows(["y"], {"y": facts("y", H1, fixes=runner.fixes_in_flight([], "y", requests, reads))}, {})
+            assert runner.lands_due([y], sent, requests, reads, posted) == []
+        reads = ran({1: "flume-0.19.0/bolt-fixed-landed"}, label="swancloud", unplaced={5: "-"})
+        assert runner.fixes_in_flight([], "y", requests, reads) == {}
+        assert runner.lands_due([box("y", H2)], sent, requests, reads, posted, work={"y": work()}) == [("bolt/y", 1)]
+
+
 class TestCrossedTakesMain:
     """A crossed team's landing refused for a conflict with main launches its take-main fix with sluice's words, once,
     and its row says it takes main first (Decision 10 of teams-cross-to-flume-as-their-bolts-land, plan.8)."""
@@ -292,7 +344,7 @@ class TestCrossedTakesMain:
         return w, "madswan"
 
     def test_a_landing_refused_for_a_conflict_launches_one_take_main_fix_with_sluices_words(self):
-        """main-level ops's crew bolt submit x reads sluice refusing x for a conflict with main at 4d3d9be."""
+        """crew's read of x's landing finds Flume refusing it for a conflict with main at 4d3d9be (landing_read)."""
         import runner
         w, t = self.launched()
         act, work, given = runner.take_main(w.plan, plan.requests_of(w).recs("Request"), "x", t, self.MAIN, self.WORDS)
@@ -300,7 +352,7 @@ class TestCrossedTakesMain:
             "launch", "fix/x/take-main-4d3d9be", "crew", "fix", "x--take-main-4d3d9be", "bolt/x", "madswan/planner")
         assert given["Brief"] == (
             "Take main into the bolt: merge origin/main, at 4d3d9be, into this place, cut from bolt/x, resolving each conflicting "
-            "path keeping both intents, main's and the bolt's; sluice refused the bolt's landing for its conflict with main: "
+            "path keeping both intents, main's and the bolt's; the merge queue refused the bolt's landing for its conflict with main: "
             "#137 conflict: README.md, plugin/lib/plan.py")
         assert given["Brief"].startswith(plan.TAKE_MAIN)
 
@@ -333,8 +385,8 @@ def test_a_bolt_the_user_left_forecast_to_conflict_with_main_keeps_its_box_marke
 
 
 def test_a_left_bolt_whose_landing_was_stopped_keeps_both_marks():
-    """A stop holds nothing (rail-cards "A landing sluice or its host stopped keeps its box"), and a left bolt forecast
-    to conflict with main keeps its box: its row says both."""
+    """A stop holds nothing (rail-cards "A landing the runner or Flume stopped keeps its box"), and a left bolt
+    forecast to conflict with main keeps its box: its row says both."""
     head = "a" * 40
     entries = [dict(submitted("z", head), Why="sluice exited 3", Outcome="stopped")]
     row, = plan.landing_rows(["z"], {"z": facts("z", head)}, {}, plan.stops(entries),
@@ -434,7 +486,7 @@ def where_read(monkeypatch, policy):
 
 
 def test_a_bolt_on_github_is_forecast_where_it_lives(monkeypatch):
-    """bolt-plan "A bolt on GitHub is read where it lives": GitHub's copy, whose policy names origin for the bolt, not
+    """bolt-plan "crew reads a bolt at GitHub's copy where its policy names a remote, and else at the host's own": GitHub's copy, whose policy names origin for the bolt, not
     the host's lagging copy."""
     (got, why, at), trees = where_read(monkeypatch, '[branches."bolt/*"]\nremote = "origin"\n')
     assert why == {} and trees == ["1" * 40]
@@ -716,8 +768,8 @@ def test_a_landing_whose_entry_is_still_in_flight_is_read_as_still_landing_and_i
     assert plan.decision_at([(a, None, [before])], {}) == a and plan.decision_at([], {}) is None
 
 
-STANDS = ("your send stands for it: it lands once a fix on it has only taken main in and sluice has proven it, with "
-          "nothing asked.")
+STANDS = ("your send stands for it: it lands once a fix on it has only taken main in and it reads proven at its new head, "
+          "with nothing asked.")
 REFUSED = "landing rejected at abc1234, open for work: it waits for a fix on the bolt: x"
 
 
@@ -778,7 +830,7 @@ def test_a_row_shown_taking_main_first_and_left_unticked_is_no_bolt_the_user_lef
     assert step == ("close", f"Landed on GitHub's main: y at 1111111;{TIMER}", None, [])
     # back from taking main in while y still lands: a card follows asking for it
     step = plan.landings_step([box("y"), box("z")], card, ["y"], {"y", "z"})
-    assert step == ("follow", "Landing as you ticked: y. Since your send, z reads proven, and the card that follows asks for it.",
+    assert step == ("follow", "Asked of the runner as you ticked: y. Since your send, z reads proven, and the card that follows asks for it.",
                     [], [("y", "abc1234")])
     assert plan.left_now(card, ["y"], {"y": H1, "z": H1}, {}, []) == {}
     # ticked while it took main in: their send stands for it
@@ -794,7 +846,7 @@ def test_a_ticked_bolt_then_taking_main_first_leaves_the_card_its_send_standing(
 
 def test_a_ticked_bolt_taking_main_first_is_kept_on_the_send_when_a_new_card_follows():
     step = plan.landings_step([taking_main("y"), box("w")], answered("y@abc1234", "z@abc1234"), ["y", "z"], {"y", "z", "w"})
-    assert step == ("follow", "Landing as you ticked: z. Taking main in first, your send standing for it: y. Since your "
+    assert step == ("follow", "Asked of the runner as you ticked: z. Taking main in first, your send standing for it: y. Since your "
                               "send, w reads proven, and the card that follows asks for it.", [], [("y", "abc1234"), ("z", "abc1234")])
 
 
@@ -812,21 +864,20 @@ def test_a_ticked_bolt_held_for_any_other_fix_is_held_and_the_card_closed_keepin
     """Only a bolt taking main in leaves the card; one held for another fix closes it, its send kept on the close."""
     step = plan.landings_step([hold("y")], answered("y@abc1234"), ["y"], {"y"})
     assert step == ("close", "Held: y, held for a fix: one zone is missing (fix/y/gap); your send stands for it: it lands "
-                             "once a fix on it has only taken main in and sluice has proven it, with nothing asked.", None,
+                             "once a fix on it has only taken main in and it reads proven at its new head, with nothing asked.", None,
                     [("y", "abc1234")])
 
 
-def test_a_landing_on_the_users_word_in_ops_pane_closes_a_waiting_card_no_row_of_which_can_land_as_answered_there():
-    """main-level "A landing said in ops's pane closes its card naming the user's words": the word answers the card."""
-    assert plan.landings_step([], waiting("y@abc1234"), None, set(), here=True) == ("answered", "no bolt waits to land on its main")
-    assert plan.landings_step([hold("z")], waiting("y@abc1234", "z@abc1234"), None, {"z"}, here=True)[0] == "answered"
-    step = plan.landings_step([box("z")], waiting("y@abc1234", "z@abc1234"), None, {"z"}, note="Landed on the user's word", here=True)
-    assert step[:2] == ("change", "Landed on the user's word; y no longer waits to land")
+def test_a_waiting_card_no_row_of_which_can_land_is_withdrawn_whatever_note_the_event_carries():
+    """No word in a pane lands a bolt (record 0056 point 5): a waiting card no row of which can land is withdrawn, never
+    closed as answered in a pane."""
+    assert plan.landings_step([], waiting("y@abc1234"), None, set(), note="Landed on the user's word") == (
+        "withdraw", "no bolt waits to land on its main")
 
 
 def test_a_bolt_proven_after_the_answer_is_no_row_of_it_and_a_new_card_follows_it_with_the_rest():
     step = plan.landings_step([box("y"), box("z"), box("w")], answered("y@abc1234", "z@abc1234"), ["y"], {"y", "z", "w"})
-    assert step == ("follow", "Landing as you ticked: y. Left: z. Since your send, w reads proven, and the card that "
+    assert step == ("follow", "Asked of the runner as you ticked: y. Left: z. Since your send, w reads proven, and the card that "
                               "follows asks for it.", ["z"], [("y", "abc1234")])
 
 
@@ -838,37 +889,40 @@ def stopped_box(bolt, head=H1, words=STOP):
     return dict(bolt=bolt, box=True, facts=dict(facts(bolt, head), stopped=(head, words)))
 
 
-def test_an_answered_card_is_left_while_a_ticked_bolt_whose_landing_was_stopped_still_lands_on_the_send():
-    """rail-cards "Checks that never ran": the stop holds nothing, so the user's send still lands it, and the card
-    they answered is left as it is."""
-    assert plan.landings_step([stopped_box("z")], answered("z@abc1234"), ["z"], {"z"}) == ("leave",)
+def test_an_answered_card_whose_ticked_bolts_landing_was_stopped_closes_naming_it_and_its_send_is_spent():
+    """rail-cards "A stopped row on the same send" (crew-lands-each-bolt-through-flumes-base-place, Decision 7): the
+    runner or Flume stopped z's land on the user's send, nothing of the bolt's; the send is spent, so the card they
+    answered closes naming the stop, keeping no send, and the card that follows asks for z again with its box."""
+    step = plan.landings_step([stopped_box("z")], answered("z@abc1234"), ["z"], {"z"})
+    assert step == ("close", f"z's landing at abc1234 was stopped, nothing of the bolt's: {STOP}; your send of it is spent, and the "
+                             "card that follows asks for it again.", [], [])
 
 
-def test_a_card_that_follows_names_a_stopped_bolt_as_still_landing_with_what_stopped_it_and_has_no_row_for_it():
-    """rail-cards "A new card while it is stopped": the closed card's outcome names z as still landing on the send,
-    with what stopped it, and the card that follows does not ask for z again."""
+def test_a_stopped_bolt_beside_one_proven_since_closes_the_card_and_the_one_that_follows_asks_for_both():
     step = plan.landings_step([stopped_box("z"), box("w")], answered("z@abc1234"), ["z"], {"z", "w"})
-    assert step == ("follow", f"Landing as you ticked: z. z's last landing at abc1234 was stopped, nothing of the bolt's: {STOP}; "
-                              "it lands on your send once that is cleared. Since your send, w reads proven, and the card that "
-                              "follows asks for it.", [], [("z", "abc1234")])
-    closes = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
-    assert plan.rows_unsent([stopped_box("z"), box("w")], plan.landings_sent(closes, "land/crew", "swancloud-ops")) == (
-        [box("w")], ["z"], [])
+    assert step == ("close", f"z's landing at abc1234 was stopped, nothing of the bolt's: {STOP}; your send of it is spent, and the "
+                             "card that follows asks for it again. Since your send, w reads proven, and the card that follows asks "
+                             "for it.", [], [])
+    assert plan.rows_unsent([stopped_box("z"), box("w")], plan.landings_sent([], "land/crew", "swancloud-ops")) == (
+        [stopped_box("z"), box("w")], [], [])
 
 
-def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_beside_the_command_that_lands_it():
-    """rail-cards "Checks that never ran": crew card read land/crew names z as still landing on the send, saying what
-    stopped its last landing and at which head, with the command that lands it; a bolt it does not land says nothing,
-    nor does one whose last landing was not stopped."""
+def test_crew_card_read_says_what_stopped_a_bolt_the_send_lands_naming_no_land_for_it():
+    """rail-cards "A landing the runner or Flume stopped keeps its box", "The landings card's read prints the lands crew
+    posted": crew card read land/crew says what stopped z's last landing and
+    at which head, that it lands again only on the user's next send, and names no land of it, its land being spent; a
+    bolt it does not land says nothing, nor does one whose last landing was not stopped."""
     sent = {"status": "answered", "turn": "agent", "answer": {"choiceIds": ["land:y", "land:z"]}}
     heads = plan.card_heads("y@abc1234 z@abc1234")
     stopped = plan.stops([dict(submitted("z", H2), Why=STOP, Outcome="stopped"), dict(submitted("w", H1), Why="x", Outcome="stopped"),
                           dict(submitted("y", H1), Why="x", Outcome="stopped"), submitted("y", H1, "sluice: y conflicts")])
     assert plan.landing_lines("swancloud", sent, heads, [], [], stopped) == [
         "  to land, in the card's order: y and z",
-        f"  z's last landing at def5678 was stopped, nothing of the bolt's: {STOP}; once that is cleared, the submit below "
-        "lands it on the user's send",
-        "  lands them: crew bolt submit y z --label swancloud"]
+        f"  z's last landing at def5678 was stopped, nothing of the bolt's: {STOP}; it lands again only on the user's "
+        "next send",
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
+    assert plan.landing_lines("swancloud", sent, heads, [], [], stopped, posted={"y": "57", "z": "41"})[-1] == (
+        "  y: asked of the runner to land, request 57")
     assert plan.landing_lines("swancloud", sent, heads) == plan.landing_lines("swancloud", sent, heads, [], [], {})
     assert plan.landing_lines("swancloud", {}, [], ["z"], [], stopped)[1].startswith("  z's last landing at def5678 was stopped")
 
@@ -877,7 +931,7 @@ def test_a_ticked_bolt_proven_again_at_a_new_head_is_asked_again_rather_than_wai
     """rail-cards "A fix adds a commit": the card that follows asks for y, saying what it gained."""
     gained = {"y": work([LEASE])}
     step = plan.landings_step([box("y", H2), box("z")], answered("y@abc1234", "z@abc1234"), ["y", "z"], {"y", "z"}, work=gained)
-    assert step == ("follow", "Landing as you ticked: z. Since your send, y's head is now def5678, with work of its own "
+    assert step == ("follow", "Asked of the runner as you ticked: z. Since your send, y's head is now def5678, with work of its own "
                               "since your send at abc1234: fix: keep the lease, and the card that follows asks for it.",
                     [], [("z", "abc1234")])
     step = plan.landings_step([box("y", H2)], answered("y@abc1234"), ["y"], {"y"}, work=gained)
@@ -942,15 +996,15 @@ def test_a_send_whose_card_followed_before_ops_read_it_is_read_beside_the_card_t
     waits = {"status": "pending", "turn": "you"}
     heads = plan.card_heads("w@abc1234")
     assert plan.landing_lines("swancloud", waits, heads, ["y"]) == [
-        "  to land on the user's send of an earlier card: y", "  lands them: crew bolt submit y --label swancloud"]
+        "  to land on the user's send of an earlier card: y", "  y: no land is posted for it yet: crew's next raise of the card posts it"]
     sent = {"status": "answered", "turn": "agent", "answer": {"approved": True}}
     assert plan.landing_lines("swancloud", sent, heads, ["y", "z"]) == [
         "  to land on the user's send of an earlier card: y and z", "  to land, in the card's order: w",
-        "  lands them: crew bolt submit y z w --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it", "  z: no land is posted for it yet: crew's next raise of the card posts it", "  w: no land is posted for it yet: crew's next raise of the card posts it"]
     none = {"status": "answered", "turn": "agent", "answer": {"choiceIds": []}}
     assert plan.landing_lines("swancloud", none, plan.card_heads("w@abc1234 v@abc1234"), ["y"]) == [
         "  to land on the user's send of an earlier card: y", "  no bolt ticked on this card: nothing of it lands",
-        "  lands them: crew bolt submit y --label swancloud"]
+        "  y: no land is posted for it yet: crew's next raise of the card posts it"]
 
 
 def test_what_an_earlier_send_still_lands_leaves_out_the_landed_the_asked_again_and_the_refused_at_its_head():
@@ -964,7 +1018,8 @@ def test_what_an_earlier_send_still_lands_leaves_out_the_landed_the_asked_again_
 
 
 def test_an_earlier_send_lands_a_refused_bolt_once_its_fix_only_took_main_in_and_names_one_it_cant_tell_of():
-    """main-level "Ops lands a bolt on a send that still stands": "No card open" and "A head crew cannot read"."""
+    """rail-cards "The landings card's read prints the lands crew posted", with no card open: an earlier send still
+    lands a refused bolt once its fix only took main in, and a bolt whose head crew cannot read is named."""
     sent = {"z": "abc1234", "w": "abc1234", "q": "abc1234"}
     refused = {"z": ("abc1234" + "0" * 33, "sluice: conflict in plugin/lib/plan.py")}
     unread = "bolt/w is on no branch crew can read in /c/main on mac-studio, GitHub's or the host's"
@@ -1016,23 +1071,25 @@ def read_unopened(monkeypatch, capsys, closes, works, json=False):
 
 
 def test_with_no_card_open_ops_reads_what_an_earlier_send_still_lands_and_the_command_that_lands_it(monkeypatch, capsys):
-    """main-level "Ops lands a bolt on a send that still stands", "No card open": refuses nothing."""
+    """rail-cards "The landings card's read prints the lands crew posted", with no card open: refuses nothing, and
+    names the land crew's next raise posts, no command."""
     closes = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234"),
               dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
     assert read_unopened(monkeypatch, capsys, closes, {"z": work()}) == (
         "card land/crew: no landings card of crew is open\n"
         "  to land on the user's send of an earlier card: z\n"
-        "  lands them: crew bolt submit z --label swancloud\n")
+        "  z: no land is posted for it yet: crew's next raise of the card posts it\n")
 
 
 def test_with_no_card_open_a_sent_bolt_whose_head_crew_cant_read_is_named_and_left_out_of_the_command(monkeypatch, capsys):
-    """main-level "A head crew cannot read"."""
+    """rail-cards "The landings card's read prints the lands crew posted", with no card open: a sent bolt whose head
+    crew cannot read is named and left out of what lands."""
     closes = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
     assert read_unopened(monkeypatch, capsys, closes, {"y": work(head=H1)}) == (
         "card land/crew: no landings card of crew is open\n"
         "  can't tell whether the user's earlier send still lands z: bolt/z is on no branch crew can read\n"
         "  to land on the user's send of an earlier card: y\n"
-        "  lands them: crew bolt submit y --label swancloud\n")
+        "  y: no land is posted for it yet: crew's next raise of the card posts it\n")
     assert json.loads(read_unopened(monkeypatch, capsys, closes, {"y": work(head=H1)}, json=True)) == {
         "key": "land/crew", "card": None, "earlier": ["y"], "unknown": {"z": "bolt/z is on no branch crew can read"}}
     # with no send standing, it says only that no card is open
@@ -1040,8 +1097,8 @@ def test_with_no_card_open_a_sent_bolt_whose_head_crew_cant_read_is_named_and_le
 
 
 class TestLandReadingRead:
-    """crew card read land/<bolt>, main-level ops's on the host its bolt's work runs on (card-sessions "The session's decision
-    reaches the owner as the card's answer"): the reading's decision alone, its annotations as notes on the bolt's row,
+    """crew card read land/<bolt>, main-level ops's on the host its bolt's work runs on (card-sessions "A landing's read
+    gives its session's decision alone and leaves its card"): the reading's decision alone, its annotations as notes on the bolt's row,
     an approval as landing nothing, then set aside so crew card session starts it anew; the kit's card untouched."""
     S = {"pid": 42, "document": "/c/00-y.md", "url": "http://mac-studio:19432/y", "started": "2026-10-23T10:00:00Z"}
 
@@ -1175,12 +1232,10 @@ class TestWhichBoltsAreLeft:
         assert plan.left_of([left_set("z@abc1234"), left_set("")], "land/crew", NOW) == {}
         assert plan.left_of([left_set("z@abc1234"), dict(left_set(""), Refused="no")], "land/crew", NOW) == {"z": "abc1234"}
 
-    def test_a_landing_on_the_users_words_in_ops_pane_ends_a_stop_and_one_before_it_ends_none(self):
-        assert plan.left_of([stop("z"), pane_landed("z")], "land/crew", NOW) == {}
-        assert plan.left_of([left_set("z@abc1234"), pane_landed("z")], "land/crew", NOW) == {}
-        assert plan.left_of([pane_landed("z"), stop("z")], "land/crew", NOW) == {"z": "abc1234"}
-        refused = dict(pane_landed("z"), Refused="sluice refused it", From=[])
-        assert plan.left_of([stop("z"), refused], "land/crew", NOW) == {"z": "abc1234"}
+    def test_an_older_crews_landing_on_the_users_words_in_ops_pane_ends_no_stop(self):
+        """No word in a pane lands a bolt (record 0056 point 5): only the user's tick lifts a stop or a left mark."""
+        assert plan.left_of([stop("z"), pane_landed("z")], "land/crew", NOW) == {"z": "abc1234"}
+        assert plan.left_of([left_set("z@abc1234"), pane_landed("z")], "land/crew", NOW) == {"z": "abc1234"}
 
 
 # ------------------------------------------------------------- the raise on the main machine, from each row's host
@@ -1204,10 +1259,10 @@ def row(bolt, head=H1, **more):
 class LandActs:
     """A stand-in for what the raise reaches (plan.CardActs) on the main machine: each bolt's row as its team's host
     gives it (rows, a missing one's host not answering), the forecasts, this host's run record (entries) and the
-    partition's (partition), and Pending You's tools answered from answers."""
+    drive's (drive), and Pending You's tools answered from answers."""
 
-    def __init__(self, rows, entries=(), partition=(), answers=None, here="mac-studio", against_main=None, main=MAIN, works=None):
-        self.rows, self.held, self.whole, self.answers, self.here = rows, list(entries), list(partition), dict(answers or {}), here
+    def __init__(self, rows, entries=(), drive=(), answers=None, here="mac-studio", against_main=None, main=MAIN, works=None):
+        self.rows, self.held, self.whole, self.answers, self.here = rows, list(entries), list(drive), dict(answers or {}), here
         self.calls, self.emitted, self.told, self.asked, self.works, self.worked = [], [], [], [], dict(works or {}), []
         # The forecast: each bolt's conflicts with main ({bolt: [("main", paths)]}) at the revision main (None, unread).
         self.against_main, self.main, self.forecasts, self.kept = dict(against_main or {}), main, [], {}
@@ -1235,6 +1290,28 @@ class LandActs:
     def keep_main(self, label, kit, sha):
         self.kept[kit] = sha
 
+    def read_landings(self, label, kit):
+        """The kit's landings read from the runner's report before the card's lock (kit_landings_read): recorded."""
+        self.landings_read = getattr(self, "landings_read", []) + [(label, kit)]
+
+    def post_lands(self, label, kit, owner, rows, sent, reads, work):
+        """The lands the send makes due, as lands_change decides them on a write over requests.rec as given (requests),
+        recorded in posts; none while the case gives no requests."""
+        self.posts = getattr(self, "posts", [])
+        if getattr(self, "requests", None) is None:
+            return []
+        from facts import FactsWrite
+        w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": self.requests}, entries=self.held)
+        try:
+            got = plan.lands_change(w, kit, rows, sent, reads, work)
+        except plan.Unposted:
+            return []
+        self.requests = w.files["requests.rec"]
+        self.posts.append((w.subject, w.act, list(w.on), dict(w.fields), [(a, o, f) for _, a, o, f in w.also]))
+        for _, a, o, f in [(None, w.act, w.on, w.fields)] + w.also:
+            self.held.append(dict(f, Act=a, On=list(o)))
+        return got
+
     def kept_main(self, label, kit):
         return self.kept.get(kit)
 
@@ -1245,7 +1322,7 @@ class LandActs:
     def entries(self, label):
         return self.held
 
-    def partition(self, label):
+    def drive(self, label):
         return self.whole
 
     def bridge(self, name, later, held=None):
@@ -1319,12 +1396,12 @@ def test_a_kits_card_is_raised_under_its_lock_every_read_and_act_inside_it(monke
     holds the kit's lock over the plan, the rows, the record and Pending You, so the second reads the first's close."""
     acts = LandActs({"y": row("y"), "z": row("z")}, answers=POSTED)
     seen = []
-    for name in ("land_row", "entries", "partition", "forecast", "bridge", "emit", "tell"):
+    for name in ("land_row", "entries", "drive", "forecast", "bridge", "emit", "tell"):
         monkeypatch.setattr(acts, name, lambda *a, f=getattr(acts, name), n=name, **k: seen.append((n, acts.holding)) or f(*a, **k))
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: seen.append(("plan", acts.holding)) or plan.Plan(PLAN))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     assert acts.locked == [("swancloud", "crew")]
-    assert {n for n, _ in seen} >= {"plan", "land_row", "entries", "partition", "bridge", "emit"}
+    assert {n for n, _ in seen} >= {"plan", "land_row", "entries", "drive", "bridge", "emit"}
     assert [(n, h) for n, h in seen if h != "crew"] == []
 
 
@@ -1360,20 +1437,116 @@ def test_a_rows_head_moved_changes_the_waiting_card_in_place_naming_it(monkeypat
     assert acts.emitted[-1]["Heads"] == "y@abc1234 z@def5678"
 
 
-def test_a_moved_heads_row_names_the_new_head_as_what_brings_its_preview_up_and_says_the_old_one_went(monkeypatch):
-    """rail-cards "A row's head moves while the card waits" and "The head moves with a preview up" (record 0043): the
-    row as its team's host read it, nothing asked of sluice for the new head."""
-    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
-    moved = {"branch": "bolt/z", "head": H2, "state": "ask", "released": H1}
-    acts = LandActs({"y": row("y", preview={"head": H1, "none": True}), "z": row("z", H2, preview=moved)}, held,
-                    answers={"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)})
-    assert raised(monkeypatch, acts) == "req_k1"
-    change = next(a for t, a in acts.calls if t == "update_request")
-    face = "\n".join(change["artifacts"][0]["lines"])
-    assert change["changeNote"] == "z's head is now def5678"
-    assert ("Try it running from bolt/z at def5678: write on this card to bring it up, and that you are done to put it "
-            "away. It is not held while the card waits. Its preview of abc1234 was released as the head moved.") in face
-    assert "No preview." in face.split("**2. z**")[0]
+# ------------------------------------------------------------- a row's preview, from the runner's report alone
+# rail-cards "A landing row carries what brings its bolt's preview up", "A preview is put away on the user's done
+# and when its row leaves the landings card" and "A moved head releases the preview of the old one and asks for none" (Decisions 5 and 7
+# of a-cards-preview-is-asked-of-the-runner): the raise on the main machine reads each row's preview from the runner's
+# report and writes the done of each ask no row that can land carries, reading no kit's policy.
+
+import runner  # noqa: E402
+from facts import FactsWrite  # noqa: E402
+
+
+def ask_rec(n, bolt="z", head=H1, done=False, host="mac-studio"):
+    """A preview request of a landings row's bolt, as crew card preview writes it."""
+    return plan.Rec("Request", runner.request_fields(n, "preview", f"bolt/{bolt}", runner.preview_fields(
+        host, "crew", f"bolt/{bolt}", head, done), "2026-11-08T12:00:00Z", "swancloud-ops"))
+
+
+def mac_studio(previews=""):
+    """mac-studio's runner as crew reads it, with these previews answered."""
+    files = {"runner.rec": plan.Plan(runner.RUNNER + "\nHost: mac-studio\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+             "previews.rec": plan.Plan(runner.PREVIEWS + previews)}
+    return {"mac-studio": runner.host_read("swancloud", "mac-studio", "5e1f0c2a" + "0" * 32, files, {})}
+
+
+HY = "1234567" + "0" * 33  # y's head, beside z's at H1
+UP = {"name": "crew-z", "branch": "bolt/z", "revision": H1, "state": "up", "addresses": {"web": "http://mac-studio:4310"}}
+
+
+class TestRowPreview:
+    @pytest.fixture(autouse=True)
+    def runner_and_writes(self, monkeypatch):
+        """The drive's requests and runners as the case sets them (self.requests, self.reads); each plan write
+        applied to requests.rec at a tip holding them; and no kit's policy read."""
+        self.requests, self.reads, self.writes = [], mac_studio(), []
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (list(self.requests), dict(self.reads)))
+        monkeypatch.setattr(plan, "kit_git", lambda *a, **k: pytest.fail("a row's preview reads no kit's policy"))
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+
+        def write(fleet, label, change, subject, act=None, on=(), fields=None, **more):
+            text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in self.requests)
+            w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, runners=self.reads, label=label)
+            change(w)
+            new = plan.Plan(w.files["requests.rec"]).recs("Request")[len(self.requests):]
+            self.requests += new
+            self.writes.append(dict(subject=subject, act=act, on=list(on), fields=fields,
+                                    requests=[(r.get("Work"), r.get("Revision"), r.get("Done")) for r in new]))
+        monkeypatch.setattr(plan, "write", write)
+
+    def posted(self, monkeypatch, rows, held=(), answers=POSTED):
+        acts = LandActs(rows, list(held), answers=answers)
+        raised(monkeypatch, acts)
+        post = next((a for t, a in acts.calls if t in ("post_request", "update_request")), None)
+        return acts, "\n".join(post["artifacts"][0]["lines"]) if post else ""
+
+    def test_a_row_that_can_land_carries_what_brings_its_preview_up_with_no_policy_read(self, monkeypatch, tmp_path):
+        """rail-cards "A kit that declares a preview" and "A kit that declares none": no request written."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        _, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        assert ("Try it running from bolt/z at abc1234: write on this card to bring it up, and that you are done to put it "
+                "away. It is not held while the card waits.") in face.split("**2. z**")[1]
+        assert self.writes == []
+
+    def test_a_row_whose_ask_stands_carries_the_runners_report_and_the_card_keeps_what_it_told(self, monkeypatch, tmp_path):
+        """rail-cards "Brought up" and "Not answered yet"; Decision 8, what the card was told kept on posting it."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "y", HY), ask_rec(2, "z")]
+        self.reads = mac_studio(f"\nRequest: 2\nOutcome: done\nStatus: {json.dumps(UP)}\nListed: yes\nAt: 2026-11-08T12:03:00Z\n")
+        _, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        y, z = face.split("**2. z**")
+        assert "A preview of 1234567 is asked of the runner on mac-studio, which brings it up at its next pass" in y
+        assert "[Preview web](http://mac-studio:4310)" in z
+        assert self.writes == []
+        assert plan.told_read("swancloud") == {"land/crew": {"1": "asked", "2": "up"}}
+
+    def test_a_moved_head_writes_the_old_asks_done_says_so_and_asks_nothing_at_the_new_head(self, monkeypatch, tmp_path):
+        """rail-cards "A row's head moves while the card waits" and "The head moves with a preview up"."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "z", H1)]
+        held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@1234567 z@abc1234")]
+        acts, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z", H2)}, held,
+                                 answers={"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)})
+        change = next(a for t, a in acts.calls if t == "update_request")
+        assert change["changeNote"] == "z's head is now def5678"
+        assert ("Try it running from bolt/z at def5678: write on this card to bring it up, and that you are done to put it "
+                "away. It is not held while the card waits. Its preview of abc1234 was released as the head moved.") in face
+        assert [(w["subject"], w["fields"], w["requests"]) for w in self.writes] == [
+            ("plan(card): preview of z put away from land/crew", {"Key": "land/crew", "State": "done"}, [("bolt/z", H1, "yes")])]
+
+    def test_a_held_row_writes_its_done(self, monkeypatch, tmp_path):
+        """rail-cards "A fix holds the landing"."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "z", H1)]
+        self.posted(monkeypatch, {"y": row("y", HY), "z": {"bolt": "z", "box": False, "why": "held for a fix: gap (fix/z/gap)", "facts": row("z")["facts"]}})
+        assert [w["requests"] for w in self.writes] == [[("bolt/z", H1, "yes")]]
+
+    def test_a_bolt_gone_from_the_plan_writes_its_done(self, monkeypatch, tmp_path):
+        """rail-cards "The bolt lands with its preview up": the raise that follows its close."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        self.requests = [ask_rec(1, "gone", "9abcdef" + "0" * 33)]
+        self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        assert [w["requests"] for w in self.writes] == [[("bolt/gone", "9abcdef" + "0" * 33, "yes")]]
+
+    def test_a_refused_ask_writes_no_done_and_its_row_says_why(self, monkeypatch, tmp_path):
+        """rail-cards "A preview the runner refused" and "The runner refuses the preview"."""
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        words = "its Act preview, which crew's implementation does not read"
+        self.requests = [ask_rec(1, "z", H1), ask_rec(2, "gone", H1)]
+        self.reads = mac_studio("".join(f"\nRequest: {n}\nOutcome: refused\nWords: {words}\nAt: 2026-11-08T12:03:00Z\n" for n in (1, 2)))
+        _, face = self.posted(monkeypatch, {"y": row("y", HY), "z": row("z")})
+        assert self.writes == []
+        assert f"it could not be brought up on mac-studio: {words}. Nothing waits on it." in face.split("**2. z**")[1]
 
 
 def test_a_host_that_does_not_answer_is_named_and_the_rest_raised(monkeypatch, capsys):
@@ -1384,7 +1557,7 @@ def test_a_host_that_does_not_answer_is_named_and_the_rest_raised(monkeypatch, c
     assert (post["kind"], post["title"]) == ("approve", "Land the bolt y on crew's main")
 
 
-def test_off_the_partitions_main_machine_the_raise_is_refused_naming_it(monkeypatch):
+def test_off_the_drives_main_machine_the_raise_is_refused_naming_it(monkeypatch):
     with pytest.raises(crew.Refusal, match="crew's landings card is raised on mac-studio, where swancloud-ops's cards are"):
         raised(monkeypatch, LandActs({}, here="deneb"))
 
@@ -1510,7 +1683,7 @@ def test_a_bolt_proven_after_the_answer_gets_a_new_card_following_it_and_the_sen
     answers = dict(POSTED, get_request=(answer, None), post_request=({"requestId": "req_k2", "version": 1}, None))
     acts = LandActs({"y": row("y"), "z": row("z")}, held, answers=answers)
     assert raised(monkeypatch, acts) == "req_k2"
-    said = "Landing as you ticked: y. Since your send, z reads proven, and the card that follows asks for it."
+    said = "Asked of the runner as you ticked: y. Since your send, z reads proven, and the card that follows asks for it."
     assert next(a for t, a in acts.calls if t == "ack_answer")["outcome"] == said
     assert not [t for t, _ in acts.calls if t == "update_request"]
     close = next(e for e in acts.emitted if e["Act"] == "card.close")
@@ -1570,7 +1743,7 @@ def test_a_bolt_left_whose_head_moved_is_left_no_more_and_recorded_so(monkeypatc
 def test_a_stop_in_ops_pane_shows_the_bolt_unticked_on_the_waiting_card_and_is_recorded(monkeypatch):
     """rail-cards "A bolt stopped in ops's pane is shown as left": crew bolt leave's note changes the card in place."""
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
-    acts = LandActs({"y": row("y"), "z": row("z")}, held, partition=[stop("z")], answers=dict(POSTED, **WAITING))
+    acts = LandActs({"y": row("y"), "z": row("z")}, held, drive=[stop("z")], answers=dict(POSTED, **WAITING))
     assert raised(monkeypatch, acts, note="z was stopped on your words in swancloud-ops's pane") == "req_k1"
     change = next(a for t, a in acts.calls if t == "update_request")
     assert change["changeNote"] == "z was stopped on your words in swancloud-ops's pane"
@@ -1650,7 +1823,7 @@ def test_a_conflict_the_record_holds_at_the_rows_head_holds_it_with_no_forecast_
     """rail-cards "Raised again at the same heads": the row is handed to the forecast as held, and held taking main first in the
     recorded files though the card's own forecast says nothing of it."""
     recorded = [dict(Act="forecast", On=["bolt/y"], Heads="bolt/y@abc1234 main@2222222", Paths="docs/a.md", Reached="wait")]
-    acts = LandActs({"y": row("y"), "z": row("z")}, partition=recorded, answers=POSTED, main=None)
+    acts = LandActs({"y": row("y"), "z": row("z")}, drive=recorded, answers=POSTED, main=None)
     assert raised(monkeypatch, acts) == "req_k1"
     assert acts.forecasts == [(["y", "z"], ["y"])] and acts.kept == {}
     post = next(a for t, a in acts.calls if t == "post_request")
@@ -1665,7 +1838,7 @@ HELD = dict(Act="forecast", On=["bolt/z"], why="bolt(z): forecast to conflict wi
 
 
 def test_a_row_newly_taking_main_first_is_recorded_held_once_and_nobody_is_told(monkeypatch):
-    """rail-cards "A row forecast to conflict with main takes main first until a fix takes main in" (Task notes 2.2 of the-team-machinery-leaves):
+    """rail-cards "A row forecast to conflict with main takes main first, recorded once and telling no one" (Task notes 2.2 of the-team-machinery-leaves):
     the raise holds z's forecast on its row and starts nothing, and raised again at the same heads records nothing more,
     z still held by the record and the forecast."""
     acts = LandActs({"y": row("y"), "z": row("z")}, answers=POSTED, against_main={"z": [("main", ["README.md"])]})
@@ -1674,7 +1847,7 @@ def test_a_row_newly_taking_main_first_is_recorded_held_once_and_nobody_is_told(
     assert [e for e in acts.emitted if e["Act"] == "forecast"] == [HELD]
     post = next(a for t, a in acts.calls if t == "post_request")
     assert post["recommendedIds"] == ["land:y"] and post["options"][1]["detail"].startswith(MAIN_FIRST[0].upper() + MAIN_FIRST[1:])
-    again = LandActs({"y": row("y"), "z": row("z")}, partition=[HELD], answers=dict(POSTED, **WAITING),
+    again = LandActs({"y": row("y"), "z": row("z")}, drive=[HELD], answers=dict(POSTED, **WAITING),
                      against_main={"z": [("main", ["README.md"])]})
     raised(monkeypatch, again)
     assert {n for n, _ in again.told} == {"swancloud-ops"} and not [e for e in again.emitted if e["Act"] == "forecast"]
@@ -1684,7 +1857,7 @@ def test_a_row_newly_taking_main_first_is_recorded_held_once_and_nobody_is_told(
 def test_a_forecast_recorded_first_at_the_same_heads_is_not_recorded_again(monkeypatch):
     """A forecast the record holds at the same bolt head and revision of main, a conductor's wait's from before among
     them, is not recorded again."""
-    acts = LandActs({"y": row("y"), "z": row("z")}, partition=[dict(HELD, Reached="wait")], answers=POSTED,
+    acts = LandActs({"y": row("y"), "z": row("z")}, drive=[dict(HELD, Reached="wait")], answers=POSTED,
                     against_main={"z": [("main", ["README.md"])]})
     raised(monkeypatch, acts)
     assert not [e for e in acts.emitted if e["Act"] == "forecast"] and [n for n, _ in acts.told] == ["swancloud-ops"]
@@ -1765,7 +1938,7 @@ def test_a_refused_bolt_whose_fix_committed_a_change_is_asked_again_on_a_card_na
 
 
 def test_a_card_following_the_users_send_says_what_changed_of_a_bolt_asked_again_once_in_its_opening(monkeypatch):
-    """rail-cards "A card that follows one the user answered says so first" and "A ticked bolt whose own work changed is
+    """rail-cards "A follow-on card says what changed in the words its event gives" and "A ticked bolt whose own work changed is
     asked again, saying what changed": the user ticked y and z, y is landing, and a fix committed to z: the card that
     follows opens with what they answered and what changed of z's work, said there once."""
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
@@ -1776,7 +1949,7 @@ def test_a_card_following_the_users_send_says_what_changed_of_a_bolt_asked_again
     changed = "z's head is now def5678, with work of its own since your send at abc1234: fix: keep the lease"
     post = next(a for t, a in acts.calls if t == "post_request")
     assert post["follows"] == "req_k1" and post["summary"].startswith(
-        f"You answered the card before this one: ticked y and z. Since then: landing as you ticked: y. Since your send, {changed}, "
+        f"You answered the card before this one: ticked y and z. Since then: asked of the runner as you ticked: y. Since your send, {changed}, "
         "and the card that follows asks for it.\n\n")
     assert post["summary"].count(changed) == 1
 
@@ -1850,30 +2023,26 @@ def test_crew_land_row_prints_the_row_as_one_line_of_json(monkeypatch, capsys):
 # --------------------------------------------------------------------- a row's reading ends with its row, not a card
 
 class OldCardActs(LandActs):
-    """LandActs where a reading and a preview would end: each end and release asked, recorded."""
+    """LandActs where a reading would end: each end asked, recorded."""
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
-        self.ended, self.released = [], []
+        self.ended = []
 
     def end(self, label, key):
         self.ended.append(key)
         return f"ended {key}'s session"
 
-    def release_preview(self, label, key):
-        self.released.append(key)
-        return f"released {key}'s preview"
-
 
 @pytest.mark.parametrize("key", ["land/y", "land/y/abc1234"])
 @pytest.mark.parametrize("answers", [{"get_request": ({"status": "pending", "version": 1}, None)},
                                      {"get_request": ({"status": "answered", "version": 2}, None)}])
-def test_an_old_card_of_a_bolts_own_closed_ends_neither_its_rows_reading_nor_its_preview(key, answers, capsys):
-    """A closed card of the old per-bolt form is no word on the bolt's row: its reading and preview end with the row
-    (land_end), whether crew withdrew the card waiting on the user or closed one they answered."""
+def test_an_old_card_of_a_bolts_own_closed_ends_not_its_rows_reading(key, answers, capsys):
+    """A closed card of the old per-bolt form is no word on the bolt's row: its reading ends with the row (land_end),
+    whether crew withdrew the card waiting on the user or closed one they answered."""
     acts = OldCardActs({}, entries=[dict(Act="card.post", Key=key, By="crw-1-conductor", Card="req_l1", On=["bolt/y"])], answers=answers)
     assert plan.row_card_close(None, "swancloud", "crw-1-conductor", key, reason="y is now a row of crew's landings card", acts=acts) == "req_l1"
-    assert (acts.ended, acts.released) == ([], [])
+    assert acts.ended == []
     assert "ended" not in capsys.readouterr().out
 
 
@@ -1891,36 +2060,7 @@ def test_a_wait_whose_reading_crew_ended_says_it_ended_with_its_row_or_crew_card
         "land/y: crew ended its reading, as its row was held or left its kit's landings card, or crew card end was run")
 
 
-# ------------------------------------------------------------------- a landing in ops's pane, a card left elsewhere
-
-PANE = "Landed on the user's word in swancloud-ops's pane; landed on GitHub's main at 1111111"
-SAID = 'Landed on the user\'s word in swancloud-ops\'s pane, "Land crw-1\'s bolt"; landed on GitHub\'s main at 1111111'
-WAITING = {"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)}
-
-
-def test_a_pane_landing_closes_the_waiting_kits_card_no_row_of_which_can_land_as_answered_with_the_users_words(monkeypatch):
-    """main-level "The card closes with the user's words": Pending You is sent the words, the run record keeps none."""
-    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234")]
-    acts = LandActs({}, held, answers=WAITING)
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PLAN))
-    assert plan.raise_landings(FLEET, "swancloud", "crew", acts, note=SAID, pane=PANE) == "req_k1"
-    tool, args = acts.calls[-1]
-    assert (tool, args["answeredHere"], args["reason"]) == ("cancel_request", True, f"{SAID}; no bolt waits to land on its main")
-    close = acts.emitted[-1]
-    assert (close["Act"], close["State"], close["Outcome"]) == ("card.close", "closed", f"{PANE}; no bolt waits to land on its main")
-    assert "Land crw-1's bolt" not in repr(acts.emitted)
-
-
-def test_a_pane_landing_changes_the_kits_card_naming_the_users_words_while_another_row_can_land(monkeypatch):
-    """main-level "Another row still waits"."""
-    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234 v@abc1234")]
-    acts = LandActs({"z": row("z"), "v": row("v")}, held, answers=WAITING)
-    three = PLAN.replace("%rec: Unit", "Bolt: v\nRepo: crew\nPath: flume\n\n%rec: Unit")
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(three))
-    assert plan.raise_landings(FLEET, "swancloud", "crew", acts, note=SAID, pane=PANE) == "req_k1"
-    change = next(a for t, a in acts.calls if t == "update_request")
-    assert change["changeNote"].startswith(SAID) and not [t for t, _ in acts.calls if t == "cancel_request"]
-
+# ------------------------------------------------------------------------------------------- a card left elsewhere
 
 def test_the_sweeps_raise_of_a_kits_card_handed_an_older_copy_posts_it_saying_that_copy_is_dead(monkeypatch):
     """rail-cards "A landings card left on the host the main level left"."""
@@ -1931,3 +2071,209 @@ def test_the_sweeps_raise_of_a_kits_card_handed_an_older_copy_posts_it_saying_th
     assert plan.raise_landings_row(FLEET, r, plain) == "req_k1"
     dead, bare = [next(a for t, a in x.calls if t == "post_request")["summary"] for x in (acts, plain)]
     assert dead == f"{cards.DEAD}\n\n{bare}"
+
+
+# ------------------------------------------------------------------------- the lands a send makes due (runner.lands_due)
+
+class TestLandsDue:
+    """rail-cards "A landings row is due one land for each send and head" (crew-lands-each-bolt-through-flumes-base-place,
+    Decisions 4 and 5): runner.lands_due over the card's rows, the sends standing for them, requests.rec and the runner's
+    report, each row due one land of its launch per send and head, in the card's order with the fixes of main first."""
+    FIX = "fix/main/crew/red"
+
+    def requests(self, *more):
+        """requests.rec: y's base place 1, z's 2, a unit of y 3, the fix of crew's main main--red 4, then more."""
+        import runner
+        from test_runner import BOLT, held, rec
+        return held(rec(1, "launch", "bolt/y", **dict(BOLT, Name="y")), rec(2, "launch", "bolt/z", **dict(BOLT, Name="z")),
+                    rec(3, "launch", "unit/a", Base="bolt/y"),
+                    rec(4, "launch", self.FIX, Kind="fix", Name="main--red", Base="main", Hold="submission", Intent="swancloud/main/crew",
+                        Recipient="swancloud/ops"), *more)
+
+    def reads(self, **more):
+        """The runner on deneb: y's, z's and the fix's places launched, live with nothing submitted (or as more gives)."""
+        from facts import ran
+        launched = {1: "flume-0.17.0/bolt-submitted", 2: "flume-0.17.0/bolt-submitted", 4: "held", **more.pop("launched", {})}
+        return ran(launched, label="swancloud", **more)
+
+    def rows(self, *bolts, fix=False):
+        out = ([dict(bolt="main--red", work=self.FIX, box=True, facts=dict(head=H2))] if fix else []) + [box(b) for b in bolts]
+        return out
+
+    def due(self, rows, sent, requests=None, reads=None, posted=(), work=None):
+        import runner
+        requests = requests if requests is not None else self.requests()
+        # none of the fixtures has submitted anything: a base place live with no land reads none (runner.landing_of)
+        return runner.lands_due(rows, sent, requests, reads or self.reads(), posted, work)
+
+    def test_two_rows_in_the_cards_order(self):
+        assert self.due(self.rows("z", "y"), {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_1", H1[:7])}) == [("bolt/z", 2), ("bolt/y", 1)]
+
+    def test_a_fix_of_main_first(self):
+        sent = {"bolt/y": ("req_1", H1[:7]), self.FIX: ("req_1", H2[:7])}
+        assert self.due([box("y"), dict(bolt="main--red", work=self.FIX, box=True, facts=dict(head=H2))], sent) == [
+            (self.FIX, 4), ("bolt/y", 1)]
+
+    def test_a_send_read_twice_posts_once(self):
+        """Once posted, at its head, nothing more: posted names it, and the land stands undecided."""
+        import runner
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests, posted=posted) == []
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests) == []
+
+    def test_a_row_taking_main_first_posts_nothing_then_once_at_its_new_head(self):
+        """The user ticked y at abc1234 and its land conflicted; its take-main fix merged, y proven at def5678, its own
+        work unchanged: nothing while it takes main in, then one land at the new head on the same send."""
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        reads = self.reads(launched={1: "flume-0.17.0/bolt-conflict"}, unplaced={5: "-"})
+        sent = {"bolt/y": ("req_1", H1[:7])}
+        assert self.due([taking_main("y")], sent, requests, reads, posted) == []
+        assert self.due([box("y", H2)], sent, requests, reads, posted, work={"y": work()}) == [("bolt/y", 1)]
+        assert self.due([box("y", H2)], sent, requests, reads, posted + [dict(work="bolt/y", card="req_1", head=H2[:7], request=6)],
+                        work={"y": work()}) == []
+
+    def test_a_stopped_row_posts_nothing_on_the_same_send_and_once_on_a_new_one(self):
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        posted = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+        reads = self.reads(refused={5: "flume refused the submission: a place on bolt/y is live"})
+        assert self.due([box("y", H2)], {"bolt/y": ("req_1", H1[:7])}, requests, reads, posted, work={"y": work()}) == []
+        assert self.due([box("y", H2)], {"bolt/y": ("req_2", H2[:7])}, requests, reads, posted) == [("bolt/y", 1)]
+
+    def test_a_bolt_started_before_bolts_were_base_places_posts_nothing(self):
+        """It has no launch of its own, and its row no box (rail-cards "A bolt started before bolts were base places has
+        no box"); a box given it all the same posts nothing."""
+        assert self.due([box("w")], {"bolt/w": ("req_1", H1[:7])}) == []
+
+    def test_a_held_row_posts_nothing(self):
+        """A bolt carrying another bolt's work, held with no box (landing_rows), and a bolt whose units wait on a batch
+        the user has not answered, no row at all (land_facts): whatever send stands, nothing is posted."""
+        sent = {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_1", H1[:7])}
+        assert self.due([hold("y", "held: carries bolt x's work, its landing 1a2b3c4, which main lacks")], sent) == []
+        assert self.due([], sent) == []
+
+    def test_no_land_while_a_batch_waits(self):
+        """review-batches "No land while a batch waits": the user's send stands at y's head, and y's unit a's latest
+        change is in batch 7, which the user has not answered: y's landing facts read no row (landing_facts), the row
+        saying it lands once the user has answered batch 7 (batch_waits), so the raise's rows hold none of y and no land
+        of y's launch is due, though its send stands."""
+        work = [("a", "unit", "merged")]
+        assert plan.landing_facts("y", "crew", work, H1, None, set(), {"a": 7}, {}, 0, None) is None
+        assert plan.batch_waits(["a"], set(), {"a": 7}) == "the user has not answered batch 7"
+        rows = [box(b) for b in ["z"] if plan.landing_facts(b, "crew", work, H1, None, set(), {}, {}, 0, None)]
+        rows += [box("y")] if plan.landing_facts("y", "crew", work, H1, None, set(), {"a": 7}, {}, 0, None) else []
+        assert self.due(rows, {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_1", H1[:7])}) == [("bolt/z", 2)]
+
+    def test_an_outcome_crew_cant_tell_posts_nothing_again_at_that_head(self):
+        import runner
+        from test_runner import rec
+        requests = self.requests(rec(5, "land", "bolt/y", Of=1))
+        unread = {"deneb": runner.host_read("swancloud", "deneb", "5e1f0c2a" + "0" * 32, {}, {"answers.rec": "recfix refused it"})}
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests, unread) == []
+        assert self.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, requests, unread,
+                        [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]) == []
+
+    def test_a_send_whose_bolts_own_work_changed_posts_nothing(self):
+        assert self.due([box("y", H2)], {"bolt/y": ("req_1", H1[:7])}, work={"y": work([LEASE])}) == []
+
+
+class TestTheRaisePostsTheLands:
+    """rail-cards "The user's send on a kit's landings card posts one land for each row it lands" and "A landings row is
+    due one land for each send and head" (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the raise of a
+    kit's landings card that reads the user's send posts its lands by one plan write (plan.lands_change), each land of
+    its row's launch in the card's order with the fixes of main first, an entry for each row naming the card, the head
+    and the land's request, marked asked; a write replayed on a tip that holds them writes nothing."""
+    FIX = "fix/main/crew/red"
+
+    @pytest.fixture(autouse=True)
+    def here(self, monkeypatch):
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+
+    def write(self, requests=None, entries=()):
+        import runner
+        from facts import FactsWrite
+        text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in (requests or TestLandsDue().requests()))
+        return FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, entries=entries, label="swancloud")
+
+    def rows(self):
+        return [box("y"), box("z"), dict(bolt="main--red", work=self.FIX, box=True, facts=dict(head=H2))]
+
+    SENT = {"bolt/y": ("req_k1", H1[:7]), "bolt/z": ("req_k1", H1[:7]), FIX: ("req_k1", H2[:7])}
+
+    def test_one_write_posts_a_land_of_each_row_in_the_cards_order_the_fix_of_main_first(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        w = self.write()
+        got = plan.lands_change(w, "crew", self.rows(), self.SENT, TestLandsDue().reads())
+        assert got == [(self.FIX, 5, H2), ("bolt/y", 6, H1), ("bolt/z", 7, H1)]
+        lands = [(r.get("Request"), r.get("Act"), r.get("Work"), r.get("Of")) for r in plan.Plan(w.files["requests.rec"]).recs("Request")][4:]
+        assert lands == [("5", "land", self.FIX, "4"), ("6", "land", "bolt/y", "1"), ("7", "land", "bolt/z", "2")]
+        assert (w.act, w.on, w.fields) == ("fix.merge", [self.FIX], dict(Card="req_k1", Head=H2, Request="5", Outcome="asked"))
+        assert [(a, o, f) for _, a, o, f in w.also] == [
+            ("bolt.submit", ["bolt/y"], dict(Card="req_k1", Head=H1, Request="6", Outcome="asked")),
+            ("bolt.submit", ["bolt/z"], dict(Card="req_k1", Head=H1, Request="7", Outcome="asked"))]
+        assert w.subject == "plan(crew): land main--red, y and z on the user's send"
+
+    def test_a_write_replayed_on_a_tip_that_holds_the_lands_writes_nothing(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        w = self.write()
+        plan.lands_change(w, "crew", self.rows(), self.SENT, TestLandsDue().reads())
+        entries = [dict(Act=a, On=o, **f) for _, a, o, f in [(None, w.act, w.on, w.fields)] + w.also]
+        again = self.write(plan.Plan(w.files["requests.rec"]).recs("Request"), entries)
+        with pytest.raises(plan.Unposted):
+            plan.lands_change(again, "crew", self.rows(), self.SENT, TestLandsDue().reads())
+        assert plan.lands_posted(entries) == [dict(work=self.FIX, card="req_k1", head=H2, request="5"),
+                                              dict(work="bolt/y", card="req_k1", head=H1, request="6"),
+                                              dict(work="bolt/z", card="req_k1", head=H1, request="7")]
+
+    def test_the_sends_standing_are_the_answered_cards_ticks_and_an_earlier_cards_kept_heads(self):
+        entries = [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k0", Heads="w@1111111 main--red@2222222")]
+        shown = plan.card_heads("y@abc1234 z@abc1234")
+        assert plan.lands_sent(entries, "land/crew", "swancloud-ops", "req_k1", shown, ["y"]) == {
+            "bolt/w": ("req_k0", "1111111"), self.FIX: ("req_k0", "2222222"), "bolt/y": ("req_k1", "abc1234")}
+
+    def test_a_raise_reading_the_send_posts_the_lands_of_the_ticked_rows_and_a_second_raise_none(self, monkeypatch, capsys):
+        """rail-cards "Read with no session of ops's running" and "Two bolts sent": the user ticked y and z; the raise
+        posts two lands in the card's order, says each, tells no agent and leaves the card while they land; the next
+        raise posts none."""
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        requests = TestLandsDue().requests()[:3]  # y's and z's base places and y's unit, no fix of main
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
+        monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PLAN))
+        held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
+        answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y", "land:z"]}}
+        acts = LandActs({"y": row("y"), "z": row("z")}, held, answers={"get_request": (answer, None)})
+        acts.requests = self.write(requests).files["requests.rec"]
+        assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+        (subject, act, on, fields, also), = acts.posts
+        assert (act, on, fields["Request"], fields["Card"], [o for _, o, _ in also]) == ("bolt.submit", ["bolt/y"], "4", "req_k1", [["bolt/z"]])
+        out = capsys.readouterr().out
+        assert "card land/crew: y is asked of the runner to land at abc1234 (request 4), on the user's send" in out
+        assert "card land/crew: z is asked of the runner to land at abc1234 (request 5), on the user's send" in out
+        assert "card land/crew: req_k1 is left as it is, the user having answered it" in out
+        assert acts.told == []
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert len(acts.posts) == 1 and acts.told == []
+
+
+def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_ssh_refused(monkeypatch):
+    """bolt-teams "A landing's record rests on the state repository alone", its scenario "Read away from the kit's host"
+    (read.5; crew-lands-each-bolt-through-flumes-base-place, Decision 6): the runners' branches are the drive's
+    state, so a host that is not the kit's reads y's landing from the runner's report and records it, reaching no
+    host."""
+    from test_landing import ASKED, base_run
+
+    def refused(*a, **k):
+        raise AssertionError("ssh: connect to host deneb: refused")
+    monkeypatch.setattr(crew, "on_machine", refused)
+    monkeypatch.setattr(plan, "host_run", refused)
+    monkeypatch.setattr(crew, "this_host", lambda: "macbook-pro")
+    from facts import writes_at
+    emitted = writes_at(monkeypatch, [ASKED])
+    monkeypatch.setattr(plan, "unlanded_ask", lambda *a, **k: None)
+    landed, said = plan.landing_read({}, "swancloud", "y", base_run("bolt-failed"), [ASKED])
+    assert (landed, said) == (False, "landing refused, a check failed: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")
+    assert [(e["Act"], e["On"], e["refused"]) for e in emitted] == [("bolt.submit", ["bolt/y"], said)]

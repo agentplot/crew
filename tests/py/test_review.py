@@ -10,7 +10,7 @@ import crew
 import plan
 
 BOX = "chuck-herdr-alpha"
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": BOX}}, "hosts": {"mac-studio": {"ssh": "chuck@mac-studio"}}}
+FLEET = {"drives": {"wldn": {"label": "wldn", "machine": BOX}}, "hosts": {"mac-studio": {"ssh": "chuck@mac-studio"}}}
 # Where each bolt's work ran, as the runner that took it reported (plan.batch_unit_at)
 AT = {"b1": {"label": "wldn", "machine": BOX, "stream": "wldn", "kit": {"name": "switchboard-kit", "main": "/kit/main", "dir": "/kit/main"}},
       "b2": {"label": "wldn", "machine": "mac-studio", "stream": "wldn", "kit": {"name": "atlas-kit", "main": "/atlas/main", "dir": "/atlas/main"}}}
@@ -28,8 +28,8 @@ def test_the_reviewer_is_sent_each_change_due_and_how_to_read_it_at_its_commit_f
 
 
 def test_the_planner_is_told_which_changes_are_due_and_why():
-    assert plan.batch_due_said("wldn", [("x1", "b1", "a", None), ("y1", "b2", "b", None)], ["2 changes are due, and a batch is every 2"]) == (
-        "A batch of wldn's changes is due: x1 (b1), y1 (b2); 2 changes are due, and a batch is every 2. Start its reviewer with crew "
+    assert plan.batch_due_said("wldn", [("x1", "b1", "a", None), ("y1", "b2", "b", None)], ["2 changes are due, and a batch is due after 2"]) == (
+        "A batch of wldn's changes is due: x1 (b1), y1 (b2); 2 changes are due, and a batch is due after 2. Start its reviewer with crew "
         "review wldn, and wait for the summary with crew review wldn --wait, which raises the batch's card and its reading "
         "session in your name.")
 
@@ -94,15 +94,15 @@ def test_a_tell_herdr_refused_to_type_says_why_in_crews_words():
 
 
 def test_an_agent_crew_starts_none_by_that_name_is_refused():
-    fleet = {"partitions": {"wldn": {"label": "wldn", "machine": BOX, "session": "wldn-3"}}}
+    fleet = {"drives": {"wldn": {"label": "wldn", "machine": BOX, "session": "wldn-3"}}}
     assert crew.place_of_agent(fleet, "wldn-planner") == (BOX, "wldn-3")
     with pytest.raises(crew.Refusal, match="no agent somebody: crew starts none by that name"):
         crew.place_of_agent(fleet, "somebody")
 
 
 class TestAReviewerUp:
-    """What crew review does with a standing reviewer herdr reads up (teams.2, teams.15; review-batches "The planner
-    starts the partition's reviewer"): plan.reviewer_up_said on herdr's status, a question open, whether its session
+    """What crew review does with a standing reviewer herdr reads up (teams.2, teams.15; review-batches "A review
+    ends an idle reviewer that took no batch and refuses one still reviewing"): plan.reviewer_up_said on herdr's status, a question open, whether its session
     received a batch and whether a summary was written since its last start. madswan's batch 28, 2026-10-26: a reviewer
     idle with an empty input box and crew review refusing it twice as still reviewing. That the command ends it, starts
     the batch's reviewer afresh and records the end, and that --wait refuses, is t-journey-review's."""
@@ -137,16 +137,16 @@ class TestAReviewerUp:
 
 
 class TestAReviewerThatRunsAsItsKind:
-    """A partition that runs its reviewer as its kind is asked a batch by crew review and handed it back by crew review
-    delivered (design Decision 11; review-batches "The planner starts the partition's reviewer" and "A reviewer's run
+    """A drive that runs its reviewer as its kind is asked a batch by crew review and handed it back by crew review
+    delivered (design Decision 11; review-batches "A reviewer its drive runs as its kind gets its batch as an ask" and "A reviewer's run
     hands its batch back"): the batch ask's words, the --wait refusal, the batches a turn took, whether a summary is
     written, and what the delivery records, raises and asks. That the command does it on the stubs is
     t-journey-review's."""
     START = {"Act": "review.start", "Batch": "21", "At": "2026-10-31T10:00:00Z", "Units": "x1:swb-1@abc1234"}
 
-    def fleet(self, **flume):
-        return {"partitions": {"wldn": {"label": "wldn", "machine": BOX, "blueprints": ["WilldanGroup/willdan-blueprints"], "roles": {},
-                                        "flume": dict(dict.fromkeys(crew.KIND_ROLES, False), **flume)}},
+    def fleet(self, **runs):
+        return {"drives": {"wldn": {"label": "wldn", "machine": BOX, "blueprints": ["WilldanGroup/willdan-blueprints"], "roles": {},
+                                        "runs": dict(dict.fromkeys(crew.KIND_ROLES, "standing"), **runs)}},
                 "hosts": {}}
 
     def test_the_batches_a_turn_took_are_its_batch_asks_in_the_order_taken(self):
@@ -177,7 +177,7 @@ class TestAReviewerThatRunsAsItsKind:
         """review-batches, A reviewer that runs as its kind: the ask holds the batch's changes, how to read each and the
         file to write, no tab is opened and no reviewer started by crew."""
         import argparse
-        plan.review_cmd(self.fleet(reviewer="wldn-main"), argparse.Namespace(label="wldn", wait=False, timeout=0))
+        plan.review_cmd(self.fleet(reviewer="on-demand"), argparse.Namespace(label="wldn", wait=False, timeout=0))
         assert asked["asks"] == [("wldn", "reviewer", "batch", "wldn-planner", "batch/21", "batch/21", "Review batch 21 of wldn, 1 change, ...")]
         assert asked["emitted"] == [("review.start", ["batch/21", "agent/wldn-reviewer", "unit/x1"], 21)]
         assert "wldn-reviewer is asked batch 21 of wldn, into /h/reports/batch-wldn-21.md" in capsys.readouterr().out
@@ -187,7 +187,7 @@ class TestAReviewerThatRunsAsItsKind:
         import argparse
         with pytest.raises(crew.Refusal, match="wldn runs its reviewer as its kind, so crew review --wait waits on nothing: the batch's "
                                                "delivery reaches wldn-planner as an ask"):
-            plan.review_cmd(self.fleet(reviewer="wldn-main"), argparse.Namespace(label="wldn", wait=True, timeout=0))
+            plan.review_cmd(self.fleet(reviewer="on-demand"), argparse.Namespace(label="wldn", wait=True, timeout=0))
         assert asked["asks"] == [] and asked["emitted"] == []
 
     ASKS = ("%rec: Ask\n%key: Id\n\nId: 1\nRole: reviewer\nFrom: wldn-planner\nWhat: batch\nNames: batch/21\nKey: batch/21\nAt: 2026-10-31T10:00:00Z\n\n"
@@ -232,7 +232,7 @@ class TestAReviewerThatRunsAsItsKind:
     def test_a_batch_delivered_is_recorded_its_card_raised_and_the_planner_asked_and_one_not_written_refused(self, run, tmp_path, capsys):
         """review-batches, A batch delivered and A summary not written."""
         with pytest.raises(crew.Refusal, match=rf"batch 22's summary {tmp_path}/batch-wldn-22.md is not written since its start, so it is not delivered"):
-            self.delivered(self.fleet(reviewer="wldn-main", planner="wldn-main"))
+            self.delivered(self.fleet(reviewer="on-demand", planner="on-demand"))
         assert run["emitted"] == [("review.batch", ["batch/21", "unit/x1"], 21)]
         assert run["raised"] == ["batch/21"] and run["told"] == []
         (ask,) = run["asks"]
@@ -243,20 +243,20 @@ class TestAReviewerThatRunsAsItsKind:
 
     def test_a_planner_that_stands_is_told_the_card_as_today_and_asked_nothing(self, run, tmp_path):
         (tmp_path / "batch-wldn-22.md").write_text("# Batch 22\n")
-        self.delivered(self.fleet(reviewer="wldn-main"))
+        self.delivered(self.fleet(reviewer="on-demand"))
         assert run["raised"] == ["batch/21", "batch/22"] and run["asks"] == []
         assert [n for n, _ in run["told"]] == ["wldn-planner", "wldn-planner"]
 
     def test_it_is_refused_anywhere_but_the_reviewers_run(self, run, monkeypatch):
         monkeypatch.setenv("FLUME_PLACE", "/flume/places/crew-planner--wldn")
-        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a partition's reviewer"):
-            self.delivered(self.fleet(reviewer="wldn-main", planner="wldn-main"))
+        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a drive's reviewer"):
+            self.delivered(self.fleet(reviewer="on-demand", planner="on-demand"))
         monkeypatch.delenv("FLUME_PLACE")
-        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a partition's reviewer"):
-            self.delivered(self.fleet(reviewer="wldn-main"))
+        with pytest.raises(crew.Refusal, match="crew review delivered runs in a run of a drive's reviewer"):
+            self.delivered(self.fleet(reviewer="on-demand"))
         assert run["emitted"] == [] and run["asks"] == []
 
     def test_a_run_with_no_open_turn_has_nothing_to_hand_back(self, run, monkeypatch):
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: self.ASKS.replace("Began:", "Ended: 2026-10-31T10:30:00Z\nSaid: done\nBegan:"))
         with pytest.raises(crew.Refusal, match="wldn-reviewer has no open turn: crew role start takes the batches asked of it first"):
-            self.delivered(self.fleet(reviewer="wldn-main"))
+            self.delivered(self.fleet(reviewer="on-demand"))

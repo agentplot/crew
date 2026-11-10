@@ -1,12 +1,12 @@
-# A kit merges and lands only through sluice (teams.5, record 0026): crew starts a bolt only in a kit whose
-# .config/sluice.toml on GitHub's main names the checks its bolt branches require, refusing, with the plan unchanged and no
-# branch made, a kit with no policy or one naming no bolt branch checks, naming the file; a unit's and a fix's place on
-# a started bolt merge into it only as Flume's submissions to sluice, crew fix having no --merge since crew
-# merges nothing, and crew reads each merged from the runner's records and the bolt's verification from the runner's
-# report of its work's landing at its head (crew record 0056 points 1 and 4); and crew's own policy requires its check-full tasks of a bolt and of main, run open on the host and taking
-# no replay (tests.5, tests.10). Each scenario of the bolt-teams spec on merging; which table and checks a policy names
-# for a bolt branch is a logic case (tests/py/test_kit.py), and that the policy is read from main's commit, a contract
-# case (tests/contract/test_git.py).
+# A kit merges and lands only through sluice (teams.5, record 0026): crew starts a bolt reading neither the kit's
+# policy nor the host's sluice, its base place's launch asked of the runner whatever the kit's .config/sluice.toml
+# says, since the bolt's branch is Flume's to have sluice make (crew-lands-each-bolt-through-flumes-base-place,
+# Decision 3); a unit's and a fix's place on a started bolt merge into it only as Flume's submissions to sluice, crew
+# fix having no --merge since crew merges nothing, and crew reads each merged from the runner's records and the bolt's
+# verification from the runner's report of its work's landing at its head (crew record 0056 points 1 and 4); and crew's
+# own policy requires its check-full tasks of a bolt and of main, run open on the host and taking no replay (tests.5,
+# tests.10). Each scenario of the bolt-teams spec on merging; which table and checks a policy names for a bolt branch
+# is a logic case (tests/py/test_kit.py).
 # Reads: .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 bolt_world
@@ -18,13 +18,13 @@ for u in a b; do crew unit add $u "Unit $u." --bolt tenant-environments >/dev/nu
 held() { git --git-dir "$(remote WilldanGroup/crew-state)" show wldn/main:plan.rec | recsel -t Bolt -e "Bolt = 'tenant-environments'" -P Path; }
 
 git -C "$k" rm -q .config/sluice.toml; commit_all "$k" "chore: no policy"; push "$k"
-expect_fail "switchboard-kit merges only through sluice, and has no $k/.config/sluice.toml on origin/main" crew bolt start tenant-environments
-mkdir -p "$k/.config"; printf '[branches.main]\nrequired = ["#check-full"]\nremote = "origin"\n' > "$k/.config/sluice.toml"
-commit_all "$k" "chore: a policy for main alone"; push "$k"
-expect_fail "switchboard-kit merges only through sluice, and its $k/.config/sluice.toml names no checks for its bolt branches" crew bolt start tenant-environments
-eq "$(held)" ""
-git -C "$k" rev-parse --verify -q bolt/tenant-environments >/dev/null && fail "a refused start made the bolt's branch"
-ok "a bolt is started only in a kit whose policy on main names its bolt branches' checks, a refusal naming the file and changing nothing"
+: > "$CREW_TEST_LOG"
+expect_ok crew bolt start tenant-environments
+has "$out" "tenant-environments's base place, bolt/tenant-environments, is asked of the runner (request 1)"
+eq "$(held)" "flume"
+git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse --verify -q bolt/tenant-environments >/dev/null && fail "the start made the bolt's branch"
+! grep -qE " (sluice|ssh) " "$CREW_TEST_LOG" || fail "the start read a policy or a sluice: $(grep -E " (sluice|ssh) " "$CREW_TEST_LOG")"
+ok "a bolt is started reading neither the kit's policy nor a sluice, its base place asked of the runner and no branch made"
 
 # fix_lands <bolt> <name> <file>: what Flume does with a launched fix once its code has delivered, as flume_lands does
 # with a unit or chore: its place, cut from the bolt on GitHub, commits the fix and submits it to the bolt through
@@ -42,9 +42,9 @@ fix_lands() {
   runner_writes $box "$(request_of "fix/$1/$2")" "$p" "$(landed_status "$p" "$head")"
 }
 landed() { git --git-dir "$(remote WilldanGroup/switchboard-kit)" log -1 --format='%an %s%n%(trailers:key=Sluice-Result,valueonly)' bolt/tenant-environments | grep .; }
-printf '[branches."bolt/*"]\nrequired = ["#check-full"]\nremote = "origin"\n' >> "$k/.config/sluice.toml"; commit_all "$k" "chore: a policy for bolts"; push "$k"
-expect_ok crew bolt start tenant-environments
-eq "$(held)" "flume"
+mkdir -p "$k/.config"; printf '[branches."bolt/*"]\nrequired = ["#check-full"]\nremote = "origin"\n' > "$k/.config/sluice.toml"
+commit_all "$k" "chore: a policy for bolts"; push "$k"
+base_made $box tenant-environments
 flume_lands $box unit a tenant-environments
 eq "$(landed)" $'sluice chore(land): #1 unit/a\npassed (stub)'
 eq "$(stage a)" "merged"
@@ -53,9 +53,9 @@ expect_fail "unrecognized arguments: --merge" crew fix tenant-environments edge-
 fix_lands tenant-environments edge-sign-in sign-in
 eq "$(landed)" $'sluice chore(land): #2 fix/tenant-environments/edge-sign-in\npassed (stub)'
 expect_ok crew bolts tenant-environments --json
-eq "$(jq -r '.partitions[0].plans[0].bolts[0] | "\(.fixes[0].fix) \(.fixes[0].merged) \(.verification.state)"' <<<"$out")" \
+eq "$(jq -r '.drives[0].plans[0].bolts[0] | "\(.fixes[0].fix) \(.fixes[0].merged) \(.verification.state)"' <<<"$out")" \
   "fix/tenant-environments/edge-sign-in true green"
-eq "$(jq -r '.partitions[0].plans[0].bolts[0] | "\(.verification.state), \(.verification.said)"' <<<"$out")" \
+eq "$(jq -r '.drives[0].plans[0].bolts[0] | "\(.verification.state), \(.verification.said)"' <<<"$out")" \
   "green, its head $(git -C "$k" rev-parse origin/bolt/tenant-environments | cut -c1-7) is tenant-environments--edge-sign-in's landing, as the runner reports it"
 ok "a unit's and a fix's merge into a started bolt is Flume's submission to sluice, crew merging nothing, and crew reads each merged and the bolt's verification from the runner's report of its work's landing at its head"
 

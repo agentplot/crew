@@ -1,5 +1,5 @@
 """A word from the board (record 0038 §3, the board-page spec "A word reaches its agent as the user's tell from the
-board, naming the item", "A word not of the board's form is refused" and "A word from the board answers nothing"):
+board, naming the item", "A word not of the board's form is refused" and "Words from the board are not the user's answer to a batch or a record"):
 crew.board_word for the check of what the board's listener pipes, crew.board_tell for the tell it makes, and the
 refusals of a landing, a batch's answer and a record settled on words that came from the board. That the command
 reaches the planner's pane on its host is the main level's journey's (t-journey-main)."""
@@ -13,7 +13,7 @@ import facts
 import plan
 import transcript
 
-FLEET = {**facts.FLEET, "partitions": {**facts.FLEET["partitions"], "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
+FLEET = {**facts.FLEET, "drives": {**facts.FLEET["drives"], "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 
 
 def word(**f):
@@ -46,6 +46,15 @@ class TestTell:
         with pytest.raises(crew.Refusal, match="no item of the kind 'team'"):
             crew.board_word(FLEET, word(key="team:swb-1", to="wldn-operator"))  # no team has a dock
 
+    def test_a_word_on_the_drive_goes_to_its_operator_and_the_former_kind_is_refused(self, told):
+        """A word on the drive itself, `drive:<label>`, goes to the drive's operator, its door; the kind named for a
+        partition is no kind of an item."""
+        assert crew.board_word(FLEET, word(key="drive:wldn", to="wldn-operator")) == ("wldn-operator", "(on drive wldn) Keep the zone check")
+        with pytest.raises(crew.Refusal, match="a word on a drive goes to wldn-operator, not wldn-planner"):
+            crew.board_word(FLEET, word(key="drive:wldn", to="wldn-planner"))
+        with pytest.raises(crew.Refusal, match="no item of the kind 'partition'"):
+            crew.board_word(FLEET, word(key="partition:wldn", to="wldn-operator"))
+
     def test_a_word_on_a_bolt_or_a_fix_goes_to_the_planner(self, told):
         """board-page "Each kind's agent": a bolt's and a fix's word goes to the planner, as a unit's does."""
         assert crew.board_word(FLEET, word(key="bolt:tenant-environments"))[0] == "wldn-planner"
@@ -74,7 +83,7 @@ class TestRefused:
         ('["wldn"]', "one JSON object holding label, key, to and text"),
         (json.dumps({"label": "wldn", "key": "unit:a", "to": "wldn-planner"}), "one JSON object holding label, key, to and text"),
         (word(text=7), "one JSON object holding label, key, to and text"),
-        (word(label="nosuch"), "no partition 'nosuch'. partitions: wldn swancloud"),
+        (word(label="nosuch"), "no drive 'nosuch'. drives: wldn swancloud"),
         (word(key="ledger:a"), "a word from the board is on no item of the kind 'ledger': kinds signal proposal"),
         (word(key="unit:a b"), "a word from the board is on an item's key, <kind>:<name>, not 'unit:a b'"),
         (word(key="proposal:4", to="wldn-ops"), "a word on a proposal goes to wldn-planner, not wldn-ops"),
@@ -96,7 +105,7 @@ class TestRefused:
 
 
 class TestAnswersNothing:
-    """board-page "A word from the board answers nothing": words verified as the user's only in a tell from the board
+    """board-page "Words from the board are not the user's answer to a batch or a record": words verified as the user's only in a tell from the board
     land no bolt, answer no batch and settle no record, each saying where the user answers instead; the same words
     typed in the pane, a verdict not from the board, still do."""
     FROM_BOARD = "the words came from the board, which answers nothing"
@@ -104,11 +113,13 @@ class TestAnswersNothing:
     def heard(self, board):
         return transcript.Verdict("verified", raw=b'{"type": "user"}', n=4, value={"uuid": "u-60"}, asserted_by="user", board=board)
 
-    def test_a_landing_asked_from_the_board_submits_nothing(self):
-        """board-page "A landing asked from the board"."""
-        assert plan.submit_word_refusal("y", self.heard(True)) == (
-            f"crew submits nothing of bolt y: {self.FROM_BOARD}; the user lands a bolt on its landing card or in main-level ops's pane")
-        assert plan.submit_word_refusal("y", self.heard(False)) is None
+    def test_a_stop_asked_from_the_board_records_nothing(self):
+        """board-page "No words, from the board or a pane, land a bolt" (crew-lands-each-bolt-through-flumes-base-place): no word
+        in a pane lands a bolt, so the board's words are judged where a pane's still count, a stop of a landing."""
+        assert plan.leave_word_refusal("y", self.heard(True)) == (
+            f"crew records no stop of bolt y: {self.FROM_BOARD}; the user stops a landing on its kit's landings card or in "
+            "main-level ops's pane")
+        assert plan.leave_word_refusal("y", self.heard(False)) is None
 
     def test_a_batch_answered_from_the_board_is_not_answered(self):
         """board-page "A batch answered from the board"."""

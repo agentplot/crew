@@ -1,7 +1,7 @@
 # agent-models Specification
 
 ## Purpose
-Says which model and effort each agent crew starts runs with, where they are set, and how one team or partition overrides them.
+Says which model and effort each agent crew starts runs with, where they are set, and how one team or drive overrides them.
 
 ## Requirements
 
@@ -17,14 +17,14 @@ Each role crew starts SHALL be an agent definition, `plugin/roles/<role>.md` in 
 - **THEN** that role's next start uses it, with no deploy
 
 ### Requirement: The teams file overrides a role's model or effort
-A partition's main level in `teams.json` MAY set `roles.<role>.model` or `roles.<role>.effort` for its design agent, planner, main-level ops, operator or reviewer. crew SHALL start that role there with the override instead of its definition's value. An override naming a role or an effort level that does not exist SHALL be refused with a message naming it.
+A drive's main level in `teams.json` MAY set `roles.<role>.model` or `roles.<role>.effort` for its design agent, planner, main-level ops, operator or reviewer. crew SHALL start that role there with the override instead of its definition's value. An override naming a role or an effort level that does not exist SHALL be refused with a message naming it.
 
-#### Scenario: One partition's planner
-- **WHEN** wldn's partition entry sets `roles.planner.effort` to `max`
+#### Scenario: One drive's planner
+- **WHEN** wldn's drive entry sets `roles.planner.effort` to `max`
 - **THEN** wldn's planner starts at max, and madswan's at its definition's xhigh
 
 #### Scenario: A dispatcher's override
-- **WHEN** a partition's entry sets `roles.dispatcher.effort`
+- **WHEN** a drive's entry sets `roles.dispatcher.effort`
 - **THEN** crew refuses to load the teams file, naming the role it has no definition for
 
 ### Requirement: Each standing role starts on its model at its effort level
@@ -38,8 +38,8 @@ Every definition SHALL set this model, each with its 1M-token context, and this 
 - **WHEN** anything asks crew for the brief of `conductor`, `ops`, `dispatcher`, `construct`, `coder` or `verify`
 - **THEN** crew refuses, naming the definition it has no file for
 
-### Requirement: The design agent is the partition's one design role
-No role SHALL be called fable. The design agent at the main level SHALL take over what fable did, and SHALL be the partition's one design role.
+### Requirement: The design agent is the drive's one design role
+No role SHALL be called fable. The design agent at the main level SHALL take over what fable did, and SHALL be the drive's one design role.
 
 #### Scenario: The main level's one design role
 - **WHEN** `crew main up wldn` runs

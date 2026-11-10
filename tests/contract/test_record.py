@@ -44,6 +44,25 @@ def test_an_older_days_file_takes_a_cards_fields_and_is_pushed_under_the_descrip
     assert subprocess.run(["recsel", "-t", "Entry", "-P", "Card", str(f)], capture_output=True, text=True).stdout.strip() == "req_old-1"
 
 
+def test_an_older_days_file_takes_a_lands_request_and_is_pushed_under_the_descriptor_that_allows_it(runs, tmp_path):
+    """run-record "A day's file an older crew began" (crew-lands-each-bolt-through-flumes-base-place, Decision 4): the
+    host's day file began under a descriptor allowing no Request, and crew records an asked bolt.submit with Request 57
+    in it, which recsel reads, and the day pushed carries the descriptor that allows it and passes recfix --check
+    (record.emit, record.unpushed, plan.lands_change)."""
+    day = record.path_for("wldn", "mac-studio", datetime.datetime.now(datetime.timezone.utc).date().isoformat())
+    day.write_text(record.DESCRIPTOR.replace(" Request", ""))
+    assert "Request" not in day.read_text()
+    assert record.emit("wldn", "bolt.submit", ["bolt/y"], Card="req_k1", Head="abc1234", Request="57", Outcome="asked")
+    got = subprocess.run(["recsel", "-t", "Entry", "-e", "Act = 'bolt.submit'", "-P", "Request", str(day)], capture_output=True, text=True)
+    assert got.stdout.strip() == "57"
+    (*_, text), = record.unpushed("wldn", lambda path: None)[0]
+    f = tmp_path / "pushed.rec"
+    f.write_text(text)
+    assert re.search(r"^%allowed:.* Request\b", text, re.M)
+    assert subprocess.run(["recfix", "--check", str(f)], capture_output=True).returncode == 0
+    assert subprocess.run(["recsel", "-t", "Entry", "-P", "Request", str(f)], capture_output=True, text=True).stdout.strip() == "57"
+
+
 def test_a_days_file_begun_now_allows_them(runs):
     assert record.emit("wldn", "card.post", ["unit/y"], Card="req_new-1", Key="verify/y/20261007-1500")
     day, = runs.glob("*.rec")
@@ -203,7 +222,7 @@ def test_a_plan_write_is_read_at_the_tip_it_leaves_once_it_returns_and_one_given
     """plan.2, read.5 (every-plan-write-is-an-act-with-its-entry): the write's commit names its entry, the write records
     it, and its own commit follows before the write returns, so no decision after it reads the branch below it; a write
     given no act, whose commit would name an entry nothing writes, is refused with the branch where it was."""
-    fleet = {"partitions": {}, "hosts": {}}
+    fleet = {"drives": {}, "hosts": {}}
     monkeypatch.setattr(crew, "load", lambda: fleet)
     monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
 

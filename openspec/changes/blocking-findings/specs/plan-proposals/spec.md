@@ -15,7 +15,7 @@
 
 #### Scenario: Someone other than the planner
 - **WHEN** a conductor runs `crew plan propose`
-- **THEN** it is refused; only the partition's planner and the user write proposals
+- **THEN** it is refused; only the drive's planner and the user write proposals
 
 #### Scenario: An amendment to a unit in flight
 - **WHEN** the planner proposes `unit amend <unit> "<new intent>"` for a unit in code in a bolt a team holds

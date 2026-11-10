@@ -12,7 +12,7 @@ import transcript
 
 import plan
 
-FLEET = {"partitions": {"swancloud": {"label": "swancloud", "machine": "deneb"}}, "hosts": {}}
+FLEET = {"drives": {"swancloud": {"label": "swancloud", "machine": "deneb"}}, "hosts": {}}
 WORDS = "Batch 13 is fine, approve it"
 
 
@@ -103,7 +103,7 @@ class Py:
 
 class Acts:
     """A stand-in for what crew card answer and the batch's wait reach: Pending You, this host's run record and the
-    partition's whole, the caller's transcript, a tell and the batch's reading session. rounds, when given, are this
+    drive's whole, the caller's transcript, a tell and the batch's reading session. rounds, when given, are this
     host's entries as each read finds them, the last read again once they run out."""
 
     def __init__(self, caller="swancloud-planner", entries=HELD, verdict=USER, card=None, told=True, rounds=None, whole=None, session=True):
@@ -124,7 +124,7 @@ class Acts:
             return self.rounds.pop(0) if len(self.rounds) > 1 else self.rounds[0]
         return self.held + [e for e in self.emitted if e["Act"] == "card.close"]
 
-    def partition(self, label):
+    def drive(self, label):
         return self.held if self.whole is None else self.whole
 
     def heard(self, words):
@@ -140,11 +140,8 @@ class Acts:
         self.ended.append(key)
         return f"ended {key}'s session, plannotator pid 42"
 
-    def release_preview(self, label, key):
-        return None
-
-    def release_previews(self, label, key):  # nothing was brought up from the batch's card
-        return None
+    def runner(self, label):  # no preview asked from the batch's card, so its close puts none away
+        return [], {}
 
     def host(self):
         return "deneb"
@@ -152,7 +149,7 @@ class Acts:
     def caller(self):
         return self.who
 
-    def kits(self, label):  # the kits the partition's teams build, which tell land/<kit> from land/<bolt>
+    def kits(self, label):  # the kits the drive's teams build, which tell land/<kit> from land/<bolt>
         return ("switchboard-kit",)
 
 

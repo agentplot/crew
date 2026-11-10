@@ -1,8 +1,8 @@
 # What reaches the user, through the crew command on the stubs (tests.11, record 0022), with every team's work run
 # through Flume (Decision 1 of the-team-machinery-leaves): changes two teams' Flume places land on their bolts on the
-# box, archived, make a batch due at the partition's setting, told to the planner once on the rail's read, and crew
-# review starts the reviewer, while mac-studio, a host of the partition holding none of the batch's work, does not
-# answer, since both read the run record from the partition's branch (read.5); the reviewer is sent each change archived
+# box, archived, make a batch due at the drive's setting, told to the planner once on the rail's read, and crew
+# review starts the reviewer, while mac-studio, a host of the drive holding none of the batch's work, does not
+# answer, since both read the run record from the drive's branch (read.5); the reviewer is sent each change archived
 # at the commit its bolt holds it and how to read it on its team's host, over ssh for another host's, taken or sent
 # again, a batch it takes at neither sending refused with nothing left typed and --wait refused on it, and the next
 # crew review ending the reviewer idle with no batch and starting it afresh (teams.15, teams.2); its summary ends
@@ -73,11 +73,12 @@ commit_all "$w" "plan: by hand"; push_state "$w"
 flume_world
 keeps $box breadboard-kit "$bk"  # the box's runner keeps breadboard-kit beside switchboard-kit
 crew bolt start b1 >/dev/null; crew bolt start d1 >/dev/null
+base_made $box b1; base_made $box d1 "$bk"  # the box's runner launches each base place, which has sluice make its branch
 mkdir -p "$(space mac-studio willdan)/willdan-blueprints/main"
 crew main up wldn >/dev/null 2>&1
-# A batch every two changes. The runner's records carry each place at 12:01Z on 2026-10-31, so the partition's clock is
+# A batch due after two changes. The runner's records carry each place at 12:01Z on 2026-10-31, so the drive's clock is
 # set past any day this test runs on, and the count alone makes the batch due.
-edit teams "$(part wldn)['review'] = {'every': 2, 'hours': 100000}"
+edit teams "$(part wldn)['review'] = {'after_changes': 2, 'after_hours': 100000}"
 planner_told() { grep -c "^$box wldn-3 agent prompt wldn-planner '\[crew\] A batch of wldn" "$CREW_TEST_LOG" || true; }
 : > "$CREW_TEST_LOG"
 # y1's place lands on d1, cut from it in breadboard-kit's checkout on the box; the box's rail read reckons the batch,
@@ -85,16 +86,16 @@ planner_told() { grep -c "^$box wldn-3 agent prompt wldn-planner '\[crew\] A bat
 k=$bk flume_lands $box unit y1 d1
 HOST=$box expect_ok crew rail --label wldn
 eq "$(planner_told)" "0"
-# mac-studio, a host of the partition where atl-1 runs and holding none of the batch's work, does not answer the box
+# mac-studio, a host of the drive where atl-1 runs and holding none of the batch's work, does not answer the box
 # from here on: the batch is reckoned from wldn/main and the kits on the box.
 echo mac-studio > "$T/down"
 flume_lands $box unit x1 b1
 HOST=$box expect_ok crew rail --label wldn
 HOST=$box expect_ok crew rail --label wldn
 eq "$(planner_told)" "1"
-has "$(grep "agent prompt wldn-planner" "$CREW_TEST_LOG")" "s changes is due: x1 (b1), y1 (d1); 2 changes are due, and a batch is every 2. Start its reviewer with crew review wldn"
+has "$(grep "agent prompt wldn-planner" "$CREW_TEST_LOG")" "s changes is due: x1 (b1), y1 (d1); 2 changes are due, and a batch is due after 2. Start its reviewer with crew review wldn"
 eq "$(entries $box batch.due | jq -r '[.Count, (.On | join(" "))] | join(" ")')" "2 agent/wldn-planner unit/x1 unit/y1"
-ok "changes two teams' places landed on their bolts make a batch due at the partition's setting, told to its planner once, on the rail's read, while a host of the partition holding none of them does not answer"
+ok "changes two teams' places landed on their bolts make a batch due at the drive's setting, told to its planner once, on the rail's read, while a host of the drive holding none of them does not answer"
 
 x1at=$(git -C "$k" rev-parse origin/bolt/b1) y1at=$(git -C "$bk" rev-parse origin/bolt/d1)
 : > "$CREW_TEST_LOG"; : > "$CREW_TEST_CLAUDE_LOG"
@@ -125,7 +126,7 @@ CREW_AGENT=wldn-planner expect_ok crew review wldn --wait
 eq "$out" "batch summary: $summary"
 eq "$(entries $box card.post | jq -r .Card)" "req_stub-1"
 eq "$(herdr_state $box wldn-3 '[.tabs[] | select(.workspace == "w1") | .label] | join(",")')" "design,planner,ops,operator"
-ok "the planner starts the reviewer fresh in a review tab, not greeted, sent once each change archived at its bolt's commit and how to read it on its team's host, while a host of the partition holding none of them does not answer, and no second while it reviews; its summary ends the batch, recorded at those commits, raises its card in the planner's name once, its reading tried twice, and closes its tab"
+ok "the planner starts the reviewer fresh in a review tab, not greeted, sent once each change archived at its bolt's commit and how to read it on its team's host, while a host of the drive holding none of them does not answer, and no second while it reviews; its summary ends the batch, recorded at those commits, raises its card in the planner's name once, its reading tried twice, and closes its tab"
 
 records() { cat "$(home_of mac-studio)"/.local/state/crew/wldn/runs/*/*.rec "$(home_of $box)"/.local/state/crew/wldn/runs/*/*.rec 2>/dev/null | wc -l || true; }
 tip=$(git --git-dir "$ws" rev-parse wldn/main) n=$(records)
@@ -181,6 +182,7 @@ ok "a batch card's one session reads the summary and every unit's change, archiv
 # m1 is started, its work taken by mac-studio's runner, which keeps atlas-kit, and z1's place lands on it there.
 keeps mac-studio atlas-kit "$ak"
 crew bolt start m1 >/dev/null
+base_made mac-studio m1 "$ak"
 k=$ak flume_lands mac-studio unit z1 m1
 z1at=$(git -C "$ak" rev-parse origin/bolt/m1)
 
@@ -321,7 +323,7 @@ ok "a bolt added tells no agent; crew tell marks its sender, types nothing to an
 # wldn's reviewer and planner run as their kinds: crew review asks the reviewer the batch, opening no tab; the
 # reviewer's run takes it with crew role start and hands it back with crew review delivered once its summary is
 # written, which records the batch, raises its card in the planner's name and asks the planner, typing into no pane.
-role_stream wldn reviewer wldn-main; role_stream wldn planner wldn-main
+role_runs wldn reviewer on-demand; role_runs wldn planner on-demand
 flume_lands $box unit v1 b1
 : > "$CREW_TEST_LOG"; : > "$CREW_TEST_CLAUDE_LOG"
 CREW_AGENT=wldn-planner expect_ok crew review wldn

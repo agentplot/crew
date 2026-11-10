@@ -68,28 +68,38 @@ def told(minutes=0):
 
 
 def keeping(at, *repos):
-    """A host's spaces as the hosts file has them, one session keeping each repository (owner/name) in its folder at:
-    each kit's main checkout at <at>/<name>/main, where crew acts on a kit no runner has taken work of (crew.kit_kept,
-    plan.main_kit)."""
-    return {"sessions": {"main": {"dir": at, "repos": list(repos)}}}
+    """A drive's keeping as the teams file gives it (record 0064): its herdr session's folder at, keeping each repository
+    (owner/name) it lists in its `repos`, each kit's main checkout at <at>/<name>/main, where crew acts on a kit no
+    runner has taken work of (crew.kit_kept, plan.main_kit). Merged into a drive's entry."""
+    return {"folder": at, "repos": list(repos)}
 
 
-# Every role of a partition stands, its flume false throughout.
-STANDING = {r: False for r in ("design", "planner", "reviewer", "ops", "operator")}
-# The teams file at version 5 as crew.load reads it, its partitions alone: wldn's main level runs on mac-studio, whose
-# spaces keep its kits in /w.
-FLEET = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "review": {"every": 5, "hours": 4}, "flume": STANDING}},
-         "hosts": {"mac-studio": keeping("/w", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit")}}
+def kept_by(fleet, label, at, *repos):
+    """fleet with drive label's folder at, keeping repos there (keeping)."""
+    return dict(fleet, drives=dict(fleet["drives"], **{label: dict(fleet["drives"][label], **keeping(at, *repos))}))
+
+
+# The hosts crew reaches, as the teams file's `hosts` gives them: each by its name, its ssh name the same.
+HOSTS = {"mac-studio": {"ssh": "mac-studio", "kind": "darwin"}, "deneb": {"ssh": "deneb", "kind": "darwin"},
+         "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}}
+# Every role of a drive stands, its `runs` naming each standing.
+STANDING = {r: "standing" for r in ("design", "planner", "reviewer", "ops", "operator")}
+# The teams file at version 6 as crew.load reads it: wldn's main level runs on mac-studio, its folder /w keeping its
+# kits, every role on account madswan.
+FLEET = {"drives": {"wldn": dict({"label": "wldn", "machine": "mac-studio", "review": {"after_changes": 5, "after_hours": 4}, "runs": STANDING,
+                                  "accounts": {r: "madswan" for r in STANDING}},
+                                 **keeping("/w", "WilldanGroup/atlas-kit", "WilldanGroup/breadboard-kit", "WilldanGroup/switchboard-kit"))},
+         "hosts": {"mac-studio": HOSTS["mac-studio"]}, "consoles": {}}
 
 
 KITS = ("switchboard-kit", "breadboard-kit")
 
 
 def kits_of(found):
-    """Each partition's kits as the rail's read holds them (plan.kits_at), from its plan alone, a read's found as
+    """Each drive's kits as the rail's read holds them (plan.kits_at), from its plan alone, a read's found as
     plan.plans gives it: a case that needs a kit its landings name gives it itself."""
     import plan
-    return {l: plan.partition_kits(p, []) for l, _, _, p in found}
+    return {l: plan.drive_kits(p, []) for l, _, _, p in found}
 
 
 def plan_text(bolts=(), units=()):
@@ -107,7 +117,7 @@ def plan_text(bolts=(), units=()):
 class FactsWrite:
     """A plan.Write over a plan in memory: its files given, which it lists (paths) and reads (texts) as the branch's at
     its tip, each host's runner as given (runners, {host: its reading as runner.host_read gives it}), the run record at
-    its tip as given (entries, oldest first, none unless given; logged, which a case may set after), the partition's
+    its tip as given (entries, oldest first, none unless given; logged, which a case may set after), the drive's
     kits read from those entries, and a refusal for a missing bolt or unit that reads no git for the commit that removed
     it."""
 
@@ -135,10 +145,33 @@ class FactsWrite:
                 return list(self.logged)
 
             def kits(self):
-                return plan.partition_kits(self.plan, self.logged)
+                return plan.drive_kits(self.plan, self.logged)
         w = W(None, label, None, plan.Plan(text))
         w.files, w.logged = dict(files or {}), list(entries)
         return w
+
+
+def writes_at(monkeypatch, tip, text="%rec: Bolt\n\n%rec: Unit\n\n", label="swancloud"):
+    """plan.write stood in for by a write applied to a tip in memory: each change applied to a FactsWrite over text,
+    whose run record is tip (a list, oldest first, that each write's entries join, so a later write is applied to the
+    tip an earlier one left), a change that raises plan.Unposted writing nothing; each write's entries, its act's and
+    each also, as record.parse gives them with a refusal as refused and a Why as why, appended to the list returned."""
+    import plan
+    written = []
+
+    def write(fleet, label_, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
+        w = FactsWrite(text, label=label, entries=list(tip))
+        change(w)
+        es = [dict({**(fields or {}), **w.fields}, Act=w.act or act, On=list(on) + w.on, by=by, why=w.why or why)]
+        es += [dict({k: v for k, v in more.items() if k != "why"}, Act=a, On=list(o), by=by, why=more.get("why") or w.why or why)
+               for _, a, o, more in w.also]
+        for e in es:
+            tip.append(dict({k: v for k, v in e.items() if k not in ("refused", "why", "by")},
+                            **({"Refused": e["refused"]} if e.get("refused") else {}), **({"Why": e["why"]} if e.get("why") else {})))
+        written.extend(es)
+        return "c" * 40
+    monkeypatch.setattr(plan, "write", write)
+    return written
 
 
 def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standing=()):
@@ -173,7 +206,7 @@ def known(w, stages=None, taken=(), n=None, chores_taken=(), fleet=None, standin
         def first_open(self, label, p, bolt):
             return next((u.name() for u in p.work_of(bolt) if self.of(u.name())["stage"] not in ("merged", "landed")), None)
 
-        def kit(self, kit):  # the partition the command runs as, as plan.plan_for has it given a label
+        def kit(self, kit):  # the drive the command runs as, as plan.plan_for has it given a label
             return self.label
     return Known(fleet or FLEET, w.label, w, n)
 
@@ -200,7 +233,7 @@ CREW_KIT = {"name": "crew", "repo": "afterthought/crew"}
 def madswan_fleet():
     """madswan's fleet as crew.load reads it, its main level on deneb, whose runner takes crew's work (afterthought/crew)
     in stream madswan, as ran reports it."""
-    return {"partitions": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
+    return {"drives": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
 
 
 # Where madswan's started bolts of crew run, as plan.bolt_at gives it from the runner's report (ran): deneb, stream
@@ -245,14 +278,18 @@ def flume_fixture(name):
     return (FLUME.parent if "/" in name else FLUME) / f"{name}.json"
 
 
-def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", unplaced=None, refused=None):
+def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew/main", unplaced=None, refused=None,
+        keeps=("afterthought/crew",), commits=None):
     """A host's runner as crew reads it from its branch (runner.host_read): each launch in launched, {request's number:
     the Flume status fixture its place stands at (flume_fixture: tests/py/flume-0.3.6/<name>.json, or another version's
     named with its folder)}, answered launched and carried in places.rec at the fixture's own place, its repository given
-    as repository, the kit's folder on host where crew reads it (runner.where), and its stream the partition's label, as
-    its host's Flume configuration maps it; each in unplaced, {request's number: its place}, answered launched at that
-    place with no status of it carried yet; each in held answered held, with the runner's words where held is
-    {request's number: words}; and each in refused, {request's number: the runner's words}, answered refused."""
+    as repository, and its stream the drive's label, as its host's Flume configuration maps it; each in unplaced,
+    {request's number: its place}, answered launched at that place with no status of it carried yet; each in held
+    answered held, with the runner's words where held is {request's number: words}; and each in refused, {request's
+    number: the runner's words}, answered refused; each in commits, {request's number: a commit}, has its fixture's
+    landed commit, as a place tidied over landed names it, set to that commit. Its repositories.rec names each forge address in keeps at repository,
+    the kit's folder on host where crew reads it (runner.where, Decision 1 of a-bolts-landing-on-main-reads-landed); a
+    runner given no repository, or keeps None, reports no repositories."""
     import json
     import plan
     import runner
@@ -261,6 +298,8 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
         status = json.loads(flume_fixture(name).read_text())
         for p in status["status"]["places"]:
             p.update(repository=repository, stream={"name": label, "from": "intent"})
+            if n in (commits or {}):
+                p["phase"]["tidied"]["over"]["landed"]["commit"] = commits[n]
         where = status["status"]["places"][0]["place"].split("@")[0]
         answers += f"\nRequest: {n}\nOutcome: launched\nPlace: {where}\nAt: 2026-10-31T12:01:00Z\n"
         places += f"\nRequest: {n}\nPlace: {where}\nAt: 2026-10-31T12:02:00Z\nStatus: {json.dumps(status)}\n"
@@ -271,13 +310,17 @@ def ran(launched=None, held=(), host="deneb", label="madswan", repository="/crew
     answers += "".join(f"\nRequest: {n}\nOutcome: refused\nWords: {w}\nAt: 2026-10-31T12:01:00Z\n" for n, w in (refused or {}).items())
     files = {"runner.rec": plan.Plan(runner.RUNNER + f"\nHost: {host}\nVersion: 0.1.0\nSince: 2026-10-31T11:00:00Z\n"),
              "answers.rec": plan.Plan(runner.ANSWERS + answers), "places.rec": plan.Plan(runner.PLACES + places)}
+    if repository is not None and keeps is not None:
+        files["repositories.rec"] = plan.Plan(runner.REPOSITORIES + "".join(f"\nRepository: {a}\nFolder: {repository}\n" for a in keeps))
     return {host: runner.host_read(label, host, "5e1f0c2a" + "0" * 32, files, {})}
 
 
-def launched(bolts, work=(), fleet=None, planned=()):
+def launched(bolts, work=(), fleet=None, planned=(), base=True):
     """madswan's plan (flume_plan) with each bolt in bolts started and its work launched as a start launches it
-    (plan.reach_places), and each bolt in planned planned and not started: (the plan, requests.rec's records as the
-    writes leave them). The requests name their writer: set CREW_AGENT first."""
+    (plan.reach_places), then, with base, each bolt's base place (runner.bolt_launch), after its pieces so their
+    numbers are those a case names, unanswered, a bolt of this crew's and not one started before bolts were base
+    places; and each bolt in planned planned and not started: (the plan, requests.rec's records as the writes leave
+    them). The requests name their writer: set CREW_AGENT first."""
     import plan
     import runner
     fleet = fleet or madswan_fleet()
@@ -285,4 +328,7 @@ def launched(bolts, work=(), fleet=None, planned=()):
     for b in bolts:
         w.plan.bolt(b).set("Path", "flume")
         plan.reach_places(fleet, w, b)
+    for b in bolts if base else ():  # each bolt's base place, after its pieces so their numbers stand, unanswered
+        act, work_, given = runner.bolt_launch(w.plan, b, "madswan")
+        plan.request(w, act, work_, **given)
     return w.plan, plan.Plan(w.files.get("requests.rec") or runner.REQUESTS).recs("Request")

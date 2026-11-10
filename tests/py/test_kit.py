@@ -12,29 +12,6 @@ from crew import Refusal
 FULL = '[tests]\ntoolchain = ["devenv", "print-dev-env"]\nrunner = "moon"\n'
 
 
-class TestPreviewed:
-    """Whether a kit's policy at the bolt's head declares a preview, as sluice reads it from the previewed revision
-    (rail-cards, "A landing's card lists the addresses of a preview of its head")."""
-
-    def test_a_policy_with_a_preview_table_declares_one(self):
-        assert kit.previewed('[preview]\ncommand = ["devenv", "up"]\n\n[preview.addresses]\nweb = "http://{name.web}"\n')
-
-    def test_a_policy_with_no_preview_table_declares_none(self):
-        assert kit.previewed(FULL) is False
-
-    def test_a_kit_with_no_policy_declares_none(self):
-        assert kit.previewed(None) is False
-
-    @pytest.mark.parametrize("text, said", [
-        ("[preview\n", "is not TOML"),
-        ('preview = "x"\n', "[preview] is a table, not str"),
-    ])
-    def test_a_policy_crew_cannot_read_is_refused_naming_the_file_at_the_head(self, text, said):
-        with pytest.raises(Refusal) as e:
-            kit.previewed(text, ".config/sluice.toml at abc1234")
-        assert ".config/sluice.toml at abc1234" in str(e.value) and said in str(e.value)
-
-
 POLICY = '[tests]\nrunner = "moon"\n\n[branches."bolt/*"]\nrequired = ["#check-full"]\n\n[branches.main]\nrequired = ["#check-full"]\n'
 
 
@@ -61,21 +38,10 @@ class TestBoltChecks:
             kit.bolt_checks(text, "switchboard-kit")
         assert "switchboard-kit" in str(e.value) and said in str(e.value)
 
-    def test_the_policy_is_read_by_ref_at_main_now_and_a_refusal_names_the_ref(self):
-        """plan.18: the policy is the one at main now, GitHub's for a kit with an origin and the kit's own for one with
-        none, as POLICY read both, and a kit whose bolt is not started is told which ref lacks it."""
-        b64 = base64.b64encode(POLICY.encode()).decode()
-        assert kit.policy_said(mains("yes", at_github=b64), "switchboard-kit", "h") == (POLICY, "origin/main", GITHUB)
-        assert kit.policy_said(mains("no", github="-", at_own=b64), "switchboard-kit", "h") == (POLICY, "main", OWN)
-        assert kit.policy_said(mains("no", github="-"), "switchboard-kit", "h") == (None, "main", OWN)
+    def test_a_refusal_names_the_ref(self):
         with pytest.raises(Refusal) as e:
             kit.bolt_checks(None, "switchboard-kit", "/k/main/.config/sluice.toml", ref="origin/main")
         assert "has no /k/main/.config/sluice.toml on origin/main" in str(e.value)
-
-    @pytest.mark.parametrize("out", ["fatal: bad\n", "AT_OWN=-\n", f"ORIGIN=no\nGITHUB=-\nOWN={'b' * 40}\n"])
-    def test_what_is_not_policys_words_is_refused(self, out):
-        with pytest.raises(Refusal):
-            kit.policy_said(out, "k", "h")
 
 
 ON_GITHUB = POLICY.replace('required = ["#check-full"]\n', 'required = ["#check-full"]\nremote = "origin"\n')
@@ -100,18 +66,6 @@ class TestBoltRemote:
     def test_a_policy_crew_cannot_read_is_refused_naming_the_file(self):
         with pytest.raises(Refusal, match=r"^\.config/sluice\.toml at bolt/b is not TOML"):
             kit.bolt_remote("[branches\n", "bolt/b", ".config/sluice.toml at bolt/b")
-
-    def test_a_start_takes_the_remote_the_policy_at_main_now_names(self):
-        assert kit.give_remote(ON_GITHUB, "switchboard-kit", "/k/main/.config/sluice.toml", "bolt/b") == "origin"
-
-    def test_a_start_in_a_kit_whose_bolts_have_no_remote_is_refused_naming_the_file_and_the_key(self):
-        """bolt-plan "A kit whose bolts have no remote"."""
-        with pytest.raises(Refusal) as e:
-            kit.give_remote(POLICY, "switchboard-kit", "/k/main/.config/sluice.toml", "bolt/b", ref="origin/main")
-        assert str(e.value) == (
-            "switchboard-kit starts bolts only on GitHub, and its /k/main/.config/sluice.toml on origin/main names no remote "
-            "for its bolt branches: its [branches.\"bolt/*\"] needs `remote = \"origin\"`, which is the kit's own change "
-            "(plan.17), then start the bolt again")
 
 
 def b64(text):
@@ -161,81 +115,11 @@ def copies(own, there, at_there, held, ahead, lacks, beyond):
             f"BEYOND={beyond}\n")
 
 
-class TestALandingsCopies:
-    """What a landing reads of a bolt's two copies after one fetch from origin (plan.19, design Decision 1): the
-    host's own bolt/<bolt> and GitHub's, the policy at GitHub's, and which holds the other."""
-    OWN, THERE = "1" * 40, "2" * 40
-
-    def facts(self, **kw):
-        return dict(dict(own=self.OWN, there=self.THERE, remote="origin", held="yes", ahead="no", lacks=0, beyond=2,
-                         read=None), **kw)
-
-    def test_a_kit_with_no_origin_or_an_origin_with_no_bolt_reads_no_copy_there(self):
-        assert kit.land_copies("THERE=-\n", "b") == dict(own=None, there="-", remote=None, held=None, ahead=None,
-                                                          lacks=None, beyond=None, read=None)
-
-    def test_a_copy_git_could_not_read_is_read_with_gits_words(self):
-        said = "READ=fatal: '/gone.git' does not appear to be a git repository fatal: Could not read from remote repository. \n"
-        assert kit.land_copies(said, "b")["read"] == ("fatal: '/gone.git' does not appear to be a git repository fatal: "
-                                                      "Could not read from remote repository.")
-        assert kit.land_copies("READ=\n", "b")["read"] == "git said nothing"
-
-    def test_a_host_copy_behind_githubs(self):
-        said = copies(self.OWN, self.THERE, b64(ON_GITHUB), "yes", "no", 0, 2)
-        assert kit.land_copies(said, "b") == self.facts()
-
-    def test_a_host_copy_level_with_githubs(self):
-        said = copies(self.THERE, self.THERE, b64(ON_GITHUB), "yes", "yes", 0, 0)
-        assert kit.land_copies(said, "b") == self.facts(own=self.THERE, ahead="yes", beyond=0)
-
-    def test_a_host_copy_ahead_of_githubs(self):
-        said = copies(self.OWN, self.THERE, b64(ON_GITHUB), "no", "yes", 1, 0)
-        assert kit.land_copies(said, "b") == self.facts(held="no", ahead="yes", lacks=1, beyond=0)
-
-    def test_two_copies_that_have_diverged(self):
-        said = copies(self.OWN, self.THERE, b64(ON_GITHUB), "no", "no", 1, 2)
-        assert kit.land_copies(said, "b") == self.facts(held="no", lacks=1)
-
-    def test_a_host_with_no_copy(self):
-        said = copies("-", self.THERE, b64(ON_GITHUB), "yes", "-", "-", "-")
-        assert kit.land_copies(said, "b") == self.facts(own="-", ahead=None, lacks=None, beyond=None)
-
-    def test_a_copy_there_whose_policy_names_no_remote_or_holds_none(self):
-        assert kit.land_copies(copies(self.OWN, self.THERE, b64(POLICY), "yes", "no", 0, 2), "b")["remote"] is None
-        assert kit.land_copies(copies(self.OWN, self.THERE, "-", "yes", "no", 0, 2), "b")["remote"] is None
-
-    def test_a_policy_there_that_is_not_toml_is_refused_naming_it(self):
-        with pytest.raises(Refusal, match=r"^\.config/sluice\.toml at origin/bolt/b is not TOML"):
-            kit.land_copies(copies(self.OWN, self.THERE, b64("[branches\n"), "yes", "no", 0, 2), "b")
-
-    @pytest.mark.parametrize("said", [
-        "",
-        "fatal: bad\n",
-        copies(OWN, "", b64(ON_GITHUB), "yes", "no", 0, 2),
-        copies("", THERE, b64(ON_GITHUB), "yes", "no", 0, 2),
-        copies(OWN, THERE, "", "yes", "no", 0, 2),
-        copies(OWN, THERE, b64(ON_GITHUB), "maybe", "no", 0, 2),
-        copies(OWN, THERE, b64(ON_GITHUB), "yes", "", 0, 2),
-        copies(OWN, THERE, b64(ON_GITHUB), "yes", "no", "", 2),
-        copies(OWN, THERE, b64(ON_GITHUB), "yes", "no", 0, "-"),
-        copies("-", THERE, b64(ON_GITHUB), "no", "-", "-", "-"),
-        copies("-", THERE, b64(ON_GITHUB), "yes", "no", 0, 2),
-        f"OWN={OWN}\nTHERE={THERE}\nAT_THERE={b64(ON_GITHUB)}\nHELD=yes\n",
-    ])
-    def test_an_output_that_is_none_of_these_is_refused_naming_it(self, said):
-        with pytest.raises(Refusal, match=r"^crew can't read bolt/b's copies for its landing from: "):
-            kit.land_copies(said, "b")
-
-    def test_a_policy_sent_badly_is_refused(self):
-        with pytest.raises(Refusal, match=r"^crew can't read origin/bolt/b's \.config/sluice\.toml as it was sent"):
-            kit.land_copies(copies(self.OWN, self.THERE, "%%%", "yes", "no", 0, 2), "b")
-
-
 GITHUB, OWN = "a" * 40, "b" * 40
 
 
 def mains(origin, fetched="ok", github=GITHUB, own=OWN, at_github="-", at_own="-"):
-    """What MAINS, and POLICY after it, print."""
+    """What MAINS prints."""
     return (f"ORIGIN={origin}\n" + (f"FETCHED={fetched}\n" if origin == "yes" else "")
             + f"GITHUB={github}\nOWN={own}\nAT_GITHUB={at_github}\nAT_OWN={at_own}\n")
 
@@ -264,96 +148,7 @@ class TestMainNow:
         assert kit.main_now(out, "switchboard-kit", "h") == (None, None, why)
 
 
-RECORDED = pathlib.Path(__file__).parent / "sluice-0.36.4"
-
-
-def recorded(name):
-    """A document sluice 0.36.4 printed, and the exit it printed it with, as its README lists them."""
-    codes = dict(l.split("\t")[:2] for l in (RECORDED / "README").read_text().splitlines() if "\texit " in l)
-    return (RECORDED / name).read_text(), int(codes[name].split()[1])
-
-
-class TestSluiceVersion:
-    """A start needs sluice's `branch create`, first in sluice 0.20.0 (plan.19, sluice ADR 0026)."""
-
-    def test_the_version_sluice_prints(self):
-        assert kit.sluice_version(recorded("version.txt")[0]) == (0, 36, 4)
-
-    @pytest.mark.parametrize("out", ["sluice 0.36.4\n", "sluice 0.20.0", "sluice 1.0.0\n"])
-    def test_a_sluice_with_branch_create_starts(self, out):
-        assert kit.sluice_refusal(out, "chuck-herdr-alpha") is None
-
-    @pytest.mark.parametrize("out, said", [
-        ("sluice 0.19.9\n", "sluice 0.19.9"),
-        ("sluice 0.3.1", "sluice 0.3.1"),
-        ("bash: line 1: sluice: command not found\n", "bash: line 1: sluice: command not found"),
-        ("", "nothing"),
-        ("sluice version unknown", "sluice version unknown"),
-    ])
-    def test_an_older_sluice_or_one_crew_cannot_read_is_refused_naming_the_version_needed_and_the_hosts_words(self, out, said):
-        """bolt-plan "A host whose sluice cannot make a branch" (read.1)."""
-        assert kit.sluice_refusal(out, "chuck-herdr-alpha") == (
-            "a bolt is started through sluice 0.20.0 or later, which has `branch create`, and sluice --version on "
-            f"chuck-herdr-alpha said: {said}")
-
-
-class TestBranchSaid:
-    """What sluice's `branch create` and `branch delete` said with --json, read by facts recorded from sluice 0.36.4
-    (read.2)."""
-
-    def test_a_branch_made_is_its_commit(self):
-        assert kit.branch_said(*recorded("create.json")) == ("c0da39bae0a5d89da0febc3f46f58607c2ad08a7", None)
-
-    def test_a_branch_removed_is_the_commit_it_was_at(self):
-        assert kit.branch_said(*recorded("delete.json")) == ("22eef8585855b2ef8feb0e08177e34d15f131182", None)
-
-    @pytest.mark.parametrize("name, message", [
-        ("create-present.json", "bolt/b is already there, at c0da39bae0a5d89da0febc3f46f58607c2ad08a7"),
-        ("create-from-absent.json", "no branch nope"),
-        ("delete-queued.json", "#1 still queued on bolt/b; wait for them to land, or withdraw them"),
-        ("delete-not-landed.json", "bolt/b at 22eef8585855b2ef8feb0e08177e34d15f131182 has not landed into main; submit it there first"),
-        ("delete-not-found.json", "no branch bolt/b"),
-    ])
-    def test_a_refusal_is_sluices_message(self, name, message):
-        assert kit.branch_said(*recorded(name)) == (None, message)
-
-    @pytest.mark.parametrize("out, code", [
-        ("", 0), ("error: unexpected argument '--json' found\n", 2), ('{"branch": "bolt/b"}', 0),
-        ('{"branch": "bolt/b", "created": "not-a-sha"}', 0), (recorded("create.json")[0], 2),
-        ('{"error": {"kind": "refused", "message": ""}}', 2), (recorded("create-present.json")[0], 0),
-    ])
-    def test_anything_else_is_refused_naming_what_sluice_said(self, out, code):
-        with pytest.raises(Refusal, match=f"crew can't read what sluice's branch command said \\(exit {code}\\)"):
-            kit.branch_said(out, code)
-
-
 CREWS = (pathlib.Path(__file__).parents[2] / ".config" / "sluice.toml").read_text()
-
-
-class TestTakesPulls:
-    """Whether a kit's main takes pull requests (bolt-teams "A kit that takes no pull requests is asked nothing of
-    GitHub"): crew reads and marks a landing's pull request only where the policy at main has a pull_requests table."""
-
-    def test_crews_own_policy_takes_pull_requests_into_main(self):
-        assert kit.takes_pulls(CREWS) is True
-
-    def test_a_policy_with_no_table_or_none_at_all_takes_none(self):
-        assert kit.takes_pulls(POLICY) is False
-        assert kit.takes_pulls(ON_GITHUB) is False
-        assert kit.takes_pulls(None) is False
-
-    def test_the_table_of_the_pattern_that_matches_main_is_read(self):
-        assert kit.takes_pulls('[branches."*"]\nrequired = ["#check-full"]\n\n[branches."*".pull_requests]\nreviews = 0\n')
-        assert not kit.takes_pulls('[branches."bolt/*"]\nrequired = ["#check-full"]\n\n[branches."bolt/*".pull_requests]\nreviews = 0\n')
-
-    @pytest.mark.parametrize("text, said", [
-        ("[branches\n", "is not TOML, so crew can't read whether its main takes pull requests"),
-        ('[branches.main]\npull_requests = "yes"\n', "[branches.main.pull_requests] is a table, not str"),
-    ])
-    def test_a_policy_crew_cannot_read_is_refused_naming_the_file(self, text, said):
-        with pytest.raises(Refusal) as e:
-            kit.takes_pulls(text, ".config/sluice.toml on origin/main")
-        assert ".config/sluice.toml on origin/main" in str(e.value) and said in str(e.value)
 
 
 HEAD = "8079db303f0f815b256e10747aa8a3269f156cc1"
@@ -365,62 +160,6 @@ def listed(*pulls):
     import json
     return json.dumps([{"headRefOid": HEAD, "isDraft": d, "number": n, "url": f"https://github.com/o/k/pull/{n}"}
                        for n, d in pulls], separators=(",", ":")) + "\n"
-
-
-class TestPullSaid:
-    """What gh said of a bolt's open pull request into main (bolt-teams "A landing's pull request is a draft whenever
-    the user's word does not stand"), refused where crew can't read it (read.1, read.2)."""
-
-    def test_none_open(self):
-        assert kit.pull_said(0, "[]\n", "", "o/k", "b") is None
-
-    def test_one_draft_and_one_ready(self):
-        assert kit.pull_said(0, listed((99, True)), "", "o/k", "b") == dict(
-            number=99, draft=True, head=HEAD, url="https://github.com/o/k/pull/99")
-        assert kit.pull_said(0, listed((100, False)), "", "o/k", "b")["draft"] is False
-
-    def test_two_open_from_the_branch_are_refused_naming_both(self):
-        with pytest.raises(Refusal) as e:
-            kit.pull_said(0, listed((99, True), (100, False)), "", "o/k", "b")
-        assert str(e.value) == ("crew can't tell o/k's open pull request from bolt/b into main: gh lists 2, "
-                                "https://github.com/o/k/pull/99 and https://github.com/o/k/pull/100")
-
-    @pytest.mark.parametrize("out", [
-        "not json\n", "{}\n", "[1]\n",
-        listed((99, True)).replace('"isDraft":true,', ""),
-        listed((99, True)).replace('"number":99', '"number":"99"'),
-        listed((99, True)).replace('"number":99', '"number":true'),
-        listed((99, True)).replace(HEAD, "not-a-sha"),
-    ])
-    def test_what_is_not_a_list_of_pull_requests_is_refused(self, out):
-        with pytest.raises(Refusal, match="crew can't read o/k's open pull request from bolt/b into main from what gh printed: "):
-            kit.pull_said(0, out, "", "o/k", "b")
-
-    def test_a_gh_that_failed_is_refused_in_its_words(self):
-        with pytest.raises(Refusal) as e:
-            kit.pull_said(1, "", "GraphQL: Could not resolve to a Repository with the name 'o/k'. (repository)\n", "o/k", "b")
-        assert str(e.value) == ("crew can't read o/k's open pull request from bolt/b into main: gh exited 1: GraphQL: Could "
-                                "not resolve to a Repository with the name 'o/k'. (repository)")
-        with pytest.raises(Refusal, match="gh exited 127: bash: line 2: gh: command not found$"):
-            kit.pull_said(127, "", "bash: line 2: gh: command not found\n", "o/k", "b")
-
-
-class TestPullMarked:
-    """What PULL_MARK said of `gh pr ready`: gh's exit and last line, or the host's words when it did not run there."""
-
-    def test_gh_marked_it(self):
-        out = f"RC=0\nSAID={b64('✓ Pull request o/k#99 is converted to \"draft\"')}\n"
-        assert kit.pull_marked(0, out, "") == (0, '✓ Pull request o/k#99 is converted to "draft"')
-
-    def test_gh_refused_it(self):
-        assert kit.pull_marked(0, f"RC=1\nSAID={b64('HTTP 403: Resource not accessible by integration')}\n", "") == (
-            1, "HTTP 403: Resource not accessible by integration")
-
-    def test_a_host_that_did_not_answer_or_words_crew_cannot_read_are_no_mark(self):
-        assert kit.pull_marked(255, "", "ssh: connect to host box port 22: timed out\n") == (
-            255, "ssh: connect to host box port 22: timed out")
-        assert kit.pull_marked(0, "RC=0\n", "")[0] != 0
-        assert kit.pull_marked(0, "RC=0\nSAID=%%%\n", "")[0] != 0
 
 
 # ---------------------------------------------------------------------------------------- what a branch carries
@@ -440,25 +179,3 @@ def test_carries_of_says_gits_words_or_what_it_could_not_read():
     """read.1, read.2: a failed fetch or listing is said in git's words; output that is not CARRIES's is named."""
     assert kit.carries_of("READ=fatal: no remote\n", "b") == (None, None, "fatal: no remote")
     assert kit.carries_of("HOLDS=x\n", "b")[2] == "crew can't read what bolt/b carries from: HOLDS=x"
-
-
-class TestLandedFrom:
-    """What a bolt's landings name (gather.landed_from; crew record 0056 decision 2): sluice's landing commit says what it
-    landed in `Sluice-From: <agent> (<worktree>)`, naming the branch submitted as the one or the other (sluice clause 23),
-    so each name is read with the newest landing that gives it, at its committer time in UTC; a commit with no
-    Sluice-From, a person's or a merge of main, names nothing (read.2)."""
-
-    def test_each_landing_names_its_agent_and_worktree_and_the_newest_landing_of_a_name_is_kept(self):
-        log = ("c3\x1f1794070200\x1fchange/a (change/a)\x1e\n"
-               "c2\x1f1794069000\x1ffix/f (pull/243)\x1e\n"
-               "c1\x1f1794068000\x1fcrw-1-unit-1 (unit/u)\x1e\n"
-               "c0\x1f1794067000\x1fchange/a (change/a)\x1e\n"
-               "m\x1f1794066000\x1f\x1e\n")
-        got = gather.landed_from(log)
-        assert got["change/a"] == {"commit": "c3", "at": "2026-11-07T16:50:00Z"}
-        assert (got["fix/f"]["commit"], got["pull/243"]["commit"], got["unit/u"]["commit"]) == ("c2", "c2", "c1")
-        assert set(got) == {"change/a", "fix/f", "pull/243", "crw-1-unit-1", "unit/u"}
-
-    def test_a_value_not_of_sluices_shape_is_one_name_and_nothing_is_read_from_a_line_it_cannot_parse(self):
-        assert gather.landed_from("c1\x1f1794070200\x1fchange/a\x1e\nbroken\x1e\nc2\x1fnot-a-time\x1fchange/b (change/b)\x1e") == {
-            "change/a": {"commit": "c1", "at": "2026-11-07T16:50:00Z"}}

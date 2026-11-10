@@ -88,7 +88,7 @@ class TestDue:
         assert crew.update_due(None, checkout(C1), "abc", True) == (False, None)
 
     def test_due_of_compares_what_a_session_loads_only_in_an_installed_checkout_in_its_own_root(self, monkeypatch):
-        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}}}
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "runs": {r: "standing" for r in crew.KIND_ROLES}}}}
         compared = []
         monkeypatch.setattr(crew, "launch_now", lambda fleet, label, role: "abc")
         monkeypatch.setattr(crew, "loaded_changed", lambda was, now, root=None: compared.append((was, now, root)) or True)
@@ -146,14 +146,14 @@ class Main:
 
 
 class TestKindEnd:
-    """A main level's standing agent whose partition now runs its role as its kind is due an end, never a restart
+    """A main level's standing agent whose drive now runs its role as its kind is due an end, never a restart
     (design Decision 14; host-holds-and-updates "A standing agent of a role that now runs as its kind is ended at its
     next stop"): crew.end_due and crew.due_of read it from the teams file alone, crew update passes it over
     (hold.update_here), and crew _renew ends it once idle, its pane left and nothing started, never on a held host
     (hold.kind_end). That the Stop hook hands it over and crew _renew ends it through herdr is the hold journey's
     (t-hold)."""
-    FLEET = {"partitions": {"madswan": {"label": "madswan", "machine": "mac-studio",
-                                                     "flume": dict({r: False for r in crew.KIND_ROLES}, planner="madswan-main", reviewer="madswan-main")}}}
+    FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "mac-studio",
+                                                     "runs": dict({r: "standing" for r in crew.KIND_ROLES}, planner="on-demand", reviewer="on-demand")}}}
 
     def test_a_main_level_agent_whose_role_runs_as_its_kind_is_due_an_end_and_one_that_stands_is_not(self):
         assert crew.end_due(self.FLEET, "madswan-planner") == crew.KIND_SAID
@@ -219,7 +219,7 @@ class TestStanding:
         assert crew.standing_role(FLEET, name) == role
 
     def test_the_agents_on_a_host_are_its_main_levels(self, monkeypatch):
-        fleet = {"partitions": {"swancloud": {"machine": "deneb"}, "madswan": {"machine": "mac-studio"}}}
+        fleet = {"drives": {"swancloud": {"machine": "deneb"}, "madswan": {"machine": "mac-studio"}}}
         monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         assert crew.agents_here(fleet) == ["swancloud-design", "swancloud-planner", "swancloud-ops", "swancloud-operator"]
         assert crew.agents_here(fleet, "madswan") == []
@@ -450,11 +450,11 @@ class Lingering:
 
 class TestHosts:
     def test_all_is_every_main_levels_host_and_one_named_must_be_a_host(self):
-        fleet = {"partitions": {"l": {"machine": "mac-studio"}, "m": {"machine": "deneb"}},
+        fleet = {"drives": {"l": {"machine": "mac-studio"}, "m": {"machine": "deneb"}},
                  "hosts": {"deneb": {}, "box": {}, "mac-studio": {}, "macbook-pro": {}}}
         assert hold.hosts_named(fleet, "--all") == ["deneb", "mac-studio"]
         assert hold.hosts_named(fleet, "macbook-pro") == ["macbook-pro"]
-        with pytest.raises(crew.Refusal, match="nowhere is no host of the fleet's hosts file. hosts: box deneb mac-studio macbook-pro"):
+        with pytest.raises(crew.Refusal, match="nowhere is no host the teams file's hosts name. hosts: box deneb mac-studio macbook-pro"):
             hold.hosts_named(fleet, "nowhere")
 
 
@@ -484,7 +484,7 @@ class TestBands:
 
     def test_a_due_agents_band_shows_the_release_the_host_has_installed(self, monkeypatch):
         # The planner started on a build whose release names 0.44.1; the host has since installed one naming 0.44.2.
-        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "mac-studio", "flume": {r: False for r in crew.KIND_ROLES}}}}
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "mac-studio", "runs": {r: "standing" for r in crew.KIND_ROLES}}}}
         start = dict(STARTED, version="v0.44.1")
         monkeypatch.setattr(crew, "installed", lambda: build(C2, "v0.44.2"))
         monkeypatch.setattr(crew, "starts", lambda: {"wldn-planner": start})
@@ -514,3 +514,29 @@ class TestBands:
         v = board.agent_views(dict(data(), here=dict(self.HERE, held=h)))["views"]
         line = [("deneb is held", "bold"), (" by fleet-releases since 2026-10-21T03:00Z: herdr 0.9.6. Start nothing new; crew go deneb lifts it", None)]
         assert all(lines[0] == line for lines in v.values())
+
+
+class TestGoOpensTheConsoles:
+    """operator-agent, Consoles after a hold: crew go lifts the host's hold and opens again the consoles of the drives
+    its teams file's `consoles` names, and no other drive's (hold.go, board.labels_here; record 0064)."""
+
+    def test_go_opens_the_consoles_consoles_names_and_no_other(self, monkeypatch, tmp_path, capsys):
+        import argparse
+        import plan
+        import record
+        fleet = dict(FLEET, drives=dict(FLEET["drives"], agentplot={"label": "agentplot", "machine": "deneb"},
+                                        madswan={"label": "madswan", "machine": "deneb"}),
+                     consoles={"agentplot": "/p", "wldn": "/w"})
+        opened = []
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        monkeypatch.setattr(crew, "held", lambda: {"by": "chuck"})
+        monkeypatch.setattr(crew, "HOLD", tmp_path / "hold.json")
+        monkeypatch.setattr(crew, "agents_here", lambda fleet, label=None: [])
+        monkeypatch.setattr(record, "emit", lambda *a, **k: None)
+        monkeypatch.setattr(plan, "revive_cmd", lambda fleet, a: None)
+        monkeypatch.setattr(hold, "tell_each", lambda fleet, names, text: None)
+        monkeypatch.setattr(hold, "update_here", lambda fleet, a: None)
+        monkeypatch.setattr(plan, "console_cmd", lambda fleet, a: opened.append((a.act, a.label)))
+        hold.go(fleet, argparse.Namespace())
+        assert opened == [("up", "wldn"), ("up", "agentplot")]
+        assert "deneb is no longer held" in capsys.readouterr().out
