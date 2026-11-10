@@ -1128,14 +1128,17 @@ def unacted(act, subject):
 def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), fields=None, by=None, why=None):
     """Apply change(Write) to the tip of the drive's branch, its plan's record descriptors first brought in step
     with crew's, commit every file it changed, each checked first, and push, replaying on a refused push. change returns the bolts it touched.
-    Every write is an act (plan.2): the commit names its run-record entry, written by the write itself once pushed,
-    naming on and frm and whatever the change added to them, with the act's own fields, and reaching the branch as the
-    commit after it before the write returns (read.5), so no write leaves the branch in flight; one given no act is
-    refused before anything is read or pushed (unacted), since its commit would name an entry nothing writes. by, the
-    role an act of crew's own is in the name of, and why, the entry's Why in place of the subject's (record.emit), which
-    the change may give instead, with fields of its own, where only the tip it is applied to says them (Write). An ask
-    the change wrote in its commit (ask_lines) is named in the commit beside the act's entry, and its own entry written
-    after the act's; a key the change found held is said. Returns the commit."""
+    Every write is an act (plan.2), and its commit carries the act's run-record entry (carried): naming on and frm and
+    whatever the change added to them, with the act's own fields, added to this host's runs/<host>/<day>.rec in the
+    commit's own files and made again on each replay (state.1), so the branch never holds the act without its entry
+    (read.5); one given no act is refused before anything is read or pushed (unacted), since its commit would name an
+    entry nothing writes. by, the role an act of crew's own is in the name of, and why, the entry's Why in place of the
+    subject's, which the change may give instead, with fields of its own, where only the tip it is applied to says them
+    (Write). Each ask the change wrote in its commit (ask_lines) and each further act of it (Write.also) has its entry
+    carried and named beside the act's; a key the change found held is said. No carried entry names a commit, the one
+    carrying it being its commit. Once the push is accepted, each carried entry is appended to this host's own file
+    (record.append, record.4), and what of the host's entries a refused push left is pushed after it, each a commit of
+    its own (record.reach, said: a refusal of those is said once and changes nothing, record.2). Returns the commit."""
     unacts = unacted(act, subject)
     not unacts or fail(unacts)
     repo, ref = state_of(fleet, label)
@@ -1151,21 +1154,41 @@ def write(fleet, label, change, subject, body="", act=None, on=(), frm=(), field
         check(w.plan)
         if "requests.rec" in w.files:
             appended(w)
+        seen.update(touched=touched, label=label, subject=f"{w.subject or subject} ({agent()})", held=w.held)
+        own = dict(act=w.act or act, on=list(on) + w.on, frm=list(frm) + w.frm, why=why or w.why or record.subject(seen["subject"]),
+                   **{**(fields or {}), **w.fields})
+        seen["day"], seen["carried"] = carried(w, label, seen["eid"], own, by)
+        seen["asked"] = w.asked
         files = {"plan.rec": w.plan.text(), **w.files}
-        seen.update(touched=touched, label=label,
-                    subject=f"{w.subject or subject} ({agent()})", on=list(on) + w.on, frm=list(frm) + w.frm, asked=w.asked, held=w.held,
-                    why=w.why, fields=w.fields, act=w.act or act, also=list(w.also))
-        return files, message(seen["subject"], body, [seen["eid"]] + [eid for eid, _ in w.asked] + [eid for eid, *_ in w.also])
+        return files, message(seen["subject"], body, [eid for eid, _ in seen["carried"]])
     sha = land(repo, ref, None, make)
     print(f"{ref} {sha[:7]}: {seen['subject']}")
-    why = why or seen["why"] or record.subject(seen["subject"])
-    record.emit(label, seen["act"], seen["on"], seen["frm"], [f"{repo}@{sha}"], why, eid=seen["eid"], by=by,
-                **{**(fields or {}), **seen["fields"]})
-    for eid, also, on_, more in seen["also"]:
-        record.emit(label, also, on_, [], [f"{repo}@{sha}"], more.get("why") or why, eid=eid, by=by,
-                    **{k: v for k, v in more.items() if k != "why"})
-    asked(label, f"{repo}@{sha}", seen["asked"], seen["held"])
+    for _, lines in seen["carried"]:
+        record.append(label, seen["day"], lines)
+    record.reach(label, said=True)
+    asked(label, seen["asked"], seen["held"])
     return sha
+
+
+def carried(w, label, eid, own, by=None):
+    """The entries a write's commit carries (plan.2, read.5), composed at the tip it is applied to (state.1): its act's,
+    by eid, from own (record.fields_of's act, on, frm, why and fields), then each ask's the change wrote (ask_lines) and
+    each further act's (Write.also), each further act's Why its own or else the act's; each by this host, at this
+    moment, naming no commit. They are added to this host's day file of that moment in the write's own files, as the
+    change left it (Write.text), by record.with_entries. Returns the day and [(id, lines)], the act's first."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    entries = [(eid, record.fields_of(eid, now, by=by, **own))]
+    for e, rec in w.asked:
+        entries.append((e, record.fields_of(e, now, **record.ask_entry(f"{label}-{rec.get('Role')}", rec.get("What"), rec.get("Names"),
+                                                                        rec.get("Words")))))
+    for e, act, on, more in w.also:
+        rest = {k: v for k, v in more.items() if k not in ("why", "frm")}
+        entries.append((e, record.fields_of(e, now, act, on, more.get("frm") or [], why=more.get("why") or own["why"], by=by, **rest)))
+    lines = [(e, record.entry_text(f)) for e, f in entries]
+    day = now.date().isoformat()
+    path = f"runs/{crew.this_host()}/{day}.rec"
+    w.replace(path, record.with_entries(w.text(path), dict(lines)))
+    return day, lines
 
 
 def base_drops(w):
@@ -5516,12 +5539,11 @@ def card_answered(fleet, a):
         ask_write(fleet, ask["label"], ask["role"], "card", "crew", names=ask["names"], key=ask["key"], words=ask["words"])
 
 
-def asked(label, commit, made, held):
-    """Once a write that made asks in its commit is pushed (write): each ask's entry, by the id the commit names, and
-    each key found held said."""
-    for eid, rec in made:
+def asked(label, made, held):
+    """Once a write that made asks in its commit is pushed (write), whose commit carries each ask's entry (carried):
+    each ask said, and each key found held."""
+    for _, rec in made:
         run = f"{label}-{rec.get('Role')}"
-        record.emit(label, commit=[commit], eid=eid, **record.ask_entry(run, rec.get("What"), rec.get("Names"), rec.get("Words")))
         print(f"asked {run}: {rec.get('What')}" + (f" on {rec.get('Names')}" if rec.get("Names") else ""))
     for run, key in held:
         print(f"{label}/main: {run} is already asked by {key}; nothing more asked")

@@ -517,16 +517,19 @@ class TestWrite:
         none = written()
         assert not plan.roles_lines(none, {"drives": {"madswan": madswan()}}, "madswan") and "roles.rec" not in none.files
 
-    def test_a_write_names_its_acts_entry_and_each_asks_and_emits_the_asks_after_the_act(self, monkeypatch, capsys):
-        """plan.2: the commit's Crew-Entry trailers name the act's entry and the ask's, and each is emitted once pushed."""
+    def test_a_write_names_its_acts_entry_and_each_asks_and_carries_both_in_its_commit(self, monkeypatch, tmp_path, capsys):
+        """plan.2: the commit's Crew-Entry trailers name the act's entry and the ask's, and the commit's day file of its
+        host holds both (an-act-carries-its-entry-in-its-own-commit)."""
+        import crew
         import plan
         import record
-        made, emitted = [], []
+        made = []
+        monkeypatch.setattr(record, "ROOT", tmp_path / "state")
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("afterthought/madswan-state", f"{label}/main"))
         monkeypatch.setattr(plan, "read", lambda repo, ref, tip: plan.Plan(""))
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: None)
         monkeypatch.setattr(plan, "land", lambda repo, ref, path, make: made.append(make("t" * 40)) or "c" * 40)
-        monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, **f: emitted.append((act, on, eid, f)))
         monkeypatch.setattr(plan, "agent", lambda: "madswan-ops")
 
         def change(w):
@@ -536,7 +539,9 @@ class TestWrite:
         (files, msg), = made
         eids = [l.split(": ", 1)[1] for l in msg.splitlines() if l.startswith("Crew-Entry: ")]
         assert len(eids) == 2 and "asks.rec" in files and "roles.rec" in files
-        assert [(a, on, eid) for a, on, eid, _ in emitted] == [("bolt.land", ["bolt/b"], eids[0]), ("ask", ["agent/madswan-planner", "bolt/b"], eids[1])]
+        day, = [p for p in files if p.startswith("runs/deneb/")]
+        assert [(e["Act"], e["On"], e["Id"]) for e in record.parse(files[day])] == [
+            ("bolt.land", ["bolt/b"], eids[0]), ("ask", ["agent/madswan-planner", "bolt/b"], eids[1])]
         assert "asked madswan-planner: landed on bolt/b" in capsys.readouterr().out
 
     def test_an_ask_alone_whose_key_is_held_commits_nothing_and_says_so(self, monkeypatch, capsys):
@@ -624,8 +629,11 @@ def on_branch(monkeypatch, fleet, files):
 
     def land(repo, ref, path, make):
         files, msg = make("t" * 40)
-        b.files.update({k: v for k, v in files.items() if k != "plan.rec"})
+        b.files.update({k: v for k, v in files.items() if k != "plan.rec" and not k.startswith("runs/")})
         b.writes.append(msg)
+        for k, v in files.items():  # the entries the write's commit carries (an-act-carries-its-entry-in-its-own-commit)
+            if k.startswith("runs/"):
+                b.entries += [(e["Act"], e["On"], e.get("Why"), {f: e[f] for f in record.EXTRA if f in e}) for e in record.parse(v)]
         return "c" * 40
     monkeypatch.setattr(plan, "land", land)
     monkeypatch.setattr(record, "emit", lambda label, act, on=(), frm=(), commit=(), why=None, eid=None, by=None, **f:
@@ -1098,7 +1106,7 @@ class TestOpen:
         assert "Words" not in got and "Key" not in got
         assert [r["Role"] for r in asks.parse_roles(opening.files["roles.rec"])] == ["design"]
         assert len(opening.writes) == 1 and opening.writes[0].startswith("ask(madswan-design): open from chuck@deneb")
-        assert opening.entries == [("ask", ["agent/madswan-design"], "ask madswan-design: open", {"Chars": None})]
+        assert opening.entries == [("ask", ["agent/madswan-design"], "ask madswan-design: open", {})]
         assert capsys.readouterr().out.endswith("\nasked madswan-design to open: its run opens as the place crew-design--madswan in herdr "
                                                 "on deneb once the runner there makes it, and greets you in its pane\n")
 
