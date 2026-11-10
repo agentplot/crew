@@ -21,7 +21,7 @@ Each check is a moon task run through `tests/suite`: `logic` is `tests:logic`, `
 
 ## 4. The release on GitHub
 
-- [ ] 4.1 The release job runs `set-version.sh` on the pushed commit, commits its two files by path as `chore(release): $TAG`, tags that commit, pushes the tag alone and publishes the release with `--verify-tag`. The version job runs `git-cliff --unreleased --bumped-version`, the conventional job starts at the newest `v*` tag by version, and `tests/t-release.sh` reads them (design, Decisions 6 and 7; Task notes 4.1). Verify `tests/suite t-release` ends with "0 failed".
+- [x] 4.1 The release job runs `set-version.sh` on the pushed commit, commits its two files by path as `chore(release): $TAG`, tags that commit, pushes the tag alone and publishes the release with `--verify-tag`. The version job runs `git-cliff --unreleased --bumped-version`, the conventional job starts at the newest `v*` tag by version, and `tests/t-release.sh` reads them (design, Decisions 6 and 7; Task notes 4.1). Verify `tests/suite t-release` ends with "0 failed".
 
 ## 5. The docs
 

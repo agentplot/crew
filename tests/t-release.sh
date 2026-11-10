@@ -2,7 +2,10 @@
 # version 0.0.0 and no other key, and crew's manifest 0.0.0; set-version.sh, which the release job runs on the commit it
 # releases, run on a scratch copy of those files with a version no release has, leaves each giving that version and
 # changes no line but the one that gives it, refuses a version that is not major.minor.patch before it touches a file,
-# and refuses a file it finds no version in, naming it.
+# and refuses a file it finds no version in, naming it. CI's release job, read from its workflow, runs set-version.sh on
+# the pushed commit, commits the two files by path as chore(release): <tag>, tags that commit, pushes the tag alone and
+# publishes the release at it, with no --target; its version job reckons with git-cliff's --unreleased, and its
+# conventional job starts at the newest v* tag by version, never git describe, since the tag is off main's history.
 # Reads: set-version.sh plugin/release.json .github/workflows/release.yml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 
@@ -44,3 +47,33 @@ jq 'del(.version)' "$T/main/plugin/.claude-plugin/plugin.json" > "$T/copy/plugin
 expect_fail "plugin/.claude-plugin/plugin.json gives no version" sh "$CREW/set-version.sh" 98.76.54 "$T/copy"
 [[ ! -e $T/copy/plugin/.claude-plugin/plugin.json.set-version ]] || fail "set-version.sh left a scratch file beside the manifest it refused"
 ok "set-version.sh refuses a manifest that gives no version, naming it"
+
+# job <name>: the lines of the workflow's job, from its key to the next job's, or the comment above it
+workflow="$CREW/.github/workflows/release.yml"
+job() { awk -v key="  $1:" '$0 == key { on = 1; next } on && /^  [^ ]/ { exit } on' "$workflow"; }
+# line <text> <lines>: the number of the first of the lines that has the text, 0 where none does
+line() { awk -v t="$1" 'index($0, t) { print NR; found = 1; exit } END { if (!found) print 0 }' <<< "$2"; }
+
+release=$(job release)
+steps=('sh set-version.sh "${TAG#v}"'
+  'commit -q -m "chore(release): $TAG" -- plugin/release.json plugin/.claude-plugin/plugin.json'
+  'git tag "$TAG"'
+  'git push origin "refs/tags/$TAG"'
+  'gh release create "$TAG" --verify-tag')
+last=0
+for step in "${steps[@]}"; do
+  n=$(line "$step" "$release")
+  (( n > last )) || fail "the release job does not run, after what goes before it: $step"$'\n'"$release"
+  last=$n
+done
+lacks "$release" "--target"
+eq "$(grep -c 'git push' "$workflow")" 1
+lacks "$(grep 'git push' "$workflow")" "+"
+lacks "$(grep 'git push' "$workflow")" "--force"
+ok "the release job writes the version, commits the two files by path as chore(release): <tag>, tags that commit, pushes the tag alone and publishes the release at it"
+
+has "$(job version)" "git-cliff --unreleased --bumped-version"
+conventional=$(job conventional)
+has "$conventional" "git tag --list 'v*' --sort=-v:refname"
+lacks "$conventional" "git describe"
+ok "the version job reckons with git-cliff's --unreleased, and the conventional job starts at the newest v* tag by version"
