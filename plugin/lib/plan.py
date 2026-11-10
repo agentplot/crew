@@ -15,8 +15,8 @@ five times. A write that changes several files is one commit; its run-record ent
   crew state init <label>                    create <label>/main in the state repository, adopting plan/<label> and
                                              the moves where the drive's blueprints repos have them
   crew drive set <label> --state S --blueprints B... --machine H --session N --folder F --repos R... --accounts <role> <a>...
-           --flume <role> false|<stream>... --review <every> <hours> --hosts <host> <ssh> <kind>... [--roles <role> <key> <v>]...
-           [--console F] [--repositories <repo> <dir> <checkout>]... [--json]
+           --runs <role> standing|on-demand... --review <after_changes> <after_hours> --hosts <host> <ssh> <kind>...
+           [--roles <role> <key> <v>]... [--console F] [--repositories <repo> <dir> <checkout>]... [--json]
                                              the drive named in this host's teams file from its flags, every key a flag
                                              with no default, the rest of the file kept, nothing written where it is a
                                              link, a file crew cannot read at all moved aside once, and one at crew's own

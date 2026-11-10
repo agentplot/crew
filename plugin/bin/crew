@@ -11,10 +11,10 @@
 # the record Flume holds for the runner after it tidies a place among them, a unit, chore or fix merged once the
 # runner reports its place landed on its bolt, and no landing commit on the bolt or on main read for it; a landed bolt
 # closes once each of its pieces reads landed so, its branch standing or not.
-# Each drive names its flume, an object of its five main-level roles, design, planner, reviewer, ops and operator,
-# each false while it stands or the Flume stream its runs run in on the main level's host: a role that runs as its
-# kind, whose runs are launched by the host's runner while something is pending for it (crew role below); with flume
-# false throughout, every role stands.
+# Each drive names its runs, an object of its five main-level roles, design, planner, reviewer, ops and operator,
+# each standing while it stands or on-demand: a role that runs as its kind, whose runs are launched by the host's
+# runner in the drive's own stream, named by its label, while something is pending for it (crew role below); with
+# runs standing throughout, every role stands. Its batch setting, review, gives after_changes and after_hours.
 #
 # A runner whose configuration names a kit's repository takes its started bolts' work, in the stream its host maps it to; a
 # bolt that is proven, every unit and chore merged and sluice green at its head, waits to land, and lands on the user's
@@ -53,9 +53,10 @@
 # drive's first blueprints repo:
 #   crew state init <label>            create the drive's branch, adopting plan/<label> and the moves it had
 #   crew drive set <label> --state <owner/name> --blueprints <owner/name>... --machine <host> --session <name>
-#             --folder <path> --repos <owner/name>... --accounts <role> <account>... --flume <role> false|<stream>...
-#             --review <every> <hours> --hosts <host> <ssh> <kind>... [--roles <role> model|effort|session <value>]...
-#             [--console <path>] [--repositories <owner/name> <dir> <checkout>]... [--json]
+#             --folder <path> --repos <owner/name>... --accounts <role> <account>... --runs <role> standing|on-demand...
+#             --review <after_changes> <after_hours> --hosts <host> <ssh> <kind>...
+#             [--roles <role> model|effort|session <value>]... [--console <path>]
+#             [--repositories <owner/name> <dir> <checkout>]... [--json]
 #                                      the drive named in this host's ~/.config/crew/teams.json from its flags, every
 #                                      key crew's module writes for a drive, its hosts, this host's console and its kept
 #                                      repositories, each flag with no default and every one required but --roles,
@@ -269,7 +270,8 @@
 #                                      a pane herdr brought back dead is closed and opened again in its workspace, said.
 #                                      A role that runs as its kind gets no tab and no agent: up writes its record in
 #                                      roles.rec and ends a standing agent of it once not working, and status says it
-#                                      runs as its kind in its stream, whether a run stands and how many asks wait
+#                                      runs as its kind in its drive's stream, its label, whether a run stands and
+#                                      how many asks wait
 #   crew main     fix <kit> <name> "<the failure's words>" [--label L]
 #                                      main-level ops's or the user's, on reading the kit's main red after a landing:
 #                                      a Flume fix place on main, its submission held for the user's send and ops its
@@ -320,10 +322,10 @@
 #   crew role     land <repo> <name> --brief-file <file>
 #                                      a role's run's work that lands: a launch of Flume's chore kind <name> in a
 #                                      repository the teams file or the plan names, on its default branch, in the
-#                                      role's stream, the file's text whole its brief and the run its recipient,
-#                                      appended to requests.rec; Flume builds it and submits it through sluice, and
-#                                      its landing reaches the role's next run. start, end and land are refused
-#                                      anywhere but a role's run
+#                                      drive's stream, its label, the file's text whole its brief and the run its
+#                                      recipient, appended to requests.rec; Flume builds it and submits it through
+#                                      sluice, and its landing reaches the role's next run. start, end and land are
+#                                      refused anywhere but a role's run
 #   crew record   <kit> <number> --proposed|--accepted|--rejected [--settled-in-pane --excerpt "<words>"] [--alternatives <file>]
 #                                      the design agent's, at each turn of a decision record's status once it is on the
 #                                      kit's main, read in the checkout the main level's host keeps of the kit, refused

@@ -18,7 +18,9 @@
 # drive set mends what it replaces in a file at crew's own version and refuses it only where a check still fails
 # (record 0065, point 8). README, the skill and the usage say a piece's end is the runner's report alone, the record
 # Flume holds for the runner among them, and name no landing commit as what makes a piece merged or a bolt landed
-# (record 0062's stopgap retired; docs.2).
+# (record 0062's stopgap retired; docs.2). README, the skill and the usage name a drive's runs, standing or on-demand,
+# and its review's after_changes and after_hours, and crew drive set's --runs and --review by them, and none names
+# --flume or a drive's flume (record 0064 as amended 2026-11-09).
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -160,7 +162,17 @@ for doc in readme skill; do
   for want in "the ends Flume holds for" "asks the runners to confirm each end"; do has "${!doc}" "$want"; done
 done
 has "$readme" "and a confirm, which a role's run's end appends for each launch whose place's ends its turn took"
-ok "the README, the skill and the usage say a drive's flume, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
+ok "the README, the skill and the usage say a drive's runs, a role that runs as its kind, its asks in asks.rec and its record in roles.rec, crew role start, end, open and land, the ends a run takes and its end confirms, crew review delivered, the follower's notice of a card's change, and a standing agent of such a role ended at its stop"
+
+# A drive's runs and its batch setting by their names (record 0064 as amended 2026-11-09; Decision 8 of
+# a-roles-way-of-running-says-what-it-means): the skill's table escapes its bars, read here as bars.
+plain=${skill//\\|/|}
+for doc in usage readme plain; do
+  has "${!doc}" "--runs <role> standing|on-demand"; has "${!doc}" "--review <after_changes> <after_hours>"
+  for gone in "--flume" 'its `flume`' 'names `flume` on every drive' '`every` changes' "<every> <hours>"; do lacks "${!doc}" "$gone"; done
+done
+for doc in readme skill; do has "${!doc}" "after_changes"; has "${!doc}" "after_hours"; has "${!doc}" "on-demand"; done
+ok "the README, the skill and the usage name a drive's runs, standing or on-demand, its review's after_changes and after_hours, and crew drive set's --runs and --review <after_changes> <after_hours>, and none names --flume or a drive's flume"
 
 for doc in usage readme skill; do
   for want in "piece's end is the runner's report alone" "the record Flume holds for the runner"; do has "${!doc}" "$want"; done
