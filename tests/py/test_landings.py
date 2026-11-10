@@ -1337,7 +1337,8 @@ class LandActs:
 
             def answer(self, tool, args):
                 acts.calls.append((tool, args))
-                return acts.answers.get(tool, ({"ok": True}, None))
+                got = acts.answers.get(tool, ({"ok": True}, None))
+                return got(args) if callable(got) else got
 
             def call(self, tool, args):
                 got, words = self.answer(tool, args)
@@ -1388,6 +1389,30 @@ def test_two_proven_bolts_post_one_card_in_ops_name_with_two_boxes(monkeypatch, 
                                  Heads="y@abc1234 z@abc1234")]
     assert acts.told == [("swancloud-ops", "Your card land/crew is up for the user: call get_request (requestId req_k1, "
                                            "name swancloud-ops), to hear their answer.")]
+
+
+# Pending You's refusal of a card's highStakes beside its questions, as the Willdan box met it on 2026-11-10 (signals
+# 2026-11-10-wldn-ops-6352d0d6/01 and 2026-11-10-wldn-operator-9599d7fa/01 on WilldanGroup/crew-state wldn/main).
+MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card's highStakes out."
+
+
+def marked_post(args):
+    """post_request as Pending You answers it: a card of questions that carries highStakes refused in its words."""
+    return (None, MARKED_WORDS) if args.get("questions") and "highStakes" in args else POSTED["post_request"]
+
+
+def test_six_proven_bolts_post_one_card_of_lists_each_marking_its_stakes_and_the_card_none(monkeypatch):
+    """Six rows held six proven Switchboard bolts about 9h on crew 0.41.11, every post of land/<kit> refused: a card of
+    lists carries highStakes on each list and none on the card."""
+    six = ["y", "x1", "x2", "x3", "x4", "z"]
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in six) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in six}, answers=dict(POSTED, post_request=marked_post))
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert "highStakes" not in post and [len(q["options"]) for q in post["questions"]] == [3, 3]
+    assert [q["highStakes"] for q in post["questions"]] == [True, True]
+    assert [(e["Act"], e.get("refused"), e["Card"]) for e in acts.emitted] == [("card.post", None, "req_k1")]
 
 
 def test_a_kits_card_is_raised_under_its_lock_every_read_and_act_inside_it(monkeypatch):

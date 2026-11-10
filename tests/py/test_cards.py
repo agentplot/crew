@@ -1554,11 +1554,20 @@ class TestLandings:
 
     def test_seven_rows_are_two_lists_of_four_and_three_with_about(self):
         c = landings(7)["card"]
-        assert "options" not in c and c["about"] == {"kind": "other", "title": "Land on crew's main"} and c["highStakes"]
+        assert "options" not in c and c["about"] == {"kind": "other", "title": "Land on crew's main"}
         assert [len(q["options"]) for q in c["questions"]] == [4, 3]
         assert [q["id"] for q in c["questions"]] == ["rows-1", "rows-2"]
         assert c["questions"][1]["options"][0]["label"] == "5. b5"
         assert c["questions"][1]["recommendedIds"] == ["land:b5", "land:b6", "land:b7"]
+
+    @pytest.mark.parametrize("n", [6, 7, 11])
+    def test_six_or_more_rows_mark_each_list_high_stakes_and_the_card_none(self, n):
+        """Pending You refuses a card's highStakes beside questions ("With questions, each question carries its own
+        highStakes; leave the card's highStakes out."), which held six proven bolts on the Willdan box on 2026-11-10
+        (signal 2026-11-10-wldn-ops-6352d0d6/01)."""
+        c = landings(n)["card"]
+        assert "highStakes" not in c and "rationale" not in c
+        assert [q["highStakes"] for q in c["questions"]] == [True] * -(-n // built.BOXES)
 
     def test_several_lists_each_carry_what_follows_a_yes_and_the_card_carries_no_rationale(self):
         then = ("After you send: crew asks the runner to land them in this order, Flume submits each through the merge queue, "

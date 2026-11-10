@@ -913,10 +913,11 @@ def landings_form(n):
     """The form of a kit's landings card by how many rows it shows, those that can land and those taking main first
     beside them (plan.card_rows; rail-cards, record 0031 as amended 2026-10-23): "approve", a hold-to-approve of risk
     high, for one; "multi", one list of boxes carrying highStakes, for two to BOXES; "lists", lists of BOXES at most,
-    each a question, for more. Pending You changes neither a card's kind nor its questions, and takes no list of fewer
-    than two options (update_request and post_request, pendingyou 0.39.0, read 2026-11-06), so a change from one form
-    to another is followed rather than changed; a row coming to take main first or coming back from it keeps the
-    card's count, so it changes the card in place."""
+    each a question carrying its own highStakes and the card none, which Pending You refuses beside questions, for
+    more. Pending You changes neither a card's kind nor its questions, and takes no list of fewer than two options
+    (update_request and post_request, pendingyou 0.39.0, read 2026-11-06), so a change from one form to another is
+    followed rather than changed; a row coming to take main first or coming back from it keeps the card's count, so it
+    changes the card in place."""
     return "approve" if n <= 1 else "multi" if n <= BOXES else "lists"
 
 
@@ -987,10 +988,11 @@ def landings_card(f):
     landing card of today (landing_card), an approve of risk high that never carries highStakes; two to BOXES, one list
     of boxes carrying highStakes, each `<n>. <bolt>`, its detail the row's counts, batches and verdict, its consequence
     its forecast, each ticked as crew proposes but one the user cleared on their last send and one taking main first,
-    whose detail and consequence say why and what a tick on it does (taking_said); more, lists of BOXES at most, in order, each a question
-    about the kit's main (landings_form). What follows a yes is its rationale, each list's own when it has several,
-    since Pending You refuses a card's rationale beside questions. On its face, one Markdown artifact, a paragraph a row (row_paragraph), then
-    the rows held with no box and why; in its details, every row's reading first, then its previews and pull request,
+    whose detail and consequence say why and what a tick on it does (taking_said); more, lists of BOXES at most, in
+    order, each a question about the kit's main carrying its own highStakes, the card none (landings_form). What follows
+    a yes is its rationale, each list's own when it has several, since Pending You refuses a card's rationale and
+    highStakes beside questions. On its face, one Markdown artifact, a paragraph a row (row_paragraph), then the rows
+    held with no box and why; in its details, every row's reading first, then its previews and pull request,
     as many as the card's artifacts leave room for. f: kit, rows (each the facts landing_card takes, with forecast,
     forecast_why, link or unread and preview, stopped when sluice or its host stopped its last landing at its head,
     which its paragraph and its box's detail say, stopped_said, and taking, why, for a row taking main first), held
@@ -1038,8 +1040,8 @@ def landings_card(f):
                     "queue, each closed as it lands, and every host takes them.", DETAIL)
     if form == "multi":
         shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": n}, recommendedIds=ticked,
-                     rationale=then)
-    else:  # Pending You refuses a card's rationale beside questions, so each list carries what follows a yes
+                     rationale=then, highStakes=True)
+    else:  # Pending You refuses a card's rationale and highStakes beside questions, so each list carries both
         g = -(-n // BOXES)
         sizes = [n // g + (1 if k < n % g else 0) for k in range(g)]
         groups = [options[sum(sizes[:k]):sum(sizes[:k + 1])] for k in range(g)]
@@ -1047,7 +1049,7 @@ def landings_card(f):
                      questions=[dict(id=f"rows-{k}", kind="multi", title=f"Bolts {grp[0]['label'].split('.')[0]} to "
                                      f"{grp[-1]['label'].split('.')[0]} of {n}, in order", options=grp,
                                      multi={"min": 0, "max": len(grp)}, recommendedIds=[o["id"] for o in grp if o["id"] in ticked],
-                                     rationale=then)
+                                     rationale=then, highStakes=True)
                                 for k, grp in enumerate(groups, 1)])
     reads = [(f"Read {r['bolt']}", r["link"]) for r in rows if r.get("link")]
     previews = [(f"Preview {r['bolt']}: {label}", url) for r in rows for label, url in preview_said(r.get("preview"))[1]]
@@ -1063,7 +1065,7 @@ def landings_card(f):
                     "box until its fix merges.")
     shown = [markdown(f"What lands on {about}, in order", f"land-{kit}.md", face)]
     out = built(key, f"Land on {about}: {n} bolts in order", summary, background, links,
-                shown + [link(t, u) for t, u in links[:ARTIFACTS - len(shown)]], f.get("follows"), highStakes=True, **shape)
+                shown + [link(t, u) for t, u in links[:ARTIFACTS - len(shown)]], f.get("follows"), **shape)
     out.update(heads=heads, linked=True, **({"unread": why} if why else {}))
     return out
 
@@ -1084,12 +1086,12 @@ def deploy_card(f):
     user's (swancloud record 0038, record 0059) says so first, and shows them first on its face, before the notes, each
     with why or that it is done; while one is open it is boxes to tick carrying highStakes (deploy_form), a box for
     each open step, `before:<n>`, then one for the deploy, `deploy`, none ticked, its send with every box ticked the
-    word, in one list or, past BOXES, lists of BOXES at most, each a question, each carrying what follows a yes, since
-    Pending You refuses a card's rationale beside questions. f: env, head, base (what the environment runs) or None,
-    landings ([{pr, subject}], oldest first), landings_why (why they can't be read) or None, notes (Markdown) or None,
-    release (the notes' name) or None, steps ([{n, text, doer, held}]), waited ([{n, text, why, state}], ops.waited_on),
-    before ([env]), after ([{env, policy}]), follows. Also handed back: its form, which the run record keeps on the
-    card's post and change."""
+    word, in one list or, past BOXES, lists of BOXES at most, each a question carrying its own highStakes and what
+    follows a yes, the card neither, since Pending You refuses a card's highStakes and rationale beside questions. f:
+    env, head, base (what the environment runs) or None, landings ([{pr, subject}], oldest first), landings_why (why
+    they can't be read) or None, notes (Markdown) or None, release (the notes' name) or None, steps ([{n, text, doer,
+    held}]), waited ([{n, text, why, state}], ops.waited_on), before ([env]), after ([{env, policy}]), follows. Also
+    handed back: its form, which the run record keeps on the card's post and change."""
     env, head, landings, steps = f["env"], f["head"][:7], list(f.get("landings") or []), list(f.get("steps") or [])
     waited = list(f.get("waited") or [])
     left = [w for w in waited if w.get("state") != "done"]
@@ -1144,17 +1146,18 @@ def deploy_card(f):
                                             "A box left unticked deploys nothing.", DETAIL)})
     if len(options) <= BOXES:
         shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": len(options)}, recommendedIds=[],
-                     rationale=then)
-    else:  # Pending You refuses a card's rationale beside questions, so each list carries what follows a yes
+                     rationale=then, highStakes=True)
+    else:  # Pending You refuses a card's rationale and highStakes beside questions, so each list carries both
         g = -(-len(options) // BOXES)
         sizes = [len(options) // g + (1 if k < len(options) % g else 0) for k in range(g)]
         groups = [options[sum(sizes[:k]):sum(sizes[:k + 1])] for k in range(g)]
         shape = dict(intent="decide", about={"kind": "other", "title": cut(f"Deploy {head} to {env}", ABOUT)},
                      questions=[dict(id=f"before-{k}", kind="multi", title=f"Before the deploy, part {k} of {g}", options=grp,
-                                     multi={"min": 0, "max": len(grp)}, recommendedIds=[], rationale=then)
+                                     multi={"min": 0, "max": len(grp)}, recommendedIds=[], rationale=then,
+                                     highStakes=True)
                                 for k, grp in enumerate(groups, 1)])
     out = built(f"deploy/{env}", f"Deploy main {head} to {env}", " ".join(said), background, (), shown, f.get("follows"),
-                head=f["head"], highStakes=True, **shape)
+                head=f["head"], **shape)
     out["form"] = deploy_form(f)
     return out
 
