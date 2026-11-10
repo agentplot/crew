@@ -58,6 +58,14 @@ README's start paragraph, flake section and a new release paragraph say what tas
 - `docs.2`: `plugin/skills/crew/SKILL.md`'s `crew _release` row was not updated to say the commit is null where a release names none. It is still accurate as written, and no task named it.
 - `code.10`: the change departs from it, since main's tree now names `0.0.0` and a release's tag names a release commit. The design's *Departures* names this. Amending the rule and its record is the design agent's (`docs.7`), from main's log after the landing.
 
+## Falls short: the new capability has no Purpose
+
+`specs/crew-release/spec.md`, the delta that creates the capability `crew-release`, has no `## Purpose`. So `openspec archive` writes its placeholder there, "TBD - created by archiving change a-crew-release-reports-its-own-version. Update Purpose after archive.", into `openspec/specs/crew-release/spec.md`.
+
+Archived on this branch and not committed, `openspec validate --specs --strict` gave "27 passed, 1 failed". `crew-release` fails with: "Purpose section is still a placeholder rather than a Purpose anyone wrote". `t-specs` runs that validation, so the merge that archives this change fails.
+
+The fix is the code stage's. Put a `## Purpose` at the head of `specs/crew-release/spec.md`, above `## ADDED Requirements`, as `crew-publishes-a-flake-whose-module-writes-its-host-file` did for `crew-flake`. Its content is what the proposal's *New Capabilities* says `crew-release` is: how crew is released. Archive reads a delta's Purpose only when it creates the capability, and a spec under `openspec/specs/` is never edited directly.
+
 ## Outcome
 
-The whole checks pass and the work meets every requirement and scenario of the change, with every task done. The change is archived.
+The whole checks pass, every task is done, and the code meets every requirement and scenario. The change is not archived: its new capability's delta lacks a Purpose, so the archived spec would fail `t-specs`. It goes back to its code stage.
