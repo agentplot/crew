@@ -20,7 +20,9 @@
 # Flume holds for the runner among them, and name no landing commit as what makes a piece merged or a bolt landed
 # (record 0062's stopgap retired; docs.2). README, the skill and the usage name a drive's runs, standing or on-demand,
 # and its review's after_changes and after_hours, and crew drive set's --runs and --review by them, and none names
-# --flume or a drive's flume (record 0064 as amended 2026-11-09).
+# --flume or a drive's flume (record 0064 as amended 2026-11-09). README says a write's commit carries its entry, which
+# names no commit of its own, and a decision reads the tip, and neither it, the skill nor crew's own header speaks of a
+# read below the tip (an-act-carries-its-entry-in-its-own-commit).
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -249,3 +251,10 @@ for doc in "$readme" "$skill"; do
   has "$doc" "mends what it replaces"; has "$doc" "a check still fails"
 done
 ok "README and the skill say crew drive set mends what it replaces in a file at crew's own version and refuses it only where a check still fails"
+
+has "$readme" "every write is an act whose commit carries its entry"
+has "$readme" "names no commit of its own"; has "$readme" "a decision reads the branch at its tip"
+for doc in "$readme" "$skill" "$(cat "$CREW/plugin/bin/crew")"; do
+  lacks "$doc" "below its tip"; lacks "$doc" "below the tip"
+done
+ok "README says a write's commit carries its entry and a decision reads the tip, and neither it, the skill nor crew's header speaks of a read below the tip"

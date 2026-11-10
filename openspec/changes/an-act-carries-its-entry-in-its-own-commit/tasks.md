@@ -22,5 +22,5 @@ Each check is a moon task of the `tests` project, run through `tests/suite`: `lo
 
 ## 4. The docs and the tests the change affects
 
-- [ ] 4.1 README, the crew skill and `plugin/bin/crew`'s header say a write's commit carries its entry and a decision reads the tip, and none of them speaks of a read below the tip (Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.1 README, the crew skill and `plugin/bin/crew`'s header say a write's commit carries its entry and a decision reads the tip, and none of them speaks of a read below the tip (Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
 - [ ] 4.2 Verify `tests/suite --affected` ends with "0 failed".
