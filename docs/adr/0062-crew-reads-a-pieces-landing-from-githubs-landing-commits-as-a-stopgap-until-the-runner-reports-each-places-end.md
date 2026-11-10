@@ -22,9 +22,9 @@ When Flume tidies a finished place, the runner keeps only the last status it car
 - **What retires it.** The readings go in the change that follows the Boomdrive unit `the-runner-carries-each-places-end` onto every host crew serves. That unit has the runner carry each place's end, landed, failed, refused or dropped, to the control plane's report before Flume tidies the place. From then on crew reads every piece's end from the runner's report alone.
 - **Not taken.** Taking the readings out now and waiting for the runner. The hand-drops would go on until the Boomdrive change lands.
 
-## Amendment of 2026-11-10: a bolt's head that sluice landed passed (proposed)
+## Amendment of 2026-11-10: a bolt's head that sluice landed passed
 
-Status: proposed on 2026-11-10 by the code stage of the fix `main--a-passed-landings-head-is-verified`, on agentplot-design's signal 2026-11-09-agentplot-design-9b1ec2dd/01, "sluice green at the head should read as verified whoever submitted it", which the fix's brief carries: "A head that is a sluice landing whose result passed is verified, whoever submitted it."
+Status: accepted by agentplot-design on 2026-11-10, as a second stopgap under the user's choice of 2026-11-08 above ("Keep them as a named stopgap until the runner reports each end"), named with the move that retires it as `roles.5` asks. Written by the code stage of the fix `main--a-passed-landings-head-is-verified`, on agentplot-design's signal 2026-11-09-agentplot-design-9b1ec2dd/01, "sluice green at the head should read as verified whoever submitted it", which the fix's brief carries: "A head that is a sluice landing whose result passed is verified, whoever submitted it."
 
 ### Context
 
