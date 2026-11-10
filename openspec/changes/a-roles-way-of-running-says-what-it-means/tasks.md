@@ -22,4 +22,4 @@ Each check runs from the worktree's root as written. `tests/suite <name>...` run
 ## 4. The texts
 
 - [x] 4.1 README, the crew skill and the usage headers of `crew` and `plan.py` name a drive's `runs`, `standing` or `on-demand`, its `review`'s `after_changes` and `after_hours`, and `crew drive set`'s `--runs` and `--review <after_changes> <after_hours>`, and none names `--flume` or a drive's `flume`; `tests/t-docs.sh` holds them to it (design, Decision 8; Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
-- [ ] 4.2 The operator's brief names `runs`, `standing` or `on-demand`, and `after_changes` and `after_hours` among what a drive's entry says, and no `flume`; `tests/t-briefs.sh` holds it to it (design, Decision 8; Task notes 4.2). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 4.2 The operator's brief names `runs`, `standing` or `on-demand`, and `after_changes` and `after_hours` among what a drive's entry says, and no `flume`; `tests/t-briefs.sh` holds it to it (design, Decision 8; Task notes 4.2). Verify `tests/suite t-briefs` ends with "0 failed".
