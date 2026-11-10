@@ -851,23 +851,53 @@ def place_branch(work):
     return f"{'change' if kind == 'unit' else kind}/{name}" if kind in ("unit", "chore") and name else None
 
 
-def verification(head, pieces):
-    """A bolt's verification (record 0025 point 4, crew record 0056 points 1 and 4; read.1, read.2), from plain facts:
-    head, the bolt's head as read where the bolt lives (gather.bolt_read), None where there is none; pieces, its units,
-    chores and fixes as [(work, s)], work as requests name it and s its stage as stage_of gives it.
+def verification(head, pieces, landing=None):
+    """A bolt's verification (record 0025 point 4, crew record 0056 points 1 and 4, record 0062 as amended 2026-11-10;
+    read.1, read.2), from plain facts: head, the bolt's head as read where the bolt lives (gather.bolt_read), None where
+    there is none; pieces, its units, chores and fixes as [(work, s)], work as requests name it and s its stage as
+    stage_of gives it; landing, what the head's commit says of sluice's landing on the bolt at it (gather.head_landing):
+    None where the head is no commit of the bolt's own line beyond main, else its Sluice-Submission and Sluice-Result
+    values, or why they can't be read.
     Returns (state, words): "green", naming the head and the work, for the first piece in the order given that reads
     merged or landed with its commit the head, as the runner reports it, a record Flume holds for the runner after its
     tidy among them, since every piece lands on its bolt through a submission sluice lands
     only on its required checks passing, or beside its queue when none of them reads its changes (teams.5, sluice
     clause 140), so a head that is a piece's landing is one the kit's checks passed, a landing beside reading the same;
-    "none" for any other head, a commit pushed another way or a landing the runner does not report among them; and
-    "unknown" with no head. A piece with no commit matches nothing, and the commits compare whole."""
+    else "green", naming the head and sluice's landing, for a head that is a landing sluice made on the bolt whose one
+    verdict reads passed, whoever submitted it, a record's or a fix's landed straight onto the bolt among them, since
+    sluice's landing commit names the verdict it landed on and a landing beside reads passed (sluice clause 23);
+    "unknown" naming why for such a head whose trailers can't be read; "none" for any other head, a commit pushed
+    another way among them; and "unknown" with no head. A piece with no commit matches nothing, and the commits compare
+    whole."""
     if not head:
         return "unknown", "no head crew can read"
     for work, s in pieces:
         if s.get("stage") in ("merged", "landed") and s.get("commit") and s["commit"] == head:
             return "green", f"its head {head[:7]} is {bare(work)}'s landing, as the runner reports it"
+    if isinstance(landing, dict) and landing.get("error"):
+        return "unknown", (f"its head {head[:7]} is no landing of its work that the runner reports, and crew can't read "
+                           f"whether sluice landed it passed: {landing['error']}")
+    passed = passed_landing(landing)
+    if passed is not None:
+        return "green", f"its head {head[:7]} is sluice's landing{passed} on the bolt, which passed"
     return "none", f"its head {head[:7]} is no landing of its work that the runner reports"
+
+
+# A verdict sluice landed on, as its landing commit's Sluice-Result names it (sluice clause 23): passed, then its counts
+# and, for a landing beside the queue, the verdict covering the revision it landed on.
+PASSED = re.compile(r"passed(?![\w-])")
+
+
+def passed_landing(landing):
+    """Whether a head's landing facts (gather.head_landing) are sluice's landing on the bolt with one verdict, passed:
+    " #<n>" naming its one submission, "" where it names none or not one, or None for any other facts, no landing, a
+    verdict of another word or more than one verdict among them (read.2)."""
+    if not isinstance(landing, dict):
+        return None
+    results, subs = landing.get("results"), landing.get("submissions")
+    if not (isinstance(results, list) and len(results) == 1 and isinstance(results[0], str) and PASSED.match(results[0])):
+        return None
+    return f" #{subs[0]}" if isinstance(subs, list) and len(subs) == 1 and isinstance(subs[0], str) and subs[0].isdigit() else ""
 
 
 def working(reading):

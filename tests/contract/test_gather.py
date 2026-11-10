@@ -247,6 +247,31 @@ def test_a_bolt_on_github_that_merged_another_bolts_landing_carries_that_bolts_w
     assert (got["te"]["carries"], got["cp"]["carries"]) == ({"cp": [landing]}, {})
 
 
+def test_a_bolts_head_names_the_verdict_sluice_landed_it_on_and_one_main_holds_names_none(repo, tmp_path):
+    """gather.head_landing (merge-gate "A passed landing at the head that no piece names"; record 0062 as amended
+    2026-11-10): bolt te on GitHub standing where main holds it, main's tip itself sluice's landing #69, reads no
+    landing at its head; once a record's fix lands straight onto it as sluice's #70, its head reads that submission
+    and its one verdict, as git parses the trailers sluice writes (sluice clause 23); a commit on it with no trailer
+    reads neither; and a line git can't list is said, never read as no landing (read.1)."""
+    k, other = on_github(repo, tmp_path)
+    landed_on_github(other, {"m.txt": "m\n"}, "chore(land): #69 bolt/earlier\n\nSluice-Submission: 69\nSluice-Result: passed (5 run, 0 replayed)")
+    other.git("push", "-q", "origin", "HEAD:main")
+    repo.git("fetch", "-q", "origin")
+    got = k.read()["bolts"]["te"]
+    assert got["head"] == repo.git("rev-parse", "origin/main") and got["head_landing"] is None
+    head = landed_on_github(other, {"docs/adr/0030.md": "r\n"}, (
+        "chore(land): #70 design/record-0030-fix\n\nSluice-Submission: 70\nSluice-From: agentplot-design (pull/90)\n"
+        f"Sluice-Tested: {'e' * 40}\nSluice-Result: passed (3 run, 0 replayed)"))
+    repo.git("fetch", "-q", "origin")
+    got = k.read()["bolts"]["te"]
+    assert (got["head"], got["head_landing"]) == (head, {"submissions": ["70"], "results": ["passed (3 run, 0 replayed)"]})
+    head = landed_on_github(other, {"x.txt": "x\n"}, "fix: pushed another way")
+    repo.git("fetch", "-q", "origin")
+    assert k.read()["bolts"]["te"]["head_landing"] == {"submissions": [], "results": []}
+    assert gather.head_landing(str(repo.path), head, [head], "git could not list bolt/te's own commits beyond main") == {
+        "error": "git could not list bolt/te's own commits beyond main"}
+
+
 def test_a_bolts_ref_gone_while_the_lines_are_read_is_left_out_and_one_git_cant_list_is_named(repo):
     """gather.bolt_lines (read.1): a ref another command removed while the read ran, as a fetch prunes a landed bolt's,
     is no bolt; a ref that stands and git can't list beyond main is named, never read as no line."""
@@ -282,8 +307,8 @@ def test_a_gather_of_a_kit_with_a_held_bolt_runs_no_sluice(repo, tmp_path, monke
     sluice landed through its queue and, at its head, a take-main fix landed beside the queue with nothing run, each
     landing commit naming a place's branch in its Sluice-From, the second naming a submission and no combination tested
     as sluice 0.69.0 writes it (text.rs beside_message), and sluice's records on the host hold a merge decided and one
-    standing. The gather, asked te and stamped as the host's follower asks it, reads te's head and runs no sluice: its
-    answer carries no submissions, decided, overview, verdict or beside, nor the errors of their reads, and for te no
+    standing. The gather, asked te and stamped as the host's follower asks it, reads te's head, and the submission and
+    verdict its commit's trailers name (record 0062 as amended 2026-11-10), and runs no sluice: its answer carries no submissions, decided, overview, verdict or beside, nor the errors of their reads, and for te no
     landings, landed, landings_error or landed_error, and its stamp request no overviews. sluice here is a script first
     on the path that appends every call it gets to a file, which stays empty."""
     k, other = on_github(repo, tmp_path)
@@ -311,6 +336,9 @@ def test_a_gather_of_a_kit_with_a_held_bolt_runs_no_sluice(repo, tmp_path, monke
     assert not {"submissions", "decided", "overview", "submissions_error", "decided_error"} & set(got)
     assert not {"verdict", "beside"} & set(got["bolts"]["te"])
     assert not {"landings", "landed", "landings_error", "landed_error"} & set(got["bolts"]["te"])
+    assert got["bolts"]["te"]["head_landing"] == {"submissions": ["1319"], "results": [(
+        "passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the "
+        f"result at {covering}, passed (141 run, 0 replayed)")]}
     stamps = gather.read({"kits": [req], "stamp": True, "labels": ["wldn"], "overview": [str(repo.path)]})
     assert set(stamps) == {"kits", "readings"}
     assert log.read_text() == "", f"the gather ran sluice: {log.read_text()}"

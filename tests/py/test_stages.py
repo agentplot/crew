@@ -205,9 +205,10 @@ class TestEndsHeldForTheRunner:
 
     def test_a_head_held_for_the_runner_reads_green_and_one_only_a_landing_commit_names_reads_none(self):
         """merge-gate "A landing held for the runner": every piece of x carried landed and held for the runner at its
-        commit, x's head the last, reads green naming the head as the runner reports it; and "A head only a landing
-        commit names": b last carried at submitted, with x's facts giving a landing commit naming change/b at the
-        head, reads none, so x is not offered for landing."""
+        commit, x's head the last, reads green naming the head as the runner reports it; and "A head whose landing names
+        a piece the runner last carried at submitted": b last carried at submitted, with x's facts giving a landing
+        commit naming change/b at the head, reads none while the head's commit names no verdict, and green as sluice's
+        landing once it names passed, but x is not offered for landing either way, b not having merged."""
         from facts import ran
         st = self.stages(ran({n: "flume-0.20.0/landed-held" for n in (1, 2, 3)}), bolt={"head": HELD_AT})
         assert st.verification(st.plan.bolt("x"), HELD_AT) == ("green", f"its head {HELD_AT[:7]} is a's landing, as the runner reports it")
@@ -216,6 +217,27 @@ class TestEndsHeldForTheRunner:
         st = self.stages(ran({1: "flume-0.20.0/landed-held", 2: "submitted"}), bolt=named)
         assert st.verification(st.plan.bolt("x"), head)[0] == "none"
         assert st.bolt_state(st.plan.bolt("x")) == "active"
+        passed = dict(named, head_landing={"submissions": ["71"], "results": ["passed (37 run, 0 replayed)"]})
+        st = self.stages(ran({1: "flume-0.20.0/landed-held", 2: "submitted"}), bolt=passed)
+        assert st.verification(st.plan.bolt("x"), head, passed["head_landing"])[0] == "green"
+        assert st.bolt_state(st.plan.bolt("x")) == "active"
+
+    def test_a_bolt_whose_head_is_a_passed_landing_no_piece_names_waits_to_land(self):
+        """merge-gate "A passed landing at the head that no piece names" (record 0062 as amended 2026-11-10; signal
+        2026-11-09-agentplot-design-9b1ec2dd/01, boomdrive's bolt/the-runner-confirms-the-ends-it-carries): every piece
+        of x landed on it and held for the runner at its commit, and then a record's fix landed straight onto x as
+        sluice's #70, its verdict passed, so x's head is no piece's landing: x reads green naming sluice's landing,
+        and waits to land; with no verdict at the head it stays active, as crew 0.49 held it."""
+        from facts import ran
+        head = "8df8e1d" + "0" * 33
+        runners = ran({n: "flume-0.20.0/landed-held" for n in (1, 2, 3)})
+        landed = {"head": head, "head_landing": {"submissions": ["70"], "results": ["passed (3 run, 0 replayed)"]}}
+        st = self.stages(runners, bolt=landed)
+        x = st.plan.bolt("x")
+        assert st.verification(x, head, landed["head_landing"]) == ("green", "its head 8df8e1d is sluice's landing #70 on the bolt, which passed")
+        assert st.bolt_state(x) == "waits"
+        bare = self.stages(runners, bolt={"head": head, "head_landing": None})
+        assert bare.bolt_state(bare.plan.bolt("x")) == "active"
 
     GONE = {"exists": False, "head": None, "head_at": None, "verdict": None}  # x's facts once GitHub deleted bolt/x
 

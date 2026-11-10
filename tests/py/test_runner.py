@@ -1079,10 +1079,11 @@ class TestBasePlaceFixes:
 
 
 class TestVerification:
-    """A bolt's verification is its work's landing at its head, as the runner reports it (merge-gate "A bolt's
-    verification is its work's landing at its head, as the runner reports it alone"; runner.verification): green once some
-    unit, chore or fix of it reads merged or landed at the head's commit, none for any other head, unknown with no
-    head."""
+    """A bolt's verification is its work's landing at its head, as the runner reports it, or a landing sluice passed
+    there (merge-gate "A bolt's verification is its work's landing, or sluice's passed landing, at its head";
+    runner.verification): green once some unit, chore or fix of it reads merged or landed at the head's commit, or once
+    the head is sluice's landing on the bolt with one verdict, passed; none for any other head, unknown with no head or
+    with a landing's trailers unread."""
 
     HEAD = "d185a879b51dba33555c036392b50443f4dfc5e8"
     OTHER = "0123abc" + "0" * 33
@@ -1119,6 +1120,43 @@ class TestVerification:
     def test_no_head_reads_unknown(self):
         assert runner.verification(None, [("unit/a", self.merged())]) == ("unknown", "no head crew can read")
         assert runner.verification("", [])[0] == "unknown"
+
+    @staticmethod
+    def landing(*results, subs=("70",)):
+        return {"submissions": list(subs), "results": list(results)}
+
+    def test_a_passed_landing_no_piece_names_reads_green_whoever_submitted_it(self):
+        """merge-gate "A passed landing at the head that no piece names" (record 0062 as amended 2026-11-10; signal
+        2026-11-09-agentplot-design-9b1ec2dd/01): every piece merged at an earlier commit, and the head is sluice's
+        landing #70 of a record's fix onto the bolt, which no piece of crew's is, its verdict passed."""
+        pieces = [("unit/a", self.merged(self.OTHER))]
+        assert runner.verification(self.HEAD, pieces, self.landing("passed (3 run, 0 replayed)")) == (
+            "green", "its head d185a87 is sluice's landing #70 on the bolt, which passed")
+
+    def test_a_landing_beside_the_queue_reads_passed(self):
+        """sluice clause 23: an entry landed beside the chain names its own candidate's verdict, passed with nothing run,
+        and the verdict covering the revision it landed on."""
+        beside = ("passed (0 run, 0 replayed) beside the queue: no required check reads its changes; covered by the result "
+                  f"at {self.OTHER}, passed (0 run, 33 replayed)")
+        assert runner.verification(self.HEAD, [], self.landing(beside, subs=())) == (
+            "green", "its head d185a87 is sluice's landing on the bolt, which passed")
+
+    def test_a_piece_landed_at_the_head_is_named_before_sluices_landing(self):
+        assert runner.verification(self.HEAD, [("unit/b", self.merged())], self.landing("passed (9 run, 0 replayed)")) == (
+            "green", "its head d185a87 is b's landing, as the runner reports it")
+
+    def test_a_head_that_is_no_passed_landing_reads_none(self):
+        """No landing on the bolt at the head (a head main holds, or one on no line of the bolt's own); a verdict of
+        another word; two verdicts; a landing commit naming none: each reads none (read.2)."""
+        none = ("none", "its head d185a87 is no landing of its work that the runner reports")
+        for landing in (None, self.landing(), self.landing("failed (1 run)"), self.landing("passedover"),
+                        self.landing("passed (1 run)", "passed (2 run)"), {"results": "passed"}, "passed"):
+            assert runner.verification(self.HEAD, [("unit/a", self.merged(self.OTHER))], landing) == none, landing
+
+    def test_a_landing_whose_trailers_cant_be_read_reads_unknown_naming_why(self):
+        assert runner.verification(self.HEAD, [], {"error": "git could not read the trailers of d185a87"}) == (
+            "unknown", "its head d185a87 is no landing of its work that the runner reports, and crew can't read whether "
+                       "sluice landed it passed: git could not read the trailers of d185a87")
 
 
 class TestWhere:
