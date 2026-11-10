@@ -166,10 +166,18 @@ gitconfig() {  # every host's git: an identity, and github.com over https rewrit
 EOF
 }
 
-world() {  # hosts, fixtures, crew's checkout where each host's teams file keeps it
+# world: the hosts and their teams files; crew installed on each host's login path, $T/hosts/<host>/bin, which the stub
+# ssh puts first, as a wrapper that execs this test's crew as the Nix wrapper execs a build's (a wrapper, not a link,
+# since plugin/bin/crew finds its lib from its own folder); and crew's checkout in each space, the drives' kit the
+# fixture's repos name, which crew runs nowhere else
+world() {
   local h
   gitconfig "$HOME"
-  for h in mac-studio chuck-herdr-alpha; do mkdir -p "$(home_of $h)" "$T/hosts/$h/work"; gitconfig "$(home_of $h)"; done
+  for h in mac-studio chuck-herdr-alpha; do
+    mkdir -p "$(home_of $h)" "$T/hosts/$h/work" "$T/hosts/$h/bin"; gitconfig "$(home_of $h)"
+    printf '#!/usr/bin/env bash\nexec %q "$@"\n' "$CREW/plugin/bin/crew" > "$T/hosts/$h/bin/crew"
+    chmod +x "$T/hosts/$h/bin/crew"
+  done
   fixtures
   mkdir -p "$(space chuck-herdr-alpha willdan)/crew" "$(space mac-studio madswan)/crew"
   ln -s "$CREW" "$(space chuck-herdr-alpha willdan)/crew/main"

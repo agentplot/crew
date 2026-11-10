@@ -72,7 +72,7 @@ class TestNameBack:
 
 
 class TestFoundAnswer:
-    """read_agent of an agent on another host: herdr's agent get there, or that host's crew.py found when herdr lists
+    """read_agent of an agent on another host: herdr's agent get there, or that host's `crew _found` when herdr lists
     none by its name (read.1)."""
 
     def ran(self, code, out="", err=""):
