@@ -1,4 +1,4 @@
-# The operations on a partition's environments, a deploy being one kind (plan.14), through crew ops as swancloud's
+# The operations on a drive's environments, a deploy being one kind (plan.14), through crew ops as swancloud's
 # deployer calls it, on the stubs (tests.11, record 0022): an offer is a rail row, and crew raises its card in
 # main-level ops's name on the stub pendingyou, with the release notes and steps it was handed on its face, keeping
 # those files beside it and none of their text in the run record, telling ops the line that adopts it; handed no notes,
@@ -11,7 +11,7 @@
 # one before, changes in place when its step is recorded again with new words, printing the line that adopts it
 # either way, and closes when it is marked; an offer on a host not signed in stands with no card; main-level ops posts
 # no card under an operations row's key, crew's, and asks under a key of its own; quiet reads the Flume places the
-# partition's runner on the host carries working, and its test slots; an ops command run away from the partition's main level runs there, an offer carrying its files'
+# drive's runner on the host carries working, and its test slots; an ops command run away from the drive's main level runs there, an offer carrying its files'
 # text and a step its text; and a step the deploy waits on is first on its offer's card, a box to tick, the deployer's
 # record of it has no card of its own, and the word is the card's send with it ticked. Which offer is open, the word, each step's latest state, the rows and their words, each
 # card's facts, whether it is posted or changed, which step's card is raised, what a step recorded again or an offer
@@ -230,13 +230,13 @@ held() { [[ -e $T/held ]]; }; until_ok held || fail "the test slot was never hel
 rc=0; out=$(dep quiet mac-studio 2>&1) || rc=$?
 kill "$holder"; wait "$holder" 2>/dev/null || true
 eq "$rc" "1"; has "$out" "1 of crew's tests are running on mac-studio"
-# A place of the partition's whose code is begun on mac-studio, as the runner there carries Flume's status of it.
+# A place of the drive's whose code is begun on mac-studio, as the runner there carries Flume's status of it.
 ws=$(remote WilldanGroup/crew-state) place=/w/places/change--map-one
 runner_writes mac-studio 1 "$place" "{\"status\":{\"places\":[{\"place\":\"$place\",\"phase\":\"live\",\"current\":\"code\",\"stages\":[{\"name\":\"code\",\"state\":\"begun\"}]}]}}"
 expect_ok crew ops quiet chuck-herdr-alpha --label wldn
 rc=0; out=$(crew ops quiet mac-studio --label wldn 2>&1) || rc=$?
 eq "$rc" "1"; has "$out" "change--map-one is working"
-ok "quiet answers whether a place of the partition has a stage working on the host, as its runner there carries Flume's status, or a test running there"
+ok "quiet answers whether a place of the drive has a stage working on the host, as its runner there carries Flume's status, or a test running there"
 
 : > "$CREW_TEST_LOG"
 expect_ok crew ops offer "$box" --label wldn --from none --to "$s1" --notes "$T/notes.md" --steps "$T/steps.txt"
@@ -249,7 +249,7 @@ expect_fail "no word is given for a deploy of $box" crew ops word "$box" --label
 expect_ok crew ops step "$box" --label wldn --key restart-teams/1 --state handed --doer main-ops --text "$T/held.txt"
 has "$(grep "ssh $box .*ops step" "$CREW_TEST_LOG")" "--text -"; lacks "$(grep "ssh $box" "$CREW_TEST_LOG")" "$T/held.txt"
 eq "$(runs "$box" wldn | grep -c "^Text: Restart crew's teams. - why: It ends a stage mid-unit.$")" "1"
-ok "an ops command run away from the partition's main level is run there, an offer carrying its files' text and a step its text"
+ok "an ops command run away from the drive's main level is run there, an offer carrying its files' text and a step its text"
 
 # A step the deploy waits on (swancloud record 0038, record 0059), handed marked before by the deployer.
 printf "step\t1\tuser\tbefore\tmacbook-pro\tThe job points at deneb, which holds no repository until the disk is there.\tMove the Archives disk from mac-studio to deneb.\nstep\t2\tuser\t\tmacbook-pro\tOnly you hold the vault.\trotate the kanidm admin password\n" > "$T/before.txt"

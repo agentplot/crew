@@ -1,13 +1,13 @@
-# Each of a partition's main-level roles starts from its agent definition: the model and effort in its frontmatter,
-# unless the teams file overrides them for the partition, and its brief appended to Claude Code's system prompt, reaching
-# the checkouts its host keeps of the partition's kits, the repositories its plan names, as GitHub holds its branch at
+# Each of a drive's main-level roles starts from its agent definition: the model and effort in its frontmatter,
+# unless the teams file overrides them for the drive, and its brief appended to Claude Code's system prompt, reaching
+# the checkouts its host keeps of the drive's kits, the repositories its plan names, as GitHub holds its branch at
 # the start (the user's ruling of 2026-11-01), a kit the host keeps none of left out; crew-role
 # starts no team's conductor, ops or slot (Decision 10 of the-team-machinery-leaves); its name is in
 # CREW_AGENT, and in SLUICE_AGENT for sluice, and its definition in CREW_ROLE. A session herdr resumes without crew's
 # environment is given that same brief back by crew's SessionStart hook at each compaction. A main level's role is
 # started only on its main level's host, and a main level's session herdr resumes on any other host is given no
 # identity, pane name or brief, its record left as it was, and told where the main level runs, or why crew can't tell.
-# A role its partition runs as its kind is started by crew-role on no host, which names crew role open.
+# A role its drive runs as its kind is started by crew-role on no host, which names crew role open.
 # Reads: plugin/hooks/ plugin/roles/
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -61,13 +61,13 @@ role chuck-herdr-alpha wldn planner;        has "$launch" "$opus --effort max"
 role mac-studio madswan planner;            has "$launch" "$opus --effort xhigh"
 role chuck-herdr-alpha wldn operator;       has "$launch" "--model claude-opus-5-5 --effort medium"
 role chuck-herdr-alpha wldn ops;            has "$launch" "$opus --effort high"
-ok "an override changes its role for that partition only"
+ok "an override changes its role for that drive only"
 
 role chuck-herdr-alpha wldn design resume;  has "$launch" "--name wldn-design --resume $first"
 role mac-studio madswan design resume;   has "$launch" "--name madswan-design"; lacks "$launch" "--resume"
 : > "$CREW_TEST_CLAUDE_LOG"
-expect_fail "no partition 'swb-1'" as chuck-herdr-alpha "$CREW/plugin/bin/crew-role" swb-1 conductor
-expect_fail "no partition 'swb-1'" as chuck-herdr-alpha "$CREW/plugin/bin/crew-role" swb-1 unit-2 code
+expect_fail "no drive 'swb-1'" as chuck-herdr-alpha "$CREW/plugin/bin/crew-role" swb-1 conductor
+expect_fail "no drive 'swb-1'" as chuck-herdr-alpha "$CREW/plugin/bin/crew-role" swb-1 unit-2 code
 expect_fail "no role 'conductor' at wldn's main level" as chuck-herdr-alpha "$CREW/plugin/bin/crew-role" wldn conductor
 expect_fail "no role 'fable' at wldn's main level" as chuck-herdr-alpha "$CREW/plugin/bin/crew-role" wldn fable
 eq "$(launches)" ""
@@ -79,13 +79,13 @@ expect_fail "wldn's main level runs on chuck-herdr-alpha, not mac-studio, and cr
 eq "$(launches)" ""
 ok "a main level's role, fresh or resumed, is refused off its main level's host, naming that host, and no Claude starts"
 
-role_stream madswan planner madswan-main
+role_runs madswan planner on-demand
 expect_fail "madswan's planner runs as its kind, so crew starts no standing agent of it: it is opened with crew role open planner --label madswan" \
   as mac-studio "$CREW/plugin/bin/crew-role" madswan planner
 expect_fail "madswan's planner runs as its kind" as mac-studio "$CREW/plugin/bin/crew-role" madswan planner resume
 eq "$(launches)" ""
-role_stream madswan planner false
-ok "a role its partition runs as its kind, fresh or resumed, is refused, naming crew role open, and no Claude starts"
+role_runs madswan planner standing
+ok "a role its drive runs as its kind, fresh or resumed, is refused, naming crew role open, and no Claude starts"
 
 # replayed <source>: what crew's SessionStart hook gives, on mac-studio, the wldn planner's session copied there from the
 # box, as herdr's session restore replays a saved pane on a host that once ran the main level: without crew's environment

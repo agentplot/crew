@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sites.py: crew sites [<label>] [--json]
 
-For each of a partition's hosts, its main level's and each its runners answer on (plan.partition_hosts), each started
+For each of a drive's hosts, its main level's and each its runners answer on (plan.drive_hosts), each started
 bolt whose work runs there, as the runner that took it reported (plan.bolt_at), with no dev server, saying so, since its
 work runs in Flume's places, until the runner reports a place's addresses (crew-sites). Each host is read
 once, for whether it answers (read.3).
@@ -23,7 +23,9 @@ FLUME_PLACES = "its work runs in Flume's places, whose servers crew does not sho
 
 
 def url_of(fleet, here, host, site, routes):
-    """(url, note) for a worktree's server, or (None, why) when there is none to open from here."""
+    """(url, note) for a worktree's server, or (None, why) when there is none to open from here. Whether here is a
+    Mac, which can open another host's dev.swancloud.net name, is read from the teams file's `hosts` (crew.is_mac);
+    where the file names no such host, crew says it can't tell (read.1)."""
     if routes is None:
         return None, "portless did not answer"
     name = (site.get("here") or "").split("://", 1)[-1].rsplit(".", 1)[0] if site.get("here") else None
@@ -35,7 +37,9 @@ def url_of(fleet, here, host, site, routes):
     if host == here:
         return running["url"], None
     if site.get("tailnet"):
-        return site["tailnet"], None if fleet["hosts"].get(here, {}).get("kind") == "darwin" else "open from a Mac"
+        mac = crew.is_mac(fleet, here)
+        return site["tailnet"], (None if mac else "open from a Mac" if mac is False else
+                                 f"open from a Mac: the teams file's hosts name no {here}, so crew can't tell whether it is one")
     return None, f"running, but {host} does not publish its dev servers"
 
 
@@ -47,9 +51,9 @@ def sites(fleet, labels):
     at = {(l, b.name()): t for l, _, _, p in found if p and l in runs for b in p.bolts() if plan.started(b)
           for t in [plan.known_at(fleet, l, b, runs[l])] if t}
     sv = plan.survey(fleet, [(t, bolt) for (_, bolt), t in at.items()], sites=True)
-    out = {"from": here, "partitions": [], "unread": errors}
+    out = {"from": here, "drives": [], "unread": errors}
     for l in labels:
-        hosts = {h: {"host": h, "reachable": True, "error": None, "bolts": []} for h in plan.partition_hosts(fleet, l)}
+        hosts = {h: {"host": h, "reachable": True, "error": None, "bolts": []} for h in plan.drive_hosts(fleet, l)}
         for pl, repo, tip, p in found:
             if pl != l or not p:
                 continue
@@ -65,7 +69,7 @@ def sites(fleet, labels):
                     h.update(reachable=False, error=got["error"] if got else "not read")
                     continue
                 entry["note"] = FLUME_PLACES
-        out["partitions"].append({"label": l, "hosts": [hosts[h] for h in sorted(hosts)]})
+        out["drives"].append({"label": l, "hosts": [hosts[h] for h in sorted(hosts)]})
     return out
 
 
@@ -73,7 +77,7 @@ def text(data):
     lines = []
     show = lambda x: x["url"] or (f"({x['note']})" if x["note"] else "no server running")
     rel = lambda path: "/".join(path.split("/")[-2:]) if path else "-"
-    for p in data["partitions"]:
+    for p in data["drives"]:
         lines.append(p["label"])
         for h in p["hosts"]:
             if not h["reachable"]:
@@ -100,7 +104,7 @@ def main(argv):
     a = ap.parse_args(argv)
     fleet = crew.load()
     label = a.label or crew.caller_label(fleet)
-    labels = [crew.partition_of(fleet, label)["label"]] if label else list(fleet["partitions"])
+    labels = [crew.drive_of(fleet, label)["label"]] if label else list(fleet["drives"])
     data = sites(fleet, labels)
     print(json.dumps(data, indent=1) if a.json else text(data))
 

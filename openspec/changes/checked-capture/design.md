@@ -4,7 +4,7 @@
 
 See proposal.md for why. The current state, after `state-repository`:
 
-- `crew signal <slug> "<what it asserts>" [--kind K] [--subject a,b] [--excerpt "<text>"]` (`plan.py signal`) writes, on main of the partition's first blueprints repo, `signals/<date>-<agent>/capture.md` and `signals/<date>-<agent>/NN-<slug>.md`: one capture per agent and day, `source: crew`, `status: read`, no pointer to any source, the excerpt optional and unchecked.
+- `crew signal <slug> "<what it asserts>" [--kind K] [--subject a,b] [--excerpt "<text>"]` (`plan.py signal`) writes, on main of the drive's first blueprints repo, `signals/<date>-<agent>/capture.md` and `signals/<date>-<agent>/NN-<slug>.md`: one capture per agent and day, `source: crew`, `status: read`, no pointer to any source, the excerpt optional and unchecked.
 - The shape of a capture and a signal is the blueprints' `signals/README.md` (read it in `WilldanGroup/willdan-blueprints`): a directory per capture with `capture.md` and one markdown file per signal; a signal has frontmatter (`signal`, `kind`, `who`, `subject`, `claims`), one or two sentences of assertion, and the excerpt as a blockquote with its position. Raw material is never committed (`.raw/` is gitignored); the capture cites its source so that anyone with access re-fetches it.
 - The daily pass (`signals/bin/sweep` and the `signal-capture` skill, in the blueprints repo) writes meeting captures and signals there, by committing in a checkout. It is not touched by this change.
 - A drive's state is the branch `<label>/main` of its state repository, written by `plan.py`'s `write`, several files in one commit, with the run record carried.
@@ -128,7 +128,7 @@ For `verified` and `found`, the source line is appended, byte for byte, to `~/.l
 
 ### Looking a signal up
 
-`signals/<id>` is resolved as `signals/<id>.md` on the drive's branch, then on main of the partition's first blueprints repo. `crew signal move`, `crew unit add --signal` and `crew signal show` use the one lookup. `crew signal show <id>` prints the signal file, its capture's frontmatter in plain lines, and its move when it has one.
+`signals/<id>` is resolved as `signals/<id>.md` on the drive's branch, then on main of the drive's first blueprints repo. `crew signal move`, `crew unit add --signal` and `crew signal show` use the one lookup. `crew signal show <id>` prints the signal file, its capture's frontmatter in plain lines, and its move when it has one.
 
 The two signals of 2026-10-03 and every meeting signal stay where they are and read as they stand; nothing is converted.
 

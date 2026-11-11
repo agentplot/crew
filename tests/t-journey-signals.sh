@@ -50,7 +50,9 @@ eq "$(git --git-dir "$wb" for-each-ref)" "$blueprints_refs"
 raw=$(home_of $box)/.local/state/crew/wldn/raw/$cap.jsonl
 eq "$(cat "$raw")" "$(head -1 "$(home_of $box)/.claude/projects/-work/s-1.jsonl")"
 git --git-dir "$ws" grep -q -F "validity check?" wldn/main && fail "the branch holds the rest of the source record"
-has "$(runs $box)" "Act: capture"$'\n'"On: signals/$id"$'\n'"Commit: WilldanGroup/crew-state@$(tip)"
+carried="Act: capture"$'\n'"On: signals/$id"$'\n'"Why: signals($id): cfn-nag-templates"  # in the write's commit, naming no commit
+has "$(git --git-dir "$ws" show "$(tip):runs/$box/$(date -u +%F).rec")" "$carried"
+has "$(runs $box)" "$carried"
 ok "an agent's verified capture and its signal are one commit on wldn/main, the source record banked on its host, and nothing in the blueprints"
 
 planner expect_ok crew signal beside-cfn-lint "The check sits beside cfn-lint's, not in place of it." --excerpt "beside cfn-lint's validity check"
@@ -153,7 +155,7 @@ ok "a program's capture lands from the host that banked its raw record, in one c
 
 # Once wldn's design agent runs as its kind, a capture asks it, in the capture's own commit; none did while it stood.
 at asks.rec >/dev/null 2>&1 && fail "a capture asked a design agent that stands"
-role_stream wldn design wldn-main
+role_runs wldn design on-demand
 t0=$(tip)
 expect_ok crew signal tags-on-stacks "Every stack carries its owner's tags."
 sig=$(id_of "$out")

@@ -9,7 +9,7 @@
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 . "$TESTS/journeys.sh"
 flume_world
-role_stream wldn planner wldn-main
+role_runs wldn planner on-demand
 record_of() { as "$1" bash -c 'cat "$HOME"/.local/state/crew/wldn/runs/*/*.rec 2>/dev/null'; }
 
 # nothing_done <what>: since the last `before`, no tool was called, no agent started, no entry written on either host
@@ -60,6 +60,7 @@ signal a-finding "it asserts" --excerpt "the words"
 signal move x attach
 signal show x
 state init wldn
+drive set pat
 plan approve 3
 plan answer x q
 rail
@@ -86,18 +87,16 @@ _go
 _update
 _renew wldn-planner
 _sweep wldn switchboard-kit --dir /k
-_preview wldn land/b b bolt/b HEAD
 _answered
-_card-preview wldn land/b b
-_preview-release wldn land/b
 _made wldn a
 _batch-card wldn 1
 _land-row wldn tenant-environments
 _land-card wldn switchboard-kit
-_landing-read wldn tenant-environments
 _release
+_found wldn-planner
 main up wldn
 main fix switchboard-kit red "main is red"
+main fix switchboard-kit red --send
 review wldn --wait
 review delivered
 revive
@@ -125,6 +124,13 @@ expect_ok "$CREW/plugin/bin/crew-role" wldn planner --help
 has "$out" "crew-role <label> design|planner|ops|reviewer|operator [resume]"
 nothing_done "crew --help"
 ok "every command crew dispatches answers -h or --help with its usage and exits 0, calling no tool, starting no agent, writing no entry and moving no branch"
+
+before
+expect_fail "which drive? drives: wldn madswan swancloud" crew main up
+expect_fail 'usage: crew send <drive> "<text>"' crew send
+expect_ok crew --help; has "$out" 'crew send     <drive> "<text>"'; has "$out" "send anything for another drive to its operator"
+nothing_done "crew main up with no label"
+ok "a command given no label asks which drive, naming the drives, and crew send's usage names a drive"
 
 CREW_AGENT=wldn-design expect_ok crew tell wldn-planner "--help with which table holds tenants ZQXN"
 has "$out" "asked wldn-planner"

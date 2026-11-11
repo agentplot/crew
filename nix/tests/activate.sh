@@ -22,7 +22,7 @@ fresh() {
   target=$home/.config/crew/teams.json
   aside=$target.before-nix
   mkdir -p "$home" "$dir/store" "$dir/bin"
-  printf '%s' '{"partitions":[],"version":5}' >"$file"
+  printf '%s' '{"drives":[],"version":6}' >"$file"
   echo host-a >"$dir/name"
   cat >"$dir/bin/uname" <<STUB
 #!/bin/sh

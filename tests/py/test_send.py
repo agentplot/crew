@@ -1,5 +1,5 @@
-"""crew send (briefs.10, record 0035, the operator-agent spec "Anything sent to another partition reaches its operator",
-the run-record spec "A send is one entry in the receiving partition's record"): crew.send_door for where a
+"""crew send (briefs.10, record 0035, the operator-agent spec "A send reaches the operator of the drive it names, marked as a tell",
+the run-record spec "A send that reaches its operator appends one entry naming the sender and the operator"): crew.send_door for where a
 send goes, from the teams file alone, and crew.send for what it types and records. That the command reaches the
 operator's pane on its host is the main level's journey's (t-journey-main)."""
 import pytest
@@ -8,25 +8,25 @@ import crew
 import facts
 import record
 
-FLEET = {**facts.FLEET, "partitions": {**facts.FLEET["partitions"],
+FLEET = {**facts.FLEET, "drives": {**facts.FLEET["drives"],
                                        "swancloud": {"label": "swancloud", "machine": "mac-studio"}}}
 
 
 class TestDoor:
-    """A partition's label resolves to its operator; nothing else is placed."""
+    """A drive's label resolves to its operator; nothing else is placed."""
 
-    def test_a_partition_goes_to_its_operator_by_its_label(self):
+    def test_a_drive_goes_to_its_operator_by_its_label(self):
         assert crew.send_door(FLEET, "wldn", "user@mac-studio") == ("wldn", "wldn-operator")
 
     @pytest.mark.parametrize("name", ["swb-1", "swb-2", "crw-5"])
-    def test_a_teams_name_from_before_teams_left_is_refused_naming_the_partitions(self, name):
+    def test_a_teams_name_from_before_teams_left_is_refused_naming_the_drives(self, name):
         """operator-agent "A name crew does not know"."""
-        with pytest.raises(crew.Refusal, match=rf"^crew send sends to a partition by its label, not '{name}': partitions swancloud wldn$"):
+        with pytest.raises(crew.Refusal, match=rf"^crew send sends to a drive by its label, not '{name}': drives swancloud wldn$"):
             crew.send_door(FLEET, name, "swancloud-planner")
 
-    def test_an_agents_name_is_refused_naming_the_partitions(self):
-        with pytest.raises(crew.Refusal, match=r"crew send sends to a partition by its label, not 'wldn-planner': "
-                                               r"partitions swancloud wldn"):
+    def test_an_agents_name_is_refused_naming_the_drives(self):
+        with pytest.raises(crew.Refusal, match=r"crew send sends to a drive by its label, not 'wldn-planner': "
+                                               r"drives swancloud wldn"):
             crew.send_door(FLEET, "wldn-planner", "swancloud-planner")
 
     def test_an_unknown_name_is_refused(self):
@@ -37,12 +37,12 @@ class TestDoor:
         with pytest.raises(crew.Refusal, match=r"you are wldn's door: carry it on with `crew tell <agent>`"):
             crew.send_door(FLEET, "wldn", "wldn-operator")
 
-    def test_another_partitions_operator_may_send(self):
+    def test_another_drives_operator_may_send(self):
         assert crew.send_door(FLEET, "wldn", "swancloud-operator") == ("wldn", "wldn-operator")
 
 
 class TestSend:
-    """A send is a tell to the door, the addressee before the text, and one `send` entry in the receiving partition's
+    """A send is a tell to the door, the addressee before the text, and one `send` entry in the receiving drive's
     record holding its length and never its text; a send that typed nothing records nothing."""
 
     @pytest.fixture

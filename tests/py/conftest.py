@@ -28,11 +28,20 @@ def no_run(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def scratch_record(monkeypatch, tmp_path_factory):
+    """A case's run record is kept under a scratch folder, never the host's own under ~/.local/state/crew: a plan write
+    appends the entries its commit carried to the host's file once its push is accepted, and a case that stands in
+    land is such a push. A case that names its own folder for the record sets record.ROOT itself."""
+    import record
+    monkeypatch.setattr(record, "ROOT", tmp_path_factory.mktemp("record"))
+
+
+@pytest.fixture(autouse=True)
 def pushed(monkeypatch):
-    """record.emit pushes each entry it writes through record.reach, which fetches and pushes the partition's branch:
+    """record.emit pushes each entry it writes through record.reach, which fetches and pushes the drive's branch:
     here reach stands for it, recording each label it was asked to push, so every case that emits still runs and one
     can say the push was asked (read.5)."""
     import record
     asked = []
-    monkeypatch.setattr(record, "reach", lambda label, eid=None: asked.append(label) or 0)
+    monkeypatch.setattr(record, "reach", lambda label, eid=None, said=False: asked.append(label) or 0)
     return asked

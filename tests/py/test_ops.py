@@ -1,8 +1,8 @@
-"""The operations on a partition's environments, a deploy being one kind (plan.14): ops.state on the run record's ops
+"""The operations on a drive's environments, a deploy being one kind (plan.14): ops.state on the run record's ops
 entries, the rail rows ops.rows makes of them, the approval's refusal and the arguments crew ops refuses; and the
 deploy's and the step's cards crew raises (record 0031): the steps and notes an offer is handed, the deploy card's
 facts, whether its card is posted or changed, what it closes with, a step's card's facts from its text, and which
-step's card is raised, one at a time. That each act is an entry of the run record on the partition's main level's
+step's card is raised, one at a time. That each act is an entry of the run record on the drive's main level's
 host, that crew ops word and steps read them back, that quiet reads the host's agents and test slots, that each card
 is posted, changed and closed, and that a command run elsewhere runs there are the ops journey's (t-journey-ops)."""
 import io
@@ -257,7 +257,7 @@ class TestRefusals:
     @pytest.mark.parametrize("argv, said", [
         (["offer", "mac-studio", "--label", "wldn", "--from", "none", "--to", "nothex"], "--to nothex is no commit: a sha in hex"),
         (["offer", "Bad_Env", "--label", "wldn", "--from", "none", "--to", S1], "Bad_Env is no environment's name: lowercase words and dashes"),
-        (["word", "mac-studio", "--label", "nolabel"], "no partition nolabel in the teams file. partitions: wldn"),
+        (["word", "mac-studio", "--label", "nolabel"], "no drive nolabel in the teams file. drives: wldn"),
         (["step", "mac-studio", "--label", "wldn", "--key", "has space", "--state", "done"], "--key has space is no step key crew takes"),
         (["step", "mac-studio", "--label", "wldn", "--key", "k", "--state", "waiting", "--doer", "user", "--held"],
          "--held marks an agent's step held for the user's word: give its --doer, main-ops"),
@@ -269,7 +269,7 @@ class TestRefusals:
         (["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "end", "--outcome", "failed", "--does", "read the log"], None),
         (["record", "mac-studio", "--label", "wldn", "--to", S1, "--act", "step", "--step", "guests", "--outcome", "failed",
           "--does", "read the log"], None)])
-    def test_a_commit_an_environment_a_partition_or_a_key_crew_cant_take_is_refused(self, argv, said):
+    def test_a_commit_an_environment_a_drive_or_a_key_crew_cant_take_is_refused(self, argv, said):
         assert ops.args_refusal(FLEET, ops.parser().parse_args(argv)) == said
 
     def test_crew_ops_answers_help_as_the_deployers_probe_reads_it(self, capsys):
@@ -344,19 +344,22 @@ class TestRange:
 
 
 class TestRangesKits:
-    """Where a deploy's range is read (Decision 8 of a-kept-repositorys-folder-is-the-runners-container): in each
-    repository its main level's session keeps, at the checkout the host keeps it at (crew.session_checkouts), the teams
-    file's where it names the repository for that host."""
-    SESS = {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/flume"]}
+    """Where a deploy's range is read (Decision 8 of a-kept-repositorys-folder-is-the-runners-container; record 0064): in
+    each repository the teams file keeps on the drive's main-level host (crew.kept), at the file's checkout where it
+    names the repository for that host, else in the folder of a drive there that lists it."""
+    DRIVE = {"label": "madswan", "machine": "deneb", "session": "madswan", "folder": "/d/agentplot",
+             "repos": ["agentplot/crew", "agentplot/flume"]}
     FILE = {"host": "deneb", "named": {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"}}}
 
-    def test_a_session_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
+    def test_a_drive_keeping_crew_and_flume_on_a_host_whose_file_names_crew_gives_crews_view_and_flumes_main(self):
         import crew
-        fleet = {"hosts": {}, "partitions": {}, "repositories": self.FILE}
-        assert crew.session_checkouts(fleet, "deneb", self.SESS) == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
-        assert crew.session_checkouts(fleet, "mac-studio", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
-        assert crew.session_checkouts({"hosts": {}}, "deneb", self.SESS) == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
-        assert crew.session_checkouts(fleet, "deneb", {"dir": "/d/x"}) == []
+        fleet = {"hosts": {}, "drives": {"madswan": self.DRIVE}, "repositories": self.FILE}
+        assert [k["main"] for k in crew.kept(fleet, "deneb")] == ["/v/agentplot/crew", "/d/agentplot/flume/main"]
+        moved = {"hosts": {}, "drives": {"madswan": dict(self.DRIVE, machine="mac-studio")}, "repositories": self.FILE}
+        assert [k["main"] for k in crew.kept(moved, "mac-studio")] == ["/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert [k["main"] for k in crew.kept({"hosts": {}, "drives": {"madswan": self.DRIVE}}, "deneb")] == [
+            "/d/agentplot/crew/main", "/d/agentplot/flume/main"]
+        assert crew.kept({"hosts": {}, "drives": {"madswan": dict(self.DRIVE, repos=[])}}, "deneb") == []
 
     def test_the_range_is_read_in_the_checkouts_the_host_keeps(self, monkeypatch, tmp_path):
         """ops.kit_range probes the resolver's checkouts, here git standing in for the tool."""
@@ -364,8 +367,8 @@ class TestRangesKits:
         import subprocess
         view = tmp_path / "v/agentplot/crew"
         view.mkdir(parents=True)
-        fleet = {"hosts": {"deneb": {"sessions": {"madswan": dict(self.SESS, dir=str(tmp_path / "d"))}}},
-                 "partitions": {"madswan": {"label": "madswan", "machine": "deneb", "session": "madswan"}},
+        fleet = {"hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}},
+                 "drives": {"madswan": dict(self.DRIVE, folder=str(tmp_path / "d"))},
                  "repositories": {"host": "deneb", "named": {"agentplot/crew": {"dir": str(tmp_path / "r"), "checkout": str(view)}}}}
         asked = []
 
@@ -376,6 +379,14 @@ class TestRangesKits:
         monkeypatch.setattr(pathlib.Path, "is_dir", lambda self: str(self) in (str(view), str(tmp_path / "d/flume/main")))
         assert ops.kit_range(fleet, "madswan", S1, S2) == (None, None, f"{S2[:7]} is a commit of 2 kits madswan's main level keeps on deneb")
         assert asked == [(str(view), "cat-file"), (str(tmp_path / "d/flume/main"), "cat-file")]
+
+    def test_an_environments_host_is_checked_against_the_teams_files_hosts(self):
+        """main-level: a host the teams file's `hosts` does not name is refused before anything is read of it."""
+        import argparse
+        import crew
+        fleet = {"hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}}, "drives": {}}
+        with pytest.raises(crew.Refusal, match="^macbook-pro is no host the teams file's hosts name. hosts: deneb$"):
+            ops.quiet(fleet, argparse.Namespace(env="macbook-pro", label="madswan"))
 
 
 class TestOfferedAgain:
@@ -752,7 +763,7 @@ class TestStepRecordedAgain:
         return card(act, key, card_id, minutes, By="swancloud-ops", **f)
 
     def again(self, *written, es=None):
-        """step_again on this host's record as written, its ops entries the partition's unless es gives them."""
+        """step_again on this host's record as written, its ops entries the drive's unless es gives them."""
         return ops.step_again([x for x in written if x["Act"].startswith("ops.")] if es is None else es, list(written), self.K, "swancloud")
 
     def test_a_step_recorded_again_with_new_words_changes_its_open_card_in_place_naming_what_changed(self):
@@ -1026,7 +1037,8 @@ class TestTheDeployCardOfAStepItWaitsOn:
         f = self.facts([SRV_OFFER])
         f["waited"] = [dict(n=str(i), text=f"step {i}", why=None, to=None, key=None, state=None) for i in range(1, 6)]
         c = cards.deploy_card(f)["card"]
-        assert "kind" not in c and "rationale" not in c and c["highStakes"] is True
+        assert "kind" not in c and "rationale" not in c and "highStakes" not in c
+        assert [q["highStakes"] for q in c["questions"]] == [True, True]
         assert [[o["id"] for o in q["options"]] for q in c["questions"]] == [["before:1", "before:2", "before:3"],
                                                                             ["before:4", "before:5", "deploy"]]
         assert [q["title"] for q in c["questions"]] == ["Before the deploy, part 1 of 2", "Before the deploy, part 2 of 2"]

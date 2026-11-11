@@ -186,7 +186,7 @@ class TestAmendment:
 
 
 class TestAnswers:
-    """The card's questions are the approval and the new units (plan-proposals): what `crew plan answer` gathers of the
+    """What else a proposal changes applies with its new units (plan-proposals): what `crew plan answer` gathers of the
     card crew builds, and the change Send applies with its boxes as they stand (plan.card_asks, card_answer,
     with_answer, answered, kept, approved_words)."""
     BOLT = "y"
@@ -343,7 +343,7 @@ class TestWhichAct:
         assert plan.proposal_act("approve", 4, mine=False, outcome="x") is None
 
 
-CARDED = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], state="WilldanGroup/crew-state",
+CARDED = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], state="WilldanGroup/crew-state",
                                               checkout="/w/willdan-blueprints/main", blueprints=["WilldanGroup/willdan-blueprints"])})
 
 
@@ -423,7 +423,7 @@ class TestRaise:
 
     def swept(self, monkeypatch, pl, key):
         """The sweep's raise of the row keyed so, the branch's tip holding the plan and proposals.rec (pl)."""
-        monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "tip")
+        monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: "tip")
         monkeypatch.setattr(plan, "read", lambda repo, ref, tip: write().plan)
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: pl.text() if path == "proposals.rec" else None)
         return plan.raise_proposal(CARDED, {"label": "wldn", "key": key, "group": "proposals"}, self.Acts())

@@ -1,10 +1,10 @@
-"""A partition's kits (Decision 3 of the-team-machinery-leaves): the repositories its plan and its landings name, with no
-registry of repositories in crew (plan.partition_kits), and the run record's landings found in its files by their act
+"""A drive's kits (Decision 3 of the-team-machinery-leaves): the repositories its plan and its landings name, with no
+registry of repositories in crew (plan.drive_kits), and the run record's landings found in its files by their act
 (record.acts_in). The landings card's key, a bolt's name check, the card hook's areas and the board's Inception lane read
 the kits so. Where a kit's work runs (Decisions 4 and 5, the user's ruling of 2026-11-01): crew looks up no kit's host,
 and reads where a bolt's or a kit's work runs from what the runner that took it reported (plan.bolt_at, plan.kit_at,
-runner.where), a partition's hosts its main level's and its runners' (plan.hosts_of); and what crew does before any runner
-has taken a kit's work, it does in the checkout its partition's main-level host keeps of the kit (plan.main_kit,
+runner.where), a drive's hosts its main level's and its runners' (plan.hosts_of); and what crew does before any runner
+has taken a kit's work, it does in the checkout its drive's main-level host keeps of the kit (plan.main_kit,
 crew.kit_kept, crew.kits_on)."""
 import json
 import pathlib
@@ -29,35 +29,35 @@ def the_plan(bolts=(), units=()):
     return plan.Plan(plan_text(bolts, units))
 
 
-class TestPartitionKits:
+class TestDriveKits:
     def test_the_plan_alone_names_its_bolts_and_units_repositories(self):
         p = the_plan([("console-pages", "switchboard-kit", True)], [("a", "switchboard-kit", "console-pages", []),
                                                                      ("q", "breadboard-kit", None, [])])
-        assert plan.partition_kits(p, []) == ["breadboard-kit", "switchboard-kit"]
+        assert plan.drive_kits(p, []) == ["breadboard-kit", "switchboard-kit"]
 
     def test_the_landings_alone_name_a_kit_whose_last_bolt_has_landed(self):
-        assert plan.partition_kits(the_plan(), [landing("atlas-kit")]) == ["atlas-kit"]
+        assert plan.drive_kits(the_plan(), [landing("atlas-kit")]) == ["atlas-kit"]
 
     def test_the_plan_and_the_landings_together(self):
         p = the_plan([("console-pages", "switchboard-kit", False)])
-        assert plan.partition_kits(p, [landing("atlas-kit"), landing("switchboard-kit")]) == ["atlas-kit", "switchboard-kit"]
+        assert plan.drive_kits(p, [landing("atlas-kit"), landing("switchboard-kit")]) == ["atlas-kit", "switchboard-kit"]
 
     def test_none_where_neither_names_one_or_the_branch_is_not_started(self):
-        assert plan.partition_kits(the_plan(), []) == []
-        assert plan.partition_kits(None, []) == []
+        assert plan.drive_kits(the_plan(), []) == []
+        assert plan.drive_kits(None, []) == []
 
     def test_a_kit_named_twice_is_one_kit(self):
         p = the_plan([("b1", "crew", True), ("b2", "crew", False)], [("a", "crew", "b1", []), ("q", "crew", None, [])])
-        assert plan.partition_kits(p, [landing("crew"), landing("crew")]) == ["crew"]
+        assert plan.drive_kits(p, [landing("crew"), landing("crew")]) == ["crew"]
 
     def test_a_refused_landing_or_another_act_names_no_kit(self):
-        assert plan.partition_kits(the_plan(), [landing("atlas-kit", refused="it conflicts"), landing("atlas-kit", act="bolt.drop"),
+        assert plan.drive_kits(the_plan(), [landing("atlas-kit", refused="it conflicts"), landing("atlas-kit", act="bolt.drop"),
                                                 landing(None)]) == []
 
     def test_landings_under_another_name(self):
         """bolt-plan "Landings under another name": madswan's plan names timber, and one bolt landed under tailrace."""
         p = the_plan([("b", "timber", True)], [("a", "timber", "b", [])])
-        assert plan.partition_kits(p, [landing("tailrace")]) == ["tailrace", "timber"]
+        assert plan.drive_kits(p, [landing("tailrace")]) == ["tailrace", "timber"]
 
 
 class TestRunsRead:
@@ -87,22 +87,22 @@ class TestKitIn:
 
 
 class TestKeys:
-    """The partition's kits tell a kit's landings card from a bolt's, refuse a bolt under a kit's name, and say which
+    """The drive's kits tell a kit's landings card from a bolt's, refuse a bolt under a kit's name, and say which
     kit's area an asker may make."""
 
     def test_a_landings_key_names_a_kit_of_the_plan_or_the_landings(self):
-        kits = plan.partition_kits(the_plan([("b", "crew", True)]), [landing("atlas-kit")])
+        kits = plan.drive_kits(the_plan([("b", "crew", True)]), [landing("atlas-kit")])
         assert plan.land_key("land/crew", kits) == ("kit", "crew")
         assert plan.land_key("land/atlas-kit", kits) == ("kit", "atlas-kit")
         assert plan.land_key("land/b", kits) == ("bolt", "b")
 
     def test_a_bolt_is_not_named_as_a_kit_the_landings_name(self):
-        assert plan.kit_named("atlas-kit", plan.partition_kits(the_plan(), [landing("atlas-kit")]), "wldn") == (
+        assert plan.kit_named("atlas-kit", plan.drive_kits(the_plan(), [landing("atlas-kit")]), "wldn") == (
             "a bolt of wldn may not be named atlas-kit: that is the name of a kit wldn's plan or landings name, whose landings "
             "card is land/atlas-kit")
 
-    def test_an_area_is_made_for_a_kit_the_partition_names_and_none_other(self):
-        fleet = {"partitions": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
+    def test_an_area_is_made_for_a_kit_the_drive_names_and_none_other(self):
+        fleet = {"drives": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha"}}, "hosts": {}}
         kits = ["agentplot/boomdrive-web", "switchboard-kit"]
         refused = lambda key: plan.card_refusal(fleet, "wldn-ops", "wldn", "create_area", key, kits)
         assert refused("create-area:WilldanGroup/switchboard-kit") is None
@@ -115,7 +115,7 @@ class TestKeys:
 
 
 class TestActsIn:
-    """A partition's run record is megabytes, so its landings are found by their Act line before anything is parsed."""
+    """A drive's run record is megabytes, so its landings are found by their Act line before anything is parsed."""
     TEXT = ("%rec: Entry\n\n"
             "Id: 1\nAt: 2026-10-30T10:00:00Z\nAct: bolt.give\nOn: bolt/b\nRepo: crew\n\n"
             "Id: 2\nAt: 2026-10-30T11:00:00Z\nAct: bolt.land\nOn: bolt/b\nRepo: crew\nHead: abc\n\n"
@@ -136,7 +136,7 @@ class TestActsIn:
 # ------------------------------------------------------------------------------- where a kit's work runs
 
 TIP = "5e1f0c2a" + "0" * 32
-FLEET = {"partitions": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
+FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
 
 
 def launch(n, work, base, repo="crew"):
@@ -286,7 +286,7 @@ class TestWhereABoltRuns:
         assert (at["machine"], at["kit"]["name"], at["kit"]["main"]) == ("deneb", "flywheel-cloud", "/w/flywheel-cloud")
         text = runner.REQUESTS + "".join(f"\n{f}: {v}" for f, v in launches[0].fields)
         monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("o/state", "refs/crew/madswan/main"))
-        monkeypatch.setattr(plan, "fetch", lambda repo, ref, fresh=False: "t1")
+        monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: "t1")
         monkeypatch.setattr(plan, "show", lambda repo, tip, path: text if path == "requests.rec" else None)
         monkeypatch.setattr(plan, "runners", lambda repo, label: {})
         requests, _ = plan.runner_facts(FLEET, "madswan")
@@ -294,49 +294,72 @@ class TestWhereABoltRuns:
         runs = plan.rail_runs([("madswan", "o/state", "t2", plan.Plan(flume_plan([("x", None, "flume")])))])
         assert [r.get("Repo") for r in runs["madswan"][0]] == ["flywheel-cloud"]
 
-def test_a_partitions_hosts_are_its_main_levels_and_its_runners():
+def test_a_drives_hosts_are_its_main_levels_and_its_runners():
     """Decision 5: deneb, madswan's main level's, and alpha, where a runner answers for it, each once."""
     assert plan.hosts_of(FLEET, "madswan", {"madswan": ([], {"alpha": took("alpha"), "deneb": took("deneb")})}) == ["alpha", "deneb"]
     assert plan.hosts_of(FLEET, "madswan", {}) == ["deneb"]
 
 
+def drive(machine, folder, *repos):
+    """A drive of the teams file as crew.load gives it, by where its folder keeps its repos (record 0064)."""
+    return {"machine": machine, "folder": folder, "repos": list(repos)}
+
+
 class TestBeforeARunnerTookIt:
     """The user's ruling of 2026-11-01: a start's branch and checks, a unit name's check, a bolt never started landed,
-    the design agent's records, the board's explorations and the main level's kit folders run on the partition's
-    main-level host, in the checkout its spaces keep of the kit (plan.main_kit, crew.kit_kept), refused where they keep
-    none; nothing is asked of a runner."""
-    SPACES = {"deneb": {"sessions": {
-        "madswan": {"dir": "/d/madswan", "repos": ["afterthought/blueprints", "afterthought/crew"]},
-        "madswan-2": {"dir": "/d/agentplot", "repos": ["agentplot/blueprints", "agentplot/sluice", "agentplot/flume"]}}},
-        "alpha": {"sessions": {"willdan": {"dir": "/a/willdan", "repos": ["afterthought/crew", "WilldanGroup/switchboard-kit"]}}}}
-    FLEET = dict(FLEET, hosts=SPACES)
+    the design agent's records, the board's explorations and the main level's kit folders run on the drive's
+    main-level host, in the checkout the teams file keeps of the kit there (plan.main_kit, crew.kit_kept): in the
+    folder of the first drive on that host whose `repos` lists it, refused where none does; nothing is asked of a
+    runner, and no file but the teams file is read (record 0064)."""
+    DRIVES = {"madswan": dict(drive("deneb", "/d/madswan", "afterthought/blueprints", "afterthought/crew"), label="madswan"),
+              "agentplot": dict(drive("deneb", "/d/agentplot", "agentplot/blueprints", "agentplot/sluice", "agentplot/flume"),
+                                label="agentplot"),
+              "wldn": dict(drive("alpha", "/a/willdan", "afterthought/crew", "WilldanGroup/switchboard-kit"), label="wldn")}
+    FLEET = dict(FLEET, drives=DRIVES)
 
     def test_a_kit_is_its_main_level_hosts_checkout_by_its_name_or_its_forge_address(self):
+        """drive-state, A kit's first bolt is started: deneb keeps afterthought/crew in madswan's folder."""
         for kit in ("crew", "afterthought/crew"):
             assert plan.main_kit(self.FLEET, "madswan", kit) == {"label": "madswan", "machine": "deneb", "stream": None, "kit": {
                 "name": "crew", "repo": "afterthought/crew", "dir": "/d/madswan/crew", "main": "/d/madswan/crew/main"}}
         assert plan.main_kit(self.FLEET, "madswan", "sluice")["kit"]["main"] == "/d/agentplot/sluice/main"
 
     def test_a_kit_the_host_keeps_none_of_is_none_and_said_so_where_it_is_acted_on(self):
-        """A kit another host keeps, or one kept under another owner, is not the main-level host's."""
+        """drive-state, A kit the main-level host keeps no checkout of, and A kit renamed on its host before the plan: a
+        kit another host keeps, or one kept under another owner, is not the main-level host's."""
         assert plan.main_kit(self.FLEET, "madswan", "switchboard-kit") is None
         assert plan.main_kit(self.FLEET, "madswan", "agentplot/crew") is None
         assert plan.main_kit_said(self.FLEET, "madswan", "switchboard-kit", "make bolt/b") == (
-            "madswan's main level runs on deneb, and no space there keeps switchboard-kit, so crew can't make bolt/b; if it was "
-            "renamed on its host, crew kit rename switchboard-kit <new> names it so in the plan")
+            "madswan's main level runs on deneb, and the teams file keeps no switchboard-kit there, so crew can't make bolt/b; "
+            "if it was renamed on its host, crew kit rename switchboard-kit <new> names it so in the plan")
+
+    def test_a_repository_kept_only_by_a_session_no_drive_has_is_not_kept(self):
+        """drive-state; Decision 4: what swancloud's hosts file gave a session of no drive, deneb's `willdan`, is kept by
+        no drive, so no host keeps it, whatever folder holds it."""
+        import crew
+        assert crew.kit_kept(self.FLEET, "deneb", "atlas-kit") is None
+        assert [k["repo"] for k in crew.kept(self.FLEET, "deneb")] == [
+            "afterthought/blueprints", "afterthought/crew", "agentplot/blueprints", "agentplot/sluice", "agentplot/flume"]
+        assert crew.kept(self.FLEET, "mac-studio") == []
+
+    def test_a_repository_two_drives_list_is_kept_in_the_first_drives_folder(self):
+        import crew
+        drives = dict(self.DRIVES, swancloud=dict(drive("deneb", "/d/swancloud", "afterthought/crew"), label="swancloud"))
+        assert crew.kit_kept(dict(FLEET, drives=drives), "deneb", "crew")["main"] == "/d/madswan/crew/main"
 
     def test_two_repositories_by_a_kits_name_are_refused_unless_its_owner_tells_them_apart(self):
-        spaces = dict(self.SPACES, deneb={"sessions": {"x": {"dir": "/x", "repos": ["afterthought/blueprints", "agentplot/blueprints"]}}})
-        fleet = dict(FLEET, hosts=spaces)
-        with pytest.raises(plan.Refusal, match="^deneb's spaces keep afterthought/blueprints and agentplot/blueprints by the name "
-                                               "blueprints, so crew can't tell which is meant$"):
+        fleet = dict(FLEET, drives=dict(self.DRIVES, madswan=dict(
+            drive("deneb", "/x", "afterthought/blueprints", "agentplot/blueprints"), label="madswan"), agentplot=dict(
+            drive("deneb", "/d/agentplot"), label="agentplot")))
+        with pytest.raises(plan.Refusal, match="^the teams file's drives on deneb keep afterthought/blueprints and "
+                                               "agentplot/blueprints by the name blueprints, so crew can't tell which is meant$"):
             plan.main_kit(fleet, "madswan", "blueprints")
         assert plan.main_kit(fleet, "madswan", "agentplot/blueprints")["kit"]["repo"] == "agentplot/blueprints"
         assert plan.main_kit_read(fleet, "madswan", "blueprints") is None
 
-    def test_the_main_levels_kit_folders_are_its_partitions_kits_its_host_keeps(self, monkeypatch):
-        """crew.kits_on: the partition's kits (plan.kits_read) its host keeps, each once, as crew's cache holds the branch
-        unless fetched; a kit it keeps none of is left out."""
+    def test_the_main_levels_kit_folders_are_its_drives_kits_its_host_keeps(self, monkeypatch):
+        """drive-state, The main level's kit folders. crew.kits_on: the drive's kits (plan.kits_read) its host keeps,
+        each once, as crew's cache holds the branch unless fetched; a kit it keeps none of is left out."""
         import crew
         asked = []
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: asked.append((label, fresh)) or
@@ -349,43 +372,45 @@ class TestBeforeARunnerTookIt:
 class TestInTheRunnersCopy:
     """drive-state, A kit in the runner's copy (record 0061; Decision 5 of a-kept-repositorys-folder-is-the-runners-container):
     on the host its teams file is for, a repository the file names is kept at its `dir` and `checkout`, whether or not a
-    space lists it, by its address or its name alone; every other host's kits are its spaces', as before."""
-    SPACES = dict(TestBeforeARunnerTookIt.SPACES, deneb={"sessions": {
-        "madswan": {"dir": "/d/madswan", "repos": ["afterthought/blueprints", "afterthought/swancloud"]},
-        "madswan-2": {"dir": "/d/agentplot", "repos": ["agentplot/crew", "agentplot/sluice", "agentplot/flume"]}}})
+    drive's `repos` lists it, by its address or its name alone; every other host's kits are in its drives' folders."""
+    DRIVES = dict(TestBeforeARunnerTookIt.DRIVES,
+                  madswan=dict(drive("deneb", "/d/madswan", "afterthought/blueprints", "afterthought/swancloud"), label="madswan"),
+                  agentplot=dict(drive("deneb", "/d/agentplot", "agentplot/crew", "agentplot/sluice", "agentplot/flume"), label="agentplot"))
     NAMED = {"agentplot/crew": {"dir": "/r/agentplot/crew", "checkout": "/v/agentplot/crew"},
              "agentplot/weir": {"dir": "/r/agentplot/weir", "checkout": "/v/agentplot/weir"}}
-    FLEET = dict(FLEET, hosts=SPACES, repositories={"host": "deneb", "named": NAMED})
+    FLEET = dict(FLEET, drives=DRIVES, repositories={"host": "deneb", "named": NAMED})
 
     def test_a_kit_the_file_names_is_its_container_and_view_by_its_name_or_its_forge_address(self):
+        """drive-state, A kit in the runner's copy: agentplot's `repos` also lists agentplot/crew, and the file's wins."""
         for kit in ("crew", "agentplot/crew"):
             assert plan.main_kit(self.FLEET, "madswan", kit)["kit"] == {
                 "name": "crew", "repo": "agentplot/crew", "dir": "/r/agentplot/crew", "main": "/v/agentplot/crew"}
         assert plan.main_kit(self.FLEET, "madswan", "sluice")["kit"] == {
             "name": "sluice", "repo": "agentplot/sluice", "dir": "/d/agentplot/sluice", "main": "/d/agentplot/sluice/main"}
 
-    def test_a_repository_the_file_names_and_no_space_keeps_is_kept(self):
+    def test_a_repository_the_file_names_and_no_drive_lists_is_kept(self):
         """drive-state, A repository the file names and no space keeps."""
         assert plan.main_kit(self.FLEET, "madswan", "weir")["kit"]["main"] == "/v/agentplot/weir"
         import crew
         assert crew.kept_on(self.FLEET, "deneb", "agentplot/weir") == "/v/agentplot/weir"
         assert crew.kept_on(self.FLEET, "deneb", "agentplot/crew") == "/v/agentplot/crew"
 
-    def test_another_host_keeps_its_spaces_folders(self):
-        """drive-state, Another host's kit: deneb's file names deneb's repositories alone."""
+    def test_another_host_keeps_its_drives_folders(self):
+        """drive-state, Another host's kit: deneb's file names deneb's repositories alone, so a kit of a drive on alpha is
+        in that drive's folder there."""
         import crew
-        fleet = dict(self.FLEET, partitions={"madswan": {"label": "madswan", "machine": "alpha"}})
+        fleet = dict(self.FLEET, drives=dict(self.DRIVES, madswan=dict(self.DRIVES["madswan"], machine="alpha")))
         assert plan.main_kit(fleet, "madswan", "crew")["kit"] == {
             "name": "crew", "repo": "afterthought/crew", "dir": "/a/willdan/crew", "main": "/a/willdan/crew/main"}
         assert crew.kit_kept(fleet, "alpha", "weir") is None
         assert crew.kept_on(fleet, "alpha", "agentplot/crew") is None
 
-    def test_one_name_for_two_repositories_across_the_file_and_the_spaces_is_refused_naming_both(self):
+    def test_one_name_for_two_repositories_across_the_file_and_the_drives_is_refused_naming_both(self):
         """drive-state, One name, two repositories."""
         fleet = dict(self.FLEET, repositories={"host": "deneb", "named": {
             "agentplot/blueprints": {"dir": "/r/agentplot/blueprints", "checkout": "/v/agentplot/blueprints"}}})
-        with pytest.raises(plan.Refusal, match="^deneb's teams file and spaces keep agentplot/blueprints and afterthought/blueprints "
-                                               "by the name blueprints, so crew can't tell which is meant$"):
+        with pytest.raises(plan.Refusal, match="^deneb's teams file names and its drives keep agentplot/blueprints and "
+                                               "afterthought/blueprints by the name blueprints, so crew can't tell which is meant$"):
             plan.main_kit(fleet, "madswan", "blueprints")
         assert plan.main_kit(fleet, "madswan", "agentplot/blueprints")["kit"]["main"] == "/v/agentplot/blueprints"
         assert plan.main_kit(fleet, "madswan", "afterthought/blueprints")["kit"]["main"] == "/d/madswan/blueprints/main"
@@ -395,7 +420,7 @@ class TestInTheRunnersCopy:
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: ["crew", "agentplot/crew", "flume", "weir"])
         assert crew.kits_on(self.FLEET, "madswan", "deneb") == ["/v/agentplot/crew", "/d/agentplot/flume/main", "/v/agentplot/weir"]
 
-    def test_a_fleet_that_names_none_keeps_its_spaces_folders(self):
+    def test_a_fleet_that_names_none_keeps_its_drives_folders(self):
         import crew
         assert crew.kept(dict(self.FLEET, repositories={}), "deneb")[2] == {
             "name": "crew", "repo": "agentplot/crew", "dir": "/d/agentplot/crew", "main": "/d/agentplot/crew/main"}
@@ -422,7 +447,7 @@ class TestNoFetchInTheRunnersClone:
         assert crew.fetches_in(dict(self.FLEET, repositories={}), "deneb", "/v/agentplot/crew")
         assert crew.fetches_in(TestBeforeARunnerTookIt.FLEET, "deneb", "/v/agentplot/crew")
 
-    FETCHING = ("MAIN", "POLICY", "GIVE_READ", "LANDED", "CARRIES", "LAND_COPIES", "BOLT_CREATE")
+    FETCHING = ("MAIN", "CARRIES", "ORIGIN_FETCH")
 
     def test_a_script_is_told_fetch_no_in_the_runners_clone_and_nothing_elsewhere(self):
         assert plan.fetch_told(self.FLEET, "deneb", "/v/agentplot/crew", plan.MAIN) == "fetch=no\n" + plan.MAIN
@@ -447,11 +472,13 @@ class TestNoFetchInTheRunnersClone:
                         "runner's next fetch brings it")
 
     def test_a_forecasts_read_fetches_nothing_in_the_runners_clone(self, monkeypatch):
-        ran = []
+        ran, fetched = [], []
         monkeypatch.setattr(plan, "kit_git", lambda fleet, t, main, *args, ok=(0,): ran.append(args) or (0, ""))
+        monkeypatch.setattr(plan, "host_run", lambda fleet, host, script, *args: fetched.append((host, script, *args)) or "")
         t = {"machine": "deneb", "kit": {"main": "/r/agentplot/crew", "dir": "/r/agentplot/crew"}}
         assert plan.origin_fetched(self.FLEET, t, "/r/agentplot/crew") is True
-        assert ran == [("remote", "get-url", "origin")]
+        assert (ran, fetched) == ([("remote", "get-url", "origin")], [])
         ran.clear()
         assert plan.origin_fetched(self.FLEET, dict(t, kit={"main": "/d/agentplot/sluice/main"}), "/d/agentplot/sluice/main") is True
-        assert ran == [("remote", "get-url", "origin"), ("fetch", "-q", "origin")]
+        assert ran == [("remote", "get-url", "origin")]
+        assert fetched == [("deneb", plan.ORIGIN_FETCH, "/d/agentplot/sluice/main")]

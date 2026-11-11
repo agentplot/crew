@@ -24,7 +24,7 @@
 - **THEN** the add is refused, saying so, and nothing is written
 
 #### Scenario: A kit no runner has taken work of
-- **WHEN** no runner of the partition has taken any of the kit's work and none reports keeping it
+- **WHEN** no runner of the drive has taken any of the kit's work and none reports keeping it
 - **THEN** no repository is read and the add passes on its other checks
 
 #### Scenario: A drop says the name stays taken

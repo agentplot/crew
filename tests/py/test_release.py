@@ -2,8 +2,8 @@
 runs from", "A build's version is shown as a checkout's is", "crew names its command by the crew its host has
 installed", "crew reads the crew its host has installed", "The launch digest reads crew's command as one word"): a
 build's release file read field by field, its version shown, a root read as a checkout, a build or neither. That a
-checkout reads itself through git, and that a start from a build records its release, is the session-start journey's
-(t-session-hook)."""
+checkout reads its version through git is the contract tier's (tests/contract/test_release.py), and that a start
+records the crew it loaded, the session-start journey's (t-session-hook)."""
 import json
 import pathlib
 import subprocess
@@ -32,8 +32,21 @@ class TestReleaseFile:
         assert crew.release_read(json.dumps({"commit": COMMIT, "version": "0.44.1"})) == (
             {"commit": COMMIT, "version": "0.44.1"}, None)
 
+    def test_mains_version_reads_with_the_commits_first_seven_characters_never_as_a_release(self):
+        assert crew.release_version("0.0.0", COMMIT) == "0.0.0+fcedc22"
+
+    def test_a_file_naming_a_release_version_and_no_commit_reads_as_the_version_alone(self):
+        assert crew.release_read(json.dumps({"commit": None, "version": "0.44.1"})) == (
+            {"commit": None, "version": "0.44.1"}, None)
+        assert crew.release_read(json.dumps({"version": "0.44.1"})) == ({"commit": None, "version": "0.44.1"}, None)
+
+    def test_a_file_naming_no_commit_and_a_version_no_release_has_reads_as_no_release(self):
+        for version in ("0.0.0", "0-unstable-2026-11-08", "v0.44.1", "0.44", "", None):
+            for body in ({"version": version}, {"commit": None, "version": version}):
+                assert crew.release_read(json.dumps(body)) == (None, "the release file names no commit")
+
     def test_a_file_whose_commit_is_not_forty_hexadecimal_characters_reads_as_no_release(self):
-        for commit in ("fcedc22", COMMIT.upper(), COMMIT + "0", 42, None):
+        for commit in ("fcedc22", COMMIT.upper(), COMMIT + "0", 42, ""):
             assert crew.release_read(json.dumps({"commit": commit, "version": "0.44.1"})) == (
                 None, "the release file names no commit")
 
@@ -48,12 +61,44 @@ class TestReleaseFile:
         assert crew.release_read(json.dumps([COMMIT, "0.44.1"])) == (None, "the release file is not a JSON object")
 
 
+class TestCheckoutVersion:
+    RELEASE_COMMIT, PARENT = "1" * 40, "2" * 40
+
+    def test_a_release_commits_source_is_its_parent(self):
+        assert crew.tag_source("v0.56.0", self.RELEASE_COMMIT, [self.PARENT], "chore(release): v0.56.0") == self.PARENT
+
+    def test_a_tag_on_mains_own_commit_is_its_own_source(self):
+        assert crew.tag_source("v0.55.0", COMMIT, [self.PARENT], "feat(release): a release") == COMMIT
+
+    def test_a_release_commit_naming_another_tag_is_its_own_source(self):
+        assert crew.tag_source("v0.56.1", self.RELEASE_COMMIT, [self.PARENT], "chore(release): v0.56.0") == \
+            self.RELEASE_COMMIT
+
+    def test_a_release_commit_with_no_parent_is_its_own_source(self):
+        assert crew.tag_source("v0.56.0", self.RELEASE_COMMIT, [], "chore(release): v0.56.0") == self.RELEASE_COMMIT
+
+    def test_the_version_is_the_tag_and_the_commits_past_its_source(self):
+        assert crew.checkout_version("v0.56.0", 0) == "v0.56.0"
+        assert crew.checkout_version("v0.56.0", 2) == "v0.56.0+2"
+
+
 class TestCrewRead:
     def test_a_build_with_a_release_file_and_no_git_reads_it(self, tmp_path):
         root = release(tmp_path, {"commit": COMMIT, "version": "0-unstable-2026-11-08"})
         assert crew.crew_read(root) == {"root": str(root), "commit": COMMIT, "version": "0-unstable-2026-11-08+fcedc22",
                                         "from": "release", "unread": None}
         assert crew.crew_version(root) == (COMMIT, "0-unstable-2026-11-08+fcedc22")
+
+    def test_a_copy_of_a_release_tags_plugin_reads_as_its_version_with_no_commit(self, tmp_path):
+        root = release(tmp_path, {"version": "0.56.0"})
+        assert crew.crew_read(root) == {"root": str(root), "commit": None, "version": "v0.56.0", "from": "release",
+                                        "unread": None}
+
+    def test_a_copy_of_mains_plugin_reads_nothing_and_says_the_file_names_no_commit(self, tmp_path):
+        root = release(tmp_path, {"version": "0.0.0"})
+        got = crew.crew_read(root)
+        assert (got["commit"], got["version"], got["from"]) == (None, None, None)
+        assert got["unread"].startswith("the release file names no commit")
 
     def test_a_root_with_neither_git_nor_a_release_file_reads_nothing_and_says_so(self, tmp_path):
         got = crew.crew_read(tmp_path)
@@ -174,6 +219,29 @@ class TestInstalled:
         crew.installed()
         assert len(ran.asked) == 2
 
+    def test_an_installed_release_that_names_no_commit_reads_as_its_version(self, host, tmp_path, monkeypatch):
+        build, profile = host
+        (profile / "crew").symlink_to(crew_in(tmp_path / "store/xyz-crew/bin") / "crew")
+        said = {"root": str(tmp_path / "store/xyz-crew"), "commit": None, "version": "v0.56.0", "from": "release",
+                "unread": None}
+        monkeypatch.setattr(subprocess, "run", Ran(json.dumps(said) + "\n"))
+        assert crew.installed() == said
+
+    @pytest.mark.parametrize("said", [
+        {"root": "/r", "commit": None, "version": "v0.56.0", "from": "checkout", "unread": None},
+        {"root": "/r", "commit": None, "version": "v0.0.0", "from": "release", "unread": None},
+        {"root": "/r", "commit": None, "version": "0.56.0", "from": "release", "unread": None},
+        {"root": "/r", "commit": None, "version": "0-unstable-2026-11-08+fcedc22", "from": "release", "unread": None},
+        {"root": "/r", "commit": None, "version": None, "from": "release", "unread": None},
+    ])
+    def test_a_null_commit_from_a_checkout_or_with_no_releases_version_is_unread(self, host, tmp_path, monkeypatch, said):
+        build, profile = host
+        (profile / "crew").symlink_to(crew_in(tmp_path / "store/xyz-crew/bin") / "crew")
+        monkeypatch.setattr(subprocess, "run", Ran(json.dumps(said)))
+        got = crew.installed()
+        assert (got["commit"], got["version"], got["from"]) == (None, None, None)
+        assert "its answer names no commit" in got["unread"]
+
     @pytest.mark.parametrize("ran,why", [
         (Ran(json.dumps({"root": "/r", "version": "v0.44.2", "from": "release"})), "its answer names no commit"),
         (Ran("crew 0.44.2"), "its answer is not JSON"),
@@ -199,17 +267,15 @@ INSTALLED = "/etc/profiles/per-user/chuck/bin/crew"
 
 
 def deneb(tmp_path, monkeypatch):
-    """crew.load over a teams file of one standing partition, swancloud, on deneb, written in tmp_path."""
-    bp = ["afterthought/blueprints", "afterthought/crew"]
-    hosts = {"deneb": {"ssh": "deneb", "kind": "darwin", "sessions": {
-        "swancloud-1": {"dir": f"{tmp_path}/deneb/madswan", "partition": "personal", "repos": bp}}}}
-    teams = {"version": 5, "partitions": [{"label": "swancloud", "partition": "personal", "blueprints": ["afterthought/blueprints"],
-                                           "state": "afterthought/crew-state", "review": {"every": 5, "hours": 4},
-                                           "machine": "deneb", "session": "swancloud-1",
-                                           "flume": {r: False for r in crew.KIND_ROLES}}]}
-    (tmp_path / "herdr-hosts.json").write_text(json.dumps({"version": 1, "hosts": hosts}))
+    """crew.load over a teams file of one standing drive, swancloud, on deneb, written in tmp_path."""
+    teams = {"version": 6, "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}},
+             "drives": [{"label": "swancloud", "blueprints": ["afterthought/blueprints"],
+                         "state": "afterthought/crew-state", "review": {"after_changes": 5, "after_hours": 4},
+                         "machine": "deneb", "session": "swancloud-1", "folder": f"{tmp_path}/deneb/madswan",
+                         "repos": ["afterthought/blueprints", "afterthought/crew"],
+                         "accounts": {r: "madswan" for r in crew.KIND_ROLES},
+                         "runs": {r: "standing" for r in crew.KIND_ROLES}}]}
     (tmp_path / "teams.json").write_text(json.dumps(teams))
-    monkeypatch.setattr(crew, "HOSTS", tmp_path / "herdr-hosts.json")
     monkeypatch.setattr(crew, "TEAMS", tmp_path / "teams.json")
     monkeypatch.setattr(crew, "this_host", lambda: "deneb")
     crew.load.cache_clear()
@@ -226,13 +292,17 @@ class TestBriefs:
         monkeypatch.setattr(plan, "kits_read", lambda fleet, label, fresh=True: [])
         monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
         text = crew.brief(fleet, "swancloud", "planner")
-        assert f"`{INSTALLED} send <partition> \"<text>\"`" in text and f"`{INSTALLED} tell <agent>" in text
+        assert f"`{INSTALLED} send <drive> \"<text>\"`" in text and f"`{INSTALLED} tell <agent>" in text
         assert text.count(INSTALLED) > 10
         assert str(crew.HOME) not in text and "plugin/bin/crew" not in text
 
     def test_a_command_forwarded_to_this_host_runs_the_installed_crew(self, monkeypatch):
+        import record
         monkeypatch.setattr(crew, "crew_command", lambda: INSTALLED)
-        assert crew.crew_on({}, "deneb", "deneb", None) == INSTALLED
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        monkeypatch.setenv("CREW_AGENT", "swancloud-planner")
+        monkeypatch.setattr(record, "_session", None)
+        assert crew.crew_argv({}, "deneb", "bolts")[-3:] == ["bash", INSTALLED, "bolts"]
 
 
 class TestDigest:

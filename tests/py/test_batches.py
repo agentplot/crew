@@ -1,4 +1,4 @@
-"""Constructed changes reach the user in batches that span the partition (briefs.12): which changes are due
+"""Constructed changes reach the user in batches that span the drive (briefs.12): which changes are due
 (plan.due_changes), when a batch is due and why (plan.batch_due), a batch's cards (plan.batch_cards), which batches
 wait on nothing (plan.batch_settled), and the facts crew raises a batch's one card from once its summary is delivered
 (plan.batch_facts, summary_paragraph,
@@ -17,7 +17,7 @@ import plan
 PLAN = plan.Plan(plan_text(bolts=[("b1", "switchboard-kit", True), ("b2", "breadboard-kit", True), ("queued", "switchboard-kit", None)],
                            units=[("x1", "switchboard-kit", "b1", []), ("x2", "switchboard-kit", "b1", []), ("y1", "breadboard-kit", "b2", []),
                                   ("z1", "switchboard-kit", "queued", []), ("w1", "switchboard-kit", None, [])]))
-EVERY_5 = {"every": 5, "hours": 4}
+EVERY_5 = {"after_changes": 5, "after_hours": 4}
 HOUR = datetime.timedelta(hours=1)
 
 
@@ -111,7 +111,7 @@ def pane_answer(n, by="swancloud-planner", at="2026-10-22T20:17:04Z", refused=No
 
 
 class TestPaneAnswer:
-    """A batch is answered by the user's own words in a main-level pane (review-batches; record 0031 as amended
+    """A pane answer is one entry that closes its batch's card keys for good (review-batches; record 0031 as amended
     2026-10-22): the answer closes every key of its batch for good, as a tap closes its card."""
 
     HELD = [constructed("x1", "bbb1"), reviewed(13, [("x1", "swb-1", "bbb1")], 10),
@@ -160,7 +160,7 @@ def dropped(units, minutes=0, bolt=None, refused=None):
 
 
 class TestSettled:
-    """A batch that waits on nothing is closed by crew (review-batches): each of its units has landed, was dropped since
+    """A batch waits on nothing once each unit has landed, been dropped or been held by a later batch (review-batches): each of its units has landed, was dropped since
     the batch was made, or is held by a later batch, read from the run record alone (signal
     2026-10-20-swancloud-planner-1703a4ae/02: 23 batch cards posted on wldn's box, most of them for bolts landed days
     before)."""
@@ -271,11 +271,11 @@ class TestBatchDue:
         assert plan.batch_due(due(4), [], EVERY_5, START, []) == []
 
     def test_the_fifth_change_makes_a_batch_due_with_the_count(self):
-        assert plan.batch_due(due(5), [], EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
+        assert plan.batch_due(due(5), [], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_the_planner_is_told_once_until_a_batch_is_delivered(self):
         assert plan.batch_due(due(5), [told(1)], EVERY_5, START, []) == []
-        assert plan.batch_due(due(5), [told(1), reviewed(1, [], 2)], EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
+        assert plan.batch_due(due(5), [told(1), reviewed(1, [], 2)], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_the_hours_run_from_the_last_batch(self):
         entries = [reviewed(1, [], 0)]
@@ -292,20 +292,20 @@ class TestBatchDue:
 
 
 class TestTheBranchAlone:
-    """review-batches, "A batch is reckoned from the partition's branch alone": the batch clock, a review and a landing
-    read the run record from the partition's branch, asking no host for it, and are refused naming the branch when it
+    """review-batches, "A batch is reckoned from the drive's branch alone": the batch clock, a review and a landing
+    read the run record from the drive's branch, asking no host for it, and are refused naming the branch when it
     cannot be read."""
-    FLEET = dict(FLEET, partitions={"wldn": dict(FLEET["partitions"]["wldn"], state="WilldanGroup/crew-state")})
+    FLEET = dict(FLEET, drives={"wldn": dict(FLEET["drives"]["wldn"], state="WilldanGroup/crew-state")})
     ENTRIES = [dict(constructed(u, f"{i:04x}", i), Id=f"2026101210{i:02d}00Z-000000-chuck-herdr-alpha-1-{i}") for i, u in enumerate(["x1", "x2", "y1", "z1", "w1"])]
 
     def test_the_laptop_asleep_at_a_conductors_wait_hides_no_change_due(self, monkeypatch):
         """review-batches, "The laptop asleep at a conductor's wait"."""
         monkeypatch.setattr(plan.crew, "on_machine", lambda *a, **k: pytest.fail(f"a host was asked for the run record: {a}"))
         monkeypatch.setattr(plan.record, "on_branch", lambda fleet, label, since, tips=None: list(reversed(self.ENTRIES)))
-        entries = plan.partition_entries(self.FLEET, "wldn")
+        entries = plan.drive_entries(self.FLEET, "wldn")
         assert entries == self.ENTRIES
         five = plan_of(bolts={"b1": "swb-1"}, units={u: "b1" for u in ("x1", "x2", "y1", "z1", "w1")})
-        assert plan.batch_due(plan.due_changes(five, entries), entries, EVERY_5, START, []) == ["5 changes are due, and a batch is every 5"]
+        assert plan.batch_due(plan.due_changes(five, entries), entries, EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_a_branch_that_cannot_be_read_refuses_naming_it(self, monkeypatch):
         """review-batches, "The branch cannot be read"."""
@@ -313,7 +313,7 @@ class TestTheBranchAlone:
             raise plan.Refusal("could not fetch wldn/main of WilldanGroup/crew-state over https: timed out")
         monkeypatch.setattr(plan.record, "on_branch", refused)
         with pytest.raises(plan.Refusal) as e:
-            plan.partition_entries(self.FLEET, "wldn")
+            plan.drive_entries(self.FLEET, "wldn")
         assert str(e.value) == ("crew can't tell which changes have been in a batch: wldn/main of WilldanGroup/crew-state could not be read "
                                 "(could not fetch wldn/main of WilldanGroup/crew-state over https: timed out)")
 
@@ -338,8 +338,11 @@ class RaiseActs:
         self.held, self.refusals = list(entries), list(refusals)
         self.sessions, self.emitted, self.calls = [], [], []
 
-    def made(self, label, host, units, key):  # no unit's stage recorded anything as made
-        return {"made": {}, "previews": {}}
+    def made(self, label, host, units):  # no unit's stage recorded anything as made
+        return {"made": {}}
+
+    def runner(self, label):  # nor any preview asked
+        return [], {}
 
     def session(self, label, key, facts):
         self.sessions.append(key)
@@ -376,7 +379,7 @@ class RaiseActs:
     def caller(self):
         return "wldn-planner"
 
-    def kits(self, label):  # the kits the partition's teams build, which tell land/<kit> from land/<bolt>
+    def kits(self, label):  # the kits the drive's teams build, which tell land/<kit> from land/<bolt>
         return ("switchboard-kit",)
 
 
@@ -468,10 +471,10 @@ class TestBatchFacts:
         assert plan.batch_facts(3, held, SUMMARY, {}) is None
 
 
-def test_the_rails_sweep_reckons_a_batch_on_the_partitions_main_level_host():
+def test_the_rails_sweep_reckons_a_batch_on_the_drives_main_level_host():
     """review-batches "A batch is reckoned at the rail's sweep on the main level's host" (the-team-machinery-leaves): the
-    rail's sweep reckons each partition's batch once, on the host its main level runs on, wldn's on mac-studio, so a bolt
-    whose units have all merged reaches the planner with no agent waiting; another host, and a partition whose plan was
+    rail's sweep reckons each drive's batch once, on the host its main level runs on, wldn's on mac-studio, so a bolt
+    whose units have all merged reaches the planner with no agent waiting; another host, and a drive whose plan was
     not read, reckon none."""
     found = [("wldn", None, None, PLAN), ("swancloud", None, None, None)]
     assert plan.batch_reckoners(FLEET, found, "mac-studio") == ["wldn"]
@@ -486,7 +489,7 @@ def test_the_followers_reckoning_takes_its_read_and_tells_the_planner_once(monke
     monkeypatch.setattr(plan.crew, "this_host", lambda: "mac-studio")
     monkeypatch.setattr(plan.crew, "tell", lambda fleet, name, text: told.append(name) or True)
     monkeypatch.setattr(plan.record, "emit", lambda label, act, on, **kw: emitted.append(act))
-    for read_again in ("plan_of", "partition_entries", "stages_for", "survey"):
+    for read_again in ("plan_of", "drive_entries", "stages_for", "survey"):
         monkeypatch.setattr(plan, read_again, lambda *a, **k: pytest.fail("the reckoning read again"))
     found = [("wldn", "WilldanGroup/crew-state", "a" * 40, PLAN)]
     read = {"found": found, "logs": {"wldn": [constructed("x1", "bbb1")]}, "unread": {"wldn": {}}, "sv": {}, "runs": {"wldn": ([], {})}}
@@ -499,7 +502,7 @@ def test_the_followers_reckoning_takes_its_read_and_tells_the_planner_once(monke
     ({"wldn": ("a" * 40, True)}, False, {"wldn"}), ({"wldn": ("a" * 40, True)}, True, {"wldn"}),
     ({"wldn": ("b" * 40, True)}, False, set()), ({"wldn": ("a" * 40, False)}, False, {"wldn"}),
     ({"wldn": ("a" * 40, False)}, True, set()), ({}, True, set())])
-def test_a_partition_told_at_its_reads_tip_is_not_reckoned_again_and_one_whose_tell_failed_waits_for_the_tick(told, tick, skip):
+def test_a_drive_told_at_its_reads_tip_is_not_reckoned_again_and_one_whose_tell_failed_waits_for_the_tick(told, tick, skip):
     """The follower reckons at every refresh: a planner told is told once, and one not up is tried again once a minute,
     never at every refresh (a tell starts herdr)."""
     assert plan.batch_told(told, [("wldn", "WilldanGroup/crew-state", "a" * 40, PLAN)], tick) == skip
@@ -567,7 +570,7 @@ class TestCrossed:
         st = self.stages({1: "landed"})
         monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: st.runs[label])
         fleet = st.fleet
-        fleet["partitions"]["madswan"]["machine"] = "deneb"
+        fleet["drives"]["madswan"]["machine"] = "deneb"
         assert plan.reading_command(fleet, "madswan", "x", self.LANDED, "a", archived=True) == (
             f"its change is archived at that commit: find its folder with `git -C /crew/main ls-tree -d --name-only {self.LANDED} "
             "openspec/changes/archive/`, the one named <date>-a, then list its files with `git -C /crew/main ls-tree -r "
@@ -580,3 +583,116 @@ class TestCrossed:
         monkeypatch.setattr(plan, "change_written", lambda main, ref, unit, into: f"{into} from {ref} of {unit} in {main}")
         monkeypatch.setattr(plan.subprocess, "run", lambda *a, **k: pytest.fail("main was read for a change the batch's commit holds"))
         assert plan.change_folder({}, t, "a", tmp_path, self.LANDED) == f"{tmp_path} from {self.LANDED} of a in /crew/main"
+
+
+# ---------------------------------------------------------- a batch line's preview, asked of the runner (record 0043)
+# rail-cards "A preview brought up is listed on the card while sluice lists it" and "A preview is
+# put away when its batch's card closes or its card or row is gone" (Decision 7 of a-cards-preview-is-asked-of-the-runner): a
+# line carries the runner's report of crew's ask of it, and a batch card's close writes the done of each standing ask of
+# its units no other open batch card holds, nothing run on a unit's host.
+
+import cards  # noqa: E402
+import runner  # noqa: E402
+from facts import FactsWrite  # noqa: E402
+
+DEMO = '{"name": "demo", "kind": "preview", "branch": "unit/x1", "revision": "abc1234"}'
+LAUNCH_X1 = plan.Rec("Request", runner.request_fields(1, "launch", "unit/x1", dict(
+    Repo="switchboard-kit", Kind="change", Name="x1", Base="bolt/b1", Priority=1, Intent="wldn/b1", Recipient="wldn/planner",
+    Brief="Build x1."), "2026-11-08T11:00:00Z", "wldn-dispatch"))
+
+
+def line_ask(n, unit="x1", revision="abc1234", done=False):
+    return plan.Rec("Request", runner.request_fields(n, "preview", f"unit/{unit}", runner.preview_fields(
+        "chuck-herdr-alpha", "switchboard-kit", f"unit/{unit}", revision, done), "2026-11-08T12:00:00Z", "wldn-planner"))
+
+
+def alpha(previews=""):
+    files = {"runner.rec": plan.Plan(runner.RUNNER + "\nHost: chuck-herdr-alpha\nVersion: 0.6.0\nSince: 2026-11-08T11:00:00Z\n"),
+             "previews.rec": plan.Plan(runner.PREVIEWS + previews)}
+    return {"chuck-herdr-alpha": runner.host_read("wldn", "chuck-herdr-alpha", "5" * 40, files, {})}
+
+
+class LineActs(RaiseActs):
+    """RaiseActs whose units made a thing that must run, with the drive's requests and runners as given, and a
+    card's close answered: the card waits on the user and is withdrawn."""
+
+    def __init__(self, entries, requests=(), reads=None, lines=None):
+        super().__init__(entries)
+        self.requests, self.reads, self.lines = list(requests), reads or alpha(), lines
+
+    def runner(self, label):
+        return list(self.requests), dict(self.reads)
+
+    def made(self, label, host, units):
+        return {"made": {u: self.lines or [] for u in units}}
+
+    def bridge(self, name, later, held=None):
+        acts = self
+
+        class Py:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                pass
+
+            def answer(self, tool, args):
+                acts.calls.append((tool, args))
+                return ({"status": "pending", "turn": "you", "version": 1} if tool == "get_request" else {"ok": True}), None
+        return Py()
+
+    def end(self, label, key):
+        return None
+
+
+class TestBatchPreview:
+    @pytest.fixture(autouse=True)
+    def where_and_writes(self, monkeypatch):
+        """x1 and y1 built where the runner that took their bolts' work reported switchboard-kit; each plan write applied
+        to requests.rec at a tip holding the acts' requests."""
+        kit = {"name": "switchboard-kit", "repo": "WilldanGroup/switchboard-kit", "main": "/kit/main", "dir": "/kit"}
+        monkeypatch.setattr(plan, "batch_unit_at", lambda fleet, label, bolt, unit: {"label": label, "machine": "chuck-herdr-alpha",
+                                                                                     "stream": "wldn", "kit": kit})
+        monkeypatch.setenv("CREW_AGENT", "wldn-planner")
+        self.writes = []
+
+        def write(fleet, label, change, subject, act=None, on=(), fields=None, **more):
+            acts = self.acts
+            text = runner.REQUESTS + "".join("\n" + "\n".join(r.lines()) + "\n" for r in acts.requests)
+            w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": text}, runners=acts.reads, label=label)
+            change(w)
+            new = plan.Plan(w.files["requests.rec"]).recs("Request")[len(acts.requests):]
+            acts.requests += new
+            self.writes.append(dict(subject=subject, fields=fields, requests=[(r.get("Work"), r.get("Revision"), r.get("Done")) for r in new]))
+        monkeypatch.setattr(plan, "write", write)
+
+    def test_a_lines_preview_is_the_runners_report_of_crews_ask(self):
+        """rail-cards "Brought up", under a batch line, and "A line naming a branch sluice does not land"."""
+        words = "no [branches] table in .config/sluice.toml names unit/x1"
+        self.acts = LineActs([reviewed(3, [("x1", "b1", "aaa1")])], [LAUNCH_X1, line_ask(2)],
+                             alpha(f"\nRequest: 2\nOutcome: refused\nWords: {words}\nAt: 2026-11-08T12:03:00Z\n"), [["code", [DEMO]]])
+        facts = dict(n=3, previous=None, link=None, units=[dict(unit="x1", bolt="b1", subject="x", paragraph="X.")])
+        assert plan.batch_made(FLEET, "wldn", facts, self.acts) == {"2": "refused"}
+        assert facts["units"][0]["up"]["demo"]["state"] == "refused"
+        assert cards.made_said("x1", facts["units"][0]["made"], facts["units"][0]["up"]) == [
+            f"- `code`: demo, preview, brought up from unit/x1 at abc1234; it could not be brought up: {words}"]
+        facts = dict(n=3, previous=None, link=None, units=[dict(unit="x1", bolt="b1", subject="x", paragraph="X.")])
+        self.acts.requests = [LAUNCH_X1]
+        assert plan.batch_made(FLEET, "wldn", facts, self.acts) == {} and facts["units"][0]["up"] == {}
+
+    def test_the_close_writes_the_dones_of_its_units_standing_asks(self, capsys):
+        self.acts = LineActs([reviewed(3, [("x1", "b1", "aaa1")]),
+                              {"Act": "card.post", "Key": "batch/3", "By": OWNER, "Card": "req_b3", "On": ["batch/3"]}],
+                             [LAUNCH_X1, line_ask(2)])
+        assert plan.row_card_close(FLEET, "wldn", OWNER, "batch/3", reason="the batch was read", acts=self.acts) == "req_b3"
+        assert [(w["subject"], w["fields"], w["requests"]) for w in self.writes] == [
+            ("plan(card): preview of x1 put away from batch/3", {"Key": "batch/3", "State": "done"}, [("unit/x1", "abc1234", "yes")])]
+        assert "card batch/3: put away x1's preview of abc1234 on chuck-herdr-alpha" in capsys.readouterr().out
+
+    def test_the_close_keeps_an_ask_whose_unit_another_open_batch_card_holds(self):
+        self.acts = LineActs([reviewed(3, [("x1", "b1", "aaa1")]), reviewed(4, [("x1", "b1", "aaa2")]),
+                              {"Act": "card.post", "Key": "batch/3", "By": OWNER, "Card": "req_b3", "On": ["batch/3"]},
+                              {"Act": "card.post", "Key": "batch/4", "By": OWNER, "Card": "req_b4", "On": ["batch/4"]}],
+                             [LAUNCH_X1, line_ask(2)])
+        plan.row_card_close(FLEET, "wldn", OWNER, "batch/3", reason="the batch was read", acts=self.acts)
+        assert self.writes == []

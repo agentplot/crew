@@ -10,29 +10,29 @@ fetches nothing in>}],
 "board": <true to also read the explorations on the kit's main>,
 "stamped": <true to also give each kit's stamp, taken before it is read>,
 "stamp": <true to give each kit's stamp alone and read nothing else: the host's follower's check that nothing moved,
-answered {"kits": {<main>: <stamp>}, "readings": <the stamp of the card readings folders of the partitions named>}>,
-"labels": <with stamp, the partitions whose card readings folders on the host to stamp>,
+answered {"kits": {<main>: <stamp>}, "readings": <the stamp of the card readings folders of the drives named>}>,
+"labels": <with stamp, the drives whose card readings folders on the host to stamp>,
 "routes": <with stamp, true to read the host's portless routes too, answered "routes">}.
 The answer, on stdout, is JSON keyed by each kit's main checkout: the changes main holds (open or archived) and the
 chores its history holds (each `Chore:` trailer's name), and for each local bolt/* branch, and each bolt asked for,
 read where the bolt lives (bolt_read, at: GitHub's origin/bolt/<bolt> for a bolt on GitHub, else the host's bolt/<bolt>),
 whether it exists, the changes and chores it holds, those it holds archived, its worktree, its head and the head's
-time, and the commits it holds that are another bolt's own, on that bolt's first-parent line beyond main, every bolt
-GitHub holds among them (carries, carried_bolts, bolt_lines), or why that can't be read (carries_error), and the
-branches sluice's landings on it name, each with the newest landing's commit and time (landings, bolt_landings), or
-why they can't be read (landings_error); each place under <dir>/places with its branch, its head and the head's time, its change's tasks and whether
-its planning is complete, read from the change archived there once its merge has archived it; each chore's place,
+time, where the head is a landing on the bolt's own line beyond main the submission and verdict its commit's sluice
+trailers name (head_landing), and the commits it holds that are another bolt's own, on that bolt's first-parent line beyond main, every bolt
+GitHub holds among them (carries, carried_bolts, bolt_lines), or why that can't be read (carries_error); each place
+under <dir>/places with its branch, its head and the head's time, its change's tasks and whether its planning is
+complete, read from the change archived there once its merge has archived it; each chore's place,
 <dir>/places/chore-<name> on chore/<name>, with its bolt,
 head, head's time and how many commits of its own it holds beyond the bolt; the kit's
-policy, its main's .config/sluice.toml as text. It runs no sluice and reads nothing of sluice's queue or records: a
-bolt's verification and each piece's submission are read from the runner's report (crew record 0056 points 1 and
-4). With sites, each worktree's devurl names and the host's
+policy, its main's .config/sluice.toml as text. It runs no sluice and reads nothing of sluice's queue or records, and
+of its landing commits only the trailers of a bolt's head, record 0062's stopgap as amended 2026-11-10: each piece's
+submission and end are read from the runner's report (crew record 0056 points 1 and 4). With sites, each worktree's devurl names and the host's
 portless routes; with board, each
 folder under openspec/explorations/ on main with the first line of its first .md file. It reads with git, the file
 system, devurl and portless and, for a change whose workflow it does not read itself, openspec, and changes
 nothing.
 It needs nothing but python3's standard library, since it is sent to hosts whose crew may be older."""
-import datetime, fnmatch, hashlib, json, os, re, subprocess, sys, tomllib
+import contextlib, fnmatch, hashlib, json, os, re, signal, subprocess, sys, tempfile, time, tomllib
 
 
 def run(args, cwd):
@@ -219,102 +219,29 @@ def bolt_lines(main, now, refs):
     return lines, None
 
 
-# What a landing sluice made says it landed (sluice clause 23; its text.rs): `Sluice-From: <agent> (<worktree>)`, naming
-# the branch submitted as the one or the other, a Flume place's branch as both (change/<u> (change/<u>)), a session's
-# as the agent (fix/<f> (pull/<n>)) or the worktree (<agent> (unit/<u>)).
-FROM = re.compile(r"^(\S+) \((\S+)\)$")
+# The trailers sluice writes on a landing commit (sluice clause 23) that a bolt's verification reads at its head: the
+# submission it landed and the verdict it landed on, each value folded onto one line, values apart by \x1f.
+TRAILERS = ("%(trailers:key=Sluice-Submission,valueonly,unfold,separator=%x1f)%x1e"
+            "%(trailers:key=Sluice-Result,valueonly,unfold,separator=%x1f)")
 
 
-def landed_from(log):
-    """The branches a bolt's landings name (crew record 0056 decision 2; read.2), from `git log --first-parent
-    --format=%H%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e` over the bolt's own line (log),
-    newest first: {name: {"commit", "at"}}, each name its Sluice-From gives, the agent and the worktree, at the newest
-    landing naming it, at as UTC ISO 8601 from its committer time; a commit with no Sluice-From names nothing. A
-    decision of facts alone (code.7)."""
-    out = {}
-    for rec in log.split("\x1e"):
-        parts = rec.strip("\n").split("\x1f")
-        if len(parts) != 3 or not parts[0] or not parts[1].isdigit():
-            continue
-        at = datetime.datetime.fromtimestamp(int(parts[1]), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        for v in (x.strip() for x in parts[2].split("\x1d") if x.strip()):
-            m = FROM.match(v)
-            for name in (m.groups() if m else (v,)):
-                out.setdefault(name, {"commit": parts[0], "at": at})
-    return out
-
-
-LANDINGS = "--format=%H%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e"
-
-
-def bolt_landings(main, ref, now, landing=None):
-    """The landings sluice made on a bolt, by the branches they name (landed_from), read on the bolt's own first-parent
-    line. Given the bolt's landing on main (landing, main_landing's), on that landing's line, its head back to its base,
-    the bolt's own line as main holds it, whether or not its branch stands (ref None) (Decision 3 of
-    a-bolts-landing-on-main-reads-landed). Given none, where the bolt is read (ref, bolt_at): beyond the kit's main now
-    (now) while main does not hold the bolt's head, and, once it does, beyond main as it stood when the bolt landed, the
-    first parent of the merge on main's first-parent line whose other parent is the head, so a landed bolt still names
-    what landed on it until its close; a head main holds with no such merge, a bolt with nothing of its own, names none.
-    ({name: {"commit", "at"}}, None), or (None, why) when git could not read it (read.1)."""
-    if landing:
-        log = run(["git", "log", "--first-parent", LANDINGS, landing["head"], f"^{landing['base']}", "--"], main)
-        if log is None:
-            return None, f"git could not list the landings on main's landing {landing['commit'][:7]}, {landing['head'][:7]} beyond {landing['base'][:7]}"
-        return landed_from(log), None
-    head = (run(["git", "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], main) or "").strip()
-    if not head:
-        return None, f"git could not read bolt/{ref.rsplit('bolt/', 1)[-1]}'s head at {short(ref)}"
-    code, _, err = ran(["git", "merge-base", "--is-ancestor", head, now], main)
-    if code not in (0, 1):
-        return None, f"git could not tell whether main holds {short(ref)} at {head[:7]}: {(err or '').strip() or f'exit {code}'}"
-    base = now
-    if code == 0:
-        merges = run(["git", "log", "--first-parent", "--format=%H %P", now, f"^{head}"], main)
-        if merges is None:
-            return None, f"git could not find where {short(ref)} landed on main"
-        base = next((ps[1] for ps in (l.split() for l in merges.splitlines()) if head in ps[2:]), None)
-        if base is None:
-            return {}, None
-    log = run(["git", "log", "--first-parent", LANDINGS, ref, f"^{base}", "--"], main)
-    if log is None:
-        return None, f"git could not list the landings on {short(ref)}"
-    return landed_from(log), None
-
-
-# main's first-parent line as main_landing reads it: each commit, its parents, its committer time and its Sluice-From.
-LANDED = "--format=%H%x1f%P%x1f%ct%x1f%(trailers:key=Sluice-From,valueonly,separator=%x1d)%x1e"
-
-
-def main_landing(log, bolt, heads, since):
-    """The landing that landed a bolt on its kit's main (Decision 2 of a-bolts-landing-on-main-reads-landed), from facts:
-    log, `git log --first-parent --since=<since> LANDED <main now> --`, newest first; heads, the bolt's heads crew knows
-    (each Head of its bolt.submit entries, and its branch's head where it was read); since, the bolt's first launch as
-    UTC ISO 8601. The newest merge made at or after since whose Sluice-From names bolt/<bolt>, as the agent or the
-    worktree, or whose second parent is one of heads, as {"commit", "at", "base", "head"}: its first parent the base, its
-    second the head, at as UTC ISO 8601 from its committer time; None where none does. sluice's landing commit always
-    has the entry's head as its second parent (sluice clause 23; read.2), so a commit of fewer than two parents is no
-    landing, and a landing through a pull request names `<agent> (pull/<n>)` and no branch, as 4acecf09 did on swancloud's
-    main, read 2026-11-08, its second parent 900527e9 the Head of the bolt's bolt.submit. A commit older than since is
-    passed over, since a bolt's name is free again once it lands and git may list one past its --since. A decision of
-    facts alone (code.7)."""
-    try:
-        bound = datetime.datetime.strptime(since, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
-    except (TypeError, ValueError):
+def head_landing(main, head, line, why=None):
+    """What a bolt's head says of sluice's landing at it (crew record 0062 as amended 2026-11-10): where the head is the
+    newest commit of the bolt's own first-parent line beyond main (line, as bolt_lines lists it, newest first), the
+    Sluice-Submission and Sluice-Result values its commit carries, as git parses trailers, {"submissions": [...],
+    "results": [...]}, each [] for none; None for a head on no such line, a bolt standing where main holds it among
+    them; {"error": why} when the line (why) or the commit can't be read (read.1). It reads the commit and nothing of
+    sluice's records, and runs no sluice."""
+    if why:
+        return {"error": why}
+    if not head or not line or line[0] != head:
         return None
-    named, known = f"bolt/{bolt}", set(heads or ())
-    for rec in log.split("\x1e"):
-        parts = rec.strip("\n").split("\x1f")
-        if len(parts) != 4 or not parts[0] or not parts[2].isdigit():
-            continue
-        parents, at = parts[1].split(), int(parts[2])
-        if len(parents) < 2 or at < bound:
-            continue
-        names = {n for v in (x.strip() for x in parts[3].split("\x1d") if x.strip())
-                 for n in (FROM.match(v).groups() if FROM.match(v) else (v,))}
-        if named in names or parents[1] in known:
-            return {"commit": parts[0], "base": parents[0], "head": parents[1],
-                    "at": datetime.datetime.fromtimestamp(at, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
-    return None
+    out = run(["git", "show", "-s", f"--format={TRAILERS}", head, "--"], main)
+    if out is None or "\x1e" not in out:
+        return {"error": f"git could not read the trailers of {head[:7]}"}
+    subs, results = out.strip("\n").split("\x1e", 1)
+    return {"submissions": [v.strip() for v in subs.split("\x1f") if v.strip()],
+            "results": [v.strip() for v in results.strip("\n").split("\x1f") if v.strip()]}
 
 
 def short(ref):
@@ -513,13 +440,113 @@ def ran(args, cwd):
     return r.returncode, r.stdout, r.stderr
 
 
+# A try of a call to a remote, as the family bounds it: agentplot/blueprints design/weir/requirements.md 69 and C.3
+# (amended at ad3a1ae, 2026-11-11), mirrored from weir's weir-bounded (weir main 9cba691, record 0008) since Python
+# cannot take the crate, at agentplot/sluice record 0109's limit. TRY_FOR is the most a try may take and GRACE how long
+# a group asked to end at its limit has before it is killed, in seconds, set here alone: no setting of crew's, no
+# environment variable and no file changes either (C.3: "No setting of a writer's changes the limit").
+TRY_FOR = 30.0
+GRACE = 2.0
+
+
+def span(limit):
+    """A limit in the words a person reads, as weir-bounded's span: whole seconds as `30s`, anything else in
+    milliseconds, as `300ms` (weir 69, C.3; sluice record 0109). A decision on plain facts (code.7)."""
+    ms = round(limit * 1000)
+    return f"{ms // 1000}s" if ms >= 1000 and ms % 1000 == 0 else f"{ms}ms"
+
+
+def stopped(call, remote, limit, err=""):
+    """A stopped try's failure, in weir-bounded's words, naming its call, its remote and its limit, after git's last
+    line on standard error and `; ` where git wrote one (weir 69, C.3; sluice record 0109). A decision on plain facts
+    (code.7)."""
+    last = next((l.strip() for l in reversed((err or "").splitlines()) if l.strip()), "")
+    said = f"{call} with {remote} was still going after {span(limit)}, the most a try may take, and was stopped"
+    return f"{last}; {said}" if last else said
+
+
+LOOK = 0.01  # how often a running try is looked at, in seconds
+ASKED_LOOK, KILLED_LOOK, KILLED_FOR = 0.05, 0.02, 5.0  # how often a group asked or killed is looked at, and the longest
+
+
+def group_left(group):
+    """Whether any process of a process group is left: os.killpg(group, 0) answers, or refuses with anything but no such
+    group, as for a process that may not be signalled (weir-bounded's is_there)."""
+    try:
+        os.killpg(group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def group_ended(p, group):
+    """A try's process group ended at its limit, as weir-bounded's end_group: asked with SIGTERM, given GRACE, then
+    killed with SIGKILL and looked at for up to five seconds, its leader (p) reaped before each look, since a leader left
+    a zombie keeps its group there; at once when no process of the group is left. The leader is reaped at the end."""
+    def gone():
+        p.poll()
+        return not group_left(group)
+    if not gone():
+        with contextlib.suppress(OSError):
+            os.killpg(group, signal.SIGTERM)
+        until = time.monotonic() + GRACE
+        while time.monotonic() < until and not gone():
+            time.sleep(ASKED_LOOK)
+        if not gone():
+            with contextlib.suppress(OSError):
+                os.killpg(group, signal.SIGKILL)
+            until = time.monotonic() + KILLED_FOR
+            while time.monotonic() < until and not gone():
+                time.sleep(KILLED_LOOK)
+    p.wait()
+
+
+def tried(argv, cwd=None, input=None, env=None, limit=None):
+    """A try of a call to a remote (weir 69, C.3), as weir-bounded's output runs one: the command run in a process group
+    of its own, its standard output and error written to unnamed temporary files, its input a temporary file holding
+    input or /dev/null, and waited on, a look every LOOK with time.sleep and no thread, until its leader has exited and
+    no process of its group is left, or to its limit (TRY_FOR, read at the call, when limit is None), when its group is
+    asked to end, given GRACE, then killed (group_ended), so nothing it started outlives it. Gives (exit, stdout, stderr,
+    stopped): the leader's exit, by itself or by the signal that ended its group, everything it printed, and whether the
+    limit came first; (None, "", why, False) for a command that cannot start, as ran gives. A stopped try's standard
+    output is never an answer: its caller says it in stopped's words."""
+    limit = TRY_FOR if limit is None else limit
+    with contextlib.ExitStack() as files:
+        out, err = (files.enter_context(tempfile.TemporaryFile()) for _ in range(2))
+        given = subprocess.DEVNULL
+        if input is not None:
+            given = files.enter_context(tempfile.TemporaryFile())
+            given.write(input.encode() if isinstance(input, str) else input)
+            given.seek(0)
+        try:
+            p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=given, stdout=out, stderr=err, process_group=0)
+        except OSError as e:
+            return None, "", str(e), False
+        group, until, stop = p.pid, time.monotonic() + limit, False
+        while p.poll() is None or group_left(group):
+            if time.monotonic() >= until:
+                stop = True
+                group_ended(p, group)
+                break
+            time.sleep(LOOK)
+        out.seek(0)
+        err.seek(0)
+        return p.returncode, out.read().decode(errors="replace"), err.read().decode(errors="replace"), stop
+
+
 def fetched(main):
     """A kit's GitHub fetched into its main checkout, as a read a decision of the moment rests on fetches it (plan.18,
-    plan.19), `git fetch -q origin`: None once it fetched, or for a kit with no origin remote, which has no GitHub;
-    git's words when the fetch failed."""
+    plan.19), `git fetch -q origin`, as one try to the family's limit (tried; weir 69, C.3): None once it fetched, or
+    for a kit with no origin remote, which has no GitHub; git's words when the fetch failed, and a stopped try's when it
+    was stopped (stopped), naming origin and the limit."""
     if not has_origin(main):
         return None
-    code, out, err = ran(["git", "fetch", "-q", "origin"], main)
+    limit = TRY_FOR
+    code, out, err, stop = tried(["git", "fetch", "-q", "origin"], main, limit=limit)
+    if stop:
+        return stopped("git fetch", "origin", limit, err)
     return None if code == 0 else (err or out).strip() or f"git fetch exited {code}"
 
 
@@ -652,13 +679,13 @@ class Seen:
         return hashlib.sha256(json.dumps(self.files).encode()).hexdigest()[:32]
 
 
-# Where crew keeps each card's reading session on a host, by partition, as plan.CARDS: its session.json, plannotator's
+# Where crew keeps each card's reading session on a host, by drive, as plan.CARDS: its session.json, plannotator's
 # result.json once the user sends a reading back, told.json once its owner is told, a landings card's main.
 CARDS = "~/.local/state/crew/cards"
 
 
 def readings_stamp(labels):
-    """A host's card readings folders' stamp, ~/.local/state/crew/cards/<label>/ for each partition named: every file
+    """A host's card readings folders' stamp, ~/.local/state/crew/cards/<label>/ for each drive named: every file
     under each, read with os.stat and os.scandir alone, so the follower sees a reading sent back and sweeps that host's
     card sessions, where its owner is told (the card-sessions spec, A reading sent on one host). A missing folder stamps
     alike each time; None when one can't be read (read.1)."""
@@ -671,110 +698,9 @@ def readings_stamp(labels):
     return seen.digest()
 
 
-def sluice_said(what, code, out, err):
-    """Why a sluice command failed, in its words: sluice says why as {"error": {"message": ...}} under --json, clap on
-    standard error."""
-    try:
-        said = json.loads(out)["error"]["message"]
-    except (ValueError, TypeError, KeyError):
-        said = next((l.strip() for l in (err or "").splitlines() if l.strip()), "")
-    return f"{what} exited {code}" + (f": {said}" if isinstance(said, str) and said else "")
-
-
 def text(v):
     """A field that is text, else None, so a missing or mistyped value never becomes text (read.2)."""
     return v if isinstance(v, str) and v else None
-
-
-def overview_branches(doc):
-    """The branches a sluice/overview@1 document holds, (list, None), or (None, why) for a document of another schema
-    or one that holds no list of them (read.1)."""
-    schema = doc.get("schema") if isinstance(doc, dict) else None
-    if schema != "sluice/overview@1":
-        return None, (f"sluice overview printed {schema}, not the sluice/overview@1 crew reads" if isinstance(schema, str)
-                      else "sluice overview printed no schema, where crew reads sluice/overview@1")
-    if not isinstance(doc.get("branches"), list):
-        return None, "sluice overview's sluice/overview@1 holds no list of branches"
-    return doc["branches"], None
-
-
-def submissions_of(doc):
-    """The submissions a sluice/overview@1 document holds standing (sluice 0.51.3: each branch's submissions still in a
-    chain, as `sluice status <id> --json` prints each), as ([{id, branch, head, state, worktree, pull_head, submitted,
-    started}], None): worktree the branch it came from or pull/<n>, pull_head the branch a pull request was opened from,
-    submitted when it was submitted, and started when the checks of the candidate testing it began, from its branch's
-    candidates, None while none tests it; every field guarded so a missing or mistyped one is None, never text
-    (read.2), and one with no number or branch left out. (None, why) for a document of another schema."""
-    branches, why = overview_branches(doc)
-    if why:
-        return None, why
-    out = []
-    for b in branches:
-        subs = b.get("submissions") if isinstance(b, dict) else None
-        cands = b.get("candidates") if isinstance(b, dict) and isinstance(b.get("candidates"), list) else []
-        started = {n: text(c.get("started")) for c in cands if isinstance(c, dict) and c.get("state") == "testing"
-                   and isinstance(c.get("submissions"), list) for n in c["submissions"]}
-        for x in subs if isinstance(subs, list) else []:
-            if not isinstance(x, dict):
-                continue
-            n, branch = x.get("id"), text(x.get("branch")) or text(b.get("branch"))
-            if not isinstance(n, int) or isinstance(n, bool) or not branch:
-                continue
-            frm = x.get("from") if isinstance(x.get("from"), dict) else {}
-            out.append({"id": n, "branch": branch, "head": text(x.get("head")), "state": text(x.get("state")),
-                        "worktree": text(frm.get("worktree")), "pull_head": text(frm.get("head")),
-                        "submitted": text(x.get("submitted")), "started": started.get(n)})
-    return out, None
-
-
-def decided_of(doc):
-    """Every submission a `sluice status <branch> --all --json` document holds (sluice 0.51.3's record of a branch, each
-    a sluice/submission@1, the decided among them, standing or not), as the landing reads it once on the team's host
-    (plan.history_read), as ([{id, branch, head, state, submitted, told, worktree, pull_head}], None): told when sluice
-    told its outcome, or, for one withdrawn and never told, when it was withdrawn; sluice's record keeps no time a
-    decided submission's checks began. Every field guarded so a missing or
-    mistyped one is None, never text (read.2), and one with no number or branch left out; (None, why) for a document
-    that holds no list of submissions, or a record of another schema."""
-    subs = doc.get("submissions") if isinstance(doc, dict) else None
-    if not isinstance(subs, list):
-        return None, "sluice status printed no list of submissions"
-    out = []
-    for x in subs:
-        if not isinstance(x, dict):
-            continue
-        schema = x.get("schema")
-        if schema is not None and schema != "sluice/submission@1":
-            return None, f"sluice status printed a record of {schema}, not the sluice/submission@1 crew reads"
-        n, branch = x.get("id"), text(x.get("branch")) or text(doc.get("branch"))
-        if not isinstance(n, int) or isinstance(n, bool) or not branch:
-            continue
-        frm = x.get("from") if isinstance(x.get("from"), dict) else {}
-        gone = x.get("withdrawn") if isinstance(x.get("withdrawn"), dict) else {}
-        out.append({"id": n, "branch": branch, "head": text(x.get("head")), "state": text(x.get("state")),
-                    "submitted": text(x.get("submitted")), "told": text(x.get("told")) or text(gone.get("at")),
-                    "worktree": text(frm.get("worktree")), "pull_head": text(frm.get("head"))})
-    return out, None
-
-
-def status_read(branch, code, out, err):
-    """What `sluice status <branch> --all --json` printed, its exit and its standard output and error, read as
-    decided_of reads its document: (submissions, None), [] for a branch sluice holds no record of yet, which sluice
-    0.51.3 refuses as not_found (a bolt given and nothing submitted to it), or (None, why) in sluice's words (read.1). A
-    decision on plain facts, the landing's one read of sluice's record (plan.history_read)."""
-    if code:
-        try:
-            error = json.loads(out)["error"]
-        except (ValueError, TypeError, KeyError):
-            error = None
-        said = error.get("message") if isinstance(error, dict) else None
-        if isinstance(said, str) and error.get("kind") == "not_found" and (said == f"no branch {branch}" or said.startswith(f"no branch {branch};")):
-            return [], None
-        return None, sluice_said(f"sluice status {branch}", code, out, err)
-    try:
-        doc = json.loads(out)
-    except ValueError:
-        return None, f"sluice status {branch} printed no JSON"
-    return decided_of(doc)
 
 
 def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False):
@@ -824,27 +750,6 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
     # (plan.8). A line git can't list is said on each bolt (carries_error), never read as none (read.1).
     lines, lwhy = bolt_lines(main, now, {b: reads.get(b) or (f"refs/remotes/origin/bolt/{b}" if b in github else f"refs/heads/bolt/{b}")
                                          for b in sorted(github | set(have) | {b for b, r in reads.items() if r})})
-    # Each bolt the request seeks the landing of on main (seek, {bolt: {"since", "heads"}}, plan.landing_sought): main's
-    # first-parent line read once, from the oldest since asked, and each sought bolt's landing on it (main_landing), by
-    # the heads crew submitted and its branch's head where read, its branch standing or not; a line git can't list is
-    # said on each bolt sought (landed_error), never read as no landing (read.1; Decision 2 of
-    # a-bolts-landing-on-main-reads-landed).
-    sought = {b: s for b, s in (req.get("seek") or {}).items() if s and s.get("since")}
-    if sought:
-        since = min(s["since"] for s in sought.values())
-        code, log, err = ran(["git", "log", "--first-parent", f"--since={since}", LANDED, now, "--"], main)
-        for b, s in sorted(sought.items()):
-            facts = out["bolts"].setdefault(b, {"exists": False})
-            if code != 0:
-                facts["landed_error"] = (f"git could not list main's first-parent line at {short(now)} since {since}: "
-                                         + ((err or "").strip() or f"exit {code}"))
-                continue
-            facts["landed"] = main_landing(log, b, list(s.get("heads") or []) + ([facts["head"]] if facts.get("head") else []), s["since"])
-    for b in sorted(sought):
-        landing = out["bolts"][b].get("landed")
-        if landing and not reads.get(b):
-            landed, why = bolt_landings(main, None, now, landing)
-            out["bolts"][b].update({"landings": landed} if why is None else {"landings_error": why})
     for b, ref in reads.items():
         if not ref:
             continue
@@ -853,10 +758,10 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
             out["bolts"][b]["carries_error"] = lwhy or f"git could not list what bolt/{b} holds beyond main at {short(ref)}"
         else:
             out["bolts"][b]["carries"] = carried_bolts(holds.split(), lines, b)
-        # The landings sluice made on it, by the branches they name: a unit's or chore's place is built once one names
-        # its branch, whichever partition's launch made it (crew record 0056 decision 2); one git can't list is said.
-        landed, why = bolt_landings(main, ref, now, out["bolts"][b].get("landed"))
-        out["bolts"][b].update({"landings": landed} if why is None else {"landings_error": why})
+        # Whether the head is a landing sluice made on the bolt itself, with the verdict it landed on (head_landing).
+        out["bolts"][b]["head_landing"] = head_landing(
+            main, out["bolts"][b]["head"], (lines or {}).get(b), lwhy or (None if lines is not None and b in lines else
+                                                                          f"git could not list bolt/{b}'s own commits beyond main"))
     places = os.path.join(kdir, "places")
     for path, branch in at.items():
         if os.path.dirname(path) != places or not branch:
@@ -879,7 +784,7 @@ def kit(req, sites=False, running=None, board=False, fetch=False, stamped=False)
 
 def read(request, running=None):
     """The answer to a request: with stamp, each kit's stamp alone by its main checkout and the stamp of the card readings
-    folders of the partitions it names, the follower's check that nothing moved, and, at its clock's tick, the host's
+    folders of the drives it names, the follower's check that nothing moved, and, at its clock's tick, the host's
     portless routes (routes) when asked; else, by each kit's main checkout, each kit as kit() reads it, with stamped,
     the host's follower's, its stamp too, taken before the kit is read, so anything that moves while it is read moves
     the stamp the follower next compares. It runs no sluice."""

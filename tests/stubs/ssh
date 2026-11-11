@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Stub ssh for crew's tests: `ssh [-o opt]... <target> <command...>` runs the command at once, as if on <target>:
 # its HOME is that host's scratch home and `hostname -s` answers its name (each fixture host's ssh name is its
-# own name). A target listed in $CREW_TEST_ROOT/down does not answer, the way a stopped host doesn't.
+# own name). A target listed in $CREW_TEST_ROOT/down does not answer, the way a stopped host doesn't. The host's own
+# bin, $CREW_TEST_ROOT/hosts/<target>/bin, comes first on the command's path, as its login shell's profile puts the
+# crew the host installed first, so `crew` by its name there is that host's (tests/lib.sh world).
 while [[ ${1:-} == -* ]]; do [[ $1 == -o || $1 == -i || $1 == -p ]] && shift; shift; done
 target=${1:?ssh stub: no target}; shift
 [[ -n ${CREW_TEST_LOG:-} ]] && printf '%s ssh %s %s\n' "${CREW_TEST_HOST:-?}" "$target" "$*" >> "$CREW_TEST_LOG"
@@ -12,4 +14,5 @@ fi
 # ssh carries no Claude session's process id to the host it reaches, so a command crew forwards ends with no session there.
 unset CLAUDE_PID
 export CREW_TEST_HOST=$target HOME=$CREW_TEST_ROOT/hosts/$target/home
+export PATH="$CREW_TEST_ROOT/hosts/$target/bin:$PATH"
 cd "$HOME" && exec bash -c "$*"

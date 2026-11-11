@@ -1,6 +1,6 @@
 # The plan changed through proposals, and the writes that race on its branch, through the crew command on the stubs
-# (tests.11, record 0022), every team's work running in Flume places (Decision 1 of the-team-machinery-leaves): a give
-# fetches the bolt's branch sluice made and launches its units; the planner proposes and crew raises its card, one
+# (tests.11, record 0022), every team's work running in Flume places (Decision 1 of the-team-machinery-leaves): a start
+# asks the runner for the bolt's base place and launches its units; the planner proposes and crew raises its card, one
 # touching a started bolt waiting on the user alone, the user approves, leaves units out on the card and answers
 # it, each closing the card, a proposal is dropped and replaced, its card withdrawn or changed in place, one resting on
 # a record its kit's main does not hold accepted is refused, a unit from a signal is routed, a move of launched work is
@@ -57,19 +57,20 @@ for u, b, intent in (("the-deploy-names-its-host-tenant", "tenant-environments",
 open(f, "w").write(p.text())
 PY
 commit_all "$w" "plan: by hand"; push_state "$w"
-# sluice makes the bolt's branch on GitHub pushing as its app, which moves no tracking ref; the give fetches it.
-touch "$T/sluice-leaves-copy"
+# The start asks the runner for the bolt's base place and launches its units, making no branch; the runner's launch of
+# the base place has sluice make it on GitHub (crew-lands-each-bolt-through-flumes-base-place, Decision 3).
 expect_ok crew bolt start tenant-environments
-rm "$T/sluice-leaves-copy"
-made=$(git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse bolt/tenant-environments)
-eq "$(git -C "$k" rev-parse refs/remotes/origin/bolt/tenant-environments)" "$made"
-has "$out" "no agent starts: unit/the-deploy-names-its-host-tenant (request 1), unit/the-deploy-is-logged (request 2), unit/in-verify (request 3) is launched in switchboard-kit"
+git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse -q --verify bolt/tenant-environments >/dev/null && fail "the start made bolt/tenant-environments"
+has "$out" "tenant-environments's base place, bolt/tenant-environments, is asked of the runner (request 1)"
+has "$out" "no agent starts: unit/the-deploy-names-its-host-tenant (request 2), unit/the-deploy-is-logged (request 3), unit/in-verify (request 4) is launched in switchboard-kit"
 eq "$(plan -t Bolt -e "Bolt = 'tenant-environments'" -P Team,Path | row)" "flume"
-ok "a give fetches the bolt's branch sluice made on GitHub, marks the bolt Path: flume and launches each of its units"
+base_made $box tenant-environments
+eq "$(git -C "$k" rev-parse refs/remotes/origin/bolt/tenant-environments)" "$(git --git-dir "$(remote WilldanGroup/switchboard-kit)" rev-parse bolt/tenant-environments)"
+ok "a start asks the runner for the bolt's base place, marks the bolt Path: flume and launches each of its units, making no branch"
 # The runner on the box launched two of them: Flume's status of their places, carried on its branch, has one in code
 # and the other in verify.
 p1=/flume/places/change--the-deploy-names-its-host-tenant p3=/flume/places/change--in-verify
-runner_writes $box 1 "$p1" "$(live "$p1" code)" 3 "$p3" "$(live "$p3" verify)"
+runner_writes $box 2 "$p1" "$(live "$p1" code)" 4 "$p3" "$(live "$p3" verify)"
 p=$(as $box herdr --session wldn-3 workspace create --cwd / --label wldn | jq -r .result.root_pane.pane_id)
 as $box herdr --session wldn-3 stub agent "$p" wldn-planner
 
@@ -118,7 +119,7 @@ has "$out" "card proposal/1: req_stub-1 withdrawn"
 eq "$(acts_since "$before")" "1"
 eq "$(plan -t Unit -e "Bolt = 'deploy-checks'" -P Unit)" $'a-plan-only-deploy-is-checked\nqueued-one'
 eq "$(field $box unit.add From unit/zone-first)" "proposal/2"
-has "$(field $box unit.add Commit unit/zone-first)" "WilldanGroup/crew-state@"
+eq "$(field $box unit.add Commit unit/zone-first)" ""  # the approval's commit carries it, so it names none of its own
 trace=$(crew trace unit/zone-first)
 eq "$(awk '{print $3}' <<<"$trace" | head -5 | tr '\n' ' ')" "plan.propose card.post plan.approve unit.add card.close "
 ok "the user's approval tells the planner what was applied and closes its card; each step is recorded, and a unit's trace shows the proposal and the approval, each with its card's act"
@@ -136,31 +137,29 @@ has "$out" "card proposal/4: req_stub-3 changed, now version 2"
 eq "$(props -t Proposal -e "Proposal = 4" -P State,Reason)" $'dropped\nreplaced by proposal 5'
 ok "a proposal is dropped with a reason, the planner told and its card withdrawn, or replaced by another, its card changed in place"
 
-# A write on the branch whose run-record entry is not there yet, as wldn/main's 16f19a887 of 2026-11-07 was: a proposal
-# written after it is not read until that entry arrives, and the refusal says where the branch was read, the write it
-# waits on and that write's agent, its own words still its last line (plan.2, read.5).
+# An older crew's write in two steps, its commit naming an entry and the entry its next commit, the second not there
+# yet: a proposal written after it is read at the tip, and nothing says the branch was read below it; once the entry's
+# own commit lands, crew events prints it (drive-state "A decision reads the drive's branch at its tip").
 w=$T/flight; git clone -q -b wldn/main "$ws" "$w"
-read_at=$(git -C "$w" rev-parse --short=7 HEAD)
 eid=$(date -u +%Y%m%dT%H%M%SZ)-000000-$box-1-1
 git -C "$w" commit -q --allow-empty -m "plan(clears): by hand (swb-1-conductor)"$'\n\n'"Crew-Entry: $eid"
 push_state "$w"
-held=$(git -C "$w" rev-parse --short=7 HEAD)
 crew plan propose "$(proposal 'Case: The cleared units go last.' 'Do: unit order a-drop --last')" >/dev/null 2>&1
 n=$(last)
-expect_fail "no proposal $n in wldn/main" crew plan proposed "$n"
-has "$out" "wldn/main was read at $read_at, below its tip $(git --git-dir "$ws" rev-parse --short=7 wldn/main): the write $held by swb-1-conductor is on the branch without its run-record entry yet, so nothing from $held on was read (read.5)"
-eq "$(tail -1 <<<"$out")" "no proposal $n in wldn/main"
-# The entry arrives, and the proposal is read.
+expect_ok crew plan proposed "$n"
+has "$out" "# Proposal $n — open, by wldn-planner"
+lacks "$out" "below its tip"; lacks "$out" "read at"
+eq "$(crew events --json --since today | jq -r --arg id "$eid" '[.entries[] | select(.Id == $id)] | length')" "0"
+# The entry arrives as its own commit, as the older crew pushes it.
 git -C "$w" pull -q --rebase origin wldn/main
 f=$w/runs/$box/$(date -u +%F).rec
 [[ -e $f ]] || python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import record; print(record.DESCRIPTOR, end="")' "$CREW/plugin/lib" > "$f"
 printf '\nId: %s\nAt: %s\nHost: %s\nBy: swb-1-conductor\nAct: unit.order\nOn: unit/a-drop\n' "$eid" "$(date -u +%FT%TZ)" "$box" >> "$f"
 git -C "$w" add runs; git -C "$w" commit -qm "runs($box): unit.order unit/a-drop (swb-1-conductor)"$'\n\n'"Crew-Entry: $eid"; push_state "$w"
-expect_ok crew plan proposed "$n"
-has "$out" "# Proposal $n — open, by wldn-planner"
-lacks "$out" "below its tip"
-CREW_AGENT= crew plan drop "$n" "read below the tip" >/dev/null 2>&1
-ok "a write whose entry has not arrived holds every read below it, and a refusal read there names the commit read at, the write it waits on and its agent"
+expect_ok crew events --json --since today
+eq "$(jq -r --arg id "$eid" '.entries[] | select(.Id == $id) | [.Act, .By, (.On | join(" "))] | join(" ")' <<<"$out")" "unit.order swb-1-conductor unit/a-drop"
+CREW_AGENT= crew plan drop "$n" "read at the tip" >/dev/null 2>&1
+ok "an older crew's write in two steps is read at the tip, a proposal written after it read with nothing said of a read below the tip, and its entry printed once its own commit lands"
 
 # A refused proposal is recorded naming its command, never the words typed in it. Each day's file is read on its own,
 # as crew reads them: every one declares Entry, which one recsel over two days' files refuses as a duplicated set.
@@ -223,12 +222,23 @@ expect_ok crew plan approve "$n"
 eq "$(git --git-dir "$ws" diff --name-only "$before" wldn/main | grep -v '^runs/')" $'moves.rec\nplan.rec\nproposals.rec'
 git --git-dir "$ws" show wldn/main:moves.rec > "$T/moves.rec"
 eq "$(recsel -t Move -e "Signal = '$sig'" -P Move,Target "$T/moves.rec")" $'route\nunit/plans-are-checked'
-ok "a unit from a signal is added with its route move, in the approval's commit"
+# The approval's one commit carries the entries of the acts it holds, each named in its trailers, and no entry's own
+# commit follows it for them (an-act-carries-its-entry-in-its-own-commit, Decision 3).
+act=$(act_tip); day=runs/mac-studio/$(date -u +%F).rec
+added=$(git --git-dir "$ws" diff "$act^" "$act" -- "$day")
+eq "$(sed -n 's/^+Act: //p' <<<"$added" | sort | paste -sd ' ' -)" "plan.approve signal.move unit.add"
+named=$(git --git-dir "$ws" log -1 --format='%(trailers:key=Crew-Entry,valueonly)' "$act" | grep .)
+eq "$(sed -n 's/^+Id: //p' <<<"$added" | sort)" "$(sort <<<"$named")"
+lacks "$(git --git-dir "$ws" log --format=%B --grep='^runs(' "$act..wldn/main")" "$(head -1 <<<"$named")"
+for id in $named; do
+  [[ -z $(git --git-dir "$ws" log --format=%B --grep='^runs(' "$act..wldn/main" | grep -F "Crew-Entry: $id") ]] || fail "entry $id has a commit of its own after the approval's"
+done
+ok "a unit from a signal is added with its route move, in the approval's commit, which carries and names the approval's, the add's and the move's entries"
 
 # A move of launched work out of its bolt is refused at the proposal, naming its place and the drop and add that would
 # do it: nothing is written and no card raised.
 before=$(tip); : > "$CREW_TEST_LOG"
-expect_fail "unit zone-first is launched as Flume place zone-first on bolt/tenant-environments (request 4), whose base and order are fixed at its launch, so it is not moved to console-pages: drop it (crew unit drop zone-first) and add it again as it should be (crew unit add)" \
+expect_fail "unit zone-first is launched as Flume place zone-first on bolt/tenant-environments (request 5), whose base and order are fixed at its launch, so it is not moved to console-pages: drop it (crew unit drop zone-first) and add it again as it should be (crew unit add)" \
   crew plan propose "$(proposal 'Case: It belongs with the console.' 'Do: unit move zone-first console-pages')"
 eq "$(tip)" "$before"
 lacks "$(calls)" "pendingyou post_request"
@@ -247,7 +257,7 @@ before=$(tip)
 expect_ok crew plan approve "$n"
 eq "$(acts_since "$before")" "1"
 eq "$(git --git-dir "$ws" diff --name-only "$before" wldn/main | grep -v '^runs/')" $'plan.rec\nproposals.rec\nrequests.rec'
-eq "$(requests -e "Act = 'retry'" -P Work,Of,Stage | row)" "unit/the-deploy-names-its-host-tenant 1 construct unit/in-verify 3 construct"
+eq "$(requests -e "Act = 'retry'" -P Work,Of,Stage | row)" "unit/the-deploy-names-its-host-tenant 2 construct unit/in-verify 4 construct"
 eq "$(requests -e "Act = 'retry' && Work = 'unit/in-verify'" -P Words)" \
   "in-verify reads its intent from the plan This unit's intent was amended by proposal $n; revise the existing change to it. The planner's case, as the user approved it: The deploy should fail on a warning as well."
 eq "$(plan -t Unit -e "Unit = 'in-verify'" -P Intent)" "in-verify reads its intent from the plan"
@@ -261,7 +271,7 @@ expect_ok crew unit amend in-verify "in-verify reads its intent from the plan, o
 eq "$(acts_since "$before")" "1"
 eq "$(plan -t Unit -e "Unit = 'in-verify'" -P Intent)" "in-verify reads its intent from the plan, once."
 eq "$(requests -e "Act = 'retry' && Work = 'unit/in-verify'" -P Of,Stage,Words | tail -3 | row)" \
-  "3 construct in-verify reads its intent from the plan, once. This unit's intent was amended by the user; revise the existing change to it."
+  "4 construct in-verify reads its intent from the plan, once. This unit's intent was amended by the user; revise the existing change to it."
 ok "the user's own amendment of a launched unit retries its construct with the user's words"
 
 # Two writes race on the branch: the user on mac-studio moves a unit while the user on the box splits another.
@@ -279,7 +289,8 @@ eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/WilldanGroup/crew-state.git"
 ok "two racing writes both land, one after the other, never merged; a write whose unit was dropped meanwhile is refused, naming that commit"
 
 # Two repositories renamed on their forge once their work is finished (record 0060's order): atlas-kit's bolt landed and
-# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every host's spaces; the user
+# its fix of main landed, breadboard-kit's bolt and fix dropped, and each removed from every drive's repos in every
+# host's teams file; the user
 # renames the first at a shell, the planner's own run is refused, and the planner proposes the second, which the user
 # approves.
 a=$(kit $box willdan atlas-kit)
@@ -294,9 +305,8 @@ expect_ok crew bolt new boards "Boards are listed." --repo breadboard-kit
 expect_ok crew main fix breadboard-kit red-tests "The tests are red."
 expect_ok crew main fix breadboard-kit red-tests --drop
 expect_ok crew bolt drop boards "breadboard-kit is renamed first"
-edit hosts "for h in d['hosts'].values():
-    for s in h['sessions'].values():
-        s['repos'] = [r for r in s['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
+edit teams "for p in d['drives']:
+    p['repos'] = [r for r in p['repos'] if r not in ('WilldanGroup/atlas-kit', 'WilldanGroup/breadboard-kit')]"
 day=$(date -u +%F)
 before=$(tip)
 expect_ok crew kit rename atlas-kit atlas
@@ -339,6 +349,6 @@ chmod +x "$as/hooks/post-receive"; : > "$T/pushes"
 race afterthought/crew-state chuck-herdr-alpha swancloud-design signal move "$greeting" drop --reason "a greeting" --label swancloud
 expect_ok crew bolt new drive-loop "The loop runs." --repo flywheel-next --label madswan
 [[ ! -f $T/race ]] || fail "swancloud's write never ran"
-eq "$(sort "$T/pushes" | uniq -c | awk '{print $1, $2}')" $'2 refs/heads/madswan/main\n2 refs/heads/swancloud/main'
+eq "$(sort "$T/pushes" | uniq -c | awk '{print $1, $2}')" $'1 refs/heads/madswan/main\n1 refs/heads/swancloud/main'
 eq "$(git -C "$(home_of mac-studio)/.cache/crew/git/afterthought/crew-state.git" for-each-ref --format='%(refname)' refs/crew/)" "refs/crew/madswan/main"
-ok "two drives in one repository write at the same moment, each pushing its write and then its entry, neither replayed for the other nor fetching its branch"
+ok "two drives in one repository write at the same moment, each pushing its write with its entry in one commit, neither replayed for the other nor fetching its branch"

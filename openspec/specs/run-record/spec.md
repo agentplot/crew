@@ -6,11 +6,11 @@ Keeps a record of every act of crew's that moves work, written where the act hap
 ## Requirements
 
 ### Requirement: Every command that moves work leaves an entry
-Every crew command that changes the plan, a signal or its move, a unit's approval or stage, a fix, or an agent's or a team's sessions, and every `crew tell`, SHALL append one entry for each such act to the run record of the partition it acts for, after the act is done. A command that only reads SHALL append nothing. An entry SHALL give its id, the time in UTC, the host crew ran on, who asked, the act, and the objects it acted on.
+Every crew command that changes the plan, a signal or its move, a unit's approval or stage, a fix, or an agent's or a team's sessions, and every `crew tell`, SHALL append one entry for each such act to its drive's run record. The entry SHALL be in the act's own commit where the act writes the drive's branch, else appended once the act is done. A command that only reads SHALL append nothing. An entry SHALL give its id, the UTC time, the host, who asked, the act and the objects acted on.
 
 #### Scenario: A plan write
 - **WHEN** the planner adds a unit to the queue
-- **THEN** the run record gains one entry whose act is `unit.add`, naming the unit and the queue it went to
+- **THEN** the run record gains one entry whose act is `unit.add`, naming the unit and the queue it went to, in the write's own commit
 
 #### Scenario: A command that does several things
 - **WHEN** `crew bolt give swb-1` writes the plan, restarts the team's conductor and ops, and greets the conductor
@@ -36,11 +36,15 @@ An entry's `By` SHALL be the name of the agent crew started that ran the command
 - **THEN** the entry is written on the box, its `Host` is the box, and its `By` and `Session` name the operator agent and its session on mac-studio
 
 ### Requirement: An entry names the commit it wrote
-When the act wrote a commit, its entry SHALL name it as `<owner>/<name>@<sha>`: the plan's commit for a plan write, the signals repo's for a signal or a move, the kit's for an approval. An act that wrote no commit SHALL carry none.
+When an act writes a commit outside the drive's branch, such as the kit's commit for an approval, its entry SHALL name it as `<owner>/<name>@<sha>`. An act whose write is a commit crew makes on the drive's branch SHALL name no commit of its own, since that commit carries its entry. A state init that adopts another branch's history SHALL name the tip it adopted. An act that wrote no commit SHALL carry none.
 
 #### Scenario: An approval
 - **WHEN** `crew unit approve` records the review on `unit/<unit>`
 - **THEN** the entry names the kit and that commit
+
+#### Scenario: A plan write
+- **WHEN** the planner adds a bolt to the plan
+- **THEN** its `bolt.new` entry names no `Commit`, and the write's commit on the drive's branch adds it
 
 #### Scenario: A tell
 - **WHEN** `crew tell` prompts an agent
@@ -75,27 +79,8 @@ An entry's `Why` SHALL be the subject crew itself composes from the names of thi
 - **WHEN** a conductor tells the design agent a question in the user's words
 - **THEN** the entry names both agents and the number of characters sent, and the question appears nowhere in the run record
 
-### Requirement: The run record is files on the host, appended and never rewritten
-Entries SHALL be recutils records in `~/.local/state/crew/<label>/runs/<host>/<date>.rec` on the host where the command ran, one file per UTC day, each append one write. crew SHALL never rewrite or remove an entry in a host's file. The drive's branch's copy of an entry SHALL be rewritten only by `crew kit rename`, and only to rename a repository's name, in the rename's one commit, which holds what each entry said before. A failed append SHALL be reported on standard error and SHALL NOT change the command's result or exit status.
-
-#### Scenario: After a restart
-- **WHEN** a host restarts
-- **THEN** every entry written before it is still in its file
-
-#### Scenario: The record cannot be written
-- **WHEN** the run record's directory cannot be written
-- **THEN** the command does its work and exits as it would have, with one line on standard error saying the entry was not recorded
-
-#### Scenario: Read with recutils alone
-- **WHEN** `recsel -e "On = 'unit/<unit>'"` is run over a host's run-record files
-- **THEN** it prints that unit's entries, with no crew command involved
-
-#### Scenario: A rename's rewrite
-- **WHEN** the user renames `tailrace` to `timber` and the branch's run record holds a `bolt.land` entry with `Repo: tailrace`
-- **THEN** the rename's commit changes that entry's `Repo` to `timber` and its parent holds it as it was, and the file on the host that wrote it still says `tailrace`
-
 ### Requirement: Entries can be followed as they are written
-`crew events --follow` SHALL print each entry of the partition as it reaches the partition's branch, one line per entry, until it is interrupted. It SHALL read the branch as this host's cache holds it, read it again only when the cache's tip moves, and read again only the run-record files whose content changed. The branch SHALL be fetched once a minute, never faster: by the host's follower for a partition it follows, else by the follow itself. It SHALL ask no host for entries.
+`crew events --follow` SHALL print each entry of the drive as it reaches the drive's branch, one line per entry, until it is interrupted. It SHALL read the branch as this host's cache holds it, read it again only when the cache's tip moves, and read again only the run-record files whose content changed. The branch SHALL be fetched once a minute, never faster: by the host's follower for a drive it follows, else by the follow itself. It SHALL ask no host for entries.
 
 #### Scenario: Following a bolt team
 - **WHEN** `crew events --follow --label wldn` is running and a conductor starts a stage on the box
@@ -128,19 +113,8 @@ Entries SHALL be recutils records in `~/.local/state/crew/<label>/runs/<host>/<d
 - **WHEN** `crew trace unit/<unit>` names a unit no entry mentions
 - **THEN** it says so and exits non-zero
 
-### Requirement: A send is one entry in the receiving partition's record
-Each `crew send` that reaches its operator SHALL append one entry, act `send`, to the run record of the partition it was sent to, on the host the command ran on. Its `By` SHALL be the sender, its `On` the operator, `agent/<label>-operator`, and the team, `team/<team>`, when a team was named; its `Why` SHALL be `send <team or partition>`; and its `Chars` the length of the text. It SHALL hold no part of the text, and no separate tell entry SHALL be written for it. A send that types nothing SHALL write no entry, as a tell that types nothing writes none.
-
-#### Scenario: A send to a team
-- **WHEN** `crw-5-unit-1` sends 46 characters to `swb-1`, a team of wldn
-- **THEN** wldn's run record gains one entry: act `send`, `By: crw-5-unit-1`, `On: agent/wldn-operator`, `On: team/swb-1`, `Why: send swb-1`, `Chars: 46`, and the text appears nowhere in it
-
-#### Scenario: A send that is refused
-- **WHEN** a send fails because `wldn-operator` is not up
-- **THEN** no entry is written
-
 ### Requirement: Every entry reaches the branch as it is written
-Once crew appends an entry to the host's run record, the same command SHALL push it to `runs/<host>/<day>.rec` on the partition's branch of its state repository, as its own commit from that host, by the procedure every write to the branch takes. The commit SHALL change that day's file alone, adding the entry to what the branch holds. Only a host SHALL write its own files, entries SHALL be added and never removed, and pushing an entry the branch holds SHALL change nothing.
+An entry of an act that writes the drive's branch SHALL reach the branch in that act's commit. The same command SHALL push any other entry to `runs/<host>/<day>.rec` on the branch as its own commit from that host. That push SHALL follow the procedure every write to the branch takes and change that day's file alone. Only a host SHALL write its own files. Entries SHALL be added and never removed, and pushing an entry the branch holds SHALL change nothing.
 
 #### Scenario: A tell
 - **WHEN** an agent on the box tells another agent
@@ -148,7 +122,7 @@ Once crew appends an entry to the host's run record, the same command SHALL push
 
 #### Scenario: A plan write
 - **WHEN** the planner adds a unit to the queue on mac-studio
-- **THEN** the write's commit changes the plan alone, and the next commit on the branch adds its `unit.add` entry, which names the write's commit
+- **THEN** the write's one commit changes the plan and adds its `unit.add` entry to `runs/mac-studio/<day>.rec`, and no commit follows it for that entry
 
 #### Scenario: Two hosts at once
 - **WHEN** mac-studio and the box each push an entry of wldn at the same moment
@@ -159,7 +133,7 @@ Once crew appends an entry to the host's run record, the same command SHALL push
 - **THEN** every entry it wrote before is still on the branch, and its next entry is added beside them
 
 ### Requirement: An entry that did not reach the branch goes with the host's next
-When an entry cannot be pushed, crew SHALL say so once on standard error, naming the entry, the branch and why, and the command SHALL do its work and exit as it would have. The entry SHALL stay in the host's file. The host's next push of the partition's record, by its next entry or by `crew events --push`, SHALL first push each of the host's entries the branch lacks, each as its own commit, oldest first. `crew events --push` SHALL say when the branch already holds every entry the host has.
+When an entry can't be pushed, crew SHALL say so once on standard error, naming the entry, the branch and why, and the command SHALL do its work and exit as it would have. The entry SHALL stay in the host's file. The host's next push of the record SHALL push each entry the branch lacks, each as its own commit, oldest first, whether that push is its next entry's, its next write's or `crew events --push`'s. `crew events --push` SHALL say when the branch holds every entry the host has.
 
 #### Scenario: GitHub out of reach
 - **WHEN** a conductor on the box starts a stage while github.com cannot be reached
@@ -173,6 +147,10 @@ When an entry cannot be pushed, crew SHALL say so once on standard error, naming
 - **WHEN** the box's next entry of wldn is pushed once github.com answers again
 - **THEN** `wldn/main` gains the missed entry's commit, then the new entry's, and nothing is pushed twice
 
+#### Scenario: The next write
+- **WHEN** mac-studio writes the plan after a tell whose entry did not reach `wldn/main`
+- **THEN** the write's commit adds the write's entry and not the tell's, the tell's entry follows as a commit of its own, and nothing is pushed twice
+
 #### Scenario: By hand
 - **WHEN** `crew events --push --label wldn` runs on the box after a missed push
 - **THEN** each entry the branch lacks is pushed as its own commit, and run again it says there is nothing left to push
@@ -181,8 +159,12 @@ When an entry cannot be pushed, crew SHALL say so once on standard error, naming
 - **WHEN** an entry in the host's file is cut short, so the day's file would fail `recfix --check`
 - **THEN** nothing of the record is pushed, the command names the file and why on standard error, and the act it recorded stands
 
+#### Scenario: A write after an entry that fails its check
+- **WHEN** the host's file holds an entry cut short and the host then writes the plan
+- **THEN** the write lands with its own entry in its commit, and the command names the file and why on standard error
+
 ### Requirement: Entries are read from the drive's branch alone
-`crew events [--label <label>] [--about <object>] [--since <time>] [--json]` and `crew trace <object>` SHALL read the run record from the partition's branch of its state repository, and SHALL ask no host for it. When the branch cannot be read they SHALL say so, naming the branch.
+`crew events [--label <label>] [--about <object>] [--since <time>] [--json]` and `crew trace <object>` SHALL read the run record from the drive's branch of its state repository, and SHALL ask no host for it. When the branch cannot be read they SHALL say so, naming the branch.
 
 #### Scenario: A host is asleep
 - **WHEN** macbook-pro, which wrote entries of wldn and pushed them, does not answer
@@ -200,23 +182,8 @@ When an entry cannot be pushed, crew SHALL say so once on standard error, naming
 - **WHEN** `crew events --label wldn` runs while the state repository cannot be fetched
 - **THEN** it names `wldn/main` as not read, and why
 
-### Requirement: A bolt's landing entry records its time by holder
-Every `bolt.land` entry crew writes SHALL record two things: the bolt's age, in whole minutes, from its start, the newest entry of the run record that made its branch, to its landing, as `Age`; and the minutes of that age each holder held, as `Split`, in the order team, kit, team-or-kit, user, hold, nobody, each named with its minutes, `team 130, kit 12, team-or-kit 0, user 40, hold 0, nobody 3`, team-or-kit being the minutes of a submission's stay in sluice that crew can't split between queued and under test, and team the minutes the bolt's own work held it. The split SHALL be made by the same rule the board's head line uses, and its minutes SHALL sum to `Age`. The landing SHALL be the moment sluice's record says the bolt's landing submission was decided, or the entry's own time when no submission of the bolt landed. sluice's record of the bolt's submissions SHALL be read once, on the kit's host, when the entry is written. When the start or that record can't be read, the entry SHALL carry neither field, and the landing SHALL go on as it does today.
-
-#### Scenario: A bolt lands
-- **WHEN** main-level ops closes the landing of `b`, started 6h 10m before sluice landed it, with its work holding it 3h 20m, kit 25m, user 2h 05m, hold 0 and nobody 20m
-- **THEN** its `bolt.land` entry holds `Age: 370` and `Split: team 200, kit 25, team-or-kit 0, user 125, hold 0, nobody 20`
-
-#### Scenario: A merge whose checks' start sluice's record does not keep
-- **WHEN** `b`'s merge `#41` stood in sluice for seventeen minutes, and sluice's record read at the landing gives when it was submitted and decided but not when its checks began
-- **THEN** those seventeen minutes are in `Split`'s team-or-kit, not its team or its kit, and `Split` still sums to `Age`
-
-#### Scenario: sluice's record can't be read at the landing
-- **WHEN** `sluice status` fails on the kit's host as `b`'s landing is recorded
-- **THEN** the `bolt.land` entry is written without `Age` and `Split`, and the landing is closed as it is today
-
 ### Requirement: An ask and a turn are entries
-Each ask crew writes SHALL be one `ask` entry in the asked partition's record, naming the role's run and the record the ask names, with the length of its words and never their text. A run's start SHALL be one `turn.begin` entry naming the run and how many it took, and its end one `turn.end` entry. `crew trace agent/<label>-<role>` SHALL list them with the rest of the role's entries.
+Each ask crew writes SHALL be one `ask` entry in the asked drive's record, naming the role's run and the record the ask names, with the length of its words and never their text. A run's start SHALL be one `turn.begin` entry naming the run and how many it took, and its end one `turn.end` entry. `crew trace agent/<label>-<role>` SHALL list them with the rest of the role's entries.
 
 #### Scenario: A tell that is an ask
 - **WHEN** `crew tell madswan-planner "<forty characters>"` is written as an ask
@@ -226,8 +193,96 @@ Each ask crew writes SHALL be one `ask` entry in the asked partition's record, n
 - **WHEN** the planner's run took two asks and ended
 - **THEN** `crew trace agent/madswan-planner` lists the two asks, the `turn.begin` taking two and the `turn.end`
 
-### Requirement: A kit's rename is one entry naming both its names
-`crew kit rename` SHALL leave one `kit.rename` entry per act, done or refused. The entry SHALL name the repository by its new name, `On: kit/<new>`, and by the name it had, `From: kit/<old>`, with `proposal/<n>` beside it when a proposal's approval applies the rename. Its `Repo` SHALL be the new name and its `Count` the number of records the rename renamed, all files together. The rename's commit SHALL name the entry in its `Crew-Entry`, and the entry SHALL reach the branch as the commit after. It SHALL hold no text anyone typed. The entry SHALL be the record of the act alone: no `kit.rename` entry, done or refused, SHALL rename anything crew reads, a later rename SHALL leave it as written, and `crew events` and `crew trace` SHALL print it as written. An entry already written SHALL stay valid under the run record's descriptor, so a branch holding one takes every write.
+### Requirement: A land crew posts is one entry naming its request
+Each `land` crew posts on the user's send of a kit's landings card SHALL be recorded as one entry for each row it lands: `bolt.submit` on `bolt/<bolt>` for a bolt's row, and `fix.merge` on `fix/main/<kit>/<name>` for a fix of main's. Each SHALL carry `Outcome: asked`, the card's id as `Card`, the head the send ticked as `Head`, the land's number in `requests.rec` as `Request` (record 0056), and no `Submission`. A land SHALL be recorded once, however often its send is read.
+
+#### Scenario: Two rows sent
+- **WHEN** the user's send of `land/crew` ticks `y` at `abc1234` and `z` at `def5678`, and the card's raise posts lands 57 and 58 of their launches
+- **THEN** the run record holds a `bolt.submit` on `bolt/y` with `Outcome: asked`, the card's id as `Card`, `Head` `abc1234`'s commit and `Request: 57`, and one on `bolt/z` with `Request: 58`; neither carries a `Submission`
+
+#### Scenario: A fix of main's row sent
+- **WHEN** the user's send of `land/tailrace` ticks the fix of main `cargo-lock`, and the raise posts land 61 of its launch
+- **THEN** the run record holds a `fix.merge` on `fix/main/tailrace/cargo-lock` with `Outcome: asked`, the card's id as `Card`, the head the send ticked as `Head` and `Request: 61`
+
+#### Scenario: The send read again
+- **WHEN** the card's raise runs again on the same send, `y`'s head unchanged and its land 57 not answered
+- **THEN** no land is posted and no entry is written
+
+### Requirement: A landing's Submission is the merge queue's entry Flume names
+A `bolt.submit` entry's `Submission` SHALL be only the merge queue's entry that Flume's status of the bolt's base place names, as the runner carries it. The outcome of a land, recorded as bolt-teams "A landing is recorded by the first act that reads it in the runner's report" has it, SHALL carry that entry where Flume names one, and none where it names none. crew SHALL write no `Submission` it made or read from anything but Flume's status.
+
+#### Scenario: A landing whose entry Flume names
+- **WHEN** the runner carries `y`'s base place over, landed at `9f1c2ab`, its submission entry 412, and crew records `y`'s land landed
+- **THEN** that `bolt.submit` on `bolt/y` carries `Submission: 412`
+
+#### Scenario: A land the runner refused
+- **WHEN** the runner answered land 57 of `y` refused because a place on `bolt/y` is live, Flume naming no submission, and crew records it stopped
+- **THEN** that `bolt.submit` on `bolt/y` carries no `Submission`
+
+### Requirement: The run record's descriptor allows a land's request
+The run record's descriptor SHALL allow `Request`. A day's file begun under a descriptor without it SHALL take the field all the same, its entries reaching the branch under the descriptor that allows it. A `bolt.submit` an older crew wrote, queued with sluice's number among them, SHALL be read as it was written.
+
+#### Scenario: A day's file an older crew began
+- **WHEN** the host's day file was begun under a descriptor that allows no `Request`, and crew records an asked `bolt.submit` with `Request: 57` in it
+- **THEN** `recsel` reads `Request: 57` from the file, and the day's file pushed to the branch carries the descriptor that allows it and passes `recfix --check`
+
+#### Scenario: An entry an older crew wrote
+- **WHEN** the run record holds a `bolt.submit` of `x` an older crew wrote, `Outcome: queued` and `Submission: 355`
+- **THEN** `crew events` prints it as written, `Submission: 355` among it
+
+### Requirement: A bolt's landing entry records its time by holder from the run record
+Every `bolt.land` entry crew writes SHALL record the bolt's age in whole minutes, from its newest `bolt.start`, or an older crew's `bolt.give`, to the entry's own time, as `Age`, and the minutes each holder held, as `Split`, in the order team, kit, team-or-kit, user, hold, nobody, each named with its minutes. The split SHALL be the board's head line's, from the run record alone, summing to `Age`. With no start to read, the entry SHALL carry neither field, and the landing SHALL close.
+
+#### Scenario: A bolt lands
+- **WHEN** crew closes the landing of `b`, started 6h 10m before it records `b` landed, with its work holding it 3h 45m, the user 2h 05m, a hold 0 and nobody 20m
+- **THEN** its `bolt.land` entry holds `Age: 370` and `Split: team 225, kit 0, team-or-kit 0, user 125, hold 0, nobody 20`
+
+#### Scenario: No record of sluice's is read
+- **WHEN** `b`'s landing is recorded, and the runner carried its unit `a`'s submission `#41` under test for seventeen minutes of its age
+- **THEN** no sluice process starts and no host is asked, those minutes are placed as the board's head line places them, by no submission, and `Split` sums to `Age`
+
+#### Scenario: The start can't be read
+- **WHEN** the run record holds no start of `b` within the days crew reads as `b`'s landing is recorded
+- **THEN** the `bolt.land` entry is written without `Age` and `Split`, and the landing is closed
+
+### Requirement: A host's run record is recutils files it appends to and never rewrites
+Entries SHALL be recutils records in `~/.local/state/crew/<label>/runs/<host>/<date>.rec` on the host where the command ran, one file per UTC day, each append one write. crew SHALL never rewrite or remove an entry in a host's file. A failed append SHALL be reported on standard error and SHALL NOT change the command's result or exit status.
+
+#### Scenario: After a restart
+- **WHEN** a host restarts
+- **THEN** every entry written before it is still in its file
+
+#### Scenario: The record cannot be written
+- **WHEN** the run record's directory cannot be written
+- **THEN** the command does its work and exits as it would have, with one line on standard error saying the entry was not recorded
+
+#### Scenario: Read with recutils alone
+- **WHEN** `recsel -e "On = 'unit/<unit>'"` is run over a host's run-record files
+- **THEN** it prints that unit's entries, with no crew command involved
+
+### Requirement: Only a kit's rename rewrites the branch's copy of an entry
+The drive's branch's copy of an entry SHALL be rewritten only by `crew kit rename`, and only to rename a repository's name, in the rename's one commit, which holds what each entry said before.
+
+#### Scenario: A rename's rewrite
+- **WHEN** the user renames `tailrace` to `timber` and the branch's run record holds a `bolt.land` entry with `Repo: tailrace`
+- **THEN** the rename's commit changes that entry's `Repo` to `timber` and its parent holds it as it was, and the file on the host that wrote it still says `tailrace`
+
+### Requirement: A send that reaches its operator appends one entry naming the sender and the operator
+Each `crew send` that reaches its operator SHALL append one entry, act `send`, to the run record of the drive it was sent to, on the host the command ran on. Its `By` SHALL be the sender, its `On` the operator, `agent/<label>-operator`, and the team, `team/<team>`, when a team was named; its `Why` SHALL be `send <team or drive>`; and its `Chars` the length of the text. It SHALL hold no part of the text, and no separate tell entry SHALL be written for it.
+
+#### Scenario: A send to a team
+- **WHEN** `crw-5-unit-1` sends 46 characters to `swb-1`, a team of wldn
+- **THEN** wldn's run record gains one entry: act `send`, `By: crw-5-unit-1`, `On: agent/wldn-operator`, `On: team/swb-1`, `Why: send swb-1`, `Chars: 46`, and the text appears nowhere in it
+
+### Requirement: A send that types nothing writes no entry
+A `crew send` that types nothing SHALL write no entry, as a tell that types nothing writes none.
+
+#### Scenario: A send that is refused
+- **WHEN** a send fails because `wldn-operator` is not up
+- **THEN** no entry is written
+
+### Requirement: A kit's rename leaves one entry naming its new and old names
+`crew kit rename` SHALL leave one `kit.rename` entry per act, done or refused. The entry SHALL name the repository by its new name, `On: kit/<new>`, and by the name it had, `From: kit/<old>`, with `proposal/<n>` beside it when a proposal's approval applies the rename. Its `Repo` SHALL be the new name and its `Count` the number of records the rename renamed, all files together. It SHALL hold no text anyone typed.
 
 #### Scenario: The entry of a rename
 - **WHEN** the user runs `crew kit rename tailrace timber --label madswan`, renaming a Source, two requests and five entries
@@ -237,9 +292,16 @@ Each ask crew writes SHALL be one `ask` entry in the asked partition's record, n
 - **WHEN** a rename of `tailrace` to `timber` is refused because deneb's runner still keeps `agentplot/tailrace`
 - **THEN** its entry is a refusal, and every record that named `tailrace` still does
 
+### Requirement: A rename's entry reaches the branch and stands there as written
+The rename's commit SHALL add the `kit.rename` entry to the run record as its rewrite left it, and SHALL name the entry in its `Crew-Entry`. The entry SHALL be the record of the act alone. No `kit.rename` entry, done or refused, SHALL rename anything crew reads, and a later rename SHALL leave it as written. `crew events` and `crew trace` SHALL print it as written. An entry already written SHALL stay valid under the run record's descriptor, so a branch holding one takes every write.
+
+#### Scenario: The rename's one commit
+- **WHEN** the user renames `tailrace` to `timber` while the host's day file on the branch holds a `bolt.land` entry under `tailrace`
+- **THEN** one commit renames that entry's `Repo` to `timber` and adds the `kit.rename` entry beside it, with `From: kit/tailrace` as written
+
 #### Scenario: A rename's entry renames nothing
 - **WHEN** a tip's run record holds a `bolt.land` under `tailrace` and, after it, a done `kit.rename` entry of `tailrace` to `timber` that a rename made before this change left
-- **THEN** the landings at that tip are that one `bolt.land`, read in one read of the run record, and the partition's kits name `tailrace` as written
+- **THEN** the landings at that tip are that one `bolt.land`, read in one read of the run record, and the drive's kits name `tailrace` as written
 
 #### Scenario: A later rename leaves it
 - **WHEN** the run record holds a `kit.rename` of `tailrace` to `timber`, and the user later renames `timber` to `trc`

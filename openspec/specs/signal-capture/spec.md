@@ -5,25 +5,6 @@ Turns something an agent, the user or a program notices into a capture and a sig
 
 ## Requirements
 
-### Requirement: A program's capture lands on the drive's branch
-A capture a program records, a kit's release adapter's or its deployer's, SHALL land through `crew signal land <capture-dir> --label L`, run on the host that ran the program, on the drive's branch of that partition, in one commit, with a `capture` entry naming each signal. crew SHALL refuse, naming the file, a folder holding anything but `capture.md` and its signals; a capture that names no `source`, no `captured_by`, no `event_date` or no raw record on the landing host; a capture that is not read or does not count the signals it holds, at least one; and a signal that does not name itself, its kind and who asserted it, says nothing, quotes no excerpt, or is larger than 8 KiB. A file the branch holds the same SHALL be passed over, one it holds otherwise SHALL refuse the landing, and a capture landed already SHALL write nothing and exit 0.
-
-#### Scenario: A deployer's failed deploy
-- **WHEN** swancloud's deployer runs `crew signal land` on mac-studio for its capture of a failed deploy, whose log is banked there
-- **THEN** the capture and its signal are one commit on swancloud/main, recorded as a `capture` by swancloud-deployer
-
-#### Scenario: The same capture again
-- **WHEN** the deployer offers the same capture again
-- **THEN** nothing is written, crew says it is already landed, and the command exits 0
-
-#### Scenario: Raw material in the folder
-- **WHEN** the folder holds the step's log beside the capture
-- **THEN** the landing is refused, naming the log, and nothing is written
-
-#### Scenario: Landed from another host
-- **WHEN** the capture's raw record is on mac-studio and `crew signal land` runs on the box
-- **THEN** the landing is refused, saying the capture lands from the host that banked it
-
 ### Requirement: A refusal says how a tool's words reach the transcript
 When `crew signal` refuses an agent's excerpt, its message SHALL say the words are not in the session's transcript, to quote them as received, and that a background task's output is in the transcript only once the agent has read the output file its task notification names, so to read it and record the signal again. Every brief that records findings SHALL say a refusal means either case.
 
@@ -80,3 +61,26 @@ The excerpt check SHALL search neither the records the agent wrote nor Claude Co
 #### Scenario: A tool's output with its copy beside it
 - **WHEN** a tool printed the words, and Claude Code's copy of the tool's result follows the result's record
 - **THEN** the excerpt is `verified`, asserted by a tool, and its source is the result's record
+
+### Requirement: A program's capture lands on the drive's branch in one commit, and only once
+A capture a program records, a kit's release adapter's or its deployer's, SHALL land through `crew signal land <capture-dir> --label L`, run on the host that ran the program, on the branch of that drive, in one commit, with a `capture` entry naming each signal.
+A file the branch holds the same SHALL be passed over, one it holds otherwise SHALL refuse the landing, and a capture landed already SHALL write nothing and exit 0.
+
+#### Scenario: A deployer's failed deploy
+- **WHEN** swancloud's deployer runs `crew signal land` on mac-studio for its capture of a failed deploy, whose log is banked there
+- **THEN** the capture and its signal are one commit on swancloud/main, recorded as a `capture` by swancloud-deployer
+
+#### Scenario: The same capture again
+- **WHEN** the deployer offers the same capture again
+- **THEN** nothing is written, crew says it is already landed, and the command exits 0
+
+### Requirement: A capture whose folder, record or signals are not whole is refused, naming the file
+crew SHALL refuse, naming the file, a folder holding anything but `capture.md` and its signals; a capture that names no `source`, no `captured_by`, no `event_date` or no raw record on the landing host; a capture that is not read or does not count the signals it holds, at least one; and a signal that does not name itself, its kind and who asserted it, says nothing, quotes no excerpt, or is larger than 8 KiB.
+
+#### Scenario: Raw material in the folder
+- **WHEN** the folder holds the step's log beside the capture
+- **THEN** the landing is refused, naming the log, and nothing is written
+
+#### Scenario: Landed from another host
+- **WHEN** the capture's raw record is on mac-studio and `crew signal land` runs on the box
+- **THEN** the landing is refused, saying the capture lands from the host that banked it

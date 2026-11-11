@@ -11,7 +11,7 @@ among its working folders. A start through crew-role, crew revive's, crew main u
 all of them. A planned restart takes the crew agents down first
 and starts them again through crew, so a bare resume is a crash's or a hard reboot's alone (the user, 2026-10-18).
 The pane comes back with no name, so `crew tell` and the greetings miss it, and the agent's crew commands lose who
-is writing and which partition is theirs.
+is writing and which drive is theirs.
 
 So at every start this records a crew agent's session in ~/.local/state/crew/sessions/<session id>, which a
 resume keeps, with the definition its brief comes from and the folder it began in: Claude Code finds a conversation again only from that folder, so crew
@@ -73,7 +73,7 @@ def withheld(crew, name, label):
     """What a main level's agent herdr resumed is told in place of its identity, or None on its main level's host:
     read from the teams file, whose refusal withholds it too (read.1)."""
     try:
-        main = crew.partition_of(crew.load(), label)["machine"]
+        main = crew.drive_of(crew.load(), label)["machine"]
     except crew.Refusal as e:
         return crew.identity_withheld(name, label, None, None, unread=str(e))
     return crew.identity_withheld(name, label, crew.this_host(), main)

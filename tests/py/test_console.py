@@ -6,6 +6,7 @@ import pytest
 
 from crew import Refusal
 
+import crew
 import plan
 
 
@@ -79,3 +80,27 @@ def test_a_word_that_is_no_tab_or_a_tab_named_twice_is_refused(words, said):
 def test_the_tabs_are_the_words_after_the_label_and_none_when_none_is_named():
     assert plan.parser().parse_args(["_console", "up", "wldn"]).tabs == []
     assert plan.parser().parse_args(["_console", "up", "wldn", "board", "rail"]).tabs == ["board", "rail"]
+
+
+class TestTheHostsConsoles:
+    """operator-agent, A host opens the consoles its teams file names: crew console up opens a drive's console only on
+    a host whose `consoles` names it, in the herdr session named for the label, its tabs in the folder given
+    (crew.standing, crew.operator_session; record 0064)."""
+    WILLDAN = "/Users/chuck/Code/clients/github_willdan"
+    FLEET = {"drives": {"wldn": {"label": "wldn", "machine": "chuck-herdr-alpha", "session": "wldn-2"}},
+             "hosts": {"deneb": {"ssh": "deneb", "kind": "darwin"}, "chuck-herdr-alpha": {"ssh": "chuck-herdr-alpha", "kind": "nixos"}},
+             "consoles": {"wldn": WILLDAN}}
+
+    def test_a_console_the_host_names_opens_in_its_session_and_folder(self, monkeypatch):
+        """A console the host names: deneb opens wldn's console, whose main level runs on chuck-herdr-alpha, in deneb's
+        wldn session, its tabs in the folder `consoles` gives."""
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        c = crew.standing(self.FLEET, "console", "wldn")
+        assert (c.kind, c.session, c.cwd, c.machine, c.host, c.standing) == ("console", "wldn", self.WILLDAN, "deneb", "deneb", ())
+
+    def test_a_console_the_host_does_not_name_is_refused_with_nothing_opened(self, monkeypatch):
+        """A console the host does not name: mac-studio's teams file gives no `consoles`."""
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+        with pytest.raises(Refusal, match="^mac-studio's teams file names no console of wldn in 'consoles', so no console of "
+                                          "wldn opens here$"):
+            crew.standing(dict(self.FLEET, consoles={}), "console", "wldn")

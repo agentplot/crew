@@ -8,12 +8,13 @@ context: |
   from {{TOKENS}}) and skills. Needs only herdr, jq, python3, git, wt and
   openspec on the machine; no service of its own.
 
-  Partitions are data in ~/.config/crew/teams.json, written by the machine's
+  Drives are data in ~/.config/crew/teams.json, written by the machine's
   configuration: crew's own module, services.crew from crew's flake
-  (flake.nix, nix/; flake.1, flake.2), or swancloud's lib/crew-teams.nix;
-  hosts and sessions come from swancloud's
-  ~/.config/swancloud/herdr-hosts.json. The crew command never edits either
-  file. A host
+  (flake.nix, nix/; flake.1, flake.2), or swancloud's lib/crew-teams.nix.
+  It is the one file crew reads for a host's drives (record 0064): its
+  hosts, each drive's folder, repos and accounts, and the host's consoles.
+  The crew command writes it only through crew drive set, at Boomdrive's
+  setup's asking, where Nix does not link it. A host
   loads crew in one of two modes swancloud sets for it (plan.19, record
   0032): live, from crew/live/plugin, a detached worktree at GitHub's main
   that swancloud's timer moves, so a landing is live there minutes after it
@@ -25,7 +26,7 @@ context: |
   Runs on the Macs (mac-studio, macbook-pro) and on NixOS workspace boxes
   Each role's model and effort are in its definition's frontmatter (plugin/roles/), overridden only in the teams file.
 
-  Vocabulary: partition, session (a herdr server), connection (a session in
+  Vocabulary: drive, session (a herdr server), connection (a session in
   a window's sidebar), operator session, operator agent, herdr workspace (a
   sidebar entry), bolt, unit, design agent, planner, dispatcher.
 
@@ -35,6 +36,7 @@ context: |
 rules:
   specs:
     - "Each scenario is one a check in crew's tiers proves. A scenario no existing check proves is a check this change adds, in its tasks; never a step done by hand."
+    - "A requirement's text, every line above its first scenario, is at most 500 characters, as `openspec validate --strict` counts it, a MODIFIED requirement's among them, which a change's own validation leaves uncounted: the suite's t-specs fails a spec that holds a longer one. Split a longer one into requirements that each state one behaviour and together say the same."
   design:
     - "Cite by id the rules in docs/architecture/ that this design relies on, and name each page of docs/architecture/ whose area the change touches. Where the design departs from a rule, name the rule and say why."
     - "A task's full brief goes under a closing *Task notes* section, each headed by its task's number in bold (**1.1**): the files, the functions, the cases."

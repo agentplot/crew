@@ -12,7 +12,7 @@ plan.card_refusal: a card is posted, changed or closed only by the planner, main
 never under crew's own key, the post's idempotencyKey or, for a change or a close, the key this host's run
 record holds the card under, but for the close of an answered card under a key of a row form crew no longer raises,
 which no event of crew's closes; an area is made only under create-area:<owner>/<kit> for a kit of the agent's
-partition, one its plan or its landings name (plan.partition_kits).
+drive, one its plan or its landings name (plan.drive_kits).
 Everything else passes: a question's form is its asker's. A call crew could not check is refused, naming what failed,
 since a card let through can't be taken back (read.1). A refused call never reaches Pending You.
 
@@ -24,7 +24,7 @@ no card's id is recorded as unread (State unread), which the rail lists. Nothing
 title, summary, option, note or outcome.
 
 A session crew started has CREW_AGENT and CREW_LABEL, or, when herdr resumed it, the record session-start keeps of
-it. A session with a CREW_AGENT but no CREW_LABEL is a crew agent whose partition crew can't tell: its name is checked,
+it. A session with a CREW_AGENT but no CREW_LABEL is a crew agent whose drive crew can't tell: its name is checked,
 its card or area is refused, naming the missing CREW_LABEL, and nothing it does is recorded. Any other session, and a
 tool of another server, is neither checked nor recorded; a result that is an error writes nothing. The PostToolUse
 half never fails a tool call, whatever its input."""
@@ -96,7 +96,7 @@ def failed(result):
 
 
 def identity(sid):
-    """The crew agent and its partition: from the environment, else from the record session-start wrote of the session."""
+    """The crew agent and its drive: from the environment, else from the record session-start wrote of the session."""
     agent, label = os.environ.get("CREW_AGENT"), os.environ.get("CREW_LABEL")
     if agent:
         return agent, label
@@ -176,14 +176,14 @@ def key_refusal(hook, tool):
         if not agent:
             return None
         if not label:
-            return f"crew could not check this {what}: {agent}'s session has no CREW_LABEL, so crew can't tell its partition."
+            return f"crew could not check this {what}: {agent}'s session has no CREW_LABEL, so crew can't tell its drive."
         given = hook.get("tool_input")
         if not isinstance(given, dict):
             raise ValueError("its input is not an object")
         sys.path.insert(0, str(LIB))
         import plan
         fleet = plan.crew.load()
-        kits = plan.kits_read(fleet, label) if tool == "create_area" else ()  # an area's kit is one the partition names
+        kits = plan.kits_read(fleet, label) if tool == "create_area" else ()  # an area's kit is one the drive names
         return plan.card_refusal(fleet, agent, label, tool, card_key(label, tool, given), kits)
     except Exception as e:  # a card crew can't check is refused: one let through can't be taken back
         return f"crew could not check this {what}: {str(e).rstrip('.')}. Try it again later."

@@ -1,4 +1,4 @@
-"""A bolt's landing as the run record holds it (bolt-teams "A landing queued holds its bolt's work", plan.8): queued while
+"""A bolt's landing as the run record holds it (bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record", plan.8): queued while
 sluice's submission has no outcome recorded, rejected once sluice refused it for the bolt's own content, landing again
 once it is submitted after a rejection, each a state of its own (plan.landing_phase); what a line says of each
 (plan.phase_said); and what work joining the bolt is refused for (plan.landing_hold). That crew bolts, the rail and the
@@ -39,7 +39,9 @@ class TestLandingPhase:
 
     def test_landed_stopped_or_never_submitted_holds_no_state(self):
         assert plan.landing_phase(AGAIN + [submit(Outcome="landed", Submission="415", Head=H2)], "x") is None
-        assert plan.landing_phase(QUEUED + [submit(Outcome="stopped", Submission="412", Head=H1, Why="sluice itself failed")], "x") is None
+        assert plan.landing_phase(QUEUED + [submit(Outcome="stopped", Submission="412", Head=H1, Why="sluice itself failed")], "x") == dict(
+            state="stopped", n=None, head=H1, words="sluice itself failed")  # holding nothing (landing_hold)
+        assert plan.landing_hold(dict(state="stopped", n=None, head=H1, words="x"), "x", "unit a") is None
         assert plan.landing_phase([], "x") is None
         assert plan.landing_phase(QUEUED, "y") is None
 

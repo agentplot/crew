@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Run crew's tests: tests/run [name...]. Each test is tests/t-<name>.sh, run by bash in a scratch directory of
 # its own ($T) with tests/lib.sh to source, in one of the host's test slots (tests/slot), which ends whatever the test
-# leaves running once it has ended, passed or failed. lib.sh gives each simulated host a scratch HOME holding fixture
-# teams.json and herdr-hosts.json files, makes bare git remotes, and puts stub herdr, ssh, hostname, sleep,
-# plannotator, pendingyou, claude, wt-submit (worktrunk's `wt submit`, landing as sluice does), sluice (its reads) and gh (a pull request's draft state) commands first on PATH. The stubs record their calls in $T/calls.log and $T/claude.log, so no test
+# leaves running once it has ended, passed or failed. lib.sh gives each simulated host a scratch HOME holding its
+# fixture teams.json, the one file crew reads of its drives, makes bare git remotes, and puts stub herdr, ssh, hostname, sleep,
+# plannotator, pendingyou, claude, wt-submit (worktrunk's `wt submit`, landing as sluice does), sluice (a card's preview, and the merges a
+# test stands in for Flume with) and gh (refusing every call, since crew runs none) commands first on PATH. The stubs record their calls in $T/calls.log and $T/claude.log, so no test
 # ever reaches a real herdr session, a real host or a real agent. It runs only inside crew's devenv shell, so a test
 # never runs on the host's tools in place of the shell's: started outside it, it runs itself again inside it, from the
 # checkout it is in (tests.1, record 0024).

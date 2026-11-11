@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""crew ops: the operations on a partition's environments, a deploy being one kind (plan.14, ADR 0012).
+"""crew ops: the operations on a drive's environments, a deploy being one kind (plan.14, ADR 0012).
 
 A deploy is the act of a kit's deployer, or of a hosted CI/CD standing in for it, under each environment's policy; crew
 gates a `manual` one on the user's word and records it. Every other operation, a command after a deploy, a restart, a
@@ -49,10 +49,10 @@ when it names one.
       the latest state of every step on the environment: [{to, key, state, by, at, note}], to empty for a step that
       names no deploy
   crew ops quiet <env> --label L
-      exit 0 when no Flume place of the partition's has a stage working on the environment's host, as its runner there
+      exit 0 when no Flume place of the drive's has a stage working on the environment's host, as its runner there
       carries Flume's status, and no test of crew's runs there; exit 1 saying what is
 
-Every command acts on the partition's operations where its main level runs, on that host's run record, as ops.*
+Every command acts on the drive's operations where its main level runs, on that host's run record, as ops.*
 entries on env/<env>: run anywhere else, it is run there, as the one asking. An environment is a machine of the fleet,
 named as the deployer names it.
 """
@@ -76,7 +76,7 @@ DAYS = 60  # how far back the operations are read: an offer, a word or a step ol
 
 
 def entries(label, days=DAYS):
-    """The ops entries of the partition's run record on this host, oldest first."""
+    """The ops entries of the drive's run record on this host, oldest first."""
     since = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=days)).isoformat()
     d = record.ROOT / label / "runs" / crew.this_host()
     out = []
@@ -172,7 +172,7 @@ def words_of(text):
 
 def waited_on(handed, es, env):
     """The steps the open offer's deploy of env waits on (swancloud record 0038, record 0059), from the steps it was
-    handed (handed_steps') and the partition's ops entries (es, oldest first): each handed step marked before, in the
+    handed (handed_steps') and the drive's ops entries (es, oldest first): each handed step marked before, in the
     order handed, with the user's step the record holds on env in the same words (words_of), the one whose latest
     entry is newest when several are: each {n, text, why, to, key, state}, its to, key and state None while its
     deployer has not recorded it, and done once its state is done."""
@@ -200,7 +200,7 @@ def marked_before(doer, text, handed):
 
 
 def rows(fleet, label, es):
-    """The rail's rows for the partition's operations, from its entries: each open deploy offer, deploy/<env>,
+    """The rail's rows for the drive's operations, from its entries: each open deploy offer, deploy/<env>,
     answered by crew ops approve; and each step that waits on the user, theirs to take or an agent's held for their
     word, op/<env>/<n>, its n counting the environment's steps in the order they were first recorded, answered by
     marking it done or declined, but for a step the open offer's card asks ticked (own_card); a gate's step (gate_of)
@@ -239,7 +239,7 @@ WAITING = ("waiting", "handed", "failed")  # a step in one of these states is an
 
 
 def landings(es):
-    """The partition's landings, from its bolt.land entries not refused, oldest first: each {bolt, units, at, by, repo,
+    """The drive's landings, from its bolt.land entries not refused, oldest first: each {bolt, units, at, by, repo,
     head}, the kit it landed on, its Repo as written, and the commit that kit's main held afterwards, None where the
     entry has none."""
     out = []
@@ -302,17 +302,16 @@ def range_landings(commits, merged, lands):
 
 
 def kit_range(fleet, label, frm, to):
-    """What a deploy from frm to to carries on its kit's main, read with git on this host, the partition's main level's,
-    in the main checkouts of the repos its main-level session keeps, each where the host keeps it (crew.session_checkouts:
-    the teams file's checkout where it names the repo for this host): the kit is the one that holds to. (commits, merged)
+    """What a deploy from frm to to carries on its kit's main, read with git on this host, the drive's main level's,
+    in the main checkouts the teams file keeps on that host (crew.kept: the file's checkout where it names the repo for
+    this host, else the one in the folder of a drive there that lists it): the kit is the one that holds to. (commits, merged)
     as range_landings takes them, and None; or (None, None, why) naming what git could not read (read.1)."""
     import plan
-    p = crew.partition_of(fleet, label)
-    sess = fleet["hosts"].get(p["machine"], {}).get("sessions", {}).get(p["session"]) or {}
+    p = crew.drive_of(fleet, label)
 
     def git(where, *args):
         return subprocess.run(["git", "-C", where, *args], capture_output=True, text=True, env=plan.gitenv())
-    held = [m for m in crew.session_checkouts(fleet, p["machine"], sess)
+    held = [m for m in (k["main"] for k in crew.kept(fleet, p["machine"]))
             if pathlib.Path(m).is_dir() and git(m, "cat-file", "-e", f"{to}^{{commit}}").returncode == 0]
     if len(held) != 1:
         return None, None, (f"{to[:7]} is a commit of {len(held)} kits {label}'s main level keeps on {p['machine']}" if held
@@ -335,7 +334,7 @@ def kit_range(fleet, label, frm, to):
 
 
 def environments(es, since=None):
-    """Each environment's deploys and the operations waiting on it, from the partition's entries (es, oldest first),
+    """Each environment's deploys and the operations waiting on it, from the drive's entries (es, oldest first),
     as the board's Operation lane and the page's deploys view show them (plan.14, state.4): {env: {"deploys": [...],
     "waiting": [...]}}, by environment.
 
@@ -467,7 +466,7 @@ def release_of(notes):
 
 
 def deploy_facts(env, offer, es, ranged, notes=None, steps=None, waited=None):
-    """The facts of the deploy's card for env's open offer (cards.deploy_card, plan.14), from the partition's entries
+    """The facts of the deploy's card for env's open offer (cards.deploy_card, plan.14), from the drive's entries
     (es, oldest first: the main level's ops entries and every landing) and its range as git read it on the kit's main
     (ranged, kit_range's (commits, merged, why)): the environment, the head and the commit it runs, None when nothing is
     deployed, whose range is then not read; the landings it carries, each first-parent commit of the range named as
@@ -487,7 +486,7 @@ def deploy_facts(env, offer, es, ranged, notes=None, steps=None, waited=None):
 
 
 def deploy_move(es, env, held_card):
-    """What the deploy's card of env does now (record 0031 §3), from the partition's ops entries and whether main-level
+    """What the deploy's card of env does now (record 0031 §3), from the drive's ops entries and whether main-level
     ops holds a card under deploy/<env>: ("post", None) when it holds none; ("change", the change note) when the card
     asks for an older offer still unanswered, the note naming the head offered now and the one it replaces; (None,
     why) when nothing is offered, or when the card asks for a deploy the user approved, which closes at the end of that
@@ -508,7 +507,7 @@ def deploy_move(es, env, held_card):
 
 def deploy_outcome(es, env, to, outcome, log=None, does=None, word=None):
     """What the deploy's card closes with at the deploy's end (record 0031 §1): each step of its run with its outcome,
-    or the step that failed and its log, from the partition's ops entries since its start, and after them, when the
+    or the step that failed and its log, from the drive's ops entries since its start, and after them, when the
     end was handed them, the deployer's words of what the user does, as it wrote them (swancloud deploy.6); and, when
     the card asked for another commit, word, the head the user approved, that this newer deploy ended before it
     (plan.14)."""
@@ -577,7 +576,7 @@ def step_facts(env, n, e, label, working=None):
 def step_due(es, entries, env):
     """The step on env whose card crew raises now, one at a time (record 0031 §5): the first, by its number, of the
     environment's steps with a card of their own (own_card) that have had no card under their key, while no step card
-    of the environment is open, from the partition's ops entries and this host's card entries (entries, oldest first).
+    of the environment is open, from the drive's ops entries and this host's card entries (entries, oldest first).
     ((n, (env, to, key), latest entry), None); (None, the open card's key) while one is open; (None, None)."""
     import cards  # its decisions only: what the run record shows posted and closed
     mine = [c for c in cards.posted_cards(entries) if c["key"].startswith(f"op/{env}/")]
@@ -593,7 +592,7 @@ def step_due(es, entries, env):
 def step_point(es, entries, key):
     """Whether the point of the step card keyed op/<env>/<n> has come (record 0031 §5): its step waits on the user,
     and it is the card open on its environment, to be raised again, or the next due there while none is open, from
-    the partition's ops entries and this host's card entries. ((n, (env, to, key), latest entry), None), or (None,
+    the drive's ops entries and this host's card entries. ((n, (env, to, key), latest entry), None), or (None,
     why not)."""
     env, n = key.split("/")[1], int(key.split("/")[2])
     due, open_ = step_due(es, entries, env)
@@ -614,7 +613,7 @@ SHOWN = (("its words", ("text", "why", "where", "commands", "done")), ("its doer
 
 def step_again(es, entries, k, label):
     """What becomes of the open card of the step k, (env, to, key), recorded again waiting on the user (record 0031 §3),
-    from the partition's ops entries (es) and this host's entries in the order written (entries): (its card's key,
+    from the drive's ops entries (es) and this host's entries in the order written (entries): (its card's key,
     its id, the change note or None, whether its kind changed); None when the step's own card is not open. The card
     shows the step's latest entry before the card's last post or change, and is changed when its words, its doer or
     its hold differ from the step as recorded now (step_facts, but for what a held step cuts, read as it is raised),
@@ -646,7 +645,7 @@ def step_again(es, entries, k, label):
 def word_stands(key, es):
     """Whether a row's card under key outlives its row: a deploy's, deploy/<env>, once the user's word for it is given
     and no deploy's end has spent it yet (spends), the end that spends it closing it with the outcome (record 0031 §1),
-    from the partition's entries; the rail's sweep leaves it, and lists it as no stray."""
+    from the drive's entries; the rail's sweep leaves it, and lists it as no stray."""
     kind, _, env = (key or "").partition("/")
     return kind == "deploy" and env in state(es)[1]
 
@@ -665,9 +664,9 @@ def kept_text(path):
 
 
 def ops_where(fleet, label):
-    """Where main-level ops's cards are asked from and filed: the partition's blueprints checkout, its own place."""
+    """Where main-level ops's cards are asked from and filed: the drive's blueprints checkout, its own place."""
     import plan
-    p = crew.partition_of(fleet, label)
+    p = crew.drive_of(fleet, label)
     return plan.card_where({"main": p["checkout"], "repo": p["blueprints"][0]})
 
 
@@ -681,7 +680,7 @@ def raise_deploy(fleet, row, acts=None, note=None):
     was handed other files (note), and withheld when neither, their answer standing (cards.deploy_since,
     plan.card_posted); posted again when Pending You no longer finds it, and saying
     first that an older copy was lost when the rail's sweep hands it the older copy this host can't reach as the row's
-    dead (plan.built_again); built from the open offer, the files it was handed and the partition's run record, the
+    dead (plan.built_again); built from the open offer, the files it was handed and the drive's run record, the
     steps the deploy waits on among them (waited_on); followed rather than changed in place when it moves between a
     hold-to-approve and boxes to tick (cards.deploy_form), which Pending You never changes a card's kind between,
     since the form each post or change of it took is recorded with it (cards.form_asked). None, saying why, when no
@@ -719,13 +718,13 @@ def raise_deploy(fleet, row, acts=None, note=None):
 
 
 def places_working(fleet, label, env):
-    """The Flume places of the partition whose stage works on env's host, as the partition's runner there carries
-    Flume's status of them (runner.working), a list, none where no runner of the partition answers there, since none
+    """The Flume places of the drive whose stage works on env's host, as the drive's runner there carries
+    Flume's status of them (runner.working), a list, none where no runner of the drive answers there, since none
     of its places runs there; or why crew could not tell, a string (read.1)."""
     import plan
     try:
         repo, ref = plan.state_of(fleet, label)
-        plan.fetch(repo, ref)
+        plan.tip_of(repo, ref)
         reading = runner.of_host(plan.runners(repo, label), label, env)
     except Refusal as e:
         return str(e)
@@ -837,7 +836,7 @@ def handed_changed(kept_notes, kept_steps, notes, steps):
 
 
 def forwarded(a, argv, notes, steps, rows=None, text=None):
-    """The ops command as it is run on the partition's main level's host, and what it reads there on its stdin
+    """The ops command as it is run on the drive's main level's host, and what it reads there on its stdin
     (code.3): an offer handed --notes or --steps, files of this host, carries their text as JSON, {"notes", "steps"},
     in --handed -, a record handed --rows carries the rows (recorded_rows') in --rows -, and a step handed --text
     carries its text (stepped_text's) in --text -, since the files do not reach that host; any other command runs as
@@ -1089,9 +1088,9 @@ print(busy)
 
 
 def quiet(fleet, a):
-    """Whether the environment's host is quiet: no Flume place of the partition's with a stage working there
+    """Whether the environment's host is quiet: no Flume place of the drive's with a stage working there
     (places_working), and no test of crew's running."""
-    a.env in fleet["hosts"] or fail(f"{a.env} is no host of the fleet's hosts file")
+    a.env in fleet["hosts"] or fail(f"{a.env} is no host the teams file's hosts name. hosts: " + (" ".join(sorted(fleet["hosts"])) or "none"))
     working = places_working(fleet, a.label, a.env)
     not isinstance(working, str) or fail(f"crew can't tell whether a place works on {a.env}: {working}")
     said = [f"{w} is working" for w in working]
@@ -1109,7 +1108,7 @@ COMMANDS = {"offer": offer, "approve": approve, "word": word, "record": record_c
 
 
 def parser():
-    ap = argparse.ArgumentParser(prog="crew ops", description="The operations on a partition's environments, a deploy being one kind.")
+    ap = argparse.ArgumentParser(prog="crew ops", description="The operations on a drive's environments, a deploy being one kind.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def cmd(name, to=True):
@@ -1151,13 +1150,13 @@ def parser():
 
 
 def args_refusal(fleet, a):
-    """Why crew ops refuses what it was given, or None: an environment's name, a partition of the teams file, a
+    """Why crew ops refuses what it was given, or None: an environment's name, a drive of the teams file, a
     commit as a sha in hex (--from none for nothing deployed), a step key crew takes, the numbers of the steps ticked
     on a deploy's card, and --held only on an agent's step, since a user's waits on the user already."""
     if not NAME.match(a.env):
         return f"{a.env} is no environment's name: lowercase words and dashes"
-    if a.label not in fleet["partitions"]:
-        return f"no partition {a.label} in the teams file. partitions: " + " ".join(fleet["partitions"])
+    if a.label not in fleet["drives"]:
+        return f"no drive {a.label} in the teams file. drives: " + " ".join(fleet["drives"])
     for f in ("to", "from"):
         v = getattr(a, f, None)
         if v and not (v == "none" and f == "from") and not SHA.match(v):
@@ -1180,7 +1179,7 @@ def main(argv):
     fleet = crew.load()
     why = args_refusal(fleet, a)
     why is None or fail(why)
-    machine = crew.partition_of(fleet, a.label)["machine"]
+    machine = crew.drive_of(fleet, a.label)["machine"]
     a.texts = offered_texts(a) if a.cmd == "offer" else None
     a.rows_json = recorded_rows(a) if a.cmd == "record" else None
     a.step_text = stepped_text(a) if a.cmd == "step" else None

@@ -12,7 +12,7 @@ import tempfile
 import pytest
 
 # crew's modules read the home at import, the teams file and crew's caches among them, and record.emit pushes each
-# entry to its partition's branch: they are imported under a scratch home, so no case reaches the host's own fleet,
+# entry to its drive's branch: they are imported under a scratch home, so no case reaches the host's own fleet,
 # its state repositories or GitHub (tests.11).
 os.environ["HOME"] = tempfile.mkdtemp(prefix="crew-contract-home-")
 atexit.register(shutil.rmtree, os.environ["HOME"], True)
@@ -30,6 +30,11 @@ def isolated(tmp_path, monkeypatch):
                                      "[gc]\n\tauto = 0\n[maintenance]\n\tauto = false\n")
     for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
         monkeypatch.delenv(k, raising=False)
+    # The run record under this case's home, which record.py read from the home at import: a plan write appends the
+    # entries its commit carried to this host's file and pushes what that file holds and the branch lacks, so a case's
+    # entries never reach another case's branch.
+    import record
+    monkeypatch.setattr(record, "ROOT", home / ".local/state/crew")
 
 
 class Repo:
@@ -63,7 +68,7 @@ def repo(tmp_path):
 
 
 class State:
-    """A bare repository standing for a partition's state repository on GitHub, afterthought/crew-state, whose
+    """A bare repository standing for a drive's state repository on GitHub, afterthought/crew-state, whose
     madswan/main holds a plan, with crew's cache and this command's reading in scratch: write a branch of files to it, as
     another writer, a host's runner among them, would push one."""
 
@@ -72,7 +77,7 @@ class State:
     def __init__(self, tmp_path):
         self.bare = tmp_path / "crew-state.git"
         subprocess.run(["git", "init", "-q", "--bare", str(self.bare)], check=True)
-        self.fleet = {"partitions": {self.LABEL: {"label": self.LABEL, "state": self.REPO}}, "teams": {}}
+        self.fleet = {"drives": {self.LABEL: {"label": self.LABEL, "state": self.REPO}}, "teams": {}}
 
     def git(self, *args, input=None):
         r = subprocess.run(["git", "-C", str(self.bare), *args], capture_output=True, text=True, input=input)
