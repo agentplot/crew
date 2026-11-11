@@ -515,9 +515,8 @@ def tried(argv, cwd=None, input=None, env=None, limit=None):
     limit = TRY_FOR if limit is None else limit
     with contextlib.ExitStack() as files:
         out, err = (files.enter_context(tempfile.TemporaryFile()) for _ in range(2))
-        if input is None:
-            given = files.enter_context(open(os.devnull, "rb"))
-        else:
+        given = subprocess.DEVNULL
+        if input is not None:
             given = files.enter_context(tempfile.TemporaryFile())
             given.write(input.encode() if isinstance(input, str) else input)
             given.seek(0)
@@ -539,11 +538,15 @@ def tried(argv, cwd=None, input=None, env=None, limit=None):
 
 def fetched(main):
     """A kit's GitHub fetched into its main checkout, as a read a decision of the moment rests on fetches it (plan.18,
-    plan.19), `git fetch -q origin`: None once it fetched, or for a kit with no origin remote, which has no GitHub;
-    git's words when the fetch failed."""
+    plan.19), `git fetch -q origin`, as one try to the family's limit (tried; weir 69, C.3): None once it fetched, or
+    for a kit with no origin remote, which has no GitHub; git's words when the fetch failed, and a stopped try's when it
+    was stopped (stopped), naming origin and the limit."""
     if not has_origin(main):
         return None
-    code, out, err = ran(["git", "fetch", "-q", "origin"], main)
+    limit = TRY_FOR
+    code, out, err, stop = tried(["git", "fetch", "-q", "origin"], main, limit=limit)
+    if stop:
+        return stopped("git fetch", "origin", limit, err)
     return None if code == 0 else (err or out).strip() or f"git fetch exited {code}"
 
 

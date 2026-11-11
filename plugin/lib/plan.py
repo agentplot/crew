@@ -2273,7 +2273,7 @@ grace_ms={round(gather.GRACE * 1000)}
   } 2>/dev/null
   if [ -n "$stopped" ]; then
     last=$(awk 'NF { l = $0 } END { sub(/^[ \t\r]+/, "", l); sub(/[ \t\r]+$/, "", l); print l }' "$err")
-    if [ "$try_for_ms" -ge 1000 ] && [ $((try_for_ms % 1000)) -eq 0 ]; then limit="$((try_for_ms / 1000))s"; else limit="${try_for_ms}ms"; fi
+    if [ "$try_for_ms" -ge 1000 ] && [ $((try_for_ms % 1000)) -eq 0 ]; then limit="$((try_for_ms / 1000))s"; else limit="$try_for_ms"ms; fi
     rm -f "$out" "$err"
     echo "${last:+$last; }$call with $remote was still going after $limit, the most a try may take, and was stopped" >&2
     return 124
@@ -3229,12 +3229,13 @@ def forecast_rows(fleet, label, kit, bolts, held=()):
 
 
 def origin_fetched(fleet, t, main):
-    """Whether the kit's folder on the host its work runs on (t) has an origin, GitHub, fetched there when it has;
-    refused in git's words when the fetch fails (plan.18). In the runner's clone nothing is fetched, and origin's
-    tracking refs are read as the runner last fetched them (crew.fetches_in)."""
+    """Whether the kit's folder on the host its work runs on (t) has an origin, GitHub, fetched there when it has, as one
+    try to the family's limit on that host (ORIGIN_FETCH through fetch_told and host_run; weir 69, C.3); refused naming
+    the host with git's words or the stopped try's when the fetch fails (plan.18). In the runner's clone nothing is
+    fetched, and origin's tracking refs are read as the runner last fetched them (crew.fetches_in)."""
     origin = kit_git(fleet, t, main, "remote", "get-url", "origin", ok=(0, 2))[0] == 0
     if origin and crew.fetches_in(fleet, t["machine"], main):
-        kit_git(fleet, t, main, "fetch", "-q", "origin")
+        host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], main, ORIGIN_FETCH), main)
     return origin
 
 
@@ -3402,7 +3403,8 @@ def landing_retry(why, fresh, fresh_why):
 def landing_opened(fleet, label, plan, b, t, card, acts):
     """A landings row's facts with its reading opened by its read (land_row), before the card is built: its link,
     or on a refusal one more try as crew card session land/<bolt> makes it, the kit's main fetched on the team's host,
-    this one, a fetch that failed said and the try going on (plan.18), nothing fetched in the runner's clone, where
+    this one, as one try to the family's limit (ORIGIN_FETCH), a fetch that failed or stopped said and the try going on
+    (plan.18), nothing fetched in the runner's clone, where
     the kit's main is read as the runner last fetched it (crew.fetches_in), the landing read afresh (land_facts) and its
     reading opened again with those facts (landing_retry). The facts the card is built from, carrying the reading's
     link or why it could not be opened (unread, the second try's reason, or the first's when the fresh read was
@@ -3419,7 +3421,7 @@ def landing_opened(fleet, label, plan, b, t, card, acts):
           + " and tries once more", file=sys.stderr)
     try:
         if fetch and gather.has_origin(main):
-            kit_git(fleet, t, main, "fetch", "-q", "origin")
+            host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], main, ORIGIN_FETCH), main)
     except Refusal as e:
         print(f"card {key}: {e}; the reading is tried again all the same", file=sys.stderr)
     fresh, fresh_why = None, None

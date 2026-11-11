@@ -251,3 +251,63 @@ class TestAStoppedPush:
         assert events.count("push") == 1 and "fetch" not in events and not any(isinstance(e, tuple) for e in events)
         host = tmp_path / "crew" / "madswan" / "runs" / "mac-studio"
         assert [e["Id"] for e in record.parse(next(host.glob("*.rec")).read_text())] == [eid]
+
+
+class TestAKitsFetch:
+    """remote-limit: A kit's fetch of its origin is a try; the limit and the grace are the family's, set in FETCH once
+    each from gather's and read from no setting; every kit fetch is gather's or FETCH's origin_fetch."""
+
+    def test_the_bash_try_takes_gathers_limit_and_grace(self):
+        lines = plan.FETCH.splitlines()
+        assert lines.count("try_for_ms=30000") == 1 and plan.FETCH.count("try_for_ms=") == 1
+        assert lines.count("grace_ms=2000") == 1 and plan.FETCH.count("grace_ms=") == 1
+        assert "${try_for_ms" not in plan.FETCH and "${grace_ms" not in plan.FETCH
+        assert f"try_for_ms={round(gather.TRY_FOR * 1000)}" in lines and f"grace_ms={round(gather.GRACE * 1000)}" in lines
+
+    def test_no_setting_reaches_the_limit(self):
+        import inspect
+        import re
+        for name, text in [("gather.tried", inspect.getsource(gather.tried)), ("gather.stopped", inspect.getsource(gather.stopped)),
+                           ("gather.span", inspect.getsource(gather.span)), ("plan.FETCH", plan.FETCH)]:
+            for word in (r"environ", r"getenv", r"\bopen\(", r"teams"):  # open( a file, never Popen(
+                assert not re.search(word, text), (name, word)
+
+    def test_no_kit_fetch_through_kit_git_or_gathers_ran(self):
+        import pathlib
+        import re
+        src = pathlib.Path(plan.__file__).read_text()
+        assert re.findall(r"kit_git\([^)]*\"fetch\"", src) == []
+        here = pathlib.Path(gather.__file__).read_text()
+        assert re.findall(r"\bran\(\s*\[[^\]]*\"fetch\"", here) == []
+        assert re.findall(r"subprocess\.\w+\(\s*\[[^\]]*\"fetch\"", here) == []
+        assert len(re.findall(r"\btried\(\s*\[\"git\", \"fetch\"", here)) == 1  # gather's own fetch, gather.fetched
+
+    def test_no_script_fetches_but_through_fetch(self):
+        scripts = {n: v for n, v in vars(plan).items()
+                   if n.isupper() and n != "GATHER" and isinstance(v, str) and "git fetch" in v}  # GATHER: gather.py's own text
+        assert {"FETCH", "MAINS", "MAIN", "CARRIES", "ORIGIN_FETCH"} <= set(scripts)
+        for name, text in scripts.items():
+            assert name == "FETCH" or (plan.FETCH in text and "git fetch" not in text.replace(plan.FETCH, "")), name
+        assert plan.ORIGIN_FETCH == plan.FETCH + 'cd "$1" || exit 1\norigin_fetch\n'
+
+    def test_the_forecasts_fetch_runs_origin_fetch_on_the_kits_host(self, monkeypatch):
+        told, ran = [], []
+        monkeypatch.setattr(plan, "kit_git", lambda fleet, t, main, *args, ok=(0,): (0, "") if args[0] == "remote" else 1 / 0)
+        monkeypatch.setattr(crew, "fetches_in", lambda fleet, host, main: True)
+        monkeypatch.setattr(plan, "fetch_told", lambda fleet, host, main, script: told.append((host, main, script)) or "told")
+        monkeypatch.setattr(plan, "host_run", lambda fleet, host, script, *args: ran.append((host, script, *args)) or "")
+        t = {"machine": "box", "kit": {"main": "/w/kit/main", "dir": "/w/kit"}}
+        assert plan.origin_fetched(FLEET, t, "/w/kit/main") is True
+        assert told == [("box", "/w/kit/main", plan.ORIGIN_FETCH)]
+        assert ran == [("box", "told", "/w/kit/main")]
+
+    def test_a_kits_stopped_fetch_fails_the_read_naming_its_host(self, monkeypatch):
+        words = gather.stopped("git fetch", "origin", 30)
+        monkeypatch.setattr(plan, "kit_git", lambda fleet, t, main, *args, ok=(0,): (0, ""))
+        monkeypatch.setattr(crew, "fetches_in", lambda fleet, host, main: True)
+        monkeypatch.setattr(crew, "on_machine", lambda fleet, host, argv: types.SimpleNamespace(returncode=124, stdout="",
+                                                                                                stderr=words + "\n"))
+        t = {"machine": "box", "kit": {"main": "/w/kit/main", "dir": "/w/kit"}}
+        with pytest.raises(Refusal) as e:
+            plan.origin_fetched(FLEET, t, "/w/kit/main")
+        assert str(e.value) == f"on box: {words}"

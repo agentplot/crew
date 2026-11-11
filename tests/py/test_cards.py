@@ -1114,15 +1114,15 @@ class TestLandingReading:
                 raise plan.Refusal(fresh)
             return (first, None) if len(reads) == 1 else fresh or (dict(first, head="def5678"), None)
 
-        def fetch(fleet, t, where, *args):
-            fetches.append((where, *args))
+        def fetch(fleet, host, script, *args):
+            fetches.append((args[0], script))
             if fetched:
                 raise plan.Refusal(fetched)
-            return 0, ""
+            return ""
         monkeypatch.setattr(plan, "land_held", lambda fleet, label, bolt: (None, BOLT, self.AT))
         monkeypatch.setattr(plan, "land_facts", facts)
         monkeypatch.setattr(plan.gather, "has_origin", lambda main: True)
-        monkeypatch.setattr(plan, "kit_git", fetch)
+        monkeypatch.setattr(plan, "host_run", fetch)
         return plan.land_row(FLEET, "wldn", "b1", acts), reads, fetches
 
     def test_a_reading_that_opens_at_once_is_started_once_and_nothing_is_fetched(self, monkeypatch):
@@ -1136,7 +1136,7 @@ class TestLandingReading:
         from the landing read afresh after the kit's main was fetched."""
         acts = ReadingActs(refusals=[self.SLOW])
         row, reads, fetches = self.read(monkeypatch, acts)
-        assert (reads, fetches) == ([False, True], [("/kit/main", "fetch", "-q", "origin")])
+        assert (reads, fetches) == ([False, True], [("/kit/main", plan.ORIGIN_FETCH)])
         assert acts.sessions == [("wldn", "land/b1"), ("wldn", "land/b1")]
         assert (row["facts"]["link"], row["facts"]["head"]) == (self.LINK, "def5678") and "unread" not in row["facts"]
         assert capsys.readouterr().err == (f"card land/b1: its reading could not be opened on the tailnet: {self.SLOW}; crew "
@@ -1146,7 +1146,8 @@ class TestLandingReading:
         """card-sessions "Both starts fail": the row says so with the second start's reason, and the card says crew
         tries it again when the rail is read, names crew card session and keeps why on its entry."""
         acts = ReadingActs(refusals=[self.SLOW, self.ENDED])
-        row, _, _ = self.read(monkeypatch, acts)
+        row, _, fetches = self.read(monkeypatch, acts)
+        assert fetches == [("/kit/main", plan.ORIGIN_FETCH)]
         assert row["facts"]["unread"] == self.ENDED and "link" not in row["facts"]
         b = built.landings_card(dict(kit="switchboard-kit", rows=[row["facts"]]))
         assert ("crew tries it again when the rail is read, and main-level ops starts it with crew card session land/b1; "
@@ -1155,17 +1156,20 @@ class TestLandingReading:
         assert plan.built_fields(b) == {"Unread": self.ENDED, "Heads": "b1@def5678"}
 
     def test_a_fetch_that_fails_is_said_and_the_reading_is_tried_again(self, monkeypatch, capsys):
-        why = "git fetch in /kit/main on mac-studio failed: fatal: unable to access GitHub"
+        why = ("on mac-studio: git fetch with origin was still going after 30s, the most a try may take, and was "
+               "stopped")
         acts = ReadingActs(refusals=[self.SLOW])
-        row, _, _ = self.read(monkeypatch, acts, fetched=why)
+        row, _, fetches = self.read(monkeypatch, acts, fetched=why)
+        assert fetches == [("/kit/main", plan.ORIGIN_FETCH)]
         assert len(acts.sessions) == 2 and row["facts"]["link"] == self.LINK
         assert f"card land/b1: {why}; the reading is tried again all the same" in capsys.readouterr().err
 
     def test_the_bolt_no_longer_reads_proven_at_the_second_try(self, monkeypatch):
         """card-sessions "The bolt no longer reads proven at the second try": it is no row, its reading ended."""
         acts = ReadingActs(refusals=[self.SLOW])
-        row, reads, _ = self.read(monkeypatch, acts, fresh=(None, "fix/b1/gap is in flight on it"))
+        row, reads, fetches = self.read(monkeypatch, acts, fresh=(None, "fix/b1/gap is in flight on it"))
         assert (row, reads) == (dict(bolt="b1", why="read afresh, it no longer reads proven"), [False, True])
+        assert fetches == [("/kit/main", plan.ORIGIN_FETCH)]
         assert acts.sessions == [("wldn", "land/b1")] and acts.calls == [] and acts.emitted == []
 
     def test_a_card_whose_readings_opened_records_no_reason_and_several_unread_name_their_bolts(self):
@@ -1190,7 +1194,8 @@ class TestLandingReading:
     def test_a_fresh_read_that_is_refused_keeps_the_first_facts_with_the_first_reason(self, monkeypatch):
         """read.1: what the second read could not read is not guessed past."""
         acts = ReadingActs(refusals=[self.SLOW])
-        row, _, _ = self.read(monkeypatch, acts, fresh="bolt b1's kit could not be read: ssh: timed out")
+        row, _, fetches = self.read(monkeypatch, acts, fresh="bolt b1's kit could not be read: ssh: timed out")
+        assert fetches == [("/kit/main", plan.ORIGIN_FETCH)]
         assert acts.sessions == [("wldn", "land/b1")]
         assert (row["facts"]["head"], row["facts"]["unread"]) == ("abc1234", self.SLOW)
 
