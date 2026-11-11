@@ -1,25 +1,23 @@
 # Verify: no-try-of-crews-call-to-a-remote-outlasts-its-limit
 
-Read on 2026-11-11 at `change/no-try-of-crews-call-to-a-remote-outlasts-its-limit`, head 91814b9b, cut from `bolt/no-try-of-crews-call-to-a-remote-outlasts-its-limit`.
+Read on 2026-11-11 at `change/no-try-of-crews-call-to-a-remote-outlasts-its-limit`, head 09be8c0c, cut from `bolt/no-try-of-crews-call-to-a-remote-outlasts-its-limit`.
 
-**Verdict: not ready to archive.** The whole checks pass, every task is done, and every requirement and scenario of the change's two specs is met. But the change's archive fails `t-specs`, because the delta that creates `remote-limit` names no Purpose (see *Falls short*). The change is not archived. It goes back to its code stage.
+**Verdict: ready to archive.** The whole checks pass, all 13 tasks are done, and every requirement and scenario of the change's two specs is met. Archived, the change's specs pass `openspec validate --specs --strict`, so the merge that archives it passes `t-specs`. The change is archived with this report.
 
 ## The whole checks
 
 `tests/suite` ran once, with every project's `check-full` tasks, as `.config/sluice.toml` requires of `bolt/*` and `main`:
 
 ```
-37 passed (35 replayed), 0 failed
+37 passed (37 replayed), 0 failed
 exit 0
 ```
 
-- **logic** ran afresh: 3559 passed.
-- **contract** ran afresh: 125 passed.
-- The other 35 tasks were replayed from runs on this host whose inputs were identical, and every one passed. They are `mod`, the flake's `nix:format`, `nix:lint`, `nix:test` and `nix:typecheck`, and every end-to-end test, `t-docs` and `t-specs` among them.
+Every task was replayed from a run on this host whose inputs were identical, and every one passed: `logic`, `contract`, `mod`, the flake's `nix:format`, `nix:lint`, `nix:test` and `nix:typecheck`, and every end-to-end test, `t-docs` and `t-specs` among them. Since the last code commit, 91814b9b, only the change's own files under `openspec/changes/` have moved, and no task takes them. The archive moves `openspec/specs/`, which `t-specs` and `t-word` take, so sluice runs both afresh on the submission; *The archive* reads what each checks on the archived specs.
 
 ## The tasks
 
-All 12 tasks, 1.1 to 4.1, are ticked done, and the check each one names is inside the whole checks above:
+All 13 tasks, 1.1 to 4.2, are ticked done, and the check each one names is inside the whole checks above:
 
 - **1.1 to 1.2**: `TestTheFamilysLimit` (logic) and `TestATry` (contract).
 - **2.1 to 2.3**: `TestTheStateRepositorysTries`, `TestAStoppedFetch` and `TestAStoppedPush` (logic).
@@ -29,6 +27,7 @@ All 12 tasks, 1.1 to 4.1, are ticked done, and the check each one names is insid
 - **3.2**: `TestAKitsFetch`, `test_kits.py::TestNoFetchInTheRunnersClone` and `test_cards.py::TestLandingReading` (logic).
 - **3.4**: `tests/py/test_landings.py`. Its forecast and bolt-work cases fake the kit's fetch at `host_run` (`origin_fetches`). Each asserts that `ORIGIN_FETCH` runs once in the kit's folder and that no fetch goes through `kit_git`. A refused fetch is said in `host_run`'s words, `on <host>: <git's words>`, which keeps git's words as rail-cards' "crew cannot compare the heads" asks.
 - **4.1**: `t-docs`.
+- **4.2**: the delta that creates `remote-limit` opens with a `## Purpose` (see *The archive*).
 
 ## The change against its specs
 
@@ -59,24 +58,16 @@ README's account of a write and `plan.py`'s opening docstring say that each fetc
 
 Nothing crew models changes shape, so the views and crew's mod are unchanged (`code.8`). No command or flag changes, so the usage is unchanged (`docs.2`), as the proposal says.
 
-## Falls short
+## The archive
 
-`specs/remote-limit/spec.md` creates a new capability, but it opens with `## ADDED Requirements` and has no `## Purpose`. So `openspec archive` writes its own placeholder into `openspec/specs/remote-limit/spec.md`:
+`specs/remote-limit/spec.md` creates a new capability and opens with a `## Purpose` saying what it is for. With the change archived in a scratch copy of the checkout's `openspec/`:
 
-```
-## Purpose
-TBD - created by archiving change no-try-of-crews-call-to-a-remote-outlasts-its-limit. Update Purpose after archive.
-```
+- `openspec archive` updates `drive-state` (2 added) and creates `remote-limit` (6 added), and writes the delta's Purpose into `openspec/specs/remote-limit/spec.md`, with its 6 requirements and 18 scenarios.
+- `openspec validate --specs --strict`, what `t-specs` runs, gives `29 passed, 0 failed (29 items)`.
+- No archived spec holds the word `t-word` refuses.
 
-With the change archived, `openspec validate --specs --strict` (what `t-specs` runs) gives `28 passed, 1 failed (29 items)`. The one failure is `remote-limit`: "Purpose section is still a placeholder rather than a Purpose anyone wrote". So the merge that archives this change would fail `t-specs`.
-
-A spec is never edited directly. The fix belongs in the delta, as `a-crew-release-reports-its-own-version` did for `crew-release` (748784d3, its task 5.2):
-
-- the delta that creates `remote-limit` opens with a `## Purpose` saying what the capability is for;
-- a task records it, its check being that, with the change archived in a scratch copy of the checkout, `openspec validate --specs --strict` ends with "0 failed".
-
-`drive-state` already exists, so its delta needs no Purpose.
+`drive-state` already exists, so its delta needs no Purpose. `openspec validate` warns, without blocking, that the proposal's *Why* is over 1000 characters.
 
 ## Outcome
 
-The whole checks are green and the work meets its specs and tasks. The archive's placeholder Purpose would fail `t-specs`, so the change is not archived. It goes back to its code stage to give `remote-limit`'s delta a Purpose.
+The whole checks are green, the work meets its specs and tasks, and the archive validates. The change is archived.
