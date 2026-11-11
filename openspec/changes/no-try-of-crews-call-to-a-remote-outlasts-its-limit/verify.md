@@ -2,7 +2,7 @@
 
 Read on 2026-11-11 at `change/no-try-of-crews-call-to-a-remote-outlasts-its-limit`, head 91814b9b, cut from `bolt/no-try-of-crews-call-to-a-remote-outlasts-its-limit`.
 
-**Verdict: ready to archive.** The whole checks pass, every task is done, and every requirement and scenario of the change's two specs is met.
+**Verdict: not ready to archive.** The whole checks pass, every task is done, and every requirement and scenario of the change's two specs is met. But the change's archive fails `t-specs`, because the delta that creates `remote-limit` names no Purpose (see *Falls short*). The change is not archived. It goes back to its code stage.
 
 ## The whole checks
 
@@ -59,6 +59,24 @@ README's account of a write and `plan.py`'s opening docstring say that each fetc
 
 Nothing crew models changes shape, so the views and crew's mod are unchanged (`code.8`). No command or flag changes, so the usage is unchanged (`docs.2`), as the proposal says.
 
+## Falls short
+
+`specs/remote-limit/spec.md` creates a new capability, but it opens with `## ADDED Requirements` and has no `## Purpose`. So `openspec archive` writes its own placeholder into `openspec/specs/remote-limit/spec.md`:
+
+```
+## Purpose
+TBD - created by archiving change no-try-of-crews-call-to-a-remote-outlasts-its-limit. Update Purpose after archive.
+```
+
+With the change archived, `openspec validate --specs --strict` (what `t-specs` runs) gives `28 passed, 1 failed (29 items)`. The one failure is `remote-limit`: "Purpose section is still a placeholder rather than a Purpose anyone wrote". So the merge that archives this change would fail `t-specs`.
+
+A spec is never edited directly. The fix belongs in the delta, as `a-crew-release-reports-its-own-version` did for `crew-release` (748784d3, its task 5.2):
+
+- the delta that creates `remote-limit` opens with a `## Purpose` saying what the capability is for;
+- a task records it, its check being that, with the change archived in a scratch copy of the checkout, `openspec validate --specs --strict` ends with "0 failed".
+
+`drive-state` already exists, so its delta needs no Purpose.
+
 ## Outcome
 
-The whole checks are green and the work meets its specs and tasks, so the change is archived with this report.
+The whole checks are green and the work meets its specs and tasks. The archive's placeholder Purpose would fail `t-specs`, so the change is not archived. It goes back to its code stage to give `remote-limit`'s delta a Purpose.
