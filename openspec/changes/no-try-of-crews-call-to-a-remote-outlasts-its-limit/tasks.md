@@ -22,4 +22,4 @@ Build the tasks in order. Each check runs from the place's root as written. A lo
 
 ## 4. The docs
 
-- [ ] 4.1 README and plan.py's opening docstring say each fetch and push a write makes, and a kit's fetch of its origin, is one try ended at the family's limit of thirty seconds, and that a stopped push is not applied again and the next write reads whether it landed (Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.1 README and plan.py's opening docstring say each fetch and push a write makes, and a kit's fetch of its origin, is one try ended at the family's limit of thirty seconds, and that a stopped push is not applied again and the next write reads whether it landed (Task notes 4.1). Verify `tests/suite t-docs` ends with "0 failed".

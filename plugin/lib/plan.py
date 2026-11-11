@@ -10,7 +10,10 @@ by a proposal (proposals.rec) the user approves; who else writes it directly is 
 over https, applies itself to the tip, checks each file it changed with recfix (the plan with crew's own rules
 too), commits through a temporary index in crew's own bare cache of the repo (no working tree is touched), and
 pushes without force. A push that is refused because someone wrote first is applied again to the new tip, up to
-five times. A write that changes several files is one commit; its run-record entry follows it as a commit of its own.
+five times. Each fetch and push a write makes is one try, ended at the family's limit of thirty seconds with
+everything it started (gather.tried; weir 69 and C.3, sluice record 0109): a stopped push fails the write and is not
+applied again, and the next write reads whether it landed. A kit's fetch of its origin is such a try too (FETCH). A
+write that changes several files is one commit; its run-record entry follows it as a commit of its own.
 
   crew state init <label>                    create <label>/main in the state repository, adopting plan/<label> and
                                              the moves where the drive's blueprints repos have them

@@ -22,7 +22,9 @@
 # and its review's after_changes and after_hours, and crew drive set's --runs and --review by them, and none names
 # --flume or a drive's flume (record 0064 as amended 2026-11-09). README says a write's commit carries its entry, which
 # names no commit of its own, and a decision reads the tip, and neither it, the skill nor crew's own header speaks of a
-# read below the tip (an-act-carries-its-entry-in-its-own-commit).
+# read below the tip (an-act-carries-its-entry-in-its-own-commit). README says each fetch and push a write makes, and a
+# kit's fetch of its origin, is one try ended at the family's limit of thirty seconds, and a stopped push is not applied
+# again, the next write reading whether it landed (no-try-of-crews-call-to-a-remote-outlasts-its-limit).
 # Reads: README.md CLAUDE.md plugin/roles/ plugin/skills/ .envrc .gitignore openspec/config.yaml .config/sluice.toml
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 world
@@ -258,3 +260,9 @@ for doc in "$readme" "$skill" "$(cat "$CREW/plugin/bin/crew")"; do
   lacks "$doc" "below its tip"; lacks "$doc" "below the tip"
 done
 ok "README says a write's commit carries its entry and a decision reads the tip, and neither it, the skill nor crew's header speaks of a read below the tip"
+
+has "$readme" "Each fetch and push a write makes is one try, ended at the family's limit of thirty seconds"
+has "$readme" "a stopped push fails the write and is not applied again"
+has "$readme" "the next write reads whether it landed"
+has "$readme" "A kit's fetch of its origin is such a try too"
+ok "README says each fetch and push a write makes, and a kit's fetch of its origin, is one try ended at thirty seconds, and a stopped push is not applied again, the next write reading whether it landed"
