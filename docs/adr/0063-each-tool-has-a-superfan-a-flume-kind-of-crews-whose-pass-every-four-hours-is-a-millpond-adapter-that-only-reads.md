@@ -1,12 +1,14 @@
 ---
-status: proposed
-date: 2026-11-09
+status: accepted
+date: 2026-11-11
 decision-makers: the user (the superfans' shape, in afterthought/swancloud record 0062 as amended, their answers on their card of 2026-11-09, and whether to take this record); the research talk the-superfan-watches-the-family-at-work (how crew holds them, from the rules)
 ---
 
 # 0063. Each tool has a superfan: a Flume kind of crew's whose pass, every four hours, is a millpond adapter that only reads
 
-Status: proposed on 2026-11-09 by the research talk `the-superfan-watches-the-family-at-work`, until the user has seen it as a record and says yes. No unit is queued from it while it is proposed.
+Status: accepted by the user on 2026-11-11, on their card ("Make the superfan plan official: a read-only Claude session per tool every 4 hours, reporting what it finds?", answered "Approved"), as this record stands with afterthought-design's two fixes to its settings: `dash0 skill show` on every address's allow list, and a pass that puts the subcommand first. Proposed on 2026-11-09 by the research talk `the-superfan-watches-the-family-at-work`.
+
+Adds the rule `roles.10`.
 
 The superfans' shape, the answers below and the clock until millpond's tick runs are the user's own. How crew holds them is the talk's, from the rules, each with the path not taken.
 
@@ -19,6 +21,7 @@ Deciders: the user.
   - on the order, "Build Millpond's intake first, with crew";
   - on Dash0, "The command line alone; the plugin stays installed and off".
 - On their card, through agentplot-design, asked what wakes the superfans until millpond's tick runs: "could we use /loop in a claude session?", ruled yes as that clock.
+- On their card of 2026-11-11, through agentplot-design, taking this record: "Approved".
 - Their note on that card: "How does the plane program know there's a problem? Isn't part of the point that the superfan is evaluating what it sees and looking for problems with intent? / The blueprints repo does have a captures or signals folder. We can write captures there manually or run `write captures` into Crew. We could work on Mill Pond but I think we could write captures directly to Crew in the meantime / I assume that once a Claude session runs it could use the MCP server then to do additional analysis".
 
 The talk decided the rest.
@@ -30,7 +33,7 @@ Sources:
 - Flume 195 and its settings file (`crates/flume/src/profiles/agent/claude/settings.rs`);
 - record 0057;
 - rules `roles.1` to `roles.7`, `signals.1`, `signals.2`, `signals.5`, `signals.7`, `state.1`, `state.3`;
-- Boomdrive record 0033, proposed with this one.
+- Boomdrive record 0033, accepted with this one.
 
 ## Context and problem statement
 
@@ -171,4 +174,4 @@ Not taken: standing agents, a blueprints signals folder, a lines intake in crew,
 - Bad: until millpond keeps the inbox, a finding's key is a convention in its assertion, kept by the pass, not by crew. A finding standing across the switch to capture lines may land once more, and curation joins it to its item.
 - Bad: millpond's statement says a model runs only as a reader or curation, and a superfan's pass is a third place. Its amendment, and the amendment of millpond's C.4 for the runner's tick, are in `proposal.md` for agentplot-design to take to agentplot/blueprints.
 - Bad: millpond writing the inbox on the drive's branch departs from `state.1`. `state.1` is amended in the change that adopts millpond's intake, to admit millpond's writes of the inbox's paths by the family's shared-branch protocol.
-- On acceptance, the design agent adds the rule `roles.10` to `docs/architecture/core.md`: "A superfan only reads: its kind's settings allow the dash0 command line's reads, its tool's read commands and its tool's logs, and new signals until millpond takes its lines, then writes under its run's raw directory alone; it submits, retries, sets aside, holds, drops, fixes, lands, approves, plans, moves a signal and asks nothing." This rules out a superfan that acts, or one held only by its brief's words.
+- The rule `roles.10` holds it: a superfan only reads, by its kind's settings, and acts on nothing. It rules out a superfan that acts, or one held only by its brief's words.

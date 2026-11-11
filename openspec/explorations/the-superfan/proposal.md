@@ -1,4 +1,4 @@
-> A proposal (2026-11-09), from the research talk `the-superfan-watches-the-family-at-work`: how the family's superfans watch its tools at work and turn what they see into signals for the plan. It decides nothing. Its shape is the user's: afterthought/swancloud record 0062 as amended through 910edb62, and their answers on their card of 2026-11-09. The rest is this talk's, for the user to accept or turn down. The facts it rests on are in `reading.md` beside it. Its decisions are crew record 0063 and Boomdrive record 0033, both proposed. What is still the user's is in §10.
+> A proposal (2026-11-09), from the research talk `the-superfan-watches-the-family-at-work`: how the family's superfans watch its tools at work and turn what they see into signals for the plan. It decides nothing. Its shape is the user's: afterthought/swancloud record 0062 as amended through 910edb62, and their answers on their card of 2026-11-09. The rest is this talk's, for the user to accept or turn down. The facts it rests on are in `reading.md` beside it. Its decisions are crew record 0063 and Boomdrive record 0033, both accepted by the user on 2026-11-11. What the user decided is in §10.
 
 # The superfan: the proposal
 
@@ -251,7 +251,7 @@ Where the design and the build go:
 
 ## 10. What the user decides
 
-**Whether to take the design**: crew record 0063, Boomdrive record 0033 and the two amendments of millpond's statement, each proposed until the user says yes, on the records' cards.
+**The design is taken.** The user accepted crew record 0063 and Boomdrive record 0033 on their card of 2026-11-11, "Make the superfan plan official: a read-only Claude session per tool every 4 hours, reporting what it finds?", answering "Approved". Crew's rule `roles.10` holds the superfan to reading. The two amendments of millpond's statement below go to agentplot/blueprints by agentplot-design.
 
 ## Proposed amendments to millpond's statement
 
