@@ -2,7 +2,18 @@
 family's limit and words (agentplot/blueprints design/weir/requirements.md 69 and C.3; weir-bounded; sluice record
 0109), which of the state repository's calls are tries, what a stopped fetch and a stopped push refuse, and that every
 kit fetch is gather's or FETCH's origin_fetch, each decided on plain facts with no process started."""
+import types
+
+import pytest
+
+import crew
 import gather
+import plan
+import record
+from crew import Refusal
+from facts import FLEET
+
+REACH = record.reach  # the push itself, which conftest stands in for in every case
 
 
 class TestTheFamilysLimit:
@@ -161,3 +172,82 @@ class TestAStoppedFetch:
                                 f"remote ref refs/heads/wldn/main; {STOPPED_FETCH}")
         assert len(calls) == 1 and alone == []
         assert plan.READ.tip(self.REPO, "madswan/main") is None and plan.READ.tip(self.REPO, "wldn/main") is None
+
+
+STOPPED_PUSH = ("git push with https://github.com/afterthought/crew-state.git was still going after 30s, the most a try "
+                "may take, and was stopped")
+
+
+class TestAStoppedPush:
+    """drive-state: A stopped push fails the write and is never replayed; the next write reads whether it landed, and a
+    run-record entry it carried stays on the host for its next push (state.1, plan.1, record.2)."""
+
+    REPO, REF = "afterthought/crew-state", "madswan/main"
+
+    @pytest.fixture
+    def branch(self, monkeypatch, tmp_path):
+        """The state repository's branch at a, held by the command; a push stops until the case lets it land, and a
+        fetch finds the branch at b, the stopped push having landed."""
+        monkeypatch.setattr(plan, "CACHE", tmp_path / "cache")
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        plan.READ.keep_tip(self.REPO, self.REF, "a" * 40)
+        events, made = [], []
+        state = {"stops": True}
+
+        def git(repo, *args, input=None, env=None, check=True):
+            events.append(args[0])
+            if args[0] == "push":
+                return (types.SimpleNamespace(returncode=1, stdout="", stderr=STOPPED_PUSH, stopped=True) if state["stops"]
+                        else types.SimpleNamespace(returncode=0, stdout="", stderr="", stopped=False))
+            if args[0] == "fetch":
+                return types.SimpleNamespace(returncode=0, stdout="", stderr="", stopped=False)
+            if args[0] == "rev-parse":
+                return "b" * 40
+            return types.SimpleNamespace(returncode=0, stdout="", stderr="", stopped=False) if not check else ""
+        monkeypatch.setattr(plan, "git", git)
+        monkeypatch.setattr(plan, "checked", lambda files: None)
+        monkeypatch.setattr(plan, "commit", lambda repo, parent, files, message: made.append(parent) or f"c-{parent[:1]}")
+        monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(("sleep", s)))
+        monkeypatch.setattr("random.random", lambda: 0.5)
+        return events, made, state
+
+    def test_a_stopped_push_is_not_replayed(self, branch):
+        events, made, state = branch
+        tips = []
+        with pytest.raises(Refusal) as e:
+            plan.land(self.REPO, self.REF, "plan.rec", lambda tip: tips.append(tip) or ("text", "plan: x (crew)"))
+        assert str(e.value) == (f"the push of {self.REF} to {self.REPO} failed: {STOPPED_PUSH}; it is not pushed again, and "
+                                "the next write reads whether it landed")
+        assert tips == ["a" * 40] and made == ["a" * 40]
+        assert events == ["push"]
+
+    def test_a_stopped_push_that_landed_is_read_at_the_next_write(self, branch):
+        events, made, state = branch
+        with pytest.raises(Refusal):
+            plan.land(self.REPO, self.REF, "plan.rec", lambda tip: ("text", "plan: x (crew)"))
+        events.clear()
+        assert plan.tip_of(self.REPO, self.REF) == "b" * 40
+        assert events == ["fetch", "rev-parse"]
+        state["stops"], tips, made[:] = False, [], []
+        plan.land(self.REPO, self.REF, "plan.rec", lambda tip: tips.append(tip) or ("text", "plan: y (crew)"))
+        assert tips == ["b" * 40] and made == ["b" * 40]
+
+    def test_an_entry_whose_push_stopped_stays_on_the_host_said_once(self, branch, monkeypatch, tmp_path, capsys):
+        events, made, state = branch
+        monkeypatch.setattr(record, "ROOT", tmp_path / "crew")
+        monkeypatch.setattr(record, "_session", ...)
+        monkeypatch.setattr(record, "reach", REACH)
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+        monkeypatch.setattr(crew, "load", lambda: FLEET)
+        monkeypatch.setenv("CREW_SESSION", "")
+        monkeypatch.delenv("CREW_AGENT", raising=False)
+        monkeypatch.setattr(plan, "state_of", lambda fleet, label: (self.REPO, f"{label}/main"))
+        monkeypatch.setattr(plan, "show", lambda repo, tip, path: None)
+        eid = record.emit("madswan", "card.close", ["proposal/170"])
+        assert capsys.readouterr().err.splitlines() == [
+            f"crew: entry {eid} did not reach {self.REF} of {self.REPO}: the push of {self.REF} to {self.REPO} failed: "
+            f"{STOPPED_PUSH}; it is not pushed again, and the next write reads whether it landed; mac-studio keeps it and "
+            "pushes it with its next entry"]
+        assert events.count("push") == 1 and "fetch" not in events and not any(isinstance(e, tuple) for e in events)
+        host = tmp_path / "crew" / "madswan" / "runs" / "mac-studio"
+        assert [e["Id"] for e in record.parse(next(host.glob("*.rec")).read_text())] == [eid]

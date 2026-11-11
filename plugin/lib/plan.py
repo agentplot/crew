@@ -550,6 +550,11 @@ class Reading:
     def keep_tip(self, repo, ref, sha):
         self.keep(self.tip_name(repo, ref), sha)
 
+    def forget_tip(self, repo, ref):
+        """A branch's tip this command held, forgotten, so its next read fetches: after a push stopped at its limit,
+        which may have landed or not (land)."""
+        self.memory.pop(self.tip_name(repo, ref), None)
+
     def kits(self, host):
         return {} if self.bypass else self.held(f"kits-{host}.json") or {}
 
@@ -892,7 +897,11 @@ def land(repo, ref, path, make):
     (replay_wait), the branch is fetched afresh and make runs again on the new tip, the whole chain made again, up to
     REPLAYS times, so a busy branch is outwaited (plan.1, state.1); a write still refused is refused, and an entry so
     refused is kept for the host's next push (record.reach, record.2). The command then holds the commit it pushed, so
-    its later steps read its own write (tip_of)."""
+    its later steps read its own write (tip_of). A push stopped at the family's limit (git; weir C.3) is no refusal of
+    the branch, since it may have landed: the write refuses at once with the stopped try, waiting for nothing, fetching
+    nothing and making nothing again, and forgets the tip it held, so the next read fetches and the next write is
+    applied on the tip it finds, every check made again there (plan.1); an entry it carried stays on the host for its
+    next push, as a refused one does (record.2)."""
     tip, waited = tip_of(repo, ref), 0.0
     for n in range(1 + REPLAYS):
         made = make(tip)
@@ -908,6 +917,12 @@ def land(repo, ref, path, make):
             git(repo, "update-ref", f"refs/crew/{ref}", sha, check=False)
             READ.keep_tip(repo, ref, sha)
             return sha
+        if was_stopped(r):
+            # No refusal of the branch: the push may have landed, so it is never made again here, and the next read
+            # fetches to see (weir C.3).
+            READ.forget_tip(repo, ref)
+            fail(f"the push of {ref} to {repo} failed: {r.stderr.strip()}; it is not pushed again, and the next write reads "
+                 "whether it landed")
         if n < REPLAYS:  # the last refusal waits for no replay, and is still fetched to tell a moved branch
             import random  # here, as the module's rarer imports are: only a refused push draws
             wait = replay_wait(n, random.random())
