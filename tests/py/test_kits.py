@@ -447,7 +447,7 @@ class TestNoFetchInTheRunnersClone:
         assert crew.fetches_in(dict(self.FLEET, repositories={}), "deneb", "/v/agentplot/crew")
         assert crew.fetches_in(TestBeforeARunnerTookIt.FLEET, "deneb", "/v/agentplot/crew")
 
-    FETCHING = ("MAIN", "CARRIES")
+    FETCHING = ("MAIN", "CARRIES", "ORIGIN_FETCH")
 
     def test_a_script_is_told_fetch_no_in_the_runners_clone_and_nothing_elsewhere(self):
         assert plan.fetch_told(self.FLEET, "deneb", "/v/agentplot/crew", plan.MAIN) == "fetch=no\n" + plan.MAIN
@@ -472,11 +472,13 @@ class TestNoFetchInTheRunnersClone:
                         "runner's next fetch brings it")
 
     def test_a_forecasts_read_fetches_nothing_in_the_runners_clone(self, monkeypatch):
-        ran = []
+        ran, fetched = [], []
         monkeypatch.setattr(plan, "kit_git", lambda fleet, t, main, *args, ok=(0,): ran.append(args) or (0, ""))
+        monkeypatch.setattr(plan, "host_run", lambda fleet, host, script, *args: fetched.append((host, script, *args)) or "")
         t = {"machine": "deneb", "kit": {"main": "/r/agentplot/crew", "dir": "/r/agentplot/crew"}}
         assert plan.origin_fetched(self.FLEET, t, "/r/agentplot/crew") is True
-        assert ran == [("remote", "get-url", "origin")]
+        assert (ran, fetched) == ([("remote", "get-url", "origin")], [])
         ran.clear()
         assert plan.origin_fetched(self.FLEET, dict(t, kit={"main": "/d/agentplot/sluice/main"}), "/d/agentplot/sluice/main") is True
-        assert ran == [("remote", "get-url", "origin"), ("fetch", "-q", "origin")]
+        assert ran == [("remote", "get-url", "origin")]
+        assert fetched == [("deneb", plan.ORIGIN_FETCH, "/d/agentplot/sluice/main")]

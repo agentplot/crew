@@ -449,6 +449,21 @@ def test_merge_trees_words_are_read_as_its_paths():
     assert plan.tree_paths(128, "fatal") is None
 
 
+def origin_fetches(monkeypatch, refused=None):
+    """The kit's GitHub fetched where its work runs as one try (plan.origin_fetched: ORIGIN_FETCH through host_run on
+    the kit's host), standing in for host_run: each fetch's (script, folder) recorded, and refused in host_run's words,
+    on <host>: <git's>, where refused gives git's."""
+    fetches = []
+
+    def fetch(fleet, host, script, *args):
+        fetches.append((script, *args))
+        if refused:
+            plan.fail(f"on {host}: {refused}")
+        return ""
+    monkeypatch.setattr(plan, "host_run", fetch)
+    return fetches
+
+
 def test_a_bolt_branch_crew_cannot_read_is_said_and_its_box_kept(monkeypatch):
     """rail-cards "A bolt branch crew cannot read": the row's forecast is said as not made, with why, and holds
     nothing, since the rows' boxes are landing_rows' alone."""
@@ -460,11 +475,12 @@ def test_a_bolt_branch_crew_cannot_read_is_said_and_its_box_kept(monkeypatch):
             return (0, "f" * 40) if "bolt/z" in args[3] or "/main^" in args[3] else (1, "")
         return (0, "tree\n") if args[0] == "merge-tree" else (0, "")
     monkeypatch.setattr(plan, "kit_git", git)
+    fetches = origin_fetches(monkeypatch)
     got, why, at = plan.forecast_rows(FLEET, "swancloud", "crew", ["y", "z"])
     assert got == {"y": [("main", None)], "z": [("y", None)]}
     assert why == {"y": "bolt/y is on no branch crew can read in /c/main on mac-studio, GitHub's or the host's",
                    "z": "bolt/y is on no branch crew can read in /c/main on mac-studio, GitHub's or the host's"}
-    assert ("fetch", "-q", "origin") in calls
+    assert fetches == [(plan.ORIGIN_FETCH, "/c/main")] and not [c for c in calls if c[0] == "fetch"]
     assert [r for r in plan.landing_rows(["y", "z"], {"y": facts("y"), "z": facts("z")}, {}) if r["box"]] != []
 
 
@@ -482,6 +498,7 @@ def where_read(monkeypatch, policy):
             trees.append(args[-1])
         return (0, "tree\n") if args[0] == "merge-tree" else (0, "")
     monkeypatch.setattr(plan, "kit_git", git)
+    origin_fetches(monkeypatch)
     return plan.forecast_rows(FLEET, "swancloud", "crew", ["y"]), trees
 
 
@@ -513,17 +530,15 @@ def test_the_forecast_hands_back_the_revision_of_main_it_forecast_against(monkey
 
 
 def test_a_forecast_whose_fetch_or_read_of_main_failed_hands_back_no_revision(monkeypatch):
-    def fetch_refused(fleet, t, where, *args, ok=(0,)):
-        if args[0] == "fetch":
-            raise crew.Refusal("git fetch in /c/main on mac-studio failed: could not read from remote")
-        return 0, ""
-    monkeypatch.setattr(plan, "kit_git", fetch_refused)
+    monkeypatch.setattr(plan, "kit_git", lambda fleet, t, where, *args, ok=(0,): (0, ""))
+    origin_fetches(monkeypatch, refused="fatal: could not read from remote")
     got, why, at = plan.forecast_rows(FLEET, "swancloud", "crew", ["y"])
-    assert at is None and got == {"y": [("main", None)]} and why["y"].endswith("could not read from remote")
+    assert at is None and got == {"y": [("main", None)]} and why["y"] == "on mac-studio: fatal: could not read from remote"
 
     def no_main(fleet, t, where, *args, ok=(0,)):
         return (1, "") if args[0] == "rev-parse" else (0, "")
     monkeypatch.setattr(plan, "kit_git", no_main)
+    origin_fetches(monkeypatch)
     got, why, at = plan.forecast_rows(FLEET, "swancloud", "crew", ["y"])
     assert at is None and why == {"y": "/c/main on mac-studio has no origin/main to forecast against"}
     assert plan.forecast_rows(FLEET, "swancloud", "atlas-kit", ["y"])[2] is None
@@ -561,15 +576,13 @@ def test_no_open_card_is_nothing_due():
 # ------------------------------------------------------------------- a bolt's own work between two heads
 
 def work_read(monkeypatch, moves, fetch=0, known=("abc1234", "d" * 40, "e" * 40), logs=None):
-    """bolt_work over moves, git answering where the kit's forecasts are made: the fetch exiting fetch, rev-parse
-    finding the commits known and each bolt on GitHub at e…, and each log its lines in logs, by (from, not); the git
-    calls made."""
+    """bolt_work over moves, git answering where the kit's forecasts are made: the fetch (origin_fetches) refused when
+    fetch is set, rev-parse finding the commits known and each bolt on GitHub at e…, and each log its lines in logs, by
+    (from, not); the git calls made, each fetch among them as (ORIGIN_FETCH, folder)."""
     calls = []
 
     def git(fleet, t, where, *args, ok=(0,)):
         calls.append(args)
-        if args[0] == "fetch" and fetch:
-            plan.fail(f"git fetch in {where} on {t['machine']} failed: fatal: unable to access GitHub")
         if args[:2] == ("rev-parse", "--verify"):
             rev = args[3].split("^")[0]
             return (0, "e" * 40) if rev.startswith("refs/remotes/origin/bolt/") else (0, rev) if rev in known else (1, "")
@@ -579,7 +592,9 @@ def work_read(monkeypatch, moves, fetch=0, known=("abc1234", "d" * 40, "e" * 40)
             return 0, (logs or {}).get((args[3], args[4]), "")
         return 0, ""
     monkeypatch.setattr(plan, "kit_git", git)
-    return plan.bolt_work(FLEET, "swancloud", "crew", moves), calls
+    fetches = origin_fetches(monkeypatch, refused="fatal: unable to access GitHub" if fetch else None)
+    got = plan.bolt_work(FLEET, "swancloud", "crew", moves)
+    return got, calls + fetches
 
 
 def test_a_bolts_own_work_is_its_non_merge_commits_main_lacks_gained_and_lost_between_the_heads(monkeypatch):
@@ -588,7 +603,7 @@ def test_a_bolts_own_work_is_its_non_merge_commits_main_lacks_gained_and_lost_be
     logs = {("d" * 40, "^abc1234"): "1a2b3c4 fix: keep the lease\n", ("abc1234", "^" + "d" * 40): ""}
     got, calls = work_read(monkeypatch, {"z": ("abc1234", "d" * 40)}, logs=logs)
     assert got == {"z": dict(head="d" * 40, gained=[("1a2b3c4", "fix: keep the lease")], lost=[], why=None)}
-    assert calls.count(("fetch", "-q", "origin")) == 1
+    assert calls.count((plan.ORIGIN_FETCH, "/c/main")) == 1 and not [c for c in calls if c[0] == "fetch"]
     assert ("log", "--no-merges", "--format=%h %s", "d" * 40, "^abc1234", "^refs/remotes/origin/main") in calls
     # a head now not given is read where the bolt lives, GitHub's copy, as the forecasts read it
     got, _ = work_read(monkeypatch, {"z": ("abc1234", None)})
@@ -604,7 +619,7 @@ def test_a_kit_no_runner_has_reported_reads_no_work_and_says_why(monkeypatch):
 def test_a_fetch_refused_reads_no_work_in_gits_words(monkeypatch):
     """rail-cards "crew cannot compare the heads"."""
     got, calls = work_read(monkeypatch, {"z": ("abc1234", "d" * 40)}, fetch=1)
-    assert got["z"]["why"] == "git fetch in /c/main on mac-studio failed: fatal: unable to access GitHub"
+    assert got["z"]["why"] == "on mac-studio: fatal: unable to access GitHub"
     assert not [c for c in calls if c[0] == "log"]
 
 
