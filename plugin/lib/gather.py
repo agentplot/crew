@@ -32,7 +32,7 @@ folder under openspec/explorations/ on main with the first line of its first .md
 system, devurl and portless and, for a change whose workflow it does not read itself, openspec, and changes
 nothing.
 It needs nothing but python3's standard library, since it is sent to hosts whose crew may be older."""
-import fnmatch, hashlib, json, os, re, subprocess, sys, tomllib
+import contextlib, fnmatch, hashlib, json, os, re, signal, subprocess, sys, tempfile, time, tomllib
 
 
 def run(args, cwd):
@@ -440,13 +440,113 @@ def ran(args, cwd):
     return r.returncode, r.stdout, r.stderr
 
 
+# A try of a call to a remote, as the family bounds it: agentplot/blueprints design/weir/requirements.md 69 and C.3
+# (amended at ad3a1ae, 2026-11-11), mirrored from weir's weir-bounded (weir main 9cba691, record 0008) since Python
+# cannot take the crate, at agentplot/sluice record 0109's limit. TRY_FOR is the most a try may take and GRACE how long
+# a group asked to end at its limit has before it is killed, in seconds, set here alone: no setting of crew's, no
+# environment variable and no file changes either (C.3: "No setting of a writer's changes the limit").
+TRY_FOR = 30.0
+GRACE = 2.0
+
+
+def span(limit):
+    """A limit in the words a person reads, as weir-bounded's span: whole seconds as `30s`, anything else in
+    milliseconds, as `300ms` (weir 69, C.3; sluice record 0109). A decision on plain facts (code.7)."""
+    ms = round(limit * 1000)
+    return f"{ms // 1000}s" if ms >= 1000 and ms % 1000 == 0 else f"{ms}ms"
+
+
+def stopped(call, remote, limit, err=""):
+    """A stopped try's failure, in weir-bounded's words, naming its call, its remote and its limit, after git's last
+    line on standard error and `; ` where git wrote one (weir 69, C.3; sluice record 0109). A decision on plain facts
+    (code.7)."""
+    last = next((l.strip() for l in reversed((err or "").splitlines()) if l.strip()), "")
+    said = f"{call} with {remote} was still going after {span(limit)}, the most a try may take, and was stopped"
+    return f"{last}; {said}" if last else said
+
+
+LOOK = 0.01  # how often a running try is looked at, in seconds
+ASKED_LOOK, KILLED_LOOK, KILLED_FOR = 0.05, 0.02, 5.0  # how often a group asked or killed is looked at, and the longest
+
+
+def group_left(group):
+    """Whether any process of a process group is left: os.killpg(group, 0) answers, or refuses with anything but no such
+    group, as for a process that may not be signalled (weir-bounded's is_there)."""
+    try:
+        os.killpg(group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def group_ended(p, group):
+    """A try's process group ended at its limit, as weir-bounded's end_group: asked with SIGTERM, given GRACE, then
+    killed with SIGKILL and looked at for up to five seconds, its leader (p) reaped before each look, since a leader left
+    a zombie keeps its group there; at once when no process of the group is left. The leader is reaped at the end."""
+    def gone():
+        p.poll()
+        return not group_left(group)
+    if not gone():
+        with contextlib.suppress(OSError):
+            os.killpg(group, signal.SIGTERM)
+        until = time.monotonic() + GRACE
+        while time.monotonic() < until and not gone():
+            time.sleep(ASKED_LOOK)
+        if not gone():
+            with contextlib.suppress(OSError):
+                os.killpg(group, signal.SIGKILL)
+            until = time.monotonic() + KILLED_FOR
+            while time.monotonic() < until and not gone():
+                time.sleep(KILLED_LOOK)
+    p.wait()
+
+
+def tried(argv, cwd=None, input=None, env=None, limit=None):
+    """A try of a call to a remote (weir 69, C.3), as weir-bounded's output runs one: the command run in a process group
+    of its own, its standard output and error written to unnamed temporary files, its input a temporary file holding
+    input or /dev/null, and waited on, a look every LOOK with time.sleep and no thread, until its leader has exited and
+    no process of its group is left, or to its limit (TRY_FOR, read at the call, when limit is None), when its group is
+    asked to end, given GRACE, then killed (group_ended), so nothing it started outlives it. Gives (exit, stdout, stderr,
+    stopped): the leader's exit, by itself or by the signal that ended its group, everything it printed, and whether the
+    limit came first; (None, "", why, False) for a command that cannot start, as ran gives. A stopped try's standard
+    output is never an answer: its caller says it in stopped's words."""
+    limit = TRY_FOR if limit is None else limit
+    with contextlib.ExitStack() as files:
+        out, err = (files.enter_context(tempfile.TemporaryFile()) for _ in range(2))
+        given = subprocess.DEVNULL
+        if input is not None:
+            given = files.enter_context(tempfile.TemporaryFile())
+            given.write(input.encode() if isinstance(input, str) else input)
+            given.seek(0)
+        try:
+            p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=given, stdout=out, stderr=err, process_group=0)
+        except OSError as e:
+            return None, "", str(e), False
+        group, until, stop = p.pid, time.monotonic() + limit, False
+        while p.poll() is None or group_left(group):
+            if time.monotonic() >= until:
+                stop = True
+                group_ended(p, group)
+                break
+            time.sleep(LOOK)
+        out.seek(0)
+        err.seek(0)
+        return p.returncode, out.read().decode(errors="replace"), err.read().decode(errors="replace"), stop
+
+
 def fetched(main):
     """A kit's GitHub fetched into its main checkout, as a read a decision of the moment rests on fetches it (plan.18,
-    plan.19), `git fetch -q origin`: None once it fetched, or for a kit with no origin remote, which has no GitHub;
-    git's words when the fetch failed."""
+    plan.19), `git fetch -q origin`, as one try to the family's limit (tried; weir 69, C.3): None once it fetched, or
+    for a kit with no origin remote, which has no GitHub; git's words when the fetch failed, and a stopped try's when it
+    was stopped (stopped), naming origin and the limit."""
     if not has_origin(main):
         return None
-    code, out, err = ran(["git", "fetch", "-q", "origin"], main)
+    limit = TRY_FOR
+    code, out, err, stop = tried(["git", "fetch", "-q", "origin"], main, limit=limit)
+    if stop:
+        return stopped("git fetch", "origin", limit, err)
     return None if code == 0 else (err or out).strip() or f"git fetch exited {code}"
 
 

@@ -10,7 +10,10 @@ by a proposal (proposals.rec) the user approves; who else writes it directly is 
 over https, applies itself to the tip, checks each file it changed with recfix (the plan with crew's own rules
 too), commits through a temporary index in crew's own bare cache of the repo (no working tree is touched), and
 pushes without force. A push that is refused because someone wrote first is applied again to the new tip, up to
-five times. A write that changes several files is one commit; its run-record entry follows it as a commit of its own.
+five times. Each fetch and push a write makes is one try, ended at the family's limit of thirty seconds with
+everything it started (gather.tried; weir 69 and C.3, sluice record 0109): a stopped push fails the write and is not
+applied again, and the next write reads whether it landed. A kit's fetch of its origin is such a try too (FETCH). A
+write that changes several files is one commit; its run-record entry follows it as a commit of its own.
 
   crew state init <label>                    create <label>/main in the state repository, adopting plan/<label> and
                                              the moves where the drive's blueprints repos have them
@@ -477,8 +480,46 @@ def cache(repo):
     return c
 
 
+REMOTE_WORDS = ("fetch", "ls-remote", "push")
+
+
+def reaches_remote(args):
+    """Whether a git call in crew's cache of a state repository reaches its remote, and so is one try to the family's
+    limit (weir 69, C.3): a fetch, a listing or a push, by the call's word, since crew's cache reaches no remote by any
+    other. A decision on plain facts (code.7)."""
+    return bool(args) and args[0] in REMOTE_WORDS
+
+
+def was_stopped(r):
+    """Whether a git call's result (git) is a try stopped at its limit; a result with no word of it was not."""
+    return getattr(r, "stopped", False) is True
+
+
+class Ran:
+    """What a git call in crew's cache gave: its exit, what it printed, and whether it was a try stopped at its limit.
+    A stopped try's returncode is never 0, its stderr is its failure in the family's words and its stdout is empty."""
+
+    def __init__(self, returncode, stdout, stderr, stopped=False):
+        self.returncode, self.stdout, self.stderr, self.stopped = returncode, stdout, stderr, stopped
+
+
 def git(repo, *args, input=None, env=None, check=True):
-    r = subprocess.run(["git", "-C", str(cache(repo)), *args], input=input, capture_output=True, text=True, env=gitenv(env))
+    """git in crew's bare cache of a repo: a call that reaches the remote (reaches_remote) run as one try to the family's
+    limit, gather.TRY_FOR read at the call, naming its remote by the address it is given, the call's first argument
+    after its word that is not an option (gather.tried, weir 69, C.3); every other call run to its end. With check, a
+    failure refuses naming the word, the repo and git's words or the stopped try's; else the result (Ran)."""
+    argv = ["git", "-C", str(cache(repo)), *args]
+    if reaches_remote(args):
+        limit = gather.TRY_FOR
+        code, out, err, stopped = gather.tried(argv, input=input, env=gitenv(env), limit=limit)
+        if stopped:
+            remote = next((a for a in args[1:] if not a.startswith("-")), repo)
+            r = Ran(code or 1, "", gather.stopped(f"git {args[0]}", remote, limit, err), True)
+        else:
+            r = Ran(127 if code is None else code, out, err)
+    else:
+        done = subprocess.run(argv, input=input, capture_output=True, text=True, env=gitenv(env))
+        r = Ran(done.returncode, done.stdout, done.stderr)
     if check and r.returncode:
         fail(f"git {args[0]} in crew's cache of {repo} failed: {r.stderr.strip()}")
     return r if not check else r.stdout.strip()
@@ -511,6 +552,11 @@ class Reading:
 
     def keep_tip(self, repo, ref, sha):
         self.keep(self.tip_name(repo, ref), sha)
+
+    def forget_tip(self, repo, ref):
+        """A branch's tip this command held, forgotten, so its next read fetches: after a push stopped at its limit,
+        which may have landed or not (land)."""
+        self.memory.pop(self.tip_name(repo, ref), None)
 
     def kits(self, host):
         return {} if self.bypass else self.held(f"kits-{host}.json") or {}
@@ -673,7 +719,9 @@ def tip_of(repo, ref, fresh=False):
     None when the repo has no such branch, which is not kept, so a later step looks again, unless the follower handed
     in its cache's word that there is none (""). fresh fetches even when a tip is held: after a refused push, and
     after any push that is not a write's own. A write lands on it (land), and a decision reads the branch at it, every
-    act there with its entries, which its commit carries (read.5)."""
+    act there with its entries, which its commit carries (read.5). A fetch stopped at the family's limit (git) refuses
+    at once, naming the branch, the repo and the stopped try: never fetched again for a lock, never read as a branch the
+    repo lacks (read.1)."""
     held = None if fresh else READ.tip(repo, ref)
     if held is not None:
         return held or None
@@ -681,9 +729,11 @@ def tip_of(repo, ref, fresh=False):
     for n in range(LOCK_TRIES):
         r = git(repo, "fetch", "--quiet", "--no-tags", *(["--prune"] if with_it else []), url(repo), f"+refs/heads/{ref}:refs/crew/{ref}",
                 *with_it, check=False)
-        if not (r.returncode and "cannot lock ref" in r.stderr):
+        if was_stopped(r) or not (r.returncode and "cannot lock ref" in r.stderr):
             break
         time.sleep(0.1 * (n + 1))
+    if was_stopped(r):
+        fail(f"could not fetch {ref} of {repo} over https: {r.stderr.strip()}")
     if r.returncode:
         if "couldn't find remote ref" in r.stderr:
             return None
@@ -699,16 +749,19 @@ def tips_of(repo, refs):
     sluice's core.31, the remote's one fetch a tick): {ref: tip}, None for a branch the repo does not have. A fetch
     git refuses for a branch it cannot find is made again without the branch it names, which reads None, so a branch
     not yet made costs the rest one fetch more and nothing else; one naming no branch asked for fetches each alone
-    (tip_of); any other failure refuses, naming the repo."""
+    (tip_of); any other failure refuses, naming the repo. A fetch stopped at the family's limit (git) refuses at once,
+    whatever git wrote before it was stopped: no branch is read as absent and none is fetched alone (read.1)."""
     refs, out = list(dict.fromkeys(refs)), {}
     while refs:
         specs = [s for ref in refs for s in [f"+refs/heads/{ref}:refs/crew/{ref}", *beside(ref)]]
         prune = any(beside(ref) for ref in refs)
         for n in range(LOCK_TRIES):
             r = git(repo, "fetch", "--quiet", "--no-tags", *(["--prune"] if prune else []), url(repo), *specs, check=False)
-            if not (r.returncode and "cannot lock ref" in r.stderr):
+            if was_stopped(r) or not (r.returncode and "cannot lock ref" in r.stderr):
                 break
             time.sleep(0.1 * (n + 1))
+        if was_stopped(r):
+            fail(f"could not fetch {', '.join(refs)} of {repo} over https: {r.stderr.strip()}")
         if not r.returncode:
             break
         if "couldn't find remote ref" not in r.stderr:
@@ -847,7 +900,11 @@ def land(repo, ref, path, make):
     (replay_wait), the branch is fetched afresh and make runs again on the new tip, the whole chain made again, up to
     REPLAYS times, so a busy branch is outwaited (plan.1, state.1); a write still refused is refused, and an entry so
     refused is kept for the host's next push (record.reach, record.2). The command then holds the commit it pushed, so
-    its later steps read its own write (tip_of)."""
+    its later steps read its own write (tip_of). A push stopped at the family's limit (git; weir C.3) is no refusal of
+    the branch, since it may have landed: the write refuses at once with the stopped try, waiting for nothing, fetching
+    nothing and making nothing again, and forgets the tip it held, so the next read fetches and the next write is
+    applied on the tip it finds, every check made again there (plan.1); an entry it carried stays on the host for its
+    next push, as a refused one does (record.2)."""
     tip, waited = tip_of(repo, ref), 0.0
     for n in range(1 + REPLAYS):
         made = make(tip)
@@ -863,6 +920,12 @@ def land(repo, ref, path, make):
             git(repo, "update-ref", f"refs/crew/{ref}", sha, check=False)
             READ.keep_tip(repo, ref, sha)
             return sha
+        if was_stopped(r):
+            # No refusal of the branch: the push may have landed, so it is never made again here, and the next read
+            # fetches to see (weir C.3).
+            READ.forget_tip(repo, ref)
+            fail(f"the push of {ref} to {repo} failed: {r.stderr.strip()}; it is not pushed again, and the next write reads "
+                 "whether it landed")
         if n < REPLAYS:  # the last refusal waits for no replay, and is still fetched to tell a moved branch
             import random  # here, as the module's rarer imports are: only a refused push draws
             wait = replay_wait(n, random.random())
@@ -2164,13 +2227,80 @@ echo "LOCAL=$l"; echo "TRACKED=$o"; echo "AT_LOCAL=$(pol "$l")"; echo "AT_TRACKE
 # runner alone fetches (agentplot/boomdrive core.14), where the script reads origin's tracking refs as the runner last
 # fetched them; a script told nothing fetches as before. FETCH is that fetch, origin_fetch, made unless told fetch=no, and
 # refused with nothing fetched, in its own words on standard error, for a word that is neither (read.1).
-FETCH = r"""origin_fetch() {
+#
+# The fetch is one try to the family's limit on the host where its git runs (weir 69, C.3), by bounded, gather.tried's
+# twin in bash, since the host's crew may be older and no crew module is on its disk: bounded <call> <remote> <command...>
+# runs the command in a process group of its own (job control on for its start), its output to temporary files it
+# removes once read, and waits, a look every tenth of a second, until its leader has exited and no process of its group
+# is left, or to try_for_ms, when it asks the group to end, gives it grace_ms, then kills it and reaps the leader; the
+# looks count the time slept, and $SECONDS, whole seconds of the wall clock, bounds a host so loaded that the sleeps run
+# long, so a try ends at most two seconds past its limit there and never before it. A try
+# that ends gives its output, its standard error and its exit as they were; a stopped one prints none of its output,
+# says gather.stopped's words on standard error and returns 124. try_for_ms and grace_ms are filled from gather.TRY_FOR
+# and gather.GRACE here, one line each, and read from nothing else. It runs on bash 3.2, a Mac's /bin/bash, as on 5.
+FETCH = f"""try_for_ms={round(gather.TRY_FOR * 1000)}
+grace_ms={round(gather.GRACE * 1000)}
+""" + r"""bounded() {
+  local call=$1 remote=$2 out err pid code= waited=0 began=$SECONDS stopped= last limit
+  shift 2
+  out=$(mktemp "${TMPDIR:-/tmp}/crew-try.XXXXXX") || return 2
+  err=$(mktemp "${TMPDIR:-/tmp}/crew-try.XXXXXX") || { rm -f "$out"; return 2; }
+  # The shell's own words on the job, bash 3.2's "Terminated" among them, are no part of the try's: its standard
+  # error goes to $err, and the shell's here to /dev/null.
+  {
+    set -m
+    "$@" </dev/null >"$out" 2>"$err" &
+    pid=$!
+    set +m
+    while :; do
+      if [ -z "$code" ] && ! kill -0 "$pid"; then wait "$pid"; code=$?; fi
+      if [ -n "$code" ] && ! kill -0 -- "-$pid"; then break; fi
+      if [ "$waited" -ge "$try_for_ms" ] || [ $(( (SECONDS - began - 1) * 1000 )) -ge "$try_for_ms" ]; then stopped=yes; break; fi
+      sleep 0.1
+      waited=$((waited + 100))
+    done
+    if [ -n "$stopped" ]; then
+      kill -TERM -- "-$pid"
+      waited=0
+      while [ "$waited" -lt "$grace_ms" ]; do
+        if [ -z "$code" ] && ! kill -0 "$pid"; then wait "$pid"; code=$?; fi
+        kill -0 -- "-$pid" || break
+        sleep 0.1
+        waited=$((waited + 100))
+      done
+      if kill -0 -- "-$pid"; then
+        kill -KILL -- "-$pid"
+        waited=0
+        while [ "$waited" -lt 5000 ] && kill -0 -- "-$pid"; do sleep 0.1; waited=$((waited + 100)); done
+      fi
+      [ -n "$code" ] || wait "$pid"
+    fi
+  } 2>/dev/null
+  if [ -n "$stopped" ]; then
+    last=$(awk 'NF { l = $0 } END { sub(/^[ \t\r]+/, "", l); sub(/[ \t\r]+$/, "", l); print l }' "$err")
+    if [ "$try_for_ms" -ge 1000 ] && [ $((try_for_ms % 1000)) -eq 0 ]; then limit="$((try_for_ms / 1000))s"; else limit="$try_for_ms"ms; fi
+    rm -f "$out" "$err"
+    echo "${last:+$last; }$call with $remote was still going after $limit, the most a try may take, and was stopped" >&2
+    return 124
+  fi
+  cat "$out"
+  cat "$err" >&2
+  rm -f "$out" "$err"
+  return "$code"
+}
+origin_fetch() {
   case ${fetch-yes} in
-    yes) git fetch -q origin "$@" ;;
+    yes) bounded "git fetch" origin git fetch -q origin "$@" ;;
     no) ;;
     *) echo "crew told this script fetch=${fetch}, which is neither yes nor no, so it fetches nothing" >&2; return 2 ;;
   esac
 }
+"""
+
+# A kit's GitHub fetched in its folder, $1, on the host its work runs on, as one try (FETCH): run through fetch_told and
+# host_run by origin_fetched and landing_opened, so a kit is fetched only by gather or origin_fetch.
+ORIGIN_FETCH = FETCH + r"""cd "$1" || exit 1
+origin_fetch
 """
 
 
@@ -3104,12 +3234,13 @@ def forecast_rows(fleet, label, kit, bolts, held=()):
 
 
 def origin_fetched(fleet, t, main):
-    """Whether the kit's folder on the host its work runs on (t) has an origin, GitHub, fetched there when it has;
-    refused in git's words when the fetch fails (plan.18). In the runner's clone nothing is fetched, and origin's
-    tracking refs are read as the runner last fetched them (crew.fetches_in)."""
+    """Whether the kit's folder on the host its work runs on (t) has an origin, GitHub, fetched there when it has, as one
+    try to the family's limit on that host (ORIGIN_FETCH through fetch_told and host_run; weir 69, C.3); refused naming
+    the host with git's words or the stopped try's when the fetch fails (plan.18). In the runner's clone nothing is
+    fetched, and origin's tracking refs are read as the runner last fetched them (crew.fetches_in)."""
     origin = kit_git(fleet, t, main, "remote", "get-url", "origin", ok=(0, 2))[0] == 0
     if origin and crew.fetches_in(fleet, t["machine"], main):
-        kit_git(fleet, t, main, "fetch", "-q", "origin")
+        host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], main, ORIGIN_FETCH), main)
     return origin
 
 
@@ -3277,7 +3408,8 @@ def landing_retry(why, fresh, fresh_why):
 def landing_opened(fleet, label, plan, b, t, card, acts):
     """A landings row's facts with its reading opened by its read (land_row), before the card is built: its link,
     or on a refusal one more try as crew card session land/<bolt> makes it, the kit's main fetched on the team's host,
-    this one, a fetch that failed said and the try going on (plan.18), nothing fetched in the runner's clone, where
+    this one, as one try to the family's limit (ORIGIN_FETCH), a fetch that failed or stopped said and the try going on
+    (plan.18), nothing fetched in the runner's clone, where
     the kit's main is read as the runner last fetched it (crew.fetches_in), the landing read afresh (land_facts) and its
     reading opened again with those facts (landing_retry). The facts the card is built from, carrying the reading's
     link or why it could not be opened (unread, the second try's reason, or the first's when the fresh read was
@@ -3294,7 +3426,7 @@ def landing_opened(fleet, label, plan, b, t, card, acts):
           + " and tries once more", file=sys.stderr)
     try:
         if fetch and gather.has_origin(main):
-            kit_git(fleet, t, main, "fetch", "-q", "origin")
+            host_run(fleet, t["machine"], fetch_told(fleet, t["machine"], main, ORIGIN_FETCH), main)
     except Refusal as e:
         print(f"card {key}: {e}; the reading is tried again all the same", file=sys.stderr)
     fresh, fresh_why = None, None
