@@ -15,6 +15,7 @@ import datetime
 import pathlib
 import re
 import subprocess
+import time
 
 import pytest
 
@@ -166,6 +167,17 @@ def test_a_push_refused_because_another_clone_pushed_first_makes_the_chain_again
     assert git(github, "show", f"wldn/main:runs/mac-studio/{DAY}.rec").count("Id: ") == 2
 
 
+class LandsClock:
+    """plan's own clock with its sleep recorded and never slept, every other call the time module's: so a case reads
+    land's replay waits alone, while each fetch and push, a try (gather.tried), looks at its git on the time module's
+    own sleep in gather, which plan's binding does not reach."""
+    def __init__(self, sleep):
+        self.sleep = sleep
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
 def test_a_branch_busy_for_three_pushes_is_outwaited_each_wait_longer_and_made_before_a_fresh_fetch(github, runs, tmp_path, monkeypatch):
     """plan.land on a branch taking commits faster than one replay (state.1; madswan/main, 2026-10-27): git refuses
     the push of a chain made on a tip another clone has since moved, and land waits a growing moment before it fetches
@@ -176,7 +188,7 @@ def test_a_branch_busy_for_three_pushes_is_outwaited_each_wait_longer_and_made_b
     events = []
     fetch = plan.tip_of
     monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: events.append("fetch" if fresh else "read") or fetch(repo, ref, fresh))
-    monkeypatch.setattr(plan.time, "sleep", lambda s: events.append(s))
+    monkeypatch.setattr(plan, "time", LandsClock(events.append))
     monkeypatch.setattr("random.random", lambda: 0.0)
 
     def make(tip):
