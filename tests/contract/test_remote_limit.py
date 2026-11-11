@@ -4,9 +4,13 @@ never answers, and FETCH's bash try on every bash the host has (agentplot/bluepr
 C.3; weir-bounded; sluice record 0109). Each wait is on a condition with a generous bound (tests.8): a try is said
 stopped within twenty seconds, well inside the silent remote's sixty, and a process it started is gone within ten."""
 import os
+import pathlib
 import time
 
+import pytest
+
 import gather
+from crew import Refusal
 
 TRY = 20.0  # the most a case waits for a try said stopped
 GONE = 10.0  # the most a case waits for a process the try started to be gone
@@ -97,3 +101,67 @@ class TestATry:
     def test_a_command_that_cannot_start(self, tmp_path):
         code, out, err, stopped = gather.tried([str(tmp_path / "no-such-command")], limit=10)
         assert (code, out, stopped) == (None, "", False) and err
+
+
+def silent(tmp_path):
+    """weir's silent remote, one that takes the call and never answers, reached with no network: a script git runs as
+    its ssh, ssh.variant simple so it runs once with no probe, which writes its process id, one line a call, and then
+    becomes a sleep 60. Gives the script's address for core.sshCommand and the file it writes to."""
+    script, pids = tmp_path / "silent.sh", tmp_path / "silent.pid"
+    script.write_text(f"#!/bin/sh\necho $$ >> '{pids}'\nexec sleep 60\n")
+    script.chmod(0o755)
+    return f"'{script}'", pids
+
+
+def calls(pids):
+    """The process ids the silent remote wrote, one a call."""
+    return [int(l) for l in pids.read_text().split()] if pids.exists() else []
+
+
+class TestTheStateRepository:
+    """drive-state: A stopped fetch of a drive's branch fails the read; a stopped push fails the write and is never
+    replayed. The state repository's address, https://github.com/<owner>/<name>.git as plan.url gives it, is turned to
+    the silent remote by url.insteadOf in the case's home, and the limit is 300 ms, set on gather for the case: plan.git
+    assumes git's remote helper, the ssh it runs, is of the try's process group, so the group's ending ends the call."""
+
+    REPO, REF = "afterthought/crew-state", "madswan/main"
+    ADDRESS = "https://github.com/afterthought/crew-state.git"
+
+    @pytest.fixture
+    def remote(self, tmp_path, monkeypatch):
+        import plan
+        ssh, pids = silent(tmp_path)
+        home = pathlib.Path(os.environ["HOME"])
+        with (home / ".gitconfig").open("a") as f:
+            f.write(f'[url "ssh://silent.invalid/"]\n\tinsteadOf = https://github.com/\n[core]\n\tsshCommand = {ssh}\n'
+                    "[ssh]\n\tvariant = simple\n")
+        monkeypatch.setattr(plan, "CACHE", tmp_path / "cache")
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        monkeypatch.setattr(gather, "TRY_FOR", 0.3)
+        return plan, pids
+
+    def test_a_state_repository_that_never_answers(self, remote):
+        plan, pids = remote
+        began = time.monotonic()
+        with pytest.raises(Refusal) as e:
+            plan.tip_of(self.REPO, self.REF)
+        assert time.monotonic() - began < TRY
+        said = str(e.value)
+        assert said.startswith(f"could not fetch {self.REF} of {self.REPO} over https: ")
+        assert said.endswith(f"git fetch with {self.ADDRESS} was still going after 300ms, the most a try may take, and was stopped")
+        (pid,) = calls(pids)
+        assert gone(pid)
+
+    def test_a_state_repository_that_takes_no_push(self, remote):
+        plan, pids = remote
+        plan.READ.keep_tip(self.REPO, self.REF, "")  # the branch held as none, so nothing is fetched first
+        began = time.monotonic()
+        with pytest.raises(Refusal) as e:
+            plan.land(self.REPO, self.REF, "plan.rec", lambda tip: (plan.HEADER, "plan: start (crew)"))
+        assert time.monotonic() - began < TRY
+        said = str(e.value)
+        assert said.startswith(f"the push of {self.REF} to {self.REPO} failed: ")
+        assert said.endswith(f"git push with {self.ADDRESS} was still going after 300ms, the most a try may take, and was "
+                             "stopped; it is not pushed again, and the next write reads whether it landed")
+        (pid,) = calls(pids)
+        assert gone(pid)
