@@ -2224,13 +2224,78 @@ echo "LOCAL=$l"; echo "TRACKED=$o"; echo "AT_LOCAL=$(pol "$l")"; echo "AT_TRACKE
 # runner alone fetches (agentplot/boomdrive core.14), where the script reads origin's tracking refs as the runner last
 # fetched them; a script told nothing fetches as before. FETCH is that fetch, origin_fetch, made unless told fetch=no, and
 # refused with nothing fetched, in its own words on standard error, for a word that is neither (read.1).
-FETCH = r"""origin_fetch() {
+#
+# The fetch is one try to the family's limit on the host where its git runs (weir 69, C.3), by bounded, gather.tried's
+# twin in bash, since the host's crew may be older and no crew module is on its disk: bounded <call> <remote> <command...>
+# runs the command in a process group of its own (job control on for its start), its output to temporary files it
+# removes once read, and waits, a look every tenth of a second, until its leader has exited and no process of its group
+# is left, or to try_for_ms, when it asks the group to end, gives it grace_ms, then kills it and reaps the leader. A try
+# that ends gives its output, its standard error and its exit as they were; a stopped one prints none of its output,
+# says gather.stopped's words on standard error and returns 124. try_for_ms and grace_ms are filled from gather.TRY_FOR
+# and gather.GRACE here, one line each, and read from nothing else. It runs on bash 3.2, a Mac's /bin/bash, as on 5.
+FETCH = f"""try_for_ms={round(gather.TRY_FOR * 1000)}
+grace_ms={round(gather.GRACE * 1000)}
+""" + r"""bounded() {
+  local call=$1 remote=$2 out err pid code= waited=0 began=$SECONDS stopped= last limit
+  shift 2
+  out=$(mktemp "${TMPDIR:-/tmp}/crew-try.XXXXXX") || return 2
+  err=$(mktemp "${TMPDIR:-/tmp}/crew-try.XXXXXX") || { rm -f "$out"; return 2; }
+  # The shell's own words on the job, bash 3.2's "Terminated" among them, are no part of the try's: its standard
+  # error goes to $err, and the shell's here to /dev/null.
+  {
+    set -m
+    "$@" </dev/null >"$out" 2>"$err" &
+    pid=$!
+    set +m
+    while :; do
+      if [ -z "$code" ] && ! kill -0 "$pid"; then wait "$pid"; code=$?; fi
+      if [ -n "$code" ] && ! kill -0 -- "-$pid"; then break; fi
+      if [ "$waited" -ge "$try_for_ms" ] || [ $(( (SECONDS - began - 1) * 1000 )) -ge "$try_for_ms" ]; then stopped=yes; break; fi
+      sleep 0.1
+      waited=$((waited + 100))
+    done
+    if [ -n "$stopped" ]; then
+      kill -TERM -- "-$pid"
+      waited=0
+      while [ "$waited" -lt "$grace_ms" ]; do
+        if [ -z "$code" ] && ! kill -0 "$pid"; then wait "$pid"; code=$?; fi
+        kill -0 -- "-$pid" || break
+        sleep 0.1
+        waited=$((waited + 100))
+      done
+      if kill -0 -- "-$pid"; then
+        kill -KILL -- "-$pid"
+        waited=0
+        while [ "$waited" -lt 5000 ] && kill -0 -- "-$pid"; do sleep 0.1; waited=$((waited + 100)); done
+      fi
+      [ -n "$code" ] || wait "$pid"
+    fi
+  } 2>/dev/null
+  if [ -n "$stopped" ]; then
+    last=$(awk 'NF { l = $0 } END { sub(/^[ \t\r]+/, "", l); sub(/[ \t\r]+$/, "", l); print l }' "$err")
+    if [ "$try_for_ms" -ge 1000 ] && [ $((try_for_ms % 1000)) -eq 0 ]; then limit="$((try_for_ms / 1000))s"; else limit="${try_for_ms}ms"; fi
+    rm -f "$out" "$err"
+    echo "${last:+$last; }$call with $remote was still going after $limit, the most a try may take, and was stopped" >&2
+    return 124
+  fi
+  cat "$out"
+  cat "$err" >&2
+  rm -f "$out" "$err"
+  return "$code"
+}
+origin_fetch() {
   case ${fetch-yes} in
-    yes) git fetch -q origin "$@" ;;
+    yes) bounded "git fetch" origin git fetch -q origin "$@" ;;
     no) ;;
     *) echo "crew told this script fetch=${fetch}, which is neither yes nor no, so it fetches nothing" >&2; return 2 ;;
   esac
 }
+"""
+
+# A kit's GitHub fetched in its folder, $1, on the host its work runs on, as one try (FETCH): run through fetch_told and
+# host_run by origin_fetched and landing_opened, so a kit is fetched only by gather or origin_fetch.
+ORIGIN_FETCH = FETCH + r"""cd "$1" || exit 1
+origin_fetch
 """
 
 

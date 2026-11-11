@@ -5,6 +5,8 @@ C.3; weir-bounded; sluice record 0109). Each wait is on a condition with a gener
 stopped within twenty seconds, well inside the silent remote's sixty, and a process it started is gone within ten."""
 import os
 import pathlib
+import shutil
+import subprocess
 import time
 
 import pytest
@@ -165,3 +167,85 @@ class TestTheStateRepository:
                              "stopped; it is not pushed again, and the next write reads whether it landed")
         (pid,) = calls(pids)
         assert gone(pid)
+
+
+def bashes():
+    """Every distinct bash the host has among bash on the path and /bin/bash, a Mac's being 3.2."""
+    found = {}
+    for b in (shutil.which("bash"), "/bin/bash"):
+        if b and os.path.exists(b):
+            found.setdefault(os.path.realpath(b), b)
+    return list(found.values())
+
+
+def shortened(script):
+    """A script's text with FETCH's limit shortened to 300 ms, the one line that sets it."""
+    assert script.count("try_for_ms=30000\n") == 1
+    return script.replace("try_for_ms=30000\n", "try_for_ms=300\n")
+
+
+@pytest.mark.parametrize("bash", bashes())
+class TestOriginFetch:
+    """remote-limit: A kit's fetch of its origin is a try. FETCH's origin_fetch tries its git fetch through bounded, on
+    the host where its git runs, under every bash the host has: MAIN, CARRIES and ORIGIN_FETCH, on a kit whose origin is
+    weir's silent remote, ssh://silent.invalid/kit.git with the silent script in the kit's own config, say the stopped
+    try in gather.stopped's words, and the call's process is gone. bounded assumes bash gives a job started with job
+    control on a process group of its own, inside a command substitution too, and reaps it as it waits."""
+
+    @pytest.fixture
+    def kit(self, repo, tmp_path):
+        ssh, pids = silent(tmp_path)
+        repo.commit("chore: start", {"README.md": "r\n"})
+        repo.git("remote", "add", "origin", "ssh://silent.invalid/kit.git")
+        repo.git("config", "core.sshCommand", ssh)
+        repo.git("config", "ssh.variant", "simple")
+        return repo, pids
+
+    def ran(self, bash, script, *args):
+        began = time.monotonic()
+        r = subprocess.run([bash, "-c", shortened(script), "crew", *args], capture_output=True, text=True, timeout=60)
+        return r, time.monotonic() - began
+
+    def words(self):
+        return gather.stopped("git fetch", "origin", 0.3)
+
+    def test_main_now_on_an_origin_that_never_answers(self, bash, kit):
+        import plan
+        repo, pids = kit
+        r, took = self.ran(bash, plan.MAIN, str(repo.path))
+        assert took < TRY and r.returncode == 0
+        assert "ORIGIN=yes" in r.stdout.splitlines()
+        assert f"FETCHED={self.words()}" in r.stdout.splitlines()
+        (pid,) = calls(pids)
+        assert gone(pid)
+
+    def test_what_a_tip_carries_on_an_origin_that_never_answers(self, bash, kit):
+        import plan
+        repo, pids = kit
+        tip = repo.git("rev-parse", "HEAD")
+        r, took = self.ran(bash, plan.CARRIES, str(repo.path), "te", tip)
+        assert took < TRY and r.returncode == 0
+        assert r.stdout.splitlines() == [f"READ={self.words()}"]
+        (pid,) = calls(pids)
+        assert gone(pid)
+
+    def test_origin_fetch_on_an_origin_that_never_answers(self, bash, kit):
+        import plan
+        repo, pids = kit
+        r, took = self.ran(bash, plan.ORIGIN_FETCH, str(repo.path))
+        assert took < TRY
+        assert r.returncode != 0 and r.stdout == ""
+        assert r.stderr == self.words() + "\n"
+        (pid,) = calls(pids)
+        assert gone(pid)
+
+    def test_origin_fetch_from_an_origin_that_answers(self, bash, repo, tmp_path):
+        import plan
+        origin = tmp_path / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+        sha = repo.commit("chore: start", {"README.md": "r\n"})
+        repo.git("push", "-q", str(origin), "HEAD:refs/heads/main")
+        repo.git("remote", "add", "origin", str(origin))
+        r, took = self.ran(bash, plan.ORIGIN_FETCH, str(repo.path))
+        assert (r.returncode, r.stdout, r.stderr) == (0, "", "")
+        assert repo.git("rev-parse", "refs/remotes/origin/main") == sha
