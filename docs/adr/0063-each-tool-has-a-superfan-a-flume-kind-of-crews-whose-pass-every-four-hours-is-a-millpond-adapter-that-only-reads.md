@@ -104,6 +104,7 @@ Four facts shape it:
          "Bash(dash0 traces get:*)",
          "Bash(dash0 metrics instant:*)",
          "Bash(dash0 failed-checks query:*)",
+         "Bash(dash0 skill show:*)",
          "Bash(crew signal --kind:*)",
          "Bash(crew signal show:*)"
        ],
@@ -114,6 +115,12 @@ Four facts shape it:
      }
    }
    ```
+
+   **How a pass calls the command line.**
+   - **The skill.** With `dash0@swancloud` off, a pass has no Dash0 skill loaded. It reads the command line's skill with `dash0 skill show`, which prints it and writes nothing (afterthought/swancloud change `the-superfans-sessions-read-dash0`, its `design.md`).
+   - **The subcommand comes first.** A prefix rule matches only from the start of the command. So a pass writes the subcommand first and passes no flag before it: `dash0 logs query …`, never `dash0 --agent-mode logs query …`, which `dontAsk` refuses.
+   - **No flags are needed before it.** Agent mode turns on by itself under `CLAUDECODE`, and swancloud's wrapper adds `--auth-token-file`, the API's address and the dataset itself.
+   - The brief says the same.
 
    **What each address adds to `allow`**: its tool's own read commands, and `Read(...)` of its tool's log and state paths.
 

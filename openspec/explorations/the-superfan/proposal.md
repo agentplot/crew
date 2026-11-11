@@ -73,7 +73,9 @@ How a pass records them is §3's. A pass that finds nothing records nothing.
 - **The mode is `dontAsk`**, Flume's `mode` setting, so any command not allowed is refused, not asked about.
 - **The plugin is named off**: `"enabledPlugins": {"dash0@swancloud": false}`.
 - **Allowed**, by exact command prefix:
-  - the dash0 reads: `Bash(dash0 logs query:*)`, `Bash(dash0 spans query:*)`, `Bash(dash0 traces get:*)`, `Bash(dash0 metrics instant:*)`, `Bash(dash0 failed-checks query:*)`;
+  - the dash0 reads: `Bash(dash0 logs query:*)`, `Bash(dash0 spans query:*)`, `Bash(dash0 traces get:*)`, `Bash(dash0 metrics instant:*)`, `Bash(dash0 failed-checks query:*)`.
+    - `Bash(dash0 skill show:*)` is among them. With the plugin off, a pass reads the command line's skill this way; it prints the skill and writes nothing.
+    - A pass writes the subcommand first, with no flag before it, since a prefix matches only from the start. Agent mode turns on by itself under `CLAUDECODE`, and swancloud's wrapper adds the token file, the API's address and the dataset.
   - its tool's own read commands: for sluice `sluice overview`, `sluice status`; for Flume `flume status`, `flume list`; for crew `crew board`, `crew bolts`, `crew events`, `crew card read`, `crew signal show`; for the runner `boomdrive status`, once built (Boomdrive record 0011);
   - reading files, `Read(...)`, under its tool's log and state paths in the table above.
 - **What it may write:**
