@@ -487,6 +487,11 @@ def reaches_remote(args):
     return bool(args) and args[0] in REMOTE_WORDS
 
 
+def was_stopped(r):
+    """Whether a git call's result (git) is a try stopped at its limit; a result with no word of it was not."""
+    return getattr(r, "stopped", False) is True
+
+
 class Ran:
     """What a git call in crew's cache gave: its exit, what it printed, and whether it was a try stopped at its limit.
     A stopped try's returncode is never 0, its stderr is its failure in the family's words and its stdout is empty."""
@@ -706,7 +711,9 @@ def tip_of(repo, ref, fresh=False):
     None when the repo has no such branch, which is not kept, so a later step looks again, unless the follower handed
     in its cache's word that there is none (""). fresh fetches even when a tip is held: after a refused push, and
     after any push that is not a write's own. A write lands on it (land), and a decision reads the branch at it, every
-    act there with its entries, which its commit carries (read.5)."""
+    act there with its entries, which its commit carries (read.5). A fetch stopped at the family's limit (git) refuses
+    at once, naming the branch, the repo and the stopped try: never fetched again for a lock, never read as a branch the
+    repo lacks (read.1)."""
     held = None if fresh else READ.tip(repo, ref)
     if held is not None:
         return held or None
@@ -714,9 +721,11 @@ def tip_of(repo, ref, fresh=False):
     for n in range(LOCK_TRIES):
         r = git(repo, "fetch", "--quiet", "--no-tags", *(["--prune"] if with_it else []), url(repo), f"+refs/heads/{ref}:refs/crew/{ref}",
                 *with_it, check=False)
-        if not (r.returncode and "cannot lock ref" in r.stderr):
+        if was_stopped(r) or not (r.returncode and "cannot lock ref" in r.stderr):
             break
         time.sleep(0.1 * (n + 1))
+    if was_stopped(r):
+        fail(f"could not fetch {ref} of {repo} over https: {r.stderr.strip()}")
     if r.returncode:
         if "couldn't find remote ref" in r.stderr:
             return None
@@ -732,16 +741,19 @@ def tips_of(repo, refs):
     sluice's core.31, the remote's one fetch a tick): {ref: tip}, None for a branch the repo does not have. A fetch
     git refuses for a branch it cannot find is made again without the branch it names, which reads None, so a branch
     not yet made costs the rest one fetch more and nothing else; one naming no branch asked for fetches each alone
-    (tip_of); any other failure refuses, naming the repo."""
+    (tip_of); any other failure refuses, naming the repo. A fetch stopped at the family's limit (git) refuses at once,
+    whatever git wrote before it was stopped: no branch is read as absent and none is fetched alone (read.1)."""
     refs, out = list(dict.fromkeys(refs)), {}
     while refs:
         specs = [s for ref in refs for s in [f"+refs/heads/{ref}:refs/crew/{ref}", *beside(ref)]]
         prune = any(beside(ref) for ref in refs)
         for n in range(LOCK_TRIES):
             r = git(repo, "fetch", "--quiet", "--no-tags", *(["--prune"] if prune else []), url(repo), *specs, check=False)
-            if not (r.returncode and "cannot lock ref" in r.stderr):
+            if was_stopped(r) or not (r.returncode and "cannot lock ref" in r.stderr):
                 break
             time.sleep(0.1 * (n + 1))
+        if was_stopped(r):
+            fail(f"could not fetch {', '.join(refs)} of {repo} over https: {r.stderr.strip()}")
         if not r.returncode:
             break
         if "couldn't find remote ref" not in r.stderr:

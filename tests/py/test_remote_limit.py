@@ -105,3 +105,59 @@ class TestTheStateRepositorysTries:
             plan.git(self.REPO, "push", "--quiet", self.ADDRESS, "abc:refs/heads/x")
         assert str(e.value) == (f"git push in crew's cache of {self.REPO} failed: git push with {self.ADDRESS} was still "
                                 "going after 30s, the most a try may take, and was stopped")
+
+
+STOPPED_FETCH = ("git fetch with https://github.com/afterthought/crew-state.git was still going after 30s, the most a try "
+                 "may take, and was stopped")
+
+
+class TestAStoppedFetch:
+    """drive-state: A stopped fetch of a drive's branch fails the read, at once, never tried again for a lock and never
+    read as a branch the repository lacks (read.1)."""
+
+    REPO = "afterthought/crew-state"
+
+    def faked(self, monkeypatch, tmp_path, stderr):
+        import plan
+        import types
+        monkeypatch.setattr(plan, "CACHE", tmp_path)
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        monkeypatch.setattr(plan.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("a stopped fetch waits for nothing")))
+        calls = []
+
+        def git(repo, *args, input=None, env=None, check=True):
+            calls.append(args)
+            return types.SimpleNamespace(returncode=1, stdout="", stderr=stderr, stopped=True)
+        monkeypatch.setattr(plan, "git", git)
+        return plan, calls
+
+    def test_a_stopped_fetch_of_one_branch_refuses_once(self, monkeypatch, tmp_path):
+        import pytest
+        from crew import Refusal
+        plan, calls = self.faked(monkeypatch, tmp_path, f"error: cannot lock ref 'refs/crew/madswan/main'; {STOPPED_FETCH}")
+        with pytest.raises(Refusal) as e:
+            plan.tip_of(self.REPO, "madswan/main")
+        assert str(e.value) == (f"could not fetch madswan/main of {self.REPO} over https: error: cannot lock ref "
+                                f"'refs/crew/madswan/main'; {STOPPED_FETCH}")
+        assert [a[0] for a in calls] == ["fetch"]
+
+    def test_a_stopped_fetch_of_one_branch_is_no_branch_the_repository_lacks(self, monkeypatch, tmp_path):
+        import pytest
+        from crew import Refusal
+        plan, calls = self.faked(monkeypatch, tmp_path, f"fatal: couldn't find remote ref refs/heads/madswan/main; {STOPPED_FETCH}")
+        with pytest.raises(Refusal, match="could not fetch madswan/main of afterthought/crew-state over https: .*was stopped"):
+            plan.tip_of(self.REPO, "madswan/main")
+        assert len(calls) == 1
+
+    def test_a_stopped_fetch_of_several_branches_reads_none_absent(self, monkeypatch, tmp_path):
+        import pytest
+        from crew import Refusal
+        plan, calls = self.faked(monkeypatch, tmp_path, f"fatal: couldn't find remote ref refs/heads/wldn/main; {STOPPED_FETCH}")
+        alone = []
+        monkeypatch.setattr(plan, "tip_of", lambda *a, **k: alone.append(a))
+        with pytest.raises(Refusal) as e:
+            plan.tips_of(self.REPO, ["madswan/main", "wldn/main"])
+        assert str(e.value) == (f"could not fetch madswan/main, wldn/main of {self.REPO} over https: fatal: couldn't find "
+                                f"remote ref refs/heads/wldn/main; {STOPPED_FETCH}")
+        assert len(calls) == 1 and alone == []
+        assert plan.READ.tip(self.REPO, "madswan/main") is None and plan.READ.tip(self.REPO, "wldn/main") is None
