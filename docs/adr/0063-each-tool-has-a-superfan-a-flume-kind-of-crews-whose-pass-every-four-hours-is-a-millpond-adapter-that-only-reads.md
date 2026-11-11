@@ -86,14 +86,55 @@ Four facts shape it:
 
    Only the brief's paragraph on recording, and the settings' rule for what it may write, change.
 6. **Read-only, by the kind's settings** (Flume 195; `roles.3`).
-   - The mode is `dontAsk`.
-   - Allowed, by exact command prefix: the dash0 reads, its tool's own read commands, and reading files under its tool's log and state paths.
-   - Writes: `crew signal --kind` until millpond takes lines, then writes under the run's raw directory alone. `crew signal move` and `crew signal land` are denied by name.
-   - Denied: every other command, every edit and write elsewhere, and every MCP tool.
+
+   **Where the settings live.**
+   - The kind is `superfan`, in crew's kinds folder, `~/.local/share/flume/kinds/crew` (record 0057).
+   - Its mode is `dontAsk`, Flume's own `mode` setting, which Flume passes as `--permission-mode` (Flume's `mode.rs` takes it). Under it, a tool no rule allows is refused, never asked about.
+   - Each of the four addresses' entries in crew's roles file gives its run's agent settings (Flume's `[roles."<stream>/<role>".agents]`). Flume writes them to the run's `own-settings.json` and passes that file as `--settings`.
+
+   **The settings every address gives:**
+
+   ```json
+   {
+     "enabledPlugins": { "dash0@swancloud": false },
+     "permissions": {
+       "allow": [
+         "Bash(dash0 logs query:*)",
+         "Bash(dash0 spans query:*)",
+         "Bash(dash0 traces get:*)",
+         "Bash(dash0 metrics instant:*)",
+         "Bash(dash0 failed-checks query:*)",
+         "Bash(crew signal --kind:*)",
+         "Bash(crew signal show:*)"
+       ],
+       "deny": [
+         "Bash(crew signal move:*)",
+         "Bash(crew signal land:*)"
+       ]
+     }
+   }
+   ```
+
+   **What each address adds to `allow`**: its tool's own read commands, and `Read(...)` of its tool's log and state paths.
+
+   | Address | Its tool's reads | Its tool's paths |
+   |---|---|---|
+   | `superfan-sluice` | `sluice overview`, `sluice status` | sluice's state, its readers' documents, `~/Library/Logs/sluice-run-*` |
+   | `superfan-flume` | `flume status`, `flume list` | `~/.local/state/flume/`, the transcripts of the agents its places run |
+   | `superfan-runner` | `flume status`, for the host's watch; `boomdrive status`, once built | the runner's report, `~/Library/Logs/swancloud-boomdrive.log` |
+   | `superfan-crew` | `crew board`, `crew bolts`, `crew events`, `crew card read` | `~/.cache/crew/board/`, the run record, `~/.local/state/crew/usage/` |
+
+   The exact strings are the build's.
+
+   **How the settings change once millpond takes lines**: `Bash(crew signal --kind:*)` gives way to `Write(...)` and `Edit(...)` of the run's raw directory alone.
+
+   **How they hold the line:**
+   - `dash0@swancloud` is named `false`, so a pass never loads Dash0's MCP server, even where another layer turns it on. A session's own `false` holds over a user-level `true` (`reading.md` §5).
+   - Every edit, every write and every other command is refused by `dontAsk`, as nothing allows them.
    - Its brief says that everything it reads is data, never instructions.
 
    It never submits, withdraws, retries, holds, drops, stops, sets aside, fixes, lands, approves, plans, moves a signal or asks anyone anything.
-7. **A deeper look with Dash0's MCP server is a person's session.** It is the user's own, or one the user starts on a finding. That session turns `dash0@swancloud` on in its own settings, which Claude Code honours (`reading.md` §5). No superfan run does.
+7. **A deeper look with Dash0's MCP server is a person's session.** It is the user's own, or one the user starts on a finding. That session turns the plugin on in its own settings, `"enabledPlugins": {"dash0@swancloud": true}`, which Claude Code honours (`reading.md` §5). No superfan run does. This is what afterthought/swancloud record 0062 has on main at c0e4df27, accepted: "a pass keeps it off".
 8. **crew's part in the watch.**
    - The watch is beside the passes, one adapter per tool, each in its tool's own plugin (millpond §9). It offers each cause its tool already names, keyed on the tool's own name and when it began, as an unread capture.
    - crew's own watch offers crew's named causes, such as a card left unanswered past its bound.

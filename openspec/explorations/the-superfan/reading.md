@@ -81,23 +81,29 @@ Read at each repository's `origin/main` on 2026-11-08, and on deneb as it ran th
 
 ## 5. How a superfan's session reaches Dash0
 
-swancloud gives the superfans two ways in, both reading one read-only token from deneb's secret (swancloud record 0062 as amended). One is the plugin `dash0@swancloud`, holding Dash0's MCP server and Dash0's agent skills at a pinned tag. It is installed on deneb alone and off by default, and a superfan's session turns it on in its own agent settings. The other is the `dash0` command line, on deneb's path in agent mode, reading the same token with `--auth-token-file`.
+swancloud gives the superfans two ways in, both reading one read-only token from deneb's secret (swancloud record 0062 as amended). One is the plugin `dash0@swancloud`, holding Dash0's MCP server and Dash0's agent skills at a pinned tag. It is installed on deneb alone and off by default. A pass keeps it off, and a session that digs into a finding turns it on in its own agent settings (swancloud record 0062 on main at c0e4df27, accepted). The other is the `dash0` command line, on deneb's path in agent mode, reading the same token with `--auth-token-file`.
 
-**A session's own settings turn an installed plugin on.**
+**A session's own settings turn an installed plugin on or off, over the user's.**
 - How Flume passes settings: Flume writes an agent's kind settings to one file, `own-settings.json` beside the start's record. It passes the file to Claude Code as `--settings <file>`, which "the release lays over the user's, the project's and the local settings" (agentplot/flume `crates/flume/src/profiles/agent/claude/settings.rs` and `mod.rs`; Flume 195, 196). `enabledPlugins` is not among the fourteen keys Flume reserves.
-- The test, read on deneb on 2026-11-09 with Claude Code 2.1.319, in a scratch configuration directory so the user's own was untouched:
+- The test, read on deneb on 2026-11-09 and again on 2026-11-11 with Claude Code 2.1.319, in a scratch configuration directory so the user's own was untouched:
   - A directory marketplace held one plugin, `probe`, whose `.mcp.json` declared one stdio server.
-  - The plugin was installed and then turned off.
+  - The plugin was installed, and then set in the user's settings as each row says.
   - Each session was started under `--output-format stream-json --verbose`, whose `init` event lists the plugins loaded and the MCP servers started. The scratch directory had no sign-in, so no model was called.
 
-| User settings | Session's `--settings` | What Claude Code lists |
+| User settings | Session's `--settings` | MCP servers the session starts |
 |---|---|---|
-| `"probe@probe-mkt": false` | none | `claude mcp list`: no servers |
-| `"probe@probe-mkt": false` | `{"enabledPlugins": {"probe@probe-mkt": true}}` | `claude mcp list`: `plugin:probe:probe-server` |
-| plugin not named | none | the four built-in plugins; `mcp_servers: []` |
-| plugin not named | `{"enabledPlugins": {"probe@probe-mkt": true}}` | plugin `probe@probe-mkt`; `mcp_servers: [{"name": "plugin:probe:probe-server", "source": "plugin", …}]` |
+| `"probe@probe-mkt": false` | none | none |
+| `"probe@probe-mkt": false` | `{"enabledPlugins": {"probe@probe-mkt": true}}` | `plugin:probe:probe-server` |
+| plugin not named | none | none |
+| plugin not named | `{"enabledPlugins": {"probe@probe-mkt": true}}` | `plugin:probe:probe-server` |
+| `"probe@probe-mkt": true` | none | `plugin:probe:probe-server` |
+| `"probe@probe-mkt": true` | `{"enabledPlugins": {"probe@probe-mkt": false}}` | none |
 
-The server's status read `failed` only because the probe's command was `/bin/cat`, which speaks no MCP. So a session whose kind settings say `"enabledPlugins": {"dash0@swancloud": true}` gets the plugin, its MCP server and its skills, and a session without them gets none. The test was not made with `dash0@swancloud` itself, which is not yet installed on deneb.
+The server's status read `failed` only because the probe's command was `/bin/cat`, which speaks no MCP. So a session's own settings decide the plugin over the user's, both ways:
+- a superfan's pass, whose settings say `"enabledPlugins": {"dash0@swancloud": false}`, gets none of it, even where another layer turns it on;
+- a session that digs further, whose settings say `true`, gets the plugin, its MCP server and its skills.
+
+The test was not made with `dash0@swancloud` itself, which is not yet installed on deneb. Flume takes `dontAsk` as a kind's mode (agentplot/flume `crates/flume/src/profiles/agent/claude/mode.rs`), among Claude Code 2.1.319's `acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk` and `plan`.
 
 **The command line covers every read a pass makes.** dash0hq/dash0-cli (<https://github.com/dash0hq/dash0-cli>, read 2026-11-09) gives these read commands, all JSON in agent mode:
 - `logs query`, `spans query`, `traces get` and `metrics instant`;
