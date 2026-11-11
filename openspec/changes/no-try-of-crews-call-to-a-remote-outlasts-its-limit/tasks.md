@@ -4,7 +4,7 @@ Build the tasks in order. Each check runs from the place's root as written. A lo
 
 ## 1. A try
 
-- [ ] 1.1 `gather.TRY_FOR` is thirty seconds and `gather.GRACE` two; `gather.span` says a limit as `30s` or `300ms`; and `gather.stopped` gives git's last line and `; `, where git wrote one, then the family's words naming the call, the remote and the limit (design Decisions 2 and 3; Task notes 1.1). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_remote_limit.py::TestTheFamilysLimit'`.
+- [x] 1.1 `gather.TRY_FOR` is thirty seconds and `gather.GRACE` two; `gather.span` says a limit as `30s` or `300ms`; and `gather.stopped` gives git's last line and `; `, where git wrote one, then the family's words naming the call, the remote and the limit (design Decisions 2 and 3; Task notes 1.1). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/py/test_remote_limit.py::TestTheFamilysLimit'`.
 - [ ] 1.2 `gather.tried` runs a command in a process group of its own and waits no longer than its limit. A command that ends within the limit gives its exit and everything it printed. At the limit the group is asked to end, given the grace, then killed, and the try is said stopped with nothing the command started left (design Decision 1; Task notes 1.2). Passes `devenv shell -- bash -c 'moon run tests:venv && tests/.venv/bin/python -m pytest -q -p no:cacheprovider tests/contract/test_remote_limit.py::TestATry'`.
 
 ## 2. The state repository

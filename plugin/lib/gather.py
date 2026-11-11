@@ -440,6 +440,31 @@ def ran(args, cwd):
     return r.returncode, r.stdout, r.stderr
 
 
+# A try of a call to a remote, as the family bounds it: agentplot/blueprints design/weir/requirements.md 69 and C.3
+# (amended at ad3a1ae, 2026-11-11), mirrored from weir's weir-bounded (weir main 9cba691, record 0008) since Python
+# cannot take the crate, at agentplot/sluice record 0109's limit. TRY_FOR is the most a try may take and GRACE how long
+# a group asked to end at its limit has before it is killed, in seconds, set here alone: no setting of crew's, no
+# environment variable and no file changes either (C.3: "No setting of a writer's changes the limit").
+TRY_FOR = 30.0
+GRACE = 2.0
+
+
+def span(limit):
+    """A limit in the words a person reads, as weir-bounded's span: whole seconds as `30s`, anything else in
+    milliseconds, as `300ms` (weir 69, C.3; sluice record 0109). A decision on plain facts (code.7)."""
+    ms = round(limit * 1000)
+    return f"{ms // 1000}s" if ms >= 1000 and ms % 1000 == 0 else f"{ms}ms"
+
+
+def stopped(call, remote, limit, err=""):
+    """A stopped try's failure, in weir-bounded's words, naming its call, its remote and its limit, after git's last
+    line on standard error and `; ` where git wrote one (weir 69, C.3; sluice record 0109). A decision on plain facts
+    (code.7)."""
+    last = next((l.strip() for l in reversed((err or "").splitlines()) if l.strip()), "")
+    said = f"{call} with {remote} was still going after {span(limit)}, the most a try may take, and was stopped"
+    return f"{last}; {said}" if last else said
+
+
 def fetched(main):
     """A kit's GitHub fetched into its main checkout, as a read a decision of the moment rests on fetches it (plan.18,
     plan.19), `git fetch -q origin`: None once it fetched, or for a kit with no origin remote, which has no GitHub;
