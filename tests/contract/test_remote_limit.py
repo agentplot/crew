@@ -249,3 +249,23 @@ class TestOriginFetch:
         r, took = self.ran(bash, plan.ORIGIN_FETCH, str(repo.path))
         assert (r.returncode, r.stdout, r.stderr) == (0, "", "")
         assert repo.git("rev-parse", "refs/remotes/origin/main") == sha
+
+
+class TestGathersFetch:
+    """remote-limit: gather on an origin that never answers. gather.fetched, run on a kit's host by gather's read, is
+    one try (gather.tried), and a stopped one is the kit's fetch failure in the family's words, naming origin and the
+    limit, 300 ms here, set on gather for the case."""
+
+    def test_gather_on_an_origin_that_never_answers(self, repo, tmp_path, monkeypatch):
+        ssh, pids = silent(tmp_path)
+        repo.commit("chore: start", {"README.md": "r\n"})
+        repo.git("remote", "add", "origin", "ssh://silent.invalid/kit.git")
+        repo.git("config", "core.sshCommand", ssh)
+        repo.git("config", "ssh.variant", "simple")
+        monkeypatch.setattr(gather, "TRY_FOR", 0.3)
+        began = time.monotonic()
+        said = gather.fetched(str(repo.path))
+        assert time.monotonic() - began < TRY
+        assert said == "git fetch with origin was still going after 300ms, the most a try may take, and was stopped"
+        (pid,) = calls(pids)
+        assert gone(pid)
