@@ -2232,7 +2232,9 @@ echo "LOCAL=$l"; echo "TRACKED=$o"; echo "AT_LOCAL=$(pol "$l")"; echo "AT_TRACKE
 # twin in bash, since the host's crew may be older and no crew module is on its disk: bounded <call> <remote> <command...>
 # runs the command in a process group of its own (job control on for its start), its output to temporary files it
 # removes once read, and waits, a look every tenth of a second, until its leader has exited and no process of its group
-# is left, or to try_for_ms, when it asks the group to end, gives it grace_ms, then kills it and reaps the leader. A try
+# is left, or to try_for_ms, when it asks the group to end, gives it grace_ms, then kills it and reaps the leader; the
+# looks count the time slept, and $SECONDS, whole seconds of the wall clock, bounds a host so loaded that the sleeps run
+# long, so a try ends at most two seconds past its limit there and never before it. A try
 # that ends gives its output, its standard error and its exit as they were; a stopped one prints none of its output,
 # says gather.stopped's words on standard error and returns 124. try_for_ms and grace_ms are filled from gather.TRY_FOR
 # and gather.GRACE here, one line each, and read from nothing else. It runs on bash 3.2, a Mac's /bin/bash, as on 5.
