@@ -477,8 +477,41 @@ def cache(repo):
     return c
 
 
+REMOTE_WORDS = ("fetch", "ls-remote", "push")
+
+
+def reaches_remote(args):
+    """Whether a git call in crew's cache of a state repository reaches its remote, and so is one try to the family's
+    limit (weir 69, C.3): a fetch, a listing or a push, by the call's word, since crew's cache reaches no remote by any
+    other. A decision on plain facts (code.7)."""
+    return bool(args) and args[0] in REMOTE_WORDS
+
+
+class Ran:
+    """What a git call in crew's cache gave: its exit, what it printed, and whether it was a try stopped at its limit.
+    A stopped try's returncode is never 0, its stderr is its failure in the family's words and its stdout is empty."""
+
+    def __init__(self, returncode, stdout, stderr, stopped=False):
+        self.returncode, self.stdout, self.stderr, self.stopped = returncode, stdout, stderr, stopped
+
+
 def git(repo, *args, input=None, env=None, check=True):
-    r = subprocess.run(["git", "-C", str(cache(repo)), *args], input=input, capture_output=True, text=True, env=gitenv(env))
+    """git in crew's bare cache of a repo: a call that reaches the remote (reaches_remote) run as one try to the family's
+    limit, gather.TRY_FOR read at the call, naming its remote by the address it is given, the call's first argument
+    after its word that is not an option (gather.tried, weir 69, C.3); every other call run to its end. With check, a
+    failure refuses naming the word, the repo and git's words or the stopped try's; else the result (Ran)."""
+    argv = ["git", "-C", str(cache(repo)), *args]
+    if reaches_remote(args):
+        limit = gather.TRY_FOR
+        code, out, err, stopped = gather.tried(argv, input=input, env=gitenv(env), limit=limit)
+        if stopped:
+            remote = next((a for a in args[1:] if not a.startswith("-")), repo)
+            r = Ran(code or 1, "", gather.stopped(f"git {args[0]}", remote, limit, err), True)
+        else:
+            r = Ran(127 if code is None else code, out, err)
+    else:
+        done = subprocess.run(argv, input=input, capture_output=True, text=True, env=gitenv(env))
+        r = Ran(done.returncode, done.stdout, done.stderr)
     if check and r.returncode:
         fail(f"git {args[0]} in crew's cache of {repo} failed: {r.stderr.strip()}")
     return r if not check else r.stdout.strip()
