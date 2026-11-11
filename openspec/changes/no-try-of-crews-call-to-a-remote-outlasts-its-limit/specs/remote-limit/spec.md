@@ -1,3 +1,6 @@
+## Purpose
+How crew bounds each try of its calls to a remote, so a remote that takes a call and never answers holds no crew command, and no agent's shell behind it, past the family's limit (agentplot/blueprints `design/weir/requirements.md` 69 and C.3; sluice record 0109; `weir-bounded`): a try runs in a process group of its own and is ended with everything it started; its limit and grace are the family's, set by nothing of crew's; a stopped try is named in the family's words; the state repository's fetch, listing and push, and a kit's fetch of its origin, are such tries; and every local git call runs to its end.
+
 ## ADDED Requirements
 
 ### Requirement: A try runs to its limit in a process group of its own
