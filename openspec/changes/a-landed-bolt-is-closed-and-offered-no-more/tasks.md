@@ -27,7 +27,7 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 
 ## 5. The follower
 
-- [ ] 5.1 The follower's clock fetch carries the main of each repository with a started bolt, and its read hands each tip in, so a refresh fetches nothing (design, Decision 7; Task notes 5.1). Verify `pytest tests/py/test_board.py::TestTheFollowerFetchesEachKitsMain`.
+- [x] 5.1 The follower's clock fetch carries the main of each repository with a started bolt, and its read hands each tip in, so a refresh fetches nothing (design, Decision 7; Task notes 5.1). Verify `pytest tests/py/test_board.py::TestTheFollowerFetchesEachKitsMain`.
 
 ## 6. The docs
 

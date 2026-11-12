@@ -1680,14 +1680,8 @@ class Stages:
         work = main_work(self.plan, *run, name)
         if work and not main_asks(work, None):  # a piece not merged: nothing of main is read
             return None, on_main(name, kit, work, None, {})
-        # its kit's repository by its owner: as the plan names it, the repository bolt_at's kit carries, or as the runner
-        # that took its work reports keeping it, else as the drive's main-level host's teams file keeps it
-        repo = bolt.get("Repo")
-        if (not repo or "/" not in repo) and kit:
-            repo = reported_address(run[1], bolt_launches(run[0], name) or runner.kit_launches(run[0], kit), f"bolt {name}", kit)
-        if (not repo or "/" not in repo) and kit:
-            repo = (((main_kit_read(self.fleet, self.label, bolt.get("Repo")) or {}).get("kit")) or {}).get("repo")
-        if not repo or "/" not in repo:
+        repo = main_repository(self.fleet, self.label, bolt, run)
+        if not repo:
             return None, f"crew can't tell {kit or 'its kit'}'s repository on GitHub, so it reads nothing of its main for bolt {name}"
         try:
             tip = main_tip(repo)
@@ -1822,6 +1816,22 @@ class Stages:
         if units and all(x in ("merged", "landed") for x in stages) and self.verification(b, facts.get("head"), facts.get("head_landing"))[0] == "green":
             return "waits"
         return "active"
+
+
+def main_repository(fleet, label, b, run):
+    """The forge address, <owner>/<name>, whose main a started bolt's landing is read on (Stages.main_landing) and the
+    follower fetches (board.kit_mains): its kit as the plan names it, the repository bolt_at's kit carries, where that
+    names an owner; else as the runner that took its work reports keeping it (reported_address), from the drive's
+    requests and runners (run, None where they can't be read); else as the drive's main-level host's teams file keeps
+    it (main_kit_read); None where none names it by its owner. It reads nothing but the teams file crew has loaded
+    (code.7)."""
+    kit = (b.get("Repo") or "").split("/")[-1]
+    repo = b.get("Repo") or ""
+    if "/" not in repo and kit and run is not None:
+        repo = reported_address(run[1], bolt_launches(run[0], b.name()) or runner.kit_launches(run[0], kit), f"bolt {b.name()}", kit) or ""
+    if "/" not in repo and kit:
+        repo = (((main_kit_read(fleet, label, b.get("Repo")) or {}).get("kit")) or {}).get("repo") or ""
+    return repo if "/" in repo else None
 
 
 def reported_address(reads, launches, what, kit):
