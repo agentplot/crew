@@ -57,7 +57,7 @@ Today crew makes a bolt's branch with sluice's `branch create`. It lands the bol
 
 ## Amendment of 2026-11-12: a bolt started before bolts were base places is landed by hand, once
 
-Status: proposed to the user on 2026-11-12, as `briefs.15` has it; accepted only on their yes. Rules of the user's decided it between two paths, and its card names the other.
+Status: accepted by the user on 2026-11-12, on their card, choosing "Accept the record as ruled" over Flume taking the old bolts' branches as base places.
 
 Deciders: the user, asking for it on 2026-11-12 in agentplot-ops's pane: "we need to figure this out and get transitioned." The way is decided by blueprints principle 12, from the user's words of 2026-11-08 ("I want the system to be built the way it should be and then have agents fucking fix the data transition as necessary"), and by Flume's clause 3. agentplot-design for the record.
 
