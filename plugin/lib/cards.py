@@ -970,16 +970,22 @@ def row_counts(r):
     return " ".join(x for x in (stopped_said(r), "; ".join(x for x in row_bits(r) if x)) if x)
 
 
-def row_paragraph(n, r):
-    """A landings row on the card's face, as Markdown: its place and bolt, its units and chores one a line,
-    its batches, sluice's verdict and when, how far main moved, its forecast, what stopped its last
-    landing at its head (stopped_said), and its reading, preview and pull request as links."""
+WAITS = " · *waits for a box*"  # the mark of a landings row with no box on its card's face (landings_boxed)
+
+
+def row_paragraph(n, r, boxed=True):
+    """A landings row on the card's face, as Markdown: its place and bolt, marked when it takes main first, was left
+    on the user's last send, or has no box on the card (boxed False, landings_boxed), its units and chores one a line,
+    its batches, sluice's verdict and when, how far main moved, its forecast, what stopped its last landing at its
+    head (stopped_said), and its reading, preview and pull request as links."""
+    waits = "" if boxed else WAITS
     if r.get("fix"):
-        return f"**{n}. fix {r['bolt']}**\n\n{fix_said(r)}"
+        return f"**{n}. fix {r['bolt']}**{waits}\n\n{fix_said(r)}"
     units, chores = list(r["units"]), list(r.get("chores") or [])
     moved = r.get("moved") or 0
     lines = [f"**{n}. {r['bolt']}**"
-             + (" · *takes main first*" if r.get("taking") else " · *left on your last send*" if r.get("left") else ""), ""]
+             + (" · *takes main first*" if r.get("taking") else " · *left on your last send*" if r.get("left") else "")
+             + waits, ""]
     lines += [f"- {u}" for u in units] + [f"- {c} (chore)" for c in chores] + [""]
     _, read, green = row_bits(r)
     said = ([stopped_said(r)] if r.get("stopped") else []) + ([f"Read in {read[8:]}."] if read else []) + [f"sluice is {green}."]
@@ -1002,28 +1008,31 @@ def landings_card(f):
     """A kit's landings card (rail-cards, record 0031 as amended 2026-10-23, briefs.13), keyed land/<kit>, main-level
     ops's: every bolt of the kit that can land, and each beside them taking main first (plan.card_rows), a row each in
     the plan's order, one send the word for every row the user leaves ticked, in the order shown. One row is the
-    landing card of today (landing_card), an approve of risk high that never carries highStakes; two to BOXES, one list
-    of boxes carrying highStakes, each `<n>. <bolt>`, its detail the row's counts, batches and verdict, its consequence
-    its forecast, each ticked as crew proposes but one the user cleared on their last send and one taking main first,
-    whose detail and consequence say why and what a tick on it does (taking_said); more, lists of BOXES at most, in
-    order, each a question about the kit's main carrying its own highStakes, the card none (landings_form). What follows
-    a yes is its rationale, each list's own when it has several, since Pending You refuses a card's rationale and
-    highStakes beside questions. On its face, one Markdown artifact, a paragraph a row (row_paragraph), then the rows
-    held with no box and why; in its details, every row's reading first, then its previews and pull request,
-    as many as the card's artifacts leave room for. f: kit, rows (each the facts landing_card takes, with forecast,
-    forecast_why, link or unread and preview, stopped when sluice or its host stopped its last landing at its head,
-    which its paragraph and its box's detail say, stopped_said, and taking, why, for a row taking main first), held
-    ([{bolt, why}]), left (the bolts the user cleared on their last send), ops (the main-level ops whose card it is),
-    follows. Also handed back: heads, each row as <bolt>@<head>, :main for one taking main first and :left for one the
-    user cleared, which the run record keeps on the card's post and change for the next raise to read
-    (plan.landings_step), and linked, since each row's reading was opened with it and the card has no reading of its
-    own."""
+    landing card of today (landing_card), an approve of risk high that never carries highStakes; more, one list of
+    boxes carrying highStakes and what follows a yes, its rationale, on the card, asking no questions, which Pending
+    You refuses carrying highStakes (landings_form). The list holds BOXES at most (landings_boxed): first the rows
+    crew ticks, then the others, each in the rows' order, each box `<n>. <bolt>` by its row's place among all the rows,
+    its detail the row's counts, batches and verdict, its consequence its forecast, each ticked as crew proposes but
+    one the user cleared on their last send and one taking main first, whose detail and consequence say why and what
+    a tick on it does (taking_said). A row with no box stays on the face in its place, marked as waiting for one, and
+    the summary says how many wait and that the card that follows the user's send asks for them. On its face, one
+    Markdown artifact, a paragraph a row (row_paragraph), then the rows held with no box and why; in its details,
+    every row's reading first, then its previews and pull request, as many as the card's artifacts leave room for.
+    f: kit, rows (each the facts landing_card takes, with forecast, forecast_why, link or unread and preview, stopped
+    when sluice or its host stopped its last landing at its head, which its paragraph and its box's detail say,
+    stopped_said, and taking, why, for a row taking main first), held ([{bolt, why}]), left (the bolts the user
+    cleared on their last send), ops (the main-level ops whose card it is), follows. Also handed back: heads, each row
+    as <bolt>@<head>, :main for one taking main first and :left for one the user cleared, then :next for one with no
+    box, which the run record keeps on the card's post and change for the next raise to read (plan.landings_step), and
+    linked, since each row's reading was opened with it and the card has no reading of its own."""
     kit, rows, held, left = f["kit"], [dict(r) for r in f["rows"]], list(f.get("held") or []), set(f.get("left") or [])
     key, form = f"land/{kit}", landings_form(len(rows))
     rows or fail(f"{key} has no bolt that can land, so it has no card")
     for r in rows:
         r["left"], r["ops"] = r["bolt"] in left, f.get("ops")
-    heads = [f"{r['bolt']}@{r['head'][:7]}" + (":main" if r.get("taking") else ":left" if r["left"] else "") for r in rows]
+    boxed = set(landings_boxed(rows))
+    heads = [f"{r['bolt']}@{r['head'][:7]}" + (":main" if r.get("taking") else ":left" if r["left"] else "")
+             + ("" if r["bolt"] in boxed else ":next") for r in rows]
     unread = [(r["bolt"], r["unread"]) for r in rows if r.get("unread")]
     why = unread[0][1] if len(rows) == 1 and unread else "; ".join(f"{b}: {w}" for b, w in unread)
     if form == "approve":
@@ -1032,14 +1041,17 @@ def landings_card(f):
         return out
     n = len(rows)
     about = f"{kit}'s main"
-    face = "\n\n".join(row_paragraph(i, r) for i, r in enumerate(rows, 1))
+    face = "\n\n".join(row_paragraph(i, r, r["bolt"] in boxed) for i, r in enumerate(rows, 1))
     if held:
         face += "\n\n**Held, with no box**\n\n" + "\n".join(f"- **{h['bolt']}**: {h['why']}" for h in held)
     left_said = [r["bolt"] for r in rows if r["left"] and not r.get("taking")]
     taking = [r["bolt"] for r in rows if r.get("taking")]
+    waiting = n - len(boxed)
     summary = (f"{n} bolts wait to land on {about}, in the order below. One send lands the ticked ones in that order, each "
-               "queued behind the one before; clear a box to leave that bolt waiting. A note can move one in the order, or "
-               "name a defect in one, which goes to main-level ops."
+               "queued behind the one before; clear a box to leave that bolt waiting."
+               + (f" {waiting} more wait below with no box yet; the card that follows your send asks for them."
+                  if waiting else "")
+               + " A note can move one in the order, or name a defect in one, which goes to main-level ops."
                + (f" {joined(left_said)} {'was' if len(left_said) == 1 else 'were'} left on your last send, and "
                   f"{'is' if len(left_said) == 1 else 'are'} unticked." if left_said else "")
                + (f" {joined(taking)} {'takes' if len(taking) == 1 else 'take'} main first, and "
@@ -1051,23 +1063,12 @@ def landings_card(f):
                 "detail": by_words((f"{r['taking'][0].upper()}{r['taking'][1:].rstrip('.')}. " if r.get("taking") else
                                     "Left on your last send. " if r["left"] else "") + row_counts(r), DETAIL),
                 "consequence": by_words(TAKING_TICKED if r.get("taking") else row_said(r), DETAIL)}
-    options = [option(i, r) for i, r in enumerate(rows, 1)]
-    ticked = [o["id"] for o, r in zip(options, rows) if not r["left"] and not r.get("taking")]
+    options = [(option(i, r), r) for i, r in enumerate(rows, 1) if r["bolt"] in boxed]
+    ticked = [o["id"] for o, r in options if not r["left"] and not r.get("taking")]
     then = by_words("After you send: crew asks the runner to land them in this order, Flume submits each through the merge "
                     "queue, each closed as it lands, and every host takes them.", DETAIL)
-    if form == "multi":
-        shape = dict(kind="multi", intent="decide", options=options, multi={"min": 0, "max": n}, recommendedIds=ticked,
-                     rationale=then, highStakes=True)
-    else:  # Pending You refuses a card's rationale and highStakes beside questions, so each list carries both
-        g = -(-n // BOXES)
-        sizes = [n // g + (1 if k < n % g else 0) for k in range(g)]
-        groups = [options[sum(sizes[:k]):sum(sizes[:k + 1])] for k in range(g)]
-        shape = dict(intent="decide", about={"kind": "other", "title": cut(f"Land on {about}", ABOUT)},
-                     questions=[dict(id=f"rows-{k}", kind="multi", title=f"Bolts {grp[0]['label'].split('.')[0]} to "
-                                     f"{grp[-1]['label'].split('.')[0]} of {n}, in order", options=grp,
-                                     multi={"min": 0, "max": len(grp)}, recommendedIds=[o["id"] for o in grp if o["id"] in ticked],
-                                     rationale=then, highStakes=True)
-                                for k, grp in enumerate(groups, 1)])
+    shape = dict(kind="multi", intent="decide", options=[o for o, _ in options], multi={"min": 0, "max": len(options)},
+                 recommendedIds=ticked, rationale=then, highStakes=True)
     reads = [(f"Read {r['bolt']}", r["link"]) for r in rows if r.get("link")]
     previews = [(f"Preview {r['bolt']}: {label}", url) for r in rows for label, url in preview_said(r.get("preview"))[1]]
     pulls = [(f"Pull request #{r['pr']['number']} for {r['bolt']}, opened by sluice", r["pr"]["url"]) for r in rows if r.get("pr")]
