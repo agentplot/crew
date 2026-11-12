@@ -2546,3 +2546,36 @@ class TestPreviews:
         assert plan.told_read("wldn") == {f"land/{KIT}": {"1": "asked"}}
         acts = self.Acts(self)
         assert plan.previews_changed(fleet, read, acts) == [] and acts.notes == []
+
+
+class TestABoltOnMainHasNoLandLine:
+    """bolt-teams "A bolt read landed on main is offered no more", its scenario "Not under land on the rail"
+    (a-landed-bolt-is-closed-and-offered-no-more, Decision 6): a bolt whose landing reads landed, its close not yet
+    recorded, has no line under land on the rail (plan.rail_rows); one with no launch of its own whose kit's main lacks
+    its work keeps its line saying it lands under the crew that started it. apex-zones stands for both, its unit
+    zone-one landed on bolt/apex-zones at d185a87 and no launch of its own; main_tip, main_holds and landed_by stand for
+    git."""
+    LANDED = "6cfc4ae" + "0" * 33
+
+    def land_lines(self, monkeypatch, held):
+        from facts import ran
+        monkeypatch.setattr(plan, "main_tip", lambda repo: "e" * 40)
+        monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: {c: 0 if c in held else 1 for c in commits})
+        monkeypatch.setattr(plan, "landed_by", lambda repo, tip, commits: self.LANDED)
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [])
+        p = the_plan()
+        requests, _ = runs(p)["wldn"]
+        n = {r.get("Work"): r.get("Request") for r in requests if r.get("Act") == "launch"}
+        requests = [r for r in requests if r.get("Work") != "bolt/apex-zones"]
+        reads = ran({n["unit/zone-one"]: "landed"}, host=BOX, label="wldn", repository="/kit/main", keeps=(f"WilldanGroup/{KIT}",))
+        held_ = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "refused": {},
+                          "stopped": {}, "phases": {}}}
+        return [w for r in plan.rail_rows(FLEET, [("wldn", "WilldanGroup/crew-state", "tip", p)], survey(), [], {}, held_,
+                                          {"wldn": (requests, reads)}) if r["group"] == "land" and r["key"] == f"land/{KIT}"
+                for w in r["what"][1:]]
+
+    def test_a_bolt_read_landed_on_main_has_no_line_and_one_main_lacks_keeps_its_legacy_line(self, monkeypatch):
+        assert self.land_lines(monkeypatch, held=(BOLT_HEAD,)) == []
+        assert self.land_lines(monkeypatch, held=()) == [
+            f"apex-zones, on {BOX}, in Flume stream wldn: apex-zones was started before bolts were base places and lands under "
+            "the crew that started it"]

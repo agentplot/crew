@@ -10164,6 +10164,8 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             carry = carries_said(bk.get("carries"), bk.get("carries_error"))
             landing = st.landing(b)
             o = (landing or {}).get("outcome")
+            if o == "landed":  # as the runner reports it or as its kit's main holds it: its close is crew's next read (Decision 6)
+                continue
             here = not (phase or {}).get("head") or at_head(phase["head"], head)  # the head its last land was posted at
             if o == "stopped" and here and not stop:  # the runner's or Flume's stop, before a read records it
                 stop = (landing.get("words") or "").strip().splitlines()[0] if (landing.get("words") or "").strip() else "stopped"

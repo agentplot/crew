@@ -23,7 +23,7 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 ## 4. Offering it no more
 
 - [x] 4.1 A bolt whose landing reads landed is no row of its kit's landings card, so no land of it is posted on any send and no stop of it is said (design, Decision 6; Task notes 4.1). Verify `pytest tests/py/test_landings.py::TestABoltOnMainIsNoRow`.
-- [ ] 4.2 A bolt whose landing reads landed has no line under *land* on the rail (design, Decision 6; Task notes 4.2). Verify `pytest tests/py/test_rail.py::TestABoltOnMainHasNoLandLine`.
+- [x] 4.2 A bolt whose landing reads landed has no line under *land* on the rail (design, Decision 6; Task notes 4.2). Verify `pytest tests/py/test_rail.py::TestABoltOnMainHasNoLandLine`.
 
 ## 5. The follower
 
