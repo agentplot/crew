@@ -2404,11 +2404,11 @@ class TestCrossedLandings:
 
     def test_a_fix_in_flight_on_it_holds_its_landing(self):
         """bolt-teams "A review note marked fix": x's row says it lands once that fix has merged or been dropped."""
-        fix = {"Request": "4", "Act": "launch", "Host": "deneb", "Work": "fix/x/rail-word", "Repo": "afterthought/crew", "Kind": "fix",
+        fix = {"Request": "5", "Act": "launch", "Host": "deneb", "Work": "fix/x/rail-word", "Repo": "afterthought/crew", "Kind": "fix",
                "Name": "x--rail-word", "Base": "bolt/x"}
-        rows = self.rows({1: "landed", 2: "landed", 3: "landed", 4: "code"}, extra=[fix])
+        rows = self.rows({1: "landed", 2: "landed", 3: "landed", 5: "code"}, extra=[fix])
         assert rows[0]["what"][1] == "x, on deneb, in Flume stream madswan: lands once fix/x/rail-word has merged or been dropped"
-        assert self.rows({1: "landed", 2: "landed", 3: "landed", 4: "landed"}, extra=[fix])[0]["bolts"][0]["can"] is True
+        assert self.rows({1: "landed", 2: "landed", 3: "landed", 5: "landed"}, extra=[fix])[0]["bolts"][0]["can"] is True
 
 
 class TestPreviews:

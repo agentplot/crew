@@ -24,10 +24,12 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 
 - [x] 4.1 A bolt whose landing reads landed is no row of its kit's landings card, so no land of it is posted on any send and no stop of it is said (design, Decision 6; Task notes 4.1). Verify `pytest tests/py/test_landings.py::TestABoltOnMainIsNoRow`.
 - [x] 4.2 A bolt whose landing reads landed has no line under *land* on the rail (design, Decision 6; Task notes 4.2). Verify `pytest tests/py/test_rail.py::TestABoltOnMainHasNoLandLine`.
+- [x] 4.3 `TestCrossedLandings`' fix in flight is launched as a request of its own, 5, not request 4, which is `bolt/x`'s base place, so the case proves a fix in flight holds the landing and no longer reads the base place landed (verify.md, check 1). Verify `pytest tests/py/test_rail.py::TestCrossedLandings`.
 
 ## 5. The follower
 
 - [x] 5.1 The follower's clock fetch carries the main of each repository with a started bolt, and its read hands each tip in, so a refresh fetches nothing (design, Decision 7; Task notes 5.1). Verify `pytest tests/py/test_board.py::TestTheFollowerFetchesEachKitsMain`.
+- [ ] 5.2 `t-journey-board`'s quiet tick counts six fetches of other repositories, the mains of switchboard-kit and atlas-kit, the kits of its started bolts, among them, and its comment names them (design, Decision 7; verify.md, check 2). Verify `tests/suite t-journey-board` ends with "0 failed".
 
 ## 6. The docs
 
