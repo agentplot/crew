@@ -11,7 +11,7 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 
 ## 2. Reading it
 
-- [ ] 2.1 `Stages.landing` reads a started bolt landed at main's commit where the runner's report does not and its kit's main holds its work, one with no launch of its own among them, reading no host and no kit, and `Stages.base` gives it no legacy words (design, Decision 3; Task notes 2.1). Verify `pytest tests/py/test_stages.py::TestABoltWhoseWorkIsOnMain`.
+- [x] 2.1 `Stages.landing` reads a started bolt landed at main's commit where the runner's report does not and its kit's main holds its work, one with no launch of its own among them, reading no host and no kit, and `Stages.base` gives it no legacy words (design, Decision 3; Task notes 2.1). Verify `pytest tests/py/test_stages.py::TestABoltWhoseWorkIsOnMain`.
 
 ## 3. Recording and closing it
 

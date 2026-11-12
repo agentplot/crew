@@ -1565,6 +1565,7 @@ class Stages:
 
     def __init__(self, fleet, plan, survey, runs=None, label=None):
         self.fleet, self.plan, self.survey, self.memo, self.runs, self.label = fleet, plan, survey, {}, dict(runs or {}), label
+        self.mains, self.drive = {}, None  # each bolt's reading on main (main_landing), and the drive's run record
 
     def runner(self, label):
         """The drive's requests and its runners as read (runner_facts), or why they could not be read."""
@@ -1606,8 +1607,9 @@ class Stages:
         """A started bolt's base place's stage (runner.stage_of of bolt/<bolt>; crew-lands-each-bolt-through-flumes-base-place,
         Decisions 3 and 9), from its newest launch not dropped as the runner that took it answers it (runner.piece_stage):
         unlaunched with the runner's words while it is not launched; legacy, with runner.legacy_said's words, for a bolt
-        with no launch of its own, started before bolts were base places; unknown where its drive's runners can't be
-        read; None for a bolt not started."""
+        with no launch of its own, started before bolts were base places, until its kit's main holds its work, when it
+        reads landed with no words (main_landing); unknown where its drive's runners can't be read; None for a bolt not
+        started."""
         if not started(bolt):
             return None
         run = self.runner(self.label)
@@ -1616,14 +1618,17 @@ class Stages:
         requests, reads = run
         launch = runner.launch_of(requests, f"bolt/{bolt.name()}")
         if launch is None:
-            return {"stage": "legacy", "words": runner.legacy_said(bolt.name())}
+            # one whose work its kit's main holds has landed, and says nothing of the crew that started it (Decision 3)
+            return {"stage": "landed"} if self.main_landing(bolt)[0] else {"stage": "legacy", "words": runner.legacy_said(bolt.name())}
         return runner.piece_stage(requests, reads, launch)
 
     def landing(self, bolt):
         """A started bolt's landing as the runner reports it (runner.landing_of; crew-lands-each-bolt-through-flumes-base-
         place, Decisions 6 and 10), from its base place's launch and its lands: {outcome, ...}; {outcome: legacy, words}
         for a bolt started before bolts were base places (runner.legacy_said); unknown where the drive's runners
-        can't be read; None for a bolt not started."""
+        can't be read; None for a bolt not started. Any outcome but landed is read against its kit's main, and reads
+        {outcome: landed, commit} at main's commit that landed it once main holds its work (main_landing), the keys a
+        landed report gives (a-landed-bolt-is-closed-and-offered-no-more, Decision 3)."""
         if not started(bolt):
             return None
         run = self.runner(self.label)
@@ -1632,8 +1637,71 @@ class Stages:
         requests, reads = run
         launch = runner.launch_of(requests, f"bolt/{bolt.name()}")
         if launch is None:
-            return {"outcome": "legacy", "words": runner.legacy_said(bolt.name())}
-        return runner.landing_of(launch, runner.lands_of(requests, launch), reads)
+            l = {"outcome": "legacy", "words": runner.legacy_said(bolt.name())}
+        else:
+            l = runner.landing_of(launch, runner.lands_of(requests, launch), reads)
+        if l.get("outcome") == "landed":
+            return l
+        m, _ = self.main_landing(bolt)  # read against its kit's main where the report does not read it landed (Decision 3)
+        return {"outcome": "landed", "commit": m["commit"]} if m else l
+
+    def entries(self):
+        """The drive's run record (drive_entries), read once for the Stages, refused as drive_entries refuses."""
+        if self.drive is None:
+            self.drive = drive_entries(self.fleet, self.label)
+        return self.drive
+
+    def main_landing(self, bolt):
+        """Whether a started bolt's work is on its kit's main (bolt-teams "A bolt whose work is on its kit's main reads
+        landed"; a-landed-bolt-is-closed-and-offered-no-more, Decisions 1 to 4), read once per bolt for the Stages:
+        ({commit, head, submission, request}, None), main's commit that landed it (landed_by) with the newest head a
+        landing of it carried and the landing still pending (landing_head); or (None, why). Its pieces' stages come from
+        the runner's records alone (main_work), so no kit is read; nothing is read of main while a piece has not merged;
+        its kit's repository is the one the runner that took its work reports (known_at), else the one the drive's
+        main-level host keeps (main_kit_read), named by its owner; then GitHub's main in crew's cache (main_tip), the
+        drive's run record, and git's answers (main_holds, on_main, landed_by). Anything crew can't read gives why, and
+        nothing is taken as landed (read.1); no host is reached (read.5)."""
+        if bolt.name() not in self.mains:
+            self.mains[bolt.name()] = self.read_main(bolt)
+        return self.mains[bolt.name()]
+
+    def read_main(self, bolt):
+        name, kit = bolt.name(), (bolt.get("Repo") or "").split("/")[-1]
+        if not started(bolt):
+            return None, f"bolt {name} is not started"
+        run = self.runner(self.label)
+        if isinstance(run, str):
+            return None, f"crew can't read {self.label}'s requests or runners: {run}"
+        work = main_work(self.plan, *run, name)
+        if work and not main_asks(work, None):  # a piece not merged: nothing of main is read
+            return None, on_main(name, kit, work, None, {})
+        # its kit's repository by its owner: as the plan or the runner that took its work names it, else the drive's
+        # main-level host's teams file
+        repo = (((known_at(self.fleet, self.label, bolt, run) or {}).get("kit")) or {}).get("repo")
+        if (not repo or "/" not in repo) and kit:
+            repo = reported_address(run[1], bolt_launches(run[0], name) or runner.kit_launches(run[0], kit), f"bolt {name}", kit)
+        if (not repo or "/" not in repo) and kit:
+            repo = (((main_kit_read(self.fleet, self.label, bolt.get("Repo")) or {}).get("kit")) or {}).get("repo")
+        if not repo or "/" not in repo:
+            return None, f"crew can't tell {kit or 'its kit'}'s repository on GitHub, so it reads nothing of its main for bolt {name}"
+        try:
+            tip = main_tip(repo)
+        except Refusal as e:
+            return None, str(e)
+        if not tip:
+            return None, f"crew holds no tip of {repo}'s main yet: the follower's next fetch brings it"
+        try:
+            lh = landing_head(self.entries(), name) or {}
+        except Refusal as e:
+            return None, str(e)
+        asks = main_asks(work, lh.get("head"))
+        why = on_main(name, kit, work, lh.get("head"), main_holds(repo, tip, asks) if asks else {})
+        if why:
+            return None, why
+        commit = landed_by(repo, tip, asks)
+        if not commit:
+            return None, f"cannot tell which commit of {kit}'s main landed bolt {name}: git could not read its first-parent line"
+        return {"commit": commit, "head": lh.get("head"), "submission": lh.get("submission"), "request": lh.get("request")}, None
 
     def fixes(self, bolt):
         """Each fix standing on a started bolt, in requests.rec's order, as (its work, fix/<bolt>/<name>, its launch, its
@@ -1749,6 +1817,30 @@ class Stages:
         if units and all(x in ("merged", "landed") for x in stages) and self.verification(b, facts.get("head"), facts.get("head_landing"))[0] == "green":
             return "waits"
         return "active"
+
+
+def reported_address(reads, launches, what, kit):
+    """A kit's forge address, <owner>/<name>, as the runner that took the newest of its work's launches reports keeping
+    it (runner.newest_taker, its repositories.rec), matched by the name the plan gives it, the address itself first;
+    None where that runner reports none, or two, by it, or crew can't tell which runner took it. A decision of facts
+    alone (code.7)."""
+    reading, _ = runner.newest_taker(reads, launches, what)
+    named = [a for a in ((reading or {}).get("repositories") or {}) if a.split("/")[-1] == kit.split("/")[-1]]
+    return kit if kit in named else named[0] if len(named) == 1 else None
+
+
+def main_work(plan_, requests, reads, bolt):
+    """Each unit and chore of a bolt as on_main takes it, [(name, kind, stage)], read from the runner's records alone
+    (Decision 3): each one's newest launch's stage as the runner that took it answers it (runner.piece_stage), merged at
+    the commit its place landed at on the bolt, or unknown in runner.stage_of's words where it has no launch; no kit is
+    read. A decision of facts alone (code.7)."""
+    out = []
+    for u in plan_.work_of(bolt):
+        work = runner.work_of(u)
+        launch = runner.launch_of(requests, work)
+        out.append((u.name(), kind_of(u), runner.piece_stage(requests, reads, launch) if launch is not None
+                    else runner.stage_of(work, None, None, None, True)))
+    return out
 
 
 def stages_for(fleet, label, plan, bolts, fetch=False):

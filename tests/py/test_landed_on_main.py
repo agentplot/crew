@@ -7,6 +7,8 @@ import pytest
 
 import plan
 
+MAIN_TIP = plan.main_tip  # the real one, which the logic tier's no_main stands in for (conftest)
+
 # boomdrive's a-boomdrive-release-reports-its-own-version on 2026-11-12: its head, the landing commit GitHub's main
 # holds for it (second parent the head), and the commit its unit's place landed at on the bolt.
 HEAD, LANDED, UNIT = "62d2f06" + "0" * 33, "6cfc4ae" + "0" * 33, "896e642" + "0" * 33
@@ -103,6 +105,7 @@ class TestMainTip:
 
     @pytest.fixture(autouse=True)
     def reading(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(plan, "main_tip", MAIN_TIP)
         monkeypatch.setattr(plan, "READ", plan.Reading())
         monkeypatch.setattr(plan, "CACHE", tmp_path / "cache")
         self.calls = []

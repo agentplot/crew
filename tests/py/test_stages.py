@@ -384,3 +384,80 @@ class TestTheBoltsOwnRow:
             "can't tell its base place: crew can't read madswan's requests or runners: recfix refused requests.rec")
         assert st.base(FactsWrite(flume_plan([("y", None, None)]), label="madswan").plan.bolt("y")) is None
 
+
+
+class TestABoltWhoseWorkIsOnMain:
+    """bolt-teams "A bolt whose work is on its kit's main reads landed" (a-landed-bolt-is-closed-and-offered-no-more,
+    Decision 3): where the runner's report does not read a started bolt landed, plan.Stages reads it landed at main's
+    commit once its kit's main, GitHub's in crew's cache, holds the commit each of its units landed at on the bolt and
+    the newest head a landing of it carried, one with no launch of its own among them, reading no host and no kit; its
+    base place's line then says nothing of the crew that started it. boomdrive's a-boomdrive-release-reports-its-own-
+    version stands as y, its unit a merged at 896e642, an older crew's landing queued as #154 and stopped at 62d2f06, and
+    main's 6cfc4ae landing it; main_tip, main_holds and landed_by stand for git."""
+    FLEET = madswan_fleet()
+    HEAD, LANDED, UNIT = "62d2f06" + "0" * 33, "6cfc4ae" + "0" * 33, "896e642" + "0" * 33
+    ENTRIES = [{"Act": "bolt.start", "On": ["bolt/y"]},
+               {"Act": "bolt.submit", "On": ["bolt/y"], "Outcome": "queued", "Submission": "154", "Head": HEAD},
+               {"Act": "bolt.submit", "On": ["bolt/y"], "Outcome": "stopped", "Head": HEAD,
+                "Why": "boomdrive's main checkout on deneb has no branch main and no origin"}]
+
+    @pytest.fixture(autouse=True)
+    def world(self, monkeypatch):
+        import crew
+        monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
+
+        def no_host(*a, **k):
+            raise AssertionError("a bolt's reading on main reaches no host")
+        monkeypatch.setattr(crew, "on_machine", no_host)
+        monkeypatch.setattr(plan, "host_run", no_host)
+        self.tips, self.asked, self.held = [], [], {self.HEAD: 0, self.UNIT: 0}
+        self.tip = lambda repo: self.tips.append(repo) or "e" * 40
+        monkeypatch.setattr(plan, "main_tip", lambda repo: self.tip(repo))
+        monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: self.asked.append((repo, list(commits))) or {
+            c: self.held.get(c, 1) for c in commits})
+        monkeypatch.setattr(plan, "landed_by", lambda repo, tip, commits: self.LANDED)
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: list(self.ENTRIES))
+
+    def stages(self, launched, base=False, more=(), **ran_):
+        """Stages of y, started, holding unit a launched as request 1, and, with base, y's base place as request 2, with
+        the requests in more beside them and deneb's runner as facts.ran gives it."""
+        from facts import launched as launch, ran
+        p, requests = launch(["y"], work=[("a", "y", [], "unit", [])], fleet=self.FLEET, base=base)
+        return plan.Stages(self.FLEET, p, {}, runs={"madswan": (requests + list(more), ran(launched, **ran_))}, label="madswan"), p.bolt("y")
+
+    def test_a_bolt_an_older_crew_landed_reads_landed_at_mains_commit(self):
+        st, y = self.stages({1: "flume-0.20.0/landed-held"}, commits={1: self.UNIT})
+        assert st.landing(y) == {"outcome": "landed", "commit": self.LANDED}
+        assert st.base(y) == {"stage": "landed"} and runner.base_said(st.base(y)) == ""
+        assert plan.landing_line(st.landing(y), plan.landing_phase(self.ENTRIES, "y"), self.HEAD, "y") == "landed at 6cfc4ae"
+        assert self.tips == ["afterthought/crew"] and self.asked == [("afterthought/crew", [self.HEAD, self.UNIT])]
+        assert st.main_landing(y) == ({"commit": self.LANDED, "head": self.HEAD, "submission": "154", "request": None}, None)
+
+    def test_a_base_place_the_runner_reports_stopped_reads_landed_once_main_holds_its_work(self):
+        from test_runner import held, rec
+        words = "flume refused it: a place on bolt/y is live"
+        st, y = self.stages({1: "flume-0.20.0/landed-held", 2: "flume-0.17.0/bolt-submitted"}, base=True,
+                            more=held(rec(3, "land", "bolt/y", Of=2)), commits={1: self.UNIT}, refused={3: words})
+        requests, reads = st.runs["madswan"]
+        launch = runner.launch_of(requests, "bolt/y")
+        assert runner.landing_of(launch, runner.lands_of(requests, launch), reads)["outcome"] == "stopped"
+        assert st.landing(y) == {"outcome": "landed", "commit": self.LANDED}
+
+    def test_a_unit_in_code_reads_the_reports_outcome_and_asks_main_nothing(self):
+        st, y = self.stages({1: "code"})
+        assert st.landing(y) == {"outcome": "legacy", "words": runner.legacy_said("y")}
+        assert st.base(y)["stage"] == "legacy" and self.tips == [] and self.asked == []
+
+    def test_main_that_cant_be_fetched_reads_the_reports_outcome(self):
+        def refused(repo):
+            raise plan.Refusal(f"could not fetch main of {repo} over https: no network")
+        self.tip = refused
+        st, y = self.stages({1: "flume-0.20.0/landed-held"}, commits={1: self.UNIT})
+        assert st.landing(y) == {"outcome": "legacy", "words": runner.legacy_said("y")}
+        assert st.main_landing(y) == (None, "could not fetch main of afterthought/crew over https: no network")
+        assert self.asked == []
+
+    def test_a_repository_named_without_an_owner_reads_the_reports_outcome(self):
+        st, y = self.stages({1: "flume-0.20.0/landed-held"}, commits={1: self.UNIT}, keeps=None)
+        assert st.landing(y)["outcome"] == "legacy" and self.tips == [] and self.asked == []
+        assert st.main_landing(y)[1] == "crew can't tell crew's repository on GitHub, so it reads nothing of its main for bolt y"

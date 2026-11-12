@@ -45,3 +45,13 @@ def pushed(monkeypatch):
     asked = []
     monkeypatch.setattr(record, "reach", lambda label, eid=None, said=False: asked.append(label) or 0)
     return asked
+
+
+@pytest.fixture(autouse=True)
+def no_main(monkeypatch):
+    """A case reads no kit's main on GitHub unless it hands one in: plan.main_tip gives None, as the follower's read gives
+    it for a repository its fetch has not brought (a-landed-bolt-is-closed-and-offered-no-more, Decision 7), so a started
+    bolt reads as the runner's report gives it and nothing is fetched. A case that reads main sets plan.main_tip itself,
+    and tests/py/test_landed_on_main.py's TestMainTip takes the real one back."""
+    import plan
+    monkeypatch.setattr(plan, "main_tip", lambda repo: None)
