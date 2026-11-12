@@ -23,4 +23,4 @@ Build the tasks in order. Before the first, sync the tests' venv once: `devenv s
 ## 4. The words
 
 - [x] 4.1 main-level ops's brief says a row past the card's five boxes waits on its face, no word to land, and the card that follows the send asks for it, pinned by a phrase in `t-briefs` (`tests.6`; Task notes 4.1). Verify `tests/suite t-briefs` ends with "0 failed".
-- [ ] 4.2 README says a landings card of two or more rows is one list of at most five boxes carrying `highStakes`, the rest of its rows waiting on its face for the card that follows the send (Task notes 4.2). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 4.2 README says a landings card of two or more rows is one list of at most five boxes carrying `highStakes`, the rest of its rows waiting on its face for the card that follows the send (Task notes 4.2). Verify `tests/suite t-docs` ends with "0 failed".
