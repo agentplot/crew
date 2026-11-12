@@ -1452,28 +1452,40 @@ def test_two_proven_bolts_post_one_card_in_ops_name_with_two_boxes(monkeypatch, 
                                            "name swancloud-ops), to hear their answer.")]
 
 
-# Pending You's refusal of a card's highStakes beside its questions, as the Willdan box met it on 2026-11-10 (signals
-# 2026-11-10-wldn-ops-6352d0d6/01 and 2026-11-10-wldn-operator-9599d7fa/01 on WilldanGroup/crew-state wldn/main).
-MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card's highStakes out."
+# Pending You's refusal of a card of questions carrying highStakes, in its words and with its apostrophe: of the card's own
+# on the Willdan box on 2026-11-10 (signals 2026-11-10-wldn-ops-6352d0d6/01 and 2026-11-10-wldn-operator-9599d7fa/01 on
+# WilldanGroup/crew-state wldn/main), and of each question's on deneb from 2026-11-11T23:09Z, every post of boomdrive's
+# landings card refused (signal 2026-11-12-agentplot-ops-6907cc32/01 on agentplot/main of afterthought/crew-state).
+MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card’s highStakes out."
 
 
 def marked_post(args):
-    """post_request as Pending You answers it: a card of questions that carries highStakes refused in its words."""
-    return (None, MARKED_WORDS) if args.get("questions") and "highStakes" in args else POSTED["post_request"]
+    """post_request as Pending You answers it: a card of questions carrying highStakes, on the card or on any question,
+    refused in its words."""
+    questions = args.get("questions") or []
+    if questions and ("highStakes" in args or any("highStakes" in q for q in questions)):
+        return None, MARKED_WORDS
+    return POSTED["post_request"]
 
 
-def test_six_proven_bolts_post_one_card_of_lists_each_marking_its_stakes_and_the_card_none(monkeypatch):
-    """Six rows held six proven Switchboard bolts about 9h on crew 0.41.11, every post of land/<kit> refused: a card of
-    lists carries highStakes on each list and none on the card."""
-    six = ["y", "x1", "x2", "x3", "x4", "z"]
+def test_eight_proven_bolts_post_one_list_of_five_boxes_and_nothing_is_refused(monkeypatch):
+    """rail-cards "Eight bolts, and Pending You refuses questions carrying highStakes": boomdrive's eight proven bolts
+    had no card on deneb from 2026-11-11T23:09Z, every post of its lists of questions refused; one list of five boxes
+    carrying highStakes on the card posts, the other three waiting on its face, recorded :next."""
+    eight = [f"b{i}" for i in range(1, 9)]
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in six) + "%rec: Unit\n\n"))
-    acts = LandActs({b: row(b) for b in six}, answers=dict(POSTED, post_request=marked_post))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in eight}, answers=dict(POSTED, post_request=marked_post))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     post = next(a for t, a in acts.calls if t == "post_request")
-    assert "highStakes" not in post and [len(q["options"]) for q in post["questions"]] == [3, 3]
-    assert [q["highStakes"] for q in post["questions"]] == [True, True]
-    assert [(e["Act"], e.get("refused"), e["Card"]) for e in acts.emitted] == [("card.post", None, "req_k1")]
+    assert (post["kind"], post["highStakes"], "questions" in post, len(post["options"])) == ("multi", True, False, 5)
+    assert [(e["Act"], e.get("refused"), e.get("Refused"), e["Card"]) for e in acts.emitted] == [("card.post", None, None, "req_k1")]
+    assert acts.emitted[0]["Heads"].endswith("b6@abc1234:next b7@abc1234:next b8@abc1234:next")
+    # the fake refuses what Pending You refused, a card of questions carrying highStakes anywhere, and takes one carrying none
+    qs = [{"id": "rows-1", "kind": "multi", "options": []}, {"id": "rows-2", "kind": "multi", "options": []}]
+    assert marked_post({"questions": qs, "highStakes": True}) == (None, MARKED_WORDS)
+    assert marked_post({"questions": [dict(qs[0], highStakes=True), qs[1]]}) == (None, MARKED_WORDS)
+    assert marked_post({"questions": qs}) == POSTED["post_request"]
 
 
 def test_a_send_with_rows_waiting_for_a_box_posts_the_card_that_follows_asking_for_them(monkeypatch):

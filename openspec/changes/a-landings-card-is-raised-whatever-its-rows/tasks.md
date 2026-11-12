@@ -17,7 +17,7 @@ Build the tasks in order. Before the first, sync the tests' venv once: `devenv s
 
 ## 3. Through a Pending You that refuses questions carrying highStakes
 
-- [ ] 3.1 Eight proven bolts, raised on a fake that refuses a card of questions carrying `highStakes` on the card or on any question, post one list of five boxes with nothing refused, its `Heads` marking the other three `:next` (design Decision 6; Task notes 3.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_eight_proven_bolts_post_one_list_of_five_boxes_and_nothing_is_refused"`.
+- [x] 3.1 Eight proven bolts, raised on a fake that refuses a card of questions carrying `highStakes` on the card or on any question, post one list of five boxes with nothing refused, its `Heads` marking the other three `:next` (design Decision 6; Task notes 3.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_eight_proven_bolts_post_one_list_of_five_boxes_and_nothing_is_refused"`.
 - [ ] 3.2 The stub Pending You refuses a card of questions carrying `highStakes` on the card or on any question, in Pending You's words, and still takes one carrying none (`tests.4`; design Decision 6; Task notes 3.2). Verify `tests/suite t-cards t-journey-land` ends with "0 failed".
 
 ## 4. The words
