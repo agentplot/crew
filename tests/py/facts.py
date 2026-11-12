@@ -62,9 +62,14 @@ def card_closed(key, card, minutes=0, state="closed", refused=None):
             "On": [key]}
 
 
-def told(minutes=0):
-    """A run-record entry: the planner was told a batch is due."""
-    return {"Act": "batch.due", "At": at(minutes), "On": []}
+def told(minutes=0, changes=(), units=()):
+    """A run-record entry: wldn's planner was told a batch is due, naming each change told of, (unit, its bolt, sha), as
+    Units and its unit on On; or, as an entry written before a batch due named its changes, units alone on On."""
+    names = [u for u, *_ in changes] + list(units)
+    e = {"Act": "batch.due", "At": at(minutes), "On": ["agent/wldn-planner"] + [f"unit/{u}" for u in names]}
+    if changes:
+        e["Units"] = " ".join(f"{u}:{b}@{s}" for u, b, s in changes)
+    return e
 
 
 def keeping(at, *repos):
