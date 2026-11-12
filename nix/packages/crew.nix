@@ -63,7 +63,7 @@ stdenvNoCC.mkDerivation {
   passthru = { inherit release; };
   meta = {
     description = "crew: each drive's plan of bolts, its main level of Claude agents, and its bolts' work as Flume runs it";
-    homepage = "https://github.com/agentplot/crew";
+    homepage = "https://github.com/boomdrivedev/crew";
     mainProgram = "crew";
     inherit platforms;
   };

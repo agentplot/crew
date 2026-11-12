@@ -2,7 +2,7 @@
 
 ## Context
 
-**The double import.** The Boomdrive flake configures the whole host, each tool by its own module, which it re-exports from the tool's own flake and whose options it sets (agentplot/boomdrive record 0023). A host that also imports crew's module itself imports it twice. crew's `darwinModules.crew` and `nixosModules.crew` were `import ./nix/modules/<platform>.nix { inherit packages; }`, a function with no key, and the module system dedupes only by key, so the second import declared `services.crew.enable` again and the system failed to evaluate. Read on this branch on 2026-11-08: the new cases of Task notes **1.1**, run against the unkeyed flake, fail with "a system importing the module twice does not evaluate" on both platforms.
+**The double import.** The Boomdrive flake configures the whole host, each tool by its own module, which it re-exports from the tool's own flake and whose options it sets (boomdrivedev/boomdrive record 0023). A host that also imports crew's module itself imports it twice. crew's `darwinModules.crew` and `nixosModules.crew` were `import ./nix/modules/<platform>.nix { inherit packages; }`, a function with no key, and the module system dedupes only by key, so the second import declared `services.crew.enable` again and the system failed to evaluate. Read on this branch on 2026-11-08: the new cases of Task notes **1.1**, run against the unkeyed flake, fail with "a system importing the module twice does not evaluate" on both platforms.
 
 **Flume's flake, read at agentplot/flume 81d57226 on 2026-11-08.** `flake.nix`'s `moduleOf` wraps each platform's module in `{ _file; key = "github:agentplot/flume#${platform}Modules.flume"; imports = [ module ]; }`, and its `nix/tests/darwin.nix` and `nix/tests/nixos.nix` each evaluate a system that imports the module twice, expecting one declaration of `services.flume.enable`. Its reasoning is its change `flume-publishes-its-own-flake-and-module`, design Decision 4: the module system takes a module once per key; of two revisions, the first one taken wins; a host that imports both takes them at one revision by following one input.
 
@@ -22,9 +22,9 @@
 
 ## Decisions
 
-### 1. Each module is keyed `github:agentplot/crew#<platform>Modules.crew`
+### 1. Each module is keyed `github:boomdrivedev/crew#<platform>Modules.crew`
 
-`flake.nix` gains `moduleOf platform file`, giving `{ _file = file; key = "github:agentplot/crew#${platform}Modules.crew"; imports = [ (import file { inherit packages; }) ]; }`; `darwinModules.crew` is `moduleOf "darwin" ./nix/modules/darwin.nix`, `nixosModules.crew` `moduleOf "nixos" ./nix/modules/nixos.nix`, and each `default` is the same value as `crew`, so one key covers both names. The key names the flake by its repository and the output, as Flume's does, so it is the same for every revision and every path the flake is fetched to. Not taken: a key from the module file's store path, which differs between two revisions and between a flake fetched by `github:` and by `path:`, so the double import Boomdrive makes would still declare `services.crew` twice; and `lib.modules.importApply`, which keys a module by its file and its arguments together, the same failure.
+`flake.nix` gains `moduleOf platform file`, giving `{ _file = file; key = "github:boomdrivedev/crew#${platform}Modules.crew"; imports = [ (import file { inherit packages; }) ]; }`; `darwinModules.crew` is `moduleOf "darwin" ./nix/modules/darwin.nix`, `nixosModules.crew` `moduleOf "nixos" ./nix/modules/nixos.nix`, and each `default` is the same value as `crew`, so one key covers both names. The key names the flake by its repository and the output, as Flume's does, so it is the same for every revision and every path the flake is fetched to. Not taken: a key from the module file's store path, which differs between two revisions and between a flake fetched by `github:` and by `path:`, so the double import Boomdrive makes would still declare `services.crew` twice; and `lib.modules.importApply`, which keys a module by its file and its arguments together, the same failure.
 
 ### 2. The nix-darwin comparison system gives crew one import deep
 
@@ -36,7 +36,7 @@ None.
 
 ## Risks / Trade-offs
 
-- **Two revisions of the module.** A host that imports crew's module from two inputs at two revisions takes the first one imported and ignores the other with no word, as with Flume's (its Decision 4). A host that imports both follows one input, so both are one revision.
+- **Two revisions of the module.** A host that imports crew's module from two inputs at two revisions takes the first one imported and ignores the other with no word, as with Flume's (its Decision 4). A host that imports both follows one input, so both are one revision. A revision keyed `github:agentplot/crew#…`, from before crew moved to boomdrivedev, and one keyed `github:boomdrivedev/crew#…` are two keys, so a host that imports one of each, directly and through a Boomdrive whose crew input it does not follow, declares `services.crew` twice and fails evaluation until it follows one input.
 
 ## Migration Plan
 
