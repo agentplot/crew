@@ -716,7 +716,7 @@ class TestTheFirstReadActs:
 # boomdrive's a-boomdrive-release-reports-its-own-version on 2026-11-12 as y: its head, main's commit that landed it, and
 # an older crew's entries, its landing queued as #154 at the head and then stopped there with no submission.
 HEAD, ON_MAIN = "62d2f06" + "0" * 33, "6cfc4ae" + "0" * 33
-OLDER = [{"Act": "bolt.start", "On": ["bolt/y"]}, submitted("y", HEAD, Outcome="queued", Submission="154"),
+OLDER = [{"Act": "bolt.start", "On": ["bolt/y"], "At": "2026-11-11T20:00:00Z"}, submitted("y", HEAD, Outcome="queued", Submission="154"),
          submitted("y", HEAD, Outcome="stopped", Why="boomdrive's main checkout on deneb has no branch main and no origin")]
 READ_ON_MAIN = {"outcome": "landed", "by": "main", "kit": "boomdrive", "commit": ON_MAIN, "head": HEAD, "submission": "154", "request": None}
 
@@ -834,17 +834,22 @@ class TestALandingIsRecordedInTheRunRecordAsAsked:
 
 class TestCrewBoltLandOfAStartedBolt:
     """bolt-plan "A landed bolt leaves the plan with its units" (Decision 7) and bolt-teams "crew bolt land closes a
-    started bolt only once its base place reads landed": crew bolt land closes a started bolt once its landing reads landed from the runner's report alone, at
-    Flume's commit, the record Flume holds for the runner after it tidies the base place among them, with its age and
-    split from the run record, deleting no branch; refused, recording nothing, naming its outcome otherwise, no landing
-    commit on its kit's main read for it; and a bolt started before bolts were base places is refused, closed only by
-    the crew that started it (crew-reads-each-pieces-end-from-the-runners-report, Decision 7)."""
+    started bolt only once its base place reads landed": crew bolt land closes a started bolt once its landing reads
+    landed from the runner's report, at Flume's commit, the record Flume holds for the runner after it tidies the base
+    place among them, with its age and split from the run record, deleting no branch; or once its kit's main on GitHub
+    holds its work, at main's commit that landed it, a bolt started before bolts were base places among them
+    (a-landed-bolt-is-closed-and-offered-no-more, Decision 5); refused, recording nothing, naming its outcome and why
+    main does not hold its work otherwise, no landing commit's trailer read for it and no kit's folder on any host.
+    main_tip, main_holds and landed_by stand for git, main holding what held names."""
     PLAN = "%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\nUnit: a\nRepo: crew\nBolt: y\nIntent: A.\n\n"
 
     @pytest.fixture(autouse=True)
     def world(self, monkeypatch):
         import crew
-        self.written = []
+        self.written, self.changes, self.held = [], [], {}
+        monkeypatch.setattr(plan, "main_tip", lambda repo: "e" * 40)
+        monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: {c: self.held.get(c, 1) for c in commits})
+        monkeypatch.setattr(plan, "landed_by", lambda repo, tip, commits: ON_MAIN)
 
         def no_host(*a, **k):
             raise AssertionError("crew bolt land of a started bolt reaches no host")
@@ -853,12 +858,13 @@ class TestCrewBoltLandOfAStartedBolt:
         monkeypatch.setattr(plan, "locate", lambda fleet, kind, name, label: ("swancloud", "o/state", "tip", plan.Plan(self.PLAN)))
         monkeypatch.setattr(plan, "default_label", lambda fleet, a: "swancloud")
         monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [])
-        monkeypatch.setattr(plan, "write", lambda fleet, label, change, subject, **k: self.written.append((subject, k)))
+        monkeypatch.setattr(plan, "write", lambda fleet, label, change, subject, **k: (self.written.append((subject, k)),
+                                                                                       self.changes.append(change)))
         monkeypatch.setattr(plan, "launched_at", lambda *a, **k: None)
         monkeypatch.setattr(plan, "land_hand", lambda *a, **k: None)
 
         def no_kit(*a, **k):
-            raise AssertionError("crew bolt land of a started bolt reads no kit, its kit's main among them")
+            raise AssertionError("crew bolt land of a started bolt reads no kit on any host, its checkout of main among them")
         monkeypatch.setattr(plan, "stages_for", no_kit)
         monkeypatch.setattr(plan, "survey", no_kit)
 
@@ -886,15 +892,67 @@ class TestCrewBoltLandOfAStartedBolt:
         with pytest.raises(plan.Refusal, match="no land of it has been asked of the runner: it lands on the user's send"):
             self.land(monkeypatch, base_run("bolt-submitted", land=False, more={}))
 
-    def test_a_bolt_started_before_bolts_were_base_places_is_refused(self, monkeypatch):
+    def unit_merged(self, more=(), **ran_):
+        """y's unit a launched as request 1 on bolt/y, its place landed there at UNIT, and the requests in more beside
+        it, deneb's runner as facts.ran gives it."""
+        from facts import ran
+        from test_runner import held, rec
+        return held(rec(1, "launch", "unit/a", Base="bolt/y"), *more), ran({1: "flume-0.20.0/landed-held"}, label="swancloud",
+                                                                            commits={1: UNIT}, **ran_)
+
+    def test_a_bolt_started_before_bolts_were_base_places_is_refused_while_main_lacks_its_work(self, monkeypatch):
         """bolt-teams "crew bolt land refuses it" (a bolt started before bolts were base places): y has no launch
-        of its own, and crew bolt land refuses it in runner.legacy_said's words, reading no kit (no_kit), so no landing
-        on its kit's main closes it here."""
+        of its own, and its unit a's place landed on bolt/y at a commit main does not hold; crew bolt land refuses it in
+        runner.legacy_said's words and main's, reading no kit's folder (no_kit) and recording nothing."""
         import runner
-        from test_runner import held
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: list(OLDER))
+        self.held = {HEAD: 0}
         with pytest.raises(plan.Refusal) as e:
-            self.land(monkeypatch, (held(), {}))
-        assert str(e.value) == f"{runner.legacy_said('y')}, so crew bolt land closes nothing of it here" and self.written == []
+            self.land(monkeypatch, self.unit_merged())
+        assert str(e.value) == (f"{runner.legacy_said('y')}, and crew's main does not hold its work: unit a has not landed on "
+                                "crew's main: its place landed on bolt/y at 896e642, which main does not hold, so crew bolt "
+                                "land closes nothing of it here") and self.written == []
+
+    def test_a_bolt_started_before_bolts_were_base_places_closes_once_main_holds_its_work(self, monkeypatch):
+        """bolt-teams "crew bolt land closes it once main holds its work": an older crew's landing of y queued as #154
+        and stopped at 62d2f06, and GitHub's main holding that head and a's commit, landed by 6cfc4ae; crew bolt land
+        closes y at 6cfc4ae in ops's name, its bolt.submit landed in the same commit."""
+        import crew
+        from facts import FactsWrite
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: list(OLDER))
+        monkeypatch.setattr(plan, "landed_asks", lambda *a, **k: None)
+        monkeypatch.setattr(crew, "this_host", lambda: "deneb")
+        self.held = {HEAD: 0, UNIT: 0}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.land(monkeypatch, self.unit_merged())
+        (subject, k), = self.written
+        assert subject == "plan(y): land the bolt" and (k["fields"]["Repo"], k["fields"]["Head"], k["by"]) == ("crew", ON_MAIN, "swancloud-ops")
+        assert "y has landed at crew's 6cfc4ae, as GitHub's main holds it" in out.getvalue()
+        w = FactsWrite(self.PLAN, label="swancloud", entries=OLDER)
+        self.changes[0](w)
+        [(_, act, on, fields)] = w.also
+        assert (act, on, fields) == ("bolt.submit", ["bolt/y"], dict(
+            Head=HEAD, Submission="154", Outcome="landed", why="bolt(y): landed on crew's main at 6cfc4ae, as GitHub's main holds it"))
+
+    def test_a_stopped_base_place_closes_once_main_holds_its_head_and_its_chores_commit(self, monkeypatch):
+        """bolt-teams "A landing main holds": the runner reports y's landing stopped at 9c1e4b7, and GitHub's main holds
+        9c1e4b7 and the commit y's chore c landed at on bolt/y; crew bolt land closes y at main's commit that landed it."""
+        from facts import ran
+        from test_runner import BOLT, held, rec
+        stop, chore = "9c1e4b7" + "0" * 33, "c40e000" + "0" * 33
+        self.PLAN = "%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\nUnit: c\nRepo: crew\nBolt: y\nKind: chore\nIntent: C.\n\n"
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [
+            {"Act": "bolt.start", "On": ["bolt/y"], "At": "2026-11-11T20:00:00Z"}, dict(ASKED, Head=stop, Request="3"),
+            submitted("y", stop, Request="3", Outcome="stopped", Why="flume refused it: a place on bolt/y is live")])
+        self.held = {stop: 0, chore: 0}
+        requests = held(rec(1, "launch", "chore/c", Base="bolt/y", Kind="chore"), rec(2, "launch", "bolt/y", **dict(BOLT, Name="y")),
+                        rec(3, "land", "bolt/y", Of=2))
+        reads = ran({1: "flume-0.20.0/landed-held", 2: "flume-0.17.0/bolt-submitted"}, label="swancloud", commits={1: chore},
+                    refused={3: "flume refused it: a place on bolt/y is live"})
+        self.land(monkeypatch, (requests, reads))
+        (subject, k), = self.written
+        assert subject == "plan(y): land the bolt" and (k["fields"]["Repo"], k["fields"]["Head"]) == ("crew", ON_MAIN)
 
     def test_a_base_place_held_for_the_runner_landed_closes_at_flumes_commit(self, monkeypatch):
         """bolt-teams "A base place held for the runner": Flume landed y's base place and tidied it, holding its
@@ -912,10 +970,18 @@ class TestCrewBoltLandOfAStartedBolt:
 
     def test_a_base_place_the_runner_no_longer_carries_is_refused_whatever_main_holds(self, monkeypatch):
         """bolt-teams "A landing main holds that the runner does not report": the runner carries no status of y's base
-        place, as a place tidied before its host's runner carried its end leaves it, so crew bolt land reads its landing
-        as the runner reports it alone, asked, and is refused, recording nothing and reading no kit (no_kit), so no
-        landing on its kit's main closes it."""
+        place, as a place tidied before its host's runner carried its end leaves it, and y's kit's main holds a commit
+        whose Sluice-From names bolt/y, but neither y's head nor the commit its unit a landed at on bolt/y; crew bolt
+        land is refused naming its landing as the runner reports it, asked, and why main does not hold its work,
+        recording nothing and reading no kit's folder (no_kit): no trailer is read."""
+        from test_runner import BOLT, held, rec
+        requests, reads = self.unit_merged((rec(2, "launch", "bolt/y", **dict(BOLT, Name="y")), rec(3, "land", "bolt/y", Of=2)),
+                                           unplaced={2: "/flume/places/bolt--y"})
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [{"Act": "bolt.start", "On": ["bolt/y"]}, dict(ASKED, Request="3")])
+        self.held = {"5ab1ce0" + "0" * 33: 0}  # sluice's landing commit naming bolt/y, which nothing asks
         with pytest.raises(plan.Refusal) as e:
-            self.land(monkeypatch, base_run(None, more={1: "/flume/places/bolt--y"}))
-        assert str(e.value) == "bolt y has not landed, so crew bolt land closes nothing of it: landing asked, request 2"
+            self.land(monkeypatch, (requests, reads))
+        assert str(e.value) == ("bolt y has not landed, so crew bolt land closes nothing of it: landing asked, request 3; nor "
+                                "does crew's main hold its work: unit a has not landed on crew's main: its place landed on "
+                                "bolt/y at 896e642, which main does not hold")
         assert self.written == []

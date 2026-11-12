@@ -1689,7 +1689,7 @@ class Stages:
         except Refusal as e:
             return None, str(e)
         if not tip:
-            return None, f"crew holds no tip of {repo}'s main yet: the follower's next fetch brings it"
+            return None, f"crew holds no tip of {repo}'s main: GitHub holds no main of it, or the follower's fetch has not brought it yet"
         try:
             lh = landing_head(self.entries(), name) or {}
         except Refusal as e:
@@ -4123,10 +4123,11 @@ def bolt_land(fleet, a, by=None, close_why=None, card=True):
     """crew bolt land <bolt>: a bolt out of the plan with its units and chores, its bolt.land recording the commit its
     kit's main holds for it (plan.14, plan.16). A started bolt closes only once its landing reads landed from the
     runner's report (runner.landing_of; crew-lands-each-bolt-through-flumes-base-place, Decision 7), at the commit
-    Flume names, with its Age and Split from the run record (landing_spent), crew deleting no branch and removing no
-    worktree, Flume tidying the base place and sluice ending bolt/<bolt>; refused, recording nothing, naming its landing's
-    outcome while it reads otherwise, and for a bolt started before bolts were base places, which lands under the crew
-    that started it (Decision 9). Its kit's landings card is then raised to close naming the commit and the fleet's
+    Flume names, or once its kit's main on GitHub holds its work, at main's commit that landed it, a bolt started before
+    bolts were base places among them (started_land; a-landed-bolt-is-closed-and-offered-no-more, Decision 5), with its
+    Age and Split from the run record (landing_spent), crew deleting no branch and removing no worktree, Flume tidying
+    the base place and sluice ending bolt/<bolt>; refused, recording nothing, naming its landing's outcome and why main
+    does not hold its work while it reads otherwise. Its kit's landings card is then raised to close naming the commit and the fleet's
     timer (land_hand), and its readings and previews ended on the bolt's host (sweep_on), but with card False, as a
     raise's own read of the landing closes it (landing_read), leaving the card to that raise. A bolt never started, built
     outside crew, is read on the host and main checkout the drive's main-level host keeps of its kit, and lands the
@@ -4190,21 +4191,33 @@ def landing_refused_said(bolt, l):
 
 
 def started_land(fleet, label, plan, b, units, by, close_why, card):
-    """crew bolt land of a started bolt (bolt_land): its landing read from the runner's report alone, closed at Flume's
+    """crew bolt land of a started bolt (bolt_land): its landing read from the runner's report, closed at Flume's
     commit once it reads landed, its bolt.submit outcome recorded in the same commit where no read has recorded it
     (landing_entry at the tip), the record Flume holds for the runner after it tidies the base place among them, read
-    as any status (runner.landing_of, flume_facts); refused naming its outcome otherwise, recording nothing, and a bolt
-    started before bolts were base places refused in runner.legacy_said's words, closed only by the crew that started
-    it (bolt-teams "crew bolt land closes a started bolt only once its base place reads landed", "A bolt with no launch of its own lands under
-    the crew that started it"). No landing commit on its kit's main is read for it (crew record 0056 point 4)."""
+    as any status (runner.landing_of, flume_facts); where the report does not read it landed, one started before bolts
+    were base places among them, closed the same way at main's commit that landed it once its kit's main holds its work
+    (Stages.main_landing; a-landed-bolt-is-closed-and-offered-no-more, Decision 5); refused otherwise, recording
+    nothing, naming its outcome and why main does not hold its work, a bolt started before bolts were base places in
+    runner.legacy_said's words (bolt-teams "crew bolt land closes a started bolt only once its base place reads
+    landed", "A bolt with no launch of its own lands under the crew that started it"). No landing commit's trailer on
+    its kit's main is read for it, and no host's checkout."""
     bolt = b.name()
     requests, reads = runner_facts(fleet, label)
     launch = runner.launch_of(requests, f"bolt/{bolt}")
-    launch is not None or fail(f"{runner.legacy_said(bolt)}, so crew bolt land closes nothing of it here")
-    l = runner.landing_of(launch, runner.lands_of(requests, launch), reads)
-    l["outcome"] == "landed" or fail(landing_refused_said(bolt, l))
-    head, kit_name = l["commit"], (b.get("Repo") or launch.get("Repo") or "").split("/")[-1]
+    l = runner.landing_of(launch, runner.lands_of(requests, launch), reads) if launch is not None else None
+    kit_name = (b.get("Repo") or (launch or {}).get("Repo") or "").split("/")[-1]
     entries = drive_entries(fleet, label)
+    if l is None or l["outcome"] != "landed":
+        # its work on its kit's main, whatever the report says, closes it at main's commit (Decision 5)
+        st = Stages(fleet, plan, {}, runs={label: (requests, reads)}, label=label)
+        st.drive = list(entries)
+        m, why = st.main_landing(b)
+        if not m and l is None:
+            fail(f"{runner.legacy_said(bolt)}, and {kit_name}'s main does not hold its work: {why}, so crew bolt land closes "
+                 "nothing of it here")
+        m or fail(f"{landing_refused_said(bolt, l)}; nor does {kit_name}'s main hold its work: {why}")
+        l = dict(m, outcome="landed", by="main", kit=kit_name)
+    head = l["commit"]
     spent = landing_spent(entries, plan, b, label, kit_name, datetime.datetime.now(datetime.timezone.utc))
 
     def change(w):
@@ -4215,7 +4228,7 @@ def started_land(fleet, label, plan, b, units, by, close_why, card):
         return [bolt]
     write(fleet, label, change, f"plan({bolt}): land the bolt", act="bolt.land", on=[f"bolt/{bolt}"],
           fields=dict(Repo=kit_name, Head=head, **spent), by=by, why=close_why)
-    print(f"{bolt} has landed at {kit_name}'s {head[:7]}, as the runner reports it")
+    print(f"{bolt} has landed at {kit_name}'s {head[:7]}, " + ("as GitHub's main holds it" if l.get("by") == "main" else "as the runner reports it"))
     if not card:
         return
     try:
@@ -4224,7 +4237,7 @@ def started_land(fleet, label, plan, b, units, by, close_why, card):
         print(f"bolt {bolt}'s readings and previews are not ended: {e}", file=sys.stderr)
         t = None
     if t:
-        sweep_on(fleet, t, f"bolt {bolt}", (bolt, landed_words(head, l.get("entry"))), units=units)
+        sweep_on(fleet, t, f"bolt {bolt}", (bolt, landed_words(head, l.get("entry") or l.get("submission"))), units=units)
     else:
         land_hand(fleet, label, kit_name)
 
