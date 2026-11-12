@@ -606,7 +606,8 @@ OUTCOME = 200  # Pending You's budget for a close's words: ack_answer's outcome 
 ARTIFACTS = 8  # Pending You's most artifacts on a card: post_request's artifacts maxItems (read 2026-10-19)
 LINE = 40  # the most characters a line of a list on a card's face holds: the phone shows it in monospace
 CARD_NEW = 15  # the most units new to a bolt a proposal's card takes as boxes; more link its reading session (briefs.9)
-BOXES = 5  # Pending You's most options in a question; a card holds four questions, so CARD_NEW's fit in three
+BOXES = 5  # Pending You's most options in a list, a card's or a question's: post_request's and update_request's options
+# (tools/list, pendingyou 0.41.0, read 2026-11-12); a card holds four questions, so a proposal's CARD_NEW fit in three
 SENTENCE = re.compile(r"(?<=[.!?…])\s+(?=\S)")
 MARKS = re.compile(r"\*\*|__|`")
 
@@ -912,13 +913,15 @@ def row_said(r):
 def landings_form(n):
     """The form of a kit's landings card by how many rows it shows, those that can land and those taking main first
     beside them (plan.card_rows; rail-cards, record 0031 as amended 2026-10-23): "approve", a hold-to-approve of risk
-    high, for one; "multi", one list of boxes carrying highStakes, for two to BOXES; "lists", lists of BOXES at most,
-    each a question carrying its own highStakes and the card none, which Pending You refuses beside questions, for
-    more. Pending You changes neither a card's kind nor its questions, and takes no list of fewer than two options
-    (update_request and post_request, pendingyou 0.39.0, read 2026-11-06), so a change from one form to another is
-    followed rather than changed; a row coming to take main first or coming back from it keeps the card's count, so it
-    changes the card in place."""
-    return "approve" if n <= 1 else "multi" if n <= BOXES else "lists"
+    high, for one; "multi", one list of boxes carrying highStakes on the card, for any more, its boxes at most BOXES
+    (landings_boxed). A landings card asks no questions: a landing cannot be undone, so its card carries highStakes
+    (record 0031 §5), and Pending You refuses a card of questions carrying highStakes, on the card or on its questions,
+    as it refused boomdrive's on deneb from 2026-11-11T23:09Z, while one list carrying it on the card has posted many
+    times. Pending You changes neither a card's kind nor its questions, and takes no list of fewer than two options
+    (update_request and post_request, pendingyou 0.39.0, read 2026-11-06), so a change from one form to the other is
+    followed rather than changed; a row coming to take main first or coming back from it, or coming to a box or losing
+    one, keeps the card's form, so it changes the card in place."""
+    return "approve" if n <= 1 else "multi"
 
 
 def row_bits(r):

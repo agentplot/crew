@@ -1668,7 +1668,7 @@ class TestLandings:
         assert [a["title"] for a in c["artifacts"]][1:6] == ["Read b1", "Read b2", "Read b3", "Read b4", "Read b5"]
 
     def test_the_form_by_how_many_rows_can_land(self):
-        assert [built.landings_form(n) for n in (1, 2, 5, 6, 20)] == ["approve", "multi", "multi", "lists", "lists"]
+        assert [built.landings_form(n) for n in (1, 2, 5, 6, 20)] == ["approve", "multi", "multi", "multi", "multi"]
 
     def test_a_card_with_no_row_that_can_land_is_refused(self):
         with pytest.raises(crew.Refusal):
