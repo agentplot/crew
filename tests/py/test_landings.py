@@ -916,6 +916,32 @@ def test_a_row_with_no_box_whose_head_moves_changes_the_card_and_keeps_it_with_n
     assert plan.landings_step([box(f"b{i}") for i in range(1, 9)], waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)}) == ("leave",)
 
 
+def test_a_send_with_rows_waiting_for_a_box_is_followed_at_once_by_a_card_asking_for_them():
+    """rail-cards "A send with rows waiting for a box is followed at once by a card asking for them": "Five ticked, three
+    waiting"."""
+    ticked = [f"b{i}" for i in range(1, 6)]
+    step = plan.landings_step([box(f"b{i}") for i in range(1, 9)], answered(*EIGHT), ticked, {f"b{i}" for i in range(1, 9)})
+    assert step == ("follow", "Asked of the runner as you ticked: b1, b2, b3, b4 and b5. b6, b7 and b8 had no box on this "
+                              "card, and the card that follows asks for them.", [], [(b, "abc1234") for b in ticked])
+    assert "Left:" not in step[1]
+    # beside a row proven since the send
+    rows = [box(f"b{i}") for i in range(1, 9)] + [box("b9")]
+    step = plan.landings_step(rows, answered(*EIGHT), ticked, {f"b{i}" for i in range(1, 10)})
+    assert step[1].endswith("Since your send, b9 reads proven; b6, b7 and b8 had no box on this card, and the card that "
+                            "follows asks for them.")
+
+
+def test_a_left_row_waiting_for_a_box_stays_left():
+    """rail-cards "A left row that waited for a box"."""
+    heads = ["b1@abc1234:left:next"] + [f"b{i}@abc1234" for i in range(2, 7)] + ["b7@abc1234:next"]
+    now = {f"b{i}": H1 for i in range(1, 8)}
+    assert plan.left_now(answered(*heads), [f"b{i}" for i in range(2, 7)], now, {}, []) == {"b1": "abc1234"}
+    # b7 waited for a box alone, unticked: not left
+    assert "b7" not in plan.left_now(answered(*heads), [f"b{i}" for i in range(2, 7)], now, {}, [])
+    # while the card waits, the mark alone says so
+    assert plan.left_now(waiting(*heads), None, now, {}, []) == {"b1": "abc1234"}
+
+
 STOP = "check:dagger could not run: the Dagger engine did not answer"
 
 
@@ -1448,6 +1474,29 @@ def test_six_proven_bolts_post_one_card_of_lists_each_marking_its_stakes_and_the
     assert "highStakes" not in post and [len(q["options"]) for q in post["questions"]] == [3, 3]
     assert [q["highStakes"] for q in post["questions"]] == [True, True]
     assert [(e["Act"], e.get("refused"), e["Card"]) for e in acts.emitted] == [("card.post", None, "req_k1")]
+
+
+def test_a_send_with_rows_waiting_for_a_box_posts_the_card_that_follows_asking_for_them(monkeypatch):
+    """rail-cards "Five ticked, three waiting", through the raise: the card is closed, none of the three recorded left, and
+    the card that follows asks for b6, b7 and b8 as ticked boxes."""
+    eight = [f"b{i}" for i in range(1, 9)]
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads=" ".join(EIGHT))]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": [f"land:b{i}" for i in range(1, 6)]}}
+    answers = dict(POSTED, get_request=(answer, None), post_request=({"requestId": "req_k2", "version": 1}, None))
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in eight}, held, answers=answers)
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k2"
+    close = next(e for e in acts.emitted if e["Act"] == "card.close")
+    assert close["Outcome"] == ("Asked of the runner as you ticked: b1, b2, b3, b4 and b5. b6, b7 and b8 had no box on this "
+                                "card, and the card that follows asks for them.")
+    assert close["Answer"] == "ticked b1, b2, b3, b4 and b5"
+    assert not [e for e in acts.emitted if e["Act"] == "landing.left"]
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert post["follows"] == "req_k1"
+    assert [o["id"] for o in post["options"]] == ["land:b6", "land:b7", "land:b8"]
+    assert post["recommendedIds"] == ["land:b6", "land:b7", "land:b8"]
+    assert acts.emitted[-1]["Act"] == "card.post" and acts.emitted[-1]["Heads"] == "b6@abc1234 b7@abc1234 b8@abc1234"
 
 
 def test_a_kits_card_is_raised_under_its_lock_every_read_and_act_inside_it(monkeypatch):

@@ -2950,15 +2950,18 @@ def left_now(card, ticked, heads, recorded, stops):
     its head now is left when it is marked left on the card held while it waits, the card held is answered and the user
     did not tick its row, or the record names it left or stopped and the card held has not ticked it; one the user
     ticked, one at another head, one that is no row and one the card showed taking main first, unticked by crew's own
-    hand (card's taking), are not. {bolt: head7}."""
+    hand (card's taking), are not, nor one the card showed with no box (card's next) unless it was marked left there
+    too, the user having left it on an earlier send, so a left row keeps its leave while it waits for a box.
+    {bolt: head7}."""
     status = (card or {}).get("status")
     ticks = set(ticked or []) if status == "answered" else set()
-    taking = set((card or {}).get("taking") or ())
+    taking, waited = set((card or {}).get("taking") or ()), set((card or {}).get("next") or ())
     out = {}
     for b, h, marked in (card or {}).get("heads") or []:
         if b in taking:
             continue
-        if at_head(h, heads.get(b)) and (marked if status == "waiting" else status == "answered" and b not in ticks):
+        if at_head(h, heads.get(b)) and (marked if status == "waiting" else
+                                         status == "answered" and b not in ticks and (marked or b not in waited)):
             out[b] = heads[b][:7]
     for b, h in list(recorded.items()) + list(stops):
         if b not in ticks and at_head(h, heads.get(b)):
@@ -3070,8 +3073,9 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
     plan, not held, or held only taking main first (landing_rows' takes_main), and its send standing at its head now,
     which stands while it takes main in, one landed and not yet closed among them, and no row reads proven since but at
     a head their send still stands at;
-    ("follow", outcome, left, landing) when one does, a bolt on no row of the card or at a head the card did not show
-    whose send does not stand, which is never added to the card they answered: it is closed saying what landed, what
+    ("follow", outcome, left, landing) when one does, a bolt on no row of the card, at a head the card did not show
+    whose send does not stand, or shown with no box (card's next), which is never added to the card they answered and
+    never one they left: it is closed saying what landed, which rows had no box on it, what
     their send still lands, each whose last landing at its head sluice or its host stopped with what stopped it (its
     row's stopped, landing_rows), which holds nothing, what takes main in first, what was held and what was left, a
     row the card showed taking main first and left unticked being no bolt they left, and what changed of a ticked bolt
@@ -3117,13 +3121,14 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
         return ("change", "; ".join(said), cards.landings_form(len(heads)) != cards.landings_form(len(shown)), left)
     ticked, work = list(ticked or []), work or {}
     was, took = {b: h for b, h, _ in heads}, set(card.get("taking") or ())
+    waited = set(card.get("next") or ())  # shown with no box, so no word of the send's: the card that follows asks for it
     at = {r["bolt"]: r["facts"]["head"] for r in rows}
 
     def stands(b):  # the user's send still stands for a bolt they ticked, at its head now
         return b in ticked and b in was and send_stands(was[b], at[b], work.get(b))
     # proven since the send: on no row of the card, at a new head their send does not stand at, or shown taking main
-    # first and left unticked by crew
-    anew = [(b, h) for b, h in now if (was.get(b) != h or b in took) and not stands(b)]
+    # first and left unticked by crew, or shown with no box
+    anew = [(b, h) for b, h in now if (was.get(b) != h or b in took or b in waited) and not stands(b)]
     moved = {b for b, _ in anew}
     main_first = {r["bolt"] for r in rows if not r["box"] and r.get("takes_main")}  # its send stands while it takes main in
     # a ticked bolt whose land on this send the runner or Flume stopped: the send is spent, so the card closes naming it
@@ -3150,11 +3155,15 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
              "it reads proven at its new head, with nothing asked." if b in standing else
              f"Held: {b}, {held[b]}; {work_said(b, was[b], at[b], work.get(b))}, so a card asks for it again once it reads "
              "proven." for b in ticked if b in held and b not in landing]
-    cleared = [b for b in on if b not in ticked and b not in took]  # crew unticked a row taking main first, not they
+    # crew unticked a row taking main first, and gave a row with no box, not they
+    cleared = [b for b in on if b not in ticked and b not in took and b not in waited]
     said += [f"Left: {joined(cleared)}."] if cleared else []
-    said += ["Since your send, " + "; ".join(work_said(b, was[b], at[b], work.get(b)) if b in was and b in ticked else
-                                             f"{b}'s head is now {h}" if b in was and was[b] != h else f"{b} reads proven"
-                                             for b, h in anew)
+    proven = [work_said(b, was[b], at[b], work.get(b)) if b in was and b in ticked else
+              f"{b}'s head is now {h}" if b in was and was[b] != h else f"{b} reads proven"
+              for b, h in anew if b not in waited]
+    boxless = [b for b, _ in anew if b in waited]
+    said += [("Since your send, " if proven else "")
+             + "; ".join(proven + ([f"{joined(boxless)} had no box on this card"] if boxless else []))
              + f", and the card that follows asks for {'it' if len(anew) == 1 else 'them'}."] if anew else []
     if not ticked:
         said = ["Sent with no bolt ticked, so nothing lands."] + said
@@ -3837,7 +3846,8 @@ def landings_raised(fleet, label, kit, acts, note, dead):
     facts = dict(kit=kit, rows=[r["facts"] if r["box"] else dict(r["facts"], taking=r["why"]) for r in shows],
                  held=[dict(bolt=r["bolt"], why=r["why"]) for r in rows if r["bolt"] not in on], ops=owner)
     # the rows its answer ticked or left; one it showed taking main first, unticked by crew, is none they left
-    offered = [f"land:{b}" for b, _, _ in (state or {}).get("heads") or [] if b not in (state or {}).get("taking", set())]
+    offered = [f"land:{b}" for b, _, _ in (state or {}).get("heads") or []
+               if b not in (state or {}).get("taking", set()) | (state or {}).get("next", set())]
 
     def unticked(cleared):  # the rows a card shows unticked: those the step names cleared, and every bolt the user left
         return [r["bolt"] for r in rows if r["box"] and (r["bolt"] in cleared or r["bolt"] in left)]
