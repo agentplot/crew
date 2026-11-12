@@ -3173,19 +3173,24 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
     return ("close", " ".join(said), left if boxed else None, [(b, was[b]) for b in standing])
 
 
-def landings_since(earlier, rows):
+def landings_since(earlier, rows, waited=()):
     """What changed since the user's send on a kit's last landings card, which a new card raised after it, following it
     (cards.follows_of), says first (rail-cards "A follow-on card says what changed in the words its event gives"), from facts
     alone (code.7): earlier, that card's rows as its last post or change recorded them (card_heads); rows, the rows
-    that can land now (landing_rows, with a box). Each bolt that joins the card, each head that moved, and each bolt
-    still waiting at the head the card showed, which the user's send left; sentences."""
-    was = {b: h for b, h, _ in earlier}
+    that can land now (landing_rows, with a box); waited, the bolts that card showed with no box (heads_next). Each
+    bolt that joins the card, each head that moved, each bolt still waiting at the head the card showed, which the
+    user's send left, and each that had no box on that card, which it did not (rail-cards "A send with rows waiting
+    for a box is followed at once by a card asking for them"); sentences."""
+    was, waited = {b: h for b, h, _ in earlier}, set(waited)
     joins = [r["bolt"] for r in rows if r["bolt"] not in was]
     moved = [(r["bolt"], r["facts"]["head"][:7]) for r in rows if r["bolt"] in was
              and not (r["facts"]["head"].startswith(was[r["bolt"]]) or was[r["bolt"]].startswith(r["facts"]["head"]))]
-    waits = [r["bolt"] for r in rows if r["bolt"] in was and r["bolt"] not in dict(moved)]
+    stay = [r["bolt"] for r in rows if r["bolt"] in was and r["bolt"] not in dict(moved)]
+    waits, boxless = [b for b in stay if b not in waited], [b for b in stay if b in waited]
     return ([f"{joined(joins)} {'reads' if len(joins) == 1 else 'read'} proven and {'joins' if len(joins) == 1 else 'join'} the card."]
-            if joins else []) + [f"{b}'s head is now {h}." for b, h in moved] + (left_waits(waits) if waits else [])
+            if joins else []) + [f"{b}'s head is now {h}." for b, h in moved] + (left_waits(waits) if waits else []) + (
+        [f"{joined(boxless)}, which had no box on your last card, {'waits' if len(boxless) == 1 else 'wait'} on this card."]
+        if boxless else [])
 
 
 def left_waits(left):
@@ -3861,11 +3866,13 @@ def landings_raised(fleet, label, kit, acts, note, dead):
         return row_card_close(fleet, label, owner, key, reason=step[1], acts=acts, Rows="0")
     if step[0] == "post":
         facts.update(left=unticked(step[1]), follows=cards.follows_of("land", {"kit": kit}, entries, owner))
-        earlier = card_heads(next((e.get("Heads") for e in reversed(entries) if e.get("Card") == facts["follows"] and not e.get("Refused")
-                                   and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None)) if facts["follows"] else []
+        shown_then = next((e.get("Heads") for e in reversed(entries) if e.get("Card") == facts["follows"] and not e.get("Refused")
+                           and e.get("Act") in ("card.post", "card.update") and e.get("Heads")), None) if facts["follows"] else None
+        earlier, waited = card_heads(shown_then), heads_next(shown_then)  # its rows, and those it showed with no box
         # following the user's send, what changed of a bolt asked again opens the card with the rest (card_posted)
         build = cards.landings_card if facts["follows"] else built_saying(cards.landings_card, said)
-        since = [f"{w}." for w in said] + landings_since(earlier, [r for r in rows if r["box"] and r["bolt"] not in dict(asked)])
+        since = [f"{w}." for w in said] + landings_since(earlier, [r for r in rows if r["box"] and r["bolt"] not in dict(asked)],
+                                                         waited)
         return told_kept(label, key, told, row_card_change(fleet, label, owner, built_again(build) if dead else build, facts,
                                                            "; ".join(said + [note or "Raised as the bolts stand"]), where, acts,
                                                            since=since if facts["follows"] else None))

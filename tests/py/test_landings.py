@@ -1786,6 +1786,33 @@ def test_a_card_posted_after_the_kits_last_one_says_which_bolts_joined_moved_or_
     assert plan.landings_since(plan.card_heads("z@abc1234"), [box("z", H2)]) == ["z's head is now def5678."]
 
 
+def test_the_card_that_follows_says_the_rows_that_had_no_box_wait_on_it(monkeypatch):
+    """rail-cards "A send with rows waiting for a box is followed at once by a card asking for them": the card that
+    follows says which of its rows had no box on the last card, never that the user left them. Its follow-on was
+    refused, so the next raise posts the kit's card afresh, following the card the user sent."""
+    earlier = plan.card_heads(" ".join(EIGHT))
+    assert plan.landings_since(earlier, [box("b6"), box("b7"), box("b8")], {"b6", "b7", "b8"}) == [
+        "b6, b7 and b8, which had no box on your last card, wait on this card."]
+    left = plan.card_heads("b1@abc1234:left:next b2@abc1234 b7@abc1234:next")
+    assert plan.landings_since(left, [box("b1"), box("b7", H2), box("b9")], {"b1", "b7"}) == [
+        "b9 reads proven and joins the card.", "b7's head is now def5678.", "b1, which had no box on your last card, waits on this card."]
+    assert plan.landings_since(plan.card_heads("z@abc1234"), [box("z")]) == ["z, which you left, waits on this card."]
+    eight = [f"b{i}" for i in range(1, 9)]
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads=" ".join(EIGHT), At="2026-10-23T13:10:00Z"),
+            dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", State="closed", Rows="3", At="2026-10-23T14:02:00Z",
+                 Answer="ticked b1, b2, b3, b4 and b5", Heads=" ".join(f"b{i}@abc1234" for i in range(1, 6)))]
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in eight}, held, answers=POSTED)
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert post["follows"] == "req_k1" and [o["id"] for o in post["options"]] == ["land:b6", "land:b7", "land:b8"]
+    assert post["summary"].startswith(
+        "You answered the card before this one, posted 2026-10-23 13:10 UTC, by 14:02 UTC: ticked b1, b2, b3, b4 and b5. "
+        "Since then: b6, b7 and b8, which had no box on your last card, wait on this card.\n\n")
+    assert "which you left" not in post["summary"]
+
+
 def test_a_bolt_proven_after_the_answer_gets_a_new_card_following_it_and_the_send_still_lands_the_rest(monkeypatch, capsys):
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234")]
     answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
