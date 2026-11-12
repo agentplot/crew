@@ -30,7 +30,6 @@ A bolt's proof is none of these. No act of crew's makes it: the rail reads it fr
 **Non-Goals:**
 
 - A change to what a raise does with its rows (`landings_step`).
-- A raise for a bolt the user ticked whose head moved. Its send is read where the kit's forecasts are made (`bolt_work`), and the rail does not read that. A take-main fix's merge reaches the raise as it does today.
 - An event of crew's own at a bolt's proof. The proof is read, not done, and the rail's read is the first act that reads it on the main level's host.
 
 ## Decisions
@@ -39,10 +38,10 @@ A bolt's proof is none of these. No act of crew's makes it: the rail reads it fr
 
 `plan.unoffered(rows, card, sends)` is a decision on plain facts (`code.7`). A row of the kit's land row is unoffered when all of these hold:
 - it can land;
-- no send holds it: the card's answer did not tick it, and no closed card's kept send names it while this card does not show it, as `card_stand`'s `holds` reads;
+- no send holds it at its head now: the card's answer did not tick it at that head, and no closed card's kept send names it at that head while this card does not show it;
 - the card shows it on no row, at another head than its head now, taking main first, or, once the user answered it, with no box.
 
-These are the rows for which `landings_step` changes a waiting card or follows an answered one. A row the card shows as it stands is not unoffered, a bolt the user left on their send among them, since a raise for it would change nothing.
+These are the rows for which `landings_step` changes a waiting card or follows an answered one, and the bolts a send ticked that read proven at a new head, whose land the raise posts on that send while it stands for their work, or asks for again (`lands_sent`, `rows_unsent`; rail-cards "A ticked bolt taking main in lands on its send once it reads proven at a new head"). A send is read at the head it was sent at and no further here: whether it stands for the bolt's work at its new head is the raise's to read, where the kit's forecasts are made (`bolt_work`). A row the card shows as it stands is not unoffered, a bolt the user left on their send among them, since a raise for it would change nothing.
 
 `plan.landings_unoffered(read, label, here, kits)` applies it to each landings card the read finds open on this host in main-level ops's name. It reads the card's rows as the run record holds its last post or change (`shown_heads`), its answer as the read holds it, and the sends kept on its key. `sweep_moved` raises each such card, once, after those main moved under and those whose answer the sweep recorded.
 
@@ -101,7 +100,7 @@ None: every outcome here is a logic-tier case, and nothing waits on a host or on
 - a left bolt at its head, and at a new head;
 - rows shown taking main first or with no box on an answered card;
 - a send ticking none;
-- a kept send;
+- a ticked bolt at a new head, and a kept send at its head and at another;
 - a waiting card's joining, moved and taking rows, and its rows with no box;
 - a row that can't land;
 - a fix of main by name.

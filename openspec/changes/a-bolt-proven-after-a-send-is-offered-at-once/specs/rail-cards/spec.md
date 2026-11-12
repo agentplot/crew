@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: The rail's read raises a landings card that does not show a row as it stands
-On the main level's host, the rail's read SHALL raise each kit's landings card open in main-level ops's name whose land row holds a row that can land, held by no send, that the card shows on no row, at another head, taking main first, or, once answered, with no box. It SHALL raise none for a card that shows every such row as it stands.
+On the main level's host, the rail's read SHALL raise each kit's landings card open in main-level ops's name whose land row holds a row that can land, held by no send at its head now, that the card shows on no row, at another head, taking main first, or, once answered, with no box. It SHALL raise none for a card that shows every such row as it stands.
 
 #### Scenario: A bolt proven between a send and its landing
 - **WHEN** the user sent `land/crew` ticking `y`, whose land the runner has not answered, main has not moved, and `z` reads proven, on no row of that card
@@ -10,6 +10,10 @@ On the main level's host, the rail's read SHALL raise each kit's landings card o
 #### Scenario: A bolt proven while the card waits
 - **WHEN** `land/crew` waits on the user with `y`, main has not moved, and `z` reads proven
 - **THEN** the rail's read raises `land/crew` for `z`, and the read after it, the card showing `z` at its head, raises none
+
+#### Scenario: A ticked bolt proven at a new head
+- **WHEN** the user ticked `z` at `abc1234`, Flume refused its landing in conflict with main, and `z`'s take-main fix merged, so `z` reads proven at `def5678`, main not having moved since
+- **THEN** the rail's read raises `land/crew`, whose raise posts `z`'s land on that send while it stands for `z`'s work
 
 #### Scenario: A bolt the user left beside a send still landing
 - **WHEN** the user sent `land/crew` ticking `y` and leaving `z`, `y` has not landed, and `z` stands at the head the card showed

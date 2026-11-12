@@ -9,16 +9,16 @@ What a raise of the card does with such a bolt is already decided. `plan.landing
 - The rail's read raises an open landings card only when main has moved under it (`landings_moved`) or when its sweep recorded the user's answer in that read (`landings_answered`).
 - Otherwise a row with an open card is only asked after in Pending You (`sweep_judged`'s `held`).
 
-So a bolt proven between the user's send and its landing waits until a bolt they ticked lands or main moves. One proven while the card waits on the user waits the same way, though its land line says the card that follows carries it.
+So a bolt proven between the user's send and its landing waits until a bolt they ticked lands or main moves. One proven while the card waits on the user waits the same way, though its land line says the card that follows carries it, and so does a ticked bolt proven at a new head once its take-main fix merged, whose land the next raise posts on the send (rail-cards "A ticked bolt taking main in lands on its send once it reads proven at a new head").
 
 ## What Changes
 
-- **The rail's read raises a landings card that does not show a row as it stands.** On the main level's host, each kit's landings card open in main-level ops's name is raised when its land row holds a row that can land, held by no send, that the card shows:
+- **The rail's read raises a landings card that does not show a row as it stands.** On the main level's host, each kit's landings card open in main-level ops's name is raised when its land row holds a row that can land, held by no send at its head now, that the card shows:
   - on no row;
   - at another head;
   - taking main first;
   - or, once answered, with no box.
-- **A bolt proven since the user's send is offered in the same read**, on a card following theirs, as a send's rows that waited for a box are. The card they sent is closed keeping their send, which still lands what they ticked. A bolt proven while the card waits joins it.
+- **A bolt proven since the user's send is offered in the same read**, on a card following theirs, as a send's rows that waited for a box are. The card they sent is closed keeping their send, which still lands what they ticked. A bolt proven while the card waits joins it. A bolt the user ticked that reads proven at a new head, its take-main fix merged, has its land posted on their send while it stands for the bolt's work.
 - **A card that shows every row as it stands is raised by none of this.** A bolt the user left, at the head the card showed, is one such row. So an answered card with nothing proven since waits on its own landings, as before.
 - **A land row's bolts carry their head now**, by which the read tells a row the card shows at another head.
 - **`crew rail` names each card it raised so**, with its rows.
