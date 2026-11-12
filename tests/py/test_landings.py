@@ -644,12 +644,18 @@ def hold(bolt, why="held for a fix: one zone is missing (fix/y/gap)", head=H1):
     return dict(bolt=bolt, box=False, why=why, facts=facts(bolt, head))
 
 
+def held_card(status, heads):
+    """A kit's landings card ops holds as kit_card_state reads it, from the Heads its last post or change recorded."""
+    text = " ".join(heads)
+    return {"status": status, "heads": plan.card_heads(text), "taking": plan.heads_taking(text), "next": plan.heads_next(text)}
+
+
 def waiting(*heads):
-    return {"status": "waiting", "heads": plan.card_heads(" ".join(heads)), "taking": plan.heads_taking(" ".join(heads))}
+    return held_card("waiting", heads)
 
 
 def answered(*heads):
-    return {"status": "answered", "heads": plan.card_heads(" ".join(heads)), "taking": plan.heads_taking(" ".join(heads))}
+    return held_card("answered", heads)
 
 
 def work(gained=(), lost=(), why=None, head=H2):
@@ -873,6 +879,67 @@ def test_a_bolt_proven_after_the_answer_is_no_row_of_it_and_a_new_card_follows_i
     step = plan.landings_step([box("y"), box("z"), box("w")], answered("y@abc1234", "z@abc1234"), ["y"], {"y", "z", "w"})
     assert step == ("follow", "Asked of the runner as you ticked: y. Left: z. Since your send, w reads proven, and the card that "
                               "follows asks for it.", ["z"], [("y", "abc1234")])
+
+
+def test_a_rows_next_mark_is_read_as_a_row_with_no_box():
+    """rail-cards "A landings card holds five boxes and the rest of its rows wait on its face": a row the card showed
+    with no box is recorded :next, after :left or :main or alone, and read back so by the next raise."""
+    text = "a@abc1234 b@abc1234:left:next c@abc1234:main:next d@abc1234:next"
+    assert plan.card_heads(text) == [("a", "abc1234", False), ("b", "abc1234", True), ("c", "abc1234", False),
+                                     ("d", "abc1234", False)]
+    assert plan.heads_taking(text) == {"c"}
+    assert plan.heads_next(text) == {"b", "c", "d"}
+    assert plan.offered_boxes(text) == ["land:a"]
+    assert plan.heads_taking("c@abc1234:main") == {"c"} and plan.heads_next("c@abc1234:main b@abc1234:left") == set()
+
+
+EIGHT = [f"b{i}@abc1234" for i in range(1, 6)] + [f"b{i}@abc1234:next" for i in range(6, 9)]
+
+
+def test_a_row_coming_to_a_box_changes_the_waiting_card_in_place():
+    """rail-cards "A row coming to a box or losing one changes the waiting landings card in place": "A boxed row is held
+    for a fix"."""
+    rows = [box("b1"), hold("b2")] + [box(f"b{i}") for i in range(3, 9)]
+    step = plan.landings_step(rows, waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)})
+    assert step == ("change", "b2 is held for a fix: one zone is missing (fix/y/gap); b6 has a box now", False, [])
+    # and back: b2 can land again, so b6 waits for a box once more
+    back = waiting(*([f"b{i}@abc1234" for i in (1, 3, 4, 5, 6)] + ["b7@abc1234:next", "b8@abc1234:next"]))
+    step = plan.landings_step([box(f"b{i}") for i in range(1, 9)], back, None, {f"b{i}" for i in range(1, 9)})
+    assert step == ("change", "b2 reads proven and joins the card; b6 waits for a box", False, [])
+
+
+def test_a_row_with_no_box_whose_head_moves_changes_the_card_and_keeps_it_with_no_box():
+    """rail-cards "A row waiting for a box moves its head"."""
+    rows = [box(f"b{i}") for i in range(1, 7)] + [box("b7", H2), box("b8")]
+    step = plan.landings_step(rows, waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)})
+    assert step == ("change", "b7's head is now def5678", False, [])
+    assert plan.landings_step([box(f"b{i}") for i in range(1, 9)], waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)}) == ("leave",)
+
+
+def test_a_send_with_rows_waiting_for_a_box_is_followed_at_once_by_a_card_asking_for_them():
+    """rail-cards "A send with rows waiting for a box is followed at once by a card asking for them": "Five ticked, three
+    waiting"."""
+    ticked = [f"b{i}" for i in range(1, 6)]
+    step = plan.landings_step([box(f"b{i}") for i in range(1, 9)], answered(*EIGHT), ticked, {f"b{i}" for i in range(1, 9)})
+    assert step == ("follow", "Asked of the runner as you ticked: b1, b2, b3, b4 and b5. b6, b7 and b8 had no box on this "
+                              "card, and the card that follows asks for them.", [], [(b, "abc1234") for b in ticked])
+    assert "Left:" not in step[1]
+    # beside a row proven since the send
+    rows = [box(f"b{i}") for i in range(1, 9)] + [box("b9")]
+    step = plan.landings_step(rows, answered(*EIGHT), ticked, {f"b{i}" for i in range(1, 10)})
+    assert step[1].endswith("Since your send, b9 reads proven; b6, b7 and b8 had no box on this card, and the card that "
+                            "follows asks for them.")
+
+
+def test_a_left_row_waiting_for_a_box_stays_left():
+    """rail-cards "A left row that waited for a box"."""
+    heads = ["b1@abc1234:left:next"] + [f"b{i}@abc1234" for i in range(2, 7)] + ["b7@abc1234:next"]
+    now = {f"b{i}": H1 for i in range(1, 8)}
+    assert plan.left_now(answered(*heads), [f"b{i}" for i in range(2, 7)], now, {}, []) == {"b1": "abc1234"}
+    # b7 waited for a box alone, unticked: not left
+    assert "b7" not in plan.left_now(answered(*heads), [f"b{i}" for i in range(2, 7)], now, {}, [])
+    # while the card waits, the mark alone says so
+    assert plan.left_now(waiting(*heads), None, now, {}, []) == {"b1": "abc1234"}
 
 
 STOP = "check:dagger could not run: the Dagger engine did not answer"
@@ -1385,28 +1452,63 @@ def test_two_proven_bolts_post_one_card_in_ops_name_with_two_boxes(monkeypatch, 
                                            "name swancloud-ops), to hear their answer.")]
 
 
-# Pending You's refusal of a card's highStakes beside its questions, as the Willdan box met it on 2026-11-10 (signals
-# 2026-11-10-wldn-ops-6352d0d6/01 and 2026-11-10-wldn-operator-9599d7fa/01 on WilldanGroup/crew-state wldn/main).
-MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card's highStakes out."
+# Pending You's refusal of a card of questions carrying highStakes, in its words and with its apostrophe: of the card's own
+# on the Willdan box on 2026-11-10 (signals 2026-11-10-wldn-ops-6352d0d6/01 and 2026-11-10-wldn-operator-9599d7fa/01 on
+# WilldanGroup/crew-state wldn/main), and of each question's on deneb from 2026-11-11T23:09Z, every post of boomdrive's
+# landings card refused (signal 2026-11-12-agentplot-ops-6907cc32/01 on agentplot/main of afterthought/crew-state).
+MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card’s highStakes out."
 
 
 def marked_post(args):
-    """post_request as Pending You answers it: a card of questions that carries highStakes refused in its words."""
-    return (None, MARKED_WORDS) if args.get("questions") and "highStakes" in args else POSTED["post_request"]
+    """post_request as Pending You answers it: a card of questions carrying highStakes, on the card or on any question,
+    refused in its words."""
+    questions = args.get("questions") or []
+    if questions and ("highStakes" in args or any("highStakes" in q for q in questions)):
+        return None, MARKED_WORDS
+    return POSTED["post_request"]
 
 
-def test_six_proven_bolts_post_one_card_of_lists_each_marking_its_stakes_and_the_card_none(monkeypatch):
-    """Six rows held six proven Switchboard bolts about 9h on crew 0.41.11, every post of land/<kit> refused: a card of
-    lists carries highStakes on each list and none on the card."""
-    six = ["y", "x1", "x2", "x3", "x4", "z"]
+def test_eight_proven_bolts_post_one_list_of_five_boxes_and_nothing_is_refused(monkeypatch):
+    """rail-cards "Eight bolts, and Pending You refuses questions carrying highStakes": boomdrive's eight proven bolts
+    had no card on deneb from 2026-11-11T23:09Z, every post of its lists of questions refused; one list of five boxes
+    carrying highStakes on the card posts, the other three waiting on its face, recorded :next."""
+    eight = [f"b{i}" for i in range(1, 9)]
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in six) + "%rec: Unit\n\n"))
-    acts = LandActs({b: row(b) for b in six}, answers=dict(POSTED, post_request=marked_post))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in eight}, answers=dict(POSTED, post_request=marked_post))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     post = next(a for t, a in acts.calls if t == "post_request")
-    assert "highStakes" not in post and [len(q["options"]) for q in post["questions"]] == [3, 3]
-    assert [q["highStakes"] for q in post["questions"]] == [True, True]
-    assert [(e["Act"], e.get("refused"), e["Card"]) for e in acts.emitted] == [("card.post", None, "req_k1")]
+    assert (post["kind"], post["highStakes"], "questions" in post, len(post["options"])) == ("multi", True, False, 5)
+    assert [(e["Act"], e.get("refused"), e.get("Refused"), e["Card"]) for e in acts.emitted] == [("card.post", None, None, "req_k1")]
+    assert acts.emitted[0]["Heads"].endswith("b6@abc1234:next b7@abc1234:next b8@abc1234:next")
+    # the fake refuses what Pending You refused, a card of questions carrying highStakes anywhere, and takes one carrying none
+    qs = [{"id": "rows-1", "kind": "multi", "options": []}, {"id": "rows-2", "kind": "multi", "options": []}]
+    assert marked_post({"questions": qs, "highStakes": True}) == (None, MARKED_WORDS)
+    assert marked_post({"questions": [dict(qs[0], highStakes=True), qs[1]]}) == (None, MARKED_WORDS)
+    assert marked_post({"questions": qs}) == POSTED["post_request"]
+
+
+def test_a_send_with_rows_waiting_for_a_box_posts_the_card_that_follows_asking_for_them(monkeypatch):
+    """rail-cards "Five ticked, three waiting", through the raise: the card is closed, none of the three recorded left, and
+    the card that follows asks for b6, b7 and b8 as ticked boxes."""
+    eight = [f"b{i}" for i in range(1, 9)]
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads=" ".join(EIGHT))]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": [f"land:b{i}" for i in range(1, 6)]}}
+    answers = dict(POSTED, get_request=(answer, None), post_request=({"requestId": "req_k2", "version": 1}, None))
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in eight}, held, answers=answers)
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k2"
+    close = next(e for e in acts.emitted if e["Act"] == "card.close")
+    assert close["Outcome"] == ("Asked of the runner as you ticked: b1, b2, b3, b4 and b5. b6, b7 and b8 had no box on this "
+                                "card, and the card that follows asks for them.")
+    assert close["Answer"] == "ticked b1, b2, b3, b4 and b5"
+    assert not [e for e in acts.emitted if e["Act"] == "landing.left"]
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert post["follows"] == "req_k1"
+    assert [o["id"] for o in post["options"]] == ["land:b6", "land:b7", "land:b8"]
+    assert post["recommendedIds"] == ["land:b6", "land:b7", "land:b8"]
+    assert acts.emitted[-1]["Act"] == "card.post" and acts.emitted[-1]["Heads"] == "b6@abc1234 b7@abc1234 b8@abc1234"
 
 
 def test_a_kits_card_is_raised_under_its_lock_every_read_and_act_inside_it(monkeypatch):
@@ -1694,6 +1796,33 @@ def test_a_card_posted_after_the_kits_last_one_says_which_bolts_joined_moved_or_
     assert plan.landings_since(plan.card_heads("y@abc1234 z@abc1234"), [box("z"), box("w", H2)]) == [
         "w reads proven and joins the card.", "z, which you left, waits on this card."]
     assert plan.landings_since(plan.card_heads("z@abc1234"), [box("z", H2)]) == ["z's head is now def5678."]
+
+
+def test_the_card_that_follows_says_the_rows_that_had_no_box_wait_on_it(monkeypatch):
+    """rail-cards "A send with rows waiting for a box is followed at once by a card asking for them": the card that
+    follows says which of its rows had no box on the last card, never that the user left them. Its follow-on was
+    refused, so the next raise posts the kit's card afresh, following the card the user sent."""
+    earlier = plan.card_heads(" ".join(EIGHT))
+    assert plan.landings_since(earlier, [box("b6"), box("b7"), box("b8")], {"b6", "b7", "b8"}) == [
+        "b6, b7 and b8, which had no box on your last card, wait on this card."]
+    left = plan.card_heads("b1@abc1234:left:next b2@abc1234 b7@abc1234:next")
+    assert plan.landings_since(left, [box("b1"), box("b7", H2), box("b9")], {"b1", "b7"}) == [
+        "b9 reads proven and joins the card.", "b7's head is now def5678.", "b1, which had no box on your last card, waits on this card."]
+    assert plan.landings_since(plan.card_heads("z@abc1234"), [box("z")]) == ["z, which you left, waits on this card."]
+    eight = [f"b{i}" for i in range(1, 9)]
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads=" ".join(EIGHT), At="2026-10-23T13:10:00Z"),
+            dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", State="closed", Rows="3", At="2026-10-23T14:02:00Z",
+                 Answer="ticked b1, b2, b3, b4 and b5", Heads=" ".join(f"b{i}@abc1234" for i in range(1, 6)))]
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+    acts = LandActs({b: row(b) for b in eight}, held, answers=POSTED)
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert post["follows"] == "req_k1" and [o["id"] for o in post["options"]] == ["land:b6", "land:b7", "land:b8"]
+    assert post["summary"].startswith(
+        "You answered the card before this one, posted 2026-10-23 13:10 UTC, by 14:02 UTC: ticked b1, b2, b3, b4 and b5. "
+        "Since then: b6, b7 and b8, which had no box on your last card, wait on this card.\n\n")
+    assert "which you left" not in post["summary"]
 
 
 def test_a_bolt_proven_after_the_answer_gets_a_new_card_following_it_and_the_send_still_lands_the_rest(monkeypatch, capsys):

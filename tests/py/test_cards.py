@@ -1557,30 +1557,44 @@ class TestLandings:
         assert built.forecast_said([("main", None)], "bolt/y is on no branch crew can read") == (
             "Its forecast against main could not be made: bolt/y is on no branch crew can read.")
 
-    def test_seven_rows_are_two_lists_of_four_and_three_with_about(self):
-        c = landings(7)["card"]
-        assert "options" not in c and c["about"] == {"kind": "other", "title": "Land on crew's main"}
-        assert [len(q["options"]) for q in c["questions"]] == [4, 3]
-        assert [q["id"] for q in c["questions"]] == ["rows-1", "rows-2"]
-        assert c["questions"][1]["options"][0]["label"] == "5. b5"
-        assert c["questions"][1]["recommendedIds"] == ["land:b5", "land:b6", "land:b7"]
+    def test_eight_rows_are_one_list_of_five_boxes_the_rest_waiting_on_its_face(self):
+        """rail-cards "A landings card holds five boxes and the rest of its rows wait on its face"."""
+        c = landings(8)["card"]
+        assert c["kind"] == "multi" and "questions" not in c and "about" not in c
+        assert [o["id"] for o in c["options"]] == [f"land:b{i}" for i in range(1, 6)]
+        assert [o["label"] for o in c["options"]] == [f"{i}. b{i}" for i in range(1, 6)]
+        assert c["multi"] == {"min": 0, "max": 5} and c["recommendedIds"] == [f"land:b{i}" for i in range(1, 6)]
+        face = "\n".join(c["artifacts"][0]["lines"])
+        places = [face.index(f"**{i}. b{i}**") for i in range(1, 9)]
+        assert places == sorted(places)
+        assert all(f"**{i}. b{i}**{built.WAITS}\n" in face for i in (6, 7, 8))
+        assert not any(f"**{i}. b{i}**{built.WAITS}" in face for i in range(1, 6))
+        assert built.WAITS == " · *waits for a box*"
 
-    @pytest.mark.parametrize("n", [6, 7, 11])
-    def test_six_or_more_rows_mark_each_list_high_stakes_and_the_card_none(self, n):
-        """Pending You refuses a card's highStakes beside questions ("With questions, each question carries its own
-        highStakes; leave the card's highStakes out."), which held six proven bolts on the Willdan box on 2026-11-10
-        (signal 2026-11-10-wldn-ops-6352d0d6/01)."""
-        c = landings(n)["card"]
-        assert "highStakes" not in c and "rationale" not in c
-        assert [q["highStakes"] for q in c["questions"]] == [True] * -(-n // built.BOXES)
-
-    def test_several_lists_each_carry_what_follows_a_yes_and_the_card_carries_no_rationale(self):
+    @pytest.mark.parametrize("n", [6, 8, 21])
+    def test_more_than_five_rows_carry_high_stakes_and_what_follows_on_the_card_and_ask_no_questions(self, n):
+        """Pending You refuses a card of questions carrying highStakes, on the card ("With questions, each question
+        carries its own highStakes; leave the card's highStakes out.", the Willdan box, 2026-11-10) or on its
+        questions (boomdrive's on deneb from 2026-11-11T23:09Z), and has taken one list carrying it on the card."""
         then = ("After you send: crew asks the runner to land them in this order, Flume submits each through the merge queue, "
                 "each closed as it lands, and every host takes them.")
-        c = landings(7)["card"]
-        assert "rationale" not in c
-        assert [q["rationale"] for q in c["questions"]] == [then, then]
-        assert landings(3)["card"]["rationale"] == then
+        c = landings(n)["card"]
+        assert (c["highStakes"], c["rationale"], "questions" in c, len(c["options"])) == (True, then, False, built.BOXES)
+        assert len(c["summary"]) <= built.SUMMARY
+        assert f"{n - built.BOXES} more wait below with no box yet; the card that follows your send asks for them." in c["summary"]
+
+    def test_rows_with_no_box_are_marked_next_in_the_cards_heads(self):
+        b = landings(8, left=["b1"])
+        assert [o["id"] for o in b["card"]["options"]] == [f"land:b{i}" for i in range(2, 7)]
+        assert b["heads"] == (["b1@abc1234:left:next"] + [f"b{i}@abc1234" for i in range(2, 7)]
+                              + ["b7@abc1234:next", "b8@abc1234:next"])
+        assert "3 more wait below" in b["card"]["summary"]
+        face = "\n".join(b["card"]["artifacts"][0]["lines"])
+        assert "**1. b1** · *left on your last send* · *waits for a box*" in face
+        taking = built.landings_card(dict(kit="crew", rows=[landings_row("b1", taking=self.TAKING)]
+                                          + [landings_row(f"b{i}") for i in range(2, 8)]))
+        assert taking["heads"][0] == "b1@abc1234:main:next"
+        assert "**1. b1** · *takes main first* · *waits for a box*" in "\n".join(taking["card"]["artifacts"][0]["lines"])
 
     def test_a_held_row_is_on_the_face_with_why_and_no_box(self):
         c = landings(2, held=[{"bolt": "w", "why": "held for a fix: The zone list misses one zone. (fix/w/gap)"}])["card"]
@@ -1668,11 +1682,37 @@ class TestLandings:
         assert [a["title"] for a in c["artifacts"]][1:6] == ["Read b1", "Read b2", "Read b3", "Read b4", "Read b5"]
 
     def test_the_form_by_how_many_rows_can_land(self):
-        assert [built.landings_form(n) for n in (1, 2, 5, 6, 20)] == ["approve", "multi", "multi", "lists", "lists"]
+        assert [built.landings_form(n) for n in (1, 2, 5, 6, 20)] == ["approve", "multi", "multi", "multi", "multi"]
 
     def test_a_card_with_no_row_that_can_land_is_refused(self):
         with pytest.raises(crew.Refusal):
             built.landings_card(dict(kit="crew", rows=[]))
+
+
+class TestLandingsBoxed:
+    """rail-cards "A landings card holds five boxes and the rest of its rows wait on its face": five boxes, first to the
+    rows crew would tick, then to the others, each in the rows' order."""
+
+    @staticmethod
+    def rows(n, left=(), taking=()):
+        return [{"bolt": f"b{i}", "left": f"b{i}" in left, "taking": "takes main first" if f"b{i}" in taking else None}
+                for i in range(1, n + 1)]
+
+    def test_five_rows_or_fewer_all_have_boxes(self):
+        assert built.landings_boxed(self.rows(5, left={"b1"}, taking={"b2"})) == ["b1", "b2", "b3", "b4", "b5"]
+        assert built.landings_boxed(self.rows(2)) == ["b1", "b2"]
+
+    def test_eight_rows_that_can_land_box_the_first_five(self):
+        assert built.landings_boxed(self.rows(8)) == ["b1", "b2", "b3", "b4", "b5"]
+
+    def test_seven_rows_the_first_left_and_the_second_taking_main_first_box_the_third_to_the_seventh(self):
+        assert built.landings_boxed(self.rows(7, left={"b1"}, taking={"b2"})) == ["b3", "b4", "b5", "b6", "b7"]
+
+    def test_six_rows_that_can_land_after_a_left_row_box_the_first_five_that_can_land(self):
+        assert built.landings_boxed(self.rows(7, left={"b1"})) == ["b2", "b3", "b4", "b5", "b6"]
+
+    def test_seven_rows_three_left_box_the_four_that_can_land_then_the_first_left_row(self):
+        assert built.landings_boxed(self.rows(7, left={"b2", "b4", "b6"})) == ["b1", "b2", "b3", "b5", "b7"]
 
 
 class TestDeploy:

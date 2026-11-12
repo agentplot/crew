@@ -195,6 +195,7 @@ for want in "bolt land <bolt>" "## Deploying main" "Every agent of the drive wld
   "whichever act reads it first once the runner reports the bolt's base place landed" "so a landing never waits on your session staying up" \
   "crew's next read of the bolt closes it once what it named is mended, at the rail's next sweep" \
   "keyed \`land/<kit>\`, which crew raises in your name" "card read land/<kit> --label wldn" \
+  "A row past the card's five boxes waits on its face with no box" \
   "and for each the land crew posted with its request, or that none is posted yet, crew's next raise of the card posting it" \
   "gives you no command to run" \
   "A landing deploys nothing (\`plan.14\`)" "A landing is never that word" \
