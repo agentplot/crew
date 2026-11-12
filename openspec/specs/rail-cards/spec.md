@@ -775,14 +775,18 @@ The lands of a send SHALL be posted by whichever act of crew's first reads it: t
 - **THEN** the read says nothing lands, and no land is posted
 
 ### Requirement: A bolt started before bolts were base places has no box
-A started bolt with no launch of `bolt/<bolt>` in the drive's requests SHALL land under the crew that started it. Once it reads proven, its row on its kit's landings card SHALL have no box and SHALL say it was started before bolts were base places and lands under the crew that started it, and crew SHALL post no land for it (record 0056).
+A started bolt with no launch of `bolt/<bolt>` in the drive's requests SHALL land under the crew that started it. Once it reads proven, and while its kit's main does not hold its work, its row on its kit's landings card SHALL have no box and SHALL say it was started before bolts were base places and lands under the crew that started it, and crew SHALL post no land for it (record 0056). Once main holds its work, it is no row (bolt-teams).
 
 #### Scenario: Beside a bolt that can land
-- **WHEN** crew's bolts `y` and `w` read proven, `y` launched as a base place and `w` started by an older crew, with no launch of `bolt/w`
+- **WHEN** crew's bolts `y` and `w` read proven, `y` launched as a base place and `w` started by an older crew, with no launch of `bolt/w`, and crew's main does not hold `w`'s work
 - **THEN** `land/crew` shows `y` ticked and `w` with no box, `w`'s row saying it was started before bolts were base places and lands under the crew that started it, and no raise posts a land of `w`
 
+#### Scenario: Landed by the crew that started it
+- **WHEN** `w`'s landing by an older crew has landed, and GitHub's main holds `w`'s work
+- **THEN** `land/crew` shows `y` ticked and no row for `w`
+
 ### Requirement: A landing the runner or Flume stopped keeps its box
-A bolt whose land the runner answered refused, or whose submission Flume reports withdrawn or refused and waiting on its caller, as the runner's report carries it, SHALL keep its box (record 0056 decision 6). Its row SHALL say what stopped its landing at that head, in the runner's or Flume's words, nothing of the bolt's. The send that ticked it SHALL be spent: crew SHALL post no land of it again on that send.
+A bolt whose land the runner answered refused, or whose submission Flume reports withdrawn or refused and waiting on its caller, as the runner's report carries it, SHALL keep its box while its kit's main does not hold its work (record 0056 decision 6). Its row SHALL say what stopped its landing at that head, in the runner's or Flume's words, nothing of the bolt's. The send that ticked it SHALL be spent: crew SHALL post no land of it again on that send.
 
 #### Scenario: The runner refuses the land
 - **WHEN** the user sent `land/crew` with `z` ticked, crew posted `z`'s land, and the runner answered it refused, a place on `bolt/z` being live
@@ -799,6 +803,10 @@ A bolt whose land the runner answered refused, or whose submission Flume reports
 #### Scenario: The head moves
 - **WHEN** `z`'s landing was stopped at `abc1234` and `z`'s head moves to a new head that reads proven
 - **THEN** `z`'s row says nothing of the stop
+
+#### Scenario: A stopped landing that landed
+- **WHEN** `z`'s landing was stopped at `abc1234`, and GitHub's main holds `abc1234` and the commit each of `z`'s units landed at on `bolt/z`
+- **THEN** `land/crew` has no row for `z`, and no word of the stop is said on the card
 
 ### Requirement: A row held by Flume's landing fix says so
 A row whose bolt's base place has a landing fix live SHALL be held with no box, saying which fix and what it does: taking main in for a forecast or a conflict, the row taking main first, or making the failed checks pass for a failed submission, in Flume's words. A row whose landing was refused and whose landing fix is due SHALL be held at the refused head, saying Flume launches its landing fix. A row past the bound SHALL be held, saying Flume ran its landing fixes and the bolt waits on ops.
