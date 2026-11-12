@@ -2893,10 +2893,11 @@ def card_rows(rows):
 def card_heads(text):
     """A kit's landings card's rows as its post or change recorded them (built_fields): [(bolt, head, left)] in the
     card's order, left whether the user cleared it on their last send; [] for none recorded. A row the card showed
-    taking main first, marked :main, is among them, never left (heads_taking)."""
+    taking main first, marked :main, is among them, never left (heads_taking), and so is one it showed with no box,
+    marked :next after either mark or none (heads_next)."""
     out = []
     for w in (text or "").split():
-        m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40})(:left|:main)?", w)
+        m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40})(:left|:main)?(:next)?", w)
         if m:
             out.append((m.group(1), m.group(2), m.group(3) == ":left"))
     return out
@@ -2904,8 +2905,16 @@ def card_heads(text):
 
 def heads_taking(text):
     """The rows a kit's landings card's post or change recorded as taking main first, marked :main (cards.landings_card,
-    rail-cards "A row taking main first stays on the card"): their bolts."""
-    return {m.group(1) for w in (text or "").split() for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@[0-9a-f]{7,40}:main", w)] if m}
+    rail-cards "A row taking main first stays on the card"), with no box or one: their bolts."""
+    return {m.group(1) for w in (text or "").split()
+            for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@[0-9a-f]{7,40}:main(:next)?", w)] if m}
+
+
+def heads_next(text):
+    """The rows a kit's landings card's post or change recorded with no box, marked :next (cards.landings_card,
+    rail-cards "A landings card holds five boxes and the rest of its rows wait on its face"): their bolts."""
+    return {m.group(1) for w in (text or "").split()
+            for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@[0-9a-f]{7,40}(?::left|:main)?:next", w)] if m}
 
 
 def at_head(head, now):
@@ -3594,8 +3603,9 @@ def fix_row(kit, f):
 
 def kit_card_state(acts, label, key, owner, card, entries):
     """The kit's landings card ops holds (card), as landings_step reads it, with the bolts the user ticked on it:
-    ({status, heads, taking}, ticked), status "answered" once the user answered it, else "waiting", heads its rows as
-    its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking); (None,
+    ({status, heads, taking, next}, ticked), status "answered" once the user answered it, else "waiting", heads its rows
+    as its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking),
+    next those it showed with no box (heads_next); (None,
     why) when Pending You could not be read or no longer finds it, so the raise changes nothing (read.1), but a lost
     card, recorded lost, reads as none held, for a new one to be posted, and so does one Pending You has ended by
     another hand (cards.ended), recorded closed as ended there with what the user answered and their send (close_kept),
@@ -3612,7 +3622,7 @@ def kit_card_state(acts, label, key, owner, card, entries):
             return {"status": None}, None
         return None, f"Pending You refused get_request: {words}"
     recorded = shown_heads(entries, card)
-    heads, taking = card_heads(recorded), heads_taking(recorded)
+    heads, taking, waits = card_heads(recorded), heads_taking(recorded), heads_next(recorded)
     state = ended_close(acts, label, owner, key, card, got, entries)
     if state:  # ended in Pending You by another hand: recorded so, its answer and send kept, and none held (Decision 4)
         print(f"card {key}: {card} was {state} in Pending You already, and the raise posts as the bolts stand")
@@ -3620,7 +3630,7 @@ def kit_card_state(acts, label, key, owner, card, entries):
     if got.get("status") == "answered":  # the user's answer recorded the first time crew reads it (Decision 1)
         answer_seen(acts, label, owner, key, card, got, entries, heads, offered_boxes(recorded))
     return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads,
-            "taking": taking, "ticked": ticked_of(got, heads)}, None
+            "taking": taking, "next": waits, "ticked": ticked_of(got, heads)}, None
 
 
 def said_heads(entries, left=()):
@@ -12830,8 +12840,8 @@ def card_uploaded(acts, key, b, got):
 def built_fields(b):
     """A built card's post or change entry's own fields: Unread, why its reading could not open (unopened), crew's own
     message (record.3), left out when it opened or the card links none; and Heads, a kit's landings card's rows as
-    <bolt>@<head>, :left after one the user cleared on their last send (cards.landings_card), which its next raise reads
-    (landings_step); and Form, a deploy card's boxes (cards.deploy_form), which its next raise reads (cards.form_asked)."""
+    <bolt>@<head>, :main after one taking main first or :left after one the user cleared on their last send, then :next
+    after one with no box (cards.landings_card), which its next raise reads (landings_step); and Form, a deploy card's boxes (cards.deploy_form), which its next raise reads (cards.form_asked)."""
     return (({"Unread": b["unread"]} if b.get("unread") else {}) | ({"Heads": " ".join(b["heads"])} if b.get("heads") else {})
             | ({"Form": b["form"]} if b.get("form") else {}))
 
@@ -13737,8 +13747,10 @@ def shown_heads(entries, card):
 
 def offered_boxes(shown):
     """The boxes a kit's landings card offered, land:<bolt> of each row it showed (shown_heads' Heads) but those it
-    showed taking main first, which carried none (heads_taking)."""
-    return [f"land:{b}" for b, _, _ in card_heads(shown) if b not in heads_taking(shown)]
+    showed taking main first (heads_taking) and those it showed with no box (heads_next), which the user could not
+    tick there."""
+    out = heads_taking(shown) | heads_next(shown)
+    return [f"land:{b}" for b, _, _ in card_heads(shown) if b not in out]
 
 
 def sweep_cards(fleet, read, acts=None, answers=None, listed=None):

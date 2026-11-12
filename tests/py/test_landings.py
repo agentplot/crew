@@ -644,12 +644,18 @@ def hold(bolt, why="held for a fix: one zone is missing (fix/y/gap)", head=H1):
     return dict(bolt=bolt, box=False, why=why, facts=facts(bolt, head))
 
 
+def held_card(status, heads):
+    """A kit's landings card ops holds as kit_card_state reads it, from the Heads its last post or change recorded."""
+    text = " ".join(heads)
+    return {"status": status, "heads": plan.card_heads(text), "taking": plan.heads_taking(text), "next": plan.heads_next(text)}
+
+
 def waiting(*heads):
-    return {"status": "waiting", "heads": plan.card_heads(" ".join(heads)), "taking": plan.heads_taking(" ".join(heads))}
+    return held_card("waiting", heads)
 
 
 def answered(*heads):
-    return {"status": "answered", "heads": plan.card_heads(" ".join(heads)), "taking": plan.heads_taking(" ".join(heads))}
+    return held_card("answered", heads)
 
 
 def work(gained=(), lost=(), why=None, head=H2):
@@ -873,6 +879,18 @@ def test_a_bolt_proven_after_the_answer_is_no_row_of_it_and_a_new_card_follows_i
     step = plan.landings_step([box("y"), box("z"), box("w")], answered("y@abc1234", "z@abc1234"), ["y"], {"y", "z", "w"})
     assert step == ("follow", "Asked of the runner as you ticked: y. Left: z. Since your send, w reads proven, and the card that "
                               "follows asks for it.", ["z"], [("y", "abc1234")])
+
+
+def test_a_rows_next_mark_is_read_as_a_row_with_no_box():
+    """rail-cards "A landings card holds five boxes and the rest of its rows wait on its face": a row the card showed
+    with no box is recorded :next, after :left or :main or alone, and read back so by the next raise."""
+    text = "a@abc1234 b@abc1234:left:next c@abc1234:main:next d@abc1234:next"
+    assert plan.card_heads(text) == [("a", "abc1234", False), ("b", "abc1234", True), ("c", "abc1234", False),
+                                     ("d", "abc1234", False)]
+    assert plan.heads_taking(text) == {"c"}
+    assert plan.heads_next(text) == {"b", "c", "d"}
+    assert plan.offered_boxes(text) == ["land:a"]
+    assert plan.heads_taking("c@abc1234:main") == {"c"} and plan.heads_next("c@abc1234:main b@abc1234:left") == set()
 
 
 STOP = "check:dagger could not run: the Dagger engine did not answer"
