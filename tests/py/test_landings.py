@@ -893,6 +893,29 @@ def test_a_rows_next_mark_is_read_as_a_row_with_no_box():
     assert plan.heads_taking("c@abc1234:main") == {"c"} and plan.heads_next("c@abc1234:main b@abc1234:left") == set()
 
 
+EIGHT = [f"b{i}@abc1234" for i in range(1, 6)] + [f"b{i}@abc1234:next" for i in range(6, 9)]
+
+
+def test_a_row_coming_to_a_box_changes_the_waiting_card_in_place():
+    """rail-cards "A row coming to a box or losing one changes the waiting landings card in place": "A boxed row is held
+    for a fix"."""
+    rows = [box("b1"), hold("b2")] + [box(f"b{i}") for i in range(3, 9)]
+    step = plan.landings_step(rows, waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)})
+    assert step == ("change", "b2 is held for a fix: one zone is missing (fix/y/gap); b6 has a box now", False, [])
+    # and back: b2 can land again, so b6 waits for a box once more
+    back = waiting(*([f"b{i}@abc1234" for i in (1, 3, 4, 5, 6)] + ["b7@abc1234:next", "b8@abc1234:next"]))
+    step = plan.landings_step([box(f"b{i}") for i in range(1, 9)], back, None, {f"b{i}" for i in range(1, 9)})
+    assert step == ("change", "b2 reads proven and joins the card; b6 waits for a box", False, [])
+
+
+def test_a_row_with_no_box_whose_head_moves_changes_the_card_and_keeps_it_with_no_box():
+    """rail-cards "A row waiting for a box moves its head"."""
+    rows = [box(f"b{i}") for i in range(1, 7)] + [box("b7", H2), box("b8")]
+    step = plan.landings_step(rows, waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)})
+    assert step == ("change", "b7's head is now def5678", False, [])
+    assert plan.landings_step([box(f"b{i}") for i in range(1, 9)], waiting(*EIGHT), None, {f"b{i}" for i in range(1, 9)}) == ("leave",)
+
+
 STOP = "check:dagger could not run: the Dagger engine did not answer"
 
 

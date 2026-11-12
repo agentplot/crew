@@ -3049,8 +3049,9 @@ def ticked_of(got, heads):
 
 def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None):
     """What the raise of a kit's landings card does with it (rail-cards, record 0031 as amended 2026-10-23), from facts
-    alone (code.7): rows, its rows as landing_rows gives them; card, None when ops holds none, else {status, heads},
-    status "waiting" or "answered" and heads its rows as its last post or change recorded them (card_heads); ticked,
+    alone (code.7): rows, its rows as landing_rows gives them; card, None when ops holds none, else {status, heads,
+    taking, next}, status "waiting" or "answered", heads its rows as its last post or change recorded them (card_heads),
+    taking those it showed taking main first (heads_taking) and next those it showed with no box (heads_next); ticked,
     the bolts the user ticked on it once answered (ticked_of); in_plan, the kit's bolts the plan still holds; landed,
     {bolt: the commit GitHub's main holds} for each that landed (the bolt.land entries); note, the event's own change
     note; work, each ticked bolt's own work between the head the card showed and its head now, for those whose head
@@ -3062,8 +3063,9 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
     ("post", left) when rows can land and no card is held, following the kit's last card only when that one was
     answered and closed with rows left (cards.follows_of);
     ("change", note, kind_changed, left) when a waiting card is held and its rows (card_rows, a row taking main first
-    among them, marked so on the card, card's taking), their heads, whether each takes main first, or the event changed
-    it, its form changed or not (cards.landings_form), followed then rather than changed; ("leave",) when nothing did;
+    among them, marked so on the card, card's taking), their heads, whether each takes main first, whether each has a
+    box (cards.landings_boxed, a row the card showed with none card's next), or the event changed it, its form changed
+    or not (cards.landings_form), followed then rather than changed; ("leave",) when nothing did;
     ("leave",) when an answered card is held while any bolt the user ticked is still to land on their send, in the
     plan, not held, or held only taking main first (landing_rows' takes_main), and its send standing at its head now,
     which stands while it takes main in, one landed and not yet closed among them, and no row reads proven since but at
@@ -3104,6 +3106,11 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
         said += [(f"{b} {held[b]}" if held[b].startswith("takes main first") else f"{b}'s {held[b]}" if held[b].startswith("landing ")
                   else f"{b} is {held[b]}") if b in held
                  else f"{b} no longer waits to land" for b, _, _ in heads if b not in dict(shown)]
+        # a row coming to a box or losing one, as rows join, leave or are left (cards.landings_boxed)
+        boxes = set(cards.landings_boxed([dict(bolt=b, left=b in left, taking=b in taking) for b, _ in shown]))
+        waited = set(card.get("next") or ())
+        said += [f"{b} has a box now" for b, _ in shown if b in was and b in waited and b in boxes]
+        said += [f"{b} waits for a box" for b, _ in shown if b in was and b not in waited and b not in boxes]
         said = ([note] if note else []) + said
         if not said:
             return ("leave",)
