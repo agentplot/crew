@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-12
 decision-makers: the user (a proven bolt lands on proof unless marked to stay); agentplot-design (the record, and the choices marked as its own)
 ---
 
 # 0067. A proven bolt lands on proof, unless it is marked to stay
 
-Status: proposed to the user on 2026-11-12, as `briefs.15` has it; accepted only on their yes.
+Status: accepted by the user on 2026-11-12, on their card.
 
 Deciders: the user, on wldn's card `req_be80263b` on 2026-11-12, relayed by wldn-planner through agentplot-operator: "I think, yes, we could make this change because 99% of the time that's what we want. I think we want to send an upstream request to Crew as a new feature, though, because I think a bolt should be marked (or maybe it's on an upstream Crew feature). I don't know. I'm going to say a bolt. There might be some bolts that we want to stick around for a while because we are working on that bolt, testing it in a test environment, and adding new stuff even after it's "done." We're just adding new feedback. I think that's an explicit decision, though: we would assign it to the bolt ahead of time so we knew. In those cases they don't land automatically but for all the other ones they would". agentplot-design for the record, and for the choices marked as its own.
 
