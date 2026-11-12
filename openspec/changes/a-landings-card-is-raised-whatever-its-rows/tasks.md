@@ -1,0 +1,26 @@
+# Tasks
+
+Build the tasks in order. Before the first, sync the tests' venv once: `devenv shell -- moon run tests:venv`. A logic-tier check below is one pytest run, `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider <test>`, and passes when pytest reports every test it names passed. An end-to-end check is `tests/suite <name>...` from the place's root and passes when it ends with "0 failed". Submit nothing, and never run `wt submit --help`.
+
+## 1. A landings card is an approval or one list of at most five boxes
+
+- [ ] 1.1 `cards.landings_form` gives "approve" for one row and "multi" for any more, and `BOXES` names Pending You's `options` bound as its source (design Decision 1; Task notes 1.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_cards.py::TestLandings::test_the_form_by_how_many_rows_can_land"`.
+- [ ] 1.2 `cards.landings_boxed` gives the five rows with boxes, first those crew would tick and then the others, each in the rows' order, and every row when there are five or fewer (design Decision 2; Task notes 1.2). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_cards.py::TestLandingsBoxed"`.
+- [ ] 1.3 `cards.landings_card` of more than five rows is one list of five boxes carrying `highStakes` and what follows a yes on the card, asking no questions, every row on its face in order, a row with no box marked as waiting for one and recorded `:next` in its `heads` (design Decisions 1 and 3; Task notes 1.3). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_cards.py::TestLandings::test_eight_rows_are_one_list_of_five_boxes_the_rest_waiting_on_its_face" "tests/py/test_cards.py::TestLandings::test_more_than_five_rows_carry_high_stakes_and_what_follows_on_the_card_and_ask_no_questions" "tests/py/test_cards.py::TestLandings::test_rows_with_no_box_are_marked_next_in_the_cards_heads"`.
+
+## 2. The raise reads which rows had boxes
+
+- [ ] 2.1 `plan.card_heads` and `heads_taking` read the `:next` mark, `heads_next` gives the rows recorded with no box, `offered_boxes` leaves them out, and `kit_card_state` hands them on (design Decision 3; Task notes 2.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_a_rows_next_mark_is_read_as_a_row_with_no_box"`.
+- [ ] 2.2 `plan.landings_step` changes a waiting card in place, with a note naming the row, when a row comes to a box or loses one, and when a row with no box moves its head (design Decision 4; Task notes 2.2). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_a_row_coming_to_a_box_changes_the_waiting_card_in_place" "tests/py/test_landings.py::test_a_row_with_no_box_whose_head_moves_changes_the_card_and_keeps_it_with_no_box"`.
+- [ ] 2.3 A send of a card with rows waiting for a box is closed naming them and followed at once by a card asking for them, none of them counted left, and a left row that waited for a box stays left (design Decision 5; Task notes 2.3). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_a_send_with_rows_waiting_for_a_box_is_followed_at_once_by_a_card_asking_for_them" "tests/py/test_landings.py::test_a_left_row_waiting_for_a_box_stays_left" "tests/py/test_landings.py::test_a_send_with_rows_waiting_for_a_box_posts_the_card_that_follows_asking_for_them"`.
+- [ ] 2.4 The card that follows says which of its rows had no box on the last card, and never that the user left them (design Decision 5; Task notes 2.4). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_the_card_that_follows_says_the_rows_that_had_no_box_wait_on_it"`.
+
+## 3. Through a Pending You that refuses questions carrying highStakes
+
+- [ ] 3.1 Eight proven bolts, raised on a fake that refuses a card of questions carrying `highStakes` on the card or on any question, post one list of five boxes with nothing refused, its `Heads` marking the other three `:next` (design Decision 6; Task notes 3.1). Passes `devenv shell -- tests/.venv/bin/python -m pytest -q -p no:cacheprovider "tests/py/test_landings.py::test_eight_proven_bolts_post_one_list_of_five_boxes_and_nothing_is_refused"`.
+- [ ] 3.2 The stub Pending You refuses a card of questions carrying `highStakes` on the card or on any question, in Pending You's words, and still takes one carrying none (`tests.4`; design Decision 6; Task notes 3.2). Verify `tests/suite t-cards t-journey-land` ends with "0 failed".
+
+## 4. The words
+
+- [ ] 4.1 main-level ops's brief says a row past the card's five boxes waits on its face, no word to land, and the card that follows the send asks for it, pinned by a phrase in `t-briefs` (`tests.6`; Task notes 4.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [ ] 4.2 README says a landings card of two or more rows is one list of at most five boxes carrying `highStakes`, the rest of its rows waiting on its face for the card that follows the send (Task notes 4.2). Verify `tests/suite t-docs` ends with "0 failed".
