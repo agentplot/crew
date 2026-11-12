@@ -709,6 +709,38 @@ class TestTheFirstReadActs:
         assert got == (False, runner.legacy_said("w")) and self.emitted == []
 
 
+# boomdrive's a-boomdrive-release-reports-its-own-version on 2026-11-12 as y: its head, main's commit that landed it, and
+# an older crew's entries, its landing queued as #154 at the head and then stopped there with no submission.
+HEAD, ON_MAIN = "62d2f06" + "0" * 33, "6cfc4ae" + "0" * 33
+OLDER = [{"Act": "bolt.start", "On": ["bolt/y"]}, submitted("y", HEAD, Outcome="queued", Submission="154"),
+         submitted("y", HEAD, Outcome="stopped", Why="boomdrive's main checkout on deneb has no branch main and no origin")]
+READ_ON_MAIN = {"outcome": "landed", "by": "main", "kit": "boomdrive", "commit": ON_MAIN, "head": HEAD, "submission": "154", "request": None}
+
+
+class TestALandingReadOnMainIsRecorded:
+    """bolt-teams "A bolt read landed on main is recorded and closed by the first act that reads it" (a-landed-bolt-is-
+    closed-and-offered-no-more, Decision 5): plan.landing_entry records a landing read on main once, landed, naming the
+    head its newest landing carried and the submission still pending, which ends an older crew's queued landing and its
+    stop."""
+
+    def test_an_older_crews_landing_is_recorded_landed_with_its_submission_and_head(self):
+        assert plan.landing_entry(OLDER, "y", READ_ON_MAIN) == dict(
+            Request=None, Head=HEAD, Submission="154", Outcome="landed",
+            Why="bolt(y): landed on boomdrive's main at 6cfc4ae, as GitHub's main holds it")
+        assert plan.outcome_fields(plan.landing_entry(OLDER, "y", READ_ON_MAIN)) == dict(
+            Head=HEAD, Submission="154", Outcome="landed", why="bolt(y): landed on boomdrive's main at 6cfc4ae, as GitHub's main holds it")
+
+    def test_its_entry_ends_the_queued_landing_and_the_stop(self):
+        assert plan.landing_phase(OLDER, "y")["state"] == "queued" and plan.stops(OLDER)["y"][0] == HEAD
+        recorded = OLDER + [submitted("y", HEAD, **{k: v for k, v in plan.landing_entry(OLDER, "y", READ_ON_MAIN).items() if v})]
+        assert plan.landing_phase(recorded, "y") is None and "y" not in plan.stops(recorded)
+        assert plan.landing_pending(recorded, "y") is None
+
+    def test_the_same_read_again_records_nothing(self):
+        recorded = OLDER + [submitted("y", HEAD, **{k: v for k, v in plan.landing_entry(OLDER, "y", READ_ON_MAIN).items() if v})]
+        assert plan.landing_entry(recorded, "y", READ_ON_MAIN) is None
+
+
 class TestALandingIsRecordedInTheRunRecordAsAsked:
     """bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record" (Decision 7): while a land crew posted stands undecided in
     the run record, the bolt's landing reads asked with its request, and no unit, chore or fix joins it."""

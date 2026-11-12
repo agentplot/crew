@@ -4617,7 +4617,19 @@ def landing_entry(entries, bolt, l):
     stopped, its fields: Outcome landed or stopped, or the refusal's words as Refused, the land's Request and the Head
     its land carried, from the newest land crew posted of the bolt (lands_posted), the merge queue's entry as Submission
     where Flume names one, and the words of a stop as Why; None for one undecided, unknown or unlaunched, and for one
-    the run record already holds at that request, so a read twice records once."""
+    the run record already holds at that request, so a read twice records once. A landing read on the kit's main (l
+    marked by main, which only Stages.main_landing's readers build, carrying the kit, main's commit, the newest head a
+    landing of it carried and the landing still pending; a-landed-bolt-is-closed-and-offered-no-more, Decision 5) is
+    recorded landed with that Head, Submission and Request, which end an older crew's queued landing and, being the
+    last bolt.submit, any stop, its Why naming main's commit; None where the bolt holds a landed bolt.submit since its
+    newest start, so two reads record once, never matched by request, since an older crew's stop names none."""
+    if l.get("by") == "main":
+        on = lambda e: e.get("Act") == "bolt.submit" and f"bolt/{bolt}" in (e.get("On") or [])
+        if any(on(e) and e.get("Outcome") == "landed" for e in since_start(entries, bolt)):
+            return None
+        return dict(Request=l.get("request") or None, Head=l.get("head") or None, Submission=l.get("submission") or None,
+                    Outcome="landed", Why=f"bolt({bolt}): landed on {l.get('kit') or 'its kit'}'s main at {(l.get('commit') or '')[:7]}, "
+                                          "as GitHub's main holds it")
     if l.get("outcome") not in ("landed", "refused", "stopped"):
         return None
     asked = next((p for p in reversed(lands_posted(entries)) if p["work"] == f"bolt/{bolt}"), None)

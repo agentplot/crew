@@ -15,7 +15,7 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 
 ## 3. Recording and closing it
 
-- [ ] 3.1 `landing_entry` records a landing read on main once, as landed, naming its head and ending an older crew's queued landing and any stop (design, Decision 5; Task notes 3.1). Verify `pytest tests/py/test_landing.py::TestALandingReadOnMainIsRecorded`.
+- [x] 3.1 `landing_entry` records a landing read on main once, as landed, naming its head and ending an older crew's queued landing and any stop (design, Decision 5; Task notes 3.1). Verify `pytest tests/py/test_landing.py::TestALandingReadOnMainIsRecorded`.
 - [ ] 3.2 `landing_read` records and closes a bolt read landed on main, one with no launch of its own among them, asking ops nothing (design, Decision 5; Task notes 3.2). Verify `pytest tests/py/test_landing.py::TestALandingReadOnMainCloses`.
 - [ ] 3.3 `crew bolt land` closes a started bolt read landed on main at main's commit, one with no launch of its own among them, and refuses one main does not hold, naming why, recording nothing (design, Decision 5; Task notes 3.3). Verify `pytest tests/py/test_landing.py::TestCrewBoltLandOfAStartedBolt`.
 - [ ] 3.4 The sweep reads a bolt read landed on main with no land posted, under its host or, where crew can't tell it, the drive's main-level host (design, Decision 5; Task notes 3.4). Verify `pytest tests/py/test_landings.py::TestTheSweepClosesABoltOnMain`.
