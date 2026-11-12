@@ -94,3 +94,36 @@ class TestOnMain:
         assert plan.on_main("y", "boomdrive", self.WORK, HEAD, {HEAD: 2, UNIT: 0}) == (
             "cannot tell whether boomdrive's main holds 62d2f06, the head bolt y's newest landing carried: git could not read "
             "it there")
+
+
+class TestMainTip:
+    """Decisions 2 and 7: plan.main_tip gives the kit's main fetched once per command (plan.tip_of, plan.12), and in the
+    follower's read only the tip the follower handed in, never fetching."""
+    KIT = "agentplot/boomdrive"
+
+    @pytest.fixture(autouse=True)
+    def reading(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        monkeypatch.setattr(plan, "CACHE", tmp_path / "cache")
+        self.calls = []
+
+        def no_git(repo, *args, **k):
+            raise AssertionError(f"the follower's read fetches nothing, and this ran git {args[0]}")
+        monkeypatch.setattr(plan, "git", no_git)
+
+    def test_the_follower_with_a_tip_handed_in_gives_it(self, monkeypatch):
+        monkeypatch.setattr(plan.READ, "follower", object())
+        plan.READ.keep_tip(self.KIT, "main", LANDED)
+        assert plan.main_tip(self.KIT) == LANDED
+
+    def test_the_follower_with_none_handed_in_gives_none(self, monkeypatch):
+        monkeypatch.setattr(plan.READ, "follower", object())
+        assert plan.main_tip(self.KIT) is None
+
+    def test_a_command_asking_twice_fetches_once(self, monkeypatch):
+        def git(repo, *args, **k):
+            self.calls.append((repo, args[0]))
+            return plan.Ran(0, "", "") if args[0] == "fetch" else LANDED
+        monkeypatch.setattr(plan, "git", git)
+        assert plan.main_tip(self.KIT) == plan.main_tip(self.KIT) == LANDED
+        assert [c for c in self.calls if c[1] == "fetch"] == [(self.KIT, "fetch")]

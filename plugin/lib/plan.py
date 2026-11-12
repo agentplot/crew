@@ -4325,6 +4325,16 @@ def on_main(bolt, kit, work, head, held):
     return None
 
 
+def main_tip(repo):
+    """The kit's main as GitHub holds it (Decisions 2 and 7; plan.18): in a command, tip_of's, fetched over https into
+    crew's cache once for the whole command (plan.12), a fetch it can't make refusing to its caller; in the host's
+    follower's read (READ.follower), only the tip its clock's fetch brought and the follower handed in, never a fetch,
+    None where it handed none."""
+    if READ.follower is not None:
+        return READ.held(Reading.tip_name(repo, "main")) or None
+    return tip_of(repo, "main")
+
+
 def main_holds(repo, tip, commits):
     """Whether the kit's main at tip, as GitHub holds it in crew's cache of its repository (main_tip; Decision 2), holds
     each commit: {commit: 0 it holds it, 1 it does not, 2 git could not tell}, as on_main takes it. A commit the cache
