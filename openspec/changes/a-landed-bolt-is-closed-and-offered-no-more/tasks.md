@@ -31,4 +31,4 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 
 ## 6. The docs
 
-- [ ] 6.1 README, the crew skill and `crew`'s usage header say a started bolt whose work its kit's main holds reads landed and is closed whichever way it landed, and is offered on no landings card (`docs.2`; Task notes 6.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 6.1 README, the crew skill and `crew`'s usage header say a started bolt whose work its kit's main holds reads landed and is closed whichever way it landed, and is offered on no landings card (`docs.2`; Task notes 6.1). Verify `tests/suite t-docs` ends with "0 failed".
