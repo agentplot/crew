@@ -249,7 +249,7 @@ Case in `tests/py/test_rail.py`, class `TestABoltOnMainHasNoLandLine`: `y` with 
 - `board.kit_mains(fleet, read)` gives, sorted and each once, the repository of each started bolt in `read["found"]` as `known_at` gives it over `read["runs"]`, else as `main_kit_read` gives it. It is a decision and reads nothing.
 - `board.fetches(fleet, labels, kits=())` adds `(repo, "main")` for each.
 - The follower keeps `kit_mains` of its last read.
-- `look` adds `"kits": {repo: plan.tip_here(repo, "main")}`.
+- `look` adds `"mains": {repo: plan.tip_here(repo, "main")}`, beside the refresh's stamps, whose `kits` already holds its kits' answers.
 - `Follower.read` hands each in with `plan.READ.keep_tip`.
 
 Cases in `tests/py/test_board.py`, class `TestTheFollowerFetchesEachKitsMain`:

@@ -29,7 +29,7 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 ## 5. The follower
 
 - [x] 5.1 The follower's clock fetch carries the main of each repository with a started bolt, and its read hands each tip in, so a refresh fetches nothing (design, Decision 7; Task notes 5.1). Verify `pytest tests/py/test_board.py::TestTheFollowerFetchesEachKitsMain`.
-- [ ] 5.2 `t-journey-board`'s quiet tick counts six fetches of other repositories, the mains of switchboard-kit and atlas-kit, the kits of its started bolts, among them, and its comment names them (design, Decision 7; verify.md, check 2). Verify `tests/suite t-journey-board` ends with "0 failed".
+- [x] 5.2 `t-journey-board`'s quiet tick counts six fetches of other repositories, the mains of switchboard-kit and atlas-kit, the kits of its started bolts, among them, and its comment names them (design, Decision 7; verify.md, check 2). Verify `tests/suite t-journey-board` ends with "0 failed".
 
 ## 6. The docs
 
