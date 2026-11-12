@@ -4659,15 +4659,26 @@ def landing_read(fleet, label, bolt, run=None, entries=None, card=True):
     crews-bolt-kind-names-its-landing-fix, Decision 4), a refusal whose way on is Flume's, its landing fix live, landed
     or due, launches nothing and asks nothing, and one whose way on is its caller's, past the bound or its fix dropped
     or not launched, asks ops in Flume's words (runner.caller_said) and launches nothing. Each record is decided at the tip its write is applied to, so two reads at once record once.
-    Nothing is recorded for a landing undecided or one crew can't tell (read.1). (whether it reads landed, what is said
-    of it), said too."""
+    Nothing is recorded for a landing undecided or one crew can't tell (read.1). Where the report does not read it landed,
+    one with no launch of its own among them, and its kit's main holds its work (landing_on_main; a-landed-bolt-is-
+    closed-and-offered-no-more, Decision 5), it is recorded landed and closed the same way, ops asked nothing. (whether
+    it reads landed, what is said of it), said too."""
     requests, reads = run or runner_facts(fleet, label)
     launch = runner.launch_of(requests, f"bolt/{bolt}")
+    l = runner.landing_of(launch, runner.lands_of(requests, launch), reads) if launch is not None else None
+    if l is None or l["outcome"] != "landed":
+        # its work on its kit's main, whatever the report says: recorded and closed, ops asked nothing (Decision 5)
+        m = landing_on_main(fleet, label, bolt, (requests, reads), entries)
+        if m:
+            said = f"landed at {m['commit'][:7]}, as its kit's main holds it"
+            print(f"bolt/{bolt}: {said}")
+            landing_record(fleet, label, bolt, m, said, f"{label}-ops")
+            landing_close(fleet, label, bolt, m, entries if entries is not None else [], card)
+            return True, said
     if launch is None:
         said = runner.legacy_said(bolt)
         print(said)
         return False, said
-    l = runner.landing_of(launch, runner.lands_of(requests, launch), reads)
     entries = drive_entries(fleet, label) if entries is None else entries
     said = runner.landing_said(l) or runner.base_said(dict(l, stage=l["outcome"])) or f"bolt {bolt}'s landing is not asked yet"
     ops, kit_name = f"{label}-ops", (launch.get("Repo") or "").split("/")[-1]
@@ -4686,6 +4697,33 @@ def landing_read(fleet, label, bolt, run=None, entries=None, card=True):
     if l["outcome"] == "refused" and l.get("why") == "conflict" and by == "crew":
         take_main_launch(fleet, label, None, bolt, (l.get("main") or "", l.get("words") or "", l.get("request")))
     return False, said
+
+
+def landing_on_main(fleet, label, bolt, run, entries=None):
+    """A started bolt's landing read on its kit's main (Stages.main_landing; a-landed-bolt-is-closed-and-offered-no-more,
+    Decision 5), from the drive's plan as it stands, its requests and runners (run) and its run record (entries, read
+    when first needed where not given): the landing as landing_entry and landing_close take it, {outcome: landed, by:
+    main, kit, commit, head, submission, request}; None where the plan does not hold the bolt started or main does not
+    hold its work, or crew can't tell (read.1). Where its launches name its repository by its owner, as they or the
+    runner that took them do (reported_address), and main can't be read there (main_tip), not even the plan is read."""
+    requests, reads = run
+    launches = bolt_launches(requests, bolt)
+    kit = next((x.get("Repo") for x in reversed(launches) if x.get("Repo")), "")
+    repo = kit if "/" in kit else reported_address(reads, launches, f"bolt {bolt}", kit) if kit else None
+    try:
+        if repo and not main_tip(repo):
+            return None
+    except Refusal:
+        return None
+    pl = plan_of(fleet, label)
+    b = pl.bolt(bolt) if pl is not None else None
+    if b is None or not started(b):
+        return None
+    st = Stages(fleet, pl, {}, runs={label: run}, label=label)
+    if entries is not None:
+        st.drive = list(entries)
+    m, _ = st.main_landing(b)
+    return dict(m, outcome="landed", by="main", kit=(b.get("Repo") or "").split("/")[-1]) if m else None
 
 
 def landing_request(entries, bolt, l):
@@ -4719,10 +4757,11 @@ def landing_record(fleet, label, bolt, l, said, by):
         w.why = got.pop("why", None) or f"bolt({bolt}): {said}"
         refused = got.pop("refused", None)
         w.fields = dict(w.fields, **got, **({"refused": refused} if refused else {}))
-        w.subject = f"plan({bolt}): its landing {'refused' if refused else got.get('Outcome')}, as the runner reports it"
+        w.subject = f"plan({bolt}): its landing {'refused' if refused else got.get('Outcome')}, {read_from}"
         return []
+    read_from = "as GitHub's main holds it" if l.get("by") == "main" else "as the runner reports it"
     try:
-        write(fleet, label, change, f"plan({bolt}): its landing, as the runner reports it", act="bolt.submit",
+        write(fleet, label, change, f"plan({bolt}): its landing, {read_from}", act="bolt.submit",
               on=[f"bolt/{bolt}"], by=by)
     except Unposted:
         return False
@@ -4762,8 +4801,9 @@ def landing_close(fleet, label, bolt, l, entries, card=True):
     ops = f"{label}-ops"
     closing = argparse.Namespace(cmd="bolt", sub="land", bolt=bolt, label=label)
     try:
+        read_from = "as its kit's main holds it on GitHub" if l.get("by") == "main" else "as the runner reports it"
         bolt_land(fleet, closing, by=ops, card=card,
-                  close_why=f"plan({bolt}): land the bolt, landed at {(l.get('commit') or '')[:7]} as the runner reports it, read by {record.who()}")
+                  close_why=f"plan({bolt}): land the bolt, landed at {(l.get('commit') or '')[:7]} {read_from}, read by {record.who()}")
         return True
     except Refusal as e:
         words = str(e)

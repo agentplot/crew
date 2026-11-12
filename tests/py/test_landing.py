@@ -703,8 +703,12 @@ class TestTheFirstReadActs:
         assert self.read("bolt-submitted", more={})[1] == "landing asked, request 2"
         assert self.emitted == [] and self.closed == [] and self.asked == []
 
-    def test_a_bolt_started_before_bolts_were_base_places_is_said_so_and_read_no_further(self):
+    def test_a_bolt_started_before_bolts_were_base_places_is_said_so_and_read_no_further(self, monkeypatch):
+        """w, with no launch of its own, its kit's main not holding its work (TestALandingReadOnMainCloses reads one main
+        holds)."""
         import runner
+        monkeypatch.setattr(plan, "main_tip", lambda repo: "e" * 40)
+        monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: dict.fromkeys(commits, 1))
         got = plan.landing_read({}, "swancloud", "w", base_run("bolt-landed"), [ASKED])
         assert got == (False, runner.legacy_said("w")) and self.emitted == []
 
@@ -739,6 +743,78 @@ class TestALandingReadOnMainIsRecorded:
     def test_the_same_read_again_records_nothing(self):
         recorded = OLDER + [submitted("y", HEAD, **{k: v for k, v in plan.landing_entry(OLDER, "y", READ_ON_MAIN).items() if v})]
         assert plan.landing_entry(recorded, "y", READ_ON_MAIN) is None
+
+
+UNIT = "896e642" + "0" * 33  # the commit y's unit a's place landed at on bolt/y
+
+
+class TestALandingReadOnMainCloses:
+    """bolt-teams "A bolt read landed on main is recorded and closed by the first act that reads it" (a-landed-bolt-is-
+    closed-and-offered-no-more, Decision 5), beside TestTheFirstReadActs: plan.landing_read of a bolt whose landing the
+    runner's report does not read landed, one with no launch of its own among them, records it landed and closes it in
+    ops's name once its kit's main holds its work, asking ops nothing; main not holding it leaves today's outcomes.
+    main_tip, main_holds and landed_by stand for git, and nothing reaches a host."""
+    FLEET = {"drives": {"madswan": {"label": "madswan", "machine": "deneb"}}, "hosts": {}}
+
+    @pytest.fixture(autouse=True)
+    def acts(self, monkeypatch):
+        import crew
+        import record
+        from facts import writes_at
+
+        def no_host(*a, **k):
+            raise AssertionError("a landing's read reaches no host")
+        monkeypatch.setattr(crew, "on_machine", no_host)
+        monkeypatch.setattr(plan, "host_run", no_host)
+        self.mp, self.tip, self.closed, self.asked, self.taken = monkeypatch, list(OLDER), [], [], []
+        self.emitted = writes_at(monkeypatch, self.tip, label="madswan")
+        monkeypatch.setattr(record, "emit", lambda label, act, on=(), *a, **f: self.emitted.append(dict(f, Act=act, On=list(on))))
+        monkeypatch.setattr(plan, "bolt_land", lambda fleet, a, by=None, close_why=None, card=True: self.closed.append((a.bolt, by, close_why, card)))
+        monkeypatch.setattr(plan, "unlanded_ask", lambda fleet, label, bolt, kit, n, words: self.asked.append((bolt, kit, n, words)))
+        monkeypatch.setattr(plan, "take_main_launch", lambda fleet, label, t, bolt, conflict: self.taken.append((bolt, conflict)))
+        monkeypatch.setenv("CREW_AGENT", "madswan-planner")
+        self.held = {HEAD: 0, UNIT: 0}
+        monkeypatch.setattr(plan, "main_tip", lambda repo: "e" * 40)
+        monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: {c: self.held.get(c, 1) for c in commits})
+        monkeypatch.setattr(plan, "landed_by", lambda repo, tip, commits: ON_MAIN)
+
+    def read(self, launched, base=False, more=(), **ran_):
+        """landing_read of y, started, holding unit a launched as request 1, and, with base, y's base place as request
+        2, with the requests in more beside them and deneb's runner as facts.ran gives it."""
+        from facts import launched as launch, ran
+        p, requests = launch(["y"], work=[("a", "y", [], "unit", [])], fleet=self.FLEET, base=base)
+        self.mp.setattr(plan, "plan_of", lambda fleet, label: p)
+        return plan.landing_read(self.FLEET, "madswan", "y", (requests + list(more), ran(launched, **ran_)), list(self.tip), True)
+
+    def stopped(self):
+        from test_runner import held, rec
+        return dict(base=True, more=held(rec(3, "land", "bolt/y", Of=2)), commits={1: UNIT},
+                    refused={3: "flume refused it: a place on bolt/y is live"})
+
+    def test_a_bolt_with_no_launch_of_its_own_on_main_is_recorded_and_closed(self):
+        got = self.read({1: "flume-0.20.0/landed-held"}, commits={1: UNIT})
+        assert got == (True, "landed at 6cfc4ae, as its kit's main holds it")
+        (e,) = self.emitted
+        assert (e["Act"], e["Outcome"], e["Submission"], e["Head"], e["by"], e["why"]) == (
+            "bolt.submit", "landed", "154", HEAD, "madswan-ops", "bolt(y): landed on crew's main at 6cfc4ae, as GitHub's main holds it")
+        assert self.closed == [("y", "madswan-ops", "plan(y): land the bolt, landed at 6cfc4ae as its kit's main holds it on "
+                                "GitHub, read by madswan-planner", True)]
+        assert self.asked == [] and self.taken == []
+        assert plan.landing_phase(self.tip, "y") is None and "y" not in plan.stops(self.tip)
+
+    def test_a_base_place_reported_stopped_on_main_is_closed_and_ops_asked_nothing(self):
+        assert self.read({1: "flume-0.20.0/landed-held", 2: "flume-0.17.0/bolt-submitted"}, **self.stopped())[0] is True
+        assert [(e["Act"], e["Outcome"]) for e in self.emitted] == [("bolt.submit", "landed")]
+        assert [c[0] for c in self.closed] == ["y"] and self.asked == []
+
+    def test_main_not_holding_it_leaves_todays_outcomes(self):
+        import runner
+        self.held[UNIT] = 1
+        assert self.read({1: "flume-0.20.0/landed-held"}, commits={1: UNIT}) == (False, runner.legacy_said("y"))
+        assert self.emitted == [] and self.closed == []
+        assert self.read({1: "flume-0.20.0/landed-held", 2: "flume-0.17.0/bolt-submitted"}, **self.stopped())[0] is False
+        assert [(e["Act"], e["Outcome"]) for e in self.emitted] == [("bolt.submit", "stopped")]
+        assert self.closed == [] and len(self.asked) == 1
 
 
 class TestALandingIsRecordedInTheRunRecordAsAsked:
