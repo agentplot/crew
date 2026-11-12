@@ -1645,6 +1645,10 @@ class Stages:
         m, _ = self.main_landing(bolt)  # read against its kit's main where the report does not read it landed (Decision 3)
         return {"outcome": "landed", "commit": m["commit"]} if m else l
 
+    def landed_on_main(self, bolt):
+        """Whether landing read the bolt landed on its kit's main, its report not reading it so (main_landing)."""
+        return bool((self.mains.get(bolt.name()) or (None, None))[0])
+
     def entries(self):
         """The drive's run record (drive_entries), read once for the Stages, refused as drive_entries refuses."""
         if self.drive is None:
@@ -1657,8 +1661,9 @@ class Stages:
         ({commit, head, submission, request}, None), main's commit that landed it (landed_by) with the newest head a
         landing of it carried and the landing still pending (landing_head); or (None, why). Its pieces' stages come from
         the runner's records alone (main_work), so no kit is read; nothing is read of main while a piece has not merged;
-        its kit's repository is the one the runner that took its work reports (known_at), else the one the drive's
-        main-level host keeps (main_kit_read), named by its owner; then GitHub's main in crew's cache (main_tip), the
+        its kit's repository is the one the plan names, which bolt_at's kit carries, or the runner that took its work
+        reports keeping (reported_address), else the one the drive's main-level host keeps (main_kit_read), named by its
+        owner; then GitHub's main in crew's cache (main_tip), the
         drive's run record, and git's answers (main_holds, on_main, landed_by). Anything crew can't read gives why, and
         nothing is taken as landed (read.1); no host is reached (read.5)."""
         if bolt.name() not in self.mains:
@@ -1675,9 +1680,9 @@ class Stages:
         work = main_work(self.plan, *run, name)
         if work and not main_asks(work, None):  # a piece not merged: nothing of main is read
             return None, on_main(name, kit, work, None, {})
-        # its kit's repository by its owner: as the plan or the runner that took its work names it, else the drive's
-        # main-level host's teams file
-        repo = (((known_at(self.fleet, self.label, bolt, run) or {}).get("kit")) or {}).get("repo")
+        # its kit's repository by its owner: as the plan names it, the repository bolt_at's kit carries, or as the runner
+        # that took its work reports keeping it, else as the drive's main-level host's teams file keeps it
+        repo = bolt.get("Repo")
         if (not repo or "/" not in repo) and kit:
             repo = reported_address(run[1], bolt_launches(run[0], name) or runner.kit_launches(run[0], kit), f"bolt {name}", kit)
         if (not repo or "/" not in repo) and kit:
@@ -8150,17 +8155,22 @@ def landings_judged(fleet, label, plan, sv, runs):
     landed, refused or stopped (Stages.landing), under the host its work runs on as the read holds it (known_at), with
     its kit's folder there and the stage of each unit and chore the plan holds in it (Stages), so a sweep reads no plan
     or kit of its own (plan.12), and one with no landing decided reads nothing for it; none where the read holds no
-    runners of the drive."""
+    runners of the drive. A bolt read landed on its kit's main (Stages.landed_on_main; a-landed-bolt-is-closed-and-offered-
+    no-more, Decision 5) is marked main, and listed under the drive's main-level host, with no kit or folder, where
+    crew can't tell the host its work runs on."""
     if label not in (runs or {}):
         return {}
     st, out = Stages(fleet, plan, sv, runs, label), {}
     of = st.of
     for b in plan.bolts():
         decided = started(b) and (st.landing(b) or {}).get("outcome") in ("landed", "refused", "stopped")
+        main = decided and st.landed_on_main(b)
         t = known_at(fleet, label, b, runs[label]) if decided else None
-        if t:
-            out.setdefault(t["machine"], []).append(dict(bolt=b.name(), kit=t["kit"]["name"], dir=t["kit"]["dir"],
-                                                         stages=[of(u.name())["stage"] for u in plan.work_of(b.name())]))
+        if t or main:
+            stages = [of(u.name())["stage"] for u in plan.work_of(b.name())]
+            g = dict(bolt=b.name(), kit=t["kit"]["name"], dir=t["kit"]["dir"], stages=stages) if t else dict(
+                bolt=b.name(), kit=None, dir=None, stages=stages)
+            out.setdefault(t["machine"] if t else crew.drive_of(fleet, label)["machine"], []).append(dict(g, main=True) if main else g)
     return out
 
 
@@ -8181,7 +8191,8 @@ def reap_judged(fleet, label, landings, run=None):
     the rail's sweep (card_sweep, from the rail's read, landings_judged) and a kit's read (reap_landings) run: of each
     bolt given, {bolt, ...}, one crew posted a land of on the user's send (lands_posted), its landing read from the
     runner's report and recorded and acted on once decided (landing_read), so a refused close is tried again at each
-    sweep until it is lifted; one with no land posted reads nothing, so an idle sweep's read is unchanged (plan.12). A
+    sweep until it is lifted, and one read landed on its kit's main (marked main), whether or not a land of it was
+    posted; one neither posted nor read landed reads nothing, so an idle sweep's read is unchanged (plan.12). A
     read refused said and raised no further; requests, runners or a run record that can't be read read none."""
     if not landings:
         return
@@ -8193,7 +8204,7 @@ def reap_judged(fleet, label, landings, run=None):
         return
     asked = {p["work"] for p in lands_posted(entries)}
     for g in landings:
-        if f"bolt/{g['bolt']}" not in asked:
+        if f"bolt/{g['bolt']}" not in asked and not g.get("main"):  # one read landed on main, posted or not (Decision 5)
             continue
         try:
             landing_read(fleet, label, g["bolt"], run, entries, card=not LANDINGS_READ)

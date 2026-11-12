@@ -2373,3 +2373,70 @@ def test_a_landing_is_read_and_recorded_by_a_host_away_from_the_kits_with_every_
     landed, said = plan.landing_read({}, "swancloud", "y", base_run("bolt-failed"), [ASKED])
     assert (landed, said) == (False, "landing refused, a check failed: check-full failed: tests:logic 3 failed (tests/py/test_landing.py)")
     assert [(e["Act"], e["On"], e["refused"]) for e in emitted] == [("bolt.submit", ["bolt/y"], said)]
+
+
+# boomdrive's a-boomdrive-release-reports-its-own-version as y (tests/py/test_landed_on_main.py): its head, main's commit
+# that landed it, the commit its unit a's place landed at on bolt/y, and an older crew's entries for it, its landing
+# queued as #154 and stopped at the head.
+ON_MAIN_HEAD, ON_MAIN, ON_MAIN_UNIT = "62d2f06" + "0" * 33, "6cfc4ae" + "0" * 33, "896e642" + "0" * 33
+ON_MAIN_ENTRIES = [{"Act": "bolt.start", "On": ["bolt/y"], "At": "2026-11-11T20:00:00Z"},
+                   {"Act": "bolt.submit", "On": ["bolt/y"], "Outcome": "queued", "Submission": "154", "Head": ON_MAIN_HEAD},
+                   {"Act": "bolt.submit", "On": ["bolt/y"], "Outcome": "stopped", "Head": ON_MAIN_HEAD, "Why": "no origin"}]
+
+
+def on_main(monkeypatch, held=(ON_MAIN_HEAD, ON_MAIN_UNIT)):
+    """GitHub's main of each kit, as crew's cache would answer it, holding the commits in held, landed by ON_MAIN; and
+    the drive's run record ON_MAIN_ENTRIES."""
+    monkeypatch.setattr(plan, "main_tip", lambda repo: "e" * 40)
+    monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: {c: 0 if c in held else 1 for c in commits})
+    monkeypatch.setattr(plan, "landed_by", lambda repo, tip, commits: ON_MAIN)
+    monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: list(ON_MAIN_ENTRIES))
+
+
+def started_y(launched=None, **ran_):
+    """swancloud's plan with y started, its unit a launched as request 1 and z started beside it, its unit b launched as
+    request 2, neither with a launch of its own, and deneb's runner as facts.ran gives it, a's place landed on bolt/y
+    at ON_MAIN_UNIT unless launched says otherwise: (the plan, {swancloud: (requests, runners)})."""
+    from facts import launched as launch, ran
+    p, requests = launch(["y", "z"], work=[("a", "y", [], "unit", []), ("b", "z", [], "unit", [])], base=False)
+    reads = ran(launched or {1: "flume-0.20.0/landed-held", 2: "code"}, label="swancloud", commits={1: ON_MAIN_UNIT}, **ran_)
+    return p, {"swancloud": (requests, reads)}
+
+
+class TestTheSweepClosesABoltOnMain:
+    """bolt-teams "A bolt read landed on main is recorded and closed by the first act that reads it", its scenarios
+    "Nobody runs anything" and "Its host can't be told" (a-landed-bolt-is-closed-and-offered-no-more, Decision 5): the
+    sweep's judgment lists a bolt read landed on its kit's main, marked main, under its host or, where crew can't tell
+    it, the drive's main-level host (plan.landings_judged), and its read reads it with no land posted
+    (plan.reap_judged); a bolt neither posted nor read landed is read by nothing."""
+
+    @pytest.fixture(autouse=True)
+    def world(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-planner")
+        on_main(monkeypatch)
+        self.read = []
+        monkeypatch.setattr(plan, "landing_read", lambda fleet, label, bolt, run=None, entries=None, card=True: self.read.append(bolt))
+
+    def test_a_bolt_read_landed_on_main_with_nothing_posted_is_read(self):
+        p, runs = started_y()
+        judged = plan.landings_judged(FLEET, "swancloud", p, {}, runs)
+        assert judged == {"mac-studio": [dict(bolt="y", kit="crew", dir="/c", stages=["merged"], main=True)]}
+        plan.reap_judged(FLEET, "swancloud", judged["mac-studio"], runs["swancloud"])
+        assert self.read == ["y"]
+
+    def test_with_its_host_unknown_it_is_listed_under_the_main_level_host(self):
+        p, runs = started_y()
+        p.bolt("y").set("Repo", "afterthought/boomdrive")  # a kit no runner's report places (WHERE)
+        fleet = {"drives": {"swancloud": {"label": "swancloud", "machine": "deneb"}}}
+        judged = plan.landings_judged(fleet, "swancloud", p, {}, runs)
+        assert judged == {"deneb": [dict(bolt="y", kit=None, dir=None, stages=["merged"], main=True)]}
+        plan.reap_judged(fleet, "swancloud", judged["deneb"], runs["swancloud"])
+        assert self.read == ["y"]
+
+    def test_a_bolt_neither_posted_nor_read_landed_is_not_read(self, monkeypatch):
+        on_main(monkeypatch, held=(ON_MAIN_HEAD,))
+        p, runs = started_y()
+        assert plan.landings_judged(FLEET, "swancloud", p, {}, runs) == {}
+        plan.reap_judged(FLEET, "swancloud", [dict(bolt="y", kit="crew", dir="/c", stages=["merged"]),
+                                              dict(bolt="z", kit="crew", dir="/c", stages=["code"])], runs["swancloud"])
+        assert self.read == []
