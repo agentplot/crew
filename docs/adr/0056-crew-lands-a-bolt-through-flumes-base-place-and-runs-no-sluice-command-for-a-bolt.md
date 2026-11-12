@@ -83,3 +83,9 @@ Point 7 had each host land as before until it ran the release that carries this 
 ### Consequences
 
 - Departs from point 5, "No agent and no crew command runs a landing", for bolts started before this release alone, as point 7 had them land as before.
+
+## Amendment of 2026-11-12: proof is the word to land a bolt not marked to stay
+
+Status: accepted by the user on 2026-11-12, by record 0067, on their card.
+
+Point 3 reads with record 0067: crew posts `land` for a proven bolt at its proof, and on the user's send only for a bolt marked ahead of time to stay. Nothing else of this record changes.
