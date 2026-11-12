@@ -4,7 +4,7 @@ Each pytest check runs from the worktree's root as written: `devenv shell -- sh 
 
 ## 1. The reading
 
-- [ ] 1.1 `plan.landing_head` gives the newest head a landing of the bolt carried since its newest start, with the submission or request of the landing still pending (design, Decision 1; Task notes 1.1). Verify `pytest tests/py/test_landed_on_main.py::TestLandingHead`.
+- [x] 1.1 `plan.landing_head` gives the newest head a landing of the bolt carried since its newest start, with the submission or request of the landing still pending (design, Decision 1; Task notes 1.1). Verify `pytest tests/py/test_landed_on_main.py::TestLandingHead`.
 - [ ] 1.2 `plan.main_asks` and `plan.on_main` say whether a bolt's work is on its kit's main, every piece's landing commit and its newest landing head held, asking git nothing while a piece has not merged (design, Decision 1; Task notes 1.2). Verify `pytest tests/py/test_landed_on_main.py::TestOnMain`.
 - [ ] 1.3 `plan.main_holds` answers whether GitHub's main in crew's cache holds each commit, a commit the cache lacks reading not held, and `plan.landed_by` gives the oldest commit of main's first-parent line that holds them (design, Decisions 2 and 4; Task notes 1.3). Verify `pytest tests/contract/test_git.py::TestMainHolds`.
 - [ ] 1.4 `plan.main_tip` gives the kit's main fetched once per command, and in the follower's read only the tip the follower handed in, never fetching (design, Decisions 2 and 7; Task notes 1.4). Verify `pytest tests/py/test_landed_on_main.py::TestMainTip`.

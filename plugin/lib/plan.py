@@ -4268,6 +4268,30 @@ def landing_pending(entries, bolt):
     return None if any(e.get("Submission") == n and e.get("Outcome") != "queued" for e in mine[i + 1:]) else mine[i]
 
 
+def since_start(entries, bolt):
+    """The run record's entries since the bolt's newest start, a bolt.start or the bolt.give an older crew wrote, oldest
+    first, else all of them, a bolt's name being free again once it lands. A decision of facts alone (code.7)."""
+    on = lambda e: f"bolt/{bolt}" in (e.get("On") or [])
+    i = max((i for i, e in enumerate(entries) if e.get("Act") in ("bolt.start", "bolt.give") and on(e)), default=-1)
+    return entries[i + 1:]
+
+
+def landing_head(entries, bolt):
+    """The newest head a landing of the bolt carried (bolt-teams "A bolt whose work is on its kit's main reads landed"),
+    from the run record's entries since its newest start (since_start): {head, submission, request}, the head the
+    newest bolt.submit of the bolt naming one carried, whatever its outcome, an older crew's queued or stopped and a
+    land crew asked among them, with the Submission and Request of the landing still pending over the same entries
+    (landing_pending), each None where none stands; None where no bolt.submit of it names a head. A decision of facts
+    alone (code.7)."""
+    mine = since_start(entries, bolt)
+    last = next((e for e in reversed(mine) if e.get("Act") == "bolt.submit" and f"bolt/{bolt}" in (e.get("On") or [])
+                 and e.get("Head")), None)
+    if last is None:
+        return None
+    q = landing_pending(mine, bolt) or {}
+    return {"head": last["Head"], "submission": q.get("Submission") or None, "request": q.get("Request") or None}
+
+
 def landing_phase(entries, bolt):
     """Where the bolt's landing stands in the run record (plan.8; bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record"),
     from the drive's entries, oldest first, each state its own: asked, {state, n, head}, a land crew posted on the
