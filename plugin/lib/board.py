@@ -1141,7 +1141,8 @@ def moved(kept, now):
            "blueprints": apart(kept["blueprints"], now["blueprints"]),
            "kits": apart(kept["kits"], now["kits"]), "readings": apart(kept.get("readings", {}), now.get("readings", {})),
            "cards": kept.get("cards") != now.get("cards")}
-    read = bool(out["crew"] or out["state"] or out["blueprints"] or out["kits"])
+    # a kit's main the clock's fetch moved (look's mains) is read again, its started bolts read on it (Decision 7)
+    read = bool(out["crew"] or out["state"] or out["blueprints"] or out["kits"] or apart(kept.get("mains", {}), now.get("mains", {})))
     return dict(out, read=read, any=read or bool(out["readings"]) or out["cards"])
 
 
@@ -1227,17 +1228,38 @@ def cards_due(cards, askers, answers, listed, at, now):
             or now - at >= DISCOVERY)
 
 
-def fetches(fleet, labels):
+def fetches(fleet, labels, kits=()):
     """The clock's fetches (Decision 3 of a-followers-tick-reads-nothing-while-nothing-moved): each repository once, with
     every branch the follower reads of it, {repo: [ref]}, in the drives' order: each drive's branch,
-    which brings its runners' branches beside it (plan.beside), and its first blueprints repo's main. A decision on
-    plain facts (code.7)."""
+    which brings its runners' branches beside it (plan.beside), and its first blueprints repo's main; then the main of
+    each kit's repository in kits, those of the started bolts the follower's last read held (kit_mains), which a
+    bolt's landing is read on (a-landed-bolt-is-closed-and-offered-no-more, Decision 7). A decision on plain facts
+    (code.7)."""
     out = {}
     for l in labels:
         for repo, ref in (plan.state_of(fleet, l), (crew.drive_of(fleet, l)["blueprints"][0], "main")):
             if ref not in out.setdefault(repo, []):
                 out[repo].append(ref)
+    for repo in kits:
+        if "main" not in out.setdefault(repo, []):
+            out[repo].append("main")
     return out
+
+
+def kit_mains(fleet, read):
+    """The repositories whose main the follower's clock fetches (a-landed-bolt-is-closed-and-offered-no-more, Decision
+    7), from its last read: the forge address of the kit of each started bolt of each plan the read found, as
+    plan.main_repository gives it over the drive's requests and runners the read holds, sorted, each once; none for a
+    bolt not started, or one whose repository crew can't name by its owner. A decision on plain facts (code.7)."""
+    runs, out = (read or {}).get("runs") or {}, set()
+    for l, _, _, pl in (read or {}).get("found") or []:
+        run = runs.get(l)
+        for b in pl.bolts() if pl else []:
+            if plan.started(b):
+                repo = plan.main_repository(fleet, l, b, run if isinstance(run, tuple) else None)
+                if repo:
+                    out.add(repo)
+    return sorted(out)
 
 
 def crew_stamp():
@@ -1286,15 +1308,18 @@ PERIOD = record.PERIOD  # seconds: the follower's clock, on which it fetches the
 BURST = 2  # seconds: a look that sees a write waits this long for what follows, so a burst of writes is one refresh
 
 
-def look(fleet, labels):
+def look(fleet, labels, kits=()):
     """What the follower's look reads each second, with no process (plan.12): crew's checkout and the teams file
     (moved_at), each drive's state and blueprints tips as this host's caches hold them (plan.tip_here), its
     runners' branches there (plan.runner_tips), where a runner's reports of the places it runs arrive with no move of
     the drive's own branch, and this host's card readings folders (gather.readings_stamp), so a reading sent back
-    here is swept within seconds."""
+    here is swept within seconds; and, as mains, the main of each kit's repository in kits (kit_mains) as this host's
+    cache holds it, {repo: tip}, which the read hands in (a-landed-bolt-is-closed-and-offered-no-more, Decision 7),
+    named mains since a refresh's stamps hold its kits' answers under kits."""
     return {"crew": moved_at(), "state": {l: plan.tip_here(*plan.state_of(fleet, l)) for l in labels},
             "runners": {l: plan.runner_tips(plan.state_of(fleet, l)[0], l, fetch=False) for l in labels},
             "blueprints": {l: plan.tip_here(crew.drive_of(fleet, l)["blueprints"][0], "main") for l in labels},
+            "mains": {repo: plan.tip_here(repo, "main") for repo in kits},
             "readings here": gather.readings_stamp(readings_hosts(fleet, labels).get(crew.this_host(), []))}
 
 
@@ -1462,6 +1487,8 @@ class Follower:
         self.started_lagging, self.said_lag = os.environ.pop("CREW_FOLLOWER_LAGGED", None) == "1", False
         # Pending You's notice while a role here runs as its kind (hear), None while it runs none
         self.notice = None
+        # the repositories whose main the clock fetches, those of the started bolts of the last read (kit_mains)
+        self.kits = []
 
     def fleet(self):
         """The teams file read afresh, not as this process first read it, the drives its `consoles` names followed
@@ -1484,7 +1511,7 @@ class Follower:
         plan.tips_of), into this host's caches; what could not be fetched is said in each drive's frames until a
         fetch of it lands."""
         self.unfetched, failed = {}, {}
-        for repo, refs in fetches(fleet, self.labels).items():
+        for repo, refs in fetches(fleet, self.labels, self.kits).items():
             try:
                 plan.tips_of(repo, refs)
             except Refusal as e:
@@ -1564,8 +1591,8 @@ class Follower:
         self.notice = None
 
     def look(self, fleet):
-        """What the look reads (look)."""
-        return look(fleet, self.labels)
+        """What the look reads (look), each kit's main the last read named among it."""
+        return look(fleet, self.labels, self.kits)
 
     def step(self, most=None):
         """A look: the clock's tick when it is due, a refresh when a cache, crew or the teams file moved, else nothing;
@@ -1658,14 +1685,18 @@ class Follower:
                     answer["routes"] = routes[host]
 
     def read(self, fleet, looked, stamps):
-        """A read of what moved: the tips this host's caches hold handed in (no fetch), each unmoved kit served from what
-        was kept, and every sweep run; what the read said on standard error kept for the rail's frames."""
+        """A read of what moved: the tips this host's caches hold handed in (no fetch), each kit's main the look read
+        among them, each unmoved kit served from what was kept, and every sweep run; what the read said on standard
+        error kept for the rail's frames, and the kits whose main the clock fetches next taken from it (kit_mains)."""
         plan.READ.memory.clear()
         for l in self.labels:
             for (repo, ref), tip in ((plan.state_of(fleet, l), looked["state"][l]),
                                      ((crew.drive_of(fleet, l)["blueprints"][0], "main"), looked["blueprints"][l])):
                 if tip is not None:
                     plan.READ.keep_tip(repo, ref, tip)
+        for repo, tip in (looked.get("mains") or {}).items():  # each kit's main, which plan.main_tip serves (Decision 7)
+            if tip is not None:
+                plan.READ.keep_tip(repo, "main", tip)
         self.kept.stamps, plan.READ.follower, said, asked = stamps["kits"], self.kept, io.StringIO(), self.kept.cards is None
         try:
             with contextlib.redirect_stderr(said):
@@ -1681,6 +1712,7 @@ class Follower:
             self.asks, self.cards_at = self.asks + 1, time.monotonic()
             self.cards = kept_stamp(self.kept.cards, False, self.asks, self.kept.listed)
         if read is not None:
+            self.kits = kit_mains(fleet, read)
             self.left = card_left(read.get("swept"))
             self.told = {l: (tip, read["told"][l]) for l, _, tip, _ in read["found"] if l in (read.get("told") or {})}
             self.last = {"read": read, "stamps": dict(looked, kits=kept_stamps(self.kept.kits), readings=stamps["readings"], cards=self.cards),

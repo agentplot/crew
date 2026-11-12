@@ -19,8 +19,10 @@ never given twice. A test signs the host in again by moving cards.json aside: ev
   messages/<id>.json     messages on that card, a list, given back by get_request
 Tools: whoami, match_area (use for a remote an area was made for, else create), create_area (one area a key),
 post_request (a key gives its card back, and one under eight characters is refused in Pending You's words, as its
-schema refuses it in pendingyou 0.35.1; a card of questions carrying the card's own highStakes refused in Pending
-You's words, as the Willdan box's six-row landings card was on 2026-11-10; one that follows an answered card picks
+schema refuses it in pendingyou 0.35.1; a card of questions carrying highStakes, on the card or on any question,
+refused in Pending You's words, as the Willdan box's six-row landings card was on 2026-11-10 with it on the card and
+deneb's boomdrive landings card was from 2026-11-11T23:09Z to 2026-11-12 with it on each question, and one carrying
+none taken; one that follows an answered card picks
 that card up, resolving it, as Pending You's guide says a post does), get_request, update_request and ack_answer (at the card's version; a post or an update
 whose action has a step of 300 characters or more refused in Pending You's words, as deneb's was on 2026-11-06),
 cancel_request (a card already resolved, cancelled or expired refused in Pending You's words), and list_pending (the
@@ -35,8 +37,9 @@ home = pathlib.Path(os.environ["HOME"]) / ".stub-pendingyou"
 home.mkdir(exist_ok=True)
 host = os.environ.get("CREW_TEST_HOST", "stub-host")
 STEP_WORDS = "Keep each step’s words under 300 characters."  # post_request's refusal on deneb, 2026-11-06
-# post_request's refusal of a card's highStakes beside its questions, on the Willdan box, 2026-11-10
-MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card's highStakes out."
+# post_request's refusal of a card of questions carrying highStakes, on the card (the Willdan box, 2026-11-10) or on each
+# question (deneb's boomdrive landings card, from 2026-11-11T23:09Z), in its words and with its apostrophe
+MARKED_WORDS = "With questions, each question carries its own highStakes; leave the card’s highStakes out."
 SIGNED_OUT = ("Claude Code on this computer isn’t signed in to Pending You (https://www.pendingyou.com). "
               "Run: npx -y pendingyou@latest init")
 
@@ -104,7 +107,8 @@ def tool(name, args):
     if name == "post_request":
         if len(args.get("idempotencyKey") or "") < 8:
             return refused("Some fields need fixing. idempotencyKey: Too small: expected string to have >=8 characters.")
-        if args.get("questions") and "highStakes" in args:
+        questions = args.get("questions") or []
+        if questions and ("highStakes" in args or any("highStakes" in q for q in questions)):
             return refused(MARKED_WORDS)
         followed = cards.get(args.get("follows"))
         if followed and followed["status"] == "answered":

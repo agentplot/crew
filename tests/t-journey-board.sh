@@ -237,9 +237,11 @@ tick "the follower's tick wrote no frame"
 eq "$(grep -c ' sluice ' "$CREW_TEST_LOG" || true)" "0"
 tick "the follower's quiet tick wrote no frame"
 # one fetch of each repository: wldn's state, here with its drive's branch, and willdan's blueprints, afterthought's
-# blueprints and afterthought's state, fetched once more without madswan's branch, which is not made there; mac-studio's
-# own stamps read in this process; and nothing at all of ssh, sluice, Pending You or herdr from the tick's fetch on
-eq "$(tick_reads mac-studio fetch) $(tick_reads mac-studio fetch-other)" "1 4"
+# blueprints and afterthought's state, fetched once more without madswan's branch, which is not made there, and the main
+# of switchboard-kit and of atlas-kit, the kits of the started bolts tenant-environments and atlas-maps, which their
+# landings are read on (a-landed-bolt-is-closed-and-offered-no-more, Decision 7); mac-studio's own stamps read in this
+# process; and nothing at all of ssh, sluice, Pending You or herdr from the tick's fetch on
+eq "$(tick_reads mac-studio fetch) $(tick_reads mac-studio fetch-other)" "1 6"
 eq "$(sed -n '/^mac-studio fetch$/,$p' "$T/reads.log" | grep -v ' fetch\(-other\)\?$' || true)" "mac-studio stamp"
 eq "$(sed -n '/^mac-studio tick$/,$p' "$CREW_TEST_LOG" | tail -n +2)" ""
 [[ ! $(jq -r .read_at "$(home_of mac-studio)/.cache/crew/board/wldn.rail.json") < $at ]] || fail "the tick's frame is older than the last"
