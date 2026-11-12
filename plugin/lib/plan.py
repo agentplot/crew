@@ -9474,11 +9474,22 @@ def due_changes(plan, entries, crossed=None):
     return out
 
 
-def told_since_last_batch(entries):
-    """Whether the planner was told a batch is due since the last batch was delivered (a `batch.due` entry after it)."""
+def told_since_last_batch(entries, due):
+    """Whether the planner was told a batch is due since the last batch was delivered and that tell still stands: a
+    `batch.due` entry after it naming a change still due (due, due_changes'), by its Units (<unit>:<bolt>@<commit>), or,
+    in an entry written before a batch due named its changes, by its units. An entry naming only changes a batch has
+    held since, or none still due, which a tell racing a batch's delivery to the branch wrote, keeps no tell back
+    (review-batches "A tell keeps the next one back only while its changes are due")."""
     done = [e["At"] for e in entries if e.get("Act") == "review.batch"]
     last = max(done) if done else None
-    return any(e.get("Act") == "batch.due" and (last is None or e["At"] > last) for e in entries)
+    changes, units = {(u, sha) for u, _, sha, *_ in due}, {u for u, *_ in due}
+
+    def stands(e):
+        named = units_of_batch(e)
+        if named:
+            return any((u, sha) in changes for u, _, sha in named)
+        return any(o[5:] in units for o in e.get("On") or [] if o.startswith("unit/"))
+    return any(e.get("Act") == "batch.due" and (last is None or e["At"] > last) and stands(e) for e in entries)
 
 
 def batch_due(due, entries, setting, now, bolts):
@@ -9486,8 +9497,9 @@ def batch_due(due, entries, setting, now, bolts):
     changes are due or `after_hours` hours have passed since the last batch, or since the first due change was
     constructed when there has been none (record 0064 as amended 2026-11-09), or at once for a bolt
     with every unit merged whose units' latest changes are due. bolts are the team's held bolts as (name, every unit
-    merged, its units due). [] when none is, or when the planner was told of a batch since the last one was delivered."""
-    if not due or told_since_last_batch(entries):
+    merged, its units due). [] when none is, or when the planner was told of a batch since the last one was delivered
+    and that tell still stands (told_since_last_batch)."""
+    if not due or told_since_last_batch(entries, due):
         return []
     done = [e["At"] for e in entries if e.get("Act") == "review.batch"]
     last = max(done) if done else None
@@ -9542,19 +9554,48 @@ def batch_told(told, found, tick):
     return {label for label, _, tip, _ in found if tip and label in told and told[label][0] == tip and (told[label][1] or not tick)}
 
 
+def batch_reckoned(plan, entries, st, crossing, setting, now):
+    """The drive's due changes and why a batch of them is due now, (due, why), from the plan, the run record's entries,
+    the stages of its started bolts (st, crossing) and the time now: due_changes' and batch_due's, each started bolt
+    with whether every unit of it has merged and its units due. A decision on plain facts (code.7)."""
+    due = due_changes(plan, entries, crossed_changes(plan, st) if crossing else None)
+    if not due or told_since_last_batch(entries, due):
+        return due, []
+    bolts = [(b.name(), bool(plan.work_of(b.name())) and all(st.of(u.name())["stage"] in ("merged", "landed") for u in plan.work_of(b.name())),
+              [u for u, *_ in due if plan.unit(u).get("Bolt") == b.name()]) for b in crossing]
+    return due, batch_due(due, entries, setting, now, bolts)
+
+
+def batch_entries_at_tip(fleet, label, read_at):
+    """The drive's run record at its branch's tip fetched now, as a batch due is told (review-batches "A batch due is
+    decided at the run record's tip as the planner is told"; state.1, plan.1): None when the tip is read_at, the one the
+    reckoning's own entries were read at, which stand. Refused when the tip or its record can't be read (read.1)."""
+    repo, ref = state_of(fleet, label)
+    tip = tip_of(repo, ref, fresh=True)
+    if read_at and tip == read_at:
+        return None
+    return drive_entries(fleet, label)
+
+
 def batch_check(fleet, label, read=None):
     """On the rail's sweep on the drive's main level's host (reckon_batches): the changes due across the drive,
     counted from the run record, make a batch due at the drive's setting, `review`, `after_changes` of them or
     `after_hours` hours since its last batch with at least one due, or at once when a started bolt has every unit merged and some unit's latest change has
-    been in no batch. crew then tells the drive's planner once, `batch.due` in the run record, until the next batch
-    is delivered (briefs.12). With read, a rail read, the plan, the run record and the stages are its, read nothing
-    again (the host's follower's, every refresh, Decision 8 of a-rail-refresh-after-no-change-reads-nothing). Returns
-    whether it told the planner, None when no batch is due; refused when crew can't read the run record (read.1)."""
+    been in no batch. crew then tells the drive's planner once, `batch.due` in the run record naming each change told
+    of as Units, until the next batch is delivered (briefs.12). With read, a rail read, the plan, the run record and the
+    stages are its, and finding a batch due reads nothing again (the host's follower's, every refresh, Decision 8 of
+    a-rail-refresh-after-no-change-reads-nothing). A batch found due is decided again before the tell from the run
+    record at the branch's tip, fetched then, where the tip is not the one the record was read at
+    (batch_entries_at_tip), so a batch delivered since the read tells nothing of the changes it held. Returns whether it
+    told the planner, None when no batch is due; refused when crew can't read the run record it found the batch from
+    (read.1); False, said on standard error, when it can't read the tip, so the follower tries again at its next tick
+    (batch_told)."""
     setting = fleet["drives"][label]["review"]
     if read is not None:
-        plan = next((p for l, _, _, p in read["found"] if l == label), None)
-        if plan is None:
+        got = next(((tip, p) for l, _, tip, p in read["found"] if l == label), None)
+        if got is None or got[1] is None:
             return
+        read_at, plan = got
         if (read.get("unread") or {}).get(label):
             fail(unread_batches(state_of(fleet, label)[0], read["unread"][label]))
         entries = read["logs"].get(label, [])
@@ -9562,25 +9603,31 @@ def batch_check(fleet, label, read=None):
         plan = plan_of(fleet, label)
         if plan is None:
             return
+        read_at = tip_of(*state_of(fleet, label))  # the tip this command holds, which drive_entries reads at
         entries = drive_entries(fleet, label)
     # A started unit's change is read once it has landed on its bolt, from the runner's records and its kit (Decision 13
     # of teams-cross-to-flume-as-their-bolts-land).
     crossing = [b for b in plan.bolts() if started(b)]
     st = (Stages(fleet, plan, read["sv"], read.get("runs"), label) if read is not None else
           stages_for(fleet, label, plan, crossing)) if crossing else None
-    due = due_changes(plan, entries, crossed_changes(plan, st) if crossing else None)
-    if not due or told_since_last_batch(entries):
-        return
-    bolts = [(b.name(), bool(plan.work_of(b.name())) and all(st.of(u.name())["stage"] in ("merged", "landed") for u in plan.work_of(b.name())),
-              [u for u, *_ in due if plan.unit(u).get("Bolt") == b.name()]) for b in crossing]
-    why = batch_due(due, entries, setting, datetime.datetime.now(datetime.timezone.utc), bolts)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    due, why = batch_reckoned(plan, entries, st, crossing, setting, now)
     if not why:
         return
+    try:
+        at_tip = batch_entries_at_tip(fleet, label, read_at)
+    except Refusal as e:
+        print(f"no batch told for {label}: {e}", file=sys.stderr)
+        return False
+    if at_tip is not None:
+        due, why = batch_reckoned(plan, at_tip, st, crossing, setting, now)
+        if not why:
+            return
     planner = f"{label}-planner"
     text = batch_due_said(label, due, why)
     if crew.tell(fleet, planner, text):
         record.emit(label, "batch.due", [f"agent/{planner}"] + [f"unit/{u}" for u, *_ in due], why=f"batch: due, {len(due)} changes",
-                    Count=len(due))
+                    Count=len(due), Units=" ".join(f"{u}:{bolt}@{sha}" for u, bolt, sha, _ in due))
         return True
     return False
 

@@ -259,8 +259,13 @@ class TestSettled:
         assert plan.batch_closed(entries) == set()
 
 
-def due(n):
-    return [(f"u{i}", "swb-1", f"{i:04x}", "2026-10-12T10:00:00Z") for i in range(n)]
+def due(n, unit="u", first=0):
+    return [(f"{unit}{i}", "swb-1", f"{i:04x}", "2026-10-12T10:00:00Z") for i in range(first, first + n)]
+
+
+def named(changes):
+    """The due changes as a batch or a batch due names them, (unit, its bolt, sha)."""
+    return [(u, b, sha) for u, b, sha, _ in changes]
 
 
 class TestBatchDue:
@@ -274,8 +279,28 @@ class TestBatchDue:
         assert plan.batch_due(due(5), [], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_the_planner_is_told_once_until_a_batch_is_delivered(self):
-        assert plan.batch_due(due(5), [told(1)], EVERY_5, START, []) == []
-        assert plan.batch_due(due(5), [told(1), reviewed(1, [], 2)], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
+        """review-batches, "A tell that stands"."""
+        assert plan.batch_due(due(5), [told(1, named(due(5)))], EVERY_5, START, []) == []
+        assert plan.batch_due(due(5), [told(1, named(due(5))), reviewed(1, [], 2)], EVERY_5, START, []) == [
+            "5 changes are due, and a batch is due after 5"]
+
+    def test_a_tell_naming_only_changes_a_batch_held_keeps_nothing_back(self):
+        """review-batches, "An entry naming only changes a batch held": a tell that raced batch 7's delivery to the
+        branch, written after it and naming only what it held, keeps back no tell of the five changes made since."""
+        entries = [reviewed(7, named(due(5)), 2), told(3, named(due(5)))]
+        assert plan.batch_due(due(5, "v"), entries, EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
+
+    def test_a_tell_stands_while_one_change_it_names_is_due_and_not_once_each_is_built_again(self):
+        entries = [told(1, named(due(5)))]
+        again = [(u, b, "ffff", at) for u, b, _, at in due(1)] + due(4, first=1)
+        assert plan.batch_due(again, entries, EVERY_5, START, []) == []
+        assert plan.batch_due([(u, b, "ffff", at) for u, b, _, at in due(5)], entries, EVERY_5, START, []) == [
+            "5 changes are due, and a batch is due after 5"]
+
+    def test_a_tell_from_before_is_judged_by_the_units_it_names(self):
+        """An entry written before a batch due named its changes names its units alone."""
+        assert plan.batch_due(due(5), [told(1, units=["u0"])], EVERY_5, START, []) == []
+        assert plan.batch_due(due(5), [told(1, units=["x1", "y1"])], EVERY_5, START, []) == ["5 changes are due, and a batch is due after 5"]
 
     def test_the_hours_run_from_the_last_batch(self):
         entries = [reviewed(1, [], 0)]
@@ -481,21 +506,74 @@ def test_the_rails_sweep_reckons_a_batch_on_the_drives_main_level_host():
     assert plan.batch_reckoners(FLEET, found, "chuck-herdr-alpha") == []
 
 
-def test_the_followers_reckoning_takes_its_read_and_tells_the_planner_once(monkeypatch):
-    """The crew-board spec, A batch made due by the hours: nothing moved, the last batch's hours have passed, and the
-    follower's refresh tells the planner from its kept read, reading nothing to find it; once its read holds the entry
-    that tell wrote it tells nothing, and at the tip it told at it does not reckon again."""
-    told, emitted = [], []
-    monkeypatch.setattr(plan.crew, "this_host", lambda: "mac-studio")
-    monkeypatch.setattr(plan.crew, "tell", lambda fleet, name, text: told.append(name) or True)
-    monkeypatch.setattr(plan.record, "emit", lambda label, act, on, **kw: emitted.append(act))
-    for read_again in ("plan_of", "drive_entries", "stages_for", "survey"):
-        monkeypatch.setattr(plan, read_again, lambda *a, **k: pytest.fail("the reckoning read again"))
-    found = [("wldn", "WilldanGroup/crew-state", "a" * 40, PLAN)]
-    read = {"found": found, "logs": {"wldn": [constructed("x1", "bbb1")]}, "unread": {"wldn": {}}, "sv": {}, "runs": {"wldn": ([], {})}}
-    assert plan.reckon_batches(FLEET, found, read) == {"wldn": True} and told == ["wldn-planner"] and emitted == ["batch.due"]
-    assert plan.reckon_batches(FLEET, found, dict(read, logs={"wldn": read["logs"]["wldn"] + [told_entry()]})) == {} and told == ["wldn-planner"]
-    assert plan.reckon_batches(FLEET, found, read, skip={"wldn"}) == {} and told == ["wldn-planner"]
+class TestTheFollowersReckoning:
+    """The host's follower reckons each drive's batch from its kept read at every refresh, and decides it again at the
+    branch's tip before it tells the planner (review-batches "A batch due is decided at the run record's tip as the
+    planner is told")."""
+
+    @pytest.fixture(autouse=True)
+    def acts(self, monkeypatch):
+        self.told, self.emitted, self.fetched, self.tip, self.at_tip = [], [], [], "a" * 40, None
+        monkeypatch.setattr(plan.crew, "this_host", lambda: "mac-studio")
+        monkeypatch.setattr(plan.crew, "tell", lambda fleet, name, text: self.told.append(name) or True)
+        monkeypatch.setattr(plan.record, "emit", lambda label, act, on, **kw: self.emitted.append((act, kw.get("Units"))))
+        monkeypatch.setattr(plan, "state_of", lambda fleet, label: ("WilldanGroup/crew-state", f"{label}/main"))
+
+        def tip_of(repo, ref, fresh=False):
+            assert fresh, "the tell read the tip the command held, not the branch's"
+            self.fetched.append(ref)
+            if isinstance(self.tip, Exception):
+                raise self.tip
+            return self.tip
+        monkeypatch.setattr(plan, "tip_of", tip_of)
+        for read_again in ("plan_of", "stages_for", "survey"):
+            monkeypatch.setattr(plan, read_again, lambda *a, **k: pytest.fail("the reckoning read again"))
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: self.at_tip if self.at_tip is not None else pytest.fail(
+            "the record was read again at the tip the read was made at"))
+
+    @staticmethod
+    def read(*entries, tip="a" * 40):
+        found = [("wldn", "WilldanGroup/crew-state", tip, PLAN)]
+        return found, {"found": found, "logs": {"wldn": list(entries)}, "unread": {"wldn": {}}, "sv": {}, "runs": {"wldn": ([], {})}}
+
+    def test_its_read_tells_the_planner_once(self):
+        """The crew-board spec, A batch made due by the hours: nothing moved, the last batch's hours have passed, and the
+        follower's refresh tells the planner from its kept read, reading nothing to find it and fetching only the tip,
+        which is its read's; once its read holds the entry that tell wrote it tells nothing, and at the tip it told at
+        it does not reckon again."""
+        found, read = self.read(constructed("x1", "bbb1"))
+        assert plan.reckon_batches(FLEET, found, read) == {"wldn": True} and self.told == ["wldn-planner"]
+        assert self.emitted == [("batch.due", "x1:b1@bbb1")] and self.fetched == ["wldn/main"]
+        found, read = self.read(constructed("x1", "bbb1"), told_entry(1, [("x1", "b1", "bbb1")]))
+        assert plan.reckon_batches(FLEET, found, read) == {} and self.told == ["wldn-planner"] and self.fetched == ["wldn/main"]
+        assert plan.reckon_batches(FLEET, found, read, skip={"wldn"}) == {} and self.told == ["wldn-planner"]
+
+    def test_a_batch_delivered_between_the_read_and_the_tell_tells_nothing_and_the_next_due_change_is_told(self):
+        """review-batches, "A batch delivered between the read and the tell" (signal
+        2026-11-12-agentplot-planner-237b59c7/01): the read finds x1's change due; batch 1, holding it, reached the
+        branch since; the planner is not told and nothing is recorded. The next read holds batch 1, a tell from before
+        this crew that raced it, naming only x1's change, and x2's change since: x2 is told."""
+        found, read = self.read(constructed("x1", "bbb1"))
+        self.tip, self.at_tip = "b" * 40, [constructed("x1", "bbb1"), reviewed(1, [("x1", "b1", "bbb1")], 5)]
+        assert plan.reckon_batches(FLEET, found, read) == {} and self.told == [] and self.emitted == []
+        found, read = self.read(*self.at_tip, told_entry(6, units=["x1"]), constructed("x2", "ccc1", 10), tip="b" * 40)
+        assert plan.reckon_batches(FLEET, found, read) == {"wldn": True} and self.told == ["wldn-planner"]
+        assert self.emitted == [("batch.due", "x2:b1@ccc1")]
+
+    def test_a_tell_is_made_from_the_tip_when_the_batch_is_still_due_there(self):
+        found, read = self.read(constructed("x1", "bbb1"))
+        self.tip, self.at_tip = "b" * 40, [constructed("x1", "bbb1"), constructed("x2", "ccc1", 10)]
+        assert plan.reckon_batches(FLEET, found, read) == {"wldn": True}
+        assert self.emitted == [("batch.due", "x1:b1@bbb1 x2:b1@ccc1")]
+
+    def test_a_tip_that_cannot_be_read_tells_nothing_and_waits_for_the_tick(self, capsys):
+        """review-batches, "The tip cannot be read": the reckoning answers that the planner was not told, so the
+        follower reckons it again at its clock's next tick (batch_told)."""
+        found, read = self.read(constructed("x1", "bbb1"))
+        self.tip = plan.Refusal("could not fetch wldn/main of WilldanGroup/crew-state over https: timed out")
+        assert plan.reckon_batches(FLEET, found, read) == {"wldn": False} and self.told == [] and self.emitted == []
+        assert "no batch told for wldn: could not fetch wldn/main of WilldanGroup/crew-state over https: timed out" in capsys.readouterr().err
+        assert plan.batch_told({"wldn": ("a" * 40, False)}, found, False) == {"wldn"}
 
 
 @pytest.mark.parametrize("told, tick, skip", [
