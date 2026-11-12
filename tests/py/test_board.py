@@ -616,7 +616,7 @@ class TestRefresh:
         self.looks = {"crew": ("c" * 40, b"{teams}"), "state": {"wldn": "a" * 40, "swancloud": ""}, "blueprints": {"wldn": "b" * 40, "swancloud": "b" * 40}}
         self.stamps, self.reads, self.swept, self.again, self.unchecked = {(BOX, "/kit/main"): "s1"}, [], [], [], []
         self.readings, self.asked = {BOX: "r1", "mac-studio": "r2"}, []
-        monkeypatch.setattr(board, "look", lambda fleet, labels: {k: dict(v) if isinstance(v, dict) else v for k, v in self.looks.items()})
+        monkeypatch.setattr(board, "look", lambda fleet, labels, kits=(): {k: dict(v) if isinstance(v, dict) else v for k, v in self.looks.items()})
 
         self.routes, self.routes_asked = {}, []
 
@@ -2352,3 +2352,52 @@ class TestALandingFromTheRunnersReport:
         said = "\n".join(" ".join(f for f, _ in r["fields"] if f) if isinstance(r, dict) and "fields" in r else str(r)
                          for r in board.ops_view(p))
         assert legacy["words"] in said, said
+
+
+MAIN_TIP = plan.main_tip  # the real one, taken at import, which the logic tier's no_main stands in for (conftest)
+
+
+class TestTheFollowerFetchesEachKitsMain:
+    """bolt-teams "A bolt whose work is on its kit's main reads landed" as the follower reads it (a-landed-bolt-is-
+    closed-and-offered-no-more, Decision 7): its clock's fetch carries the main of each repository with a started bolt
+    beside the drives' branches and blueprints (board.fetches, board.kit_mains), and its read hands each tip in, so a
+    refresh fetches nothing: plan.main_tip serves the tip the follower's look read (board.Follower.read)."""
+    KIT, TIP = "afterthought/crew", "6cfc4ae" + "0" * 33
+
+    def test_each_kits_main_is_fetched_once_beside_each_drives_branch_and_blueprints(self):
+        fleet = {"drives": {"wldn": {"label": "wldn", "state": "o/state", "blueprints": ["o/bp"]},
+                            "swancloud": {"label": "swancloud", "state": "o/state", "blueprints": ["s/bp"]}}}
+        assert board.fetches(fleet, ["wldn", "swancloud"], ["o/k1", "o/k2", "o/k1", "o/bp"]) == {
+            "o/state": ["wldn/main", "swancloud/main"], "o/bp": ["main"], "s/bp": ["main"], "o/k1": ["main"], "o/k2": ["main"]}
+
+    def test_kit_mains_names_a_started_bolts_repository_and_none_for_a_bolt_not_started(self, monkeypatch):
+        """y started, its unit a launched and taken by the runner on deneb, which keeps afterthought/crew; q planned, of
+        another kit; the plan names each kit by its name alone."""
+        from facts import launched, madswan_fleet, ran
+        monkeypatch.setenv("CREW_AGENT", "madswan-dispatch-deneb")
+        p, requests = launched(["y"], work=[("a", "y", [], "unit", []), ("b", "q", [], "unit", [])], planned=["q"])
+        p.bolt("q").set("Repo", "other")
+        read = {"found": [("madswan", "afterthought/crew-state", "tip", p)], "runs": {"madswan": (requests, ran({1: "code"}))}}
+        assert board.kit_mains(madswan_fleet(), read) == [self.KIT]
+        assert board.kit_mains(madswan_fleet(), {"found": [("madswan", "afterthought/crew-state", "tip", None)], "runs": {}}) == []
+
+    def test_the_read_hands_in_each_kits_tip_and_main_tip_serves_it_with_no_fetch(self, monkeypatch, tmp_path):
+        def no_git(repo, *args, **k):
+            raise AssertionError(f"a follower's refresh fetches nothing, and this ran git {args[0]}")
+        monkeypatch.setattr(plan, "git", no_git)
+        monkeypatch.setattr(plan, "main_tip", MAIN_TIP)
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        monkeypatch.setattr(plan, "CACHE", tmp_path / "cache")
+        served = []
+
+        def flow_read(fleet, labels, sweep=False):
+            served.append(plan.main_tip(self.KIT))
+            return {"found": [], "errors": {}, "signals": {}, "unchecked": [], "sv": {}, "rows": [], "cards": [], "unread": {},
+                    "batched": {}, "kits": {}}
+        monkeypatch.setattr(board, "flow_read", flow_read)
+        f = board.Follower(None)
+        f.kits = [self.KIT]
+        looked = {"crew": ("c" * 40, b"{teams}"), "state": {}, "runners": {}, "blueprints": {}, "mains": {self.KIT: self.TIP}}
+        f.read({"drives": {}}, looked, dict(looked, kits={}, readings={}, cards=None))
+        assert served == [self.TIP] and plan.READ.follower is None
+        assert f.kits == []  # the read found no started bolt, so the next tick fetches no kit's main
