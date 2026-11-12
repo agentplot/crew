@@ -119,7 +119,7 @@ class TestRows:
         assert (land["key"], land["at"]) == (f"land/{KIT}", plan.utc(iso(30)))
         assert land["what"] == [self.HEAD, f"apex-zones, on {BOX}, in Flume stream wldn: can land on your send of land/{KIT}"]
         assert land["cmds"] == []
-        assert land["bolts"] == [dict(bolt="apex-zones", host=BOX, can=True)]
+        assert land["bolts"] == [dict(bolt="apex-zones", host=BOX, can=True, head=BOLT_HEAD)]
 
     def two_bolts(self, merged):
         """apex-zones, proven, and beta, started after it, whose unit b-one has merged or not, both of switchboard-kit."""
@@ -2204,16 +2204,27 @@ class TestMainMoved:
         acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
         got = self.moved(acts, answered=["req_k1"])
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True)], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True, rows=[])], "unread": []}
         assert f"landings cards raised on the user's send, its lands posted:\n  land/{KIT} (wldn): raised" in text([], moved=got)
         acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
         assert self.moved(acts, answered=["req_other"]) == {"raised": [], "unread": []} and acts.raised == []
+
+    def test_a_card_raised_for_a_row_it_did_not_offer_is_said_naming_the_row(self):
+        """rail-cards "The rail's read raises a landings card that does not show a row as it stands": the rail says
+        which card its read raised for which rows, and a raise refused in its words."""
+        got = {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=False,
+                               rows=["apex-zones"])], "unread": []}
+        assert ("landings cards raised for rows they did not offer as they stand:\n"
+                f"  land/{KIT} (wldn): apex-zones: raised (req_k2)") in text([], moved=got)
+        assert "landings cards forecast again" not in text([], moved=got)
+        got["raised"][0].update(card=None, said="wldn/main could not be read")
+        assert f"  land/{KIT} (wldn): apex-zones: its raise refused: wldn/main could not be read" in text([], moved=got)
 
     def test_a_card_main_moved_under_is_raised_again_and_said(self):
         acts = self.Acts({KIT: (self.M2, None)}, {KIT: self.M1})
         got = self.moved(acts)
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False)], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False, rows=[])], "unread": []}
         assert ("landings cards forecast again, main having moved:\n"
                 f"  land/{KIT} (wldn): main is at e4f5a6b, its rows forecast at a1b2c3d: raised again (req_k2)") in text([], moved=got)
 
@@ -2396,7 +2407,7 @@ class TestCrossedLandings:
         """crew-rail "A crossed bolt proven": a, b and c merged by the runner's records and sluice green at x's head."""
         rows = self.rows({1: "landed", 2: "landed", 3: "landed"})
         assert [(r["key"], r["what"][1:], r["bolts"]) for r in rows] == [
-            ("land/crew", ["x, on deneb, in Flume stream madswan: can land on your send of land/crew"], [{"bolt": "x", "host": "deneb", "can": True}])]
+            ("land/crew", ["x, on deneb, in Flume stream madswan: can land on your send of land/crew"], [{"bolt": "x", "host": "deneb", "can": True, "head": BOLT_HEAD}])]
         assert rows[0]["cmds"] == []
 
     def test_a_piece_the_runner_reads_unmerged_keeps_it_off_the_row(self):
