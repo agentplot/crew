@@ -1675,6 +1675,32 @@ class TestLandings:
             built.landings_card(dict(kit="crew", rows=[]))
 
 
+class TestLandingsBoxed:
+    """rail-cards "A landings card holds five boxes and the rest of its rows wait on its face": five boxes, first to the
+    rows crew would tick, then to the others, each in the rows' order."""
+
+    @staticmethod
+    def rows(n, left=(), taking=()):
+        return [{"bolt": f"b{i}", "left": f"b{i}" in left, "taking": "takes main first" if f"b{i}" in taking else None}
+                for i in range(1, n + 1)]
+
+    def test_five_rows_or_fewer_all_have_boxes(self):
+        assert built.landings_boxed(self.rows(5, left={"b1"}, taking={"b2"})) == ["b1", "b2", "b3", "b4", "b5"]
+        assert built.landings_boxed(self.rows(2)) == ["b1", "b2"]
+
+    def test_eight_rows_that_can_land_box_the_first_five(self):
+        assert built.landings_boxed(self.rows(8)) == ["b1", "b2", "b3", "b4", "b5"]
+
+    def test_seven_rows_the_first_left_and_the_second_taking_main_first_box_the_third_to_the_seventh(self):
+        assert built.landings_boxed(self.rows(7, left={"b1"}, taking={"b2"})) == ["b3", "b4", "b5", "b6", "b7"]
+
+    def test_six_rows_that_can_land_after_a_left_row_box_the_first_five_that_can_land(self):
+        assert built.landings_boxed(self.rows(7, left={"b1"})) == ["b2", "b3", "b4", "b5", "b6"]
+
+    def test_seven_rows_three_left_box_the_four_that_can_land_then_the_first_left_row(self):
+        assert built.landings_boxed(self.rows(7, left={"b2", "b4", "b6"})) == ["b1", "b2", "b3", "b5", "b7"]
+
+
 class TestDeploy:
     def test_a_deploys_card_names_its_commit_and_carries_no_preview(self):
         """rail-cards "A deploy's card" (record 0043): a card about a landed revision names the commit it landed as, and

@@ -924,6 +924,20 @@ def landings_form(n):
     return "approve" if n <= 1 else "multi"
 
 
+def landings_boxed(rows):
+    """The bolts of a kit's landings card that have a box, in the card's order (rail-cards "A landings card holds five
+    boxes and the rest of its rows wait on its face"): rows, the card's rows in order, each with bolt, left and taking.
+    Every row has one when there are BOXES or fewer; past that, BOXES of them: first the rows crew ticks, neither left
+    nor taking main first, then the left and taking ones, each in the rows' order, so a row ready to land never waits
+    for a box behind one no one means to tick. The card and its raise (plan.landings_step) both read it, so they agree
+    on which rows have boxes."""
+    if len(rows) <= BOXES:
+        return [r["bolt"] for r in rows]
+    ticks = [r["bolt"] for r in rows if not r.get("left") and not r.get("taking")]
+    boxed = set((ticks + [r["bolt"] for r in rows if r.get("left") or r.get("taking")])[:BOXES])
+    return [r["bolt"] for r in rows if r["bolt"] in boxed]
+
+
 def row_bits(r):
     """A landings row's counts, the batches its units were read in (None when none was), and sluice's verdict and when;
     it names no team or conductor (the-team-machinery-leaves)."""
