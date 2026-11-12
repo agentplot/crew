@@ -4292,6 +4292,39 @@ def landing_head(entries, bolt):
     return {"head": last["Head"], "submission": q.get("Submission") or None, "request": q.get("Request") or None}
 
 
+def main_asks(work, head):
+    """The commits a reading of whether a started bolt's work is on its kit's main asks git of (Decision 1), from plain
+    facts: work, each of its units and chores as (name, kind, its stage as stage_of gives it, carrying the commit its
+    place landed at on the bolt), as runner.unlanded takes it; head, the newest head a landing of it carried
+    (landing_head's), or None. [] while any piece reads anything but merged or landed with a commit, so a bolt still
+    building costs no git; else the head, where there is one, then each piece's commit, each once. A decision of facts
+    alone (code.7)."""
+    if any(s.get("stage") not in ("merged", "landed") or not s.get("commit") for _, _, s in work):
+        return []
+    return list(dict.fromkeys([*([head] if head else []), *(s["commit"] for _, _, s in work)]))
+
+
+def on_main(bolt, kit, work, head, held):
+    """Why a started bolt's work is not on its kit's main, or None when main holds it (bolt-teams "A bolt whose work is
+    on its kit's main reads landed"; Decision 1), from plain facts: work and head as main_asks takes them; held,
+    {commit: 0 main holds it, 1 it does not, anything else git could not tell}. Its work is on main when main holds
+    the commit each of its units and chores landed at on the bolt (runner.unlanded's rule) and the newest head a
+    landing of it carried; it must have one or the other, since a branch at main's revision is on main trivially.
+    Nothing crew can't tell is taken as landed (read.1). A decision of facts alone (code.7)."""
+    if not work and not head:
+        return f"bolt {bolt} holds no work crew can find on {kit}'s main: no unit or chore of it has merged, and no landing of it names a head"
+    # a piece not merged first, which main_asks asked git nothing for, then each piece's commit as git answered it
+    unasked = [p for p in work if p[2].get("stage") not in ("merged", "landed") or not p[2].get("commit")]
+    why = runner.unlanded(bolt, kit, unasked, held) or runner.unlanded(bolt, kit, work, held)
+    if why:
+        return why
+    if head and held.get(head) == 1:
+        return f"{kit}'s main does not hold {head[:7]}, the head bolt {bolt}'s newest landing carried"
+    if head and held.get(head) != 0:
+        return f"cannot tell whether {kit}'s main holds {head[:7]}, the head bolt {bolt}'s newest landing carried: git could not read it there"
+    return None
+
+
 def landing_phase(entries, bolt):
     """Where the bolt's landing stands in the run record (plan.8; bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record"),
     from the drive's entries, oldest first, each state its own: asked, {state, n, head}, a land crew posted on the

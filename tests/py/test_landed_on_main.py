@@ -47,3 +47,50 @@ class TestLandingHead:
     def test_no_bolt_submit_naming_a_head_gives_none(self):
         assert plan.landing_head([], "y") is None
         assert plan.landing_head([submit(Outcome="stopped", Why="no head"), submit("z", Outcome="queued", Head=HEAD)], "y") is None
+
+
+def merged(commit=UNIT):
+    """A unit's stage as runner.stage_of gives it once its place landed on the bolt at commit."""
+    return {"stage": "merged", "place": "change--a@1", "commit": commit}
+
+
+class TestOnMain:
+    """Decision 1: main holds a started bolt's work when it holds the commit each of its units and chores landed at on
+    the bolt and the newest head a landing of it carried (plan.on_main), git asked nothing while a piece has not merged
+    (plan.main_asks); held is git's answer for each commit, 0 held, 1 not, 2 can't tell."""
+    WORK = [("a", "unit", merged())]
+
+    def test_main_holding_the_units_commit_and_the_head_reads_the_work_on_main(self):
+        """boomdrive's unit merged at 896e642 and its head 62d2f06, both held."""
+        assert plan.main_asks(self.WORK, HEAD) == [HEAD, UNIT]
+        assert plan.on_main("y", "boomdrive", self.WORK, HEAD, {HEAD: 0, UNIT: 0}) is None
+
+    def test_a_units_commit_main_does_not_hold_gives_unlanded_words(self):
+        assert plan.on_main("y", "boomdrive", self.WORK, HEAD, {HEAD: 0, UNIT: 1}) == (
+            "unit a has not landed on boomdrive's main: its place landed on bolt/y at 896e642, which main does not hold")
+
+    def test_a_unit_in_code_asks_git_nothing_and_gives_unlanded_words(self):
+        work = self.WORK + [("b", "unit", {"stage": "code", "place": "change--b@1"})]
+        assert plan.main_asks(work, HEAD) == []
+        assert plan.on_main("y", "boomdrive", work, HEAD, {}) == "unit b has not merged into bolt/y: it is code"
+
+    def test_the_head_main_does_not_hold_with_the_units_held_gives_the_heads_words(self):
+        assert plan.on_main("y", "boomdrive", self.WORK, HEAD, {HEAD: 1, UNIT: 0}) == (
+            "boomdrive's main does not hold 62d2f06, the head bolt y's newest landing carried")
+
+    def test_no_work_and_no_head_holds_no_work_on_main(self):
+        assert plan.main_asks([], None) == []
+        assert plan.on_main("y", "boomdrive", [], None, {}) == (
+            "bolt y holds no work crew can find on boomdrive's main: no unit or chore of it has merged, and no landing of it "
+            "names a head")
+
+    def test_no_work_and_the_head_held_reads_the_work_on_main(self):
+        assert plan.main_asks([], HEAD) == [HEAD]
+        assert plan.on_main("y", "boomdrive", [], HEAD, {HEAD: 0}) is None
+
+    def test_a_commit_git_cannot_tell_is_never_taken_as_landed(self):
+        assert plan.on_main("y", "boomdrive", self.WORK, HEAD, {HEAD: 0, UNIT: 2}) == (
+            "cannot tell whether unit a has landed on boomdrive's main: git could not read 896e642 there")
+        assert plan.on_main("y", "boomdrive", self.WORK, HEAD, {HEAD: 2, UNIT: 0}) == (
+            "cannot tell whether boomdrive's main holds 62d2f06, the head bolt y's newest landing carried: git could not read "
+            "it there")
