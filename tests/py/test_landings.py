@@ -2440,3 +2440,65 @@ class TestTheSweepClosesABoltOnMain:
         plan.reap_judged(FLEET, "swancloud", [dict(bolt="y", kit="crew", dir="/c", stages=["merged"]),
                                               dict(bolt="z", kit="crew", dir="/c", stages=["code"])], runs["swancloud"])
         assert self.read == []
+
+
+class TestABoltOnMainIsNoRow:
+    """bolt-teams "A bolt read landed on main is offered no more" and rail-cards "A landing the runner or Flume stopped
+    keeps its box", its scenario "A stopped landing that landed" (a-landed-bolt-is-closed-and-offered-no-more, Decision
+    6): a bolt whose landing reads landed is no row of its kit's landings card (plan.land_facts, plan.land_read), so no
+    land of it is posted on any send (runner.lands_due) and no stop of it is said; one whose kit's main does not hold
+    its work keeps its box and its stop."""
+    STOP = "flume refused it: a place on bolt/z is live"
+
+    @pytest.fixture(autouse=True)
+    def world(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "swancloud-planner")
+        self.mp = monkeypatch
+
+    def stages(self, p, runs):
+        self.mp.setattr(plan, "stages_for", lambda fleet, label, plan_, bolts, fetch=False: plan.Stages(fleet, plan_, {}, runs, label))
+
+    def z(self):
+        """z started, its unit b launched as request 1 and landed on bolt/z at ON_MAIN_UNIT, its base place request 2,
+        live, and its land request 3, which the runner refused, recorded stopped at H1: (the plan, runs, entries)."""
+        from facts import launched, ran
+        from test_runner import held, rec
+        p, requests = launched(["z"], work=[("b", "z", [], "unit", [])], base=True)
+        reads = ran({1: "flume-0.20.0/landed-held", 2: "flume-0.17.0/bolt-submitted"}, label="swancloud",
+                    commits={1: ON_MAIN_UNIT}, refused={3: self.STOP})
+        entries = [{"Act": "bolt.start", "On": ["bolt/z"], "At": "2026-11-11T20:00:00Z"},
+                   {"Act": "bolt.submit", "On": ["bolt/z"], "Card": "req_1", "Head": H1, "Request": "3", "Outcome": "asked"},
+                   {"Act": "bolt.submit", "On": ["bolt/z"], "Head": H1, "Request": "3", "Outcome": "stopped", "Why": self.STOP}]
+        return p, {"swancloud": (requests + held(rec(3, "land", "bolt/z", Of=2)), reads)}, entries
+
+    def test_a_bolt_read_landed_on_main_is_no_row_and_no_land_of_it_is_posted(self):
+        import runner
+        on_main(self.mp)
+        p, runs = started_y()
+        self.stages(p, runs)
+        assert plan.land_read(FLEET, "swancloud", p, p.bolt("y"), dict(WHERE["crew"], label="swancloud")) == (
+            None, "landed at 6cfc4ae: crew closes it at its next read")
+        pz, runz, entries = self.z()
+        on_main(self.mp, held=(H1, ON_MAIN_UNIT))
+        self.mp.setattr(plan, "drive_entries", lambda fleet, label: list(entries))
+        self.stages(pz, runz)
+        assert plan.stops(entries)["z"] == (H1, self.STOP)
+        assert plan.land_read(FLEET, "swancloud", pz, pz.bolt("z"), dict(WHERE["crew"], label="swancloud")) == (
+            None, "landed at 6cfc4ae: crew closes it at its next read")
+        rows = []  # the rows the raise reads: neither y nor z is one
+        requests, reads = runz["swancloud"]
+        assert runner.lands_due(rows, {"bolt/y": ("req_1", H1[:7]), "bolt/z": ("req_2", H1[:7])}, requests, reads) == []
+        assert runner.lands_due([box("z")], {"bolt/z": ("req_2", H1[:7])}, requests, reads) == [("bolt/z", 2)]  # were it a row
+
+    def test_a_stopped_bolt_main_does_not_hold_keeps_its_box_and_its_stop(self):
+        pz, runz, entries = self.z()
+        on_main(self.mp, held=(ON_MAIN_UNIT,))
+        self.mp.setattr(plan, "drive_entries", lambda fleet, label: list(entries))
+        self.stages(pz, runz)
+        st = plan.stages_for(FLEET, "swancloud", pz, [pz.bolt("z")])
+        assert st.landing(pz.bolt("z"))["outcome"] == "stopped"
+        assert st.main_landing(pz.bolt("z"))[1] == "crew's main does not hold abc1234, the head bolt z's newest landing carried"
+        with pytest.raises(plan.Refusal, match="^bolt z's kit could not be read"):  # read on past the landing, as today
+            plan.land_read(FLEET, "swancloud", pz, pz.bolt("z"), dict(WHERE["crew"], label="swancloud"))
+        (row,) = plan.landing_rows(["z"], {"z": facts("z", H1)}, {}, plan.stops(entries))
+        assert row["box"] is True and row["facts"]["stopped"] == (H1, self.STOP)

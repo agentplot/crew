@@ -3443,10 +3443,15 @@ def land_facts(fleet, label, plan, b, t, fixes_hold=True):
     refused ((head, words),
     refusals) or None, for landing_rows to hold its row by, and its last one sluice or its host stopped ((head, words),
     stops) or None, for its row to say, and, for a bolt started before bolts were base places, legacy, the words that
-    say it lands under the crew that started it (runner.legacy_said), for landing_rows to give it no box. Refused when
-    its kit can't be read (read.1)."""
+    say it lands under the crew that started it (runner.legacy_said), for landing_rows to give it no box. A bolt whose
+    landing reads landed (Stages.landing), from the runner's report or from its kit's main, is no row, whatever stop
+    the run record holds of it, so no land of it is posted on any send (a-landed-bolt-is-closed-and-offered-no-more,
+    Decision 6). Refused when its kit can't be read (read.1)."""
     bolt = b.name()
     st = stages_for(fleet, label, plan, [b])
+    landing = st.landing(b) or {}
+    if landing.get("outcome") == "landed":  # landed, as the runner reports it or as its kit's main holds it: no row (Decision 6)
+        return None, f"landed at {(landing.get('commit') or '')[:7]}: crew closes it at its next read"
     k, why = st.kit(b)
     not why or fail(f"bolt {bolt}'s kit could not be read: {why}")
     of = {u.name(): st.of(u.name()) for u in plan.work_of(bolt)}
