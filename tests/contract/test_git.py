@@ -478,7 +478,7 @@ def test_a_branch_flume_kept_is_read_standing_in_its_repository_and_a_name_besid
 
 
 class TestTheRunnersClone:
-    """drive-state "crew fetches nothing in the runner's clone" (agentplot/boomdrive core.14): a script crew runs in a
+    """drive-state "crew fetches nothing in the runner's clone" (boomdrivedev/boomdrive core.14): a script crew runs in a
     checkout the host's teams file names is told fetch=no (plan.fetch_told), runs no git fetch, so it reads with no remote
     to reach and moves no ref, and reads origin's tracking refs as the runner last fetched them; GitHub moved since is read
     once the runner's own fetch brings it."""
@@ -547,7 +547,7 @@ class TestMainHolds:
     repository by plan.tip_of, holds each commit, a commit the cache lacks reading not held; and the oldest commit of
     main's first-parent line holding them, the merge that brought them in, never main's tip. A scratch bare repository
     stands for GitHub (plan.url), and repo is a clone that pushes to it."""
-    KIT = "agentplot/boomdrive"
+    KIT = "boomdrivedev/boomdrive"
 
     @pytest.fixture(autouse=True)
     def github(self, repo, tmp_path, monkeypatch):
