@@ -1868,8 +1868,13 @@ def test_a_row_the_open_card_does_not_offer_as_it_stands_is_unoffered():
     assert plan.unoffered([("z", H1, True)], card_of("y@abc1234 z@abc1234:next", ["y"]), {}) == ["z"]
     # sent with nothing ticked: a row it showed is left, a row it did not is unoffered
     assert plan.unoffered([("y", H1, True), ("z", H1, True)], card_of("y@abc1234", []), {}) == ["z"]
-    # a send kept on a closed card holds a row this card does not show; one this card shows is judged by it
+    # a send holds a row at the head it was sent at: a bolt it ticked that reads proven at a new head, its take-main fix
+    # merged, is unoffered, for the raise to post its land on that send or ask for it again
+    assert plan.unoffered([("y", H2, True)], card_of("y@abc1234", ["y"]), {}) == ["y"]
+    assert plan.unoffered([("y", H2, True)], card_of("y@abc1234:main", ["y"]), {}) == ["y"]
+    # a send kept on a closed card holds a row this card does not show, at that head; one this card shows is judged by it
     assert plan.unoffered([("z", H1, True)], card_of("y@abc1234", ["y"]), {"z": "abc1234"}) == []
+    assert plan.unoffered([("z", H2, True)], card_of("y@abc1234", ["y"]), {"z": "abc1234"}) == ["z"]
     assert plan.unoffered([("z", H2, True)], card_of("z@abc1234", None), {"z": "abc1234"}) == ["z"]
     # a waiting card: a row joining it, at a new head or back from taking main first; one on its face with no box is offered
     assert plan.unoffered([("y", H1, True), ("z", H1, True)], card_of("y@abc1234", None), {}) == ["z"]
@@ -1882,6 +1887,8 @@ def test_a_row_the_open_card_does_not_offer_as_it_stands_is_unoffered():
         "main--a-test-reads-its-fixture"]
     assert plan.unoffered([("main--a-test-reads-its-fixture", None, True)],
                           card_of("y@abc1234 main--a-test-reads-its-fixture@1111111", None), {}) == []
+    assert plan.unoffered([("main--a-test-reads-its-fixture", None, True)],
+                          card_of("main--a-test-reads-its-fixture@1111111", ["main--a-test-reads-its-fixture"]), {}) == []
 
 
 class SweepActs:

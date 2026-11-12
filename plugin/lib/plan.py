@@ -10290,17 +10290,24 @@ def unoffered(rows, card, sends):
     names; card, the card open under land/<kit> in main-level ops's name, {heads, taking, next, ticked}, heads its rows
     as its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking),
     next those it showed with no box (heads_next), ticked the bolts the user's answer on it ticked, or None while it
-    waits on them; sends, the sends kept on that key's closed cards (landings_sent's {bolt: head}). A row is unoffered
-    when it can land, no send holds it, neither the card's answer by a tick nor a closed card's kept send while this
-    card does not show it (card_stand's holds), and the card shows it on no row, at another head than its head now,
-    taking main first, or, once answered, with no box: a bolt proven since the card was posted or answered, which a
-    raise changes the waiting card for or follows the answered one with (landings_step). A row the card shows as it
-    stands, one the user left on their send among them, is not, so a raise for it would change nothing. [names]"""
+    waits on them; sends, the sends kept on that key's closed cards (landings_sent's {bolt: head}). A row is held by a
+    send at its head now when the card's answer ticked it there, or a closed card's kept send names it there while this
+    card does not show it (card_stand's holds): its land is that send's to post, at the raise that read the answer. A
+    row is unoffered when it can land, no send holds it at its head now, and the card shows it on no row, at another
+    head than its head now, taking main first, or, once answered, with no box: a bolt proven since the card was posted
+    or answered, which a raise changes the waiting card for or follows the answered one with, or a bolt a send ticked
+    that reads proven at a new head, whose land the raise posts on that send while it stands for its work, else asks
+    for again (landings_step, lands_sent). A row the card shows as it stands, one the user left on their send among
+    them, is not, so a raise for it would change nothing. [names]"""
     shown = {b: h for b, h, _ in card.get("heads") or []}
     ticked, answered = set(card.get("ticked") or ()), card.get("ticked") is not None
     taking, waits = set(card.get("taking") or ()), set(card.get("next") or ())
+
+    def held(b, head):  # a send stands for the row at the head it was sent at, its head now; a fix of main by its name
+        at = shown.get(b) if b in ticked else sends.get(b) if b in sends and b not in shown else None
+        return at is not None and (not head or at_head(at, head))
     return [b for b, head, can in rows
-            if can and b not in ticked and not (b in sends and b not in shown)
+            if can and not held(b, head)
             and (b not in shown or head and not at_head(shown[b], head) or b in taking or answered and b in waits)]
 
 
