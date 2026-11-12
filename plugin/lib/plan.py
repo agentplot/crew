@@ -4325,6 +4325,45 @@ def on_main(bolt, kit, work, head, held):
     return None
 
 
+def main_holds(repo, tip, commits):
+    """Whether the kit's main at tip, as GitHub holds it in crew's cache of its repository (main_tip; Decision 2), holds
+    each commit: {commit: 0 it holds it, 1 it does not, 2 git could not tell}, as on_main takes it. A commit the cache
+    lacks after main's fetch is not held, since that fetch brings every commit main holds; else git merge-base
+    --is-ancestor answers, any exit but 0 or 1 being can't tell (read.1). The thin read beside on_main (code.7); no host
+    is reached and no host's checkout read (read.5)."""
+    out = {}
+    for c in dict.fromkeys(commits):
+        if git(repo, "cat-file", "-e", f"{c}^{{commit}}", check=False).returncode:
+            out[c] = 1
+            continue
+        r = git(repo, "merge-base", "--is-ancestor", c, tip, check=False)
+        out[c] = r.returncode if r.returncode in (0, 1) else 2
+    return out
+
+
+def landed_by(repo, tip, commits):
+    """Main's commit that landed the commits given (Decision 4): the oldest commit of tip's first-parent line holding
+    every one, the merge commit that brought them in, or a commit itself where it lies on that line, so a later landing
+    on main names its own; read in crew's cache of the kit's repository: the first-parent line not reachable from any
+    commit's parents, oldest first, and each commit's descendants up to tip with itself (git rev-list --ancestry-path,
+    git 2.38 or later), the first of that line every one of them holds. None where git can't tell, or a commit tip does
+    not hold (read.1). The thin read beside on_main (code.7)."""
+    commits = list(dict.fromkeys(commits))
+    if not commits:
+        return None
+    line = git(repo, "rev-list", "--first-parent", "--reverse", tip, "--not", *(f"{c}^@" for c in commits), check=False)
+    if line.returncode:
+        return None
+    holding = None
+    for c in commits:
+        r = git(repo, "rev-list", f"--ancestry-path={c}", tip, "--not", f"{c}^@", check=False)
+        if r.returncode:
+            return None
+        got = set(r.stdout.split())
+        holding = got if holding is None else holding & got
+    return next((x for x in line.stdout.split() if x in holding), None)
+
+
 def landing_phase(entries, bolt):
     """Where the bolt's landing stands in the run record (plan.8; bolt-teams "A bolt's landing reads queued, rejected or landing again from the run record"),
     from the drive's entries, oldest first, each state its own: asked, {state, n, head}, a land crew posted on the
