@@ -10120,7 +10120,8 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
     of five before a batch was one card is a row for each card posted, keyed batch/<n>-<k>, until it closes or the units
     it holds wait on nothing. Each kit with a started bolt whose every unit has merged is one landing row, keyed
     land/<kit>, main-level ops's (record 0031 as amended 2026-10-23), naming each such bolt in the plan's order with
-    the host its work runs on and what it waits on (bolts, each {bolt, host, at, can, line}): a bolt can land only once
+    the host its work runs on and what it waits on (bolts, each {bolt, host, at, can, head, line}, head the bolt's head
+    now, by which the rail's read finds a row its open card does not offer as it stands, landings_unoffered): a bolt can land only once
     its verification is green, its head the landing of its work as the runner reports it (Stages.verification,
     record 0025), every unit's latest
     change has been in a batch whose card the user has answered, no fix is in flight on it, sluice did not refuse its
@@ -10240,7 +10241,7 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             stand = card_stand(b.name(), head, not lands, (held[l].get("land_cards") or {}).get(f"land/{kit_name}"),
                                (held[l].get("sends") or {}).get(f"land/{kit_name}") or {}) if l in held else None
             kits.setdefault(kit_name, []).append(
-                dict(bolt=b.name(), host=host, at=at, can=not lands, line=f"{b.name()}, on {host}"
+                dict(bolt=b.name(), host=host, at=at, can=not lands, head=head, line=f"{b.name()}, on {host}"
                      + (f", {path}" if path else "") + ": " + "; ".join((lands or can) + ([stand_said(stand, kit_name, l, head)] if stand else []))))
         waiting = {}
         for f in runner.main_fixes_waiting(*(runs or {}).get(l, ([], {}))):
@@ -10255,7 +10256,7 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             # runner itself (crew-lands-each-bolt-through-flumes-base-place, Decision 4)
             rows.append(dict(group="land", label=l, key=f"land/{kit_name}", at=min([utc(x["at"]) for x in bolts] + [f["at"] for f in fixes]),
                              doc=None, what=what, cmds=[],
-                             bolts=[{k_: x[k_] for k_ in ("bolt", "host", "can")} for x in bolts],
+                             bolts=[{k_: x[k_] for k_ in ("bolt", "host", "can", "head")} for x in bolts],
                              fixes=[{k_: f[k_] for k_ in ("fix", "host", "can", "send")} for f in fixes]))
     return rows
 
@@ -10280,6 +10281,27 @@ def card_stand(bolt, head, can, card, sends):
     if bolt in sends and bolt not in shown:
         return ("holds",)
     return ("follows", bool(answered)) if can else None
+
+
+def unoffered(rows, card, sends):
+    """The rows of a kit's land row that its open landings card does not offer as they stand, for which the rail's read
+    raises it (rail-cards "The rail's read raises a landings card that does not show a row as it stands"), from facts
+    alone (code.7): rows, [(name, its head now or None, whether it can land)] of each bolt and fix of main the row
+    names; card, the card open under land/<kit> in main-level ops's name, {heads, taking, next, ticked}, heads its rows
+    as its last post or change recorded them (card_heads), taking those it showed taking main first (heads_taking),
+    next those it showed with no box (heads_next), ticked the bolts the user's answer on it ticked, or None while it
+    waits on them; sends, the sends kept on that key's closed cards (landings_sent's {bolt: head}). A row is unoffered
+    when it can land, no send holds it, neither the card's answer by a tick nor a closed card's kept send while this
+    card does not show it (card_stand's holds), and the card shows it on no row, at another head than its head now,
+    taking main first, or, once answered, with no box: a bolt proven since the card was posted or answered, which a
+    raise changes the waiting card for or follows the answered one with (landings_step). A row the card shows as it
+    stands, one the user left on their send among them, is not, so a raise for it would change nothing. [names]"""
+    shown = {b: h for b, h, _ in card.get("heads") or []}
+    ticked, answered = set(card.get("ticked") or ()), card.get("ticked") is not None
+    taking, waits = set(card.get("taking") or ()), set(card.get("next") or ())
+    return [b for b, head, can in rows
+            if can and b not in ticked and not (b in sends and b not in shown)
+            and (b not in shown or head and not at_head(shown[b], head) or b in taking or answered and b in waits)]
 
 
 def stand_said(stand, kit, label, head):
@@ -10832,7 +10854,8 @@ def rail_read(fleet, labels, board=False, sweep=False):
     (board.py), from which the rail's text is made as well.
     With sweep, once the rows are made, the cards on this host are swept under its sign-in (sweep_cards), against the
     proposals the plans read hold (proposals_held), the cards read then being those open once it acted, each kit's
-    landings card main moved under is raised again (sweep_moved), the done of each preview crew asked for whose card or
+    landings card main moved under, whose answer the sweep recorded, or that does not offer a row of its land row as
+    it stands is raised again (sweep_moved), the done of each preview crew asked for whose card or
     row is gone is written and each card whose preview the runner reports anew is changed in place, on the drive's
     main machine (sweep_previews, previews_changed), and the card sessions whose card is closed or whose row is gone are
     ended on every host of the labels read; what the sweeps did, and which hosts were not checked, are in the read
@@ -10902,7 +10925,8 @@ def rail_text(fleet, labels, read, now):
     refusal where its last close was refused (last_close_refusal), else the host whose rail read closes it; then, from
     a read that swept, each card the sweep closed, withdrew, recorded lost or posted, and each batch it
     closed or left with no card, named so, each drive it changed nothing for and why, each landings card raised
-    again as main moved under it and each whose kit's revision of main can't be read (sweep_moved), each card session ended,
+    again as main moved under it, on the user's send, or for the rows it did not offer as they stand, naming them, and
+    each whose kit's revision of main can't be read (sweep_moved), each card session ended,
     with its host and why, each reading the user sent whose owner it told or that it recorded read, and each host whose
     sessions were not checked. A host is named as not answering only when it holds a bolt of the plans read, so a read
     that surveyed more (the board's) gives the same text. Of a read of several drives, labels may name some: the
@@ -10977,14 +11001,18 @@ def rail_text(fleet, labels, read, now):
     lines += (["", "cards swept:"] + done if done else []) + (
         ["", "cards not swept:"] + [f"  {u['label']}: {u['why']}" for u in swept["unswept"]] if swept["unswept"] else [])
     moved = read.get("moved") or {"raised": [], "unread": []}
-    shifted, sent_ = [m for m in moved["raised"] if not m.get("sent")], [m for m in moved["raised"] if m.get("sent")]
+    shifted = [m for m in moved["raised"] if not m.get("sent") and not m.get("rows")]
+    sent_, offered = [m for m in moved["raised"] if m.get("sent")], [m for m in moved["raised"] if m.get("rows")]
     lines += (["", "landings cards forecast again, main having moved:"] + [
         f"  land/{m['kit']} ({m['label']}): main is at {m['now'][:7]}, its rows forecast at "
         + (m["was"][:7] if m["was"] else "no revision crew kept") + ": "
         + (f"its raise refused: {m['said']}" if m["said"] else f"raised again ({m['card']})" if m["card"] else "raised again, no card left open")
         for m in shifted] if shifted else []) + (["", "landings cards raised on the user's send, its lands posted:"] + [
         f"  land/{m['kit']} ({m['label']}): " + (f"its raise refused: {m['said']}" if m["said"] else "raised")
-        for m in sent_] if sent_ else []) + (
+        for m in sent_] if sent_ else []) + (["", "landings cards raised for rows they did not offer as they stand:"] + [
+        f"  land/{m['kit']} ({m['label']}): {joined(m['rows'])}: "
+        + (f"its raise refused: {m['said']}" if m["said"] else f"raised ({m['card']})" if m["card"] else "raised, no card left open")
+        for m in offered] if offered else []) + (
         ["", "landings cards whose main can't be read:"] + [
             f"  land/{u['kit']} ({u['label']}): whether main moved under it can't be told: {u['why']}" for u in moved["unread"]]
         if moved["unread"] else [])
@@ -14285,9 +14313,13 @@ def sweep_moved(fleet, read, acts=None):
     each card main moved under is raised again (SweepActs.raise_kit), which fetches GitHub's main and forecasts its
     rows there; a card main has not moved under is fetched for and raised by none. Each card whose answer this read's
     sweep recorded (landings_answered) is raised too, so the user's send posts its lands by the first act that reads it,
-    the host's follower among them (rail-cards "A send's lands are posted by the first act that reads it"). A raise
-    refused is said, and the read goes on. Returns {raised: [{label, kit, was, now, card, said, sent}], unread: [{label,
-    kit, why}]}, said the refusal's words or None, sent whether it was raised for the answer alone."""
+    the host's follower among them (rail-cards "A send's lands are posted by the first act that reads it"); and so is
+    each card that does not offer a row of its land row as it stands (landings_unoffered), a bolt proven since it was
+    posted or answered among them, so that bolt is offered in the same read (rail-cards "The rail's read raises a
+    landings card that does not show a row as it stands"). Each card is raised once, for the first of those reasons. A
+    raise refused is said, and the read goes on. Returns {raised: [{label, kit, was, now, card, said, sent, rows}],
+    unread: [{label, kit, why}]}, said the refusal's words or None, sent whether it was raised for the answer alone,
+    rows the rows it did not offer when it was raised for them alone, else []."""
     acts = acts or SweepActs(fleet)
     here, out = acts.host(), {"raised": [], "unread": []}
     for l, _, _, pl in read["found"]:
@@ -14300,10 +14332,10 @@ def sweep_moved(fleet, read, acts=None):
         kept = {c: acts.kept_main(*c) for c in mains}
         due, unread = landings_moved(open_, {c: m for c, (m, _) in mains.items()}, kept)
         out["unread"] += [dict(label=l, kit=c[1], why=mains[c][1]) for c in unread]
-        sent = landings_answered(read, l, here, kits)
-        for c in list(due) + [c for c in sent if c not in due]:
+        sent, rows = landings_answered(read, l, here, kits), dict(landings_unoffered(read, l, here, kits))
+        for c in dict.fromkeys(list(due) + sent + list(rows)):
             moved = dict(label=l, kit=c[1], was=kept.get(c), now=(mains.get(c) or (None,))[0], card=None, said=None,
-                         sent=c in sent and c not in due)
+                         sent=c in sent and c not in due, rows=rows[c] if c not in due and c not in sent else [])
             try:
                 moved["card"] = acts.raise_kit(l, c[1])
             except Refusal as e:
@@ -14319,6 +14351,37 @@ def landings_answered(read, label, here, kits):
     return list(dict.fromkeys((label, kit) for c in read.get("cards") or [] if c["label"] == label and c["host"] == here
                               and c["by"] == f"{label}-ops" and c["card"] in answered
                               for kind, kit in [land_key(c["key"], kits) or (None, None)] if kind == "kit"))
+
+
+def landings_unoffered(read, label, here, kits):
+    """The kits' landings cards of a drive, open on this host in its main-level ops's name, that do not offer a row of
+    their land row as it stands (unoffered), each with those rows, [((label, kit), [names])], from the read alone
+    (code.7): the land rows it made (rail_rows, each bolt with its head now and whether it can land, each fix of main
+    by name), each card's rows as its last post or change the drive's run record holds recorded them (shown_heads),
+    the user's answer on it as the read holds it (record_reading's answered, or the sweep's, its heads the bolts they
+    ticked), and the sends kept on its key's closed cards (landings_sent). A card whose rows the record holds no post
+    of, one the sweep posted in this read among them, is left, since it was raised as its rows stand."""
+    entries = (read.get("logs") or {}).get(label) or []
+    land = {r["key"]: r for r in read.get("rows") or [] if r["label"] == label and r["group"] == "land"}
+    out = {}
+    for c in read.get("cards") or []:
+        if c["label"] != label or c["host"] != here or c["by"] != f"{label}-ops" or c["key"] not in land:
+            continue
+        kind, kit = land_key(c["key"], kits) or (None, None)
+        if kind != "kit" or (label, kit) in out:
+            continue
+        shown = shown_heads(entries, c["card"])
+        if shown is None:
+            continue
+        r, answered = land[c["key"]], c.get("answered")
+        names = unoffered([(b["bolt"], b.get("head"), b["can"]) for b in r.get("bolts") or []]
+                          + [(f["fix"], None, f["can"]) for f in r.get("fixes") or []],
+                          dict(heads=card_heads(shown), taking=heads_taking(shown), next=heads_next(shown),
+                               ticked=[b for b, _, _ in card_heads(answered.get("heads"))] if answered else None),
+                          landings_sent(entries, c["key"], c["by"]))
+        if names:
+            out[(label, kit)] = names
+    return list(out.items())
 
 
 # How long an ask stands before the rail's read may take its card or row for gone (Decision 7 of
