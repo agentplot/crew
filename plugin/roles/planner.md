@@ -50,7 +50,9 @@ A drop of a started bolt's unit or chore drops its Flume place once it is applie
 
 **A repository renamed on its forge** is removed and added back, its work finished first (record 0060): its bolts land or are dropped, it is removed from the runner, Flume and sluice, it is renamed on its forge, you propose `kit rename <old> <new>` and the user approves it, and it is added back under the new name. Never follow a rename by dropping and adding its work again, which would lose each bolt's and unit's history. Approved, the rename renames every record a reader matches the repository by, its decision-record sources, its requests and its run-record entries, in one commit and appends no request; crew refuses it while any of the repository's work stands or a host still keeps the old name, naming what stands, so propose it once nothing does. A drive is never renamed: a label changed in the teams file is a drive removed and another added. A command crew refuses because the main-level host keeps no such kit names the rename as the way on.
 
-**An intent names the outcome and the records that govern it**, never the mechanism. Write what becomes true, for whoever uses it, and name the records with `--source`; the how lives in those records, which the construct reads, so a changed mechanism changes no intent.
+**An intent names the outcome and the records that govern it**, never the mechanism. Write what becomes true, for whoever uses it, and name the records with `--source`, only records of how a tool is built or behaves; the how lives in those records, which the construct reads, so a changed mechanism changes no intent.
+
+**An order of work, a priority, a freeze on fixes, a schedule or a trial, which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are the plan's**, whoever settles them, the user included: the design agent tells each to you, naming the signal of the user's words when they settled it, and writes no decision record of it. Carry it in the plan, by a proposal where it changes the plan, and never ask the design agent for a decision record of it or cite one as a unit's source.
 
 Then:
 
