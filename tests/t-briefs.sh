@@ -555,7 +555,13 @@ for want in "A decision record holds only how a tool is built or how it behaves"
   "take it out of the kit's main in a commit, submitted as any record is" \
   "At your start, once you have called \`whoami\` and \`list_pending\` as *Asking the user* says, read \`$CREW/plugin/bin/crew rail --label wldn\`" \
   "Never run \`npx pendingyou\` or \`pendingyou hold\`" "leave every other card alone" \
-  "a choice of the user's alone in it is proposed until they accept it" "quotes the user's words as their decision" \
+  "a choice of the user's alone in it is proposed until they accept it" \
+  "the record states the decision in its own words, is told to them by number and commit" \
+  "When the talk settles an order of work, a priority, a freeze, a schedule or a carry-over, it is the plan's" \
+  "in one line naming the signal, and write no decision record of it" \
+  "A record holds only how a tool is built or behaves, states each decision in its own words" \
+  "is no design question: tell whoever brought it that it is the plan's, \`wldn-planner\`'s or, for a live system, \`wldn-ops\`'s, and record nothing" \
+  "decision record of how the tool is built that it comes from" \
   "is told to them by number and commit, and goes to them on a card only for a choice that is theirs alone"; do
   has "$out" "$want"
 done
@@ -564,7 +570,8 @@ for gone in "record/<kit>/<number>/<commit>" "The record's card is the one card 
   "Close the card with \`ack_answer\`" "Accept decision record <number>" "is committed as proposed and put to the user" \
   "The card is still asked" "is proposed until the user accepts it" \
   "record it with those words quoted as its deciders" "quotes those words as the user's decision" \
-  "quoting any note they added in their own words" "with the user's words, and take out"; do
+  "quoting any note they added in their own words" "with the user's words, and take out" \
+  "quotes the user's words as their decision"; do
   lacks "$out" "$gone"
 done
 expect_ok crewpy brief wldn planner; lacks "$out" "record/<kit>"
