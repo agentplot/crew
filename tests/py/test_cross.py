@@ -376,6 +376,51 @@ class TestAnswer:
         with pytest.raises(plan.Refusal, match=r"^no launch of b stands in requests.rec, so no Flume place of it waits on an answer"):
             plan.answer_place(w, "b", "yes")
 
+    @pytest.fixture
+    def drives(self, monkeypatch):
+        """Each drive's state read as given, {label: requests.rec's text, or a refusal's words for a branch crew could not
+        fetch}, for crew answer's choice of drive (plan.launch_label)."""
+        def given_(states):
+            def state_of(fleet, label):
+                isinstance(states[label], Exception) and plan.fail(str(states[label]))
+                return "afterthought/crew-state", f"{label}/main"
+            monkeypatch.setattr(plan, "state_of", state_of)
+            monkeypatch.setattr(plan, "tip_of", lambda repo, ref, fresh=False: "tip-" + ref.split("/")[0])
+            monkeypatch.setattr(plan, "show", lambda repo, tip, path: states[tip.removeprefix("tip-")])
+            return {"drives": {l: {"label": l} for l in states}}
+        return given_
+
+    def test_work_no_request_launched_is_refused_naming_that_no_launch_stands(self, drives):
+        """crew answer b, b no launch of madswan's requests names: refused in named_launch's words, never a traceback."""
+        fleet = drives({"madswan": runner.REQUESTS})
+        for label in ("madswan", None):
+            with pytest.raises(plan.Refusal, match=r"^no launch of b stands in requests.rec, so no Flume place of it waits on an answer"):
+                plan.launch_label(fleet, "b", label)
+
+    def test_a_drive_crew_could_not_read_is_named_never_a_traceback(self, drives):
+        """The fix main--an-answer-to-unlaunched-work-is-refused: madswan, the one drive, could not be fetched, so crew
+        answer b raised a TypeError (why None with one label and no hit); it is refused saying crew can't tell, naming
+        what it could not read, never that no launch stands (read.1, code.2)."""
+        fleet = drives({"madswan": Exception("could not fetch madswan/main of afterthought/crew-state over https: timed out")})
+        for label in ("madswan", None):
+            with pytest.raises(plan.Refusal) as e:
+                plan.launch_label(fleet, "b", label)
+            assert str(e.value) == ("can't tell whether a launch of b stands: madswan/main could not be read: could not fetch "
+                                    "madswan/main of afterthought/crew-state over https: timed out")
+
+    def test_several_drives_none_of_which_holds_a_launch_are_each_named_as_read(self, drives):
+        """wldn holds none, atl has two works answering to x--n, and swc could not be read: each said as it is."""
+        two = "".join("\n" + "\n".join(plan.Rec("Request", runner.request_fields(n, "launch", w, dict(launch(n, w, "x--n"), Kind=k),
+                                                                              "2026-10-31T12:00:00Z", "u")).lines()) + "\n"
+                      for n, w, k in ((1, "unit/x--n", "change"), (2, "fix/x/n", "fix")))
+        fleet = drives({"wldn": runner.REQUESTS, "atl": runner.REQUESTS + two, "swc": Exception("timed out")})
+        with pytest.raises(plan.Refusal) as e:
+            plan.launch_label(fleet, "x--n", None)
+        assert str(e.value) == ("no launch of x--n stands in the requests of wldn; in atl, x--n names fix/x/n and unit/x--n: "
+                                "name the one meant as requests.rec does; swc/main could not be read: timed out")
+        assert runner.unfound_launch("b", {}, {"wldn": "timed out", "swc": "refused"}) == (
+            "can't tell whether a launch of b stands: wldn/main could not be read: timed out; swc/main could not be read: refused")
+
     def test_a_drive_no_runner_answers_for_refuses_naming_why(self):
         w = launched("x", work=[unit("a")])
         with pytest.raises(plan.Refusal, match=r"^can't tell whether unit/a's place waits on an answer: no runner answers for the "
