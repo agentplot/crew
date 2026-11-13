@@ -112,6 +112,12 @@ for want in 'unit amend <unit> "<new intent>"' "never a drop and a new unit" "wh
   "A unit that has merged is not amended"; do has "$out" "$want"; done
 for want in "An intent names the outcome and the records that govern it" "never the mechanism" \
   "Corrections to a unit under construction are batched" "blocks the bolt"; do has "$out" "$want"; done
+# A plan matter is the plan's (briefs.15 as amended 2026-11-13): a unit's sources are records of how a tool is built,
+# and an order of work, a priority, a freeze, a schedule or a carry-over is carried in the plan, never as a record.
+for want in "name the records with \`--source\`, only records of how a tool is built or behaves" \
+  "**An order of work, a priority, a freeze, a schedule or a carry-over is the plan's**" \
+  "Carry it in the plan, by a proposal where it changes the plan" \
+  "never ask the design agent for a decision record of it or cite one as a unit's source"; do has "$out" "$want"; done
 for want in "Never name a proposal by its number alone" "Recite no command" "which holds the change whole" \
   "say in a sentence what you propose and point to its card"; do has "$out" "$want"; done
 lacks "$out" "plannotator-tui"
@@ -489,27 +495,39 @@ for want in "plugin/bin/crew rail --label wldn\` names it as one that can land" 
 done
 ok "the briefs put changes before the user in batches, and main-level ops lands a bolt only once its changes have been in one"
 
-# A decision record is settled by whose decision it is (briefs.15, amended 2026-11-02 on the user's words): the user's
-# own words are proposed until they have seen the record and accepted on their yes with no card, the design agent's own choices are decided and said in the
+# A decision record is settled by whose decision it is (briefs.15, amended 2026-11-02 on the user's words): what the user
+# settled is stated in the record's own words, its deciders line naming where and when, never quoting them, proposed
+# until they have seen the record and accepted on their yes with no card, the design agent's own choices are decided and said in the
 # pane, and only a choice that is the user's alone is committed as proposed and accepted on their yes; for that one the
 # design agent runs crew record at each turn of its status once it is on the kit's main, which raises, changes and closes
 # the record's one card in its name, adopts the card by the line crew record prints, names a rule-decided choice in an
 # alternatives file, never settled silently, and queues nothing before the yes; it posts and closes no record card, and
-# the planner posts none.
+# the planner posts none. A decision record holds only how a tool is built or how it behaves (briefs.15 as amended
+# 2026-11-13): an order of work, a priority, a freeze, a schedule or a trial, which bolt or unit carries something and
+# how a one-off move, rename or carry-over is carried out are the plan's, told to the planner, or to ops for a live
+# system, naming the signal of the user's words, with no record, amendment or card, and a unit cites only records of how
+# a tool is built or behaves.
 expect_ok crewpy brief wldn design
-for want in "Every decision record you write, and every amendment you make to one, says which of its decisions is whose" \
-  "What the user settled in their own words, in this pane or relayed by the operator, is theirs: record it with those words quoted as its deciders, proposed until the user has seen it as a record" \
+for want in "A decision record holds only how a tool is built or how it behaves" \
+  "which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are the plan's, whoever settles them, the user included" \
+  "or to \`wldn-ops\` when it moves a live system, naming the signal of the user's words when they settled it" \
+  "write no record or amendment of it and raise no card for it" \
+  "A unit you queue cites only records of how a tool is built or behaves" \
+  "Every decision record you write, and every amendment you make to one, states each of its decisions in its own words, never the user's words quoted as the decision, and says which of its decisions is whose" \
+  "What the user settled, in this pane or relayed by the operator, is theirs: state it in the record's own words, its deciders line naming the user and where and when they settled it, proposed until the user has seen it as a record" \
   "every decision lives in the repository's records and rules, never only in a message" \
   "What the rules already written decide, and every choice cheap to change later, is yours: decide it as a careful designer would" \
   "a design handed back to the user to approve is no design" \
   "Only a choice that is the user's alone, in their name, their money, their plans, public or hard to undo, or one that takes a rule of theirs loosened, is committed as proposed" \
   "put to them on one Pending You card in the record's own words, which crew raises for it through \`crew record\`" \
-  "it is accepted only on the user's yes, given in this pane or on that card, and the record says so" \
+  "it is accepted only on the user's yes, given in this pane or on that card, and the record says where they gave it" \
   "Your own reading never settles a choice that is the user's" "\`status: proposed\`" "accepted only on their yes.)" \
   "For a record or amendment that holds a choice of the user's alone, commit it with \`status: proposed\`" \
   "the record is proposed until they have seen it and accepted on their yes with no card; where the same record also holds a choice of the user's alone, the card asks that choice and says the rest is theirs already" \
   "Queue no unit from a proposed record or amendment" "Only then queue the units it calls for" \
-  "the record's deciders line quotes those words as the user's decision" \
+  "its deciders line names the user and where and when they settled it, quoting none of their words" \
+  "states each of its decisions in its own words, never the user's words quoted as the decision" \
+  "stating any note they added in the record's own words" "those words are crew's evidence and go into no record" \
   "At each turn of a record's status, once the commit that holds it has landed on the kit's main, run \`$CREW/plugin/bin/crew record <kit> <number> --proposed|--accepted|--rejected\`" \
   "the kit one of atlas-kit, breadboard-kit, switchboard-kit" "refuses a status the file there does not hold" \
   "\`record/<kit>/<number>\`, one card however often the record is revised" \
@@ -523,7 +541,7 @@ for want in "Every decision record you write, and every amendment you make to on
   "\`crew record … --proposed --alternatives <file>\`" "loosen the rules as drafted and take the other path, accept the record as ruled, or send it back" \
   "run \`crew record … --proposed\` again: the card you were answered on is closed, naming the new commit, and the revised record goes on a new card that follows it" \
   "run \`crew record … --accepted\`, which closes the card" "run \`crew record … --rejected\`, which closes the card" \
-  "set \`status: rejected\` with the user's words, and take out each rule drawn from it" \
+  "set \`status: rejected\` with why, in the record's own words, and where the user said no" \
   "A kit's main moves only through sluice (\`state.3\`), so you never commit on it" "\`sluice submit main --no-wait --json\`" \
   "its main checkout is an anchor its host alone moves to GitHub's main, the fleet's timer or, on a runner host, the runner, which nobody else edits in or moves (\`plan.18\`)" \
   "each host's timer or runner brings its main checkout to them within minutes" \
@@ -539,16 +557,27 @@ for want in "Every decision record you write, and every amendment you make to on
   "in a runner's clone no fetch, merging \`origin/main\` once the runner's fetch, made at once on a landing, holds what you conflict with" \
   "so pull (\`git pull --rebase\`) before you commit there. Push only when the user says so." \
   "Run \`crew record … --proposed\` for each proposed record or amendment on your kits' main that has none open" \
+  "A proposed record or amendment that holds only a plan matter gets no card" \
+  "take it out of the kit's main in a commit, submitted as any record is" \
   "At your start, once you have called \`whoami\` and \`list_pending\` as *Asking the user* says, read \`$CREW/plugin/bin/crew rail --label wldn\`" \
   "Never run \`npx pendingyou\` or \`pendingyou hold\`" "leave every other card alone" \
-  "a choice of the user's alone in it is proposed until they accept it" "quotes the user's words as their decision" \
+  "a choice of the user's alone in it is proposed until they accept it" \
+  "the record states the decision in its own words, is told to them by number and commit" \
+  "When the talk settles an order of work, a priority, a freeze, a schedule or a carry-over, it is the plan's" \
+  "in one line naming the signal, and write no decision record of it" \
+  "A record holds only how a tool is built or behaves, states each decision in its own words" \
+  "is no design question: tell whoever brought it that it is the plan's, \`wldn-planner\`'s or, for a live system, \`wldn-ops\`'s, and record nothing" \
+  "decision record of how the tool is built that it comes from" \
   "is told to them by number and commit, and goes to them on a card only for a choice that is theirs alone"; do
   has "$out" "$want"
 done
 lacks "$out" "wt submit"; lacks "$out" "branch -d design/<topic>"; lacks "$out" "this directory"
 for gone in "record/<kit>/<number>/<commit>" "The record's card is the one card you post" "post a new card for the new version" \
   "Close the card with \`ack_answer\`" "Accept decision record <number>" "is committed as proposed and put to the user" \
-  "The card is still asked" "is proposed until the user accepts it"; do
+  "The card is still asked" "is proposed until the user accepts it" \
+  "record it with those words quoted as its deciders" "quotes those words as the user's decision" \
+  "quoting any note they added in their own words" "with the user's words, and take out" \
+  "quotes the user's words as their decision"; do
   lacks "$out" "$gone"
 done
 expect_ok crewpy brief wldn planner; lacks "$out" "record/<kit>"

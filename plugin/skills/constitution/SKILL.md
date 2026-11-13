@@ -64,7 +64,7 @@ Make the globs cover the code the rules bind and nothing wider; braces work (`se
 ln -s ../../docs/architecture/<area>.md .claude/rules/<area>.md
 ```
 
-ADRs use MADR: frontmatter `number`, `title`, `status`, `date`, `decision-makers`; sections *Context and Problem Statement*, *Considered Options*, *Decision Outcome*. `0001-record-architecture-decisions.md` starts the folder.
+ADRs use MADR: frontmatter `number`, `title`, `status`, `date`, `decision-makers`; sections *Context and Problem Statement*, *Considered Options*, *Decision Outcome*. `0001-record-architecture-decisions.md` starts the folder. A record holds only how the kit is built or behaves, each decision stated in the record's own words and its `decision-makers` naming who settled it, never quoting them; an order of work, a priority, a freeze or a carry-over is a plan's and gets no record.
 
 Delete `_candidates.md` once every candidate is placed or cut.
 
