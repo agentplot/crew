@@ -273,5 +273,5 @@ ok "README says each fetch and push a write makes, and a kit's fetch of its orig
 # (briefs.15 as amended 2026-11-13).
 constitution=$(cat "$CREW/plugin/skills/constitution/SKILL.md")
 has "$constitution" "A record holds only how the kit is built or behaves"
-has "$constitution" "an order of work, a priority, a freeze or a carry-over is a plan's and gets no record"
+has "$constitution" "an order of work, a priority, a freeze on fixes, a schedule or a trial, which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are a plan's and get no record"
 ok "the constitution skill says a kit's record holds only how the kit is built or behaves, and a plan matter gets no record"

@@ -52,7 +52,7 @@ A drop of a started bolt's unit or chore drops its Flume place once it is applie
 
 **An intent names the outcome and the records that govern it**, never the mechanism. Write what becomes true, for whoever uses it, and name the records with `--source`, only records of how a tool is built or behaves; the how lives in those records, which the construct reads, so a changed mechanism changes no intent.
 
-**An order of work, a priority, a freeze, a schedule or a carry-over is the plan's**, whoever settles it, the user included: the design agent tells it to you, naming the signal of the user's words when they settled it, and writes no decision record of it. Carry it in the plan, by a proposal where it changes the plan, and never ask the design agent for a decision record of it or cite one as a unit's source.
+**An order of work, a priority, a freeze on fixes, a schedule or a trial, which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are the plan's**, whoever settles them, the user included: the design agent tells each to you, naming the signal of the user's words when they settled it, and writes no decision record of it. Carry it in the plan, by a proposal where it changes the plan, and never ask the design agent for a decision record of it or cite one as a unit's source.
 
 Then:
 
