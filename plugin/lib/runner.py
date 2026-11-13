@@ -1153,11 +1153,33 @@ def named_launch(requests, work):
     hits = {r.get("Work"): r for r in standing(requests)
             if work in (r.get("Work"), r.get("Name")) or r.get("Work") in (f"unit/{work}", f"chore/{work}")}
     if not hits:
-        return None, (f"no launch of {work} stands in requests.rec, so no Flume place of it waits on an answer: crew answer "
-                      "answers a place of work Flume builds, by its unit's, chore's or place's name")
+        return None, no_launch(work)
     if len(hits) > 1:
         return None, f"{work} names {' and '.join(sorted(hits))}: name the one meant as requests.rec does"
     return next(iter(hits.values())), None
+
+
+def no_launch(work):
+    """named_launch's why for work no launch of which stands."""
+    return (f"no launch of {work} stands in requests.rec, so no Flume place of it waits on an answer: crew answer "
+            "answers a place of work Flume builds, by its unit's, chore's or place's name")
+
+
+def unfound_launch(work, whys, unread):
+    """Why no one drive holds a launch standing for the work a command names (plan.launch_label): whys is named_launch's
+    why for each drive read that holds none, {label: why}, and unread why each drive's requests could not be read,
+    {label: refusal}. One drive read and none unread is said in named_launch's own words; else the drives that hold no
+    launch of it are named together, a drive where the name answers to two works with its words, and each drive unread
+    by what could not be read, so a drive crew could not read is never said to hold no launch, and with none read crew
+    says it can't tell (read.1)."""
+    if len(whys) == 1 and not unread:
+        return next(iter(whys.values()))
+    none = [l for l, why in whys.items() if why == no_launch(work)]
+    unread_said = [f"{l}/main could not be read: {e}" for l, e in unread.items()]
+    if not whys:
+        return f"can't tell whether a launch of {work} stands: " + "; ".join(unread_said)
+    return "; ".join(([f"no launch of {work} stands in the requests of " + ", ".join(none)] if none else [])
+                     + [f"in {l}, {why}" for l, why in whys.items() if l not in none] + unread_said)
 
 
 def stage_said(s):

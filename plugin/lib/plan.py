@@ -2540,9 +2540,9 @@ def runner_facts(fleet, label):
 
 def launch_label(fleet, work, label):
     """The drive whose requests.rec holds a launch standing for the work a command names (runner.named_launch):
-    label when given, else the one drive that holds it; refused naming each drive when none does, or when
-    more than one does, which --label settles."""
-    labels, errors, hits, why = [label] if label else sorted(fleet["drives"]), {}, [], None
+    label when given, else the one drive that holds it; refused naming each drive when none does, and each it could
+    not read, in runner.unfound_launch's words, or when more than one does, which --label settles."""
+    labels, errors, hits, whys = [label] if label else sorted(fleet["drives"]), {}, [], {}
     for l in labels:
         try:
             repo, ref = state_of(fleet, l)
@@ -2553,10 +2553,11 @@ def launch_label(fleet, work, label):
         launch, why = runner.named_launch(Plan(show(repo, tip, "requests.rec") or runner.REQUESTS).recs("Request") if tip else [], work)
         if launch is not None:
             hits.append(l)
+        else:
+            whys[l] = why
     if len(hits) == 1:
         return hits[0]
-    hits or fail((why if len(labels) == 1 else f"no launch of {work} stands in the requests of " + ", ".join(labels))
-                 + "".join(f"; {l}/main could not be read: {e}" for l, e in errors.items()))
+    hits or fail(runner.unfound_launch(work, whys, errors))
     fail(f"{work} has a launch standing in the requests of {' and '.join(hits)}: add --label")
 
 
@@ -2568,7 +2569,8 @@ def answer(fleet, a):
     records at the tip it is applied to (plan.1), and recorded as stage.answer, which holds none of the words
     (record.3). Refused, naming the place's stage, when the place neither stopped short nor waits on its caller; naming
     what crew could not read when it can't tell, as while the runner holds the launch or has carried no status of the
-    place (read.1); and when no launch of the work stands. A stop-short whose agent Flume keeps open is answered as any
+    place (read.1); and when no launch of the work stands, naming each drive whose requests crew could not read
+    (runner.unfound_launch). A stop-short whose agent Flume keeps open is answered as any
     other, the retry naming its stage reaching that session (flume 49)."""
     label = launch_label(fleet, a.work, default_label(fleet, a))
     CONTEXT["label"], seen = label, {}
