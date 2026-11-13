@@ -113,9 +113,10 @@ for want in 'unit amend <unit> "<new intent>"' "never a drop and a new unit" "wh
 for want in "An intent names the outcome and the records that govern it" "never the mechanism" \
   "Corrections to a unit under construction are batched" "blocks the bolt"; do has "$out" "$want"; done
 # A plan matter is the plan's (briefs.15 as amended 2026-11-13): a unit's sources are records of how a tool is built,
-# and an order of work, a priority, a freeze, a schedule or a carry-over is carried in the plan, never as a record.
+# and an order of work, a priority, a freeze on fixes, a schedule or a trial, which bolt or unit carries something, and
+# how a one-off move, rename or carry-over is carried out are carried in the plan, never as a record.
 for want in "name the records with \`--source\`, only records of how a tool is built or behaves" \
-  "**An order of work, a priority, a freeze, a schedule or a carry-over is the plan's**" \
+  "**An order of work, a priority, a freeze on fixes, a schedule or a trial, which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are the plan's**, whoever settles them, the user included: the design agent tells each to you" \
   "Carry it in the plan, by a proposal where it changes the plan" \
   "never ask the design agent for a decision record of it or cite one as a unit's source"; do has "$out" "$want"; done
 for want in "Never name a proposal by its number alone" "Recite no command" "which holds the change whole" \
@@ -563,10 +564,10 @@ for want in "A decision record holds only how a tool is built or how it behaves"
   "Never run \`npx pendingyou\` or \`pendingyou hold\`" "leave every other card alone" \
   "a choice of the user's alone in it is proposed until they accept it" \
   "the record states the decision in its own words, is told to them by number and commit" \
-  "When the talk settles an order of work, a priority, a freeze, a schedule or a carry-over, it is the plan's" \
+  "When the talk settles anything *Decision records* names as the plan's, record the user's words as a signal" \
   "in one line naming the signal, and write no decision record of it" \
   "A record holds only how a tool is built or behaves, states each decision in its own words" \
-  "is no design question: tell whoever brought it that it is the plan's, \`wldn-planner\`'s or, for a live system, \`wldn-ops\`'s, and record nothing" \
+  "A question of anything *Decision records* names as the plan's is no design question: tell whoever brought it that it is the plan's, \`wldn-planner\`'s or, for a live system, \`wldn-ops\`'s, and record nothing" \
   "decision record of how the tool is built that it comes from" \
   "is told to them by number and commit, and goes to them on a card only for a choice that is theirs alone"; do
   has "$out" "$want"
