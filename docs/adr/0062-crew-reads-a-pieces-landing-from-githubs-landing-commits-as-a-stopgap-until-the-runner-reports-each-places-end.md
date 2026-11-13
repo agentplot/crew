@@ -4,7 +4,7 @@ date: 2026-11-08
 decision-makers: the user (the stopgap); agentplot-design (the record)
 ---
 
-# 0062. crew reads a piece's landing from GitHub's landing commits as a stopgap, until the runner reports each place's end
+# 0062. crew reads a piece's landing from GitHub's landing commits
 
 Status: accepted by the user on 2026-11-08, on their card ("Should crew keep telling a piece landed from GitHub for now, until Boomdrive's runner reports each piece's end?", answered "Keep them as a named stopgap until the runner reports each end").
 
@@ -19,12 +19,10 @@ When Flume tidies a finished place, the runner keeps only the last status it car
 ## Decision outcome
 
 - **The stopgap.** crew keeps those three readings: a piece, a fix or a bolt reads landed once a landing commit on its base, as GitHub holds it, names its branch in `Sluice-From`. This is the user's choice.
-- **What retires it.** The readings go in the change that follows the Boomdrive unit `the-runner-carries-each-places-end` onto every host crew serves. That unit has the runner carry each place's end, landed, failed, refused or dropped, to the control plane's report before Flume tidies the place. From then on crew reads every piece's end from the runner's report alone.
-- **Not taken.** Taking the readings out now and waiting for the runner. The hand-drops would go on until the Boomdrive change lands.
 
 ## Amendment of 2026-11-10: a bolt's head that sluice landed passed
 
-Status: accepted by agentplot-design on 2026-11-10, as a second stopgap under the user's choice of 2026-11-08 above ("Keep them as a named stopgap until the runner reports each end"), named with the move that retires it as `roles.5` asks. Written by the code stage of the fix `main--a-passed-landings-head-is-verified`, on agentplot-design's signal 2026-11-09-agentplot-design-9b1ec2dd/01, "sluice green at the head should read as verified whoever submitted it", which the fix's brief carries: "A head that is a sluice landing whose result passed is verified, whoever submitted it."
+Status: accepted by agentplot-design on 2026-11-10, as a second stopgap under the user's choice of 2026-11-08 above ("Keep them as a named stopgap until the runner reports each end"). Written by the code stage of the fix `main--a-passed-landings-head-is-verified`, on agentplot-design's signal 2026-11-09-agentplot-design-9b1ec2dd/01, "sluice green at the head should read as verified whoever submitted it", which the fix's brief carries: "A head that is a sluice landing whose result passed is verified, whoever submitted it."
 
 ### Context
 
@@ -34,21 +32,19 @@ The three readings above went with `crew-reads-each-pieces-end-from-the-runners-
 
 - **A second stopgap.** A bolt's head that is no landing of its work the runner reports reads verified where it is a landing sluice made on the bolt itself, the newest commit of the bolt's own first-parent line beyond main, whose commit names one verdict, its `Sluice-Result`, reading passed, whoever submitted it. crew reads that head's `Sluice-Submission` and `Sluice-Result` trailers by git, where it already reads the head, reads nothing of sluice's records and runs no sluice. sluice's clause 23 makes a landing commit's trailers the lasting record of the verdict it landed on, and has a landing beside its queue read passed. Flume reads the same trailers for a place's landing (its read-submission).
 - **A piece's end stays the runner's report's.** The head's verdict says the head passed its checks, not whose work it is: no piece reads merged or landed from it, and a bolt with a piece not yet merged as the runner reports it is not offered for landing, whatever its head reads.
-- **What retires it.** The change that follows the runner's report carrying each bolt's head with the verdict sluice landed it on, through Flume's status of the bolt's base place, onto every host crew serves. crew then reads the head's verdict there, and this reading goes. Flume and Boomdrive build that report; neither is changed here.
 - **Not taken.**
   - Reading every commit on the bolt's own line as passed because sluice is the one writer of `bolt/*` on GitHub: a bolt kept on its host has no such ruleset, and the verification's words could name no verdict.
-  - Waiting for the runner's report: the bolts would wait on hand-landings meanwhile.
   - Reading `Sluice-From` again, for whose work the head is: the pieces' ends stay the runner's alone.
 
 ### Consequences
 
-- Departs from record 0056 point 4 ("What the report does not carry, crew does not read anywhere else") as `roles.5` allows a stopgap: named here with the move that retires it.
+- Departs from record 0056 point 4 ("What the report does not carry, crew does not read anywhere else") as `roles.5` allows a stopgap.
 - merge-gate's "crew SHALL read no `Sluice-Result` or `Sluice-From` trailer" changes by `a-passed-landings-head-is-verified`, and `tests.5` is amended in the same commit as this amendment.
 - Built in `gather.head_landing`, `runner.verification` and `runner.passed_landing`.
 
 ## Amendment of 2026-11-12: a bolt whose work GitHub's main holds reads landed
 
-Status: accepted by agentplot-design on 2026-11-12, as a third stopgap under the user's choice of 2026-11-08 above ("Keep them as a named stopgap until the runner reports each end"), named with the move that retires it as `roles.5` asks. It records the reading built by `a-landed-bolt-is-closed-and-offered-no-more`, landed on crew's main by #95 (`5c8fe957`), whose design names this departure for this record to carry. It holds no choice of the user's.
+Status: accepted by agentplot-design on 2026-11-12, as a third stopgap under the user's choice of 2026-11-08 above ("Keep them as a named stopgap until the runner reports each end"). It records the reading built by `a-landed-bolt-is-closed-and-offered-no-more`, landed on crew's main by #95 (`5c8fe957`), whose design names this departure for this record to carry. It holds no choice of the user's.
 
 ### Context
 
@@ -61,17 +57,15 @@ A bolt's landing reads from the runner's report alone (record 0056 point 4). Two
 
 - **A third stopgap.** Where the runner's report does not read a started bolt landed, crew reads whether GitHub's main holds the bolt's work. The work is two things: the commit at which each of the bolt's units and chores landed on the bolt, as the runner reports its place's end, and the newest head the run record holds a landing of the bolt at. A bolt with neither has no work of its own. Once main holds them all, the bolt reads landed at the commit of main's first-parent line that brought them in. The first act that reads it records and closes it, and no card or send offers it again.
 - **Where crew reads it.** In crew's own cache of the kit's repository, as GitHub holds it: fetched once per command, and by the follower's clock in the board, never in a refresh. A commit the cache lacks after main's fetch reads not held, and a failure git cannot answer reads not landed. crew reads no trailer, no record of sluice's or Flume's, and no host's checkout.
-- **What retires it.** The change that follows the runner reporting every bolt's landing, a bolt with no base place among them, onto every host crew serves. crew then reads each bolt's landing from the runner's report alone, and this reading goes.
 - **Not taken.**
   - The landing commit's `Sluice-From`: that is this record's first stopgap, gone with crew 0.49, and a trailer is sluice's record.
   - The bolt's branch tip, on GitHub or in the runner's clone: it lags, a new bolt stands at main's revision, and GitHub deletes a branch once its pull request merges.
   - Main's hold of the newest landing head alone: a unit merged onto the bolt after a stop would close with the bolt and leave the plan.
   - Main's hold of the pieces alone: a newer land still standing would close on an older landing.
-  - Waiting for the runner's report: a bolt with no base place gets none, so it would stay open for good.
 
 ### Consequences
 
-- Departs from record 0056 point 4 ("What the report does not carry, crew does not read anywhere else") as `roles.5` allows a stopgap: named here with the move that retires it.
+- Departs from record 0056 point 4 ("What the report does not carry, crew does not read anywhere else") as `roles.5` allows a stopgap.
 - A bolt landed by a squash or a rebase, whose commits main does not hold, is not read landed by this reading.
 - `plan.21` is amended in the same commit as this amendment to say a bolt reads landed by the runner's report or by this reading.
 - Built in `landing_head`, `main_asks`, `on_main`, `main_tip`, `main_holds` and `landed_by`, and in the board's `kit_mains`.

@@ -7,7 +7,7 @@ consulted: swancloud (through its operator, once proposed)
 
 # 0052. crew is the control plane: repositories are registered there, and a thin runner on each host keeps their clones and views and launches the plan's work into Flume
 
-Status: accepted by the user on 2026-10-30, on flume-sluice-build's card (req_5042200602cf4511a0a3, "Approved", no note). Nothing is built from it until the user has used Flume on real work and starts the crew refactor (record 0050 part 4), and each piece then has a plan the user approves first.
+Status: accepted by the user on 2026-10-30, on flume-sluice-build's card (req_5042200602cf4511a0a3, "Approved", no note).
 
 Deciders: the user, in flume-sluice-build's session on 2026-10-30. On where repositories are kept: "You're showing the repo config in the host config but is that going to need to be in the repo? I'm thinking that ultimately crew or the flywheel will be where you add and maintain repos." On the shape: "I was thinking that if we start to design around the idea of a flywheel control plane and then a local thin flywheel runner per host, we could start to think about crew as our proxy control plane. We could maybe build that thin runner. I'm wondering if you would be in the control plane, connecting your GitHub repo, and then that would get communicated down to the thin runner." On the repositories themselves: "currently SwanCloud manages partitions and teams, sets up the repos in those partitions, clones them, and sets up a clock that syncs them. It would be nice if there was a clean consistent way to do this. It sounds like Flume wouldn't be responsible. It might be the flywheel or a thin adapter that sets up all the bare repos in its local data directory so they are hidden from the user. There would then be a config somewhere where you could set a location on your host for the projected views of their repos." Then on flume-sluice-build's card (req_ee4687bc6fe249dda876): "Yes, write the record now, for your approval". Their words settle the control plane, the runner and who owns the repositories; the rest is flume-sluice-build's, asked on this record's card.
 
@@ -30,14 +30,13 @@ Partitions and teams are leaving: Flume's streams, pools and queue take the room
 
 ## Decision outcome
 
-Option 1, in six parts.
+Option 1, in five parts.
 
 1. **Repositories are registered in the control plane.** The registry names each repository by its forge address, its default branch, the hosts that keep it and, per host, the stream its work runs in. It is a record in the control plane's state, written through the control plane on the user's word, never by an agent's own act. While crew is the control plane, the registry is a record in crew's state repository, written by a crew command as every write there is (`state.1`), and the user connects a repository there.
 2. **A runner on each host keeps the repositories registered to that host.** It reads what the control plane wants of its host by pulling, on its own timer and when told, so no inbound connection reaches a host. For each repository it keeps one bare clone in its own data directory, hidden from the user, fetched on that timer over https through the host's credential helper and after a landing it is told of; and one view under the views' root, a setting of the runner's configuration on the host (`~/Code` where it names none), a worktree of that clone detached at `origin/<default>` and never on a branch. A view is moved only while it holds no uncommitted change and stands where the runner last put it, so a view the user moved stays where they put it (the rule `herdr.14` keeps today, carried whole). A repository dropped from the registry is no longer fetched, and its clone and view are removed only once neither holds work the forge lacks; otherwise they are named and left.
 3. **Work reaches Flume through the runner.** The control plane decides what runs: the plan, and the user's order on the rail. The runner on the host turns each launch it is given into `flume launch` in its clone of the repository, always naming `--stream`, `--priority` and `--intent`, so a launch never depends on the host's own file; and it carries Flume's ends and status back to the control plane as records. Flume keeps the room, the queue, the places and the stages (record 0047, what each tool takes); the runner counts nothing and decides nothing about a stage.
 4. **swancloud keeps the machine and nothing of the work.** It installs the runner, Flume, sluice and herdr, signs in the accounts, and writes Flume's host file, its pools and streams; it no longer lists repositories, spaces or teams, clones, or runs the views timer. The host file's `[repos]` table stays, as a convenience for a launch by hand, and is never where a repository is registered.
 5. **The runner is thin.** It keeps clones and views and relays launches and ends; every decision it carries out is the control plane's or Flume's. When a drive's control plane exists, it replaces crew behind the same runner, and the runner does not change.
-6. **The order.** Nothing of this is built before the user has used Flume on real work and starts the crew refactor (record 0050 part 4); within the refactor, the registry and the runner come before the teams leave (record 0047 move 5), since move 5 needs something to launch into Flume on each host once no conductor does.
 
 ### Amended 2026-11-01: no registry in crew; the runner's own configuration names what a host keeps
 
@@ -47,22 +46,10 @@ Deciders: the user, on 2026-10-31, settling the shape of the refactor as `the-te
 
 - **Part 1 is withdrawn.** No repository is registered in crew: the runner's own configuration on each host names the repositories that host keeps, and a repository joins a host by that file. crew records work against its repository as the plan names it, naming no host and no stream, and a kit's work is taken under a lease by a runner whose configuration names the repository, while the stream it runs in has room; where two runners keep one repository the lease decides. crew reads where a kit's work runs from the report of the runner that took it, never from a lookup of its own.
 - **Part 3 as built.** A launch names `--stream` only where the launch names one; otherwise the place runs in the stream the host's Flume configuration maps the repository to. A bolt's branch is a command a runner takes, `sluice branch create` in its clone, any host keeping the repository, an existing branch counting as made. Kinds are Flume's host configuration's too: the runner names no kinds file, source or lock.
-- **Part 4 as built.** swancloud writes the runner's file as it writes Flume's host file (its `agents.14`, record 0042; the runner's by its record 0044), filled from the host's own lists; streams and the repository's stream are declared in Flume's host file, never in the runner's. Its spaces, `space-clone` and views timer leave once a runner keeps every host's repositories, host by host on the user's word (swancloud record 0044: deneb first).
-- **Part 6 is met.** The runner was built first (agentplot/boomdrive dc000d91, `the-runner-carries-crews-work-into-flume`), then the teams left crew (9d590e9f, #417), and the user has deneb alone take both before the other hosts.
+- **Part 4 as built.** swancloud writes the runner's file as it writes Flume's host file (its `agents.14`, record 0042; the runner's by its record 0044), filled from the host's own lists; streams and the repository's stream are declared in Flume's host file, never in the runner's. Its spaces, `space-clone` and views timer leave once a runner keeps every host's repositories.
 - `roles.9` is amended to this in the same commit.
-
-### For the plan to settle
-
-Each of these is answered in the plan the user approves before the runner is built; none of them changes the six parts.
-
-- The runner's name and repository, and whether it is a crew command or a program of its own.
-- How a launch and an end travel between the control plane and the runner: records in crew's state repository that the runner pulls (recommended, since crew already writes there and no host takes an inbound connection), or something else.
-- Whether views are grouped under the root (today `~/Code/views/<space>/<repo>` with a `<space>.code-workspace`) and by what, once spaces have gone.
-- How each host's existing containers move under the runner: adopted where they stand or cloned afresh, with the worktrees and sluice's records they hold kept.
-- Who starts a repository's `sluice run` on a host: the runner, beside its clone, or swancloud as now, pointed at the runner's clone (`core.31`: the host's choice either way).
 
 ### Consequences
 
-- `core.md` gains `roles.9`, drawn from parts 1 to 5, accepted with the record, and `_open.md` lists the runner and the registry under the refactor, before move 5.
-- swancloud is asked, through its operator, to record that `herdr.13`, `herdr.14` and `names.3` move to the runner when the runner is deployed, and that the spaces' repository lists and the views timer leave its configuration then; until then nothing on any host changes.
-- Nothing is queued from this record.
+- `core.md` gains `roles.9`, drawn from parts 1 to 5, accepted with the record.
+- swancloud is asked, through its operator, to record that `herdr.13`, `herdr.14` and `names.3` move to the runner when the runner is deployed, and that the spaces' repository lists and the views timer leave its configuration then.

@@ -28,12 +28,11 @@ Option 2, as madswan-design ruled it and as sluice's own words have it: the hand
 - **A landing ops does not mean to stop is left to land.** crew's wait ran out, or sluice said the host could not run the checks: the entry stays in the queue, where sluice tests the combination again, and its outcome is read at the next read, the conductor's or ops's start included (record 0046; sluice record 0068). A wait that ended is no reason to hold what the user already sent (the user, 2026-10-24: an approval stands through taking main in; record 0031 as amended that day).
 - **crew drafts and readies no pull request, with any token.** The user's token records the user as the actor, which sluice reads as their own withdrawal; the one hand on a landing's request is ops's, through sluice.
 - **The next `crew bolt submit` on the standing word re-enters the head as a new entry**, by sluice's design (clause 120); the landing card's approval stands through it, asked again only when the head moved (record 0031 as amended 2026-10-24).
-- **Until the unit lands**, crew drafts as it does today: after a `crew bolt submit` that stopped, ops resubmits on the standing word, as wldn did, and readies no pull request by hand.
 
 Option 1 is ruled out by sluice's design, which reads the draft as a withdrawal and holds nothing; option 3 loses the request's thread and sluice's record of the landing.
 
 ## Consequences
 
 - `plan.16` is amended with the three acts.
-- The bolt-teams spec's requirement "A landing's pull request is a draft whenever the user's word does not stand" is replaced, by one crew unit on the yes, `a-landing-ops-stops-is-withdrawn-and-crew-drafts-nothing`, queued only once the user says the Flume refactor has started (their word of 2026-10-29); under move 5 the same acts are Flume's launch hold and ops's retry (record 0047, flume record 0023).
+- The bolt-teams spec's requirement "A landing's pull request is a draft whenever the user's word does not stand" is replaced; under move 5 the same acts are Flume's launch hold and ops's retry (record 0047, flume record 0023).
 - Sources: wldn's run record (`WilldanGroup/crew-state`, `wldn/main`, `runs/chuck-herdr-alpha/2026-10-30.rec`, entries 01:40:23, 01:43:00, 01:44:18, 01:48:12Z); PR 96's timeline; madswan-design's ruling of 2026-10-30, relayed by swancloud-operator; sluice's `using-sluice` verdicts reference, ready; the archived change `2026-10-23-a-landings-pull-request-is-live-only-on-the-users-word` and its design's "Withdraw only" paragraph, written when sluice drafted nothing itself.

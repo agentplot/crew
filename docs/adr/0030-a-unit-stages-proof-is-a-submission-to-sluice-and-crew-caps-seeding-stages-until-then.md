@@ -1,13 +1,13 @@
 ---
 number: 30
-title: A unit stage's proof is a submission to sluice, and crew caps seeding stages until sluice has that run
+title: A unit stage's proof is a submission to sluice, and crew holds no count of its own
 status: accepted
 date: 2026-10-14
 decision-makers:
 - Chuck Swanberg
 ---
 
-# A unit stage's proof is a submission to sluice, and crew caps seeding stages until sluice has that run
+# A unit stage's proof is a submission to sluice, and crew holds no count of its own
 
 Status: accepted. The decision is the user's, made in wldn's record 0069 (WilldanGroup/switchboard-kit `docs/adr/0069`, c5e449715, "A heavy run on a machine is started by, or leased from, the machine's sluice", accepted 2026-10-14, "Approved"), whose outcome 1 names crew's change; written into crew's records by swancloud-design the same day from wldn's design's signal. Outcome 4 of that record, crew's stand-in count until sluice has the run, the user declined for crew the same evening through the recovery session ("sluice should handle this going forward. new sluice updates will let us run heavy tests through sluice"): crew holds no cap of its own.
 
@@ -31,12 +31,12 @@ On the night of 2026-10-13 several agents' worktrees on chuck-herdr-alpha each r
 Record 0069's outcomes 1 and 4, as they fall to crew:
 
 1. **A unit stage's integration proof is sluice's run.** The stage submits the unit's branch for a run that tests it against its bolt and lands nothing, reads the outcome, and starts no seed of its own in the place. sluice's bound is then the one cap on the machine and its executor the hold.
-2. **crew holds no count of its own.** Every heavy run on a machine is sluice's to start or to lease, and crew caps nothing: the stand-in count record 0069's outcome 4 gave crew until sluice has the run is not built, on the user's word; until sluice has the run, a stage's seed runs in its place as it does today, under the bound sluice's policy gets from wldn-ops's reading.
+2. **crew holds no count of its own.** Every heavy run on a machine is sluice's to start or to lease, and crew caps nothing: the stand-in count record 0069's outcome 4 gave crew until sluice has the run is not built, on the user's word.
 3. **A seed that is no check**, one a person or an agent runs to look at something, is sluice's heavy slot on the place (record 0069 outcome 2) and nothing of crew's.
 
 ## Consequences
 
-- crew's unit stages change: the proof is a submission, not a seed (`a-unit-stages-proof-is-a-submission-to-sluice`), once sluice has a run that tests and does not land, which the user designs with sluice.
+- crew's unit stages change: the proof is a submission, not a seed (`a-unit-stages-proof-is-a-submission-to-sluice`).
 - No stand-in count of crew's: `at-most-three-seeding-stages-run-at-once-on-a-machine`, queued 2026-10-14, is dropped by proposal 136 on the user's word.
 - `tests.9` stays as it is for crew's own suite.
 
