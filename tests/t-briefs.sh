@@ -112,6 +112,12 @@ for want in 'unit amend <unit> "<new intent>"' "never a drop and a new unit" "wh
   "A unit that has merged is not amended"; do has "$out" "$want"; done
 for want in "An intent names the outcome and the records that govern it" "never the mechanism" \
   "Corrections to a unit under construction are batched" "blocks the bolt"; do has "$out" "$want"; done
+# A plan matter is the plan's (briefs.15 as amended 2026-11-13): a unit's sources are records of how a tool is built,
+# and an order of work, a priority, a freeze, a schedule or a carry-over is carried in the plan, never as a record.
+for want in "name the records with \`--source\`, only records of how a tool is built or behaves" \
+  "**An order of work, a priority, a freeze, a schedule or a carry-over is the plan's**" \
+  "Carry it in the plan, by a proposal where it changes the plan" \
+  "never ask the design agent for a decision record of it or cite one as a unit's source"; do has "$out" "$want"; done
 for want in "Never name a proposal by its number alone" "Recite no command" "which holds the change whole" \
   "say in a sentence what you propose and point to its card"; do has "$out" "$want"; done
 lacks "$out" "plannotator-tui"

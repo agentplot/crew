@@ -11,7 +11,7 @@ Each check is a moon task of the `tests` project, run through `tests/suite`. Run
 
 ## 2. The planner's brief
 
-- [ ] 2.1 A unit's `--source` names only records of how a tool is built or behaves, and a plan matter the design agent hands the planner is carried in the plan, by a proposal where it changes the plan, and is never asked for as a record or cited as a source (design, Decision 6; Task notes 2.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 2.1 A unit's `--source` names only records of how a tool is built or behaves, and a plan matter the design agent hands the planner is carried in the plan, by a proposal where it changes the plan, and is never asked for as a record or cited as a source (design, Decision 6; Task notes 2.1). Verify `tests/suite t-briefs` ends with "0 failed".
 
 ## 3. The constitution skill
 
