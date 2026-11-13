@@ -45,3 +45,33 @@ The three readings above went with `crew-reads-each-pieces-end-from-the-runners-
 - Departs from record 0056 point 4 ("What the report does not carry, crew does not read anywhere else") as `roles.5` allows a stopgap: named here with the move that retires it.
 - merge-gate's "crew SHALL read no `Sluice-Result` or `Sluice-From` trailer" changes by `a-passed-landings-head-is-verified`, and `tests.5` is amended in the same commit as this amendment.
 - Built in `gather.head_landing`, `runner.verification` and `runner.passed_landing`.
+
+## Amendment of 2026-11-12: a bolt whose work GitHub's main holds reads landed
+
+Status: accepted by agentplot-design on 2026-11-12, as a third stopgap under the user's choice of 2026-11-08 above ("Keep them as a named stopgap until the runner reports each end"), named with the move that retires it as `roles.5` asks. It records the reading built by `a-landed-bolt-is-closed-and-offered-no-more`, landed on crew's main by #95 (`5c8fe957`), whose design names this departure for this record to carry. It holds no choice of the user's.
+
+### Context
+
+A bolt's landing reads from the runner's report alone (record 0056 point 4). Two kinds of bolt stayed open after they landed:
+
+- **A bolt with no base place.** It has no report. 61 of the 62 bolts in agentplot's plan on 2026-11-12 had none. One of them was boomdrive's `a-boomdrive-release-reports-its-own-version`, landed as #154 at `6cfc4aec`, which crew still offered to land (signal `2026-11-12-agentplot-ops-de559c7f/01`).
+- **A bolt recorded stopped.** The record came from a crew that read a host's checkout of main, which lagged or was gone, while sluice had landed the bolt. Weir's and crew's call-limit bolts read so on 2026-11-11 (signal `2026-11-11-agentplot-planner-b6097ea7/01`).
+
+### Decision
+
+- **A third stopgap.** Where the runner's report does not read a started bolt landed, crew reads whether GitHub's main holds the bolt's work. The work is two things: the commit at which each of the bolt's units and chores landed on the bolt, as the runner reports its place's end, and the newest head the run record holds a landing of the bolt at. A bolt with neither has no work of its own. Once main holds them all, the bolt reads landed at the commit of main's first-parent line that brought them in. The first act that reads it records and closes it, and no card or send offers it again.
+- **Where crew reads it.** In crew's own cache of the kit's repository, as GitHub holds it: fetched once per command, and by the follower's clock in the board, never in a refresh. A commit the cache lacks after main's fetch reads not held, and a failure git cannot answer reads not landed. crew reads no trailer, no record of sluice's or Flume's, and no host's checkout.
+- **What retires it.** The change that follows the runner reporting every bolt's landing, a bolt with no base place among them, onto every host crew serves. crew then reads each bolt's landing from the runner's report alone, and this reading goes.
+- **Not taken.**
+  - The landing commit's `Sluice-From`: that is this record's first stopgap, gone with crew 0.49, and a trailer is sluice's record.
+  - The bolt's branch tip, on GitHub or in the runner's clone: it lags, a new bolt stands at main's revision, and GitHub deletes a branch once its pull request merges.
+  - Main's hold of the newest landing head alone: a unit merged onto the bolt after a stop would close with the bolt and leave the plan.
+  - Main's hold of the pieces alone: a newer land still standing would close on an older landing.
+  - Waiting for the runner's report: a bolt with no base place gets none, so it would stay open for good.
+
+### Consequences
+
+- Departs from record 0056 point 4 ("What the report does not carry, crew does not read anywhere else") as `roles.5` allows a stopgap: named here with the move that retires it.
+- A bolt landed by a squash or a rebase, whose commits main does not hold, is not read landed by this reading.
+- `plan.21` is amended in the same commit as this amendment to say a bolt reads landed by the runner's report or by this reading.
+- Built in `landing_head`, `main_asks`, `on_main`, `main_tip`, `main_holds` and `landed_by`, and in the board's `kit_mains`.

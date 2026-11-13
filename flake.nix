@@ -1,4 +1,4 @@
-# crew's flake (agentplot/boomdrive record 0023; record 0058, flake.1): crew's
+# crew's flake (boomdrivedev/boomdrive record 0023; record 0058, flake.1): crew's
 # package, built from this tree's plugin/, and its services.crew module for
 # nix-darwin and NixOS, which writes crew's teams file and no other tool's.
 # The Boomdrive flake takes it as a locked input and re-exports the module.
@@ -59,7 +59,7 @@
       # Boomdrive's module, declares services.crew once (flake.1).
       moduleOf = platform: file: {
         _file = file;
-        key = "github:agentplot/crew#${platform}Modules.crew";
+        key = "github:boomdrivedev/crew#${platform}Modules.crew";
         imports = [ (import file { inherit packages; }) ];
       };
     in

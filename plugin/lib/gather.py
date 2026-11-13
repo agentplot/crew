@@ -440,9 +440,9 @@ def ran(args, cwd):
     return r.returncode, r.stdout, r.stderr
 
 
-# A try of a call to a remote, as the family bounds it: agentplot/blueprints design/weir/requirements.md 69 and C.3
+# A try of a call to a remote, as the family bounds it: boomdrivedev/blueprints design/weir/requirements.md 69 and C.3
 # (amended at ad3a1ae, 2026-11-11), mirrored from weir's weir-bounded (weir main 9cba691, record 0008) since Python
-# cannot take the crate, at agentplot/sluice record 0109's limit. TRY_FOR is the most a try may take and GRACE how long
+# cannot take the crate, at boomdrivedev/sluice record 0109's limit. TRY_FOR is the most a try may take and GRACE how long
 # a group asked to end at its limit has before it is killed, in seconds, set here alone: no setting of crew's, no
 # environment variable and no file changes either (C.3: "No setting of a writer's changes the limit").
 TRY_FOR = 30.0

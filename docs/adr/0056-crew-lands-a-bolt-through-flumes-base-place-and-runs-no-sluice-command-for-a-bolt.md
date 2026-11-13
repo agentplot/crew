@@ -54,3 +54,38 @@ Today crew makes a bolt's branch with sluice's `branch create`. It lands the bol
   - crew puts away only previews it asked for, and the runner only what its control plane asked it to bring up; a person's own preview is left alone.
   - Not taken: crew keeping its own preview calls until a later change, since it would go on calling sluice against point 1; and dropping previews from the cards, which the user relies on for swancloud's and switchboard-kit's bolts.
   - This is one Boomdrive unit, then one crew unit. The hosted protocol carries `preview` in a later version of its own, as it will `land`.
+
+## Amendment of 2026-11-12: a bolt started before bolts were base places is landed by hand, once
+
+Status: accepted by the user on 2026-11-12, on their card, choosing "Accept the record as ruled" over Flume taking the old bolts' branches as base places.
+
+Deciders: the user, asking for it on 2026-11-12 in agentplot-ops's pane: "we need to figure this out and get transitioned." The way is decided by blueprints principle 12, from the user's words of 2026-11-08 ("I want the system to be built the way it should be and then have agents fucking fix the data transition as necessary"), and by Flume's clause 3. agentplot-design for the record.
+
+### Context
+
+Point 7 had each host land as before until it ran the release that carries this record. crew's change for it said a host's pin moves only once `crew bolts` names no bolt started before that release. Deneb's pin moved first. On 2026-11-12 every started bolt there had no base place: 13 of boomdrive's and 5 of sluice's. 8 of boomdrive's and 2 of sluice's were green, each at a head `crew bolts` names. crew posts no `land` for such a bolt, and Flume refuses to open a base place over a branch already present (Flume 3 and 205). So no send of the user's lands any of them.
+
+### Decision
+
+- **A hand step, once.** Each such bolt lands as the crew that started it landed bolts. Main-level ops submits the bolt's branch to main through sluice, on the user's word naming that bolt, at the green head `crew bolts` names (`state.3`). It moves data from the old shape to the new by hand, as principle 12 asks. Nothing in crew, Flume or Boomdrive is written for it.
+- **What must hold.**
+  - No bolt is submitted at a head other than the one `crew bolts` reads green, or before the user's word names it.
+  - No worktree is made on `bolt/<bolt>` (`plan.18`).
+  - No bolt with a base place lands this way.
+  - ops records nothing in crew's plan for it. crew reads each such bolt landed from GitHub's main and closes it (record 0062 as amended 2026-11-12).
+  - A submission that fails or conflicts gets a fix place on the bolt's branch, as any fix on such a bolt, and lands only on the user's word again.
+- **The bolts still active.** Each finishes and lands the same way, or the planner drops it and plans what is left into a bolt that is a base place.
+- **When it ends.** Once `crew bolts` names no bolt started before this release on any host whose main level runs it. No code goes with it, so nothing retires.
+- **Not taken.**
+  - Flume opening a base place over a branch its merge queue already lands on, with crew launching one for each such bolt. It is the planner's and ops's choice. It has Flume adopt a branch it did not make, which Flume's clause 3 rules out. It is a unit written for one move, which principle 12 rules out. It would also be code in flume and crew during the code pause of 2026-11-12.
+  - A new bolt for each, made by Flume, with one place that takes in the old branch. Every bolt's checks would run twice, with an agent's merge between, for a move the hand step makes at once.
+
+### Consequences
+
+- Departs from point 5, "No agent and no crew command runs a landing", for bolts started before this release alone, as point 7 had them land as before.
+
+## Amendment of 2026-11-12: proof is the word to land a bolt not marked to stay
+
+Status: accepted by the user on 2026-11-12, by record 0067, on their card.
+
+Point 3 reads with record 0067: crew posts `land` for a proven bolt at its proof, and on the user's send only for a bolt marked ahead of time to stay. Nothing else of this record changes.

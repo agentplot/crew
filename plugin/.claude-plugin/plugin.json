@@ -2,5 +2,5 @@
   "name": "crew",
   "version": "0.0.0",
   "description": "Run teams of Claude agents in herdr: role briefs, the crew command, and the skill for managing teams.",
-  "repository": "https://github.com/agentplot/crew"
+  "repository": "https://github.com/boomdrivedev/crew"
 }

@@ -1,5 +1,5 @@
 """No try of crew's call to a remote outlasts its limit (remote-limit; drive-state's stopped fetch and push): the
-family's limit and words (agentplot/blueprints design/weir/requirements.md 69 and C.3; weir-bounded; sluice record
+family's limit and words (boomdrivedev/blueprints design/weir/requirements.md 69 and C.3; weir-bounded; sluice record
 0109), which of the state repository's calls are tries, what a stopped fetch and a stopped push refuse, and that every
 kit fetch is gather's or FETCH's origin_fetch, each decided on plain facts with no process started."""
 import types

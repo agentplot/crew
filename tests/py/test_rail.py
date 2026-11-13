@@ -119,7 +119,7 @@ class TestRows:
         assert (land["key"], land["at"]) == (f"land/{KIT}", plan.utc(iso(30)))
         assert land["what"] == [self.HEAD, f"apex-zones, on {BOX}, in Flume stream wldn: can land on your send of land/{KIT}"]
         assert land["cmds"] == []
-        assert land["bolts"] == [dict(bolt="apex-zones", host=BOX, can=True)]
+        assert land["bolts"] == [dict(bolt="apex-zones", host=BOX, can=True, head=BOLT_HEAD)]
 
     def two_bolts(self, merged):
         """apex-zones, proven, and beta, started after it, whose unit b-one has merged or not, both of switchboard-kit."""
@@ -2204,16 +2204,27 @@ class TestMainMoved:
         acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
         got = self.moved(acts, answered=["req_k1"])
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True)], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True, rows=[])], "unread": []}
         assert f"landings cards raised on the user's send, its lands posted:\n  land/{KIT} (wldn): raised" in text([], moved=got)
         acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
         assert self.moved(acts, answered=["req_other"]) == {"raised": [], "unread": []} and acts.raised == []
+
+    def test_a_card_raised_for_a_row_it_did_not_offer_is_said_naming_the_row(self):
+        """rail-cards "The rail's read raises a landings card that does not show a row as it stands": the rail says
+        which card its read raised for which rows, and a raise refused in its words."""
+        got = {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=False,
+                               rows=["apex-zones"])], "unread": []}
+        assert ("landings cards raised for rows they did not offer as they stand:\n"
+                f"  land/{KIT} (wldn): apex-zones: raised (req_k2)") in text([], moved=got)
+        assert "landings cards forecast again" not in text([], moved=got)
+        got["raised"][0].update(card=None, said="wldn/main could not be read")
+        assert f"  land/{KIT} (wldn): apex-zones: its raise refused: wldn/main could not be read" in text([], moved=got)
 
     def test_a_card_main_moved_under_is_raised_again_and_said(self):
         acts = self.Acts({KIT: (self.M2, None)}, {KIT: self.M1})
         got = self.moved(acts)
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False)], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False, rows=[])], "unread": []}
         assert ("landings cards forecast again, main having moved:\n"
                 f"  land/{KIT} (wldn): main is at e4f5a6b, its rows forecast at a1b2c3d: raised again (req_k2)") in text([], moved=got)
 
@@ -2396,7 +2407,7 @@ class TestCrossedLandings:
         """crew-rail "A crossed bolt proven": a, b and c merged by the runner's records and sluice green at x's head."""
         rows = self.rows({1: "landed", 2: "landed", 3: "landed"})
         assert [(r["key"], r["what"][1:], r["bolts"]) for r in rows] == [
-            ("land/crew", ["x, on deneb, in Flume stream madswan: can land on your send of land/crew"], [{"bolt": "x", "host": "deneb", "can": True}])]
+            ("land/crew", ["x, on deneb, in Flume stream madswan: can land on your send of land/crew"], [{"bolt": "x", "host": "deneb", "can": True, "head": BOLT_HEAD}])]
         assert rows[0]["cmds"] == []
 
     def test_a_piece_the_runner_reads_unmerged_keeps_it_off_the_row(self):
@@ -2404,11 +2415,11 @@ class TestCrossedLandings:
 
     def test_a_fix_in_flight_on_it_holds_its_landing(self):
         """bolt-teams "A review note marked fix": x's row says it lands once that fix has merged or been dropped."""
-        fix = {"Request": "4", "Act": "launch", "Host": "deneb", "Work": "fix/x/rail-word", "Repo": "afterthought/crew", "Kind": "fix",
+        fix = {"Request": "5", "Act": "launch", "Host": "deneb", "Work": "fix/x/rail-word", "Repo": "afterthought/crew", "Kind": "fix",
                "Name": "x--rail-word", "Base": "bolt/x"}
-        rows = self.rows({1: "landed", 2: "landed", 3: "landed", 4: "code"}, extra=[fix])
+        rows = self.rows({1: "landed", 2: "landed", 3: "landed", 5: "code"}, extra=[fix])
         assert rows[0]["what"][1] == "x, on deneb, in Flume stream madswan: lands once fix/x/rail-word has merged or been dropped"
-        assert self.rows({1: "landed", 2: "landed", 3: "landed", 4: "landed"}, extra=[fix])[0]["bolts"][0]["can"] is True
+        assert self.rows({1: "landed", 2: "landed", 3: "landed", 5: "landed"}, extra=[fix])[0]["bolts"][0]["can"] is True
 
 
 class TestPreviews:
@@ -2546,3 +2557,36 @@ class TestPreviews:
         assert plan.told_read("wldn") == {f"land/{KIT}": {"1": "asked"}}
         acts = self.Acts(self)
         assert plan.previews_changed(fleet, read, acts) == [] and acts.notes == []
+
+
+class TestABoltOnMainHasNoLandLine:
+    """bolt-teams "A bolt read landed on main is offered no more", its scenario "Not under land on the rail"
+    (a-landed-bolt-is-closed-and-offered-no-more, Decision 6): a bolt whose landing reads landed, its close not yet
+    recorded, has no line under land on the rail (plan.rail_rows); one with no launch of its own whose kit's main lacks
+    its work keeps its line saying it lands under the crew that started it. apex-zones stands for both, its unit
+    zone-one landed on bolt/apex-zones at d185a87 and no launch of its own; main_tip, main_holds and landed_by stand for
+    git."""
+    LANDED = "6cfc4ae" + "0" * 33
+
+    def land_lines(self, monkeypatch, held):
+        from facts import ran
+        monkeypatch.setattr(plan, "main_tip", lambda repo: "e" * 40)
+        monkeypatch.setattr(plan, "main_holds", lambda repo, tip, commits: {c: 0 if c in held else 1 for c in commits})
+        monkeypatch.setattr(plan, "landed_by", lambda repo, tip, commits: self.LANDED)
+        monkeypatch.setattr(plan, "drive_entries", lambda fleet, label: [])
+        p = the_plan()
+        requests, _ = runs(p)["wldn"]
+        n = {r.get("Work"): r.get("Request") for r in requests if r.get("Act") == "launch"}
+        requests = [r for r in requests if r.get("Work") != "bolt/apex-zones"]
+        reads = ran({n["unit/zone-one"]: "landed"}, host=BOX, label="wldn", repository="/kit/main", keeps=(f"WilldanGroup/{KIT}",))
+        held_ = {"wldn": {"batches": [], "closed": set(), "posts": set(), "due": set(), "unanswered": {}, "refused": {},
+                          "stopped": {}, "phases": {}}}
+        return [w for r in plan.rail_rows(FLEET, [("wldn", "WilldanGroup/crew-state", "tip", p)], survey(), [], {}, held_,
+                                          {"wldn": (requests, reads)}) if r["group"] == "land" and r["key"] == f"land/{KIT}"
+                for w in r["what"][1:]]
+
+    def test_a_bolt_read_landed_on_main_has_no_line_and_one_main_lacks_keeps_its_legacy_line(self, monkeypatch):
+        assert self.land_lines(monkeypatch, held=(BOLT_HEAD,)) == []
+        assert self.land_lines(monkeypatch, held=()) == [
+            f"apex-zones, on {BOX}, in Flume stream wldn: apex-zones was started before bolts were base places and lands under "
+            "the crew that started it"]

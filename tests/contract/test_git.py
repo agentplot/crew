@@ -478,7 +478,7 @@ def test_a_branch_flume_kept_is_read_standing_in_its_repository_and_a_name_besid
 
 
 class TestTheRunnersClone:
-    """drive-state "crew fetches nothing in the runner's clone" (agentplot/boomdrive core.14): a script crew runs in a
+    """drive-state "crew fetches nothing in the runner's clone" (boomdrivedev/boomdrive core.14): a script crew runs in a
     checkout the host's teams file names is told fetch=no (plan.fetch_told), runs no git fetch, so it reads with no remote
     to reach and moves no ref, and reads origin's tracking refs as the runner last fetched them; GitHub moved since is read
     once the runner's own fetch brings it."""
@@ -539,3 +539,101 @@ class TestTheRunnersClone:
         assert self.refs(repo) == before
         repo.git("fetch", "-q", "origin")  # the runner's own fetch brings main's landing of deleting
         assert carried() == {}
+
+
+class TestMainHolds:
+    """plan.main_holds and plan.landed_by (a-landed-bolt-is-closed-and-offered-no-more, Decisions 2 and 4; bolt-teams "A
+    bolt whose work is on its kit's main reads landed"): whether GitHub's main, fetched into crew's cache of the kit's
+    repository by plan.tip_of, holds each commit, a commit the cache lacks reading not held; and the oldest commit of
+    main's first-parent line holding them, the merge that brought them in, never main's tip. A scratch bare repository
+    stands for GitHub (plan.url), and repo is a clone that pushes to it."""
+    KIT = "boomdrivedev/boomdrive"
+
+    @pytest.fixture(autouse=True)
+    def github(self, repo, tmp_path, monkeypatch):
+        import plan
+        self.repo, self.bare = repo, tmp_path / "github.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(self.bare)], check=True)
+        repo.git("remote", "add", "origin", str(self.bare))
+        monkeypatch.setattr(plan, "url", lambda r: str(self.bare))
+        monkeypatch.setattr(plan, "CACHE", tmp_path / "cache")
+        monkeypatch.setattr(plan, "READ", plan.Reading())
+        repo.commit("chore: start", {"README.md": "r\n"})
+
+    def push(self, *branches):
+        self.repo.git("push", "-q", "origin", *branches)
+
+    def bolt(self, name, *units):
+        """bolt/<name> cut from main, each unit landed on it as a merge of its own branch, as Flume's place lands
+        on a bolt: [each unit's landing commit on the bolt], the last the bolt's head."""
+        r, out = self.repo, []
+        r.git("switch", "-q", "-c", f"bolt/{name}")
+        for u in units:
+            r.git("switch", "-q", "-c", f"change/{u}")
+            r.commit(f"feat: {u}", {f"{u}.txt": f"{u}\n"})
+            r.git("switch", "-q", f"bolt/{name}")
+            r.git("merge", "-q", "--no-ff", "-m", f"chore(land): change/{u}", f"change/{u}")
+            out.append(r.git("rev-parse", "HEAD"))
+        r.git("switch", "-q", "main")
+        return out
+
+    def land(self, name):
+        self.repo.git("merge", "-q", "--no-ff", "-m", f"chore(land): bolt/{name}", f"bolt/{name}")
+        return self.repo.git("rev-parse", "HEAD")
+
+    def test_a_bolt_merged_into_main_is_held_and_landed_by_its_merge_not_mains_tip(self):
+        """boomdrive's 62d2f06, landed on main as 6cfc4ae, with two commits after it: its head and the commit its
+        first unit landed at on the bolt read held, and landed_by gives the merge."""
+        import plan
+        a, b = self.bolt("y", "a", "b")
+        self.repo.commit("feat: main's own", {"m.txt": "m\n"})
+        merge = self.land("y")
+        self.repo.commit("feat: later", {"l.txt": "l\n"})
+        self.repo.commit("feat: later still", {"s.txt": "s\n"})
+        self.push("main")
+        tip = plan.tip_of(self.KIT, "main")
+        assert tip == self.repo.git("rev-parse", "main")
+        assert plan.main_holds(self.KIT, tip, [b, a]) == {b: 0, a: 0}
+        assert plan.landed_by(self.KIT, tip, [b, a]) == merge != tip
+        assert plan.landed_by(self.KIT, tip, [a]) == merge
+
+    def test_a_commit_fetched_by_another_ref_and_not_on_main_reads_not_held(self):
+        import plan
+        (head,) = self.bolt("y", "a")
+        self.push("main", "bolt/y")
+        assert plan.tip_of(self.KIT, "bolt/y") == head
+        tip = plan.tip_of(self.KIT, "main")
+        assert plan.main_holds(self.KIT, tip, [head]) == {head: 1}
+        assert plan.landed_by(self.KIT, tip, [head]) is None
+
+    def test_a_commit_the_cache_never_fetched_reads_not_held(self):
+        import plan
+        (head,) = self.bolt("y", "a")
+        self.push("main")
+        tip = plan.tip_of(self.KIT, "main")
+        assert plan.main_holds(self.KIT, tip, [head, "f" * 40]) == {head: 1, "f" * 40: 1}
+
+    def test_a_fast_forwarded_commit_is_landed_by_itself(self):
+        import plan
+        self.repo.git("switch", "-q", "-c", "bolt/y")
+        head = self.repo.commit("feat: a", {"a.txt": "a\n"})
+        self.repo.git("switch", "-q", "main")
+        self.repo.git("merge", "-q", "--ff-only", "bolt/y")
+        self.repo.commit("feat: later", {"l.txt": "l\n"})
+        self.push("main")
+        tip = plan.tip_of(self.KIT, "main")
+        assert plan.main_holds(self.KIT, tip, [head]) == {head: 0}
+        assert plan.landed_by(self.KIT, tip, [head]) == head
+
+    def test_two_commits_landed_by_two_merges_are_landed_by_the_later(self):
+        import plan
+        (y,) = self.bolt("y", "a")
+        first = self.land("y")
+        (z,) = self.bolt("z", "b")
+        later = self.land("z")
+        self.repo.commit("feat: after", {"l.txt": "l\n"})
+        self.push("main")
+        tip = plan.tip_of(self.KIT, "main")
+        assert plan.landed_by(self.KIT, tip, [y, z]) == later
+        assert plan.landed_by(self.KIT, tip, [z, y]) == later
+        assert plan.landed_by(self.KIT, tip, [y]) == first

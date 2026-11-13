@@ -195,6 +195,7 @@ for want in "bolt land <bolt>" "## Deploying main" "Every agent of the drive wld
   "whichever act reads it first once the runner reports the bolt's base place landed" "so a landing never waits on your session staying up" \
   "crew's next read of the bolt closes it once what it named is mended, at the rail's next sweep" \
   "keyed \`land/<kit>\`, which crew raises in your name" "card read land/<kit> --label wldn" \
+  "A row past the card's five boxes waits on its face with no box" \
   "and for each the land crew posted with its request, or that none is posted yet, crew's next raise of the card posting it" \
   "gives you no command to run" \
   "A landing deploys nothing (\`plan.14\`)" "A landing is never that word" \
@@ -613,7 +614,7 @@ ok "main-level ops starts no fix Flume's landing fix covers, and one past its bo
 # a-kept-repositorys-folder-is-the-runners-container): built there, the design agent's brief names its blueprints
 # checkout and each kit's at the runner's view with the runner's container as its folder, and the operator's names
 # swancloud's, with no ~/Code/github_afterthought/swancloud; and neither has the agent fetch or pull in the runner's
-# clone (drive-state "crew fetches nothing in the runner's clone"; agentplot/boomdrive core.14).
+# clone (drive-state "crew fetches nothing in the runner's clone"; boomdrivedev/boomdrive core.14).
 blueprints afterthought/blueprints >/dev/null; blueprints agentplot/blueprints >/dev/null; crew state init madswan >/dev/null
 crew bolt new crew-work "Work in crew." --repo crew --label madswan >/dev/null
 r=/Users/chuck/.local/share/flywheel/repositories; v=/Users/chuck/Code/boomdrive
@@ -623,7 +624,7 @@ jq --arg r "$r" --arg v "$v" '.repositories = ({} | reduce ("afterthought/bluepr
 expect_ok crewpy brief madswan design
 for want in "afterthought/blueprints's main checkout, \`$v/afterthought/blueprints\`, in its folder \`$r/afterthought/blueprints\`" \
   "where your worktrees are cut: \`$v/agentplot/crew\` (its folder \`$r/agentplot/crew\`; the runner's clone, which only the runner fetches)." \
-  "On mac-studio the runner keeps afterthought/blueprints and agentplot/crew: each is the runner's clone, which the runner alone fetches, every pass and at once on a landing (agentplot/boomdrive \`core.14\`), so there you run no \`git fetch\` and no \`git pull\`, read GitHub's branches at \`origin/<branch>\` as the runner last fetched them, and when you need one fresher, wait for the runner's next fetch." \
+  "On mac-studio the runner keeps afterthought/blueprints and agentplot/crew: each is the runner's clone, which the runner alone fetches, every pass and at once on a landing (boomdrivedev/boomdrive \`core.14\`), so there you run no \`git fetch\` and no \`git pull\`, read GitHub's branches at \`origin/<branch>\` as the runner last fetched them, and when you need one fresher, wait for the runner's next fetch." \
   "Until then, its checkout on this host is the runner's view, which only the runner moves: commit on a branch of your own cut from \`origin/main\` as the runner last fetched it, in a worktree, \`git -C $v/afterthought/blueprints worktree add -b design/<topic> $r/afterthought/blueprints/places/design-<topic> origin/main\`, fetching and pulling nothing there, and tell the user the branch."; do has "$out" "$want"; done
 lacks "$out" "$(space mac-studio madswan)"; lacks "$out" "git pull --rebase"
 expect_ok crewpy brief madswan operator

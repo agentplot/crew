@@ -20,7 +20,7 @@ FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_]*):\s?(.*)$")
 # Fields a record may hold more than once, read as lists: each ask or waiting place a turn took.
 LISTS = ("Took",)
 # Why a place waits on its caller, as Flume's status names it (`waiting_on.why`, flume 0.3.6, read 2026-10-31 at
-# agentplot/flume 3a126d4, crates/flume-seams/src/held.rs `Waits`), that makes it wait on the role its launch names as
+# boomdrivedev/flume 3a126d4, crates/flume-seams/src/held.rs `Waits`), that makes it wait on the role its launch names as
 # its recipient (design Decision 5): a stage that stopped short asking or having found work, one whose agent was lost,
 # and a place sent back as often as its kind allows. A submission held for a word is an `on_hold` wait naming no
 # stage, and any wait Flume reads stalled, past its bound under no hold's words (`stalled`), is the role's too.
@@ -281,7 +281,7 @@ def waits_on(address, requests, places):
 
 def owed_to(place, address):
     """Each end of a place that Flume owes the role at address, <label>/<role>, read from the place's status as status_of
-    gives it by the facts of flume record 0061 (agentplot/flume 3573e0f0, `EndStatus`; design Decision 1): (its end key,
+    gives it by the facts of flume record 0061 (boomdrivedev/flume 3573e0f0, `EndStatus`; design Decision 1): (its end key,
     its delivery's key, whether its delivery has expired for the address), in the status's order, for each end whose
     `owed` names the address. Every field is guarded (read.2): an end with no string key or delivery, or whose owed is
     no list of entries each naming its recipient, gives nothing, and expired is true only where Flume gives true; so a
