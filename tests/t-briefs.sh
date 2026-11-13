@@ -495,9 +495,18 @@ ok "the briefs put changes before the user in batches, and main-level ops lands 
 # design agent runs crew record at each turn of its status once it is on the kit's main, which raises, changes and closes
 # the record's one card in its name, adopts the card by the line crew record prints, names a rule-decided choice in an
 # alternatives file, never settled silently, and queues nothing before the yes; it posts and closes no record card, and
-# the planner posts none.
+# the planner posts none. A decision record holds only how a tool is built or how it behaves (briefs.15 as amended
+# 2026-11-13): an order of work, a priority, a freeze, a schedule or a trial, which bolt or unit carries something and
+# how a one-off move, rename or carry-over is carried out are the plan's, told to the planner, or to ops for a live
+# system, naming the signal of the user's words, with no record, amendment or card, and a unit cites only records of how
+# a tool is built or behaves.
 expect_ok crewpy brief wldn design
-for want in "Every decision record you write, and every amendment you make to one, says which of its decisions is whose" \
+for want in "A decision record holds only how a tool is built or how it behaves" \
+  "which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are the plan's, whoever settles them, the user included" \
+  "or to \`wldn-ops\` when it moves a live system, naming the signal of the user's words when they settled it" \
+  "write no record or amendment of it and raise no card for it" \
+  "A unit you queue cites only records of how a tool is built or behaves" \
+  "Every decision record you write, and every amendment you make to one, says which of its decisions is whose" \
   "What the user settled in their own words, in this pane or relayed by the operator, is theirs: record it with those words quoted as its deciders, proposed until the user has seen it as a record" \
   "every decision lives in the repository's records and rules, never only in a message" \
   "What the rules already written decide, and every choice cheap to change later, is yours: decide it as a careful designer would" \
