@@ -10,7 +10,7 @@ Status: accepted by the user on 2026-11-11, on their card ("Make the superfan pl
 
 Adds the rule `roles.10`.
 
-The superfans' shape, the answers below and the clock until millpond's tick runs are the user's own. How crew holds them is the talk's, from the rules, each with the path not taken.
+The superfans' shape and the answers below are the user's own. How crew holds them is the talk's, from the rules, each with the path not taken.
 
 Deciders: the user.
 - In afterthought/swancloud record 0062 as amended through 910edb62:
@@ -20,7 +20,6 @@ Deciders: the user.
   - on the watch, "Yes, beside the 4-hourly passes";
   - on the order, "Build Millpond's intake first, with crew";
   - on Dash0, "The command line alone; the plugin stays installed and off".
-- On their card, through agentplot-design, asked what wakes the superfans until millpond's tick runs: "could we use /loop in a claude session?", ruled yes as that clock.
 - On their card of 2026-11-11, through agentplot-design, taking this record: "Approved".
 - Their note on that card: "How does the plane program know there's a problem? Isn't part of the point that the superfan is evaluating what it sees and looking for problems with intent? / The blueprints repo does have a captures or signals folder. We can write captures there manually or run `write captures` into Crew. We could work on Mill Pond but I think we could write captures directly to Crew in the meantime / I assume that once a Claude session runs it could use the MCP server then to do additional analysis".
 
@@ -151,17 +150,6 @@ Four facts shape it:
    - The inbox's reader command, declared in crew's plugin, wakes the superfan whose tool a watch capture's key names. That run reads the capture and writes a reading of what holds, which may be none (millpond 31).
    - The watch runs once millpond's tick does.
 9. **Its findings are curated like any signal**: on the user's word and at the design agent's start (`signals.7`). A recurrence is a new key, and curation joins it to its item, whose weight builds.
-10. **Until the runner runs millpond's tick, a `/loop` in one Claude session is the clock** (the user's).
-    - **What it is.** One Claude session on deneb, started by the user or by ops on their word. Its `/loop` runs every four hours and does one thing: `flume wake agentplot/superfan-<tool>` for each of the four tools. It watches nothing and reads nothing.
-    - **What a pass stays.** Each pass is its own fresh, bounded, read-only Flume session.
-    - **Why `roles.7` holds.** The session only sends `flume wake`, as Pending You's wake mod does, and it is no process of crew's.
-    - **Its limits**, read from Claude Code's scheduler (2.1.319, its `CronCreate` tool):
-      - a scheduled job lives only in its session and is gone when the session ends;
-      - a recurring one expires after 7 days;
-      - it fires only while the session is idle, and up to half its period late, at most 30 minutes.
-
-      So whoever starts the loop restarts it each week and after any reboot. A stopped loop shows only as the superfans' silence: no pass in the run record.
-    - **What retires it.** It is no code, in any tool or in swancloud, so nothing is retired but the session. The runner's tick (Boomdrive record 0033) replaces it.
 
 Not taken: standing agents, a blueprints signals folder, a lines intake in crew, and a follow-up run of the superfan's, for the reasons above.
 
@@ -170,7 +158,6 @@ Not taken: standing agents, a blueprints signals folder, a lines intake in crew,
 - Good: each tool has a superfan focused on it alone, as Anthropic's are, and it starts before millpond is built.
 - Good: what a tool already names reaches its superfan at once by the watch, and the pass spends its looking on what no tool names.
 - Good: what a superfan may do is held by its settings, not only by its brief.
-- Bad: until millpond's tick runs, the clock is a session someone keeps. It is restarted each week and after any reboot, fires up to 30 minutes late, and its stop shows only as silence.
 - Bad: until millpond keeps the inbox, a finding's key is a convention in its assertion, kept by the pass, not by crew. A finding standing across the switch to capture lines may land once more, and curation joins it to its item.
 - Bad: millpond's statement says a model runs only as a reader or curation, and a superfan's pass is a third place. Its amendment, and the amendment of millpond's C.4 for the runner's tick, are in `proposal.md` for agentplot-design to take to agentplot/blueprints.
 - Bad: millpond writing the inbox on the drive's branch departs from `state.1`. `state.1` is amended in the change that adopts millpond's intake, to admit millpond's writes of the inbox's paths by the family's shared-branch protocol.

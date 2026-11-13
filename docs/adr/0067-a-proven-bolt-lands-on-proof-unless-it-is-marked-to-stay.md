@@ -33,4 +33,3 @@ A bolt lands only on the user's send on its kit's landings card (`plan.16`, reco
 ### Consequences
 
 - `plan.16`, `briefs.11` and `state.3` are amended when this is accepted, as is record 0056's point 3, so that the user's send lands a marked bolt and proof lands the rest.
-- One crew unit builds it once accepted, after the code pause of 2026-11-12.
