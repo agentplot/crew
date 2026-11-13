@@ -15,4 +15,4 @@ Each check is a moon task of the `tests` project, run through `tests/suite`. Run
 
 ## 3. The constitution skill
 
-- [ ] 3.1 The constitution skill says a kit's record holds only how the kit is built or behaves, states each decision in its own words with `decision-makers` naming who settled it without quoting them, and that a plan matter gets no record (design, Decision 7; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
+- [x] 3.1 The constitution skill says a kit's record holds only how the kit is built or behaves, states each decision in its own words with `decision-makers` naming who settled it without quoting them, and that a plan matter gets no record (design, Decision 7; Task notes 3.1). Verify `tests/suite t-docs` ends with "0 failed".
