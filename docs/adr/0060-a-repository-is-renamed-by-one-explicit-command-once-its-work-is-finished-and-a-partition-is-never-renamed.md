@@ -55,7 +55,7 @@ The same day, swancloud's partition was relabelled afterthought in the host file
 
 ## Amendment, 2026-11-12: a drive that replaces another takes its unstarted queue, and the other's history stays on its own branch
 
-Status: proposed to the user on 2026-11-12, as `briefs.15` has it; accepted only on their yes. The agentplot drive becomes the boomdrive drive as point 6 has it: a new partition, added once agentplot's work is finished, which takes agentplot's unstarted queue and leaves agentplot's history on agentplot's branch.
+Status: proposed to the user on 2026-11-12, as `briefs.15` has it; accepted only on their yes. You asked for the agentplot drive to be renamed boomdrive, and crew never renames a drive, so boomdrive starts fresh: agentplot first finishes or drops what it has running, then everything planned but not yet started moves to boomdrive, and agentplot's old history stays where it is. Nothing new is built, so deneb's switch to the Boomdrive flake waits only for agentplot's running work. The other way is to build a rename command in crew first, which keeps the history under the new name but pushes the switch back.
 
 Deciders: the user, 2026-11-12, in agentplot-ops' pane, on deneb's drives in afterthought/swancloud's `machines/deneb/boomdrive.nix` (branch `deneb-is-on-the-boomdrive-flake`): "[accounts.personal.drives.agentplot] that drive gets renamed to boomdrive and drops", then "the agentplot repos". Point 6, the user's, rules that this is a partition removed and another added. Which of agentplot's work the new drive takes, and how, is agentplot-design's. Whether point 6 is loosened to a rename of a drive's whole state is the user's, on this amendment's card.
 
