@@ -551,6 +551,8 @@ for want in "A decision record holds only how a tool is built or how it behaves"
   "in a runner's clone no fetch, merging \`origin/main\` once the runner's fetch, made at once on a landing, holds what you conflict with" \
   "so pull (\`git pull --rebase\`) before you commit there. Push only when the user says so." \
   "Run \`crew record … --proposed\` for each proposed record or amendment on your kits' main that has none open" \
+  "A proposed record or amendment that holds only a plan matter gets no card" \
+  "take it out of the kit's main in a commit, submitted as any record is" \
   "At your start, once you have called \`whoami\` and \`list_pending\` as *Asking the user* says, read \`$CREW/plugin/bin/crew rail --label wldn\`" \
   "Never run \`npx pendingyou\` or \`pendingyou hold\`" "leave every other card alone" \
   "a choice of the user's alone in it is proposed until they accept it" "quotes the user's words as their decision" \
