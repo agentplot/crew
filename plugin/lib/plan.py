@@ -2331,7 +2331,7 @@ echo "LOCAL=$l"; echo "TRACKED=$o"; echo "AT_LOCAL=$(pol "$l")"; echo "AT_TRACKE
 
 # A script that fetches from origin in a kit's checkout is told so on its first line where crew may not fetch there
 # (fetch_told, crew.fetches_in): fetch=no in a repository the host's teams file names, the runner's clone, which the
-# runner alone fetches (agentplot/boomdrive core.14), where the script reads origin's tracking refs as the runner last
+# runner alone fetches (boomdrivedev/boomdrive core.14), where the script reads origin's tracking refs as the runner last
 # fetched them; a script told nothing fetches as before. FETCH is that fetch, origin_fetch, made unless told fetch=no, and
 # refused with nothing fetched, in its own words on standard error, for a word that is neither (read.1).
 #

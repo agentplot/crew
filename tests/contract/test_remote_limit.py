@@ -1,6 +1,6 @@
 """No try of crew's call to a remote outlasts its limit (remote-limit; drive-state's stopped fetch and push), with real
 processes, git and bash: what gather.tried assumes of a process group and its ending, a remote that takes the call and
-never answers, and FETCH's bash try on every bash the host has (agentplot/blueprints design/weir/requirements.md 69 and
+never answers, and FETCH's bash try on every bash the host has (boomdrivedev/blueprints design/weir/requirements.md 69 and
 C.3; weir-bounded; sluice record 0109). Each wait is on a condition with a generous bound (tests.8): a try is said
 stopped within twenty seconds, well inside the silent remote's sixty, and a process it started is gone within ten."""
 import os
