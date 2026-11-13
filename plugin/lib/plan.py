@@ -14579,7 +14579,8 @@ def card_folder(rel):
 def card_sweep(fleet, a, acts=None):
     """crew card sweep --label L: the rail's, run on each host of the drive with its judgment on standard input as
     JSON, {"live": [card keys], "blind": [key prefixes], "landings": [{bolt, kit, dir, stages}]}, its landings given
-    only to a host a started bolt's work runs on (landings_judged). It ends, through end_session, each session crew recorded on
+    only to a host a started bolt's work runs on, or, for a bolt read landed on its kit's main, marked main and with no
+    kit or folder where crew can't tell that host, to the drive's main-level host (landings_judged, sweep_read). It ends, through end_session, each session crew recorded on
     this host for the drive whose key is in no live entry and starts with no blind prefix, once it is at least two
     minutes old by its own start against this host's clock and its folder's lock is free (crew card session holds it
     while it starts one). It puts away no preview: the rail's read on the drive's main machine writes the done of
@@ -14594,16 +14595,10 @@ def card_sweep(fleet, a, acts=None):
     a.key is None or fail("crew card sweep takes no key: it judges every session crew recorded on this host, from the "
                           "rail's judgment on standard input")
     label = default_label(fleet, a) or fail("crew card sweep runs for a drive: add --label")
-    try:
-        j = json.loads(sys.stdin.read())
-    except ValueError:
-        j = None
-    (isinstance(j, dict) and {"live", "blind"} <= set(j) <= {"live", "blind", "landings"}
-     and all(isinstance(j[k], list) and all(isinstance(x, str) for x in j[k]) for k in ("live", "blind"))
-     and all(isinstance(g, dict) and set(g) == {"bolt", "kit", "dir", "stages"} and all(isinstance(g[k], str) for k in ("bolt", "kit", "dir"))
-             and isinstance(g["stages"], list) and all(isinstance(x, str) for x in g["stages"]) for g in j.get("landings", []))) or fail(
+    j = sweep_read(sys.stdin.read()) or fail(
         'crew card sweep reads the rail\'s judgment on standard input as {"live": [card keys], "blind": [key prefixes], '
-        '"landings": [{"bolt", "kit", "dir", "stages"}]}, its landings optional')
+        '"landings": [{"bolt", "kit", "dir", "stages"}]}, its landings optional, a landing read landed on its kit\'s main '
+        'marked "main": true, its kit and dir null where its host is not known')
     live, blind, root = set(j["live"]), tuple(j["blind"]), CARDS / label
     now, out = datetime.datetime.now(datetime.timezone.utc), []
     for f in sorted(root.rglob("session.json")) if root.is_dir() else []:
@@ -14646,6 +14641,33 @@ def card_sweep(fleet, a, acts=None):
     with contextlib.redirect_stdout(sys.stderr):  # the landings read here (plan.21), its words beside the sweep's list
         reap_judged(fleet, label, j.get("landings", []))
     print(json.dumps(out))
+
+
+def sweep_read(text):
+    """The rail's judgment as crew card sweep reads it from standard input (card_sweep), a decision of the text alone
+    (code.7): {"live": [card keys], "blind": [key prefixes], "landings": [...]}, its landings optional, each landing as
+    landings_judged gives it (swept_landing); None for anything else, which the sweep refuses."""
+    try:
+        j = json.loads(text)
+    except ValueError:
+        return None
+    ok = (isinstance(j, dict) and {"live", "blind"} <= set(j) <= {"live", "blind", "landings"}
+          and all(isinstance(j[k], list) and all(isinstance(x, str) for x in j[k]) for k in ("live", "blind"))
+          and isinstance(j.get("landings", []), list) and all(swept_landing(g) for g in j.get("landings", [])))
+    return j if ok else None
+
+
+def swept_landing(g):
+    """Whether g is a landing the rail judged as landings_judged gives it: {bolt, kit, dir, stages}, the bolt, the
+    kit's name and its folder strings and its stages a list of strings; a bolt read landed on its kit's main marked
+    "main": true (a-landed-bolt-is-closed-and-offered-no-more, Decision 5), and that one alone with its kit and dir
+    both null, where crew can't tell the host its work runs on."""
+    if not isinstance(g, dict) or set(g) - {"main"} != {"bolt", "kit", "dir", "stages"} or g.get("main", True) is not True:
+        return False
+    placed = isinstance(g["kit"], str) and isinstance(g["dir"], str)
+    unplaced = g["kit"] is None and g["dir"] is None and g.get("main") is True
+    return (isinstance(g["bolt"], str) and (placed or unplaced)
+            and isinstance(g["stages"], list) and all(isinstance(x, str) for x in g["stages"]))
 
 
 def readings_sent(root, live, blind):

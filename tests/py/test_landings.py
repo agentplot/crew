@@ -2696,6 +2696,50 @@ class TestTheSweepClosesABoltOnMain:
                                               dict(bolt="z", kit="crew", dir="/c", stages=["code"])], runs["swancloud"])
         assert self.read == []
 
+    # deneb (agentplot)'s sweep failed on every rail read while a bolt read landed on main stood, its host unknown:
+    # card_sweep took a landing as exactly {bolt, kit, dir, stages}, kit and dir strings, where the rail's
+    # landings_judged gives it marked main with kit and dir null (signal 2026-11-13-agentplot-ops-4b4a402a/01).
+    @pytest.mark.parametrize("fleet,host,repo", [
+        ({"drives": {"swancloud": {"label": "swancloud", "machine": "deneb"}}}, "deneb", "afterthought/boomdrive"),
+        (FLEET, "mac-studio", None)], ids=["its-host-unknown", "under-its-host"])
+    def test_the_sweep_takes_the_rails_judgment_of_a_bolt_on_main_as_the_rail_sends_it(self, monkeypatch, tmp_path, capsys, fleet, host, repo):
+        import io
+        p, runs = started_y()
+        repo and p.bolt("y").set("Repo", repo)
+        judged = plan.landings_judged(fleet, "swancloud", p, {}, runs)[host]
+        monkeypatch.setattr(plan, "CARDS", tmp_path)
+        monkeypatch.setattr(plan, "runner_facts", lambda fleet, label: runs["swancloud"])
+        monkeypatch.setattr(plan.sys, "stdin", io.StringIO(json.dumps(dict(live=[], blind=[], landings=judged))))
+        plan.card_sweep(fleet, argparse.Namespace(key=None, unit=None, label="swancloud"), object())
+        assert json.loads(capsys.readouterr().out) == [] and self.read == ["y"]
+
+
+class TestTheSweepReadsTheRailsJudgment:
+    """What crew card sweep takes on standard input (plan.sweep_read): the rail's judgment as sweep_sessions sends it,
+    each landing as landings_judged gives it, and nothing else."""
+
+    PLACED = dict(bolt="y", kit="crew", dir="/c", stages=["merged"])
+    UNPLACED = dict(bolt="y", kit=None, dir=None, stages=["merged"], main=True)
+
+    @pytest.mark.parametrize("landings", [None, [], [PLACED], [dict(PLACED, main=True)], [UNPLACED], [PLACED, UNPLACED]])
+    def test_the_rails_judgment_is_taken(self, landings):
+        j = dict(live=["land/crew"], blind=["batch/"], **({} if landings is None else dict(landings=landings)))
+        assert plan.sweep_read(json.dumps(j)) == j
+
+    @pytest.mark.parametrize("landing", [
+        dict(UNPLACED, main=None), dict(UNPLACED, main=False), {k: v for k, v in UNPLACED.items() if k != "main"},
+        dict(UNPLACED, dir="/c"), dict(PLACED, main=False), dict(PLACED, kit=3), dict(PLACED, stages=[1]),
+        dict(PLACED, stages="merged"), dict(PLACED, extra=1), {k: v for k, v in PLACED.items() if k != "dir"}, "y"],
+        ids=["main-null", "main-false", "unplaced-unmarked", "half-placed", "placed-main-false", "kit-not-text",
+             "stage-not-text", "stages-not-a-list", "a-key-of-its-own", "no-dir", "not-an-object"])
+    def test_a_landing_not_as_the_rail_gives_it_is_refused(self, landing):
+        assert plan.sweep_read(json.dumps(dict(live=[], blind=[], landings=[landing]))) is None
+
+    @pytest.mark.parametrize("text", ["", "not json", "[]", '{"live": []}', '{"live": [], "blind": [], "x": 1}',
+                                      '{"live": [1], "blind": []}', '{"live": [], "blind": [], "landings": {}}'])
+    def test_a_judgment_not_the_rails_is_refused(self, text):
+        assert plan.sweep_read(text) is None
+
 
 class TestABoltOnMainIsNoRow:
     """bolt-teams "A bolt read landed on main is offered no more" and rail-cards "A landing the runner or Flume stopped
