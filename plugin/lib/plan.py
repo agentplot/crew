@@ -4056,18 +4056,23 @@ def landings_raised(fleet, label, kit, acts, note, dead):
             r["facts"] = dict(r["facts"], forecast=forecast.get(r["bolt"], []), forecast_why=unmade.get(r["bolt"]))
     # The user's send carried to the runner: one land of each row it lands at its head now, posted by one plan write
     # before the card is acted on, and said (lands_post; crew-lands-each-bolt-through-flumes-base-place, Decision 4).
+    # While a hold stands on the kit or its drive, no land is posted, on a send or on proof: a send stands, and the first
+    # raise after the lift posts its lands and those due on proof (a-proven-bolt-lands-on-proof, Decision 6).
+    hold = hold_on(plan, kit)
     standing = lands_sent(entries, key, owner, card if (state or {}).get("status") == "answered" else None, shown, ticked)
-    for wk, n, h in acts.post_lands(label, kit, owner, rows + [every[b] for b in landing if b in every], standing, run[1], work):
+    if hold:
+        print(f"card {key}: no land is posted while the hold on {held_named(label, hold['kit'])} stands: {hold['why']}")
+    for wk, n, h in [] if hold else acts.post_lands(label, kit, owner, rows + [every[b] for b in landing if b in every], standing,
+                                                    run[1], work):
         print(f"card {key}: {row_name(wk)} is asked of the runner to land at "
               f"{h[:7]} (request {n}), on the user's send")
     # Then the lands due on proof, in the plan's order, by one plan write in ops's name: each row lands_by reads "proof"
     # that can land, its forecast clear of main, posted at any hour with no card asked (a-proven-bolt-lands-on-proof,
     # Decision 1; rail-cards "A proven bolt not marked to stay lands on proof").
     stays = {b.name() for b in plan.bolts() if b.get("Repo") == kit and b.get("Stays") == "yes"}
-    hold = hold_on(plan, kit)
     how = {r["bolt"]: lands_by(r, r["bolt"] in stays, r["bolt"] in left, bool(r["facts"].get("stopped")), hold) for r in rows}
     proven = [r for r in rows if r["box"] and not r.get("work") and how[r["bolt"]] == "proof"]
-    if proven:
+    if proven and not hold:
         for wk, n, h in acts.post_lands(label, kit, owner, proven, {f"bolt/{r['bolt']}": (None, r["facts"]["head"]) for r in proven},
                                         run[1], {}, proof=True):
             print(f"card {key}: {row_name(wk)} is asked of the runner to land at {h[:7]} (request {n}), on proof")
@@ -12576,7 +12581,7 @@ def row_name(work):
     return work[5:] if work.startswith("bolt/") else f"main--{work.split('/')[-1]}" if work.startswith("fix/main/") else work
 
 
-def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=(), gone=None, posted=None):
+def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=(), gone=None, posted=None, hold=None):
     """What crew card read land/<kit> prints beside the answer once the user sent the kit's landings card (rail-cards
     "The landings card's read prints the lands crew posted"): the rows they ticked in the card's order (ticked_of, heads
     its rows as card_heads gives them), each with the land crew posted for it on the send and its request (posted,
@@ -12593,7 +12598,9 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     card's read prints the lands crew posted"). Each bolt it lands whose last landing the runner or Flume stopped
     (stopped, {bolt: (head, words)}, stops) is said with what stopped it and the head it was at, and that it lands
     again only on the user's next send, with no land named for it, its last land being spent (rail-cards "A landing the
-    runner or Flume stopped keeps its box")."""
+    runner or Flume stopped keeps its box"). While a hold stands on the kit or its drive (hold, hold_on's), each bolt
+    the send lands with no land posted is said to wait on it, the send standing and landing it once the hold is lifted
+    (rail-cards "A send under a hold")."""
     ticked, earlier, stopped, gone = ticked_of(got, heads), list(earlier), stopped or {}, gone or {}
     lands = [b for b in ticked or [] if b not in main_first and b not in gone]
     lines = [f"  can't tell whether the user's earlier send still lands {b}: {why}" for b, why in unknown]
@@ -12609,7 +12616,10 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     lines += [f"  {b}'s last landing at {stopped[b][0][:7]} was stopped, nothing of the bolt's: {stopped[b][1].rstrip('.')}; "
               "it lands again only on the user's next send" for b in both if b in stopped]
     posted = posted or {}
+    where = (hold or {}).get("kit") or f"the drive {label}"
     return lines + [f"  {b}: asked of the runner to land, request {posted[b]}" if b in posted else
+                    f"  {b}: no land is posted while the hold on {where} stands; the user's send stands, and lands {b} once "
+                    "the hold is lifted" if hold else
                     f"  {b}: no land is posted for it yet: crew's next raise of the card posts it" for b in both if b not in stopped]
 
 
@@ -12760,19 +12770,20 @@ def card_read(fleet, a, acts=None):
                                  and not e.get("Refused")), None))
         earlier, unknown = landings_earlier(fleet, label, kind[1], a.key, who, entries, heads) if kind and kind[0] == "kit" else ([], [])
         ticked = ticked_of(got, heads) if kind and kind[0] == "kit" else None
-        first, gone, whole = set(), {}, entries
+        first, gone, whole, hold = set(), {}, entries, None
         if ticked:  # what the send still lands: no bolt taking main first, landed since or gone from the plan
             whole = send_entries(fleet, label, entries)
             plan = plan_of(fleet, label) or fail(f"{label}/main could not be read, so which bolts {a.key}'s send still lands can't be told")
             first = firsts_now(fleet, label, kind[1], whole, heads)
             gone = ticked_gone(ticked, {b.name() for b in plan.bolts() if b.get("Repo") == kind[1]}, landed_since(whole, card))
+            hold = hold_on(plan, kind[1])
         d = CARDS / label / a.key
         reads = a.key.startswith("proposal/") and d.is_dir()
         decided = card_result(d) if reads else None
         r = reading_read(a.key, got, decided) if reads else dict(lines=[], aside=False)
         print("\n".join(cards.answer_lines(a.key, card, got)
                         + (landing_lines(label, got, heads, earlier, unknown, stops(entries), first, gone,
-                                         {row_name(p["work"]): p["request"] for p in lands_posted(whole)})
+                                         {row_name(p["work"]): p["request"] for p in lands_posted(whole)}, hold)
                            if kind and kind[0] == "kit" else []) + r["lines"]))
         if r["aside"]:
             reading_decided(d, decided)

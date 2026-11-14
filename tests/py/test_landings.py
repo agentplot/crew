@@ -3006,3 +3006,33 @@ def test_a_bolt_landed_on_proof_is_told_until_the_user_taps(monkeypatch):
     assert plan.told_on(Y_LANDED + answered, "land/crew", "swancloud-ops", "crew") == []
     sent = [dict(e, Form=None) if e["Act"] == "bolt.submit" else e for e in Y_LANDED]  # landed on a send: told by none
     assert plan.told_on(sent, "land/crew", "swancloud-ops", "crew") == []
+
+
+def test_a_hold_posts_no_land_and_its_lift_posts_what_came_due(monkeypatch, capsys):
+    """rail-cards "A hold on the drive or the kit posts no land" (Decision 6 of a-proven-bolt-lands-on-proof): y, not
+    marked to stay, reads proven, and the user sent land/crew ticking z, marked; under a hold on crew no land is posted,
+    on the send or on proof, and crew card read says the send stands until the lift; the raise after the lift posts z's
+    land on the send and then y's on proof; a hold on the drive outlasts the kit's lift."""
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+
+    def raise_(text):
+        acts = proof_acts(monkeypatch, {"y": row("y"), "z": row("z")}, held, dict(POSTED, get_request=(answer, None)), text=text)
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        return acts
+    kit_held = PROVEN + "%rec: Hold\n\nKit: crew\nWhy: Cutover\n"
+    acts = raise_(kit_held)
+    assert getattr(acts, "posts", []) == []
+    assert "card land/crew: no land is posted while the hold on crew's landings stands: Cutover" in capsys.readouterr().out
+    heads = plan.card_heads("z@abc1234")
+    assert plan.landing_lines("swancloud", answer, heads, hold=plan.hold_on(plan.Plan(kit_held), "crew"))[-1] == (
+        "  z: no land is posted while the hold on crew stands; the user's send stands, and lands z once the hold is lifted")
+    assert plan.landing_lines("swancloud", answer, heads)[-1] == (
+        "  z: no land is posted for it yet: crew's next raise of the card posts it")
+    acts = raise_(PROVEN)  # the hold lifted (crew plan go): the raise it hands
+    assert [(s, f.get("Form")) for s, _, _, f, _ in acts.posts] == [("plan(crew): land z on the user's send", None),
+                                                                    ("plan(crew): land y on proof", "proof")]
+    drive_held = PROVEN + "%rec: Hold\n\nWhy: Cutover\n"
+    acts = raise_(drive_held)
+    assert getattr(acts, "posts", []) == []
+    assert "no land is posted while the hold on the landings of swancloud's every kit stands: Cutover" in capsys.readouterr().out
