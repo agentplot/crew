@@ -1,84 +1,61 @@
 # Verify: a-proven-bolt-lands-on-proof
 
-Verified on `change/a-proven-bolt-lands-on-proof` at 3bbb1156, cut from `bolt/crews-proven-bolts-land-on-proof` (28f2e646), on 2026-11-13.
+Verified on `change/a-proven-bolt-lands-on-proof` at 14a66c3a, cut from `bolt/crews-proven-bolts-land-on-proof`, on 2026-11-13.
 
-**Verdict: not archived.** The whole checks fail. Six of the specs' scenarios are not met, or met only in part, and three docs tasks leave stale claims behind. The change goes back to its code stage.
+**Verdict: not archived.** The whole checks pass and every task is ticked. But one path the change itself adds falls short: a later card's send at the head of a land stopped on an earlier send is posted as a land, and then the same raise closes that card saying the send is spent and posts a new card asking to land the bolt again. The change goes back to its code stage.
 
 ## The whole checks
 
 `tests/suite --affected` was run once. That is the run CLAUDE.md asks for when a change is done and before it merges: it runs the `#check-full` tasks the change affects, against the merge-base with `main`, as sluice picks them. It selected 32 tasks.
 
-**30 passed (0 replayed), 2 failed: `contract` and `t-journey-board`.** Every other task passed, including `logic`, `mod`, `t-specs`, `t-briefs`, `t-docs` and `t-journey-land`.
-
-- `contract`: three cases of `tests/contract/test_recfix.py` fail:
-  - `test_the_plan_takes_a_chore_among_its_units_and_refuses_any_other_kind`
-  - `test_a_rename_is_one_commit_whose_files_pass_recfix_and_its_entry_names_both_names`
-  - `test_a_rename_whose_plan_breaks_unique_repo_goal_is_refused_before_any_commit`
-
-  Each fails with recfix's `mandatory field 'Why' not found in record` / `field 'Unit' not allowed in this record set`.
-- `t-journey-board`: it expected `duplicated key` from a hand edit that adds a second `Unit: a` at the end of `plan.rec`. It got `plan.rec:78: error: mandatory field 'Why' not found in record … field 'Unit' not allowed in this record set`. In the kept scratch (`/private/tmp/crew-test.bVaNAF`), the plan crew wrote has `%rec: Hold` at line 72, after every Unit, and the appended `Unit: a` at line 78 falls under it.
-
-**Cause.** The new `Hold` record set is the plan's last record set. `plan.HEADER` declares it after `Unit` (`plugin/lib/plan.py:199`). `holds_declared` appends it at the file's end for a plan written before it (`plan.py:450`). recutils puts each record under the descriptor before it, so any record added at the end of `plan.rec` becomes a Hold record. That covers the contract fixtures (`HEADER + "Unit: …"`), the journey's hand edit, and any hand or tool that appends a unit. crew's own writes still place records correctly (`Plan.end_of`).
+**32 passed, 0 failed.** Five were replayed from runs on this host with identical inputs: `contract`, `logic`, `t-briefs`, `t-docs` and `t-journey-board`. The other 27 ran, among them `t-journey-land`, `t-hold`, `t-cards`, `t-help` and `t-specs`.
 
 ## Tasks
 
-All 20 tasks of `tasks.md` are ticked. Each task's own check passed inside this run: `logic` holds every pytest file the tasks name, and `t-briefs`, `t-docs` and `t-journey-land` passed. Tasks 4.1 and 4.3 pass their checks, but the docs still contradict what they add (finding 6).
+All 30 tasks of `tasks.md` are ticked. Each task's own check passed inside this run: `logic` holds every pytest file the tasks name, and `contract`, `t-journey-board`, `t-briefs`, `t-docs` and `t-journey-land` passed.
 
 ## Specs
 
-`openspec validate a-proven-bolt-lands-on-proof --strict`: valid. Every requirement's text above its first scenario is at most 500 characters, the longest 486 (bolt-teams). Every RENAMED FROM and MODIFIED header exists in `openspec/specs/`. The change edits nothing under `docs/` or `openspec/specs/` (`docs.4`, `docs.7`).
+`openspec validate a-proven-bolt-lands-on-proof --strict`: valid.
+- Every requirement's text above its first scenario is at most 500 characters. The longest is 497: rail-cards "A landings row is due one land for each send and head".
+- Every RENAMED FROM and MODIFIED header exists in `openspec/specs/`.
+- Each MODIFIED requirement keeps every scenario its current spec has.
+- The change edits nothing under `docs/` or `openspec/specs/` (`docs.4`, `docs.7`).
 
-Each scenario of the eight delta specs was read against the code and tests. The scenarios not listed below are met, and a test pins each.
+Each scenario of the eight delta specs was read against the code and its tests. Every scenario is met, and a test pins it, except the one below. These are now met:
+- **The Hold record set.** It is declared ahead of Bolt and Unit, and an old plan takes it there (`holds_declared`). So a record appended at the file's end is still a Unit, and a hand edit's duplicated Unit is refused as a duplicated key.
+- **Two holds on one kit.** crew refuses to read such a plan, naming the commit (`read` → `holds_once`).
+- **The drive's lift.** It raises each kit of the drive (`Write.kits`), except one its own hold still holds.
+- **A rename.** It renames a Hold's `Kit`.
+- **A forecast not made.** It posts no land on proof and says why.
+- **Re-checks at the write's tip.** `lands_change` looks again for the hold and the mark at the tip it is applied to (`plan.1`).
+- **Under a hold, a card's close or follow.** It says the user's send stands.
+- **A stopped land on proof.** The user's send lands it. The send is not read as spent, and the row and `crew card read` say the land on proof stopped.
+- **`crew rail` and the rail tab.** Each told bolt has a line of its own, and a proof line names `<label>-ops`.
+- **The docs and crew's own words.** README, the crew skill, `crew`'s usage, ops's brief, `submit_refused` and `landing_refused_said` all say a bolt lands on proof, or, marked to stay, on the user's send.
 
-### Findings the code stage must fix
+### The finding the code stage must fix
 
-1. **The whole checks fail** (above). Either declare `Hold` before `Unit`, with `holds_declared` putting it there for an old plan, so `Unit` stays the plan's last set; or bring every fixture and the journey's hand edit in step. The first choice also keeps a hand-appended unit a Unit.
+**rail-cards "A landings row is due one land for each send and head" / "A later card at the head of a stopped land": the land is posted, but the same raise closes the card as a send spent and asks for the bolt again.**
 
-2. **rail-cards "A landings card asks only about the rows a send must land" / "A land on proof stopped": the user's send cannot land the bolt at that head.**
-   - `runner.lands_due` skips any row with a land already posted at its head, from any card or none (`plugin/lib/runner.py:1660`). The stopped land on proof is such a post, so the send posts nothing.
-   - `landings_step` then reads the send as spent. The card asks again at the same head, forever.
-   - The row's own text promises otherwise: "ticked again, it lands on this send" (`plugin/lib/cards.py:1025`). So does design Decision 3, which says "A stop holds the bolt at a head no fix moves, so only a send can land it".
-   - The delta also leaves `rail-cards` "A landings row is due one land for each send and head" unmodified. That requirement says no land is due where one "was posted at that head", so the archived spec would contradict this scenario. The fix needs a MODIFIED delta of that requirement, one in which a stopped land on proof bars no send's land at its head, and the matching change in `lands_due`.
-   - No test sends a card at the head of a stopped land on proof.
+- `runner.lands_due` now lets a later card's send land a row at the head of a land stopped on an earlier card's send, as the modified requirement asks (`plugin/lib/runner.py:1671`).
+- But `landings_step` still reads every boxed row with `stopped` facts as spent (`plugin/lib/plan.py:3382`, `spent = {r["bolt"] for r in rows if r["box"] and r["facts"].get("stopped")}`).
+- `landings_raised` strips `stopped` before the step only for a land stopped on proof (`stopped_on == "proof"`, `plan.py:4142`). It does not strip it for one stopped on another card's send, and it does not read the rows again after `post_lands`.
 
-3. **crew-rail "A kit's row under land holds the bolts its card tells" / "Landed overnight": `crew rail` drops the told bolts' lines.**
-   - `rail_rows` builds `<bolt> landed on proof at <commit>, told on land/<kit>` (`plan.py:10612`).
-   - `rail_text` then zips the lines after the fixes with `land_times`, which gives one time per row bolt (`plan.py:11345`). Every told line is cut, so the rail and the rail tab show only the head line, "2 bolts landed on proof, told on land/crew".
-   - `test_rail.py::TestRows::test_a_kit_with_a_bolt_told_and_nothing_waiting_is_a_row` checks the row's data and never renders it through `rail_text`.
+Reproduced through `plan.raise_landings` on the logic tier's `LandActs`, as in `test_the_users_send_lands_a_bolt_whose_land_on_proof_was_stopped`:
+- **The case.** `z` is marked to stay. Its land on `req_k0`'s send, request 5 at `abc1234`, was stopped by the runner. `req_k1` follows with `Heads: z@abc1234`, and the user answers it, approved.
+- **What the raise does, in one pass:**
+  1. It posts `plan(crew): land z on the user's send`, `Card: req_k1`, request 6, at `abc1234`.
+  2. It closes `req_k1` with the outcome "z's landing at abc1234 was stopped, nothing of the bolt's: flume refused it: a place on bolt/z is live; your send of it is spent, and the card that follows asks for it again."
+  3. It posts a new card, "Land the bolt z on crew's main", `Heads: z@abc1234`, asking for a bolt whose land it has just asked of the runner.
 
-4. **bolt-plan "Two holds on one kit": crew reads such a plan.** The scenario says crew refuses to read it, naming the holds. But `read()` runs only `recfix` (`plan.py:1009`), and recfix accepts two Holds naming one kit (`%unique` is per record). `check()`, which refuses them, runs only at a write, a proposal's apply and a join. Until the next write, crew acts on the last hold's words (`hold_on`).
+So the user is told their send is spent when crew carried it, and is asked again to land a bolt already being landed. Design Decision 3 says the card that follows a spent send "lands it on its own send"; the land is posted, but the card the user sent is treated as spent.
 
-5. **bolt-plan "A hold on a drive or a kit is put and lifted through crew": the drive's lift misses some cards.** The requirement says `crew plan go` hands "a raise of each landings card it held". With no `--repo`, the lift raises only kits with a started bolt (`plan.py:5547`). A kit whose card holds only a fix of main, with a send standing under the hold, is not raised, and its lands wait for the next rail read. No test covers it.
+`crew card read land/crew` has the same fault between the send and the raise. `landing_lines` says "z's last landing at abc1234 was stopped …; it lands again only on the user's next send" of the send that lands it, and names no land to come (`plan.py:12734-12744`).
 
-6. **Tasks 4.1 and 4.3 (`docs.2`): the docs still say every proven bolt waits for the user's send.** Each line below contradicts the new text beside it:
-   - `README.md:18`: "it waits to land on the user's yes, a row of its kit's landings card".
-   - `README.md:223`: ops lands the bolts "on the user's send on their kit's landings card".
-   - `README.md:235`: the landings card has a row "for each proven bolt waiting on its main".
-   - `README.md:70`: "asked, from the land crew posted on the user's send", where a land on proof is asked too.
-   - `plugin/skills/crew/SKILL.md:10`: a proven bolt "waits to land, a row of its kit's landings card".
-   - `plugin/bin/crew:135-139`: the `bolt submit` usage, "a bolt lands on the user's send of its row on its kit's landings card".
-   - `plugin/roles/main-ops.md:29`: "tell the user that their send of the row on the kit's landings card lands it", true only of a bolt marked to stay.
-   - crew's own words say the same:
-     - `plan.py:4380`, a landing with no land asked: "it lands on the user's send of its row on its kit's landings card";
-     - `submit_refused`, `plan.py:5033-5039`.
+No test covers this path above the runner. `tests/py/test_runner.py::test_a_send_lands_a_row_at_the_head_of_a_land_stopped_on_proof_or_on_another_send` checks `lands_due` alone. The case above belongs in `tests/py/test_landings.py`, beside the on-proof one: the land posted on `req_k1`, the card left as answered and not closed as spent, and the next raise posting nothing more.
 
-### Findings for the code stage to weigh
-
-These are departures from the design and the rules. No scenario names them.
-
-7. **A forecast that could not be made counts as clear.**
-   - `landings_raised` keeps only conflicts found (`plan.py:4046`), and `proven` never reads `unmade` (`plan.py:4074`). So a bolt whose forecast failed lands on proof unattended.
-   - Design Decision 1 says a row reads clear of main "only once that forecast found no conflict". `read.1` rules out a guess in a decision. Sluice still refuses a real conflict at the landing.
-   - No test covers it.
-8. **No re-check of the hold against the tip.** `lands_change` (`plan.py:3788`) does not look for a hold at the tip the write is applied to. A hold put while a raise runs does not stop that raise's lands. That breaks `plan.1`'s "its change function re-checks every precondition against the tip it is applied to".
-9. **Smaller wording faults:**
-   - A proof-only land row names no `swancloud-ops`, which crew-rail "The last unit merges" asks for. Its card line reads "none open".
-   - `ops_view`'s line for a bolt with a landing record but no land row leaves out `stays` (`board.py:862`).
-   - Under a hold:
-     - an answered card that is followed closes saying "Asked of the runner as you ticked", though nothing was asked;
-     - `crew card read` with no card open says "crew's next raise posts it".
-   - A stopped land on proof's row says "Your send of it is spent", though no send was made.
-10. **Outside these specs:** `crew kit rename` leaves Hold records alone. `rename_branch` renames `Source` only, and `rename_standing` does not refuse while a hold stands. A hold on a renamed kit would quietly stop holding.
+A fix that fits the existing shape is for `landings_raised` to mark a row whose stopped land a send other than this card's posted, as it marks one stopped on proof, and to hand `landings_step` that row with no `stopped`. Then `card_read` and `landing_lines` read it the same way.
 
 ### For the design agent, not the code stage
 
