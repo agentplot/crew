@@ -1944,7 +1944,7 @@ def test_a_bolt_proven_between_a_send_and_its_landing_gets_its_card_in_the_same_
     acts = SweepActs(land)
     got = plan.sweep_moved(FLEET, swept_read("req_k1", "y@abc1234", "y@abc1234", [("y", H1, False), ("z", H1, True)]), acts)
     assert got == {"raised": [dict(label="swancloud", kit="crew", was=MAIN, now=MAIN, card="req_k2", said=None, sent=False,
-                                   rows=["z"])], "unread": []}
+                                   rows=["z"], proven=[])], "unread": []}
     close = next(e for e in land.emitted if e["Act"] == "card.close")
     assert (close["Card"], close["Heads"]) == ("req_k1", "y@abc1234")
     post = next(a for t, a in land.calls if t == "post_request")
@@ -3036,3 +3036,68 @@ def test_a_hold_posts_no_land_and_its_lift_posts_what_came_due(monkeypatch, caps
     acts = raise_(drive_held)
     assert getattr(acts, "posts", []) == []
     assert "no land is posted while the hold on the landings of swancloud's every kit stands: Cutover" in capsys.readouterr().out
+
+
+def proof_read(bolts, lands, cards=(), logs=(), text=PROVEN):
+    """A rail read of swancloud on its main machine once its sweep acted, crew's land row naming bolts, [(bolt, head,
+    can)], each landing as lands says ({bolt: lands_by's word}), the cards open as given, each in swancloud-ops's name on
+    mac-studio with its last post among logs, the drive's run record."""
+    land = dict(label="swancloud", group="land", key="land/crew", fixes=[], lands=dict(lands),
+                bolts=[dict(bolt=b, host="mac-studio", can=can, head=h) for b, h, can in bolts])
+    return dict(found=[("swancloud", "afterthought/crew-state", "tip", plan.Plan(text))], kits={"swancloud": list(KITS)}, sv={},
+                rows=[land], logs={"swancloud": list(logs)}, swept={},
+                cards=[dict(label="swancloud", card=c, key="land/crew", by="swancloud-ops", host="mac-studio") for c in cards])
+
+
+def test_the_rail_read_raises_a_kit_whose_bolt_is_due_a_land_on_proof(monkeypatch):
+    """rail-cards "Proven since the last read" (Decision 2 of a-proven-bolt-lands-on-proof): y, not marked to stay,
+    reads proven on the main level's host with no card of crew open; that read raises crew's card, whose raise posts y's
+    land on proof and posts no card, and the next read raises none for y."""
+    land = proof_acts(monkeypatch, {"y": row("y")})
+    acts = SweepActs(land)
+    got = plan.sweep_moved(FLEET, proof_read([("y", H1, True)], {"y": "proof"}), acts)
+    assert got == {"raised": [dict(label="swancloud", kit="crew", was=None, now=None, card=None, said=None, sent=False, rows=[],
+                                   proven=["y"])], "unread": []}
+    assert [(on, f["Form"]) for _, _, on, f, _ in land.posts] == [(["bolt/y"], "proof")]
+    assert not any(t == "post_request" for t, _ in land.calls)
+    acts = SweepActs(land)
+    assert plan.sweep_moved(FLEET, proof_read([("y", H1, True)], {"y": "proof"}, logs=land.held), acts) == {"raised": [], "unread": []}
+    assert acts.raised == [] and len(land.posts) == 1
+    assert ("landings cards raised for bolts due a land on proof:\n  land/crew (swancloud): y: raised, no card left open"
+            in plan.rail_text(FLEET, ["swancloud"], dict(found=[], rows=[], cards=[], sv={}, unread={}, kits={}, runs={}, moved=got),
+                              plan.utc("2026-11-13T04:00:00Z")))
+
+
+def test_a_bolt_due_a_land_on_proof_beside_an_open_card_raises_it_once(monkeypatch):
+    """rail-cards "Proven while a card asks for a bolt marked to stay": land/crew waits on the user with z, marked, and y,
+    not marked, reads proven; the read raises the card once, for y alone, its raise posting y's land on proof and leaving
+    the card's rows as they stand."""
+    shown = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
+    land = proof_acts(monkeypatch, {"y": row("y"), "z": row("z")}, shown, PENDING)
+    acts = SweepActs(land)
+    got = plan.sweep_moved(FLEET, proof_read([("y", H1, True), ("z", H1, True)], {"y": "proof", "z": "send"}, ["req_k1"], shown), acts)
+    assert acts.raised == ["crew"] and [(m["rows"], m["proven"], m["card"]) for m in got["raised"]] == [([], ["y"], "req_k1")]
+    assert [on for _, _, on, _, _ in land.posts] == [["bolt/y"]]
+    assert not any(t in ("post_request", "update_request") for t, _ in land.calls)
+
+
+def test_a_held_kit_is_raised_by_no_read(monkeypatch):
+    """rail-cards "Under a hold": a hold on crew, or on the drive, stands and y reads proven: no read raises land/crew
+    for y."""
+    for hold in ("Kit: crew\n", ""):
+        acts = SweepActs(None)
+        read = proof_read([("y", H1, True)], {"y": "hold"}, text=PROVEN + f"%rec: Hold\n\n{hold}Why: Cutover\n")
+        assert plan.sweep_moved(FLEET, read, acts) == {"raised": [], "unread": []} and acts.raised == []
+
+
+def test_a_row_of_bolts_landing_on_proof_owes_no_card():
+    """Decision 2 of a-proven-bolt-lands-on-proof (plan.sweep_judged): a land row whose card has no row to ask about and no
+    bolt to tell (asks false) is owed no card by the sweep, so no read raises it changing nothing; one that asks is owed
+    one."""
+    owners = {"land/crew": ("swancloud-ops", "mac-studio")}
+    now = plan.utc("2026-11-13T04:00:00Z")
+    proven = dict(label="swancloud", group="land", key="land/crew", bolts=[dict(bolt="y", host="mac-studio", can=True, head=H1)],
+                  fixes=[], asks=False, lands={"y": "proof"})
+    assert plan.sweep_judged("mac-studio", [proven], [], [], owners, set(), set(), now)["none"] == []
+    asks = dict(proven, asks=True, lands={"y": "send"})
+    assert plan.sweep_judged("mac-studio", [asks], [], [], owners, set(), set(), now)["none"] == [asks]

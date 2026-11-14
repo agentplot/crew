@@ -2277,7 +2277,7 @@ class TestMainMoved:
         acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
         got = self.moved(acts, answered=["req_k1"])
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True, rows=[])], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M1, card="req_k2", said=None, sent=True, rows=[], proven=[])], "unread": []}
         assert f"landings cards raised on the user's send, its lands posted:\n  land/{KIT} (wldn): raised" in text([], moved=got)
         acts = self.Acts({KIT: (self.M1, None)}, {KIT: self.M1})
         assert self.moved(acts, answered=["req_other"]) == {"raised": [], "unread": []} and acts.raised == []
@@ -2297,7 +2297,7 @@ class TestMainMoved:
         acts = self.Acts({KIT: (self.M2, None)}, {KIT: self.M1})
         got = self.moved(acts)
         assert acts.raised == [KIT]
-        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False, rows=[])], "unread": []}
+        assert got == {"raised": [dict(label="wldn", kit=KIT, was=self.M1, now=self.M2, card="req_k2", said=None, sent=False, rows=[], proven=[])], "unread": []}
         assert ("landings cards forecast again, main having moved:\n"
                 f"  land/{KIT} (wldn): main is at e4f5a6b, its rows forecast at a1b2c3d: raised again (req_k2)") in text([], moved=got)
 
