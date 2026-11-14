@@ -880,12 +880,17 @@ def label_of_agent(fleet, name):
     return None
 
 
-def send_door(fleet, name, caller):
+def send_door(fleet, name, caller, here):
     """Where crew send delivers (briefs.10, record 0035): a drive named by its label, as (label, its operator). Any
     other name, a team's from before teams left among them, is refused naming the drives, never placed by a guess
-    (read.1), and so is the operator sending to its own drive, which it carries on with crew tell."""
+    (read.1), and so is the operator sending to its own drive, which it carries on with crew tell. here is this host:
+    a drive another host runs is sent to from here once this host's teams file names it, never by crew send run on
+    that host over ssh (record 0068), which the refusal says, with nothing sent."""
     name in fleet["drives"] or fail(f"crew send sends to a drive by its label, not '{name}': drives "
-                                        f"{' '.join(sorted(fleet['drives'])) or 'none'}")
+                                        f"{' '.join(sorted(fleet['drives'])) or 'none'}. A drive another host runs is "
+                                        f"sent to from here once {TEAMS} on {here} names it, as the host's "
+                                        "configuration writes it, never by crew send run on that host over ssh; "
+                                        "nothing was sent")
     door = f"{name}-operator"
     if caller == door:
         fail(f"you are {name}'s door: carry it on with `crew tell <agent>`")
@@ -963,12 +968,15 @@ def tell_ask(fleet, run, text, frm, what="tell"):
 
 def send(fleet, name, text):
     """Send the text to the door of the drive named by its label (briefs.10): a tell to its operator, marked with
-    who sent it and `(sent to <name>)` before the text, so the operator knows whom it is for. A send is one `send` entry in
+    who sent it and `(sent to <name>)` before the text, so the operator knows whom it is for. A send runs on this host
+    for any drive its teams file names, whichever machine runs it (record 0068): the prompt is typed there through ssh
+    and herdr (tell), and the entry is this host's, pushed from here. A send is one `send` entry in
     the receiving drive's record, with its length and never its text, and no tell entry; one that typed nothing
-    records nothing. To an operator that runs as its kind, with no standing operator up, the send is a `send` ask of it
+    records nothing, and one whose entry's push was refused, the entry kept here (record.2), is still made. To an
+    operator that runs as its kind, with no standing operator up, the send is a `send` ask of it
     carrying `(sent to <name>)` and the text, its entry the ask's (tell)."""
     import record as rec  # record imports this module
-    label, door = send_door(fleet, name, caller(fleet))
+    label, door = send_door(fleet, name, caller(fleet), this_host())
     run = kind_role_of(fleet, door)
     reading = waits_on_question(fleet, door) if run else None
     asked = bool(reading) and asks_instead(run, reading[0], reading[2])
