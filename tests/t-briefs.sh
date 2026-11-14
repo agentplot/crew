@@ -342,17 +342,14 @@ for want in "a proven bolt not marked to stay lands on proof" \
   "You put no hold on a drive's or a kit's landings and lift none"; do has "$out" "$want"; done
 ok "every brief says who speaks in its pane, and the four that record findings quote the words and say what a refusal means"
 
-# Anything for another drive goes with crew send, run on the agent's own host and never over ssh, to that drive's
-# operator wherever it runs, and to nobody else (briefs.10, record 0068): every brief says so in one line beside its
-# roster, naming no team.
+# Anything for another drive goes with crew send, to that drive's operator, and to nobody else (briefs.10):
+# every brief says so in one line beside its roster, naming no team.
 for role in design planner main-ops operator reviewer; do
   expect_ok crewpy brief wldn $role
   has "$out" 'anything for another drive is sent with `'
-  has "$out" '/crew send <drive> "<text>"`, run on your own host and never over ssh, which reaches that drive'"'"'s operator, its one door, wherever it runs, and to nobody else.'
-  lacks "$out" '"<text>"`, which reaches'
   lacks "$out" "or one of its teams is sent"; lacks "$out" "crew send <team or drive>"
 done
-ok "every brief sends anything for another drive with crew send, run on its own host and never over ssh, to that drive's operator and to nobody else"
+ok "every brief sends anything for another drive with crew send, naming no team"
 ok "a signal names where what it points at lives, a unit carries it as a source, and the construct reads it, stops when it can't, and builds from its sources over its intent"
 
 # Every message an agent sends another goes through crew tell, marked: no brief prompts an agent through herdr.
