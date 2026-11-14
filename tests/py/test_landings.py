@@ -2935,3 +2935,74 @@ class TestLandOnProof:
         out = capsys.readouterr().out
         assert out.index("z is asked of the runner to land at abc1234 (request 4), on the user's send") < out.index(
             "y is asked of the runner to land at abc1234 (request 5), on proof")
+
+
+Y_AT, W_AT = "9f1c2ab" + "0" * 33, "4d5e6f7" + "0" * 33
+
+
+def landed_on_proof(bolt, commit, at, n):
+    """The run record of a bolt of crew landed on proof: its land posted on proof, then its bolt.land at main's commit."""
+    return [dict(Act="bolt.submit", On=[f"bolt/{bolt}"], Form="proof", Head=H1, Request=str(n), Outcome="asked", At=at),
+            dict(Act="bolt.land", On=[f"bolt/{bolt}"], Repo="crew", Head=commit, At=at)]
+
+
+Y_LANDED = landed_on_proof("y", Y_AT, "2026-11-13T03:12:40Z", 4)
+W_LANDED = landed_on_proof("w", W_AT, "2026-11-13T04:40:02Z", 5)
+# z alone in the plan, marked to stay, once y and w have landed and left it
+ONLY_Z_STAYS = "%rec: Bolt\n\nBolt: z\nRepo: crew\nPath: flume\nStays: yes\n\n%rec: Unit\n\n"
+PENDING = {"get_request": ({"status": "pending", "turn": "you", "version": 2}, None)}
+
+
+def test_a_bolt_landed_on_proof_is_told_until_the_user_taps(monkeypatch):
+    """rail-cards "A bolt that landed on proof is told on its kit's landings card" (Decision 4 of
+    a-proven-bolt-lands-on-proof): y and w of crew landed on proof, z is marked to stay."""
+    def raise_(rows, entries, answers):
+        acts = proof_acts(monkeypatch, rows, entries, answers, text=ONLY_Z_STAYS, drive=[e for e in entries if e["Act"] != "card.post"])
+        got = plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        return acts, got
+    none = {"z": {"bolt": "z"}}  # z reads no row that can land
+
+    # The notice: no row waits, so land/crew is a one-tap notice in ops's name naming y and its commit.
+    acts, got = raise_(none, Y_LANDED, POSTED)
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert (got, post["kind"], post["intent"], post["title"]) == ("req_k1", "fyi", "tell", "Landed on crew's main: y")
+    assert acts.emitted[-1]["Heads"] == "y@9f1c2ab:landed"
+
+    # Another lands while it is open: the notice is changed in place, naming y and then w.
+    notice = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@9f1c2ab:landed")]
+    acts, got = raise_(none, Y_LANDED + W_LANDED + notice, PENDING)
+    change = next(a for t, a in acts.calls if t == "update_request")
+    assert (got, change["requestId"], change["changeNote"]) == ("req_k1", "req_k1", "w landed on proof at 4d5e6f7")
+    assert acts.emitted[-1]["Heads"] == "y@9f1c2ab:landed w@4d5e6f7:landed"
+
+    # The user taps it: recorded closed as Pending You ended it, and no later card tells y or w.
+    both = [dict(notice[0], Heads="y@9f1c2ab:landed w@4d5e6f7:landed")]
+    acts, got = raise_(none, Y_LANDED + W_LANDED + both, {"get_request": ({"status": "resolved", "version": 3}, None)})
+    assert got is None and not any(t == "post_request" for t, _ in acts.calls)
+    closed = acts.held
+    assert plan.told_on(Y_LANDED + W_LANDED + closed, "land/crew", "swancloud-ops", "crew") == []
+    acts, _ = raise_({"z": row("z")}, Y_LANDED + W_LANDED + closed, POSTED)
+    assert acts.emitted[-1]["Act"] == "card.post" and acts.emitted[-1]["Heads"] == "z@abc1234"
+
+    # A bolt marked to stay reads proven while the notice is open: a card following it asks for z, opening with y.
+    acts, got = raise_({"z": row("z")}, Y_LANDED + notice, dict(POSTED, **PENDING, post_request=({"requestId": "req_k2", "version": 1}, None)))
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert (got, post["kind"], post["follows"]) == ("req_k2", "approve", "req_k1")
+    assert post["summary"].startswith("Landed on proof since your last look: y at 9f1c2ab (2026-11-13 03:12Z).")
+    assert acts.emitted[-1]["Heads"] == "z@abc1234 y@9f1c2ab:landed"
+
+    # A card asking for z waits on the user and y lands on proof: it is changed in place, its note naming y.
+    asking = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
+    acts, got = raise_({"z": row("z")}, Y_LANDED + asking, PENDING)
+    change = next(a for t, a in acts.calls if t == "update_request")
+    assert (got, change["changeNote"]) == ("req_k1", "y landed on proof at 9f1c2ab")
+    assert acts.emitted[-1]["Heads"] == "z@abc1234 y@9f1c2ab:landed"
+
+    # A card that told y followed or withdrawn before the user saw it: the next card still tells y.
+    for state, outcome in (("closed", plan.FOLLOWED), ("withdrawn", "no bolt waits to land on its main")):
+        gone = notice + [dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", State=state, Outcome=outcome)]
+        assert plan.told_on(Y_LANDED + gone, "land/crew", "swancloud-ops", "crew") == [("y", Y_AT, "2026-11-13T03:12:40Z")]
+    answered = notice + [dict(Act="card.answer", Key="land/crew", By="swancloud-ops", Card="req_k1", Answer="approved")]
+    assert plan.told_on(Y_LANDED + answered, "land/crew", "swancloud-ops", "crew") == []
+    sent = [dict(e, Form=None) if e["Act"] == "bolt.submit" else e for e in Y_LANDED]  # landed on a send: told by none
+    assert plan.told_on(sent, "land/crew", "swancloud-ops", "crew") == []

@@ -3090,6 +3090,37 @@ def heads_landed(text):
             for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40}):landed", w)] if m]
 
 
+# The outcome a kit's landings notice is closed with once the user tapped it (landings_step), which spends the bolts it
+# told (told_on), as Pending You's own end of it does (ENDED_ELSEWHERE).
+TAPPED = "Seen: the bolts it told landed on proof, and nothing waits on it."
+
+
+def told_on(entries, key, owner, kit):
+    """The bolts of a kit that landed on proof and are still to be told on its landings card (Decision 4 of
+    a-proven-bolt-lands-on-proof; rail-cards "A bolt that landed on proof is told on its kit's landings card"), from the
+    run record's entries, oldest first (code.7): each bolt.land of the kit not refused whose bolt's newest land posted
+    before it was posted on proof (Form: proof), [(bolt, the commit its kit's main holds after it, when)] in the order they
+    landed; less each a card under key in owner's name told, its post's or change's Heads marking it :landed
+    (heads_landed), that the user answered (card.answer) or tapped (its close recorded closed, ended in Pending You or
+    TAPPED). A card followed or withdrawn before the user saw it leaves its told bolts to the next card."""
+    form, landed, told, spent = {}, [], {}, set()
+    for e in entries:
+        act, bolt = e.get("Act"), next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None)
+        if e.get("Refused"):
+            continue
+        if act == "bolt.submit" and bolt and e.get("Request") and e.get("Outcome") == "asked":
+            form[bolt] = e.get("Form")
+        elif (act == "bolt.land" and bolt and (e.get("Repo") or "").split("/")[-1] == kit and form.get(bolt) == "proof"
+              and bolt not in {t[0] for t in landed}):  # a bolt lands once, read once from the branch and this host's record
+            landed.append((bolt, e.get("Head") or "", e.get("At") or ""))
+        elif act in ("card.post", "card.update") and e.get("Key") == key and e.get("By") == owner and e.get("Card"):
+            told.setdefault(e["Card"], set()).update(b for b, _ in heads_landed(e.get("Heads")))
+        elif e.get("Card") in told and (act == "card.answer" or act == "card.close" and e.get("State") == "closed"
+                                        and e.get("Outcome") in (ENDED_ELSEWHERE, TAPPED)):
+            spent |= told[e["Card"]]
+    return [t for t in landed if t[0] not in spent]
+
+
 def at_head(head, now):
     """Whether a head recorded short or whole (head) is the bolt's head now (now), either a prefix of the other."""
     return bool(head and now) and (now.startswith(head) or head.startswith(now))
@@ -3223,7 +3254,7 @@ def ticked_of(got, heads):
     return [b for b, _, _ in heads if f"land:{b}" in picked]
 
 
-def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None):
+def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None, told=()):
     """What the raise of a kit's landings card does with it (rail-cards, record 0031 as amended 2026-10-23), from facts
     alone (code.7): rows, its rows as landing_rows gives them; card, None when ops holds none, else {status, heads,
     taking, next}, status "waiting" or "answered", heads its rows as its last post or change recorded them (card_heads),
@@ -3259,15 +3290,25 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
     land, for a new card that follows it, else None, then each ticked bolt held whose send still stands, (bolt, the
     head they ticked), which the close keeps, saying so, for it to land on that send once a fix on it has only taken
     main in; a send ticking none closes it at once, landing nothing. A bolt left on the last send is shown
-    unticked on the card that follows only while its head stands."""
+    unticked on the card that follows only while its head stands.
+    told, the bolts landed on proof still to be told on the card (told_on), [(bolt, commit, at)], and card's landed, the
+    bolts its last post or change told (heads_landed), add to it (Decision 4 of a-proven-bolt-lands-on-proof): with no
+    row and a bolt to tell, a card is posted as a notice (cards.landings_form's tell), a waiting notice is changed in place
+    as more land, and a waiting asking card left with no row is followed by the notice ("change" with its form changed);
+    a row joining a waiting notice follows it with the asking card the same way; each bolt that lands on proof while a
+    waiting card asks is named in its change note; and a notice the user tapped, read answered, is closed TAPPED, a
+    card following it only while a row can land."""
     boxed = [r for r in rows if r["box"]]
     now = [(r["bolt"], r["facts"]["head"][:7]) for r in boxed]
     held = {r["bolt"]: r["why"] for r in rows if not r["box"]}
+    told = list(told or [])
     if card is None:
-        return ("post", []) if boxed else ("none",)
+        return ("post", []) if boxed or told else ("none",)
     heads = card.get("heads") or []
+    if card["status"] == "answered" and not heads and card.get("landed"):  # a notice the user tapped
+        return ("close", TAPPED, [] if boxed else None, [])
     if card["status"] != "answered":
-        if not boxed:
+        if not boxed and not told:
             return ("withdraw", "every bolt waiting to land is held: "
                     + "; ".join(f"{b}, {w}" for b, w in held.items()) if held else "no bolt waits to land on its main")
         shows = card_rows(rows)
@@ -3288,10 +3329,12 @@ def landings_step(rows, card, ticked, in_plan, landed=None, note=None, work=None
         waited = set(card.get("next") or ())
         said += [f"{b} has a box now" for b, _ in shown if b in was and b in waited and b in boxes]
         said += [f"{b} waits for a box" for b, _ in shown if b in was and b not in waited and b not in boxes]
+        was_told = list(card.get("landed") or [])
+        said += [f"{b} landed on proof at {c[:7]}" for b, c, _ in told if b not in was_told]
         said = ([note] if note else []) + said
         if not said:
             return ("leave",)
-        return ("change", "; ".join(said), cards.landings_form(len(heads)) != cards.landings_form(len(shown)), left)
+        return ("change", "; ".join(said), cards.landings_form(len(heads), was_told) != cards.landings_form(len(shown), told), left)
     ticked, work = list(ticked or []), work or {}
     was, took = {b: h for b, h, _ in heads}, set(card.get("taking") or ())
     waited = set(card.get("next") or ())  # shown with no box, so no word of the send's: the card that follows asks for it
@@ -3833,7 +3876,7 @@ def kit_card_state(acts, label, key, owner, card, entries):
     if got.get("status") == "answered":  # the user's answer recorded the first time crew reads it (Decision 1)
         answer_seen(acts, label, owner, key, card, got, entries, heads, offered_boxes(recorded))
     return {"status": "answered" if got.get("status") == "answered" else "waiting", "heads": heads,
-            "taking": taking, "next": waits, "ticked": ticked_of(got, heads)}, None
+            "taking": taking, "next": waits, "landed": [b for b, _ in heads_landed(recorded)], "ticked": ticked_of(got, heads)}, None
 
 
 def said_heads(entries, left=()):
@@ -4036,7 +4079,10 @@ def landings_raised(fleet, label, kit, acts, note, dead):
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit} | {r["bolt"] for r in fixes}
     told = landings_previews(fleet, label, kit, rows, hosts, unread, run)
-    step = landings_step(rows, state, ticked, in_plan, landed, note, work)
+    # each bolt landed on proof that no card the user answered or tapped told, told on the card (Decision 4)
+    ids = {e["Id"] for e in whole if e.get("Id")}
+    landing_told = told_on(whole + [e for e in acts.entries(label) if not e.get("Id") or e["Id"] not in ids], key, owner, kit)
+    step = landings_step(rows, state, ticked, in_plan, landed, note, work, landing_told)
     try:
         t = kit_at(fleet, label, kit)
     except Refusal:
@@ -4046,7 +4092,8 @@ def landings_raised(fleet, label, kit, acts, note, dead):
     shows = card_rows(rows)
     on = {r["bolt"] for r in shows}
     facts = dict(kit=kit, rows=[r["facts"] if r["box"] else dict(r["facts"], taking=r["why"]) for r in shows],
-                 held=[dict(bolt=r["bolt"], why=r["why"]) for r in rows if r["bolt"] not in on], ops=owner)
+                 held=[dict(bolt=r["bolt"], why=r["why"]) for r in rows if r["bolt"] not in on], ops=owner,
+                 told=[dict(bolt=b, commit=c, at=at) for b, c, at in landing_told])
     # the rows its answer ticked or left; one it showed taking main first, unticked by crew, is none they left
     offered = [f"land:{b}" for b, _, _ in (state or {}).get("heads") or []
                if b not in (state or {}).get("taking", set()) | (state or {}).get("next", set())]
@@ -4090,9 +4137,11 @@ def landings_raised(fleet, label, kit, acts, note, dead):
     _, _, then, standing = step  # the bolts held whose send stands kept as its close's Heads (landings_sent)
     closed = row_card_close(fleet, label, owner, key, outcome=outcome, acts=acts, offered=offered, Rows=str(len(boxed)),
                             Heads=" ".join(f"{b}@{h}" for b, h in standing))  # its own, none when nothing stands (close_kept)
-    if then is None or not boxed or not closed:  # a close refused leaves the card open, and nothing follows it yet
+    if step[1] == TAPPED:  # the notice's told bolts are spent by the tap, so the card that follows tells none of them
+        facts["told"] = [t for t in facts["told"] if t["bolt"] not in set((state or {}).get("landed") or [])]
+    if not closed or not (boxed and then is not None or facts["told"]):  # a close refused leaves the card open
         return closed
-    waits = unticked(then)
+    waits = unticked(then or [])
     return told_kept(label, key, told, row_card_change(
         fleet, label, owner, cards.landings_card,
         dict(facts, rows=[f for f in facts["rows"] if f["bolt"] not in dict(standing)], left=waits, follows=closed),
