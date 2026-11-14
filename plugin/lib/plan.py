@@ -3041,7 +3041,9 @@ def landing_rows(order, rows, held, stopped=None, takes_main=None, left=()):
 
 def card_rows(rows):
     """The rows a kit's landings card shows (rail-cards "A row taking main first stays on the card"), from its rows as
-    landing_rows gives them, less those an earlier send still lands (rows_unsent): while any row can land, each that can
+    landing_rows gives them, those a send must land alone (lands_by's "send": a bolt marked to stay, one the user left,
+    one whose land at its head was stopped, a fix of main; a-proven-bolt-lands-on-proof, Decision 3, the raise leaving
+    out each bolt that lands on proof), less those an earlier send still lands (rows_unsent): while any row can land, each that can
     and each held only to take main first beside it (landing_rows' takes_main), but one an earlier send lands (sent),
     in the plan's order; none while no row can land, since no card is raised then (plan.8). A row taking main first
     shown so keeps its place as its bolt takes main in and comes back, so its coming and going keeps the card's form
@@ -4017,6 +4019,10 @@ def landings_raised(fleet, label, kit, acts, note, dead):
         for wk, n, h in acts.post_lands(label, kit, owner, proven, {f"bolt/{r['bolt']}": (None, r["facts"]["head"]) for r in proven},
                                         run[1], {}, proof=True):
             print(f"card {key}: {row_name(wk)} is asked of the runner to land at {h[:7]} (request {n}), on proof")
+    # The card asks only about the rows a send must land, those lands_by reads "send", each with its rows taking main
+    # first and held beside them; a bolt that lands on proof, or waits on a hold to, is no row (Decision 3).
+    rows = [r for r in rows if how[r["bolt"]] == "send"]
+    boxed = [r["bolt"] for r in rows if r["box"]]
     landed = {next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None): e.get("Head") or ""
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit} | {r["bolt"] for r in fixes}

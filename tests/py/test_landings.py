@@ -2834,6 +2834,53 @@ def test_how_each_row_lands():
     assert plan.hold_on(p, "swancloud") is None and plan.hold_on(drive, "swancloud") == dict(kit=None, why="Cutover")
 
 
+def proof_acts(mp, rows, entries=(), answers=None, text=PROVEN, **more):
+    """LandActs for a raise of crew's landings card on PROVEN, y not marked to stay and z marked, its requests y's and z's
+    base places and y's unit, read from deneb's runner as TestLandsDue reads them, every land posted on requests.rec."""
+    requests = TestLandsDue().requests()[:3]
+    mp.setattr(crew, "this_host", lambda: "mac-studio")
+    mp.setenv("CREW_AGENT", "swancloud-ops")
+    mp.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
+    mp.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(text))
+    acts = LandActs(rows, entries, answers=answers if answers is not None else POSTED, **more)
+    acts.requests = TestTheRaisePostsTheLands().write(requests).files["requests.rec"]
+    return acts
+
+
+def posted_heads(acts):
+    """The rows each card the raise posted or changed shows, as its entry records them (card_heads)."""
+    return [plan.card_heads(e.get("Heads")) for e in acts.emitted if e["Act"] in ("card.post", "card.update")]
+
+
+def test_the_card_asks_only_about_the_rows_a_send_must_land(monkeypatch):
+    """rail-cards "A landings card asks only about the rows a send must land" (Decision 3 of a-proven-bolt-lands-on-proof):
+    y is not marked to stay, z is."""
+    # A bolt not marked beside one marked: the card is an approve naming z alone, and y lands on proof.
+    acts = proof_acts(monkeypatch, {"y": row("y"), "z": row("z")})
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert (post["kind"], posted_heads(acts)) == ("approve", [[("z", "abc1234", False)]])
+    assert [on for _, _, on, _, _ in acts.posts] == [["bolt/y"]]
+    # A land on proof stopped at y's head: asked with its box, in the runner's words, and no land of y posted there.
+    stopped = [dict(Act="bolt.submit", On=["bolt/y"], Form="proof", Head=H1, Request="4", Outcome="asked"),
+               dict(Act="bolt.submit", On=["bolt/y"], Head=H1, Request="4", Outcome="stopped", Why=STOP)]
+    acts = proof_acts(monkeypatch, {"y": row("y", stopped=(H1, STOP))}, stopped, drive=stopped)
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    post = next(a for t, a in acts.calls if t == "post_request")
+    assert posted_heads(acts) == [[("y", "abc1234", False)]] and STOP in json.dumps(post)
+    assert getattr(acts, "posts", []) == []
+    # A bolt the user left: shown unticked, and no land on proof posted while it is left.
+    left = [dict(Act="landing.left", On=["kit/crew"], By="swancloud-ops", Key="land/crew", Heads="y@abc1234")]
+    acts = proof_acts(monkeypatch, {"y": row("y"), "z": row("z")}, drive=left)
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert posted_heads(acts) == [[("y", "abc1234", True), ("z", "abc1234", False)]]
+    assert getattr(acts, "posts", []) == []
+    # A bolt not marked taking main first is no row: the card asks for z alone.
+    acts = proof_acts(monkeypatch, {"y": row("y"), "z": row("z")}, against_main={"y": [("main", ["README.md"])]})
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert posted_heads(acts) == [[("z", "abc1234", False)]] and getattr(acts, "posts", []) == []
+
+
 class TestLandOnProof:
     """rail-cards "A proven bolt not marked to stay lands on proof, its land posted by the card's raise" and run-record
     "A land crew posts on proof is one entry marked as on proof" (Decision 1 of a-proven-bolt-lands-on-proof): each raise
@@ -2848,12 +2895,7 @@ class TestLandOnProof:
         self.mp = monkeypatch
 
     def acts(self, rows, entries=(), answers=None, **more):
-        requests = TestLandsDue().requests()[:3]  # y's and z's base places and y's unit
-        self.mp.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
-        self.mp.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PROVEN))
-        acts = LandActs(rows, entries, answers=answers if answers is not None else POSTED, **more)
-        acts.requests = TestTheRaisePostsTheLands().write(requests).files["requests.rec"]
-        return acts
+        return proof_acts(self.mp, rows, entries, answers, **more)
 
     def test_a_proven_bolt_lands_on_proof_at_the_raise(self, capsys):
         """rail-cards "Proven at night" and "Read again"."""
