@@ -6,6 +6,7 @@ Run each check from the worktree's root, as written. A logic check runs pytest t
 
 - [x] 1.1 `send_door` takes this host's name, and its refusal of a name the host's teams file names no drive by names the drives the file names, the file on this host, that a drive another host runs is sent to once that file names it, never by `crew send` run on that host over ssh, and that nothing was sent (design, Decision 3; Task notes 1.1). Verify `devenv shell -- uv run --locked --project tests python -m pytest -q -p no:cacheprovider tests/py/test_send.py` passes.
 - [x] 1.2 A send typed into its operator whose entry's push is refused, `record.emit` answering `None`, is reported made: `crew.send` returns `True` (design, Decision 2; Task notes 1.2). Verify `devenv shell -- uv run --locked --project tests python -m pytest -q -p no:cacheprovider tests/py/test_send.py -k entry_is_kept` passes.
+- [x] 1.3 Every logic case that calls `crew.send` gives it this host's name, as `test_send.py`'s fixture does: `test_tell_asks.py`'s `TestSend` sender fixture stubs `crew.this_host`, so no case of it starts `hostname` (tests.11; verify.md at 7a629448). Verify `devenv shell -- moon run tests:logic` passes.
 
 ## 2. A send from a box to a Mac's drive
 
