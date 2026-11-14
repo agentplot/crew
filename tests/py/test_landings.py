@@ -2801,3 +2801,31 @@ class TestABoltOnMainIsNoRow:
             plan.land_read(FLEET, "swancloud", pz, pz.bolt("z"), dict(WHERE["crew"], label="swancloud"))
         (row,) = plan.landing_rows(["z"], {"z": facts("z", H1)}, {}, plan.stops(entries))
         assert row["box"] is True and row["facts"]["stopped"] == (H1, self.STOP)
+
+
+# --------------------------------------------------------------- landing on proof (a-proven-bolt-lands-on-proof)
+
+def test_how_each_row_lands():
+    """Decision 1 of a-proven-bolt-lands-on-proof (plan.lands_by): a bolt not marked lands on proof; one marked to stay,
+    one the user left and one whose land at its head now was stopped land on the user's send, a stop at an old head
+    holding nothing; a fix of main lands on the send always; and a bolt that would land on proof reads held while a hold
+    stands on its kit or its drive, the rest landing as they would."""
+    stop = [dict(submitted("y", H1), Outcome="stopped", Why=STOP, Request="7")]
+    at_now = plan.stopped_at(plan.stops(stop), "y", H1)
+    at_old = plan.stopped_at(plan.stops(stop), "y", H2)
+    fix = dict(bolt="main--red", work="fix/main/crew/red", box=True, facts=dict(bolt="main--red", fix=True, head=H1))
+    cases = {"not marked": (box("y"), False, False, None), "marked": (box("y"), True, False, None),
+             "left": (box("y"), False, True, None), "stopped now": (box("y"), False, False, at_now),
+             "stopped at an old head": (box("y", H2), False, False, at_old), "a fix of main": (fix, False, False, None)}
+    assert at_now == STOP and at_old is None
+    assert {k: plan.lands_by(r, stays, left, stopped, None) for k, (r, stays, left, stopped) in cases.items()} == {
+        "not marked": "proof", "marked": "send", "left": "send", "stopped now": "send", "stopped at an old head": "proof",
+        "a fix of main": "send"}
+    p = plan.Plan(PLAN + "%rec: Hold\n\nKit: crew\nWhy: Cutover\n")
+    drive = plan.Plan(PLAN + "%rec: Hold\n\nWhy: Cutover\n")
+    for held in (plan.hold_on(p, "crew"), plan.hold_on(drive, "crew")):
+        assert held is not None
+        assert {k: plan.lands_by(r, stays, left, stopped, held) for k, (r, stays, left, stopped) in cases.items()} == {
+            "not marked": "hold", "marked": "send", "left": "send", "stopped now": "send", "stopped at an old head": "hold",
+            "a fix of main": "send"}
+    assert plan.hold_on(p, "swancloud") is None and plan.hold_on(drive, "swancloud") == dict(kit=None, why="Cutover")

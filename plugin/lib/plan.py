@@ -10494,6 +10494,22 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
     return rows
 
 
+def lands_by(row, stays, left, stopped, hold):
+    """How a row of a kit's landings lands once it can (Decision 1 of a-proven-bolt-lands-on-proof; plan.16, briefs.11
+    and state.3 as record 0067 amends them), from facts alone (code.7): row, a row as landing_rows or fix_row gives it;
+    stays, whether its bolt is marked Stays: yes; left, whether the user left it (left_now, left_of); stopped, what
+    stopped its last land at its head now (stopped_at), or None; hold, the hold standing on its kit or its drive
+    (hold_on), or None. "send" for a fix of main, always (state.3), and for a bolt marked to stay, one the user left
+    and one whose land at its head now was stopped, which only a send lands, a stop holding the bolt at a head no fix
+    moves; "hold" for any other bolt while a hold stands, which lands on proof once it is lifted; else "proof". The
+    raise and the rail's line both read it, so they agree."""
+    if (row.get("work") or "").startswith("fix/main/") or (row.get("facts") or {}).get("fix"):
+        return "send"
+    if stays or left or stopped:
+        return "send"
+    return "hold" if hold else "proof"
+
+
 def card_stand(bolt, head, can, card, sends):
     """How a kit's landings card stands for one bolt of its land row (crew-rail "Each bolt's land line says whether its
     card carries, holds or follows it", design Decision 8), from facts alone (code.7): the bolt, its head now and
