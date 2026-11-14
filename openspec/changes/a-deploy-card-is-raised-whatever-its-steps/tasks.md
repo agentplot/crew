@@ -12,5 +12,5 @@ Build the tasks in order. Before the first, sync the tests' venv once: `devenv s
 
 ## 2. The words
 
-- [ ] 2.1 main-level ops's brief says a deploy's card is one list of at most five boxes, every step past the third sharing the fourth when more than four are open, and that the send's answer names every step of each ticked step box, pinned by its phrases in `t-briefs` (design Decision 3; `tests.6`; Task notes 2.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 2.1 main-level ops's brief says a deploy's card is one list of at most five boxes, every step past the third sharing the fourth when more than four are open, and that the send's answer names every step of each ticked step box, pinned by its phrases in `t-briefs` (design Decision 3; `tests.6`; Task notes 2.1). Verify `tests/suite t-briefs` ends with "0 failed".
 - [ ] 2.2 README says a deploy's card waiting on steps is one list of at most five boxes held to send, every step past the third sharing the fourth box when more than four are open (Task notes 2.2). Verify `tests/suite t-docs` ends with "0 failed".
