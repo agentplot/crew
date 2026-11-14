@@ -1090,7 +1090,8 @@ class TestTheDeployCardOfAStepItWaitsOn:
         got = []
 
         def change(fleet, label, owner, build, facts, note, where, acts=None, kind_changed=False, anew=None, since=None):
-            got.append((kind_changed, build(facts)["card"].get("kind")))
+            c = build(facts)["card"]
+            got.append((kind_changed, c.get("kind"), [o["id"] for o in c.get("options") or []]))
             return "req_1"
         monkeypatch.setattr(plan, "row_card_change", change)
         monkeypatch.setattr(ops, "ops_where", lambda fleet, label: ("/b/main", "github.com/o/b"))
@@ -1112,7 +1113,27 @@ class TestTheDeployCardOfAStepItWaitsOn:
         row = {"label": "swancloud", "key": f"deploy/{SRV}"}
         assert ops.raise_deploy(FLEET, row, Acts(), note="Offered again: its after-deploy steps changed") == "req_1"
         assert ops.raise_deploy(FLEET, row, Acts("boxes"), note="Offered again: its after-deploy steps changed") == "req_1"
-        assert raised == [(True, "multi"), (False, "multi")]
+        assert [(moved, kind) for moved, kind, _ in raised] == [(True, "multi"), (False, "multi")]
+
+    def test_a_step_done_while_a_shared_box_waits_changes_the_card_in_place(self, raised, monkeypatch):
+        """rail-cards "A step recorded done while the card of a shared box waits": the card stays one list, so it is
+        changed in place with its boxes regrouped, never followed."""
+        words = [f"Do step {i} of the move." for i in range(1, 8)]
+        keys = [f"{i}" * 12 for i in range(1, 8)]
+        es = ([SRV_OFFER] + [waiting(1 + i, text=t, key=k) for i, (t, k) in enumerate(zip(words, keys), 1)]
+              + [e("ops.step", env=SRV, minutes=9, Head=S2, Key=keys[4], State="done")])
+        monkeypatch.setattr(ops, "entries", lambda label, days=ops.DAYS: es)
+        (ops.kept("swancloud", SRV, S2) / "steps.txt").write_text(
+            "".join(f"step\t{i}\tuser\tbefore\t{SRV}\tWhy step {i}.\t{t}\n" for i, t in enumerate(words, 1)))
+
+        class Acts:
+            posted = [dict(Act="card.post", Card="req_1", Key=f"deploy/{SRV}", By="swancloud-ops", Head=S2, Form="boxes")]
+
+            def entries(self, label):
+                return self.posted
+        row = {"label": "swancloud", "key": f"deploy/{SRV}"}
+        assert ops.raise_deploy(FLEET, row, Acts(), note="A step it waits on is recorded done") == "req_1"
+        assert raised == [(False, "multi", ["before:1", "before:2", "before:3", "before:4-6-7", "deploy"])]
 
 
 class TestAStepRecordedThatTheOfferWaitsOn:
