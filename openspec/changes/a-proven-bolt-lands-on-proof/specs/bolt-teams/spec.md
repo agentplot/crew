@@ -23,3 +23,14 @@ A started bolt whose verification is green SHALL land only by a `land` of its la
 #### Scenario: A landing deploys nothing
 - **WHEN** bolt `x` lands on proof
 - **THEN** nothing is deployed by the landing
+
+### Requirement: crew bolt submit lands nothing
+`crew bolt submit`, run with any arguments but `-h` or `--help`, SHALL refuse at once, before it reads anything, saying it lands nothing and that a bolt lands on proof, crew posting the land itself, or, marked to stay, on the user's send of its row on its kit's landings card, which crew carries to the runner as a land. It SHALL append and record nothing. With `-h` or `--help` among its arguments it SHALL print its usage and exit 0 (`code.11`).
+
+#### Scenario: Ops runs it
+- **WHEN** main-level ops runs `crew bolt submit y`
+- **THEN** it is refused at once, before it reads the plan or any host, saying it lands nothing and that `y` lands on proof, crew posting the land itself, or, marked to stay, on the user's send of its row on its kit's landings card, which crew carries to the runner as a land; nothing is appended or recorded
+
+#### Scenario: Its help
+- **WHEN** anyone runs `crew bolt submit --help`
+- **THEN** it prints its usage and exits 0

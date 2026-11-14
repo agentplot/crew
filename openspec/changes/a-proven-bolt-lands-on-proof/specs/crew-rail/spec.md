@@ -10,7 +10,7 @@ Once a bolt can land, its line on its kit's row under land SHALL say how it land
 
 #### Scenario: The last unit merges
 - **WHEN** the last unit of crew's bolt `b`, not marked to stay, merges into `bolt/b` through sluice, every unit's change has been in a batch the user has answered, and the runner carries that unit's place landed at `bolt/b`'s head
-- **THEN** crew's row under land names `b` and `swancloud-ops`, saying `b` lands on proof, and carries no `crew tell`
+- **THEN** crew's row under land names `b` and `swancloud-ops`, saying `b` lands on proof, crew asking the runner to land it in swancloud-ops's name, and carries no `crew tell`
 
 #### Scenario: Its land posted
 - **WHEN** crew posted `b`'s land on proof as request 57, which the runner has not answered
@@ -35,7 +35,7 @@ A kit's row under land SHALL be raised while a bolt of the kit that landed on pr
 
 #### Scenario: Landed overnight
 - **WHEN** `y` and `w` of crew landed on proof overnight, crew's main holding `9f1c2ab` after `y` and `4d5e6f7` after `w`, and no bolt of crew waits to land
-- **THEN** crew's row under land names `y` at `9f1c2ab` and `w` at `4d5e6f7` as landed on proof, told on `land/crew`
+- **THEN** crew's row under land names `y` at `9f1c2ab` and `w` at `4d5e6f7` as landed on proof, told on `land/crew`, and `crew rail` and the rail tab draw each on a line of its own, after the line of each bolt of crew that waits to land
 
 #### Scenario: Tapped
 - **WHEN** the user taps the notice telling `y` and `w`, and no bolt of crew waits to land

@@ -36,6 +36,25 @@ Each drive SHALL keep one plan, the recutils file `plan.rec` on its branch of it
 - **WHEN** a drive's `plan.rec` was written before Bolt allowed `Stays` and before the Hold record set
 - **THEN** it is read as it stands, and its next write brings its descriptors in step, allowing both
 
+### Requirement: A rename renames every record a reader matches the repository by
+In its one commit, `crew kit rename <old> <new>` SHALL rename `<old>` to `<new>` in each plan Source naming a decision record in `<old>`'s repository, and each Hold's `Kit`; each request's `Repo`, and a fix of its main's `Work`; and each run-record entry, its `Repo` and the objects of its `On` and `From` built on the name. A field keeps its form: a name becomes `<new>`'s, an address `<owner>/<old>` becomes `<owner>/<new>` unless `<new>` is an address, and an object takes `<new>`'s name.
+
+#### Scenario: A request, a landing, a card and a source
+- **WHEN** request 3 has `Repo: flywheel-cloud` and `Work: fix/main/flywheel-cloud/one-seam`, a `bolt.land` entry has `Repo: flywheel-cloud`, a closed landings card's `card.post` has `On: kit/flywheel-cloud` and `Key: land/flywheel-cloud`, a crew unit's Source names `agentplot/flywheel-cloud:docs/adr/0017`, and the user renames `flywheel-cloud` to `boomdrive-cloud`
+- **THEN** the request's `Repo` is `boomdrive-cloud` and its `Work` `fix/main/boomdrive-cloud/one-seam`, the landing's `Repo` is `boomdrive-cloud`, the `card.post` has `On: kit/boomdrive-cloud` and keeps `Key: land/flywheel-cloud`, the Source names `agentplot/boomdrive-cloud:docs/adr/0017`, and the entry's `Count` is 4
+
+#### Scenario: Every object built on the name
+- **WHEN** entries name `kit/tailrace`, `land/tailrace`, `queue/tailrace`, `record/tailrace/0017` and `fix/main/tailrace/cargo-lock` in their `On` or `From`, and the user renames `tailrace` to `timber`
+- **THEN** each names `timber` in its place, and an object of another repository, `kit/tailrace-web`, is as it was
+
+#### Scenario: A forge address keeps its owner
+- **WHEN** a request has `Repo: agentplot/flywheel-cloud` and the user renames `flywheel-cloud` to `boomdrive-cloud`
+- **THEN** its `Repo` is `agentplot/boomdrive-cloud`
+
+#### Scenario: A hold on the kit
+- **WHEN** a hold on flywheel-cloud stands, saying "Cutover", and the user renames `flywheel-cloud` to `boomdrive-cloud`
+- **THEN** the Hold names `Kit: boomdrive-cloud` with the words "Cutover", and no land of boomdrive-cloud's is posted while it stands
+
 ## ADDED Requirements
 
 ### Requirement: A bolt is marked to stay only when it is planned or started
@@ -82,6 +101,10 @@ Each drive SHALL keep one plan, the recutils file `plan.rec` on its branch of it
 #### Scenario: Lifted
 - **WHEN** the user runs `crew plan go --repo switchboard-kit --label wldn`
 - **THEN** the Hold is gone from the plan, the run record holds a `plan.go` on `kit/switchboard-kit`, and a raise of `land/switchboard-kit` is handed to wldn's main level's host
+
+#### Scenario: The drive's hold lifted
+- **WHEN** a hold on the drive wldn and one on breadboard-kit stand, atlas-kit's card holds only a fix of main, and the user runs `crew plan go --label wldn`
+- **THEN** the drive's Hold is gone from the plan, and a raise of the landings card of each of wldn's kits is handed to its main level's host, atlas-kit's among them, but breadboard-kit's, which its own hold still holds
 
 #### Scenario: Nothing to lift
 - **WHEN** the user runs `crew plan go --repo atlas-kit --label wldn` and no hold names atlas-kit

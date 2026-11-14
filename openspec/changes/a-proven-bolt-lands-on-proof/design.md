@@ -61,13 +61,17 @@ A bolt is due a land on proof when its row can land, its forecast is clear of ma
 - no land of it posted on proof at its head now was stopped;
 - no hold stands on its drive or its kit.
 
-The raise posts these lands, because the raise is where the forecast against GitHub's main is made (`plan.8`): a bolt's row reads clear of main only once that forecast found no conflict. The order in `landings_raised`:
+The raise posts these lands, because the raise is where the forecast against GitHub's main is made (`plan.8`): a bolt's row reads clear of main only once that forecast found no conflict. A forecast against main that could not be made, git not telling, is no clear forecast (`read.1`): no land on proof is posted for that bolt, the raise says why, and the next read raises the kit again, the bolt being still due. The order in `landings_raised`:
 1. Forecast every row that can land, as today, marked or not. A conflict found is recorded and the row takes main first, as today.
 2. Post the sends' lands, as today.
 3. Post the lands due on proof, in the plan's order, by one plan write in ops's name, the card's owner. Each is recorded as `bolt.submit` on `bolt/<bolt>` with `Outcome: asked`, `Form: proof`, `Head` and `Request`, and no `Card`. The write's subject is `plan(<kit>): land <bolts> on proof`.
 4. Decide the card from the rows it asks about (Decision 3) and the bolts it tells (Decision 4).
 
-`runner.lands_due` decides which proof lands are due, as it does a send's. The proof rows come to it as a send of their own, keyed by no card, so its rules hold unchanged: one land per head, none while one stands undecided or unknown, none once one at that head was stopped. Its stop rule reads the stopped land's head for proof: a stop at an old head holds nothing at a new one.
+`runner.lands_due` decides which proof lands are due, as it does a send's. The proof rows come to it as a send of their own, keyed by no card, so its rules hold: one land per head, none while one stands undecided or unknown, none once one at that head was stopped. Its stop rule reads the stopped land's head for proof: a stop at an old head holds nothing at a new one.
+
+A stop holds no send of the user's at that head. Where a row's last land, stopped at its head now, was posted on proof or on another card's send, a send ticking the row there is due its land: the stop is nothing of the bolt's and no fix moves its head, so only a send lands it. The send that posted the stopped land is spent, at that head or any, as rail-cards "A landing the runner or Flume stopped keeps its box" has it. So the card that follows a spent send, which asks for the bolt again at the same head, lands it on its own send, and a stopped land on proof is landed by the first send that ticks it (rail-cards "A landings row is due one land for each send and head", modified here).
+
+`lands_change` re-checks at the tip it is applied to (`plan.1`): a hold standing there on the kit or its drive posts nothing, on a send or on proof, and a land on proof is posted only for a bolt the plan there still holds and does not mark to stay.
 
 `plan.lands_by(row, stays, left, stopped, hold)` is a decision of facts alone (`code.7`). It says how each row lands: `"proof"`, `"send"` or `"hold"`.
 - A bolt marked to stay, one the user left, and one whose land on proof at its head was stopped land on the send.
@@ -78,6 +82,7 @@ The raise posts these lands, because the raise is where the forecast against Git
 `landings_raised` and the rail's line (Decision 6) both read it, so they agree.
 
 Not taken:
+- **A stop barring every later land at its head**, as `lands_due` read a land posted at a head before. A stopped land on proof would then hold its bolt for good, and a card following a spent send would ask for a bolt its send could not land.
 - **The rail's read posting the land itself**, with no raise. It makes no forecast against GitHub's main, so it could land a bolt that conflicts with what main has since landed. `plan.8` rules that out.
 - **A land on proof posted at a new head after a stop**, the bolt never asked about. A stop is nothing of the bolt's, and no fix moves its head, so it would wait forever. Decision 3 asks the user instead.
 
@@ -109,6 +114,8 @@ The card's rows are the rows `lands_by` reads `"send"`: bolts marked to stay, bo
 So `landings_step`, `card_rows`, `cards.landings_card` and every rail-cards requirement on a row keep their rules, applied to these rows. The spec says so once (rail-cards "A landings card asks only about the rows a send must land"), so its many scenarios about a row stand as they are.
 
 A bolt not marked to stay that the user left, from a card open when this lands or by `crew bolt leave` on their words in ops's pane, stays a row until they tick it, as rail-cards "A bolt the user left stays left until they tick it" has it. A leave is their word to stop it, and proof is no word over theirs.
+
+A row whose last land, stopped at its head, crew posted on proof (`stopped_on_proof`, from the run record's entries) says so: "Its land on proof at <head> was stopped, nothing of the bolt's: <words>. Ticked, it lands on this send." No send of the user's made that land, so none is spent by it: `landings_step` reads such a row as stopped by nothing of the send's, and the user's send of it lands it, or stands under a hold, rather than closing the card as a send spent. `crew card read` says the same of it.
 
 **Departure** from record 0067's words "the card asks only about marked bolts", agentplot-design's choice. The card also asks about a bolt the user left and one whose land on proof was stopped:
 - The leave is the user's own stop, and landing it on proof would override it.
@@ -162,8 +169,10 @@ Not taken: **`crew bolt stay <bolt>` on a started bolt not yet proven.** Record 
 The plan gains a record set, `Hold`:
 - `%allowed: Kit Why`, `%mandatory: Why`.
 - One with no `Kit` holds the whole drive.
-- crew's `check` refuses a second Hold on one kit, or two on the drive (`plan.1`).
-- `in_step` brings a branch's descriptors in step, as it does the Bolt's.
+- `HEADER` declares it first, ahead of the Bolt and Unit sets, so a record added at the file's end, by a hand or a tool, is still read as a Unit, and a hand edit's duplicated Unit is refused as a duplicated key (bolt-plan "A plan that fails its schema").
+- crew refuses a second Hold on one kit, or two on the drive, at every write (`check`, `plan.1`) and at every read of the plan (`read`), since recfix's `%unique` is per record and passes two (bolt-plan "Two holds on one kit"). Both call `holds_once`.
+- `in_step` brings a branch's descriptors in step, as it does the Bolt's, and a plan declaring no Hold set takes crew's ahead of its first set (`holds_declared`).
+- `crew kit rename` renames a Hold's `Kit` with the rest (`plan.22`; bolt-plan "A rename renames every record a reader matches the repository by"), so a hold on a renamed kit still holds it.
 - `Plan.holds()` reads them, and `plan.hold_on(plan, kit)` gives the hold standing on a kit: its own, or the drive's.
 
 The plan holds marks of the user's intent (`state.2`; bolt-plan's "any hold on it"), and its words are text the plan may hold where the run record may not (`record.3`).
@@ -176,7 +185,7 @@ The plan holds marks of the user's intent (`state.2`; bolt-plan's "any hold on i
 
 `crew plan go [--repo <kit>] [--label L]`:
 - lifts it, recording `plan.go`, refused where no hold names the kit or the drive, naming the drive's hold where only that stands;
-- hands a raise of each card it held, so what came due meanwhile is posted at once.
+- hands a raise of each card it held, so what came due meanwhile is posted at once: the kit's, or for the drive's hold each kit of the drive (`Write.kits`, its plan's and its landings'), a kit whose card holds only a fix of main among them, but one a hold of its own still holds.
 
 Who runs them (`may_write`):
 - **The user** runs both.
@@ -186,7 +195,9 @@ Who runs them (`may_write`):
 
 While a hold stands, the raise posts no land, not a send's and not one on proof. A send made meanwhile stands, its lands posted by the first raise after the lift, since `lands_due` reads it as it stands then. `crew card read land/<kit>` says the send stands until the hold is lifted.
 
-The card itself is raised as ever. It asks about the rows it asks about, a send standing over the hold, and says nothing of the hold, since the user put it. The rail and the bands say the hold (Decision 7).
+The card itself is raised as ever. It asks about the rows it asks about, a send standing over the hold, and says nothing of the hold, since the user put it. The rail and the bands say the hold (Decision 7). An answered card that closes or is followed under a hold says the user's send stands for the bolts it would land, no land being asked while the hold stands, never that they were asked of the runner (`landings_step`'s `hold`). `crew card read` reads the hold for an earlier card's send as for its own.
+
+Not taken: **Hold declared after Unit.** recutils puts a record under the descriptor before it, so a unit appended at the file's end would be read as a Hold, refused as one lacking `Why`.
 
 Not taken:
 - **The host's hold.** `crew hold` holds a host's agents, and a drive's kits run on several hosts.
@@ -197,11 +208,12 @@ Not taken:
 
 `rail_rows`:
 - Each land row's `bolts` carry `stays`, besides `bolt`, `host`, `can` and `head`.
-- A bolt that can land says how, from `lands_by`: that it lands on proof, with its land's request once posted; that it stays, lands on the user's send, was left, or that its land on proof at that head was stopped, in the runner's or Flume's words; or that the hold on the drive or the kit holds it, with the hold's words.
+- A bolt that can land says how, from `lands_by`: that it lands on proof, crew asking the runner to land it in ops's name, with its land's request once posted; that it stays, lands on the user's send, was left, or that its land on proof at that head was stopped, in the runner's or Flume's words; or that the hold on the drive or the kit holds it, with the hold's words.
 - The row carries `told`, each told bolt with its commit, and `asks`, whether its card has a row to ask about or a bolt to tell.
+- `rail_text` ends each bolt's line with its time (`land_times`) and draws each told bolt's line after them as it is, so `crew rail` and the rail tab show every told bolt.
 
 The board's data of a started bolt carries `stays`, and a drive's carries `holds`, each `{kit, why}`. `board.agent_views` draws both (`code.8`):
-- `bolt_row` says `stays` beside a marked bolt's name.
+- `bolt_row` says `stays` beside a marked bolt's name, and so does ops's line for a bolt whose landing is in flight with no land row.
 - `planner_view` and `ops_view` open with a line for each hold: what it holds, its words, and that no land is posted until the user lifts it with `crew plan go`.
 
 The views stay lists of `(text, style)` segments, so `plugin/hooks/status.js` reads no new key and is unchanged. `tests/py/test_board.py` pins the new lines.
@@ -239,7 +251,8 @@ README, `plugin/skills/crew/SKILL.md` and `crew`'s usage header say the same, an
 - `code.8`: the views draw the mark and the holds.
 - `code.9`: each write answers once its commit is made and its raise handed.
 - `code.11`: each new command answers its help.
-- `plan.1`, `plan.3`: the new records and commands are checked on every write, and proposals hold only the plan's commands of bolts and units.
+- `plan.1`, `plan.3`: the new records and commands are checked on every write, `lands_change` re-checking the hold and the mark at the tip it is applied to, and proposals hold only the plan's commands of bolts and units.
+- `plan.22`: a rename renames a Hold's `Kit`, a field a reader matches the repository by.
 - `docs.2`, `docs.6`, `docs.7`.
 - `tests.4`, `tests.11`: every case is in the logic tier but the briefs' and the docs' words, which are their end-to-end tests'.
 
@@ -263,7 +276,7 @@ README, `plugin/skills/crew/SKILL.md` and `crew`'s usage header say the same, an
   - its rows not marked to stay land on proof, but those the user left and those a send still lands;
   - the card changes, follows or is withdrawn by `landings_step` as its rows now stand;
   - a send standing on it still lands what it ticked.
-- A drive's `plan.rec` takes `Stays` and the `Hold` record set at its next write (`in_step`). An older crew reading a newer branch passes a Bolt's `Stays` and a Hold through `still_allowed` and `recfix`, as it does any field its own descriptor lacks.
+- A drive's `plan.rec` takes `Stays` and the `Hold` record set, declared ahead of its Bolt set, at its next write (`in_step`). An older crew reading a newer branch passes a Bolt's `Stays` and a Hold through `still_allowed` and `recfix`, as it does any field its own descriptor lacks.
 
 ## After deploy
 
@@ -317,6 +330,14 @@ Cases in a new `tests/py/test_plan_holds.py`:
 - a proposal holding `plan hold` refused.
 
 **1.5** `crew bolt unstay`, `crew plan hold` and `crew plan go` answer `-h` and `--help` with their usage and act on nothing (`code.11`): `crew.usage_asked` and `answer_usage` reach them as every Python entry point. Cases in `tests/py/test_help.py`, as its other commands'.
+
+**1.6** `plugin/lib/plan.py` `HEADER` declares the Hold set first, its comment saying why, and `holds_declared` inserts crew's Hold descriptor ahead of a plan's first record set. Cases in `tests/py/test_plan_holds.py`: an old plan takes the Hold set ahead of Bolt and Unit, a Unit appended after still a Unit; crew's header declares Hold, Bolt, Unit in that order. The contract tier's `test_recfix.py` fixtures (`HEADER` with units appended) and `t-journey-board`'s hand-appended duplicate Unit, refused as a duplicated key, pass unchanged.
+
+**1.7** `plugin/lib/plan.py` `holds_once`, called by `check` and by `read` inside its refusal naming the commit. Case `tests/py/test_plan_holds.py::test_crew_refuses_to_read_a_plan_holding_two_holds_on_one_kit_naming_the_commit`, with `recfix`, `show` and `kept_listing` stood in.
+
+**1.8** `plugin/lib/plan.py` `op_plan_go`: the drive's lift hands a raise of each of `w.kits()` that no hold of its own holds. Case `tests/py/test_plan_holds.py::TestLift::test_the_drives_lift_raises_each_kit_of_the_drive_it_held`, a kit known by its landings alone among them.
+
+**1.9** `plugin/lib/plan.py` `rename_branch` renames each Hold's `Kit` by `renamed_kit`, counted. Case `tests/py/test_repository_rename.py::TestWhatTheRenameRenames::test_a_hold_on_the_kit_is_renamed_with_it_and_still_holds_it`.
 
 **2.1** `plugin/lib/plan.py` `lands_by(row, stays, left, stopped, hold)`, beside `card_stand`, as Decision 1 has it. Case `tests/py/test_landings.py::test_how_each_row_lands`, covering:
 - a bolt not marked;
@@ -379,6 +400,20 @@ Case `tests/py/test_landings.py::test_a_hold_posts_no_land_and_its_lift_posts_wh
 - the lift's raise posting the send's land and then the proof land;
 - the drive's hold outlasting the kit's lift.
 
+**2.8** `plugin/lib/runner.py` `lands_due`: where the launch's last land is stopped, a send is barred at its head only by a land it posted itself, there or at any head, and a land on proof by any land posted there; otherwise any land posted at its head bars it, as before. `plugin/lib/plan.py`:
+- `stopped_on_proof(entries, bolt, head)`, a decision of facts.
+- `landings_raised` marks each row whose stopped land was on proof `stopped_on: "proof"`, and hands `landings_step` those rows with no `stopped`, so the send lands them.
+- `cards.stopped_said` says a land on proof stopped and that ticked it lands on this send.
+- `card_read` and `landing_lines` take `on_proof`, saying the user's send lands such a bolt.
+
+Cases: `tests/py/test_runner.py::test_a_send_lands_a_row_at_the_head_of_a_land_stopped_on_proof_or_on_another_send`; `tests/py/test_landings.py::test_the_users_send_lands_a_bolt_whose_land_on_proof_was_stopped`, through `plan.raise_landings` on `LandActs`, its send posting the land, the card left, the next raise posting nothing, `landing_lines` before the raise, and the send standing under a hold; `tests/py/test_cards.py::test_a_row_whose_land_on_proof_was_stopped_says_so_and_that_a_send_lands_it`. `LandActs.post_lands` writes over the plan the raise read, or the case's `tip`.
+
+**2.9** `plugin/lib/plan.py` `landings_raised` posts no land on proof for a row whose forecast against main reads `("main", None)`, saying why on its output. Case `tests/py/test_landings.py::test_a_bolt_whose_forecast_could_not_be_made_lands_on_no_proof`.
+
+**2.10** `plugin/lib/plan.py` `lands_change` raises `Unposted` where `hold_on(w.plan, kit)` gives a hold, and with `proof` keeps only rows whose bolt the plan at the tip holds unmarked. Case `tests/py/test_landings.py::test_a_hold_or_a_drop_found_at_the_writes_tip_posts_no_land`.
+
+**2.11** `plugin/lib/plan.py` `landings_step(…, hold)`: a close or follow under a hold says the send stands, naming the hold; `landings_raised` hands it the hold's name. `card_read` reads the hold whenever the card's send or an earlier one lands a bolt. Case `tests/py/test_landings.py::test_under_a_hold_a_close_says_the_send_stands_and_asks_nothing`.
+
 **3.1** `plugin/lib/plan.py`:
 - `rail_rows`: each land row's bolts carry `stays`. Each line says how the bolt lands, as Decision 7 has it, replacing `can land on your send of land/<kit>` for a bolt that lands on proof. The row carries `told` and `asks`, and is made for a kit with a told bolt and nothing waiting.
 - `rail_record` reads `told` for each kit's key (`told_on`) and the plan's holds.
@@ -418,6 +453,10 @@ Cases in `tests/py/test_board.py`:
 
 The case pinning every key the mod reads is unchanged.
 
+**3.4** `plugin/lib/plan.py` `rail_text` zips `land_times` with the bolts' lines alone, padded, and draws the told lines after them; `rail_rows`' proof line names `<label>-ops`. Cases in `tests/py/test_rail.py`: `TestRows.test_the_rail_draws_each_told_bolts_line_after_the_bolts_that_wait`, and `test_a_bolt_not_marked_says_it_lands_on_proof` with ops named.
+
+**3.5** `plugin/lib/board.py` `ops_view`'s line for a bolt with its landing in flight and no land row names it by `named_`. Case `tests/py/test_board.py::TestStaysAndHolds::test_a_bolt_marked_to_stay_says_so_in_the_planners_and_ops_bands`.
+
 **4.1** `plugin/roles/main-ops.md`, *Landing a bolt* and the opening paragraph: the words of Decision 8 for ops. `tests/t-briefs.sh` asserts:
 - "lands on proof";
 - that crew posts its land in your name at any hour;
@@ -436,6 +475,8 @@ The case pinning every key the mod reads is unchanged.
 - the card asks only about the rows a send must land and tells each bolt landed on proof.
 
 `plugin/skills/crew/SKILL.md`'s rows and `plugin/bin/crew`'s usage header say the same of each command (`docs.2`). `tests/t-docs.sh` finds each new command in the usage, as it does every command README names.
+
+**4.5** `README.md`'s bolt paragraph, its *asked* state, ops's role and the landings card's rows; `plugin/skills/crew/SKILL.md`'s proven bolt and `crew bolt submit`; `plugin/bin/crew`'s and `plan.py`'s `bolt submit` usage; `main-ops.md`'s answer to the user's words in its pane; `plan.submit_refused` and `landing_refused_said`'s "none": each says a bolt lands on proof, or, marked to stay, on the user's send. `tests/t-docs.sh` and `tests/t-briefs.sh` assert the new words and `lacks` the old; `tests/py/test_bolt_commands.py` and `tests/py/test_landing.py` pin crew's own.
 
 **4.4** `tests/t-journey-land.sh`:
 - its bolts are planned with `crew bolt new … --stays`, `y` and those of its loop, so its card, send, preview and landing steps stand as they are;

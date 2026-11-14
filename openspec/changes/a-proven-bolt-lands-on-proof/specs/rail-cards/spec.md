@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: A proven bolt not marked to stay lands on proof, its land posted by the card's raise
-Each raise of a kit's landings card SHALL post, by one plan write in main-level ops's name after its sends' lands, a `land` of each bolt that can land, its forecast clear of main, not marked to stay, not left by the user, with no land posted at its head now and no hold on its drive or kit, in the plan's order, at any hour (record 0067, `plan.16`). Such a bolt SHALL be no row of the card, and no agent SHALL run anything for it.
+Each raise of a kit's landings card SHALL post, by one plan write in main-level ops's name after its sends' lands, a `land` of each bolt that can land, its forecast made and clear of main, not marked to stay, not left by the user, with no land posted at its head now and no hold on its drive or kit at the write's tip, in the plan's order, at any hour (record 0067, `plan.16`). Such a bolt SHALL be no row of the card, and no agent SHALL run anything for it.
 
 #### Scenario: Proven at night
 - **WHEN** bolt `y` of crew, not marked to stay, reads proven at `abc1234` at 03:10, every unit's latest change having been in a batch the user answered, and the raise of `land/crew` forecasts it clear of main
@@ -14,6 +14,10 @@ Each raise of a kit's landings card SHALL post, by one plan write in main-level 
 #### Scenario: Forecast to conflict with main
 - **WHEN** the raise's forecast finds `y` in conflict with main at `abc1234`
 - **THEN** no land of `y` is posted, the conflict is recorded, `y` takes main first, and once it reads proven at a new head forecast clear of main, the next raise posts its land on proof
+
+#### Scenario: A forecast not made
+- **WHEN** the raise of `land/crew` cannot make `y`'s forecast against main, git not telling
+- **THEN** no land of `y` is posted, the raise says the forecast could not be made and why, and the next raise once a forecast finds `y` clear of main posts its land on proof
 
 #### Scenario: Beside a bolt marked to stay
 - **WHEN** bolts `y` and `z` of crew read proven, `z` marked to stay, both forecast clear of main
@@ -47,7 +51,7 @@ A kit's landings card SHALL ask only about bolts marked to stay, bolts the user 
 
 #### Scenario: A land on proof stopped
 - **WHEN** crew posted `y`'s land on proof at `abc1234` and the runner answered it refused, a place on `bolt/y` being live
-- **THEN** `land/crew` asks for `y` with its box, its row saying its land on proof at `abc1234` was stopped, in the runner's words, nothing of the bolt's, no raise posts another land of `y` at that head, and the user's send lands it
+- **THEN** `land/crew` asks for `y` with its box, its row saying its land on proof at `abc1234` was stopped, in the runner's words, nothing of the bolt's, no raise posts another land of `y` at that head, and the user's send lands it, a stop of crew's land on proof spending no send of theirs
 
 #### Scenario: A bolt the user left
 - **WHEN** the user left `y`, not marked to stay, on their send of an earlier card, and `y` reads proven
@@ -98,6 +102,14 @@ While a hold the user put on a drive or a kit stands (bolt-plan), crew SHALL pos
 #### Scenario: The drive's hold outlasts the kit's
 - **WHEN** holds on the drive swancloud and on its kit crew stand, and the user lifts crew's
 - **THEN** no land of crew's bolts is posted while the drive's hold stands
+
+#### Scenario: A card followed under a hold
+- **WHEN** a hold on crew stands, the user sent `land/crew` ticking `z`, and `w`, marked to stay, reads proven since
+- **THEN** the card is closed saying the user's send stands for `z`, no land asked while the hold stands, and a card following it asks for `w`
+
+#### Scenario: A hold put while a raise posts
+- **WHEN** the user puts a hold on crew while a raise of `land/crew` is posting `y`'s land on proof
+- **THEN** the raise's write, applied to a tip that holds the hold, posts no land
 
 ## RENAMED Requirements
 
@@ -186,3 +198,30 @@ A send ticking none SHALL close the landings card, landing nothing. With no row 
 #### Scenario: Nothing to ask and nothing to tell
 - **WHEN** `land/crew` waits on the user with `z`, marked to stay, the user lifts `z`'s mark, `z` lands on proof, and the user taps the notice that tells it
 - **THEN** no card of crew's landings is open
+
+### Requirement: A landings row is due one land for each send and head
+A row of a kit's landings card SHALL be due a land when its box was ticked on a send that stands for it at its head now, it can land, and no land of its launch stands undecided or was posted at that head, but a land stopped there on proof or on another send, which bars no send. A send read twice SHALL post once, and a send that stands through a take-main fix SHALL post again once the bolt reads proven at its new head. A write replayed on a tip that already holds the lands SHALL write nothing.
+
+#### Scenario: The send read again
+- **WHEN** a later raise reads the user's send on `land/crew` with `y` and `z` still at the heads they were ticked at, their lands posted
+- **THEN** it posts no land
+
+#### Scenario: A ticked bolt taking main in
+- **WHEN** the user ticked `z` at `abc1234`, Flume refused `z`'s landing in conflict with main, and `z`'s take-main fix merged, so `z` reads proven at `def5678` with its own work unchanged
+- **THEN** no land of `z` is posted while it takes main in, and the first raise after it reads proven at `def5678` posts one land of `z` on that send
+
+#### Scenario: A stopped row on the same send
+- **WHEN** the runner answered `z`'s land on the user's send refused
+- **THEN** no raise posts another land of `z` on that send
+
+#### Scenario: A send at the head of a stopped land on proof
+- **WHEN** crew's land on proof of `y` at `abc1234` was stopped by the runner, and the user sends `land/crew` ticking `y`, still at `abc1234`
+- **THEN** the next raise posts one land of `y` at `abc1234` on that send
+
+#### Scenario: A later card at the head of a stopped land
+- **WHEN** `z`'s land on the user's send of one card was stopped at `abc1234`, and they send the card that follows it ticking `z`, still at `abc1234`
+- **THEN** the next raise posts one land of `z` at `abc1234` on that later send
+
+#### Scenario: A write replayed
+- **WHEN** the plan write posting `y`'s land is applied again to a tip that already holds that land
+- **THEN** it writes nothing
