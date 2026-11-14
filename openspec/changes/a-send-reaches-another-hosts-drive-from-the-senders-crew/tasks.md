@@ -13,5 +13,5 @@ Run each check from the worktree's root, as written. A logic check runs pytest t
 
 ## 3. The briefs and the docs
 
-- [ ] 3.1 Every brief's line beside its roster says anything for another drive is sent with `crew send <drive> "<text>"`, run on your own host and never over ssh, which reaches that drive's operator, its one door, wherever it runs, and to nobody else (design, Decision 4; Task notes 3.1). Verify `tests/suite t-briefs` ends with "0 failed".
+- [x] 3.1 Every brief's line beside its roster says anything for another drive is sent with `crew send <drive> "<text>"`, run on your own host and never over ssh, which reaches that drive's operator, its one door, wherever it runs, and to nobody else (design, Decision 4; Task notes 3.1). Verify `tests/suite t-briefs` ends with "0 failed".
 - [ ] 3.2 README, the crew skill and `crew`'s usage say a host's teams file names each drive its agents send to, that `crew send` runs on the sender's host, typed through ssh and herdr where the drive runs on another and its entry pushed from the sending host, never over ssh, and that a drive the file does not name is refused with nothing sent (design, Decision 5; Task notes 3.2). Verify `tests/suite t-docs t-help` ends with "0 failed".

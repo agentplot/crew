@@ -1977,12 +1977,12 @@ SENDERS = ("A message in your pane that begins `[crew tell from <name>]` was sen
            "sent from the board about the item it names, and answers no card; one that begins `[crew]` is crew's own; "
            "anything else typed there is the user.")
 
-# How anything for another drive is sent, beside every brief's roster (briefs.10): to that drive's operator,
-# its one door, and to nobody else.
+# How anything for another drive is sent, beside every brief's roster (briefs.10, record 0068): run on the agent's own
+# host and never over ssh, to that drive's operator, its one door, wherever it runs, and to nobody else.
 def sends(cmd):
     """How a brief says anything for another drive is sent, by crew's command cmd."""
-    return (f"`{cmd} send <drive> \"<text>\"`, which reaches that drive's operator, its one door, "
-            "and to nobody else")
+    return (f"`{cmd} send <drive> \"<text>\"`, run on your own host and never over ssh, which reaches that drive's "
+            "operator, its one door, wherever it runs, and to nobody else")
 
 # How an agent reports results, the same in every brief that reports them.
 RESULTS = ("## Test, check and proof results\n\n"
