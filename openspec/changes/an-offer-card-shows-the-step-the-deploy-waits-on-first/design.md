@@ -52,7 +52,7 @@ Alternative: crew computes the key, sha256 of `user\nbefore\n<compared>`. Not ta
 
 - **Summary.** It opens "It waits on N step(s) of yours before the deploy". While one is open, it goes on: ": tick each once it is done, and the deploy; your send with every box ticked is the word to deploy, and a box left unticked deploys nothing." Once all are done: ", each done."
 - **Face.** First, a text list titled "Before the deploy: N step(s), yours", each step `<n>  <words>` with its why, or `done`, under it. Then the notes or the landings, then the after-deploy steps.
-- **Form while a step is open.** `kind: multi`, `intent: decide`, `highStakes`, `recommendedIds: []`, `multi {min 0, max}`. The options are each open step, `before:<n>` labelled `Done: <n>. <words>`, its why as detail, then `deploy`, labelled `Deploy <head> to <env>`. Its rationale says what follows a yes, as the approval's did. Past five boxes the card asks lists of at most five, each a question carrying the rationale, the deploy's box last (as the landings card does). Pending You refuses a card's rationale beside questions.
+- **Form while a step is open.** `kind: multi`, `intent: decide`, `highStakes`, `recommendedIds: []`, `multi {min 0, max}`. The options are each open step, `before:<n>` labelled `Done: <n>. <words>`, its why as detail, then `deploy`, labelled `Deploy <head> to <env>`. Its rationale says what follows a yes, as the approval's did. The card is one list of at most five boxes whatever the steps: past four open steps, every step past the third shares the fourth box, since Pending You refuses a card of questions carrying highStakes (`a-deploy-card-is-raised-whatever-its-steps`).
 - **Form once every step is done**, or when there are none: the approve it always was.
 
 `deploy_form(f)` is `boxes` while one is open, else None. The builder hands it back as `form`.
@@ -102,7 +102,7 @@ None: every behaviour here is proved by the logic tier and `t-journey-ops`. The 
 
 **1.4** `ops.ticked_refusal`, `ops.ticks_of`, `ops.offered_steps`, `ops.approve`, `ops.step_closed` (factored from `step`), the parser's `--ticked` and `args_refusal`'s `TICKED`. Cases: open, ticked, a stray number, none waited, done already, not recorded; `args_refusal` for `--ticked 1,x` and `1,2`.
 
-**1.5** `ops.deploy_facts(…, waited)`, `cards.deploy_card`, `cards.deploy_form`. Cases: one step open (summary, face order, the multi's options, highStakes, no approve, `form`); every step done (approve, `done` on the face); five steps (two lists).
+**1.5** `ops.deploy_facts(…, waited)`, `cards.deploy_card`, `cards.deploy_form`. Cases: one step open (summary, face order, the multi's options, highStakes, no approve, `form`); every step done (approve, `done` on the face). Past four open steps, `a-deploy-card-is-raised-whatever-its-steps`'s cases.
 
 **1.6** `plan.built_fields` adds `Form`; `cards.form_asked`; `ops.raise_deploy` passes `kind_changed`; `ops.step` marks `before` and raises the deploy's card again on a carried step's `done`. Cases: `built_fields`, `form_asked`, `raise_deploy` against a held card with and without `Form: boxes`, `step` marking the deployer's record, and `step` raising the card on `done`.
 

@@ -25,7 +25,7 @@ A step handed to `crew ops offer` marked `before` among its when words SHALL be 
 - **THEN** the offer is refused naming the line, a step the deploy waits on being the user's alone, and nothing is offered
 
 ### Requirement: A deploy's card with a step it waits on open is boxes whose send with every box ticked is the word
-While a step the deploy waits on is open, the deploy's card SHALL be boxes carrying highStakes, none ticked: a box for each open step, `before:<n>`, then one for the deploy, `deploy`, in lists of five at most. Its send with every box ticked SHALL be the word; one with a box unticked SHALL be none. Once every such step is done it SHALL be the hold-to-approve. A card moving between the two SHALL be followed, not changed, the run record keeping each post's and change's form.
+While a step the deploy waits on is open, the deploy's card SHALL be boxes carrying highStakes, none ticked: the open steps' boxes, `before:<n>`, then one for the deploy, `deploy`, in one list. Its send with every box ticked SHALL be the word; one with a box unticked SHALL be none. Once every such step is done it SHALL be the hold-to-approve. A card moving between the two SHALL be followed, not changed, the run record keeping each post's and change's form.
 
 #### Scenario: One step open
 - **WHEN** swancloud-srv's offer of `bbbbbbb` waits on the user's step 1, not done
@@ -34,10 +34,6 @@ While a step the deploy waits on is open, the deploy's card SHALL be boxes carry
 #### Scenario: Every step it waits on done
 - **WHEN** the step the deploy waits on is recorded done while its card of boxes is open
 - **THEN** the card is raised again as the hold-to-approve, its face listing the step done, and the boxes card is followed rather than changed
-
-#### Scenario: Five steps the deploy waits on
-- **WHEN** the deploy waits on five steps of the user's, none done
-- **THEN** its card asks two lists, the first of three steps' boxes and the second of two and the deploy's, each carrying what follows a yes
 
 ### Requirement: A step the deploy waits on has no card of its own while its offer is open
 A user's step recorded with the words of a step the environment's open offer waits on SHALL be recorded as one, `before` among its when words, and SHALL have no row and no card of its own while that offer is open, the deploy's row saying it waits on it. With no offer open, it SHALL have its row and card as any user's step.
