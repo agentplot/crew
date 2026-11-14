@@ -1477,7 +1477,7 @@ def test_eight_proven_bolts_post_one_list_of_five_boxes_and_nothing_is_refused(m
     carrying highStakes on the card posts, the other three waiting on its face, recorded :next."""
     eight = [f"b{i}" for i in range(1, 9)]
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\nStays: yes\n\n" for b in eight) + "%rec: Unit\n\n"))
     acts = LandActs({b: row(b) for b in eight}, answers=dict(POSTED, post_request=marked_post))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     post = next(a for t, a in acts.calls if t == "post_request")
@@ -1499,7 +1499,7 @@ def test_a_send_with_rows_waiting_for_a_box_posts_the_card_that_follows_asking_f
     answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": [f"land:b{i}" for i in range(1, 6)]}}
     answers = dict(POSTED, get_request=(answer, None), post_request=({"requestId": "req_k2", "version": 1}, None))
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\nStays: yes\n\n" for b in eight) + "%rec: Unit\n\n"))
     acts = LandActs({b: row(b) for b in eight}, held, answers=answers)
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k2"
     close = next(e for e in acts.emitted if e["Act"] == "card.close")
@@ -1708,7 +1708,7 @@ def test_a_raise_reading_its_card_answered_records_the_answer_once_with_the_bolt
     held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234 z@abc1234")]
     answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"]}}
     acts = LandActs({"y": row("y")}, held, answers={"get_request": (answer, None)})
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\n\n%rec: Unit\n\n"))
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\nBolt: y\nRepo: crew\nPath: flume\nStays: yes\n\n%rec: Unit\n\n"))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     answers = [e for e in acts.emitted if e["Act"] == "card.answer"]
     assert answers == [dict(Act="card.answer", On=["kit/crew"], by="swancloud-ops", Card="req_k1", Key="land/crew",
@@ -1757,7 +1757,7 @@ def test_one_left_out_closes_the_card_and_a_new_one_follows_it_with_that_bolt_un
     answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"choiceIds": ["land:y"]}}
     answers = dict(POSTED, get_request=(answer, None), post_request=({"requestId": "req_k2", "version": 1}, None))
     acts = LandActs({"z": row("z")}, held, [dict(Act="bolt.land", On=["bolt/y"], Head="1" * 40)], answers)
-    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\nBolt: z\nRepo: crew\nPath: flume\n\n%rec: Unit\n\n"))
+    monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan("%rec: Bolt\n\nBolt: z\nRepo: crew\nPath: flume\nStays: yes\n\n%rec: Unit\n\n"))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k2"
     close = next(e for e in acts.emitted if e["Act"] == "card.close")
     assert (close["Outcome"], close["Rows"]) == (f"Landed on GitHub's main: y at 1111111;{TIMER} Left: z.", "1")
@@ -1790,7 +1790,7 @@ def test_a_card_posted_after_the_kits_last_one_says_which_bolts_joined_moved_or_
                  Answer="ticked y, left z")]
     acts = LandActs({"z": row("z"), "w": row("w", H2)}, held, [dict(Act="bolt.land", On=["bolt/y"], Head="1" * 40)], POSTED)
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in ("z", "w")) + "%rec: Unit\n\n"))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\nStays: yes\n\n" for b in ("z", "w")) + "%rec: Unit\n\n"))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     post = next(a for t, a in acts.calls if t == "post_request")
     assert post["follows"] == "req_k1" and post["summary"].startswith(
@@ -1817,7 +1817,7 @@ def test_the_card_that_follows_says_the_rows_that_had_no_box_wait_on_it(monkeypa
             dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k1", State="closed", Rows="3", At="2026-10-23T14:02:00Z",
                  Answer="ticked b1, b2, b3, b4 and b5", Heads=" ".join(f"b{i}@abc1234" for i in range(1, 6)))]
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in eight) + "%rec: Unit\n\n"))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\nStays: yes\n\n" for b in eight) + "%rec: Unit\n\n"))
     acts = LandActs({b: row(b) for b in eight}, held, answers=POSTED)
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     post = next(a for t, a in acts.calls if t == "post_request")
@@ -2096,7 +2096,7 @@ def test_a_forecast_that_flips_between_raises_holds_the_card_to_one_request_chan
         ("card.update", "req_k1", "y@abc1234 z@def5678"), ("card.update", "req_k1", "y@abc1234 z@def5678:main")]
 
 
-FOUR = ("%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in ("a", "b", "c", "d")) + "%rec: Unit\n\n")
+FOUR = ("%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\nStays: yes\n\n" for b in ("a", "b", "c", "d")) + "%rec: Unit\n\n")
 FOUR_POSTED = dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="a@abc1234 b@abc1234 c@abc1234 d@abc1234")
 
 
@@ -2250,7 +2250,7 @@ def test_a_left_bolt_ticked_at_the_same_heads_is_recorded_held_and_takes_main_fi
     assert [t for t, _ in acts.calls] == ["get_request"]  # the card is left as it is, the send standing for z
 
 
-ONLY_Z = "%rec: Bolt\n\nBolt: z\nRepo: crew\nPath: flume\n\n%rec: Unit\n\n"
+ONLY_Z = "%rec: Bolt\n\nBolt: z\nRepo: crew\nPath: flume\nStays: yes\n\n%rec: Unit\n\n"
 
 
 def refused_and_closed(monkeypatch):
@@ -2317,7 +2317,7 @@ def test_a_card_posted_after_the_users_send_opens_with_what_changed_of_a_bolt_as
     acts = LandActs({"z": row("z", H2), "w": row("w")}, held, [dict(Act="bolt.land", On=["bolt/y"], Head="1" * 40)], POSTED,
                     works={"z": work([LEASE])})
     monkeypatch.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(
-        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\n\n" for b in ("z", "w")) + "%rec: Unit\n\n"))
+        "%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: crew\nPath: flume\nStays: yes\n\n" for b in ("z", "w")) + "%rec: Unit\n\n"))
     assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1"
     changed = "z's head is now def5678, with work of its own since your send at abc1234: fix: keep the lease"
     post = next(a for t, a in acts.calls if t == "post_request")
