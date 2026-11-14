@@ -275,3 +275,17 @@ constitution=$(cat "$CREW/plugin/skills/constitution/SKILL.md")
 has "$constitution" "A record holds only how the kit is built or behaves"
 has "$constitution" "an order of work, a priority, a freeze on fixes, a schedule or a trial, which bolt or unit carries something, and how a one-off move, rename or carry-over is carried out are a plan's and get no record"
 ok "the constitution skill says a kit's record holds only how the kit is built or behaves, and a plan matter gets no record"
+
+# A proven bolt not marked to stay lands on proof, a bolt is marked to stay by --stays and the mark lifted by crew bolt
+# unstay, and a hold is put and lifted by crew plan hold and crew plan go, in README, the skill and the usage alike
+# (a-proven-bolt-lands-on-proof, Decision 8; docs.2).
+for doc in usage readme skill; do
+  for want in "lands on proof" "--stays" "unstay" "plan  hold" "plan  go"; do
+    [[ $doc == skill && $want == "plan  "* ]] && want="crew ${want/  / }"
+    [[ $doc == readme && $want == "unstay" ]] && want="crew bolt unstay <bolt>"
+    has "${!doc}" "$want"
+  done
+done
+has "$readme" "The kit's landings card asks only about the rows a send must land"
+has "$readme" "A Hold record holds a kit's landings, or with no \`Kit\` the drive's"
+ok "README, the skill and the usage say a proven bolt not marked to stay lands on proof, and name --stays, crew bolt unstay, crew plan hold and crew plan go"
