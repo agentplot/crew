@@ -113,9 +113,9 @@ has "$usage" "start, the user's or a proposal's, makes no branch and reads no ho
 has "$usage" "drop drops each"; has "$usage" "last its base place's"
 has "$usage" "refused at once, before it reads anything, with any arguments"; has "$usage" "refused at once, before it reads anything, naming the way: a fix of main lands on"
 has "$readme" "and last the launch of its base place, which Flume refuses while a place on its branch is live"
-has "$readme" "\`crew bolt submit\`, with any arguments, is refused at once, before it reads anything, naming the card's send as the way"
+has "$readme" "\`crew bolt submit\`, with any arguments, is refused at once, before it reads anything, naming proof, or the card's send for a bolt marked to stay, as the way"
 has "$readme" "\`crew main fix <kit> <name> --send\`, with or without \`--excerpt\`, is refused at once"
-has "$skill" "crew deletes no bolt branch"; has "$skill" "\`crew bolt submit <bolt>...\` is refused at once, naming the card's send"
+has "$skill" "crew deletes no bolt branch"; has "$skill" "\`crew bolt submit <bolt>...\` is refused at once, naming proof, or the card's send for a bolt marked to stay"
 has "$skill" "\`crew main fix <kit> <name> --send\` is refused at once, naming the card's send"
 claude=$(cat "$CREW/CLAUDE.md")
 for want in "a bolt lands on the user's send of its row on its kit's landings card, and on nothing else" \
@@ -288,4 +288,11 @@ for doc in usage readme skill; do
 done
 has "$readme" "The kit's landings card asks only about the rows a send must land"
 has "$readme" "A Hold record holds a kit's landings, or with no \`Kit\` the drive's"
+# and none of them still says every proven bolt waits for the user's send
+lacks "$readme" "it waits to land on the user's yes, a row of its kit's landings card, and a fix"
+lacks "$readme" "a row for each proven bolt waiting on its main, in the plan's order"
+lacks "$readme" "on the user's send on their kit's landings card"
+lacks "$readme" "naming the card's send as the way"
+lacks "$skill" "waits to land, a row of its kit's landings card, with a fix"
+lacks "$usage" "bolt lands on the user's send of its row on its kit's landings card"
 ok "README, the skill and the usage say a proven bolt not marked to stay lands on proof, and name --stays, crew bolt unstay, crew plan hold and crew plan go"

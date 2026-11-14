@@ -428,7 +428,7 @@ for want in "tell the user Flume's words, the check that failed, and start a fix
   "still lands on that send once it reads proven again, as its row and the read show, with nothing asked of the user" \
   "with or without a landings card of the kit open" "a bolt it can't tell of, it names, and posts no land for it" \
   "crew asks for again on a card saying what changed" \
-  "The user's words in this pane are no word to land a bolt or a fix of main: land nothing and post nothing on them, and tell the user that their send of the row on the kit's landings card lands it" \
+  "The user's words in this pane are no word to land a bolt or a fix of main: land nothing and post nothing on them, and tell the user that a bolt marked to stay, or a fix of main, lands on their send of its row on the kit's landings card, and any other proven bolt lands on proof with nothing asked of them" \
   "their send still stands for it: the close says so, and keeps it" \
   "never merge, rebase, reset or fast-forward main or a bolt's branch by git" "and a host's own main lagging GitHub's stops nothing" \
   "shows every unit merged and the bolt's verification green" \
@@ -438,6 +438,7 @@ for want in "tell the user Flume's words, the check that failed, and start a fix
 done
 lacks "$out" "git rebase --abort"; lacks "$out" "proof in dev"; lacks "$out" "read-tree"; lacks "$out" "behind GitHub's, crew refuses"
 lacks "$out" "The user's words in this pane stand the same way"; lacks "$out" "submit that bolt again"
+lacks "$out" "tell the user that their send of the row on the kit's landings card lands it"
 ok "a landing's conflict becomes a fix that takes main into the bolt; the bolt's proof is its verification, and ops proves nothing"
 
 # A question goes up a chain of command (briefs.11, record 0031): the planner, main-level ops and the design agent
