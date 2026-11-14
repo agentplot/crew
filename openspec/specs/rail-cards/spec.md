@@ -1745,13 +1745,6 @@ With two or more rows, those that can land and those beside them taking main fir
 - **WHEN** crew raises `land/crew` with eight rows that can land
 - **THEN** the card is one list of five boxes with `highStakes` set on the card, and it asks no questions
 
-### Requirement: A deploy's card of questions carries highStakes on each question
-A deploy's card that asks questions SHALL carry `highStakes` on each question whose answer is high stakes and SHALL NOT carry it on the card, which Pending You refuses beside questions: "With questions, each question carries its own highStakes; leave the card's highStakes out." A card of one list SHALL carry it on the card.
-
-#### Scenario: A deploy waiting on five steps
-- **WHEN** a deploy waits on five steps of the user's, none done
-- **THEN** its card asks two lists, each with `highStakes` set, and the card carries none
-
 ### Requirement: A landings card holds five boxes and the rest of its rows wait on its face
 A landings card of more than five rows SHALL give boxes to five: first the rows crew would tick, then the others, each in the rows' order. Every other row SHALL stay on the card's face in its place, marked as waiting for a box, and its post or change SHALL record it as having none. A row with no box SHALL be no word to land. The summary SHALL say how many rows wait for a box and that the card that follows the send asks for them.
 
@@ -1929,3 +1922,33 @@ While a hold the user put on a drive or a kit stands (bolt-plan), crew SHALL pos
 #### Scenario: A hold put while a raise posts
 - **WHEN** the user puts a hold on crew while a raise of `land/crew` is posting `y`'s land on proof
 - **THEN** the raise's write, applied to a tip that holds the hold, posts no land
+
+### Requirement: A deploy's card waiting on steps is one list of at most five boxes
+While a step the deploy waits on is open, the deploy's card SHALL be one list of at most five boxes, the deploy's box last, carrying `highStakes` and what follows a yes on the card, whatever the number of steps. It SHALL ask no questions, since Pending You refuses a card of questions carrying `highStakes`, on the card or on any question.
+
+#### Scenario: Seven steps the deploy waits on, and Pending You refuses questions carrying highStakes
+- **WHEN** swancloud-srv's offer of `bbbbbbb` waits on seven steps of the user's, none done, and Pending You refuses a card of questions carrying `highStakes` anywhere
+- **THEN** `deploy/swancloud-srv` is posted as one list of five boxes with `highStakes` set on the card, none ticked, the deploy's box last, it asks no questions, and its post is recorded with nothing refused and the form `boxes`
+
+#### Scenario: Four steps the deploy waits on
+- **WHEN** the deploy waits on four steps of the user's, none done
+- **THEN** its card is one list of five boxes, `before:1` to `before:4` and `deploy`, each step with a box of its own
+
+### Requirement: Past four open steps a deploy's fourth box holds the rest
+With more than four open steps, the first three SHALL each have a box, and the fourth box SHALL hold every other open step, its id `before:` and their numbers joined by `-`, its label naming their numbers. Every step SHALL stay on the face with its why, and the summary SHALL say which steps share the fourth box. The word SHALL be the send with every box ticked, `crew ops approve --ticked` naming each step of each ticked box, and SHALL be refused naming any step it leaves out.
+
+#### Scenario: Seven steps share four boxes
+- **WHEN** the deploy waits on seven steps of the user's, none done
+- **THEN** its boxes are `before:1`, `before:2`, `before:3`, `before:4-5-6-7` labelled "Done: steps 4, 5, 6 and 7", and `deploy`, its face lists all seven with their whys, and its summary says steps 4, 5, 6 and 7 share the fourth box
+
+#### Scenario: A step done among six
+- **WHEN** the deploy waits on six steps of the user's and step 2 is done
+- **THEN** its boxes are `before:1`, `before:3`, `before:4`, `before:5-6` and `deploy`, and its face lists step 2 done
+
+#### Scenario: A step recorded done while the card of a shared box waits
+- **WHEN** the card of seven open steps is open and step 5 is recorded done
+- **THEN** the card is changed in place, not followed, its boxes `before:1` to `before:3`, `before:4-6-7` and `deploy`
+
+#### Scenario: The send's shared box named as one step
+- **WHEN** the user sends that card with every box ticked and main-level ops runs `crew ops approve swancloud-srv --to bbbbbbb --ticked 1,2,3,4`
+- **THEN** it is refused naming steps 5, 6 and 7, each with its words, and no word is given; `--ticked 1,2,3,4,5,6,7` is refused nothing
