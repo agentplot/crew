@@ -594,3 +594,61 @@ class TestDropOfAStartedBolt:
         op.change(w)
         op.after("WilldanGroup/crew-state", "a" * 40)
         assert capsys.readouterr().out == ""
+
+
+class TestUnstay:
+    """bolt-plan "The user lifts a bolt's mark to stay" (record 0067): crew bolt unstay lifts the mark in one write
+    recording bolt.unstay, the user's or a proposal's alone, refused for a bolt not marked, and hands a started bolt's
+    kit card a raise, so the bolt lands on its next proof (land_hand)."""
+
+    def marked(self, started=True):
+        w = fresh()
+        b = w.plan.bolt("console-pages")
+        b.set("Stays", "yes")
+        if started:
+            b.set("Path", "flume")
+        return w
+
+    def test_the_user_lifts_a_bolts_mark_to_stay(self, monkeypatch):
+        monkeypatch.setenv("CREW_AGENT", "chuck@mac-studio")
+        handed = []
+        monkeypatch.setattr(plan, "land_hand", lambda fleet, label, kit, note=None: handed.append((label, kit, note)))
+        assert plan.may_write(FLEET, ("bolt", "unstay"), plan.do_args("wldn", "bolt unstay console-pages")) is None
+        w = self.marked()
+        op = plan.op_bolt_unstay(known(w), plan.do_args("wldn", "bolt unstay console-pages"))
+        assert op.change(w) == ["console-pages"]
+        assert (w.plan.bolt("console-pages").get("Stays"), op.act, op.on) == (None, "bolt.unstay", ["bolt/console-pages"])
+        op.after("WilldanGroup/crew-state", "a" * 40)
+        assert handed == [("wldn", KIT, "console-pages's mark to stay was lifted, so it lands on its next proof")]
+        handed.clear()
+        w = self.marked(started=False)
+        op = plan.op_bolt_unstay(known(w), plan.do_args("wldn", "bolt unstay console-pages"))
+        op.change(w)
+        op.after("WilldanGroup/crew-state", "a" * 40)
+        assert w.plan.bolt("console-pages").get("Stays") is None and handed == []
+
+    def test_a_proposal_lifting_a_mark_is_held_and_named(self):
+        """plan-proposals: a proposal may hold bolt unstay, said by name in its subjects."""
+        a = plan.do_args("wldn", "bolt unstay console-pages")
+        assert ("bolt", "unstay") in plan.PROPOSABLE and plan.summary([a]) == "lift bolt console-pages's mark to stay"
+        w = run(self.marked(), "bolt unstay console-pages")
+        assert w.plan.bolt("console-pages").get("Stays") is None
+
+    @pytest.mark.parametrize("agent, said", [
+        ("wldn-ops", "wldn-ops does not lift a bolt's mark to stay: the user lifts it, or approves wldn-planner's proposal "
+                     "holding crew bolt unstay; tell wldn-planner, who proposes it"),
+        ("wldn-design", "wldn-design does not lift a bolt's mark to stay: the user lifts it, or approves wldn-planner's proposal "
+                        "holding crew bolt unstay; tell wldn-planner, who proposes it"),
+        ("wldn-planner", "the planner changes the plan through a proposal: crew plan propose, not crew bolt unstay")])
+    def test_an_agent_lifting_a_mark_is_refused_naming_the_planner(self, monkeypatch, agent, said):
+        monkeypatch.setenv("CREW_AGENT", agent)
+        with pytest.raises(plan.Refusal) as e:
+            plan.may_write(FLEET, ("bolt", "unstay"), plan.do_args("wldn", "bolt unstay console-pages"))
+        assert str(e.value) == said
+
+    def test_a_bolt_not_marked_has_no_mark_to_lift(self):
+        w = fresh()
+        before = w.plan.text()
+        assert refusal(w, "bolt unstay console-pages") == (
+            "bolt console-pages is not marked to stay, so it has no mark to lift: it lands on proof already")
+        assert w.plan.text() == before

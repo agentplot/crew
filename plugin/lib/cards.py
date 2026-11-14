@@ -482,6 +482,8 @@ def drawn(before, after, argvs):
         elif key == ("bolt", "start"):
             secs, b = [("bolt", a.bolt)], block("START", a.bolt, wrap("its work launched through Flume", SAYS)
                                                 + (wrap(STAYS, SAYS) if stays_of(a) else []))
+        elif key == ("bolt", "unstay"):
+            secs, b = [("bolt", a.bolt)], block("UNSTAY", a.bolt, wrap("its mark to stay lifted: it lands on its next proof", SAYS))
         elif key == ("bolt", "order"):
             counts["moved"] += 1
             bolt_moves[a.bolt] = bolt_moves.get(a.bolt, 0) + 1

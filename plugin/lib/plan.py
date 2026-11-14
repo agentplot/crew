@@ -69,6 +69,8 @@ write that changes several files is one commit; its run-record entry follows it 
                                              launched anew. --stays, on new or start alone, marks the bolt to stay in
                                              the write that plans or starts it: it waits for the user's send to land,
                                              where a proven bolt not marked lands on proof
+  crew bolt unstay <bolt> [--label L]        the bolt's mark to stay lifted, the user's or a proposal's, refused for a bolt
+                                             not marked; a started bolt's kit card raised, so it lands on its next proof
   crew bolt order <bolt> --before <bolt>|--first|--last
   crew bolt drop <bolt> "<reason>" [--requeue]
                                              the bolt and its units out of the plan, or with --requeue its units
@@ -5020,7 +5022,7 @@ def bolts_local_said(fleet, t, plan):
 # ------------------------------------------------------------------------------------------ who writes what
 
 # The commands that write the plan directly, and the one role each agent crew started may use them in.
-PLAN_WRITES = {("bolt", "new"), ("bolt", "start"), ("bolt", "order"), ("bolt", "drop"), ("bolt", "land"), ("unit", "add"),
+PLAN_WRITES = {("bolt", "new"), ("bolt", "start"), ("bolt", "unstay"), ("bolt", "order"), ("bolt", "drop"), ("bolt", "land"), ("unit", "add"),
                ("unit", "split"), ("unit", "amend"), ("unit", "order"), ("unit", "after"), ("unit", "move"), ("unit", "drop"),
                ("chore", "add"), ("chore", "order"), ("chore", "after"), ("chore", "move"), ("chore", "drop"), ("kit", "rename")}
 
@@ -5061,6 +5063,9 @@ def may_write(fleet, key, a):
     if key == ("bolt", "start"):  # the user's choice of what runs (Decision 14 of the-team-machinery-leaves)
         fail(f"{name} does not start a bolt: the user starts it, or approves {planner_of(fleet, kind, of)}'s proposal holding "
              f"crew bolt start; tell {planner_of(fleet, kind, of)}, who proposes it")
+    if key == ("bolt", "unstay"):  # a lift lets a land be posted, and no agent's judgment lands a bolt (record 0067, roles.2)
+        fail(f"{name} does not lift a bolt's mark to stay: the user lifts it, or approves {planner_of(fleet, kind, of)}'s "
+             f"proposal holding crew bolt unstay; tell {planner_of(fleet, kind, of)}, who proposes it")
     if (kind == "design" and as_unit == ("unit", "add") and not a.bolt) or (kind == "main-ops" and key == ("bolt", "land")):
         return
     fail(f"{name} does not write the plan with crew {cmd}" + (" --bolt" if as_unit == ("unit", "add") and a.bolt else "")
@@ -5304,6 +5309,29 @@ def op_bolt_start(ctx, a):
     def after(repo, sha):
         print(launched_said(b.get("Repo"), a.bolt, seen.get("launched") or [], seen.get("bolt")))
     return Op(label, change, f"plan({a.bolt}): start the bolt", "bolt.start", on=[f"bolt/{a.bolt}"], after=after)
+
+
+def op_bolt_unstay(ctx, a):
+    """crew bolt unstay <bolt>: the bolt's mark to stay lifted, in one write recording bolt.unstay on bolt/<bolt> (record
+    0067; bolt-plan "The user lifts a bolt's mark to stay"), so it lands on its next proof. The user runs it, or a
+    proposal holds it, as crew bolt start (may_write): any agent running it directly is refused, naming the planner, since
+    a lift lets a land be posted and no agent's judgment lands a bolt (roles.2). Refused, nothing written, for a bolt not
+    marked. Once a started bolt's mark is lifted, a raise of its kit's landings card is handed to the main level's host
+    (land_hand), which posts its land at once where it is proven already."""
+    label, plan = ctx.locate("Bolt", a.bolt)
+    fleet, seen = ctx.fleet, {}
+
+    def change(w):
+        b = w.bolt(a.bolt)
+        b.get("Stays") == "yes" or fail(f"bolt {a.bolt} is not marked to stay, so it has no mark to lift: it lands on proof already")
+        b.drop("Stays")
+        seen.update(kit=b.get("Repo"), started=started(b))
+        return [a.bolt]
+
+    def after(repo, sha):
+        if seen.get("started"):
+            land_hand(fleet, label, seen["kit"], note=f"{a.bolt}'s mark to stay was lifted, so it lands on its next proof")
+    return Op(label, change, f"plan({a.bolt}): lift the bolt's mark to stay", "bolt.unstay", on=[f"bolt/{a.bolt}"], after=after)
 
 
 def op_bolt_order(ctx, a):
@@ -5689,7 +5717,8 @@ def op_kit_rename(ctx, a):
 # The commands a proposal may hold, each built the same way whether run directly or inside a proposal. A chore's five are
 # a unit's, the kind read from the command (plan.11).
 OPS = {
-    ("bolt", "new"): op_bolt_new, ("bolt", "start"): op_bolt_start, ("bolt", "order"): op_bolt_order, ("bolt", "drop"): op_bolt_drop,
+    ("bolt", "new"): op_bolt_new, ("bolt", "start"): op_bolt_start, ("bolt", "unstay"): op_bolt_unstay, ("bolt", "order"): op_bolt_order,
+    ("bolt", "drop"): op_bolt_drop,
     ("unit", "add"): op_unit_add, ("unit", "split"): op_unit_split, ("unit", "amend"): op_unit_amend, ("unit", "order"): op_unit_order,
     ("unit", "after"): op_unit_after, ("unit", "move"): op_unit_move, ("unit", "drop"): op_unit_drop,
     ("chore", "add"): op_unit_add, ("chore", "order"): op_unit_order, ("chore", "after"): op_unit_after, ("chore", "move"): op_unit_move,
@@ -6295,6 +6324,7 @@ def objects(argvs):
 def summary(argvs):
     """A proposal's changes in a few words that name things and quote nothing anyone typed, for its subjects."""
     words = {("bolt", "new"): lambda a: f"new bolt {a.bolt}", ("bolt", "start"): lambda a: f"start bolt {a.bolt}",
+             ("bolt", "unstay"): lambda a: f"lift bolt {a.bolt}'s mark to stay",
              ("bolt", "order"): lambda a: f"order bolt {a.bolt}",
              ("bolt", "drop"): lambda a: f"drop bolt {a.bolt}",
              ("unit", "add"): lambda a: f"add {a.unit} to " + (a.bolt or f"the {a.repo} queue"),
@@ -6317,7 +6347,7 @@ def touched_by(plan, argvs):
     out = []
     for a in argvs:
         key, t = ("unit" if a.cmd == "chore" else a.cmd, a.sub), []
-        if key in (("bolt", "start"), ("bolt", "order"), ("bolt", "drop")):
+        if key in (("bolt", "start"), ("bolt", "unstay"), ("bolt", "order"), ("bolt", "drop")):
             t = [a.bolt]
             for u in [u for u, b in where.items() if b == a.bolt]:
                 if a.sub == "drop":
@@ -6800,8 +6830,12 @@ def describe(fleet, label, plan, p, alone=False, signal_of=None):
         if key == ("bolt", "new"):
             new_bolts[a.bolt] = a.goal
             lines = [f"**New bolt `{a.bolt}`** in {a.repo}", f"Goal: {a.goal}"] + [f"Source: {s}" for s in a.source]
+            lines += ["Stays: it stays unlanded until your send of its landings card"] if getattr(a, "stays", False) else []
         elif key == ("bolt", "start"):
             lines = [f"**Start bolt `{a.bolt}`**: its work launched through Flume", f"Goal: {goal_of(a.bolt)}"]
+            lines += ["Stays: it stays unlanded until your send of its landings card"] if getattr(a, "stays", False) else []
+        elif key == ("bolt", "unstay"):
+            lines = [f"**Lift bolt `{a.bolt}`'s mark to stay**: it lands on its next proof", f"Goal: {goal_of(a.bolt)}"]
         elif key == ("bolt", "order"):
             where = "first" if a.first else "last" if a.last else f"before `{a.before}`"
             lines = [f"**Order bolt `{a.bolt}`** {where}", f"Goal: {goal_of(a.bolt)}"]
@@ -14943,6 +14977,9 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("bolt")
     x.add_argument("--stays", action="store_true")
     x.add_argument("--label")
+    x = bo.add_parser("unstay")
+    x.add_argument("bolt")
+    x.add_argument("--label")
     x = bo.add_parser("order")
     x.add_argument("bolt")
     g = x.add_mutually_exclusive_group(required=True)
@@ -15150,7 +15187,8 @@ COMMANDS = {
     ("card", "read"): card_read, ("card", "answer"): batch_answer,
     ("record", None): record_status, ("answer", None): answer, ("fix", None): fix, ("main", "fix"): main_fix,
     ("role", "start"): role_start, ("role", "end"): role_end, ("role", "open"): role_open, ("role", "land"): role_land,
-    ("bolt", "new"): direct(("bolt", "new")), ("bolt", "start"): direct(("bolt", "start")), ("bolt", "order"): direct(("bolt", "order")), ("bolt", "drop"): direct(("bolt", "drop")),
+    ("bolt", "new"): direct(("bolt", "new")), ("bolt", "start"): direct(("bolt", "start")), ("bolt", "unstay"): direct(("bolt", "unstay")),
+    ("bolt", "order"): direct(("bolt", "order")), ("bolt", "drop"): direct(("bolt", "drop")),
     ("bolt", "land"): bolt_land, ("bolt", "submit"): bolt_submit, ("bolt", "leave"): bolt_leave,
     ("unit", "add"): direct(("unit", "add")), ("unit", "split"): direct(("unit", "split")), ("unit", "amend"): direct(("unit", "amend")),
     ("unit", "order"): direct(("unit", "order")), ("unit", "after"): direct(("unit", "after")),
@@ -15172,7 +15210,8 @@ COMMANDS = {
 HOST_COMMANDS = {(c, None) for c in ("_sweep", "_main", "_review", "_console", "_revive")} | {("drive", "set")}
 # The act a command that moves work records, done or refused. A command that only reads records nothing.
 ACTS = {
-    ("state", "init"): "state.init", ("drive", "set"): "drive.set", ("bolt", "new"): "bolt.new", ("bolt", "start"): "bolt.start", ("bolt", "order"): "bolt.order",
+    ("state", "init"): "state.init", ("drive", "set"): "drive.set", ("bolt", "new"): "bolt.new", ("bolt", "start"): "bolt.start",
+    ("bolt", "unstay"): "bolt.unstay", ("bolt", "order"): "bolt.order",
     ("bolt", "drop"): "bolt.drop", ("bolt", "land"): "bolt.land", ("bolt", "leave"): "bolt.leave",
     ("unit", "add"): "unit.add", ("unit", "split"): "unit.split",
     ("unit", "amend"): "unit.amend",
