@@ -1688,6 +1688,47 @@ class TestLandings:
         with pytest.raises(crew.Refusal):
             built.landings_card(dict(kit="crew", rows=[]))
 
+    TOLD = [dict(bolt="y", commit="9f1c2ab" + "0" * 33, at="2026-11-13T03:12:40Z"),
+            dict(bolt="w", commit="4d5e6f7" + "0" * 33, at="2026-11-13T04:40:02Z")]
+
+    def test_a_landings_notice_tells_what_landed_on_proof_and_asks_nothing(self):
+        """rail-cards "A notice" and "Only bolts landed on proof" (Decision 4 of a-proven-bolt-lands-on-proof): with no row
+        to ask about and bolts landed on proof to tell, the card is a one-tap notice in ops's name, kind fyi, intent
+        tell, urgency whenever, naming each with the commit main holds after it and when, asking nothing; its heads
+        mark each told bolt :landed, which no row reads."""
+        assert [built.landings_form(0, self.TOLD), built.landings_form(1, self.TOLD), built.landings_form(2, self.TOLD)] == [
+            "tell", "approve", "multi"]
+        b = built.landings_card(dict(kit="crew", rows=[], told=self.TOLD, ops="swancloud-ops", follows="req_k0"))
+        c = b["card"]
+        assert (b["key"], b["heads"], b["linked"]) == ("land/crew", ["y@9f1c2ab:landed", "w@4d5e6f7:landed"], True)
+        assert (c["kind"], c["intent"], c["urgency"], c["follows"]) == ("fyi", "tell", "whenever", "req_k0")
+        assert not any(k in c for k in ("options", "approve", "questions", "highStakes", "recommendedIds"))
+        assert c["title"] == "Landed on crew's main: y and w"
+        assert c["summary"].startswith("y at 9f1c2ab (2026-11-13 03:12Z) and w at 4d5e6f7 (2026-11-13 04:40Z) landed on crew's "
+                                       "main on proof")
+        assert c["artifacts"][0]["lines"] == ["y", "   main at 9f1c2ab, 2026-11-13 03:12Z", "w", "   main at 4d5e6f7, 2026-11-13 04:40Z"]
+        heads = " ".join(b["heads"])
+        assert plan.heads_landed(heads) == [("y", "9f1c2ab"), ("w", "4d5e6f7")]
+        assert plan.card_heads(heads) == [] and plan.heads_taking(heads) == set() and plan.heads_next(heads) == set()
+
+    def test_an_asking_landings_card_opens_with_what_landed_on_proof(self):
+        """rail-cards "A bolt marked to stay reads proven while the notice is open": an asking card, of one row or more,
+        opens its summary and its face with the bolts landed on proof since the user's last look, then its rows; its
+        heads give its rows and then each told bolt :landed."""
+        opening = "Landed on proof since your last look: y at 9f1c2ab (2026-11-13 03:12Z) and w at 4d5e6f7 (2026-11-13 04:40Z)."
+        one = built.landings_card(dict(kit="crew", rows=[landings_row("z")], told=self.TOLD, ops="swancloud-ops"))
+        assert one["card"]["kind"] == "approve" and one["card"]["summary"].startswith(opening)
+        assert one["card"]["artifacts"][0]["title"] == "Landed on crew's main on proof since your last look"
+        assert one["heads"] == ["z@abc1234", "y@9f1c2ab:landed", "w@4d5e6f7:landed"]
+        assert plan.card_heads(" ".join(one["heads"])) == [("z", "abc1234", False)]
+        two = built.landings_card(dict(kit="crew", rows=[landings_row("z"), landings_row("x")], told=self.TOLD))
+        c = two["card"]
+        assert c["kind"] == "multi" and c["summary"].startswith(opening + " 2 bolts wait to land on crew's main")
+        assert c["artifacts"][0]["lines"][0] == f"**{opening}**"
+        assert [o["id"] for o in c["options"]] == ["land:z", "land:x"]
+        plain = built.landings_card(dict(kit="crew", rows=[landings_row("z")]))
+        assert "Landed on proof" not in plain["card"]["summary"] and plain["heads"] == ["z@abc1234"]
+
 
 class TestLandingsBoxed:
     """rail-cards "A landings card holds five boxes and the rest of its rows wait on its face": five boxes, first to the
@@ -2723,3 +2764,15 @@ def test_a_picture_is_put_with_crews_own_agent(monkeypatch):
     assert req.get_header("Content-type") == "image/png"
     assert req.get_header("User-agent") == plan.cards.AGENT
     assert not req.get_header("User-agent").startswith("Python-urllib")
+
+
+def test_a_row_whose_land_on_proof_was_stopped_says_so_and_that_a_send_lands_it():
+    """rail-cards "A land on proof stopped" (Decision 3 of a-proven-bolt-lands-on-proof): the row says its land on proof
+    was stopped, in the runner's words, and that ticked it lands on this send, no send of the user's having been spent;
+    a stop of a land on a send says that send is spent, as before."""
+    words = "flume refused it: a place on bolt/y is live"
+    assert built.stopped_said({"stopped": ("abc1234" + "0" * 33, words), "stopped_on": "proof"}) == (
+        f"Its land on proof at abc1234 was stopped, nothing of the bolt's: {words}. Ticked, it lands on this send.")
+    assert built.stopped_said({"stopped": ("abc1234" + "0" * 33, words)}) == (
+        f"Its last landing at abc1234 was stopped, nothing of the bolt's: {words}. Your send of it is spent: ticked again, it lands "
+        "on this send.")

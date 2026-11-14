@@ -31,6 +31,9 @@ class TestAsked:
         (["kit", "rename", "a", "b", "-h"], "crew kit rename"),
         (["drive", "set", "pat", "--state", "pat/crew-state", "--help"], "crew drive set"),
         (["_sweep", "wldn", "switchboard-kit", "--dir", "/k", "--help"], "crew _sweep"),
+        (["bolt", "unstay", "console-pages", "--help"], "crew bolt unstay"),
+        (["plan", "hold", "Cutover", "--repo", "switchboard-kit", "-h"], "crew plan hold"),
+        (["plan", "go", "--repo", "switchboard-kit", "--help"], "crew plan go"),
     ], ids=lambda v: " ".join(v) if isinstance(v, list) else v)
     def test_the_flag_asks_for_the_usage_of_the_deepest_command_its_words_name(self, argv, prog):
         assert asked(plan.parser(), argv) == prog
@@ -78,6 +81,10 @@ class TestAnswered:
         (plan.main, ["review", "delivered", "--help"], "crew review delivered"),
         (plan.main, ["drive", "set", "pat", "--help"], "crew drive set"),
         (plan.main, ["drive", "set", "pat", "--accounts", "planner", "-h"], "crew drive set"),
+        (plan.main, ["bolt", "unstay", "console-pages", "-h"], "crew bolt unstay"),
+        (plan.main, ["plan", "hold", "Cutover", "--repo", "switchboard-kit", "--help"], "crew plan hold"),
+        (plan.main, ["plan", "hold", "--help"], "crew plan hold"),
+        (plan.main, ["plan", "go", "-h"], "crew plan go"),
         (board.main, ["board", "--help"], "crew board"),
         (board.main, ["_follow", "--help"], "crew _follow"),
         (board.main, ["_views", "wldn", "-h"], "crew _views"),

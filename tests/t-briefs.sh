@@ -212,6 +212,14 @@ for want in "bolt land <bolt>" "## Deploying main" "Every agent of the drive wld
   "the bolt's head line in \`$CREW/plugin/bin/crew bolts\`, on the board and in your band says it, \`landing asked, request 57\`, and once Flume has submitted it, \`landing #412 under test\`, as the runner reports it" \
   "Wait on nothing: crew reads the outcome itself" \
   "A stop is for a bolt crew has not yet posted a land for: a land posted cannot be withdrawn"; do has "$out" "$want"; done
+# a proven bolt not marked to stay lands on proof, the card asks only about the bolts a send must land, and a hold is the
+# user's (a-proven-bolt-lands-on-proof, Decision 8; plan.16, briefs.11 as record 0067 amends them)
+for want in "A proven bolt not marked to stay lands on proof" "crew posts its land in your name at any hour" "and you run nothing for it" \
+  "The kit's landings card asks only about bolts marked to stay, bolts the user left, bolts whose land on proof at their head was stopped, and fixes of main" \
+  "it tells the user each bolt that landed on proof" \
+  "\`$CREW/plugin/bin/crew plan hold \"<why>\" [--repo <kit>] --excerpt \"<their words, as they wrote them>\" --label wldn\`" \
+  "You lift none: the lift, \`$CREW/plugin/bin/crew plan go [--repo <kit>] --label wldn\`, is the user's alone" \
+  "lands on main on proof, or, marked to stay, on the user's send of its row on its kit's landings card"; do has "$out" "$want"; done
 for gone in "bolt submit" "wt submit" "sluice withdraw" "which you may run" "run it in the background and wait for it to end" \
   "through the kit's remove hooks" "landing queued as #355" "The bolt's branch goes too"; do lacks "$out" "$gone"; done
 for want in "Each row that can land carries what brings its preview up" "no preview is held while the card sits" \
@@ -326,6 +334,12 @@ done
 expect_ok crewpy brief wldn design; lacks "$out" "crew writes signals straight to"; has "$out" "signal show <signal id>"
 expect_ok crewpy brief wldn planner; has "$out" "signal show <signal id>"
 has "$out" "Never pass on a word to land, and never tell \`wldn-ops\` to land or deploy"
+# a bolt is marked to stay on the user's word when it is planned or started, and the planner puts no hold
+# (a-proven-bolt-lands-on-proof, Decision 8)
+for want in "a proven bolt not marked to stay lands on proof" \
+  "is marked to stay on their word, and only when it is planned or started: \`--stays\` on the proposal's \`bolt new\` or \`bolt start\`" \
+  "The mark is lifted by a proposal holding \`bolt unstay <bolt>\`, on the user's word, or by the user themselves" \
+  "You put no hold on a drive's or a kit's landings and lift none"; do has "$out" "$want"; done
 ok "every brief says who speaks in its pane, and the four that record findings quote the words and say what a refusal means"
 
 # Anything for another drive goes with crew send, to that drive's operator, and to nobody else (briefs.10):
@@ -414,7 +428,7 @@ for want in "tell the user Flume's words, the check that failed, and start a fix
   "still lands on that send once it reads proven again, as its row and the read show, with nothing asked of the user" \
   "with or without a landings card of the kit open" "a bolt it can't tell of, it names, and posts no land for it" \
   "crew asks for again on a card saying what changed" \
-  "The user's words in this pane are no word to land a bolt or a fix of main: land nothing and post nothing on them, and tell the user that their send of the row on the kit's landings card lands it" \
+  "The user's words in this pane are no word to land a bolt or a fix of main: land nothing and post nothing on them, and tell the user that a bolt marked to stay, or a fix of main, lands on their send of its row on the kit's landings card, and any other proven bolt lands on proof with nothing asked of them" \
   "their send still stands for it: the close says so, and keeps it" \
   "never merge, rebase, reset or fast-forward main or a bolt's branch by git" "and a host's own main lagging GitHub's stops nothing" \
   "shows every unit merged and the bolt's verification green" \
@@ -424,6 +438,7 @@ for want in "tell the user Flume's words, the check that failed, and start a fix
 done
 lacks "$out" "git rebase --abort"; lacks "$out" "proof in dev"; lacks "$out" "read-tree"; lacks "$out" "behind GitHub's, crew refuses"
 lacks "$out" "The user's words in this pane stand the same way"; lacks "$out" "submit that bolt again"
+lacks "$out" "tell the user that their send of the row on the kit's landings card lands it"
 ok "a landing's conflict becomes a fix that takes main into the bolt; the bolt's proof is its verification, and ops proves nothing"
 
 # A question goes up a chain of command (briefs.11, record 0031): the planner, main-level ops and the design agent

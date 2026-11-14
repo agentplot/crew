@@ -1661,3 +1661,52 @@ class TestBaseDrop:
         refused = ran({1: "flume-0.17.0/bolt-submitted"}, refused={2: "no"})
         assert runner.base_drop_due(p, rs, refused) == []
         assert runner.base_drop_due(plan.Plan(flume_plan([])), rs[:1], refused) == []
+
+
+def test_a_land_on_proof_is_due_once_for_each_head():
+    """rail-cards "A proven bolt not marked to stay lands on proof" and run-record "A land crew posts on proof is one
+    entry marked as on proof" (Decision 1 of a-proven-bolt-lands-on-proof): a row due a land on proof comes to
+    runner.lands_due as a send keyed by no card, so it is due one land at its head, none once one is posted there or
+    stands asked or unknown, none after a stop at that head and one at a new head; a send's rules for a card's rows are
+    unchanged, its stop spending that send at every head."""
+    from test_landings import H1, H2, TestLandsDue, box, work
+    t = TestLandsDue()
+    proof = lambda head: {"bolt/y": (None, head[:7])}  # noqa: E731
+    assert t.due([box("y")], proof(H1)) == [("bolt/y", 1)]
+    asked = t.requests(rec(5, "land", "bolt/y", Of=1))
+    posted = [dict(work="bolt/y", card=None, head=H1[:7], request=5)]
+    assert t.due([box("y")], proof(H1), asked, posted=posted) == []
+    assert t.due([box("y")], proof(H1), asked) == []  # asked of the runner, unanswered
+    assert t.due([box("y")], proof(H1), asked, t.reads(unplaced={5: "-"})) == []  # submitted: its place live, Flume's verdict to come
+    unread = {"deneb": runner.host_read("swancloud", "deneb", "5e1f0c2a" + "0" * 32, {}, {"answers.rec": "recfix refused it"})}
+    assert t.due([box("y")], proof(H1), asked, unread) == []
+    stopped = t.reads(refused={5: "flume refused the submission: a place on bolt/y is live"})
+    assert t.due([box("y")], proof(H1), asked, stopped, posted) == []
+    assert t.due([box("y", H2)], proof(H2), asked, stopped, posted) == [("bolt/y", 1)]
+    sent = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+    assert t.due([box("y", H2)], {"bolt/y": ("req_1", H1[:7])}, asked, stopped, sent, work={"y": work()}) == []
+    assert t.due([box("y", H2)], {"bolt/y": ("req_2", H2[:7])}, asked, stopped, sent) == [("bolt/y", 1)]
+
+
+def test_a_send_lands_a_row_at_the_head_of_a_land_stopped_on_proof_or_on_another_send():
+    """rail-cards "A landings row is due one land for each send and head" as a-proven-bolt-lands-on-proof modifies it
+    (Decision 3) and "A land on proof stopped": y's last land, request 5 at abc1234, was refused by the runner, nothing of
+    the bolt's, so no fix moves its head; posted on proof or on an earlier card's send, it bars no later send's land
+    there, while the send that posted it is spent and another land on proof is due there none."""
+    from test_landings import H1, TestLandsDue, box
+    t = TestLandsDue()
+    asked = t.requests(rec(5, "land", "bolt/y", Of=1))
+    stopped = t.reads(refused={5: "flume refused it: a place on bolt/y is live"})
+    on_proof = [dict(work="bolt/y", card=None, head=H1[:7], request=5)]
+    on_send = [dict(work="bolt/y", card="req_1", head=H1[:7], request=5)]
+    assert t.due([box("y")], {"bolt/y": ("req_2", H1[:7])}, asked, stopped, on_proof) == [("bolt/y", 1)]
+    assert t.due([box("y")], {"bolt/y": (None, H1[:7])}, asked, stopped, on_proof) == []
+    assert t.due([box("y")], {"bolt/y": ("req_2", H1[:7])}, asked, stopped, on_send) == [("bolt/y", 1)]
+    assert t.due([box("y")], {"bolt/y": ("req_1", H1[:7])}, asked, stopped, on_send) == []
+    # once the later send's land is posted at that head and asked, nothing more on it
+    both = t.requests(rec(5, "land", "bolt/y", Of=1), rec(6, "land", "bolt/y", Of=1))
+    again = on_proof + [dict(work="bolt/y", card="req_2", head=H1[:7], request=6)]
+    assert t.due([box("y")], {"bolt/y": ("req_2", H1[:7])}, both, stopped, again) == []
+    # a land at that head not stopped, refused for the bolt's own content, still bars every send there
+    refused = t.reads(launched={1: "flume-0.17.0/bolt-failed"}, unplaced={5: "-"})
+    assert runner.landing_of(t.requests(rec(5, "land", "bolt/y", Of=1))[0], [], refused)["outcome"] != "stopped"
