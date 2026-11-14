@@ -1002,6 +1002,19 @@ class TestTheStepsADeployWaitsOn:
             f'the deploy of {SRV} to bbbbbbb waits on your step 1 ("{MOVE}"), which its deployer has not recorded on {SRV} yet, so '
             f"crew can't mark it done: approve again once crew ops steps {SRV} lists it")
 
+    def test_a_shared_box_named_by_one_number_is_refused_naming_the_steps_it_leaves(self):
+        """rail-cards "The send's shared box named as one step": before:4-5-6-7 ticked and passed as 4 alone gives no word."""
+        words = [f"Do step {i} of the move." for i in range(1, 8)]
+        handed = ops.handed_steps("".join(f"step\t{i}\tuser\tbefore\t{SRV}\tWhy step {i}.\t{t}\n" for i, t in enumerate(words, 1)),
+                                  SRV, "swancloud")[0]
+        es = [SRV_OFFER] + [waiting(1 + i, text=t, key=f"{i}" * 12) for i, t in enumerate(words, 1)]
+        waited = ops.waited_on(handed, es, SRV)
+        assert [(w["n"], w["state"], bool(w["key"])) for w in waited] == [(str(i), "waiting", True) for i in range(1, 8)]
+        assert ops.ticked_refusal(SRV, S2, waited, ["1", "2", "3", "4"]) == (
+            f'the deploy of {SRV} to bbbbbbb waits on your steps 5 ("{words[4]}"), 6 ("{words[5]}") and 7 ("{words[6]}"), '
+            "not ticked: the word is its card's send with every step it waits on ticked")
+        assert ops.ticked_refusal(SRV, S2, waited, [str(i) for i in range(1, 8)]) is None
+
 
 class TestTheDeployCardOfAStepItWaitsOn:
     def facts(self, es):
