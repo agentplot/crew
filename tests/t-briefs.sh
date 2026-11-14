@@ -212,6 +212,14 @@ for want in "bolt land <bolt>" "## Deploying main" "Every agent of the drive wld
   "the bolt's head line in \`$CREW/plugin/bin/crew bolts\`, on the board and in your band says it, \`landing asked, request 57\`, and once Flume has submitted it, \`landing #412 under test\`, as the runner reports it" \
   "Wait on nothing: crew reads the outcome itself" \
   "A stop is for a bolt crew has not yet posted a land for: a land posted cannot be withdrawn"; do has "$out" "$want"; done
+# a proven bolt not marked to stay lands on proof, the card asks only about the bolts a send must land, and a hold is the
+# user's (a-proven-bolt-lands-on-proof, Decision 8; plan.16, briefs.11 as record 0067 amends them)
+for want in "A proven bolt not marked to stay lands on proof" "crew posts its land in your name at any hour" "and you run nothing for it" \
+  "The kit's landings card asks only about bolts marked to stay, bolts the user left, bolts whose land on proof at their head was stopped, and fixes of main" \
+  "it tells the user each bolt that landed on proof" \
+  "\`$CREW/plugin/bin/crew plan hold \"<why>\" [--repo <kit>] --excerpt \"<their words, as they wrote them>\" --label wldn\`" \
+  "You lift none: the lift, \`$CREW/plugin/bin/crew plan go [--repo <kit>] --label wldn\`, is the user's alone" \
+  "lands on main on proof, or, marked to stay, on the user's send of its row on its kit's landings card"; do has "$out" "$want"; done
 for gone in "bolt submit" "wt submit" "sluice withdraw" "which you may run" "run it in the background and wait for it to end" \
   "through the kit's remove hooks" "landing queued as #355" "The bolt's branch goes too"; do lacks "$out" "$gone"; done
 for want in "Each row that can land carries what brings its preview up" "no preview is held while the card sits" \
