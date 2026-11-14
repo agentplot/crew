@@ -411,7 +411,11 @@
 #                                      send anything for another drive to its operator, its one door, wherever it
 #                                      runs, naming the drive by its label; marked with who sent it and whom it was
 #                                      for, and recorded with its length; to an operator that runs as its kind, an ask
-#                                      of it carrying both; any other name refused, naming the drives
+#                                      of it carrying both; run on the sender's host, never over ssh, for each drive
+#                                      this host's teams file names, its own and those another host runs: typed into
+#                                      the operator through ssh and herdr where the drive runs on another host, and
+#                                      its entry pushed from the sending host; a drive the file does not name refused,
+#                                      naming the drives, with nothing sent
 #   crew revive                        after a restart, every main level's standing agent of this host whose pane came
 #                                      back with no agent in it, or dead, closed and opened again in its layout first,
 #                                      picked up from its last conversation and greeted, or started fresh and greeted

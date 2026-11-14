@@ -1,5 +1,6 @@
 # README, the crew skill and crew's usage name the same commands: every command in the README is in the usage,
-# and none of the removed ones is in any of them. CLAUDE.md names how an agent runs crew's tools through the shell
+# and none of the removed ones is in any of them; each says crew send runs on the sender's host, never over ssh, its
+# entry pushed from the sending host (record 0068). CLAUDE.md names how an agent runs crew's tools through the shell
 # per command, and no role brief or crew skill does (tests.7); a landing pushes nothing and levels no host in each of
 # them (docs.2, plan.18); a start launches the bolt's base place and makes no branch, a drop drops it last, and crew
 # deletes no branch, a dropped bolt's kept by sluice while it holds work main lacks; a bolt lands on the user's send,
@@ -63,6 +64,7 @@ for doc in usage readme skill; do
     lacks "${!doc}" "$gone"
   done
   has "${!doc}" 'crew send'; has "${!doc}" '<drive> "<text>"'
+  has "${!doc}" "pushed from the sending host"; has "${!doc}" "never over ssh"
 done
 for doc in usage readme skill; do lacks "${!doc}" "unit approve"; lacks "${!doc}" "review/<unit>"; done
 for doc in usage readme skill; do has "${!doc}" "crew review"; done
@@ -71,7 +73,7 @@ for gone in "unit run" "unit wait" "unit free" "chore run" "chore wait" "chore f
 done
 for gone in "unit run a code" "unit wait a" "chore free c"; do expect_fail "invalid choice" crew $gone; done
 expect_fail "crew: each drive's plan of bolts, its main level of agents in herdr" crew needs "what it needs"
-ok "none of the removed commands or roles is in the README, the skill or the usage, a team command among them, crew drives no stage and waits on none, crew send names a drive alone, and each names crew review"
+ok "none of the removed commands or roles is in the README, the skill or the usage, a team command among them, crew drives no stage and waits on none, crew send names a drive alone, runs on the sender's host and never over ssh, its entry pushed from the sending host, and each names crew review"
 
 for doc in usage readme skill; do has "${!doc}" "crew ops offer <env>"; has "${!doc}" "[--notes <file>] [--steps <file>]"; has "${!doc}" "[--ticked <n>[,<n>...]]"; done
 for doc in usage readme skill; do
