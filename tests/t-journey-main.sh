@@ -2,7 +2,9 @@
 # journeys' world (tests/journeys.sh): crew main up starts the main level, its operator among it, and nothing else,
 # no dispatcher on any host, each greeted once, its roles declared in crew's Flume roles file on its host (teams.25), one waiting on a question holding back no other; main status lists
 # them, each standing; a tell records its length and never its text; crew send reaches the drive named by its label's operator,
-# marked with whom it was for, and records its length, and a team's name from before teams left is refused; a command
+# marked with whom it was for, and records its length, and a team's name from before teams left is refused; a send from
+# the box to a Mac's drive its teams file names is typed there through ssh and herdr, runs no crew there, and its entry
+# is the box's own, pushed from the box as its own commit, its text nowhere in the branch (record 0068); a command
 # forwarded to the box and a send reach the crew the box installed, `crew` by its name on its login path, with crew's
 # repository in no drive's repos, and a box whose login path finds no crew fails naming it, nothing run there and its
 # checkout of crew not tried; a word from the board, piped to crew tell --board as the board's
@@ -71,6 +73,33 @@ eq "$(count mac-studio send) $(field mac-studio tell Chars)" "2 17"
 expect_fail "crew send sends to a drive by its label, not 'swb-2': drives madswan swancloud wldn" crew send swb-2 "x"
 expect_fail "crew send sends to a drive by its label, not 'nosuch'" crew send nosuch "x"
 eq "$(count mac-studio send)" "2"
+# A send from the box to a Mac's drive its teams file names, with no console for it (record 0068): the box's crew types
+# it into the operator on mac-studio through ssh and herdr, runs no crew command there, and keeps and pushes the entry
+# itself, as its own commit on the drive's branch, its text nowhere in the branch's record.
+blueprints afterthought/blueprints >/dev/null; crew state init swancloud >/dev/null
+sw=$(as mac-studio herdr --session swancloud-1 workspace create --cwd /tmp --label operator --no-focus | jq -r .result.root_pane.pane_id)
+as mac-studio herdr --session swancloud-1 stub agent "$sw" swancloud-operator >/dev/null
+as mac-studio herdr --session swancloud-1 stub status swancloud-operator idle >/dev/null
+: > "$CREW_TEST_LOG"
+HOST=$box CREW_AGENT=wldn-planner expect_ok crew send swancloud "Words BXMQ for the drive"
+grep -q "^mac-studio swancloud-1 agent prompt swancloud-operator '\[crew tell from wldn-planner\] (sent to swancloud) Words BXMQ for the drive'\$" "$CREW_TEST_LOG" ||
+  fail "crew send from the box did not reach swancloud-operator on mac-studio"
+grep -q "^$box ssh mac-studio herdr --session swancloud-1 agent prompt swancloud-operator " "$CREW_TEST_LOG" ||
+  fail "the box's send was not typed through ssh and herdr on mac-studio"
+ran=$(sed -n "s/^$box ssh mac-studio \([^ ]*\).*/\1/p" "$CREW_TEST_LOG" | sort -u | tr '\n' ' ')
+[[ " $ran" != *" crew "* && " $ran" != *"/crew "* ]] || fail "the box's send ran crew on mac-studio: $ran"
+grep -q "^mac-studio ssh " "$CREW_TEST_LOG" && fail "the box's send reached back from mac-studio over ssh"
+sends_of() {  # sends_of <host> <runs folder>: each send entry of that host's files of swancloud's record, as On By Chars
+  as "$1" python3 -c 'import glob, os, sys; sys.path.insert(0, sys.argv[1]); import record
+print("\n".join(" ".join(e.get("On", []) + [e.get("By", ""), e.get("Chars", "")]) for p in sorted(glob.glob(os.path.expanduser(sys.argv[2])))
+                for e in record.parse(open(p).read()) if e["Act"] == "send"))' "$CREW/plugin/lib" "~/.local/state/crew/swancloud/runs/$2/*.rec"
+}
+eq "$(sends_of $box chuck-herdr-alpha)" "agent/swancloud-operator wldn-planner 24"
+eq "$(sends_of mac-studio '*')" ""
+sr=$(remote afterthought/crew-state)
+eq "$(git --git-dir "$sr" log -1 --format=%s swancloud/main)" "runs(chuck-herdr-alpha): send agent/swancloud-operator (wldn-planner)"
+git --git-dir "$sr" grep -q BXMQ swancloud/main -- runs && fail "a send's text is in the branch's record"
+ok "a send from the box to a Mac's drive its teams file names is typed there by ssh and herdr with no crew run there, its entry the box's own, pushed from the box"
 # crew on the box is the crew the box installed, `crew` by its name on its login path: a command forwarded there and a
 # send reach it with crew's repository in no drive's repos of mac-studio's teams file, and a box whose login path finds
 # no crew fails naming it, nothing run there and its checkout of crew not tried. The test's own PATH holds the host's

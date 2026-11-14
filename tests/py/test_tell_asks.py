@@ -106,7 +106,9 @@ class TestTell:
 class TestSend:
     @pytest.fixture
     def sender(self, monkeypatch):
+        """The sender and the host it sends from, which crew.send names to send_door (record 0068)."""
         monkeypatch.setenv("CREW_AGENT", "swancloud-planner")
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
 
     @pytest.mark.usefixtures("sender")
     def test_a_send_to_an_operator_that_runs_as_its_kind_is_a_send_ask_carrying_whom_it_was_for(self, herdr, capsys):
