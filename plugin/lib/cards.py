@@ -445,6 +445,15 @@ def renamed_drawn(a, before, kits, repo, where, renamed):
     return [], block("RENAME KIT", f"{a.old} → {a.new}", [x for l in says for x in wrap(l, SAYS)])
 
 
+STAYS = "stays unlanded until your send"  # what a proposal's card says of a bolt its command marks to stay (record 0067)
+
+
+def stays_of(a):
+    """Whether a proposal's command, parsed, marks its bolt to stay: a bolt new or bolt start holding --stays (record
+    0067; plan-proposals "A bolt planned to stay")."""
+    return (a.cmd, a.sub) in (("bolt", "new"), ("bolt", "start")) and bool(getattr(a, "stays", False))
+
+
 def drawn(before, after, argvs):
     """A proposal's change, from the plan at the tip, the plan its commands leave and its commands, parsed: each bolt
     they touch and each kit's queue a unit goes to, before and after, as the picture's sections; the change as the
@@ -469,9 +478,10 @@ def drawn(before, after, argvs):
             touched.add(a.unit)
         if key == ("bolt", "new"):
             kits[a.bolt], goals[a.bolt] = a.repo, a.goal
-            secs, b = [("bolt", a.bolt)], block("NEW BOLT", a.bolt, wrap(a.goal, SAYS, 3))
+            secs, b = [("bolt", a.bolt)], block("NEW BOLT", a.bolt, wrap(a.goal, SAYS, 3) + (wrap(STAYS, SAYS) if stays_of(a) else []))
         elif key == ("bolt", "start"):
-            secs, b = [("bolt", a.bolt)], block("START", a.bolt, wrap("its work launched through Flume", SAYS))
+            secs, b = [("bolt", a.bolt)], block("START", a.bolt, wrap("its work launched through Flume", SAYS)
+                                                + (wrap(STAYS, SAYS) if stays_of(a) else []))
         elif key == ("bolt", "order"):
             counts["moved"] += 1
             bolt_moves[a.bolt] = bolt_moves.get(a.bolt, 0) + 1
@@ -1512,6 +1522,9 @@ def proposal_card(f):
                                 for k, q in enumerate(lists, 1)]))
     if shape != "approve" and also:
         how += " What it drops or amends applies with it."
+    staying = list(dict.fromkeys(a.bolt for a in argvs if stays_of(a)))  # each bolt it marks to stay, said on its face
+    if staying:
+        how += f" {joined(staying)} {'stays' if len(staying) == 1 else 'stay'} unlanded until your send of its landings card."
     case = prose(f["case"], 10 ** 6)
     said = ((f"Read it all in one session: {f['session']}\n\n" if f.get("session") else "")
             + f"{SENTENCE.split(case)[0] if case else ''} {how}")

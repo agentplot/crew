@@ -439,3 +439,19 @@ class TestSweptOnThePlanAsItStands(OnTheTip):
         self.now = chain((1, "approved"))
         got, _ = self.swept(event="relink")
         assert (got, self.fetched, [n for n, *_ in self.called]) == ("req_2", [False], ["row_card_change"])
+
+
+def test_a_bolt_planned_to_stay_says_it_waits_for_the_send():
+    """plan-proposals "A bolt planned to stay" (record 0067): the card of a proposal whose bolt new holds --stays names
+    the bolt and says it stays unlanded until the user's send, on its face and in its text, so the user approves the
+    mark knowingly; a bolt start holding --stays is drawn so too, and a bolt planned without it says nothing of it."""
+    b = built(5, "The console's pages are a bolt of their own, kept open once done.",
+              'bolt new console-pages "Console pages" --repo switchboard-kit --stays')
+    c = b["card"]
+    assert c["summary"] == ("The console's pages are a bolt of their own, kept open once done. Hold to apply it whole. "
+                            "console-pages stays unlanded until your send of its landings card.")
+    assert "\n".join(c["artifacts"][-1]["lines"]).count("stays unlanded until your send") == 1
+    argvs = [plan.do_args("wldn", "bolt start pages --stays")]
+    assert "stays unlanded until your send" in "\n".join(cards.drawn(fresh().plan, fresh().plan, argvs)["lines"])
+    plain = built(6, "Pages.", 'bolt new console-pages "Console pages" --repo switchboard-kit')["card"]
+    assert "unlanded" not in plain["summary"] and "unlanded" not in "\n".join(plain["artifacts"][-1]["lines"])
