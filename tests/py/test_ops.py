@@ -1033,16 +1033,48 @@ class TestTheDeployCardOfAStepItWaitsOn:
         assert c["artifacts"][0]["lines"][-1] == "   done" and out.get("form") is None and cards.deploy_form(f) is None
         assert cards.deploy_card(dict(f, waited=[]))["card"]["summary"].startswith("2 landings since")
 
-    def test_more_boxes_than_a_list_holds_are_asked_as_lists_each_carrying_what_follows_a_yes(self):
+    def waits_on(self, k, done=()):
         f = self.facts([SRV_OFFER])
-        f["waited"] = [dict(n=str(i), text=f"step {i}", why=None, to=None, key=None, state=None) for i in range(1, 6)]
-        c = cards.deploy_card(f)["card"]
-        assert "kind" not in c and "rationale" not in c and "highStakes" not in c
-        assert [q["highStakes"] for q in c["questions"]] == [True, True]
-        assert [[o["id"] for o in q["options"]] for q in c["questions"]] == [["before:1", "before:2", "before:3"],
-                                                                            ["before:4", "before:5", "deploy"]]
-        assert [q["title"] for q in c["questions"]] == ["Before the deploy, part 1 of 2", "Before the deploy, part 2 of 2"]
-        assert all(q["rationale"] and q["recommendedIds"] == [] for q in c["questions"])
+        f["waited"] = [dict(n=str(i), text=f"step {i}", why=None, to=None, key=None, state="done" if i in done else None)
+                       for i in range(1, k + 1)]
+        return f
+
+    def test_seven_steps_it_waits_on_are_one_list_of_five_boxes_the_fourth_holding_the_rest(self):
+        """rail-cards "Seven steps share four boxes": Pending You refuses a card of questions carrying highStakes, so the
+        card stays one list held to send, its fourth box holding steps 4 to 7."""
+        out = cards.deploy_card(self.waits_on(7))
+        c = out["card"]
+        assert (c["kind"], c["highStakes"], bool(c["rationale"])) == ("multi", True, True)
+        assert "questions" not in c and "about" not in c and c["multi"] == {"min": 0, "max": 5}
+        assert [o["id"] for o in c["options"]] == ["before:1", "before:2", "before:3", "before:4-5-6-7", "deploy"]
+        fourth = c["options"][3]
+        assert fourth["label"] == "Done: steps 4, 5, 6 and 7" and fourth["detail"].startswith("4. step 4; 5. step 5")
+        assert fourth["consequence"] == "Ticked: you have done each of them, and each is recorded done with your word."
+        assert c["artifacts"][0]["title"] == "Before the deploy: 7 steps, yours"
+        assert [l for l in c["artifacts"][0]["lines"] if not l.startswith(" ")] == [f"{i}  step {i}" for i in range(1, 8)]
+        assert c["summary"].startswith(
+            "It waits on 7 steps of yours before the deploy: tick each box once its steps are done, steps 4, 5, 6 and 7 "
+            "sharing the fourth, and the deploy; your send with every box ticked is the word to deploy, and a box left "
+            "unticked deploys nothing.")
+        assert out["form"] == "boxes"
+
+    def test_four_steps_it_waits_on_have_a_box_each(self):
+        """rail-cards "Four steps the deploy waits on"."""
+        c = cards.deploy_card(self.waits_on(4))["card"]
+        assert [o["id"] for o in c["options"]] == ["before:1", "before:2", "before:3", "before:4", "deploy"]
+        assert (c["kind"], c["highStakes"], "questions" in c) == ("multi", True, False)
+        assert c["summary"].startswith(
+            "It waits on 4 steps of yours before the deploy: tick each once it is done, and the deploy; your send with every "
+            "box ticked is the word to deploy, and a box left unticked deploys nothing.")
+
+    def test_a_step_done_among_six_leaves_the_fourth_box_holding_the_last_two(self):
+        """rail-cards "A step done among six"."""
+        c = cards.deploy_card(self.waits_on(6, done={2}))["card"]
+        assert [o["id"] for o in c["options"]] == ["before:1", "before:3", "before:4", "before:5-6", "deploy"]
+        assert c["options"][3]["label"] == "Done: steps 5 and 6"
+        assert c["artifacts"][0]["lines"][1:3] == ["2  step 2", "   done"]
+        assert c["summary"].startswith("It waits on 6 steps of yours before the deploy, 1 done: tick each box once its steps "
+                                       "are done, steps 5 and 6 sharing the fourth, and the deploy;")
 
     def test_the_form_each_post_or_change_took_is_kept_and_read_back(self):
         import plan
