@@ -9,7 +9,7 @@ Run each check from the worktree's root, as written. A logic check runs pytest t
 
 ## 2. A send from a box to a Mac's drive
 
-- [ ] 2.1 `crew send swancloud` run by `wldn-planner` on the box types into `swancloud-operator` on mac-studio through ssh and herdr, runs no crew command on mac-studio, writes its entry in the box's own file of swancloud's record alone, and pushes it from the box as the commit `runs(chuck-herdr-alpha): send agent/swancloud-operator (wldn-planner)` on `swancloud/main`, its text nowhere in the branch's record (design, Decisions 1 and 2; Task notes 2.1). Verify `tests/suite t-journey-main` ends with "0 failed".
+- [x] 2.1 `crew send swancloud` run by `wldn-planner` on the box types into `swancloud-operator` on mac-studio through ssh and herdr, runs no crew command on mac-studio, writes its entry in the box's own file of swancloud's record alone, and pushes it from the box as the commit `runs(chuck-herdr-alpha): send agent/swancloud-operator (wldn-planner)` on `swancloud/main`, its text nowhere in the branch's record (design, Decisions 1 and 2; Task notes 2.1). Verify `tests/suite t-journey-main` ends with "0 failed".
 
 ## 3. The briefs and the docs
 
