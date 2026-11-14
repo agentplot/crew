@@ -334,6 +334,12 @@ done
 expect_ok crewpy brief wldn design; lacks "$out" "crew writes signals straight to"; has "$out" "signal show <signal id>"
 expect_ok crewpy brief wldn planner; has "$out" "signal show <signal id>"
 has "$out" "Never pass on a word to land, and never tell \`wldn-ops\` to land or deploy"
+# a bolt is marked to stay on the user's word when it is planned or started, and the planner puts no hold
+# (a-proven-bolt-lands-on-proof, Decision 8)
+for want in "a proven bolt not marked to stay lands on proof" \
+  "is marked to stay on their word, and only when it is planned or started: \`--stays\` on the proposal's \`bolt new\` or \`bolt start\`" \
+  "The mark is lifted by a proposal holding \`bolt unstay <bolt>\`, on the user's word, or by the user themselves" \
+  "You put no hold on a drive's or a kit's landings and lift none"; do has "$out" "$want"; done
 ok "every brief says who speaks in its pane, and the four that record findings quote the words and say what a refusal means"
 
 # Anything for another drive goes with crew send, to that drive's operator, and to nobody else (briefs.10):
