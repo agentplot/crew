@@ -2930,14 +2930,32 @@ def stops(entries):
             if e.get("Outcome") == "stopped" and e.get("Head") and not e.get("Refused") and b not in held}
 
 
-def stopped_on_proof(entries, bolt, head):
-    """Whether the newest land crew posted of a bolt at a head, its bolt.submit entry marked Outcome asked, was posted on
-    proof (Form: proof) rather than on a send (Decision 3 of a-proven-bolt-lands-on-proof), from the run record's
-    entries, oldest first: a land on proof stopped there spends no send of the user's, and its row says it was the land
-    on proof that stopped. A decision of facts alone (code.7)."""
+def stopped_by(entries, bolt, head):
+    """What the newest land crew posted of a bolt at a head, its bolt.submit entry marked Outcome asked, was posted on,
+    from the run record's entries, oldest first: "proof" for a land on proof (Form: proof), else the card whose send it
+    carried (its Card), or None when crew posted none there (Decision 3 of a-proven-bolt-lands-on-proof). A land stopped
+    there spends only the send that posted it: one on proof or on another card's send spends none of a card's, whose
+    send then lands the row (rail-cards "A landings row is due one land for each send and head"). A decision of facts
+    alone (code.7)."""
     asked = [e for e in entries if e.get("Act") == "bolt.submit" and not e.get("Refused") and e.get("Outcome") == "asked"
              and f"bolt/{bolt}" in (e.get("On") or []) and at_head(e.get("Head") or "", head)]
-    return bool(asked) and asked[-1].get("Form") == "proof"
+    if not asked:
+        return None
+    return "proof" if asked[-1].get("Form") == "proof" else asked[-1].get("Card")
+
+
+def stopped_on_proof(entries, bolt, head):
+    """Whether the newest land crew posted of a bolt at a head was posted on proof rather than on a send (stopped_by): a
+    land on proof stopped there spends no send of the user's, and its row says it was the land on proof that stopped."""
+    return stopped_by(entries, bolt, head) == "proof"
+
+
+def stop_spends(by, card):
+    """Whether a land stopped at a row's head spends the send of the card (card, its id, or None), by what that land was
+    posted on (by, stopped_by's): only a land that card's own send posted spends it; one on proof, or on another card's
+    send, spends none of it, so that card's send lands the row (rail-cards "A later card at the head of a stopped land"),
+    and one whose posting crew can't tell is read as spending it, so nothing is posted twice on one send (read.1)."""
+    return by is None or (by != "proof" and by == card)
 
 
 def stopped_at(stopped, bolt, head):
@@ -4093,11 +4111,17 @@ def landings_raised(fleet, label, kit, acts, note, dead):
         if r["box"] and not r.get("work"):
             r["facts"] = dict(r["facts"], forecast=forecast.get(r["bolt"], []), forecast_why=unmade.get(r["bolt"]))
     # a row whose last land, stopped at its head, was posted on proof says so, and spends no send of the user's: their send
-    # of it lands it (Decision 3 of a-proven-bolt-lands-on-proof; stopped_on_proof)
+    # of it lands it; one posted on another card's send spends none of this card's either, its row saying that send is
+    # spent, and this card's send lands it (Decision 3 of a-proven-bolt-lands-on-proof; stopped_by, stop_spends)
     record_now = whole + [e for e in entries if not e.get("Id") or e["Id"] not in ids]
+    unspent = set()
     for r in rows:
-        if r["box"] and not r.get("work") and r["facts"].get("stopped") and stopped_on_proof(record_now, r["bolt"], r["facts"]["stopped"][0]):
-            r["facts"] = dict(r["facts"], stopped_on="proof")
+        if r["box"] and not r.get("work") and r["facts"].get("stopped"):
+            by = stopped_by(record_now, r["bolt"], r["facts"]["stopped"][0])
+            if by == "proof":
+                r["facts"] = dict(r["facts"], stopped_on="proof")
+            if not stop_spends(by, card):
+                unspent.add(r["bolt"])
     # The user's send carried to the runner: one land of each row it lands at its head now, posted by one plan write
     # before the card is acted on, and said (lands_post; crew-lands-each-bolt-through-flumes-base-place, Decision 4).
     # While a hold stands on the kit or its drive, no land is posted, on a send or on proof: a send stands, and the first
@@ -4137,9 +4161,9 @@ def landings_raised(fleet, label, kit, acts, note, dead):
     # each bolt landed on proof that no card the user answered or tapped told, told on the card (Decision 4)
     ids = {e["Id"] for e in whole if e.get("Id")}
     landing_told = told_on(whole + [e for e in acts.entries(label) if not e.get("Id") or e["Id"] not in ids], key, owner, kit)
-    # the step reads a stop of a land on proof as no stop of the send's, so the user's send of the row lands it, or stands
-    # under a hold, rather than reading spent
-    step = landings_step([dict(r, facts={k: v for k, v in r["facts"].items() if k != "stopped"}) if r["facts"].get("stopped_on") == "proof"
+    # the step reads a stop of a land on proof or on another card's send as no stop of this card's send, so the user's
+    # send of the row lands it, or stands under a hold, rather than reading spent
+    step = landings_step([dict(r, facts={k: v for k, v in r["facts"].items() if k != "stopped"}) if r["bolt"] in unspent
                           else r for r in rows], state, ticked, in_plan, landed, note, work, landing_told,
                          f"the hold on {held_named(label, hold['kit'])}" if hold else None)
     try:
@@ -12697,7 +12721,7 @@ def row_name(work):
 
 
 def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_first=(), gone=None, posted=None, hold=None,
-                  on_proof=()):
+                  on_proof=(), on_send=()):
     """What crew card read land/<kit> prints beside the answer once the user sent the kit's landings card (rail-cards
     "The landings card's read prints the lands crew posted"): the rows they ticked in the card's order (ticked_of, heads
     its rows as card_heads gives them), each with the land crew posted for it on the send and its request (posted,
@@ -12718,7 +12742,8 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
     the send lands with no land posted is said to wait on it, the send standing and landing it once the hold is lifted
     (rail-cards "A send under a hold"). A bolt whose stopped land was crew's land on proof (on_proof, stopped_on_proof)
     is said so, its stop spending no send: this send lands it, as for any bolt it lands (rail-cards "A land on proof
-    stopped")."""
+    stopped"); so is one this card ticked whose stopped land an earlier card's send posted (on_send, stopped_by,
+    stop_spends), that earlier send being the one spent (rail-cards "A later card at the head of a stopped land")."""
     ticked, earlier, stopped, gone = ticked_of(got, heads), list(earlier), stopped or {}, gone or {}
     lands = [b for b in ticked or [] if b not in main_first and b not in gone]
     lines = [f"  can't tell whether the user's earlier send still lands {b}: {why}" for b, why in unknown]
@@ -12731,17 +12756,20 @@ def landing_lines(label, got, heads, earlier=(), unknown=(), stopped=None, main_
               for b in ticked or [] if b in main_first and b not in gone]
     lines += [f"  {b} {gone[b]} since the card was posted, so it is no bolt to land" for b in ticked or [] if b in gone]
     both = earlier + lands
+    unspent = set(on_proof) | set(on_send)
     lines += [f"  {b}'s land on proof at {stopped[b][0][:7]} was stopped, nothing of the bolt's: {stopped[b][1].rstrip('.')}; "
               "the user's send lands it" if b in on_proof else
+              f"  {b}'s land on an earlier card's send at {stopped[b][0][:7]} was stopped, nothing of the bolt's: "
+              f"{stopped[b][1].rstrip('.')}; that send is spent, and the user's send of this card lands it" if b in on_send else
               f"  {b}'s last landing at {stopped[b][0][:7]} was stopped, nothing of the bolt's: {stopped[b][1].rstrip('.')}; "
               "it lands again only on the user's next send" for b in both if b in stopped]
     posted = posted or {}
     where = (hold or {}).get("kit") or f"the drive {label}"
-    return lines + [f"  {b}: asked of the runner to land, request {posted[b]}" if b in posted and b not in on_proof else
+    return lines + [f"  {b}: asked of the runner to land, request {posted[b]}" if b in posted and b not in unspent else
                     f"  {b}: no land is posted while the hold on {where} stands; the user's send stands, and lands {b} once "
                     "the hold is lifted" if hold else
                     f"  {b}: no land is posted for it yet: crew's next raise of the card posts it" for b in both
-                    if b not in stopped or b in on_proof]
+                    if b not in stopped or b in unspent]
 
 
 def send_entries(fleet, label, entries):
@@ -12902,13 +12930,16 @@ def card_read(fleet, a, acts=None):
             hold = hold_on(plan, kind[1])
         stopped = stops(entries)
         on_proof = {b for b, (h, _) in stopped.items() if stopped_on_proof(whole, b, h)}
+        # a bolt this card ticked whose stopped land an earlier card's send posted: that send is spent, not this one's
+        on_send = {b for b in ticked or [] if b in stopped and b not in on_proof
+                   and not stop_spends(stopped_by(whole, b, stopped[b][0]), card)}
         d = CARDS / label / a.key
         reads = a.key.startswith("proposal/") and d.is_dir()
         decided = card_result(d) if reads else None
         r = reading_read(a.key, got, decided) if reads else dict(lines=[], aside=False)
         print("\n".join(cards.answer_lines(a.key, card, got)
                         + (landing_lines(label, got, heads, earlier, unknown, stopped, first, gone,
-                                         {row_name(p["work"]): p["request"] for p in lands_posted(whole)}, hold, on_proof)
+                                         {row_name(p["work"]): p["request"] for p in lands_posted(whole)}, hold, on_proof, on_send)
                            if kind and kind[0] == "kit" else []) + r["lines"]))
         if r["aside"]:
             reading_decided(d, decided)

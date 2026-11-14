@@ -2992,6 +2992,46 @@ def test_the_users_send_lands_a_bolt_whose_land_on_proof_was_stopped(monkeypatch
     assert "req_k1 is left as it is, the user having answered it" in out and "spent" not in out
 
 
+def test_a_later_cards_send_lands_a_bolt_whose_land_on_an_earlier_send_was_stopped(monkeypatch, capsys):
+    """rail-cards "A later card at the head of a stopped land" (Decision 3 of a-proven-bolt-lands-on-proof): z is marked
+    to stay; its land on req_k0's send, request 5 at abc1234, was stopped by the runner, a place on bolt/z being live,
+    so req_k0 closed as spent and req_k1 follows asking for z. The user's send of req_k1 posts z's land at that head on
+    that send, the card left as answered and not closed as a send spent nor followed by a card asking for z again, and
+    the next raise posts nothing more."""
+    from test_runner import rec
+    stop = "flume refused it: a place on bolt/z is live"
+    stopped = [dict(Act="bolt.submit", On=["bolt/z"], Card="req_k0", Head=H1, Request="5", Outcome="asked"),
+               dict(Act="bolt.submit", On=["bolt/z"], Head=H1, Request="5", Outcome="stopped", Why=stop)]
+    cards_ = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k0", Heads="z@abc1234"),
+              dict(Act="card.close", Key="land/crew", By="swancloud-ops", Card="req_k0", Rows="1"),
+              dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+    acts = proof_acts(monkeypatch, {"z": row("z", stopped=(H1, stop))}, stopped + cards_,
+                      answers=dict(POSTED, get_request=(answer, None)), drive=stopped,
+                      lands=[rec(5, "land", "bolt/z", Of=2)], reads=TestLandsDue().reads(refused={5: stop}))
+    got = plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert [(s, on, f.get("Card"), f.get("Form"), f["Head"], f["Request"]) for s, _, on, f, _ in acts.posts] == [
+        ("plan(crew): land z on the user's send", ["bolt/z"], "req_k1", None, H1, "6")]
+    out = capsys.readouterr().out
+    assert "z is asked of the runner to land at abc1234 (request 6), on the user's send" in out
+    assert got == "req_k1" and "req_k1 is left as it is, the user having answered it" in out and "spent" not in out
+    assert not any(t in ("post_request", "close_request", "update_request") for t, _ in acts.calls)
+    # The next raise reads z's land asked on req_k1's send, its stop behind it: nothing more is posted, and the card is left.
+    acts.rows = {"z": row("z")}
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1" and len(acts.posts) == 1
+    # The stop spends only the send that posted it: req_k1's own land stopped spends req_k1's send.
+    assert plan.stop_spends(plan.stopped_by(stopped, "z", H1), "req_k1") is False
+    assert plan.stop_spends(plan.stopped_by(stopped, "z", H1), "req_k0") is True
+    assert plan.stop_spends(plan.stopped_by(stopped, "z", H2), "req_k1") is True  # none posted there: read as spent
+    # crew card read, before the raise: req_k0's send is the one spent, and req_k1's lands z
+    said = plan.landing_lines("swancloud", answer, plan.card_heads("z@abc1234"), stopped={"z": (H1, stop)}, posted={"z": "5"},
+                              on_send={"z"})
+    assert said == ["  to land, in the card's order: z",
+                    f"  z's land on an earlier card's send at abc1234 was stopped, nothing of the bolt's: {stop}; that send is "
+                    "spent, and the user's send of this card lands it",
+                    "  z: no land is posted for it yet: crew's next raise of the card posts it"]
+
+
 def test_a_bolt_whose_forecast_could_not_be_made_lands_on_no_proof(monkeypatch, capsys):
     """rail-cards "A proven bolt not marked to stay lands on proof" (Decision 1 of a-proven-bolt-lands-on-proof; read.1):
     y reads clear of main only once a forecast found no conflict, so where git could not tell, no land on proof is
