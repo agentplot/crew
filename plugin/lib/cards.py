@@ -1157,6 +1157,18 @@ def landings_card(f):
     return out
 
 
+def deploy_boxes(numbers):
+    """The open steps a deploy waits on as its card's step boxes (a-deploy-card-is-raised-whatever-its-steps): numbers,
+    the open steps' numbers in the card's order, as a list of lists of them, each step in exactly one, in order. Four
+    or fewer have a box each; past four, the first three have a box each and the fourth holds every other. One list
+    holds BOXES options, the deploy's among them, and Pending You refuses a card of questions carrying highStakes, so
+    a deploy's card, held to send, is one list whatever its steps: never more than BOXES - 1 step boxes."""
+    numbers = list(numbers)
+    if len(numbers) < BOXES:
+        return [[n] for n in numbers]
+    return [[n] for n in numbers[:BOXES - 2]] + [numbers[BOXES - 2:]]
+
+
 def deploy_form(f):
     """The form of a deploy's card from its facts (record 0059): "boxes" while a step the deploy waits on is open, a
     box to tick for each and one for the deploy; None, a hold-to-approve, otherwise. Pending You changes no card's

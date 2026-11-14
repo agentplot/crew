@@ -1756,6 +1756,31 @@ class TestLandingsBoxed:
         assert built.landings_boxed(self.rows(7, left={"b2", "b4", "b6"})) == ["b1", "b2", "b3", "b5", "b7"]
 
 
+class TestDeployBoxes:
+    """rail-cards "Past four open steps a deploy's fourth box holds the rest": four open steps or fewer have a box
+    each; past four, the first three have one each and the fourth holds every other, in the card's order."""
+
+    def test_no_open_step_has_no_box(self):
+        assert built.deploy_boxes([]) == []
+
+    def test_one_to_four_open_steps_have_a_box_each(self):
+        for k in range(1, 5):
+            numbers = [str(n) for n in range(1, k + 1)]
+            assert built.deploy_boxes(numbers) == [[n] for n in numbers]
+
+    def test_five_open_steps_share_the_fourth_box_between_the_last_two(self):
+        assert built.deploy_boxes(["1", "2", "3", "4", "5"]) == [["1"], ["2"], ["3"], ["4", "5"]]
+
+    def test_open_steps_with_gaps_keep_their_numbers_and_order(self):
+        assert built.deploy_boxes(["1", "3", "4", "6", "7", "9"]) == [["1"], ["3"], ["4"], ["6", "7", "9"]]
+
+    def test_twenty_open_steps_are_three_boxes_of_one_and_one_of_seventeen(self):
+        numbers = [str(n) for n in range(1, 21)]
+        boxes = built.deploy_boxes(numbers)
+        assert boxes == [["1"], ["2"], ["3"], numbers[3:]] and len(boxes[3]) == 17
+        assert len(boxes) <= built.BOXES - 1 and [n for b in boxes for n in b] == numbers
+
+
 class TestDeploy:
     def test_a_deploys_card_names_its_commit_and_carries_no_preview(self):
         """rail-cards "A deploy's card" (record 0043): a card about a landed revision names the commit it landed as, and
