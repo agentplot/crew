@@ -10629,7 +10629,10 @@ def lands_by(row, stays, left, stopped, hold):
     (hold_on), or None. "send" for a fix of main, always (state.3), and for a bolt marked to stay, one the user left
     and one whose land at its head now was stopped, which only a send lands, a stop holding the bolt at a head no fix
     moves; "hold" for any other bolt while a hold stands, which lands on proof once it is lifted; else "proof". The
-    raise and the rail's line both read it, so they agree."""
+    raise and the rail's line both read it, so they agree. A stop of any land at the head now reads "send", a send's
+    as well as a land on proof's: a bolt not marked to stay whose send's land was stopped there, from a card open when
+    landing on proof came in, has a land posted at that head, so it would be due no land on proof and asked about by no
+    card, waiting forever."""
     if (row.get("work") or "").startswith("fix/main/") or (row.get("facts") or {}).get("fix"):
         return "send"
     if stays or left or stopped:

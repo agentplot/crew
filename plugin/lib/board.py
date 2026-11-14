@@ -744,7 +744,8 @@ def attention_rows(p, keep=lambda a: True):
 def hold_rows(p):
     """A line for each hold standing on the drive's landings or a kit's (Decision 7 of a-proven-bolt-lands-on-proof;
     crew-board "A bolt marked to stay is marked in the bands, and each hold opens them"): what it holds, its words, and
-    that no land is posted until the user lifts it with crew plan go, in the attention gutter."""
+    that no land is posted until the user lifts it with crew plan go, in the attention gutter. They open a band below its
+    head line rather than above it, so the head line keeps the crew its agent runs at its end (agent_views)."""
     return [row(fields(("held", "bold"), h["kit"] or f"every kit of {p['label']}", f"\"{h['why']}\"",
                        "no land is posted until the user lifts it with crew plan go"), ATTENTION) for h in p.get("holds") or []]
 
