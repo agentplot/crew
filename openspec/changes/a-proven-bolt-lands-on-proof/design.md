@@ -414,6 +414,14 @@ Cases: `tests/py/test_runner.py::test_a_send_lands_a_row_at_the_head_of_a_land_s
 
 **2.11** `plugin/lib/plan.py` `landings_step(…, hold)`: a close or follow under a hold says the send stands, naming the hold; `landings_raised` hands it the hold's name. `card_read` reads the hold whenever the card's send or an earlier one lands a bolt. Case `tests/py/test_landings.py::test_under_a_hold_a_close_says_the_send_stands_and_asks_nothing`.
 
+**2.12** `plugin/lib/plan.py`:
+- `stopped_by(entries, bolt, head)`, a decision of facts: what the newest land crew posted of the bolt at that head was posted on, `"proof"` or the card whose send it carried, or None. `stopped_on_proof` reads it.
+- `stop_spends(by, card)`, a decision of facts: a stopped land spends a card's send only where that card's send posted it, and one whose posting crew can't tell is read as spending it (`read.1`).
+- `landings_raised` hands `landings_step` with no `stopped` each row whose stop spends none of the card's send, on proof or on another card's, so a later card's send lands the row and leaves the card answered rather than closing it as spent.
+- `card_read` passes `landing_lines` `on_send`, the bolts the card ticked whose stopped land an earlier card's send posted, said as that send spent and this card's send landing them.
+
+Case `tests/py/test_landings.py::test_a_later_cards_send_lands_a_bolt_whose_land_on_an_earlier_send_was_stopped`, through `plan.raise_landings` on `LandActs`: the land posted on `req_k1`'s send, the card left as answered with no card posted, changed or closed, the next raise posting nothing more, `stop_spends` for the card that posted the stop and for one that did not, and `landing_lines` before the raise.
+
 **3.1** `plugin/lib/plan.py`:
 - `rail_rows`: each land row's bolts carry `stays`. Each line says how the bolt lands, as Decision 7 has it, replacing `can land on your send of land/<kit>` for a bolt that lands on proof. The row carries `told` and `asks`, and is made for a kit with a told bolt and nothing waiting.
 - `rail_record` reads `told` for each kit's key (`told_on`) and the plan's holds.

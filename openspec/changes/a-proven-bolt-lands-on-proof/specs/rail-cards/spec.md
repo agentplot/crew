@@ -221,6 +221,8 @@ A row of a kit's landings card SHALL be due a land when its box was ticked on a 
 #### Scenario: A later card at the head of a stopped land
 - **WHEN** `z`'s land on the user's send of one card was stopped at `abc1234`, and they send the card that follows it ticking `z`, still at `abc1234`
 - **THEN** the next raise posts one land of `z` at `abc1234` on that later send
+- **AND** that later card is left as answered, its send not read as spent, and no card follows it asking for `z` again
+- **AND** `crew card read` of it says the earlier card's send is the one spent and the user's send of this card lands `z`
 
 #### Scenario: A write replayed
 - **WHEN** the plan write posting `y`'s land is applied again to a tip that already holds that land
