@@ -1016,11 +1016,14 @@ def stopped_said(r):
     """What a landings row says of its last landing at its head when the runner or Flume stopped it, nothing of the
     bolt's (rail-cards "A landing the runner or Flume stopped keeps its box";
     crew-lands-each-bolt-through-flumes-base-place, Decision 7): r's stopped, (head, words), as plan.landing_rows gives
-    it, and that the send that ticked it is spent, so it lands again only on the user's next send; "" when none was
-    stopped."""
+    it, and that the send that ticked it is spent, so it lands again only on the user's next send, or, for a land crew
+    posted on proof (stopped_on "proof"), that their send lands it; "" when none was stopped."""
     if not r.get("stopped"):
         return ""
     head, words = r["stopped"]
+    if r.get("stopped_on") == "proof":  # crew's land on proof, which no send of the user's made (a-proven-bolt-lands-on-proof)
+        return (f"Its land on proof at {head[:7]} was stopped, nothing of the bolt's: {words.rstrip('.')}. "
+                "Ticked, it lands on this send.")
     return (f"Its last landing at {head[:7]} was stopped, nothing of the bolt's: {words.rstrip('.')}. "
             "Your send of it is spent: ticked again, it lands on this send.")
 

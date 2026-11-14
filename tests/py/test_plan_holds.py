@@ -88,11 +88,22 @@ class TestPut:
 
     def test_a_plan_from_before_the_holds_takes_their_record_set_at_its_next_write(self):
         """bolt-plan "A branch from before the mark and the holds": in_step adds the Hold descriptor where the branch has
-        none, once."""
-        old = plan.Plan(plan.HEADER.split("\n%rec: Hold")[0] + "\n")
+        none, once, ahead of the Bolt set, so a record added at the file's end is still a Unit."""
+        hold = next("\n".join(p) for p in plan.Plan(plan.HEADER).paras if plan.declares(p) == "Hold")
+        old = plan.Plan(plan.HEADER.replace(hold + "\n\n", "").replace("%rec: Unit", "Bolt: b\nRepo: crew\nGoal: g\n\n%rec: Unit")
+                        + "\nUnit: u\nRepo: crew\nIntent: i\n")
         assert "%rec: Hold" not in old.text()
         assert plan.in_step(old) is True and "%rec: Hold\n" in old.text() and "%allowed: Kit Why" in old.text()
+        assert [plan.declares(p) for p in old.paras if plan.declares(p)] == ["Hold", "Bolt", "Unit"]
         assert plan.in_step(old) is False
+        appended = plan.Plan(old.text() + "\nUnit: v\nRepo: crew\nIntent: j\n")
+        assert [u.name() for u in appended.units()] == ["u", "v"] and appended.holds() == []
+        assert [b.name() for b in appended.bolts()] == ["b"]
+
+    def test_crews_header_declares_the_holds_ahead_of_the_bolts_and_units(self):
+        """A record added at the end of a plan crew wrote is a Unit, so a hand edit's duplicated Unit is refused by recfix
+        as a duplicated key (bolt-plan "A plan that fails its schema")."""
+        assert [plan.declares(p) for p in plan.Plan(plan.HEADER).paras if plan.declares(p)] == ["Hold", "Bolt", "Unit"]
 
 
 def test_two_holds_on_one_kit_or_the_drive_are_refused_by_crews_check():
@@ -103,6 +114,25 @@ def test_two_holds_on_one_kit_or_the_drive_are_refused_by_crews_check():
             plan.check(p)
         assert str(e.value) == ("the plan holds 2 holds on " + (f"kit {KIT}" if kit else "the whole drive")
                                 + ", and it may hold one at most: crew plan hold changes the words of the one standing")
+
+
+def test_crew_refuses_to_read_a_plan_holding_two_holds_on_one_kit_naming_the_commit(monkeypatch):
+    """bolt-plan "Two holds on one kit": crew refuses to read such a plan, not only to write it, since recfix's %unique
+    is per record and passes two (plan.read)."""
+    tip = "c0ffee1" + "0" * 33
+    monkeypatch.setattr(plan, "recfix", lambda text, what: None)
+    monkeypatch.setattr(plan, "kept_listing", lambda repo, tip: None)
+    for kit in (f"Kit: {KIT}\n", ""):
+        text = plan_text() + f"%rec: Hold\n\n{kit}Why: one\n\n{kit}Why: two\n"
+        monkeypatch.setattr(plan, "show", lambda repo, at, path, text=text: text)
+        with pytest.raises(plan.Refusal) as e:
+            plan.read("WilldanGroup/crew-state", "wldn/main", tip)
+        assert str(e.value) == ("wldn/main of WilldanGroup/crew-state at c0ffee1: the plan holds 2 holds on "
+                                + (f"kit {KIT}" if kit else "the whole drive")
+                                + ", and it may hold one at most: crew plan hold changes the words of the one standing")
+    one = plan_text() + f"%rec: Hold\n\nKit: {KIT}\nWhy: one\n\nWhy: two\n"
+    monkeypatch.setattr(plan, "show", lambda repo, at, path: one)
+    assert plan.hold_on(plan.read("WilldanGroup/crew-state", "wldn/main", tip), KIT) == dict(kit=KIT, why="one")
 
 
 class TestLift:
@@ -122,14 +152,21 @@ class TestLift:
         o.after("WilldanGroup/crew-state", "a" * 40)
         assert handed == [("wldn", KIT, f"the hold on {KIT}'s landings was lifted")]
 
-    def test_the_drives_lift_raises_each_kit_with_a_started_bolt(self, monkeypatch):
+    def test_the_drives_lift_raises_each_kit_of_the_drive_it_held(self, monkeypatch):
+        """bolt-plan "A hold on a drive or a kit is put and lifted through crew": the drive's lift hands a raise of each
+        landings card it held: every kit of the drive, its plan's and its landings' (atlas-kit, whose last bolt landed and
+        whose card may hold a fix of main alone), but one a hold of its own still holds."""
         handed = []
         monkeypatch.setattr(plan, "land_hand", lambda fleet, label, kit, note=None: handed.append(kit))
-        w = self.held(f'plan hold "{WORDS}"')
+        landed = [dict(Act="bolt.land", On=["bolt/old"], Repo="atlas-kit", Head="9f1c2ab" + "0" * 33)]
+        w = fresh()
+        w.logged = landed
+        for do in (f'plan hold "{WORDS}"', f'plan hold "Its own" --repo {BOARD}'):
+            applied(w, do)
         o = applied(w, "plan go")
-        assert holds(w) == [] and o.on == ["plan/wldn"]
+        assert holds(w) == [(BOARD, "Its own")] and o.on == ["plan/wldn"]
         o.after("WilldanGroup/crew-state", "a" * 40)
-        assert handed == [KIT, BOARD]
+        assert handed == ["atlas-kit", KIT]
 
     def test_nothing_to_lift_is_refused_naming_the_drives_hold(self):
         """bolt-plan "Nothing to lift"."""

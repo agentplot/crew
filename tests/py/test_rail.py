@@ -232,8 +232,8 @@ class TestRows:
         line says the land on proof is asked, with its request."""
         land, = self.proof_rows(unmarked())
         assert land["what"] == [f"{KIT} (wldn): 1 bolt waits to land on its main, in the plan's order; each says how it lands",
-                                f"apex-zones, on {BOX}, in Flume stream wldn: lands on proof: crew asks the runner to land it at the "
-                                "next read of the rail on the main level's host"]
+                                f"apex-zones, on {BOX}, in Flume stream wldn: lands on proof: crew asks the runner to land it in "
+                                "wldn-ops's name at the next read of the rail on the main level's host"]
         assert (land["bolts"][0]["stays"], land["bolts"][0]["can"], land["asks"], land["told"], land["cmds"]) == (False, True, False, [], [])
         line, can, m = self.runner_rows(answered=False, p=unmarked(), forms={"apex-zones": "proof"})
         assert (line, can) == (f"landing on proof asked, request {m}: no unit, chore or fix joins it until its outcome is read", False)
@@ -285,6 +285,22 @@ class TestRows:
                             dict(Id="c", At=iso(90), Act="card.close", On=[f"kit/{KIT}"], By="wldn-ops", Key=f"land/{KIT}", Card="req_n",
                                  State="closed", Outcome=plan.ENDED_ELSEWHERE)]
         assert plan.record_reading("wldn", tapped, p, fresh)["held"]["told"] == {}
+
+    def test_the_rail_draws_each_told_bolts_line_after_the_bolts_that_wait(self):
+        """crew-rail "Landed overnight", drawn: crew rail and the rail tab draw every told bolt's line, after each bolt
+        that waits, whose line ends with its time, and a kit with only told bolts draws each of them under its head line."""
+        y, w = ("y", "9f1c2ab" + "0" * 33, iso(300)), ("w", "4d5e6f7" + "0" * 33, iso(200))
+        told = [f"y landed on proof at 9f1c2ab, told on land/{KIT}", f"w landed on proof at 4d5e6f7, told on land/{KIT}"]
+        land, = self.proof_rows(unmarked(), told={KIT: [y, w]})
+        drawn = [l.strip() for l in text([land]).splitlines()]
+        apex = next(i for i, l in enumerate(drawn) if l.startswith("apex-zones, on"))
+        assert "lands on proof" in drawn[apex] and drawn[apex].count("; ") >= 1
+        assert drawn[apex + 1:apex + 3] == told
+        alone, = self.proof_rows(plan.Plan(plan_text(bolts=[("tenant-environments", KIT, "swb-1")],
+                                                     units=[("early", KIT, "tenant-environments", [])])), told={KIT: [y, w]})
+        drawn = [l.strip() for l in text([alone]).splitlines()]
+        head = next(i for i, l in enumerate(drawn) if l.endswith(f"2 bolts landed on proof, told on land/{KIT}"))
+        assert drawn[head + 1:head + 3] == told
 
     def test_the_runners_landing_on_the_land_line_holds_its_work_and_is_no_bolt_that_can_land(self):
         """crew-rail "A land asked", "A landing queued" and "A landing crew can't tell": asked with its request, #412

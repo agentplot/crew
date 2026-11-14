@@ -859,7 +859,7 @@ def ops_view(p):
                               "answered: crew asks the runner to land what the user ticked" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
-    out += [row(fields(b["repo"] or "", b["bolt"], record_landing(b)), " ") for b in p.get("construction", [])
+    out += [row(fields(b["repo"] or "", named_(b["bolt"]), record_landing(b)), " ") for b in p.get("construction", [])
             if record_landing(b) and b["bolt"] not in rowed]
     out += [bolt_row(b) for b in p.get("construction", []) if unclosed(b) or legacy(b)]
     for e in p.get("environments", []):

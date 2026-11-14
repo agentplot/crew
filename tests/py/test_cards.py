@@ -2764,3 +2764,15 @@ def test_a_picture_is_put_with_crews_own_agent(monkeypatch):
     assert req.get_header("Content-type") == "image/png"
     assert req.get_header("User-agent") == plan.cards.AGENT
     assert not req.get_header("User-agent").startswith("Python-urllib")
+
+
+def test_a_row_whose_land_on_proof_was_stopped_says_so_and_that_a_send_lands_it():
+    """rail-cards "A land on proof stopped" (Decision 3 of a-proven-bolt-lands-on-proof): the row says its land on proof
+    was stopped, in the runner's words, and that ticked it lands on this send, no send of the user's having been spent;
+    a stop of a land on a send says that send is spent, as before."""
+    words = "flume refused it: a place on bolt/y is live"
+    assert built.stopped_said({"stopped": ("abc1234" + "0" * 33, words), "stopped_on": "proof"}) == (
+        f"Its land on proof at abc1234 was stopped, nothing of the bolt's: {words}. Ticked, it lands on this send.")
+    assert built.stopped_said({"stopped": ("abc1234" + "0" * 33, words)}) == (
+        f"Its last landing at abc1234 was stopped, nothing of the bolt's: {words}. Your send of it is spent: ticked again, it lands "
+        "on this send.")

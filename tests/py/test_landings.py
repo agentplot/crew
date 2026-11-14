@@ -822,6 +822,18 @@ def test_a_row_coming_to_take_main_first_and_back_changes_the_card_in_place():
         "change", f"z joins the card and {MAIN_FIRST}", True, [])
 
 
+def test_under_a_hold_a_close_says_the_send_stands_and_asks_nothing():
+    """rail-cards "A send under a hold" (Decision 6 of a-proven-bolt-lands-on-proof): while a hold stands no land is asked,
+    so an answered card that follows says the user's send stands for what it lands, landing it once the hold is lifted,
+    never that it was asked of the runner."""
+    card = answered("y@abc1234")
+    step = plan.landings_step([box("y"), box("z")], card, ["y"], {"y", "z"}, hold="the hold on crew's landings")
+    assert step == ("follow", "Your send stands for y: no land is asked while the hold on crew's landings stands, and crew asks the "
+                              "runner to land it once it is lifted. Since your send, z reads proven, and the card that follows asks "
+                              "for it.", [], [("y", "abc1234")])
+    assert "Asked of the runner" not in step[1]
+
+
 def test_a_row_shown_taking_main_first_and_left_unticked_is_no_bolt_the_user_left():
     """rail-cards "A row taking main first stays on the card": crew unticked it, not they."""
     card = answered("y@abc1234", "z@abc1234:main")
@@ -1360,12 +1372,15 @@ class LandActs:
 
     def post_lands(self, label, kit, owner, rows, sent, reads, work, proof=False):
         """The lands the send makes due, or with proof those due on proof, as lands_change decides them on a write over
-        requests.rec as given (requests), recorded in posts; none while the case gives no requests."""
+        requests.rec as given (requests) and the plan at the write's tip, the plan the raise read unless the case gives
+        another (tip), recorded in posts; none while the case gives no requests."""
         self.posts = getattr(self, "posts", [])
         if getattr(self, "requests", None) is None:
             return []
         from facts import FactsWrite
-        w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": self.requests}, entries=self.held)
+        read = getattr(self, "tip", None) or plan.plan_of(FLEET, label)
+        w = FactsWrite(read.text() if isinstance(read, plan.Plan) else "%rec: Bolt\n%key: Bolt\n", files={"requests.rec": self.requests},
+                       entries=self.held)
         try:
             got = plan.lands_change(w, kit, rows, sent, reads, work, proof)
         except plan.Unposted:
@@ -2834,13 +2849,14 @@ def test_how_each_row_lands():
     assert plan.hold_on(p, "swancloud") is None and plan.hold_on(drive, "swancloud") == dict(kit=None, why="Cutover")
 
 
-def proof_acts(mp, rows, entries=(), answers=None, text=PROVEN, **more):
+def proof_acts(mp, rows, entries=(), answers=None, text=PROVEN, lands=(), reads=None, **more):
     """LandActs for a raise of crew's landings card on PROVEN, y not marked to stay and z marked, its requests y's and z's
-    base places and y's unit, read from deneb's runner as TestLandsDue reads them, every land posted on requests.rec."""
-    requests = TestLandsDue().requests()[:3]
+    base places and y's unit, then lands, read from deneb's runner as TestLandsDue reads them unless reads says
+    otherwise, every land posted on requests.rec."""
+    requests = TestLandsDue().requests()[:3] + list(lands)
     mp.setattr(crew, "this_host", lambda: "mac-studio")
     mp.setenv("CREW_AGENT", "swancloud-ops")
-    mp.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
+    mp.setattr(plan, "runner_facts", lambda fleet, label: (requests, reads or TestLandsDue().reads()))
     mp.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(text))
     acts = LandActs(rows, entries, answers=answers if answers is not None else POSTED, **more)
     acts.requests = TestTheRaisePostsTheLands().write(requests).files["requests.rec"]
@@ -2868,6 +2884,7 @@ def test_the_card_asks_only_about_the_rows_a_send_must_land(monkeypatch):
     plan.raise_landings(FLEET, "swancloud", "crew", acts)
     post = next(a for t, a in acts.calls if t == "post_request")
     assert posted_heads(acts) == [[("y", "abc1234", False)]] and STOP in json.dumps(post)
+    assert "Its land on proof at abc1234 was stopped, nothing of the bolt's" in json.dumps(post) and "spent" not in json.dumps(post)
     assert getattr(acts, "posts", []) == []
     # A bolt the user left: shown unticked, and no land on proof posted while it is left.
     left = [dict(Act="landing.left", On=["kit/crew"], By="swancloud-ops", Key="land/crew", Heads="y@abc1234")]
@@ -2935,6 +2952,80 @@ class TestLandOnProof:
         out = capsys.readouterr().out
         assert out.index("z is asked of the runner to land at abc1234 (request 4), on the user's send") < out.index(
             "y is asked of the runner to land at abc1234 (request 5), on proof")
+
+
+def test_the_users_send_lands_a_bolt_whose_land_on_proof_was_stopped(monkeypatch, capsys):
+    """rail-cards "A land on proof stopped" and "A landings row is due one land for each send and head" as
+    a-proven-bolt-lands-on-proof modifies it (Decision 3): y's land on proof at abc1234 (request 5) was refused by the
+    runner, a place on bolt/y being live, so land/crew asks for y; the user's send of it posts y's land at that head on
+    the send, the card left as answered and not closed as a send spent, and the next raise posts nothing more."""
+    from test_runner import rec
+    stop = "flume refused it: a place on bolt/y is live"
+    stopped = [dict(Act="bolt.submit", On=["bolt/y"], Form="proof", Head=H1, Request="5", Outcome="asked"),
+               dict(Act="bolt.submit", On=["bolt/y"], Head=H1, Request="5", Outcome="stopped", Why=stop)]
+    card = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="y@abc1234")]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+    acts = proof_acts(monkeypatch, {"y": row("y", stopped=(H1, stop))}, stopped + card, answers=dict(POSTED, get_request=(answer, None)),
+                      drive=stopped, lands=[rec(5, "land", "bolt/y", Of=1)], reads=TestLandsDue().reads(refused={5: stop}))
+    got = plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert [(s, on, f.get("Card"), f.get("Form"), f["Head"], f["Request"]) for s, _, on, f, _ in acts.posts] == [
+        ("plan(crew): land y on the user's send", ["bolt/y"], "req_k1", None, H1, "6")]
+    out = capsys.readouterr().out
+    assert "y is asked of the runner to land at abc1234 (request 6), on the user's send" in out
+    assert got == "req_k1" and "req_k1 is left as it is, the user having answered it" in out and "spent" not in out
+    # The next raise reads y's land asked on the send, its stop behind it: nothing more is posted, and the card is left.
+    acts.rows = {"y": row("y")}
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1" and len(acts.posts) == 1
+    # crew card read, before the raise: the stop was crew's land on proof, and the user's send lands it
+    heads = plan.card_heads("y@abc1234")
+    said = plan.landing_lines("swancloud", answer, heads, stopped={"y": (H1, stop)}, posted={"y": "5"}, on_proof={"y"})
+    assert said == ["  to land, in the card's order: y",
+                    f"  y's land on proof at abc1234 was stopped, nothing of the bolt's: {stop}; the user's send lands it",
+                    "  y: no land is posted for it yet: crew's next raise of the card posts it"]
+    # Under a hold, the send stands: no land is posted, and the card is left as answered, its send not spent.
+    capsys.readouterr()
+    acts = proof_acts(monkeypatch, {"y": row("y", stopped=(H1, stop))}, stopped + card, answers=dict(POSTED, get_request=(answer, None)),
+                      drive=stopped, lands=[rec(5, "land", "bolt/y", Of=1)], reads=TestLandsDue().reads(refused={5: stop}),
+                      text=PROVEN + "%rec: Hold\n\nKit: crew\nWhy: Cutover\n")
+    assert plan.raise_landings(FLEET, "swancloud", "crew", acts) == "req_k1" and getattr(acts, "posts", []) == []
+    out = capsys.readouterr().out
+    assert "req_k1 is left as it is, the user having answered it" in out and "spent" not in out
+
+
+def test_a_bolt_whose_forecast_could_not_be_made_lands_on_no_proof(monkeypatch, capsys):
+    """rail-cards "A proven bolt not marked to stay lands on proof" (Decision 1 of a-proven-bolt-lands-on-proof; read.1):
+    y reads clear of main only once a forecast found no conflict, so where git could not tell, no land on proof is
+    posted and the raise says why; once the forecast is made and clear, the next raise posts it."""
+    acts = proof_acts(monkeypatch, {"y": row("y")})
+    made = acts.forecast
+    acts.forecast = lambda label, kit, bolts, held=(): ({b: [("main", None)] for b in bolts},
+                                                         {b: "git merge-tree could not tell in crew on mac-studio" for b in bolts},
+                                                         {"main": MAIN})
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert getattr(acts, "posts", []) == [] and not any(t == "post_request" for t, _ in acts.calls)
+    assert ("card land/crew: y's forecast against main could not be made (git merge-tree could not tell in crew on mac-studio), "
+            "so no land on proof is posted for it until one is") in capsys.readouterr().out
+    acts.forecast = made
+    plan.raise_landings(FLEET, "swancloud", "crew", acts)
+    assert [(on, f["Form"]) for _, _, on, f, _ in acts.posts] == [(["bolt/y"], "proof")]
+
+
+def test_a_hold_or_a_drop_found_at_the_writes_tip_posts_no_land(monkeypatch):
+    """plan.1 (Decision 6 of a-proven-bolt-lands-on-proof): lands_change re-checks at the tip it is applied to, so a hold
+    on crew or on the drive put while the raise ran posts no land, on proof or on the send, and a bolt gone from the plan
+    there, or marked to stay there, is posted no land on proof."""
+    held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
+    answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+    for tip in (PROVEN + "%rec: Hold\n\nKit: crew\nWhy: Cutover\n", PROVEN + "%rec: Hold\n\nWhy: Cutover\n"):
+        acts = proof_acts(monkeypatch, {"y": row("y"), "z": row("z")}, held, answers=dict(POSTED, get_request=(answer, None)))
+        acts.tip = plan.Plan(tip)
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert acts.posts == []
+    for tip in (PLAN.replace("Bolt: y\nRepo: crew\nPath: flume\nStays: yes\n\n", ""), PLAN):
+        acts = proof_acts(monkeypatch, {"y": row("y")})
+        acts.tip = plan.Plan(tip)
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert acts.posts == []
 
 
 Y_AT, W_AT = "9f1c2ab" + "0" * 33, "4d5e6f7" + "0" * 33

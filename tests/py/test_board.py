@@ -2432,6 +2432,11 @@ class TestStaysAndHolds:
         assert not any("board-done  stays" in l for l in planner)
         ops = self.lines(self.landing(d, "tenant-environments"), "wldn-ops")
         assert "✓ land/switchboard-kit  tenant-environments stays  waits to land  no card open" in ops
+        # its landing asked of the runner with no land row: ops's line still marks it to stay
+        d = data()
+        b = next(b for b in d["drives"][0]["construction"] if b["bolt"] == "tenant-environments")
+        b.update(landing={"outcome": "asked", "request": 57}, record={"state": "asked", "n": "57", "head": b.get("head") or "a" * 40})
+        assert any("tenant-environments stays  landing asked, request 57" in l for l in self.lines(d, "wldn-ops"))
 
     def test_each_hold_opens_the_planners_and_ops_bands(self, monkeypatch):
         """crew-board "A kit held": a hold on switchboard-kit and one on the drive open both bands, below their head
