@@ -50,6 +50,42 @@ class TestNew:
         w = run(fresh(), 'bolt new rocs "x" --repo rocs-kit')
         assert w.plan.bolt("rocs").get("Repo") == "rocs-kit"
 
+    def test_a_bolt_planned_to_stay_is_marked_in_the_plan(self):
+        """bolt-plan "Planned to stay" (record 0067): --stays marks the bolt Stays: yes in the write that plans it, and
+        a bolt planned without it carries no mark."""
+        w = fresh()
+        op = plan.op_bolt_new(known(w), plan.do_args("wldn", 'bolt new apex-zones "Each apex is a zone." --repo switchboard-kit --stays'))
+        op.change(w)
+        assert (w.plan.bolt("apex-zones").get("Stays"), op.act, op.on) == ("yes", "bolt.new", ["bolt/apex-zones"])
+        w = run(w, 'bolt new last-one "Last." --repo switchboard-kit')
+        assert w.plan.bolt("last-one").get("Stays") is None
+
+
+def test_no_command_marks_a_bolt_to_stay_later():
+    """bolt-plan "No mark later": crew has no command that marks a bolt planned or started already, so the mark is set
+    ahead of time and never once the bolt is proven; a flag --stays on any other command is refused as crew's parser
+    reads it, the plan unchanged."""
+    w = fresh()
+    before = w.plan.text()
+    for do in ("bolt stay console-pages", "bolt order console-pages --first --stays", 'bolt drop console-pages "x" --stays',
+               "unit order a-console-page --first --stays"):
+        with pytest.raises(plan.Refusal):
+            run(w, do)
+    with pytest.raises(SystemExit):
+        plan.parser().parse_args(["bolt", "stay", "console-pages"])
+    assert w.plan.text() == before
+
+
+def test_a_branch_from_before_the_mark_takes_it_at_its_next_write():
+    """bolt-plan "A branch from before the mark and the holds": a plan whose Bolt descriptor predates the mark is read as
+    it stands, and its next write brings its descriptor in step (plan.in_step), allowing Stays as crew's own does."""
+    old = plan.HEADER.replace("%type: Stays enum yes\n", "").replace(" Path Stays\n", " Path\n")
+    p = plan.Plan(old.replace("%rec: Unit", "Bolt: b\nRepo: switchboard-kit\nGoal: g\n\n%rec: Unit"))
+    assert "%type: Stays" not in p.text() and p.bolt("b").get("Repo") == "switchboard-kit"
+    assert plan.in_step(p) is True
+    assert "%type: Stays enum yes" in p.text() and "%allowed: Bolt Repo Goal Source Path Stays" in p.text()
+    assert plan.in_step(p) is False
+
 
 class TestOrder:
     @pytest.mark.parametrize("how, order", [
@@ -160,6 +196,22 @@ class TestStart:
             ("4", "launch", "bolt/console-pages", "main", None, "crew/bolt"),
             ("5", "launch", "unit/a-console-page", "bolt/console-pages", None, "change"),
             ("6", "launch", "unit/a-console-filter", "bolt/console-pages", None, "change")]
+
+    def test_a_bolt_started_to_stay_is_marked_in_the_start_write(self):
+        """bolt-plan "Started to stay": the start's one write marks the bolt Path: flume and Stays: yes and requests its
+        launches as any start does; a start run again after the runner refused its launch, nothing built then, marks
+        it too, and a start without --stays marks nothing."""
+        w = self.write()
+        run(w, "bolt start console-pages --stays")
+        b = w.plan.bolt("console-pages")
+        assert (b.get("Path"), b.get("Stays")) == ("flume", "yes")
+        assert [r[2] for r in self.requests(w)] == ["bolt/console-pages", "unit/a-console-page", "unit/a-console-filter"]
+        w = self.started_write(refused={1: "flume refused the launch: crew/bolt@1 is not locked on deneb"})
+        run(w, "bolt start console-pages --stays")
+        assert w.plan.bolt("console-pages").get("Stays") == "yes"
+        w = self.write()
+        run(w, "bolt start console-pages")
+        assert w.plan.bolt("console-pages").get("Stays") is None
 
     @pytest.mark.parametrize("answers", [{}, {"held": (1,)}, {"launched": {1: "flume-0.17.0/bolt-submitted"}}])
     def test_a_bolt_whose_launch_is_unanswered_held_or_launched_is_refused_as_started_already(self, answers):

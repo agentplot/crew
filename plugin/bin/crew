@@ -97,6 +97,10 @@
 #                                      piece's submission on its line as the runner carries it, submitted #<n>; nothing
 #                                      read from sluice's queue
 #   crew bolt  new|start|order|drop|land ...
+#                                      new and start take --stays, the one mark of a bolt to stay, set in the write that
+#                                      plans or starts it, by a proposal or the user, and by no other command: a bolt
+#                                      marked to stay waits for the user's send to land, where a proven bolt not
+#                                      marked lands on proof.
 #                                      start, the user's or a proposal's, makes no branch and reads no host: in one plan
 #                                      write it marks the bolt Path: flume and appends to requests.rec the launch of its
 #                                      base place, bolt/<bolt> of crew's kind crew/bolt on main with no brief, and then

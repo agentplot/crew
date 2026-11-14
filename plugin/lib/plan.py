@@ -60,12 +60,15 @@ write that changes several files is one commit; its run-record entry follows it 
                                              transcript as the user's, no words in the run record: the batch's card
                                              closed with them, and the planner told
                                              them when the operator ran it
-  crew bolt new <bolt> "<goal>" --repo <kit> [--source S]... [--before <bolt>]
-  crew bolt start <bolt> [--label L]         the bolt's work started through Flume, making no branch and reading no
+  crew bolt new <bolt> "<goal>" --repo <kit> [--source S]... [--before <bolt>] [--stays]
+  crew bolt start <bolt> [--stays] [--label L]
+                                             the bolt's work started through Flume, making no branch and reading no
                                              host: its base place asked of the runner, of crew's kind crew/bolt on
                                              main, and a launch of each unit and chore appended after it; the user's,
                                              or a proposal's; run again on a bolt whose launch the runner refused,
-                                             launched anew
+                                             launched anew. --stays, on new or start alone, marks the bolt to stay in
+                                             the write that plans or starts it: it waits for the user's send to land,
+                                             where a proven bolt not marked lands on proof
   crew bolt order <bolt> --before <bolt>|--first|--last
   crew bolt drop <bolt> "<reason>" [--requeue]
                                              the bolt and its units out of the plan, or with --requeue its units
@@ -159,18 +162,19 @@ CACHE = pathlib.Path.home() / ".cache/crew/git"
 HEADER = """\
 # The drive's bolts and their units and chores: what is to be built, in
 # which bolt, in what order. Nothing here says how far anything has got: `crew
-# bolts` reads that from the kits. Written only by `crew bolt`, `crew unit` and
-# `crew chore`.
+# bolts` reads that from the kits. Written only by `crew bolt`, `crew unit`,
+# `crew chore` and `crew plan hold`.
 # A Source is a path in the drive's first blueprints repo, or
 # <owner>/<name>:<path> in another.
 
 %rec: Bolt
-%doc: Work on branch bolt/<Bolt> of Repo, marked Path: flume once crew bolt start has started it, whose Flume places build it.
+%doc: Work on branch bolt/<Bolt> of Repo, marked Path: flume once crew bolt start has started it, whose Flume places build it; marked Stays: yes, it waits for the user's send to land.
 %key: Bolt
 %type: Bolt regexp /^[a-z0-9][a-z0-9-]*$/
 %type: Path enum flume
+%type: Stays enum yes
 %mandatory: Repo Goal
-%allowed: Bolt Repo Goal Source Path
+%allowed: Bolt Repo Goal Source Path Stays
 %unique: Repo Goal
 
 %rec: Unit
@@ -5246,6 +5250,9 @@ def called(a):
 
 
 def op_bolt_new(ctx, a):
+    """crew bolt new <bolt> "<goal>" --repo <kit> [--stays]: the bolt planned, marked Stays: yes in the same write with
+    --stays, so it waits for the user's send to land (record 0067; bolt-plan "A bolt is marked to stay only when it is
+    planned or started")."""
     label = ctx.kit(a.repo)
     crew.NAME.match(a.bolt) or fail(f"a bolt's name is lowercase words with dashes, not {a.bolt}")
     why = kit_named(a.bolt, ctx.kits(label), label)
@@ -5253,7 +5260,8 @@ def op_bolt_new(ctx, a):
 
     def change(w):
         w.plan.bolt(a.bolt) is None or fail(f"{label}/main already has bolt {a.bolt}")
-        r = Rec("Bolt", [("Bolt", a.bolt), ("Repo", a.repo), ("Goal", a.goal)] + [("Source", x) for x in a.source])
+        r = Rec("Bolt", [("Bolt", a.bolt), ("Repo", a.repo), ("Goal", a.goal)] + [("Source", x) for x in a.source]
+                + ([("Stays", "yes")] if getattr(a, "stays", False) else []))
         w.plan.insert(r, before=w.bolt(a.before) if a.before else None)
         return [a.bolt]
     return Op(label, change, f"plan({a.bolt}): add the bolt", "bolt.new", on=[f"bolt/{a.bolt}"])
@@ -5267,7 +5275,9 @@ def op_bolt_start(ctx, a):
     configuration names it to take, starting no agent, making no branch and reading no host (record 0056 point 2). A
     proposal may hold it, and the user runs it directly (roles.1, may_write). Refused, with the plan unchanged and
     nothing requested, while no runner answers for the drive (runner.runnerless), and for a bolt started already,
-    but one whose own launch the runner refused, which it launches anew (runner.restart)."""
+    but one whose own launch the runner refused, which it launches anew (runner.restart). With --stays, the same write
+    marks the bolt Stays: yes, on a start and on a start run again, nothing having been built then, so it waits for the
+    user's send to land (record 0067)."""
     label, plan = ctx.locate("Bolt", a.bolt)
     fleet, b = ctx.fleet, plan.bolt(a.bolt)
     seen = {}
@@ -5282,6 +5292,8 @@ def op_bolt_start(ctx, a):
         else:
             s.set("Path", "flume")
             asked = [runner.bolt_launch(w.plan, a.bolt, w.label)]
+        if getattr(a, "stays", False):
+            s.set("Stays", "yes")
         for act, work, given in asked:
             n = request(w, act, work, **given)
             if act == "launch":
@@ -14925,9 +14937,11 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("--repo", required=True)
     x.add_argument("--source", action="append", default=[])
     x.add_argument("--before")
+    x.add_argument("--stays", action="store_true")
     x.add_argument("--label")
     x = bo.add_parser("start")
     x.add_argument("bolt")
+    x.add_argument("--stays", action="store_true")
     x.add_argument("--label")
     x = bo.add_parser("order")
     x.add_argument("bolt")
