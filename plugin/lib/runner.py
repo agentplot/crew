@@ -1642,7 +1642,14 @@ def lands_due(rows, sent, requests, reads, posted=(), work=None):
     the card's order with the fixes of main first, one for each row whose box is ticked on a send that stands for it at
     its head now, that can land (a box), whose launch stands, and none of whose lands was posted at its head now nor
     stands undecided (landing_of: asked or submitted) nor is read unknown, and no land of which posted on the same send
-    was stopped, the send then spent; a bolt started before bolts were base places, with no launch of its own, none."""
+    was stopped, the send then spent; but a land stopped at its head now, its last, posted on proof or on another send,
+    bars no send's land there, since a stop is nothing of the bolt's and no fix moves its head, so only a send can land
+    it (rail-cards "A landings row is due one land for each send and head" as a-proven-bolt-lands-on-proof modifies it,
+    Decision 3); a bolt started before bolts were base places, with no launch of its own, none.
+    The rows due a land on proof come as a send of their own, keyed by no card, {work: (None, its head now)}
+    (a-proven-bolt-lands-on-proof, Decision 1), so the same rules hold of them: one land for each head, none while one
+    stands undecided or unknown, none after a stop at that head, the land posted there; a stop at an old head holds
+    nothing at a new one, a stopped land on proof holding its row only at the head it was posted at."""
     work, due = work or {}, []
     posted = list(posted)
     for r in sorted(rows, key=lambda r: not (r.get("work") or "").startswith("fix/main/")):
@@ -1657,12 +1664,17 @@ def lands_due(rows, sent, requests, reads, posted=(), work=None):
         if launch is None:
             continue
         mine = [p for p in posted if p.get("work") == w]
-        if any(p.get("head") and head and (head.startswith(p["head"]) or p["head"].startswith(head)) for p in mine):
-            continue
+        here = [p for p in mine if p.get("head") and head and (head.startswith(p["head"]) or p["head"].startswith(head))]
         l = landing_of(launch, lands_of(requests, launch), reads)
         if l["outcome"] in ("asked", "submitted", "unknown", "unlaunched", "landed", "dropped"):
             continue
-        if l["outcome"] == "stopped" and any(p.get("card") == card and str(p.get("request")) == str(l.get("request")) for p in mine):
+        if l["outcome"] == "stopped" and card is not None:
+            # every land posted at this head is decided, the last stopped: one this send posted spends it, at this head
+            # or any, and one posted on proof or on another send bars nothing of this one
+            if any(p.get("card") == card for p in here) or any(
+                    p.get("card") == card and str(p.get("request")) == str(l.get("request")) for p in mine):
+                continue
+        elif here:
             continue
         due.append((w, number(launch.get("Request"))))
     return due

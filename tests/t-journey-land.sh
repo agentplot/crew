@@ -19,8 +19,11 @@
 # closes it at Flume's commit as the runner reports it, its chore read landed from its own record and no landing commit
 # on its kit's main read for it (bolt-teams "crew bolt land closes a started bolt only once its base place reads landed", "A landed bolt closes on its
 # pieces' ends as the runner reports them"; crew record 0056 point 4). Through it all, no sluice, wt or gh call is
-# made, and the kit's checkout on the box keeps its HEAD, index and refs but its remotes' (Decision 1). Every decision
-# on the way is a logic case (tests/py/test_runner.py, test_landings.py, test_landing.py).
+# made, and the kit's checkout on the box keeps its HEAD, index and refs but its remotes' (Decision 1). Those bolts are
+# planned to stay, so the card and the send land them; a bolt planned with no mark, proven at its head, lands on proof:
+# the rail's read on the main level's host posts one land of its launch, recorded Form: proof, with no card asking for
+# it, and the next read posts none (a-proven-bolt-lands-on-proof, Decisions 1 and 2). Every decision on the way is a
+# logic case (tests/py/test_runner.py, test_landings.py, test_landing.py).
 # Reads: plugin/lib/board.py plugin/roles/
 . "${TESTS:?run crew tests through tests/run, which puts stub herdr, ssh and claude first}/lib.sh" || exit 2
 bolt_world
@@ -81,7 +84,7 @@ req() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request "$@"
 land_of() { git --git-dir "$ws" show wldn/main:requests.rec | recsel -t Request -e "Act = 'land' && Work = 'bolt/$1'" -P Request | tail -1; }
 
 # A start launches the base place and then the chore, making no branch and reaching no host
-expect_ok crew bolt new y "Y's files." --repo switchboard-kit
+expect_ok crew bolt new y "Y's files." --repo switchboard-kit --stays
 expect_ok crew chore add y-files "Y's files." --bolt y
 : > "$T/start.log"; CREW_TEST_LOG=$T/start.log expect_ok crew bolt start y
 has "$out" "y's base place, bolt/y, is asked of the runner (request 1)"
@@ -161,7 +164,7 @@ ok "once the runner reports the base place landed, the raise records the landing
 
 # Two bolts proven together, both ticked: the lands posted in the card's order
 for b in z w; do
-  expect_ok crew bolt new $b "$b's files." --repo switchboard-kit
+  expect_ok crew bolt new $b "$b's files." --repo switchboard-kit --stays
   expect_ok crew chore add $b-files "$b's files." --bolt $b
   expect_ok crew bolt start $b
   base_launched $b
@@ -234,6 +237,27 @@ eq "$(field $box bolt.submit Outcome bolt/z)" "landed"
 [[ -z $(plan -t Bolt -e "Bolt = 'z'" -P Bolt) ]] || fail "z is still in the plan"
 [[ -z $(plan -t Unit -e "Bolt = 'z'" -P Unit) ]] || fail "z's chore is still in the plan"
 ok "a bolt Flume landed, its branch deleted from GitHub and its places tidied, is closed by ops's crew bolt land at Flume's commit, read from the records Flume holds for the runner"
+
+# A bolt planned with no mark to stay, proven at its head: the rail's read on the main level's host raises its kit's
+# card, whose raise posts one land of its launch on proof, its entry marked Form: proof, and no card asks for it; the
+# next read posts none
+expect_ok crew bolt new p "P's files." --repo switchboard-kit
+expect_ok crew chore add p-files "P's files." --bolt p
+expect_ok crew bolt start p
+base_launched p
+flume_builds p-files p p.txt
+head=$(git -C "$k" rev-parse origin/bolt/p)
+expect_ok on_box rail --label wldn
+has "$out" "landings cards raised for bolts due a land on proof:"
+eq "$(req -e "Act = 'land' && Work = 'bolt/p'" -c)" "1"
+lp=$(land_of p)
+eq "$(field $box bolt.submit Form bolt/p) $(field $box bolt.submit Outcome bolt/p) $(field $box bolt.submit Request bolt/p) $(field $box bolt.submit Card bolt/p)" "proof asked $lp "
+eq "$(field $box bolt.submit Head bolt/p)" "$head"
+asked=$(calls | grep "^$box pendingyou \(post_request\|update_request\) " | grep -c '"land:p"\|Land the bolt p ' || true)
+eq "$asked" "0"
+expect_ok on_box rail --label wldn
+eq "$(req -e "Act = 'land' && Work = 'bolt/p'" -c)" "1"
+ok "a proven bolt not marked to stay lands on proof at the rail's read on the main level's host, one land of its launch recorded Form: proof, no card asking for it, and the next read posts none"
 
 # Nothing of crew's ran sluice, wt or gh, nor moved the kit's checkout but its remotes
 # each stub logs its call as `<host> <tool> <args>`, wherever it runs, a command run over ssh among them

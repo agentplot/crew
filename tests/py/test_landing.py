@@ -889,7 +889,7 @@ class TestCrewBoltLandOfAStartedBolt:
         assert self.written == []
 
     def test_a_bolt_with_no_land_asked_says_so(self, monkeypatch):
-        with pytest.raises(plan.Refusal, match="no land of it has been asked of the runner: it lands on the user's send"):
+        with pytest.raises(plan.Refusal, match="no land of it has been asked of the runner: it lands on proof once it can land and its forecast is clear of main, or, marked to stay, on the user's send"):
             self.land(monkeypatch, base_run("bolt-submitted", land=False, more={}))
 
     def unit_merged(self, more=(), **ran_):

@@ -150,6 +150,17 @@ class TestWhatTheRenameRenames:
         assert sorted(w.files) == ["proposals.rec", "requests.rec", "runs/deneb/2026-10-30.rec", "runs/deneb/2026-10-31.rec"]
         assert n == 6 and w.renaming == [("flywheel-cloud", "boomdrive-cloud")]
 
+    def test_a_hold_on_the_kit_is_renamed_with_it_and_still_holds_it(self):
+        """plan.22 (Decision 6 of a-proven-bolt-lands-on-proof): a Hold names its kit by the name the drive's kits give it,
+        so a rename renames the Hold's Kit with the rest, and the hold still stands on the kit by its new name; the drive's
+        hold and another kit's are left as they are."""
+        w = madswan_branch()
+        w.plan = plan.Plan(w.plan.text() + "\n%rec: Hold\n\nKit: flywheel-cloud\nWhy: Cutover\n\nKit: crew\nWhy: Its own\n\nWhy: The move\n")
+        assert plan.rename_branch(w, "flywheel-cloud", "boomdrive-cloud") == 7
+        assert plan.holds_of(w.plan) == [dict(kit="boomdrive-cloud", why="Cutover"), dict(kit="crew", why="Its own"),
+                                         dict(kit=None, why="The move")]
+        assert plan.hold_on(w.plan, "boomdrive-cloud") == dict(kit="boomdrive-cloud", why="Cutover")
+
     def test_only_the_files_it_changed_are_replaced(self):
         w = madswan_branch()
         replaced = []
