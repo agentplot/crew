@@ -108,10 +108,12 @@ def kits_of(found):
 
 
 def plan_text(bolts=(), units=()):
-    """plan.rec text with its descriptors: bolts as (name, repo, started), a started one marked Path: flume, units as
-    (name, repo, bolt or None, [after...]), in order, a fifth "chore" making it a chore, whose words are "Chore <name>."."""
+    """plan.rec text with its descriptors: bolts as (name, repo, started), a started one marked Path: flume, a fourth
+    "stays" marking it Stays: yes, units as (name, repo, bolt or None, [after...]), in order, a fifth "chore" making it a
+    chore, whose words are "Chore <name>."."""
     text = "%rec: Bolt\n%key: Bolt\n\n" + "".join(
-        f"Bolt: {b}\nRepo: {r}\nGoal: Goal of {b}.\n" + ("Path: flume\n" if t else "") + "\n" for b, r, t in bolts)
+        f"Bolt: {b}\nRepo: {r}\nGoal: Goal of {b}.\n" + ("Path: flume\n" if t else "") + ("Stays: yes\n" if stays else "") + "\n"
+        for b, r, t, *stays in bolts)
     text += "%rec: Unit\n%key: Unit\n\n" + "".join(
         f"Unit: {u}\nRepo: {r}\n" + (f"Bolt: {b}\n" if b else "") + ("Kind: chore\n" if kind else "")
         + (f"Intent: Chore {u}.\n" if kind else f"Intent: Unit {u}.\n") + "".join(f"After: {x}\n" for x in after) + "\n"

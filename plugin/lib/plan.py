@@ -3105,7 +3105,7 @@ def told_on(entries, key, owner, kit):
     TAPPED). A card followed or withdrawn before the user saw it leaves its told bolts to the next card."""
     form, landed, told, spent = {}, [], {}, set()
     for e in entries:
-        act, bolt = e.get("Act"), next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None)
+        act, bolt = e.get("Act"), next((o[5:] for o in e.get("On") or [] if (o or "").startswith("bolt/")), None)
         if e.get("Refused"):
             continue
         if act == "bolt.submit" and bolt and e.get("Request") and e.get("Outcome") == "asked":
@@ -10414,7 +10414,12 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
                                  taking=heads_taking(shown_heads(entries, c["card"])), answered=c.get("answered")) for c in ops_cards}
     sends = {k: landings_sent(entries, k, f"{l}-ops") for k in dict.fromkeys(
         e["Key"] for e in entries if e.get("Act") == "card.close" and (e.get("Key") or "").startswith("land/") and e.get("Heads"))}
-    held = dict(batches=batches(entries), closed=closed, settled=settled, posts=batch_posts(entries),
+    # each kit's bolts landed on proof still to be told on its landings card (told_on), and the form of each bolt's newest
+    # land posted, proof or a send's (a-proven-bolt-lands-on-proof, Decisions 4 and 7)
+    told = {k: t for k in drive_kits(plan, landings_entries(entries)) for t in [told_on(entries, f"land/{k}", f"{l}-ops", k)] if t}
+    forms = {o[5:]: e.get("Form") or "send" for e in entries if e.get("Act") == "bolt.submit" and not e.get("Refused")
+             and e.get("Outcome") == "asked" and e.get("Request") for o in e.get("On") or [] if (o or "").startswith("bolt/")}
+    held = dict(batches=batches(entries), closed=closed, settled=settled, posts=batch_posts(entries), told=told, forms=forms,
                 due=None if missing else {u for u, *_ in due_changes(plan, entries, crossed)},
                 unanswered=None if missing else awaiting_answer(entries, crossed), refused=refusals(entries), stopped=stops(entries),
                 phases=landing_phases(entries),
@@ -10422,6 +10427,12 @@ def record_reading(l, entries, plan, fresh, missing=None, crossed=None):
                 left=[e for e in entries if e.get("Act") in ("landing.left", "bolt.leave")],
                 land_cards=land_cards, sends=sends)
     return dict(times=times, cards=list(posted.values()), landings=landings, held=held)
+
+
+def landings_entries(entries):
+    """The bolt.land entries among a run record's, by which a drive's kits include those whose last bolt has landed
+    (drive_kits)."""
+    return [e for e in entries if e.get("Act") == "bolt.land"]
 
 
 def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
@@ -10458,7 +10469,14 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
     runners, runs, {label: (requests, readings)}, as rail_runs reads them; Decision 11 of
     teams-cross-to-flume-as-their-bolts-land), a row of its own where no bolt of the kit waits, each line naming ops's
     command for the user's send of it (main_fix_line, fixes, each {fix, host, can, send}). The row's answer tells ops
-    to land those that can, in order, and offers nothing while none can."""
+    to land those that can, in order, and offers nothing while none can.
+    A bolt that can land says how it lands (lands_by; crew-rail "A bolt that can land says how it lands", Decision 7 of
+    a-proven-bolt-lands-on-proof): on proof, its land on proof asked with its request once posted; on the user's send,
+    for a bolt marked to stay, left by the user or whose last land at its head was stopped, saying which, the card's
+    stand after it; or once the hold on its kit or drive is lifted, naming the hold and its words. Each bolt carries
+    stays. The row carries told, the bolts of the kit landed on proof still to be told on its card ([{bolt, commit,
+    at}], held's told), each a line of its own, a kit with one and nothing waiting a row of its own (crew-rail "A kit's
+    row under land holds the bolts its card tells"), and asks, whether its card has a row to ask about or a bolt to tell."""
     rows, here, held = [], crew.this_host(), held or {}
     for d in props:
         l, n = d["label"], d["proposal"]
@@ -10539,7 +10557,10 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
                 lands = [landing_line(landing, phase, head, b.name()) + (": no unit, chore or fix joins it until its outcome is read"
                                                                          if phase and phase["state"] in ("queued", "again", "asked") else "")]
             elif o in ("asked", "submitted") or o != "stopped" and phase and phase["state"] in ("queued", "again", "asked"):
-                lands = [f"{landing_line(landing, phase, head, b.name())}: no unit, chore or fix joins it until its outcome is read"]
+                said = landing_line(landing, phase, head, b.name()) or ""
+                if (held.get(l, {}).get("forms") or {}).get(b.name()) == "proof":  # its land posted on proof (Decision 7)
+                    said = said.replace("landing asked, request", "landing on proof asked, request", 1)
+                lands = [f"{said}: no unit, chore or fix joins it until its outcome is read"]
             elif not lands and carry:  # another bolt's work it carries holds it as a conflict does (plan.8)
                 lands = [f"held: {carry}"]
             elif not lands and fixes:  # a fix started on the bolt holds its landing
@@ -10551,30 +10572,50 @@ def rail_rows(fleet, found, sv, props, times, held=None, runs=None):
             elif not lands and conflict:  # forecast at this head to conflict with what main holds (main_conflict)
                 lands = [f"takes main first: forecast to conflict with main on {joined(conflict[1])}, until a fix "
                          "taking main in moves its head"]
-            can = [f"can land on your send of land/{kit_name}"] + (
-                [f"its last landing at {head[:7]} was stopped, nothing of the bolt's: {stop.rstrip('.')}; it lands on your next send"]
-                if stop else [])  # stopped_at, holding nothing
-            # how the kit's card stands for the bolt, once the run record was read (card_stand, design Decision 8)
+            # how the bolt lands once it can (lands_by): on proof, on the user's send, or once a hold is lifted (Decision 7)
+            stays = b.get("Stays") == "yes"
+            left = bool(left_of(held.get(l, {}).get("left") or [], f"land/{kit_name}", {b.name(): head}))
+            hold = hold_on(plan, kit_name)
+            how = lands_by({"bolt": b.name()}, stays, left, stop, hold)
+            if how == "proof":
+                can = ["lands on proof: crew asks the runner to land it at the next read of the rail on the main level's host"]
+            elif how == "hold":
+                can = [f"held by the hold on {held_named(l, hold['kit'])}, \"{hold['why']}\": it lands on proof once the hold is lifted"]
+            else:
+                can = [("stays: can" if stays else "left by you: can" if left else "can") + f" land on your send of land/{kit_name}"] + (
+                    [f"its last landing at {head[:7]} was stopped, nothing of the bolt's: {stop.rstrip('.')}; it lands on your next send"]
+                    if stop else [])  # stopped_at, holding nothing
+            # how the kit's card stands for the bolt, once the run record was read, for a row the card asks about (card_stand,
+            # design Decision 8)
             stand = card_stand(b.name(), head, not lands, (held[l].get("land_cards") or {}).get(f"land/{kit_name}"),
-                               (held[l].get("sends") or {}).get(f"land/{kit_name}") or {}) if l in held else None
+                               (held[l].get("sends") or {}).get(f"land/{kit_name}") or {}) if l in held and how == "send" else None
             kits.setdefault(kit_name, []).append(
-                dict(bolt=b.name(), host=host, at=at, can=not lands, head=head, line=f"{b.name()}, on {host}"
+                dict(bolt=b.name(), host=host, at=at, can=not lands, head=head, stays=stays, how=how, line=f"{b.name()}, on {host}"
                      + (f", {path}" if path else "") + ": " + "; ".join((lands or can) + ([stand_said(stand, kit_name, l, head)] if stand else []))))
         waiting = {}
         for f in runner.main_fixes_waiting(*(runs or {}).get(l, ([], {}))):
             waiting.setdefault(f["kit"], []).append(f)
-        for kit_name in list(kits) + [k_ for k_ in waiting if k_ not in kits]:
+        told = (held.get(l, {}).get("told") or {}) if l in held else {}
+        for kit_name in list(kits) + [k_ for k_ in waiting if k_ not in kits] + [k_ for k_ in told if k_ not in kits and k_ not in waiting]:
             bolts, fixes = kits.get(kit_name, []), [main_fix_line(l, kit_name, f) for f in waiting.get(kit_name, [])]
-            can = [f"fix {f['fix']}" for f in fixes if f["can"]] + [x["bolt"] for x in bolts if x["can"]]
+            landed = [dict(bolt=b_, commit=c, at=t) for b_, c, t in told.get(kit_name, [])]
             items = ([plural_of(len(fixes), "fix of main", "fixes of main")] if fixes else []) + ([plural_of(len(bolts), "bolt", "bolts")] if bolts else [])
-            what = [f"{kit_name} ({l}): {' and '.join(items)} {'waits' if len(fixes) + len(bolts) == 1 else 'wait'} to land on its main"
-                    + (", in the plan's order" if bolts else "") + f"; each lands on your send of land/{kit_name}"] + [f["line"] for f in fixes] + [x["line"] for x in bolts]
+            sends = all(x.get("how", "send") == "send" for x in bolts)  # every bolt lands on the send, as every fix does
+            what = ([f"{kit_name} ({l}): {' and '.join(items)} {'waits' if len(fixes) + len(bolts) == 1 else 'wait'} to land on its main"
+                     + (", in the plan's order" if bolts else "")
+                     + (f"; each lands on your send of land/{kit_name}" if sends else "; each says how it lands")] if items else
+                    [f"{kit_name} ({l}): {plural_of(len(landed), 'bolt', 'bolts')} landed on proof, told on land/{kit_name}"])
+            what += [f["line"] for f in fixes] + [x["line"] for x in bolts]
+            what += [f"{t['bolt']} landed on proof at {t['commit'][:7]}, told on land/{kit_name}" for t in landed]
+            asks = bool(landed) or any(f["can"] for f in fixes) or any(x["can"] and x.get("how") == "send" for x in bolts)
             # no command for main-level ops: the user's send on the kit's card is the one word, which crew carries to the
             # runner itself (crew-lands-each-bolt-through-flumes-base-place, Decision 4)
-            rows.append(dict(group="land", label=l, key=f"land/{kit_name}", at=min([utc(x["at"]) for x in bolts] + [f["at"] for f in fixes]),
+            rows.append(dict(group="land", label=l, key=f"land/{kit_name}",
+                             at=min([utc(x["at"]) for x in bolts] + [f["at"] for f in fixes] + [utc(t["at"]) for t in landed if t["at"]]
+                                    or [utc(datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))]),
                              doc=None, what=what, cmds=[],
-                             bolts=[{k_: x[k_] for k_ in ("bolt", "host", "can", "head")} for x in bolts],
-                             fixes=[{k_: f[k_] for k_ in ("fix", "host", "can", "send")} for f in fixes]))
+                             bolts=[{k_: x[k_] for k_ in ("bolt", "host", "can", "head", "stays")} for x in bolts],
+                             fixes=[{k_: f[k_] for k_ in ("fix", "host", "can", "send")} for f in fixes], told=landed, asks=asks))
     return rows
 
 
