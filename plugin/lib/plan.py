@@ -3058,7 +3058,8 @@ def card_heads(text):
     """A kit's landings card's rows as its post or change recorded them (built_fields): [(bolt, head, left)] in the
     card's order, left whether the user cleared it on their last send; [] for none recorded. A row the card showed
     taking main first, marked :main, is among them, never left (heads_taking), and so is one it showed with no box,
-    marked :next after either mark or none (heads_next)."""
+    marked :next after either mark or none (heads_next); a bolt it told landed on proof, marked :landed, is no row
+    (heads_landed)."""
     out = []
     for w in (text or "").split():
         m = re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40})(:left|:main)?(:next)?", w)
@@ -3079,6 +3080,14 @@ def heads_next(text):
     rail-cards "A landings card holds five boxes and the rest of its rows wait on its face"): their bolts."""
     return {m.group(1) for w in (text or "").split()
             for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@[0-9a-f]{7,40}(?::left|:main)?:next", w)] if m}
+
+
+def heads_landed(text):
+    """The bolts landed on proof a kit's landings card's post or change recorded it told, marked :landed
+    (cards.told_heads; a-proven-bolt-lands-on-proof, Decision 4), [(bolt, commit)] in the card's order; card_heads,
+    heads_taking and heads_next read past them, since a told bolt is no row."""
+    return [(m.group(1), m.group(2)) for w in (text or "").split()
+            for m in [re.fullmatch(r"([a-z0-9][a-z0-9-]*)@([0-9a-f]{7,40}):landed", w)] if m]
 
 
 def at_head(head, now):

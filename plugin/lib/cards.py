@@ -835,6 +835,8 @@ def landing_card(f):
         said.append(f"Held, with no box: {joined([h['bolt'] for h in held])}.")
     if f.get("left"):
         said.insert(0, "Left on your last send.")
+    if f.get("told"):  # bolts of its kit landed on proof, told first on its face and in its opening (Decision 4)
+        said.insert(0, told_opening(f["told"]))
     if "key" in f and f.get("unread") and not f.get("link"):
         said.insert(1, f"Its reading could not be opened on the tailnet: crew tries it again when the rail is read, and "
                        f"main-level ops starts it with crew card session land/{f['bolt']}; this card "
@@ -851,8 +853,11 @@ def landing_card(f):
     read = [(f"Read bolt {f['bolt']}", f["link"])] if f.get("link") else []
     pulled = [(pr_title, pr["url"])] if pr else []
     previews = [(f"Preview: {label}", url) for label, url in addresses]
-    shown = [lands] + ([markdown(f"Held on {f['kit']}'s main, with no box", f"held-{f['kit']}.md",
-                                 "\n\n".join(f"**{h['bolt']}**: {h['why']}" for h in held))] if held else [])
+    landed = [text_list(f"Landed on {f['kit']}'s main on proof since your last look", f"landed-{f['kit']}.txt",
+                        [(t["bolt"], f"main at {t['commit'][:7]}" + (f", {landed_when(t['at'])}" if t.get("at") else ""))
+                         for t in f["told"]])] if f.get("told") else []
+    shown = landed + [lands] + ([markdown(f"Held on {f['kit']}'s main, with no box", f"held-{f['kit']}.md",
+                                          "\n\n".join(f"**{h['bolt']}**: {h['why']}" for h in held))] if held else [])
     room = ARTIFACTS - len(shown) - len(read) - len(pulled)  # the face's lists, the reading and the pull request kept
     return built(f.get("key") or f"land/{f['bolt']}", f"Land the bolt {f['bolt']} on {f['kit']}'s main", " ".join(said),
                  background, read + previews + pulled, shown + [link(title, url) for title, url in read + previews[:room] + pulled],
@@ -922,7 +927,7 @@ def row_said(r):
     return taking_said(r) if r.get("taking") else forecast_said(r.get("forecast") or [], r.get("forecast_why"), r.get("would_main"))
 
 
-def landings_form(n):
+def landings_form(n, told=()):
     """The form of a kit's landings card by how many rows it shows, those that can land and those taking main first
     beside them (plan.card_rows; rail-cards, record 0031 as amended 2026-10-23): "approve", a hold-to-approve of risk
     high, for one; "multi", one list of boxes carrying highStakes on the card, for any more, its boxes at most BOXES
@@ -932,8 +937,52 @@ def landings_form(n):
     times. Pending You changes neither a card's kind nor its questions, and takes no list of fewer than two options
     (update_request and post_request, pendingyou 0.39.0, read 2026-11-06), so a change from one form to the other is
     followed rather than changed; a row coming to take main first or coming back from it, or coming to a box or losing
-    one, keeps the card's form, so it changes the card in place."""
+    one, keeps the card's form, so it changes the card in place. With no row and a bolt landed on proof to tell (told),
+    "tell", a one-tap notice that asks nothing (a-proven-bolt-lands-on-proof, Decision 4)."""
+    if not n and told:
+        return "tell"
     return "approve" if n <= 1 else "multi"
+
+
+def landed_when(at):
+    """When a bolt landed, as a landings card says it: an entry's At, 2026-11-13T03:12:40Z, as 2026-11-13 03:12Z."""
+    return f"{at[:10]} {at[11:16]}Z" if len(at or "") >= 16 and at[10:11] == "T" else (at or "")
+
+
+def told_said(told):
+    """The bolts landed on proof a kit's landings card tells (Decision 4 of a-proven-bolt-lands-on-proof), as words: each
+    with the commit its kit's main holds after it and when, `y at 9f1c2ab (2026-11-13 03:12Z)`."""
+    return joined([f"{t['bolt']} at {t['commit'][:7]}" + (f" ({landed_when(t['at'])})" if t.get("at") else "") for t in told])
+
+
+def told_opening(told):
+    """The sentence an asking landings card opens its summary and its face with while it tells bolts landed on proof."""
+    return f"Landed on proof since your last look: {told_said(told)}." if told else ""
+
+
+def told_heads(told):
+    """Each bolt a landings card tells as its post or change records it, <bolt>@<commit>:landed (plan.heads_landed)."""
+    return [f"{t['bolt']}@{t['commit'][:7]}:landed" for t in told]
+
+
+def landings_notice(f):
+    """A kit's landings card in its tell form (landings_form; Decision 4 of a-proven-bolt-lands-on-proof): a one-tap notice
+    in main-level ops's name, kind fyi, intent tell, urgency whenever, as a batch's card is, titled `Landed on <kit>'s
+    main: <bolts>`, naming each bolt that landed on proof with the commit its kit's main holds after it and when, asking
+    nothing. f: kit, told ([{bolt, commit, at}]), ops, follows. Also handed back: heads, each told bolt marked :landed,
+    and linked, since it has no reading."""
+    kit, told = f["kit"], list(f["told"])
+    bolts = joined([t["bolt"] for t in told])
+    said = (f"{told_said(told)} landed on {kit}'s main on proof, each proven and its forecast clear of main, with nothing "
+            "asked of you. Nothing waits on this card: tap it to clear it.")
+    lines = [(t["bolt"], f"main at {t['commit'][:7]}" + (f", {landed_when(t['at'])}" if t.get("at") else "")) for t in told]
+    shown = [text_list(f"Landed on {kit}'s main on proof", f"landed-{kit}.txt", lines)]
+    background = ("A proven bolt not marked to stay lands on proof, at any hour; a bolt marked to stay waits for your send "
+                  "on this card, and a hold on the drive or the kit stops both.")
+    out = built(f"land/{kit}", f"Landed on {kit}'s main: {bolts}", said, background, (), shown, f.get("follows"),
+                urgency="whenever", kind="fyi", intent="tell")
+    out.update(heads=told_heads(told), linked=True)
+    return out
 
 
 def landings_boxed(rows):
@@ -1038,28 +1087,33 @@ def landings_card(f):
     box, which the run record keeps on the card's post and change for the next raise to read (plan.landings_step), and
     linked, since each row's reading was opened with it and the card has no reading of its own."""
     kit, rows, held, left = f["kit"], [dict(r) for r in f["rows"]], list(f.get("held") or []), set(f.get("left") or [])
-    key, form = f"land/{kit}", landings_form(len(rows))
+    told = list(f.get("told") or [])
+    key, form = f"land/{kit}", landings_form(len(rows), told)
+    if form == "tell":
+        return landings_notice(f)
     rows or fail(f"{key} has no bolt that can land, so it has no card")
     for r in rows:
         r["left"], r["ops"] = r["bolt"] in left, f.get("ops")
     boxed = set(landings_boxed(rows))
     heads = [f"{r['bolt']}@{r['head'][:7]}" + (":main" if r.get("taking") else ":left" if r["left"] else "")
-             + ("" if r["bolt"] in boxed else ":next") for r in rows]
+             + ("" if r["bolt"] in boxed else ":next") for r in rows] + told_heads(told)
     unread = [(r["bolt"], r["unread"]) for r in rows if r.get("unread")]
     why = unread[0][1] if len(rows) == 1 and unread else "; ".join(f"{b}: {w}" for b, w in unread)
     if form == "approve":
-        out = landing_card(dict(rows[0], key=key, held=held, follows=f.get("follows")))
+        out = landing_card(dict(rows[0], key=key, held=held, follows=f.get("follows"), told=told))
         out.update(heads=heads, linked=True, **({"unread": why} if why else {}))
         return out
     n = len(rows)
     about = f"{kit}'s main"
-    face = "\n\n".join(row_paragraph(i, r, r["bolt"] in boxed) for i, r in enumerate(rows, 1))
+    face = ((f"**{told_opening(told)}**\n\n" if told else "")
+            + "\n\n".join(row_paragraph(i, r, r["bolt"] in boxed) for i, r in enumerate(rows, 1)))
     if held:
         face += "\n\n**Held, with no box**\n\n" + "\n".join(f"- **{h['bolt']}**: {h['why']}" for h in held)
     left_said = [r["bolt"] for r in rows if r["left"] and not r.get("taking")]
     taking = [r["bolt"] for r in rows if r.get("taking")]
     waiting = n - len(boxed)
-    summary = (f"{n} bolts wait to land on {about}, in the order below. One send lands the ticked ones in that order, each "
+    summary = ((f"{told_opening(told)} " if told else "")
+               + f"{n} bolts wait to land on {about}, in the order below. One send lands the ticked ones in that order, each "
                "queued behind the one before; clear a box to leave that bolt waiting."
                + (f" {waiting} more wait below with no box yet; the card that follows your send asks for them."
                   if waiting else "")
