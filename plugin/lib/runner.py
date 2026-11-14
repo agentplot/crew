@@ -1642,7 +1642,11 @@ def lands_due(rows, sent, requests, reads, posted=(), work=None):
     the card's order with the fixes of main first, one for each row whose box is ticked on a send that stands for it at
     its head now, that can land (a box), whose launch stands, and none of whose lands was posted at its head now nor
     stands undecided (landing_of: asked or submitted) nor is read unknown, and no land of which posted on the same send
-    was stopped, the send then spent; a bolt started before bolts were base places, with no launch of its own, none."""
+    was stopped, the send then spent; a bolt started before bolts were base places, with no launch of its own, none.
+    The rows due a land on proof come as a send of their own, keyed by no card, {work: (None, its head now)}
+    (a-proven-bolt-lands-on-proof, Decision 1), so the same rules hold of them: one land for each head, none while one
+    stands undecided or unknown, none after a stop at that head, the land posted there; a stop at an old head holds
+    nothing at a new one, a stopped land on proof holding its row only at the head it was posted at."""
     work, due = work or {}, []
     posted = list(posted)
     for r in sorted(rows, key=lambda r: not (r.get("work") or "").startswith("fix/main/")):
@@ -1662,7 +1666,8 @@ def lands_due(rows, sent, requests, reads, posted=(), work=None):
         l = landing_of(launch, lands_of(requests, launch), reads)
         if l["outcome"] in ("asked", "submitted", "unknown", "unlaunched", "landed", "dropped"):
             continue
-        if l["outcome"] == "stopped" and any(p.get("card") == card and str(p.get("request")) == str(l.get("request")) for p in mine):
+        if l["outcome"] == "stopped" and card is not None and any(
+                p.get("card") == card and str(p.get("request")) == str(l.get("request")) for p in mine):
             continue
         due.append((w, number(launch.get("Request"))))
     return due
