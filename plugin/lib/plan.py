@@ -111,6 +111,13 @@ write that changes several files is one commit; its run-record entry follows it 
                                              one answer of the proposal's card, kept on this host; the change is
                                              applied with its boxes as they stand once every question is answered
   crew plan drop <n> "<reason>"              the proposal closed unapplied
+  crew plan hold "<why>" [--repo <kit>] [--excerpt "<the user's words>"] [--label L]
+                                             a hold put on the drive's landings, or one kit's, with its words, or the
+                                             words changed of the one standing there: while it stands crew posts no
+                                             land, on proof or on a send; the user's, main-level ops's only on the
+                                             user's own words in its pane, read as theirs, and no proposal's
+  crew plan go [--repo <kit>] [--label L]    the hold lifted, the user's alone, a raise of each landings card it held
+                                             handed to the main level's host, posting what came due meanwhile
   crew signal <slug> "<what it asserts>" --excerpt "<the words, verbatim>"|--excerpt-file <path> [--kind K] [--subject a,b]
                                              a finding, as a capture and its signal on the drive's branch: an
                                              agent's excerpt checked against its own Claude transcript and graded, the
@@ -188,6 +195,12 @@ HEADER = """\
 %mandatory: Repo Intent
 %allowed: Unit Repo Bolt Kind Intent After Source Amended
 %unique: Repo Bolt Kind Intent
+
+%rec: Hold
+%doc: A hold on the drive's landings, or on one kit's (Kit), with its words (Why): while it stands crew posts no land of its bolts or its fixes of main, on proof or on a send. Put by crew plan hold and lifted by crew plan go, the user's.
+%mandatory: Why
+%allowed: Kit Why
+%unique: Kit Why
 """
 MOVES = """\
 # The drive's curation moves: one per signal, appended through crew and
@@ -323,6 +336,11 @@ class Plan:
     def chores(self):
         return [u for u in self.work() if is_chore(u)]
 
+    def holds(self):
+        """The holds on the drive's landings and its kits' (Decision 6 of a-proven-bolt-lands-on-proof), in file order:
+        each a Hold record naming its Kit, or none for the whole drive, with its words, Why."""
+        return self.recs("Hold")
+
     def bolt(self, name):
         return next((b for b in self.bolts() if b.name() == name), None)
 
@@ -411,7 +429,8 @@ def declares(p):
 def in_step(plan, header=HEADER):
     """Bring each record descriptor of a plan, or of another of crew's files with its header, in step with crew's own
     (HEADER), so a branch started before a field was allowed takes it on its next write, still allowing what the
-    branch's own allowed (still_allowed). Returns whether any changed."""
+    branch's own allowed (still_allowed); and a plan declaring no Hold record set takes crew's at its end (holds_declared).
+    Returns whether any changed."""
     want = {declares(p): p for p in Plan(header).paras if declares(p)}
     changed = False
     for i, p in enumerate(plan.paras):
@@ -419,7 +438,30 @@ def in_step(plan, header=HEADER):
         new = still_allowed(p, want[k]) if k in want else p
         if new != p:
             plan.paras[i], changed = new, True
-    return changed
+    return (holds_declared(plan) if header is HEADER else False) or changed
+
+
+def holds_declared(plan):
+    """A plan written before the Hold record set took crew's descriptor of it at its end, so a hold can be put on it
+    (Decision 6 of a-proven-bolt-lands-on-proof; bolt-plan "A branch from before the mark and the holds"). Returns
+    whether it was added."""
+    if any(declares(p) == "Hold" for p in plan.paras):
+        return False
+    plan.paras.append(next(list(p) for p in Plan(HEADER).paras if declares(p) == "Hold"))
+    return True
+
+
+def hold_on(plan, kit):
+    """The hold standing on a kit's landings (Decision 6 of a-proven-bolt-lands-on-proof): its own, or else the drive's,
+    as {kit, why}, kit None for the drive's; None while neither stands. A decision of facts alone (code.7)."""
+    holds = {h.get("Kit"): h.get("Why") or "" for h in (plan.holds() if plan is not None else [])}
+    k = kit if kit is not None and kit in holds else None
+    return dict(kit=k, why=holds[k]) if k in holds else None
+
+
+def holds_of(plan):
+    """Each hold standing on the drive or a kit of it, [{kit, why}] in file order, kit None for the drive's."""
+    return [dict(kit=h.get("Kit"), why=h.get("Why") or "") for h in (plan.holds() if plan is not None else [])]
 
 
 def still_allowed(have, want):
@@ -434,7 +476,8 @@ def still_allowed(have, want):
 
 def check(plan):
     """crew's own rules, which recfix cannot check: a unit's or chore's bolt exists in the same repo, and its After
-    names units or chores of the same bolt, with no cycle; a chore is never marked amended (plan.11)."""
+    names units or chores of the same bolt, with no cycle; a chore is never marked amended (plan.11); and one hold at
+    most stands on each kit, and one on the whole drive (plan.1; Decision 6 of a-proven-bolt-lands-on-proof)."""
     bolts = {b.name(): b for b in plan.bolts()}
     units = {u.name(): u for u in plan.work()}
     for u in plan.work():
@@ -460,6 +503,10 @@ def check(plan):
         done.add(n)
     for n in units:
         visit(n, [])
+    held = [h.get("Kit") for h in plan.holds()]
+    for k in dict.fromkeys(held):
+        held.count(k) == 1 or fail(f"the plan holds {held.count(k)} holds on " + (f"kit {k}" if k else "the whole drive")
+                                   + ", and it may hold one at most: crew plan hold changes the words of the one standing")
 
 
 # -------------------------------------------------------------------------------------------------- transport
@@ -5024,7 +5071,8 @@ def bolts_local_said(fleet, t, plan):
 # The commands that write the plan directly, and the one role each agent crew started may use them in.
 PLAN_WRITES = {("bolt", "new"), ("bolt", "start"), ("bolt", "unstay"), ("bolt", "order"), ("bolt", "drop"), ("bolt", "land"), ("unit", "add"),
                ("unit", "split"), ("unit", "amend"), ("unit", "order"), ("unit", "after"), ("unit", "move"), ("unit", "drop"),
-               ("chore", "add"), ("chore", "order"), ("chore", "after"), ("chore", "move"), ("chore", "drop"), ("kit", "rename")}
+               ("chore", "add"), ("chore", "order"), ("chore", "after"), ("chore", "move"), ("chore", "drop"), ("kit", "rename"),
+               ("plan", "hold"), ("plan", "go")}
 
 
 def role(fleet, name):
@@ -5058,6 +5106,16 @@ def may_write(fleet, key, a):
     if key not in PLAN_WRITES or kind == "user":
         return
     cmd, as_unit = " ".join(key), ("unit", key[1]) if key[0] == "chore" else key
+    ops = f"{of}-ops" if of in fleet["drives"] else "the drive's main-level ops"
+    if key == ("plan", "go"):  # a lift lets lands be posted, and no word in a pane lands a bolt (record 0067)
+        fail(f"{name} lifts no hold: the lift, crew plan go, is the user's alone, since it lets lands be posted; tell the user")
+    if key == ("plan", "hold") and kind == "main-ops":  # on the user's own words in its pane alone (hold_heard)
+        (getattr(a, "excerpt", None) or "").strip() or fail(
+            "crew plan hold needs the user's words: --excerpt \"<their words in your pane, as they wrote them>\"; a hold is "
+            "the user's, put in your name only on their own words")
+        return
+    if key == ("plan", "hold"):
+        fail(f"{name} puts no hold on landings: the user puts it, or {ops} on the user's own words in its pane")
     if kind == "planner":
         fail(f"the planner changes the plan through a proposal: crew plan propose, not crew {cmd}")
     if key == ("bolt", "start"):  # the user's choice of what runs (Decision 14 of the-team-machinery-leaves)
@@ -5332,6 +5390,84 @@ def op_bolt_unstay(ctx, a):
         if seen.get("started"):
             land_hand(fleet, label, seen["kit"], note=f"{a.bolt}'s mark to stay was lifted, so it lands on its next proof")
     return Op(label, change, f"plan({a.bolt}): lift the bolt's mark to stay", "bolt.unstay", on=[f"bolt/{a.bolt}"], after=after)
+
+
+def hold_word_refusal(held, v):
+    """Why crew puts no hold on main-level ops's word (main-level "Main-level ops puts a hold on the user's words in its
+    pane, and lifts none"), or None, judging the user's words in ops's pane as words_refusal judges every word said in a
+    pane, holding none of them (record.3). A decision of facts alone (code.7)."""
+    return words_refusal(f"crew puts no hold on {held}", v, "put a hold on landings",
+                         "the user puts a hold on landings in main-level ops's pane, or at a shell with crew plan hold")
+
+
+def hold_heard(fleet, a, held):
+    """The transcript record main-level ops's hold rests on, as the run record names it (pane_words): the user's words
+    in its pane, --excerpt, read in its own session's transcript as theirs, refused otherwise, as crew bolt leave reads
+    them; [] for the user, whose hold rests on no words of a pane (Decision 6 of a-proven-bolt-lands-on-proof)."""
+    if role(fleet, crew.caller(fleet))[0] != "main-ops":
+        return []
+    return [pane_words(CardActs(fleet), a.excerpt or "", lambda v: hold_word_refusal(held, v))]
+
+
+def held_named(label, kit):
+    """What a hold holds, as crew says it: a kit by name, or the whole drive."""
+    return f"{kit}'s landings" if kit else f"the landings of {label}'s every kit"
+
+
+def op_plan_hold(ctx, a):
+    """crew plan hold "<why>" [--repo <kit>] [--excerpt "<the user's words>"]: a hold put on the drive's landings, or one
+    kit's, as one Hold record with its words, or the words changed of the one standing there (Decision 6 of
+    a-proven-bolt-lands-on-proof; bolt-plan "A hold on a drive or a kit is put and lifted through crew"), recording
+    plan.hold on kit/<kit>, or plan/<label> for the drive, holding none of the words (record.3). While it stands, crew
+    posts no land of the kit's or the drive's, on proof or on a send (hold_on, landings_raised). The user's; main-level
+    ops's only on the user's words in its pane, read as theirs (hold_heard), and no proposal's (PROPOSABLE). Refused for a
+    kit the drive's plan and landings do not name. It hands no raise: a hold changes nothing on a card."""
+    label = ctx.kit(a.repo) if a.repo else (ctx.label or fail("crew plan hold names no drive: add --label <label>"))
+    (a.why or "").strip() or fail("crew plan hold needs its words: what the hold is for, as \"<why>\"")
+    held = held_named(label, a.repo)
+    frm = hold_heard(ctx.fleet, a, held) if getattr(ctx, "direct", False) else []
+
+    def change(w):
+        not a.repo or a.repo in w.kits() or fail(f"{label}'s plan and landings name no kit {a.repo}, so it has no landings to hold")
+        holds_declared(w.plan)
+        h = next((h for h in w.plan.holds() if h.get("Kit") == (a.repo or None)), None)
+        if h is None:
+            w.plan.insert(Rec("Hold", ([("Kit", a.repo)] if a.repo else []) + [("Why", a.why)]))
+            w.subject = f"plan({a.repo or label}): hold {held}"
+        else:
+            h.set("Why", a.why)
+            w.subject = f"plan({a.repo or label}): change the words of the hold on {held}"
+        return []
+    return Op(label, change, f"plan({a.repo or label}): hold {held}", "plan.hold", on=[f"kit/{a.repo}" if a.repo else f"plan/{label}"],
+              frm=frm)
+
+
+def op_plan_go(ctx, a):
+    """crew plan go [--repo <kit>]: the hold on the drive's landings, or one kit's, lifted (Decision 6 of
+    a-proven-bolt-lands-on-proof), recording plan.go on kit/<kit>, or plan/<label> for the drive; refused, nothing
+    written, where no hold names the kit or the drive, naming the drive's hold where only that stands. The user's alone
+    (may_write): a lift lets lands be posted. Its after-act hands a raise of each landings card it held to the main
+    level's host (land_hand), the kit's, or each kit of the drive with a started bolt, so what came due meanwhile is
+    posted at once."""
+    label = ctx.kit(a.repo) if a.repo else (ctx.label or fail("crew plan go names no drive: add --label <label>"))
+    fleet, seen = ctx.fleet, {}
+
+    def change(w):
+        h = next((h for h in w.plan.holds() if h.get("Kit") == (a.repo or None)), None)
+        if h is None:
+            drive = next((h for h in w.plan.holds() if not h.get("Kit")), None)
+            fail(f"no hold names {a.repo}, so there is none to lift" + (
+                f": the hold on {held_named(label, None)} stands, which crew plan go --label {label} lifts" if drive is not None else "")
+                 if a.repo else f"no hold names the whole drive {label}, so there is none to lift")
+        w.plan.remove(h)
+        seen["kits"] = [a.repo] if a.repo else list(dict.fromkeys(b.get("Repo") for b in w.plan.bolts() if started(b)))
+        return []
+
+    def after(repo, sha):
+        for k in seen.get("kits") or []:
+            land_hand(fleet, label, k, note=f"the hold on {held_named(label, a.repo)} was lifted")
+    return Op(label, change, f"plan({a.repo or label}): lift the hold on {held_named(label, a.repo)}", "plan.go",
+              on=[f"kit/{a.repo}" if a.repo else f"plan/{label}"], after=after)
 
 
 def op_bolt_order(ctx, a):
@@ -5723,6 +5859,7 @@ OPS = {
     ("unit", "after"): op_unit_after, ("unit", "move"): op_unit_move, ("unit", "drop"): op_unit_drop,
     ("chore", "add"): op_unit_add, ("chore", "order"): op_unit_order, ("chore", "after"): op_unit_after, ("chore", "move"): op_unit_move,
     ("chore", "drop"): op_unit_drop, ("kit", "rename"): op_kit_rename,
+    ("plan", "hold"): op_plan_hold, ("plan", "go"): op_plan_go,
 }
 
 
@@ -6250,8 +6387,9 @@ PROPOSALS = """\
 %mandatory: Proposal Case Do State Opened By
 %allowed: Proposal Case Do State Opened By Closed Reason Replaces Cleared
 """
-# The commands a proposal may hold.
-PROPOSABLE = tuple(OPS)
+# The commands a proposal may hold: the plan's commands of bolts, units and chores, and no hold on a drive's or a kit's
+# landings, which is the user's (plan-proposals; Decision 6 of a-proven-bolt-lands-on-proof).
+PROPOSABLE = tuple(k for k in OPS if k[0] != "plan")
 
 
 class Strict(argparse.ArgumentParser):
@@ -15111,6 +15249,14 @@ def parser(cls=argparse.ArgumentParser, only=None):
     x.add_argument("n", type=int)
     x.add_argument("reason")
     x.add_argument("--label")
+    x = pp.add_parser("hold")
+    x.add_argument("why")
+    x.add_argument("--repo")
+    x.add_argument("--excerpt", help="main-level ops's: the user's words in your pane that asked for the hold, as they wrote them")
+    x.add_argument("--label")
+    x = pp.add_parser("go")
+    x.add_argument("--repo")
+    x.add_argument("--label")
 
     x = sub.add_parser("signal-move", prog="crew signal move")
     x.add_argument("signal", metavar="id", help=SIGNAL_ID)
@@ -15195,7 +15341,7 @@ COMMANDS = {
     ("unit", "move"): direct(("unit", "move")), ("unit", "drop"): direct(("unit", "drop")),
     ("chore", "add"): direct(("chore", "add")), ("chore", "order"): direct(("chore", "order")), ("chore", "after"): direct(("chore", "after")),
     ("chore", "move"): direct(("chore", "move")), ("chore", "drop"): direct(("chore", "drop")),
-    ("kit", "rename"): direct(("kit", "rename")),
+    ("kit", "rename"): direct(("kit", "rename")), ("plan", "hold"): direct(("plan", "hold")), ("plan", "go"): direct(("plan", "go")),
     ("_land-row", None): land_row_cmd, ("_land-card", None): land_card_cmd,
     ("_made", None): made_cmd, ("_batch-card", None): batch_card_cmd,
     ("_sweep", None): kit_sweep, ("_main", None): main_cmd,
@@ -15220,7 +15366,8 @@ ACTS = {
     ("chore", "drop"): "chore.drop", ("kit", "rename"): "kit.rename",
     ("signal", None): "capture", ("signal-move", None): "signal.move", ("signal-land", None): "capture",
     ("plan", "propose"): "plan.propose", ("plan", "approve"): "plan.approve",
-    ("plan", "drop"): "plan.drop", ("answer", None): "stage.answer", ("card", "preview"): "card.preview",
+    ("plan", "drop"): "plan.drop", ("plan", "hold"): "plan.hold", ("plan", "go"): "plan.go", ("answer", None): "stage.answer",
+    ("card", "preview"): "card.preview",
 }
 
 
@@ -15244,6 +15391,8 @@ def named(a):
         out.append(f"kit/{a.old}")
     if a.cmd == "plan" and getattr(a, "n", None) is not None:
         out.append(f"proposal/{a.n}")
+    if a.cmd == "plan" and a.sub in ("hold", "go"):  # a hold's kit, or the drive's plan
+        out.append(f"kit/{a.repo}" if a.repo else f"plan/{CONTEXT.get('label') or a.label}")
     if a.cmd in ("answer", "card") and CONTEXT.get("work"):  # the work as requests name it, once its launch or thing was found
         out.append(CONTEXT["work"])
     return out
