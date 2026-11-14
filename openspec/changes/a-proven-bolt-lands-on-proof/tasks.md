@@ -24,7 +24,7 @@ Run each check from the worktree's root, as written. A logic check runs pytest t
 
 - [x] 3.1 Each bolt that can land says on its kit's land row how it lands, the row's bolts carry `stays`, and a kit with a bolt to tell and nothing waiting is a row of its own (design, Decision 7; Task notes 3.1). Verify `devenv shell -- uv run --locked --project tests python -m pytest -q -p no:cacheprovider tests/py/test_rail.py` passes.
 - [x] 3.2 On the main level's host, each rail read raises once each kit with a bolt due a land on proof, and no read or sweep raises a card for a bolt that lands on proof or waits on a hold (design, Decision 2; Task notes 3.2). Verify `devenv shell -- uv run --locked --project tests python -m pytest -q -p no:cacheprovider tests/py/test_landings.py -k "due_a_land_on_proof or held_kit_is_raised or owes_no_card"` passes.
-- [ ] 3.3 The planner's and ops's bands say `stays` beside a bolt marked to stay and open with each hold standing, its words and the lift that is the user's (design, Decision 7; Task notes 3.3). Verify `devenv shell -- uv run --locked --project tests python -m pytest -q -p no:cacheprovider tests/py/test_board.py` passes.
+- [x] 3.3 The planner's and ops's bands say `stays` beside a bolt marked to stay and open with each hold standing, its words and the lift that is the user's (design, Decision 7; Task notes 3.3). Verify `devenv shell -- uv run --locked --project tests python -m pytest -q -p no:cacheprovider tests/py/test_board.py` passes.
 
 ## 4. The briefs, the docs and the journey
 

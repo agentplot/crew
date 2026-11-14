@@ -237,7 +237,9 @@ def board_data(fleet, labels, read, now):
     the fixes of main and take-main fixes in flight (asking and fixing, flume_waits), which the planner's and main-level
     ops's bands show (crew-board "The planner's and ops's bands show what places wait on them for"); and each role it
     runs as its kind, for its run's view, with each such run that stopped short or was lost named for attention (runs,
-    kind_runs; Decision 15 of roles-run-as-flume-kinds)."""
+    kind_runs; Decision 15 of roles-run-as-flume-kinds). A started bolt's ledger says whether it is marked to stay
+    (stays), and each drive lists the holds standing on its landings or a kit's (holds, [{kit, why}], kit None for the
+    drive's; plan.holds_of), which the planner's and ops's bands open with (Decision 7 of a-proven-bolt-lands-on-proof)."""
     here = crew.this_host()
     rows, cards, sv = read["rows"], read["cards"], read["sv"]
     since = plan.utc(record.when(None)[1])
@@ -288,6 +290,7 @@ def board_data(fleet, labels, read, now):
                     attention.append({"what": "runner", "name": silent[0], "why": silent[1]})
                 recorded = landing_of(logs, b.name())
                 ledger = {"bolt": b.name(), "repo": b.get("Repo"), "goal": b.get("Goal"), "host": st.host(b),  # plan.Stages.host
+                          "stays": b.get("Stays") == "yes",  # marked to stay: it lands on the user's send (record 0067)
                           "head": (k.get("bolts", {}).get(b.name()) or {}).get("head"),
                           "stream": t["stream"] if t else None, "state": state, "url": None,  # its places are Flume's (crew-board)
                           "markers": markers(rows, cards, l, "land", b.name(), logs), "units": [], "fixes": [],
@@ -321,7 +324,7 @@ def board_data(fleet, labels, read, now):
                                     "explorations": explorations},
                       "bolt_plan": {"proposals": proposals, "planned": planned, "queue": queue},
                       "construction": construction, "operation": operation, "environments": envs, "attention": attention,
-                      "asking": asking, "fixing": fixing, "runs": kinds})
+                      "asking": asking, "fixing": fixing, "runs": kinds, "holds": plan.holds_of(pl)})
     return {"read_at": iso(now), "from": here, "drives": parts, "unread": read["errors"]}
 
 
@@ -696,8 +699,9 @@ def bolt_row(b):
     """A started bolt on one line, led by its product, the repository it builds; then its pips, its name, its stream
     (stream_of), its state unless active, or what its landing is (head_said), how many of its units have merged, and its
     age and who held its time (time_of); its landing's marker in the gutter, or attention once every unit has
-    landed or its close was refused (needs_eye)."""
-    return row(fields(b["repo"] or "", pips(b["units"]), b["bolt"], stream_of(b), head_said(b), merged(b), time_of(b)), gutter(b["markers"], needs_eye(b)), 0, b["markers"])
+    landed or its close was refused (needs_eye). A bolt marked to stay says so beside its name (record 0067)."""
+    return row(fields(b["repo"] or "", pips(b["units"]), b["bolt"], ("stays", "dim") if b.get("stays") else "", stream_of(b), head_said(b),
+                      merged(b), time_of(b)), gutter(b["markers"], needs_eye(b)), 0, b["markers"])
 
 
 def ledger_rows(b):
@@ -737,17 +741,25 @@ def attention_rows(p, keep=lambda a: True):
     return [row([(attention_text(a), None)], ATTENTION) for a in p["attention"] if keep(a)]
 
 
+def hold_rows(p):
+    """A line for each hold standing on the drive's landings or a kit's (Decision 7 of a-proven-bolt-lands-on-proof;
+    crew-board "A bolt marked to stay is marked in the bands, and each hold opens them"): what it holds, its words, and
+    that no land is posted until the user lifts it with crew plan go, in the attention gutter."""
+    return [row(fields(("held", "bold"), h["kit"] or f"every kit of {p['label']}", f"\"{h['why']}\"",
+                       "no land is posted until the user lifts it with crew plan go"), ATTENTION) for h in p.get("holds") or []]
+
+
 def planner_view(p):
     """The planner's: the plan in brief, counting the places that wait on an answer (asking); each bolt in flight as a
     ledger (ledger_rows), since ordering within a bolt, batches and amendments are the planner's (Decision 6 of
     the-team-machinery-leaves), a place that waits on an answer drawn on its line with its question or Flume's words
     (crew-board "A question in the planner's band"); the open proposals, what is planned next and queued, and what needs
-    attention."""
+    attention. Each hold standing opens it, below its head line (hold_rows)."""
     bp, asking = p["bolt_plan"], p.get("asking", [])
     head = row(fields((f"{p['label']} plan", "bold"), f"{len(p['construction'])} in flight", f"{len(bp['planned'])} planned",
                       f"{len(bp['queue'])} queued", many(len(bp["proposals"]), "proposal open", "proposals open"),
                       many(len(asking), "place waits on an answer", "places wait on an answer") if asking else ""))
-    return ([head] + [r for b in in_flight(p) for r in ledger_rows(b)] + [proposal_row(d) for d in bp["proposals"]]
+    return ([head] + hold_rows(p) + [r for b in in_flight(p) for r in ledger_rows(b)] + [proposal_row(d) for d in bp["proposals"]]
             + next_rows(p) + attention_rows(p))
 
 
@@ -820,7 +832,7 @@ def ops_view(p):
     bolts were base places, which lands under the crew that started it (legacy); then, environment by environment, each
     deploy waiting on the user's word with its card, each approved and not yet deployed, each running, and each
     operation step waiting, handed or failed, with the deploy it comes after, or whose gate it is, and its doer; and
-    what keeps a host or the plan from being read."""
+    what keeps a host or the plan from being read. Each hold standing opens it, below its head line (hold_rows)."""
     pending = [(e["env"], d) for e in p.get("environments", []) for d in e["deploys"] if not d["ended"] and d["answer"] != "replaced"]
     steps = [(e["env"], w) for e in p.get("environments", []) for w in e["waiting"]]
     word = sum(d["answer"] == "waiting" for _, d in pending)
@@ -829,15 +841,20 @@ def ops_view(p):
     head = row(fields((f"{p['label']} operations", "bold"), many(word, "deploy waits on the user's word", "deploys wait on the user's word"),
                       many(running, "deploy running", "deploys running"), many(len(steps), "operation waiting", "operations waiting"),
                       many(len(fixing), "fix in flight", "fixes in flight") if fixing else ""))
-    out = [head] + [row(fields(f["repo"] or "", f"fix {f['fix']}", f["stage"], f["said"], (f"on {f['host']}", "dim")), " ") for f in fixing]
+    out = [head] + hold_rows(p) + [row(fields(f["repo"] or "", f"fix {f['fix']}", f["stage"], f["said"], (f"on {f['host']}", "dim")), " ")
+                                    for f in fixing]
     lands = {}
     for b in p.get("construction", []):
         for m in b["markers"]:
             if m["group"] == "land":
                 lands.setdefault(m["key"], (m, []))[1].append(b["bolt"])
-    landing = {b["bolt"]: f"{b['bolt']} {record_landing(b)}" for b in p.get("construction", []) if record_landing(b)}
+    marked = {b["bolt"] for b in p.get("construction", []) if b.get("stays")}  # a bolt marked to stay says so (record 0067)
+
+    def named_(x):
+        return f"{x} stays" if x in marked else x
+    landing = {b["bolt"]: f"{named_(b['bolt'])} {record_landing(b)}" for b in p.get("construction", []) if record_landing(b)}
     for key, (m, bolts) in lands.items():  # a card the user answered: crew carries the send to the runner (Decision 4)
-        out.append(row(fields(key, ", ".join(landing.get(x, x) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
+        out.append(row(fields(key, ", ".join(landing.get(x, named_(x)) for x in bolts), "wait to land" if len(bolts) > 1 else "waits to land",
                               "answered: crew asks the runner to land what the user ticked" if m["card"] and m["card"].get("answered") else ""),
                        gutter([m]), 0, [m]))
     rowed = {x for _, bolts in lands.values() for x in bolts}
@@ -893,7 +910,9 @@ def agent_views(data):
     kind has its view"). With what this host's agents run of crew (data's `here`, here_read), each standing agent here
     with a recorded start has the crew it started on at the end of its view's first line, with the version it is
     restarted on at its next stop once an update made it due; and while this host is held every view opens with the
-    hold (teams.19). Any other agent has no view, and its mod draws nothing.
+    hold (teams.19). The planner's and ops's views open, below their head lines, with each hold standing on the drive's
+    landings or a kit's, and every bolt line marks a bolt marked to stay (hold_rows, bolt_row; Decision 7 of
+    a-proven-bolt-lands-on-proof). Any other agent has no view, and its mod draws nothing.
     Beside them, cards: each of those agents' open cards, oldest first, its questions among them, by the agent's name,
     the lines the mod draws above its view. With them, the line the mod draws in place of the view and the cards once
     the frame is stale_after_ms old, so a band names no bolt that has landed since, nor a card closed since (read.1):

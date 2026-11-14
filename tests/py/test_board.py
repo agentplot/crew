@@ -1426,12 +1426,12 @@ class TestMore:
         d = data(signals=SIGS)
         p = d["drives"][0]
         assert sorted(d) == ["drives", "from", "read_at", "unread"]
-        assert sorted(p) == ["asking", "attention", "bolt_plan", "cards", "construction", "environments", "fixing", "hosts", "inception", "kits",
-                             "label", "operation", "plan", "records", "runs"]
+        assert sorted(p) == ["asking", "attention", "bolt_plan", "cards", "construction", "environments", "fixing", "holds", "hosts", "inception",
+                             "kits", "label", "operation", "plan", "records", "runs"]
         assert p["kits"] == ["breadboard-kit", "switchboard-kit"]
         te = next(b for b in p["construction"] if b["bolt"] == "tenant-environments")
-        assert sorted(te) == ["bolt", "fixes", "goal", "head", "host", "landing", "markers", "record", "repo", "state", "stream", "time",
-                              "units", "url"]
+        assert sorted(te) == ["bolt", "fixes", "goal", "head", "host", "landing", "markers", "record", "repo", "state", "stays", "stream",
+                              "time", "units", "url"]
         assert (te["host"], te["stream"]) == (BOX, "wldn")  # where the box's runner reported its work (plan.bolt_at)
         assert sorted(te["units"][0]) == ["flume", "kind", "stage", "tasks", "unit", "url", "worktree"]
         assert te["fixes"] == []  # a fix is a started bolt's Flume place alone (TestCrossed)
@@ -2401,3 +2401,56 @@ class TestTheFollowerFetchesEachKitsMain:
         f.read({"drives": {}}, looked, dict(looked, kits={}, readings={}, cards=None))
         assert served == [self.TIP] and plan.READ.follower is None
         assert f.kits == []  # the read found no started bolt, so the next tick fetches no kit's main
+
+
+class TestStaysAndHolds:
+    """crew-board "A bolt marked to stay is marked in the bands, and each hold opens them" (Decision 7 of
+    a-proven-bolt-lands-on-proof; code.8): the board's data of a started bolt carries stays and of a drive holds, from
+    the plan, and the planner's and ops's bands draw both as plain (text, style) segments, status.js reading no new key."""
+    MARKED = "Goal: Goal of tenant-environments.\nPath: flume\n"
+
+    def marked(self, monkeypatch, holds=""):
+        text = the_plan().text().replace(self.MARKED, self.MARKED + "Stays: yes\n") + (f"\n%rec: Hold\n\n{holds}" if holds else "")
+        monkeypatch.setattr(sys.modules[__name__], "the_plan", lambda: plan.Plan(text))
+
+    def landing(self, d, bolt):
+        """The bolt drawn on its kit's land row in ops's band, as a marker of land/<kit> puts it."""
+        b = next(b for b in d["drives"][0]["construction"] if b["bolt"] == bolt)
+        b["markers"] = [{"group": "land", "key": f"land/{b['repo']}", "glyph": "✓", "at": board.iso(NOW), "card": None, "refused": None}]
+        return d
+
+    def lines(self, d, name):
+        return ["".join(t for t, _ in line) for line in board.agent_views(d)["views"][name]]
+
+    def test_a_bolt_marked_to_stay_says_so_in_the_planners_and_ops_bands(self, monkeypatch):
+        """crew-board "A bolt marked to stay"."""
+        self.marked(monkeypatch)
+        d = data()
+        assert {b["bolt"]: b["stays"] for b in d["drives"][0]["construction"]} == {"tenant-environments": True, "board-done": False}
+        planner = self.lines(d, "wldn-planner")
+        assert any("  tenant-environments  stays  in Flume stream wldn" in l for l in planner)
+        assert not any("board-done  stays" in l for l in planner)
+        ops = self.lines(self.landing(d, "tenant-environments"), "wldn-ops")
+        assert "✓ land/switchboard-kit  tenant-environments stays  waits to land  no card open" in ops
+
+    def test_each_hold_opens_the_planners_and_ops_bands(self, monkeypatch):
+        """crew-board "A kit held": a hold on switchboard-kit and one on the drive open both bands, below their head
+        lines, each naming what it holds, its words, and that no land is posted until the user lifts it."""
+        self.marked(monkeypatch, "Kit: switchboard-kit\nWhy: Cutover\n\nWhy: The move\n")
+        d = data()
+        assert d["drives"][0]["holds"] == [dict(kit="switchboard-kit", why="Cutover"), dict(kit=None, why="The move")]
+        said = ['! held  switchboard-kit  "Cutover"  no land is posted until the user lifts it with crew plan go',
+                '! held  every kit of wldn  "The move"  no land is posted until the user lifts it with crew plan go']
+        for name, head in (("wldn-planner", "wldn plan  "), ("wldn-ops", "wldn operations  ")):
+            lines = self.lines(d, name)
+            assert lines[0].startswith(head) and lines[1:3] == said
+        assert not any("held  " in l for l in self.lines(d, "wldn-design"))
+        segs = board.agent_views(d)["views"]["wldn-ops"][1]
+        assert all(isinstance(t, str) and (s is None or isinstance(s, str)) for t, s in segs)
+
+    def test_no_hold_and_no_mark_draw_nothing(self):
+        """crew-board "No hold and no mark"."""
+        d = data()
+        assert d["drives"][0]["holds"] == [] and not any(b["stays"] for b in d["drives"][0]["construction"])
+        for name in ("wldn-planner", "wldn-ops", "wldn-operator"):
+            assert not any(" stays" in l or "  held  " in l for l in self.lines(self.landing(d, "tenant-environments"), name))
