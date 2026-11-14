@@ -3731,7 +3731,7 @@ def lands_sent(entries, key, owner, card=None, shown=(), ticked=()):
     return out
 
 
-def lands_change(w, kit, rows, sent, reads, work=None):
+def lands_change(w, kit, rows, sent, reads, work=None, proof=False):
     """The plan write that posts the lands a send makes due (crew-lands-each-bolt-through-flumes-base-place, Decision 4;
     rail-cards "The user's send on a kit's landings card posts one land for each row it lands"), applied to w at its tip:
     the lands due there (runner.lands_due over requests.rec and the run record as the tip holds them, so a replay finds
@@ -3739,7 +3739,9 @@ def lands_change(w, kit, rows, sent, reads, work=None):
     first, and an entry for each row, bolt.submit on bolt/<bolt> or fix.merge on fix/main/<kit>/<name>, naming the card
     whose send it carries, the head it ticked and the land's request, marked Outcome asked, the first the write's own act
     and the rest written with it (Write.also). Raises Unposted where none is due at the tip. Returns [(work, request,
-    head)]."""
+    head)]. With proof, the lands due on proof (a-proven-bolt-lands-on-proof, Decision 1; rail-cards "A proven bolt not
+    marked to stay lands on proof"), sent keyed by no card ({work: (None, head)}), each entry marked Form: proof with no
+    Card, the write's subject saying they land on proof."""
     due = runner.lands_due(rows, sent, requests_of(w).recs("Request"), reads, lands_posted(w.entries()), work)
     if not due:
         raise Unposted()
@@ -3748,27 +3750,29 @@ def lands_change(w, kit, rows, sent, reads, work=None):
     for i, (wk, n) in enumerate(due):
         m = request(w, "land", wk, Of=n)
         act = "fix.merge" if wk.startswith("fix/main/") else "bolt.submit"
-        fields = dict(Card=sent[wk][0], Head=heads[wk], Request=str(m), Outcome="asked")
+        fields = (dict(Form="proof", Head=heads[wk], Request=str(m), Outcome="asked") if proof else
+                  dict(Card=sent[wk][0], Head=heads[wk], Request=str(m), Outcome="asked"))
         if i == 0:
             w.act, w.fields = act, dict(w.fields, **fields)
             w.on.append(wk)
         else:
             w.also.append((record.new_id(), act, [wk], fields))
         out.append((wk, m, heads[wk]))
-    w.subject = f"plan({kit}): land {joined([row_name(wk) for wk, _, _ in out])} on the user's send"
+    w.subject = f"plan({kit}): land {joined([row_name(wk) for wk, _, _ in out])} " + ("on proof" if proof else "on the user's send")
     return out
 
 
-def lands_post(fleet, label, kit, owner, rows, sent, reads, work=None):
-    """The lands a send on a kit's landings card makes due, posted by one plan write in main-level ops's name, the
-    card's owner (lands_change): [(work, request, head)] posted, [] where none is due, nothing written."""
+def lands_post(fleet, label, kit, owner, rows, sent, reads, work=None, proof=False):
+    """The lands a send on a kit's landings card makes due, or with proof those due on proof, posted by one plan write in
+    main-level ops's name, the card's owner (lands_change): [(work, request, head)] posted, [] where none is due, nothing
+    written."""
     posted = []
 
     def change(w):
-        posted[:] = lands_change(w, kit, rows, sent, reads, work)
+        posted[:] = lands_change(w, kit, rows, sent, reads, work, proof)
         return []
     try:
-        write(fleet, label, change, f"plan({kit}): land on the user's send", act="bolt.submit", by=owner)
+        write(fleet, label, change, f"plan({kit}): land " + ("on proof" if proof else "on the user's send"), act="bolt.submit", by=owner)
     except Unposted:
         return []
     return posted
@@ -4002,6 +4006,17 @@ def landings_raised(fleet, label, kit, acts, note, dead):
     for wk, n, h in acts.post_lands(label, kit, owner, rows + [every[b] for b in landing if b in every], standing, run[1], work):
         print(f"card {key}: {row_name(wk)} is asked of the runner to land at "
               f"{h[:7]} (request {n}), on the user's send")
+    # Then the lands due on proof, in the plan's order, by one plan write in ops's name: each row lands_by reads "proof"
+    # that can land, its forecast clear of main, posted at any hour with no card asked (a-proven-bolt-lands-on-proof,
+    # Decision 1; rail-cards "A proven bolt not marked to stay lands on proof").
+    stays = {b.name() for b in plan.bolts() if b.get("Repo") == kit and b.get("Stays") == "yes"}
+    hold = hold_on(plan, kit)
+    how = {r["bolt"]: lands_by(r, r["bolt"] in stays, r["bolt"] in left, bool(r["facts"].get("stopped")), hold) for r in rows}
+    proven = [r for r in rows if r["box"] and not r.get("work") and how[r["bolt"]] == "proof"]
+    if proven:
+        for wk, n, h in acts.post_lands(label, kit, owner, proven, {f"bolt/{r['bolt']}": (None, r["facts"]["head"]) for r in proven},
+                                        run[1], {}, proof=True):
+            print(f"card {key}: {row_name(wk)} is asked of the runner to land at {h[:7]} (request {n}), on proof")
     landed = {next((o[5:] for o in e.get("On") or [] if o.startswith("bolt/")), None): e.get("Head") or ""
               for e in whole if e.get("Act") == "bolt.land" and not e.get("Refused")}
     in_plan = {b.name() for b in plan.bolts() if b.get("Repo") == kit} | {r["bolt"] for r in fixes}
@@ -13293,9 +13308,10 @@ class CardActs:
         """The landings of the kit's started bolts read from the runner's report at a raise (kit_landings_read)."""
         kit_landings_read(self.fleet, label, kit)
 
-    def post_lands(self, label, kit, owner, rows, sent, reads, work):
-        """The lands the user's send makes due, posted by one plan write (lands_post): [(work, request, head)]."""
-        return lands_post(self.fleet, label, kit, owner, rows, sent, reads, work)
+    def post_lands(self, label, kit, owner, rows, sent, reads, work, proof=False):
+        """The lands the user's send makes due, or with proof those due on proof, posted by one plan write (lands_post):
+        [(work, request, head)]."""
+        return lands_post(self.fleet, label, kit, owner, rows, sent, reads, work, proof)
 
     def forecast(self, label, kit, bolts, held=()):
         """The forecasts of a kit's landings card's rows (forecast_rows)."""

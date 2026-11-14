@@ -96,7 +96,9 @@ DESCRIPTOR = """\
 # hold 0, nobody 20`, team-or-kit a submission's stay in sluice crew can't split between queued and under test,
 # plan.20), a landing's submission's Submission (the merge queue's entry for it, on its bolt.submit once the runner's
 # report names one, plan.21), a land's Request (the number of the land request crew posted on the user's send, on its
-# bolt.submit or fix.merge marked Outcome asked; crew-lands-each-bolt-through-flumes-base-place, Decision 4), a branch.kept's Head (the commit a unit's, chore's or
+# bolt.submit or fix.merge marked Outcome asked; crew-lands-each-bolt-through-flumes-base-place, Decision 4) and a land's
+# Form (proof, on the bolt.submit of a land crew posted on proof, which names no Card; a-proven-bolt-lands-on-proof,
+# Decision 1), a branch.kept's Head (the commit a unit's, chore's or
 # fix's branch the tidy kept is at) and Count (its commits whose patch its bolt, or main, lacks, plan.10), crew's own
 # order of two units a forecast found in conflict, a turn.begin's Took (how many asks and waiting places a role's run
 # took at its start), the unit.after that puts one After the other or the one that Lifted

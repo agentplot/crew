@@ -1304,8 +1304,11 @@ class TestWhichBoltsAreLeft:
 import json  # noqa: E402
 import types  # noqa: E402
 
-PLAN = ("%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: {k}\nPath: flume\n\n" for b, k in
+# y, w and z are marked to stay, so every case of the card's rows holds of rows the card asks about; PROVEN leaves y
+# unmarked, a bolt that lands on proof (a-proven-bolt-lands-on-proof).
+PLAN = ("%rec: Bolt\n\n" + "".join(f"Bolt: {b}\nRepo: {k}\nPath: flume\nStays: yes\n\n" for b, k in
                                     [("y", "crew"), ("w", "swancloud"), ("z", "crew")]) + "%rec: Unit\n\n")
+PROVEN = PLAN.replace("Bolt: y\nRepo: crew\nPath: flume\nStays: yes\n", "Bolt: y\nRepo: crew\nPath: flume\n")
 
 
 MAIN = "e4f5a6b" + "0" * 33
@@ -1355,16 +1358,16 @@ class LandActs:
         """The kit's landings read from the runner's report before the card's lock (kit_landings_read): recorded."""
         self.landings_read = getattr(self, "landings_read", []) + [(label, kit)]
 
-    def post_lands(self, label, kit, owner, rows, sent, reads, work):
-        """The lands the send makes due, as lands_change decides them on a write over requests.rec as given (requests),
-        recorded in posts; none while the case gives no requests."""
+    def post_lands(self, label, kit, owner, rows, sent, reads, work, proof=False):
+        """The lands the send makes due, or with proof those due on proof, as lands_change decides them on a write over
+        requests.rec as given (requests), recorded in posts; none while the case gives no requests."""
         self.posts = getattr(self, "posts", [])
         if getattr(self, "requests", None) is None:
             return []
         from facts import FactsWrite
         w = FactsWrite("%rec: Bolt\n%key: Bolt\n", files={"requests.rec": self.requests}, entries=self.held)
         try:
-            got = plan.lands_change(w, kit, rows, sent, reads, work)
+            got = plan.lands_change(w, kit, rows, sent, reads, work, proof)
         except plan.Unposted:
             return []
         self.requests = w.files["requests.rec"]
@@ -2829,3 +2832,64 @@ def test_how_each_row_lands():
             "not marked": "hold", "marked": "send", "left": "send", "stopped now": "send", "stopped at an old head": "hold",
             "a fix of main": "send"}
     assert plan.hold_on(p, "swancloud") is None and plan.hold_on(drive, "swancloud") == dict(kit=None, why="Cutover")
+
+
+class TestLandOnProof:
+    """rail-cards "A proven bolt not marked to stay lands on proof, its land posted by the card's raise" and run-record
+    "A land crew posts on proof is one entry marked as on proof" (Decision 1 of a-proven-bolt-lands-on-proof): each raise
+    of a kit's landings card posts, after its sends' lands and by one plan write in ops's name, a land of each bolt not
+    marked to stay that can land, its forecast clear of main, its entry marked Form: proof with no Card; y is not
+    marked, z is."""
+
+    @pytest.fixture(autouse=True)
+    def here(self, monkeypatch):
+        monkeypatch.setattr(crew, "this_host", lambda: "mac-studio")
+        monkeypatch.setenv("CREW_AGENT", "swancloud-ops")
+        self.mp = monkeypatch
+
+    def acts(self, rows, entries=(), answers=None, **more):
+        requests = TestLandsDue().requests()[:3]  # y's and z's base places and y's unit
+        self.mp.setattr(plan, "runner_facts", lambda fleet, label: (requests, TestLandsDue().reads()))
+        self.mp.setattr(plan, "plan_of", lambda fleet, label: plan.Plan(PROVEN))
+        acts = LandActs(rows, entries, answers=answers if answers is not None else POSTED, **more)
+        acts.requests = TestTheRaisePostsTheLands().write(requests).files["requests.rec"]
+        return acts
+
+    def test_a_proven_bolt_lands_on_proof_at_the_raise(self, capsys):
+        """rail-cards "Proven at night" and "Read again"."""
+        acts = self.acts({"y": row("y")})
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        (subject, act, on, fields, also), = acts.posts
+        assert (subject, act, on, fields, also) == ("plan(crew): land y on proof", "bolt.submit", ["bolt/y"],
+                                                    dict(Form="proof", Head=H1, Request="4", Outcome="asked"), [])
+        assert "Card" not in fields
+        assert "card land/crew: y is asked of the runner to land at abc1234 (request 4), on proof" in capsys.readouterr().out
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert len(acts.posts) == 1
+
+    def test_a_bolt_forecast_in_conflict_lands_on_no_proof(self):
+        """rail-cards "Forecast to conflict with main": no land, the conflict recorded and y taking main first; proven at
+        a new head forecast clear of main, the next raise posts its land on proof."""
+        acts = self.acts({"y": row("y")}, against_main={"y": [("main", ["README.md"])]})
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert getattr(acts, "posts", []) == []
+        assert [(e["Act"], e["On"], e["Heads"]) for e in acts.emitted if e["Act"] == "forecast"] == [
+            ("forecast", ["bolt/y"], "bolt/y@abc1234 main@e4f5a6b")]
+        acts.rows, acts.against_main = {"y": row("y", H2)}, {}
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        (_, act, on, fields, _), = acts.posts
+        assert (act, on, fields["Form"], fields["Head"]) == ("bolt.submit", ["bolt/y"], "proof", H2)
+
+    def test_a_send_lands_before_the_proof_lands_of_one_raise(self, capsys):
+        """rail-cards "Beside a send": the user sent the card ticking z, marked to stay, and y, not marked, reads proven;
+        one raise posts z's land on the send and then y's on proof, in one plan write each."""
+        held = [dict(Act="card.post", Key="land/crew", By="swancloud-ops", Card="req_k1", Heads="z@abc1234")]
+        answer = {"status": "answered", "turn": "agent", "version": 3, "answer": {"approved": True}}
+        acts = self.acts({"y": row("y"), "z": row("z")}, held, answers=dict(POSTED, get_request=(answer, None)))
+        plan.raise_landings(FLEET, "swancloud", "crew", acts)
+        assert [(s, on, f.get("Card"), f.get("Form"), f["Request"]) for s, _, on, f, _ in acts.posts] == [
+            ("plan(crew): land z on the user's send", ["bolt/z"], "req_k1", None, "4"),
+            ("plan(crew): land y on proof", ["bolt/y"], None, "proof", "5")]
+        out = capsys.readouterr().out
+        assert out.index("z is asked of the runner to land at abc1234 (request 4), on the user's send") < out.index(
+            "y is asked of the runner to land at abc1234 (request 5), on proof")
